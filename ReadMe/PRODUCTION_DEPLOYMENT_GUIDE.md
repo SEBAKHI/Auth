@@ -1412,8 +1412,8 @@ very different mornings.
 - [ ] `AllowedHosts` is your own domain, not the shipped `"*"`.
 - [ ] `SecretManagement:AutoGenerateKeys` is back to `false` after the first successful run.
 - [ ] `IdentityProvider:FirstPartySpaOrigins` lists the console and accounts origins, both on the API's site. The boot log shows `boot.first-party-origins: first-party app origins are …` with no "does not look same-site" line.
-- [ ] `TwoFactor:RejectReusedCodes` is `true` — the shipped default, and visible at **System settings → Two-factor authentication**. Off, an authenticator code someone just typed can be used again for about 90 seconds, by anyone who saw it and holds the password. Turn it off only during an incident, and look for the `Reused two-factor code accepted (RejectReusedCodes=false)` warnings while it is off.
-- [ ] `TwoFactor:RequireEmailCodeForFirstFactor` is `true` — the shipped default, at **System settings → Two-factor authentication** — **and** `Email:Enabled` is `true`. Together they make an account that turns on its first second factor also type a code emailed to its confirmed address, so somebody who holds only a stolen password cannot bind an authenticator app of their own and lock the owner out. With either one off, the password alone is enough to bind one. **And every account that holds `system-settings:manage` has its own second factor:** such an account can switch either setting off itself, so its password alone would otherwise still be enough. The seeded administrator is such an account, and it can bind its factor only once its address is yours: Phase 2 Step 5, and the check two lines above.
+- [ ] Nothing to set for replay protection: an authenticator code is accepted once only, and no setting turns that off. An incident in which genuine users are refused is handled by deploying the previous API build, not by a switch. A configuration file or environment variable left from an earlier release that still sets the replay-protection or the first-factor email-code rollout switch of the two-factor section binds to nothing and is ignored; remove it when convenient.
+- [ ] `Email:Enabled` is `true`. It makes an account that turns on its first second factor also type a code emailed to its confirmed address, so somebody who holds only a stolen password cannot bind an authenticator app of their own and lock the owner out; no other setting turns this off. With email off, the password alone is enough to bind one — and no mail goes out at all. **And every account that holds `system-settings:manage` has its own second factor:** such an account can switch email off itself, so its password alone would otherwise still be enough. The seeded administrator is such an account, and it can bind its factor only once its address is yours: Phase 2 Step 5, and the check two lines above.
 - [ ] `TwoFactor:EnforceForPlatformAdmins` is a decision, not a default: it ships `false`. **No account gets a platform role or permission in production before it has its own second factor** — while it is off, that manual rule is the only thing standing in for the switch; while it is on, the product refuses such a grant itself (`TwoFactor.RequiredForPlatformGrant`). Switch it on only after the five preconditions — deploy 2, the refresh fix OI-101, a clean inventory and two quiet days, the drill, and your own word that production is stable — in [Reference §K](#k-two-factor-authentication-for-platform-administrators-twofactorenforceforplatformadmins).
 - [ ] `TwoFactor:ReauthenticationMaxAgeMinutes` is the shipped 15 (it accepts 5 to 60) — how recent a sign-in must be before a session may set up, switch on or switch off two-factor. A longer window lets an older session — one left open on a shared computer, or a stolen token — change the second factor. No value turns the check off.
 - [ ] **The Auth API host is restricted at the firewall or in IIS to the Gateway's address.** The application does not do this for you, and the consequences are in [Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what).
@@ -2546,7 +2546,7 @@ which offers exactly one step:
 
 | The page says | Why | What the person does |
 |---|---|---|
-| Set up two-factor | The account has no second factor | Sets up an authenticator app (with the emailed code, when `TwoFactor:RequireEmailCodeForFirstFactor` and `Email:Enabled` are both on) and saves the recovery codes |
+| Set up two-factor | The account has no second factor | Sets up an authenticator app (with the emailed code, while `Email:Enabled` is on) and saves the recovery codes |
 | Enter a code | The session signed in with the password alone | Types a code from the authenticator app or a recovery code |
 | Sign in again | This session's sign-in does not count as a first factor: it was opened before this version was deployed, it began with an emailed code (the sign-in that confirms an email address), or its record is gone | Signs out and back in with the password and the code |
 
@@ -2576,7 +2576,7 @@ second factor — is refused with `409 TwoFactor.RequiredForPlatformGrant`: the 
 verification first, then the grant is made. The reason: an account promoted without a factor is
 offered "Set up two-factor", and whoever enrols first owns the factor — with the emailed code that
 means whoever holds the mailbox (a password reset by link is enough), or a linked sign-in provider and
-its mailbox; without it (`Email:Enabled` or `TwoFactor:RequireEmailCodeForFirstFactor` off) whoever
+its mailbox; without it (`Email:Enabled` off) whoever
 holds the password alone. Grants scoped to an application or an organization are never refused.
 *In code:* `Auth/Auth.Application/Common/PlatformGrantFactorGuard.cs`.
 
@@ -2727,7 +2727,7 @@ for an account holding platform permissions the administrator's own do not cover
 its authority: every application user and every organization owner included, whose grants are not
 platform permissions.
 The account's next sign-in offers "Set up two-factor": whoever sets it up first owns it (with the
-emailed code first, while `Email:Enabled` and `TwoFactor:RequireEmailCodeForFirstFactor` are on).
+emailed code first, while `Email:Enabled` is on).
 
 ### K.4 The owner's emergency script (break-glass)
 

@@ -181,22 +181,22 @@ public class SystemSettingsDefaultParityTests
     }
 
     /// <summary>
-    /// The switch in front of the emailed code a first second factor needs (X02 PR
-    /// B). It ships ON in both places, so the owner's decision applies from the
-    /// first deploy, and it is hot: an operator who must let binds through during a
-    /// mail outage flips it without a restart.
+    /// The two-factor card holds exactly these settings (OI-47). Refusing a reused
+    /// authenticator-app code and asking a first factor for the emailed code while
+    /// email is on have no setting: a rollout switch for either, once removed, must
+    /// not come back through the registry, where a saved value could turn the
+    /// protection off again.
     /// </summary>
     [Fact]
-    public void FirstFactorEmailProofSwitch_IsRegistered_OnByDefault_AndHot()
+    public void TwoFactorSection_HoldsNoSwitchThatTurnsAProtectionOff()
     {
         var section = SystemSettingsRegistry.Sections.Single(s => s.Key == "TwoFactor");
-        var field = section.Fields.SingleOrDefault(f => f.Path == "RequireEmailCodeForFirstFactor");
 
-        field.Should().NotBeNull("TwoFactor:RequireEmailCodeForFirstFactor must be editable from the console");
-        field!.Kind.Should().Be(SettingKind.Bool);
-        Normalize(field.DefaultValue).Should().Be("True");
-        Normalize(ResolveProperty(SettingsInstances["TwoFactor"], "RequireEmailCodeForFirstFactor")).Should().Be("True");
-        field.RestartRequired.Should().BeFalse("the policy reads it per request");
+        section.Fields.Select(f => f.Path).Should().BeEquivalentTo(
+            ["ReauthenticationMaxAgeMinutes", "EnforceForPlatformAdmins", "EmailCodeLifetimeMinutes"]);
+        typeof(TwoFactorSettings).GetProperties().Select(property => property.Name).Should().NotContain(
+            ["RejectReusedCodes", "RequireEmailCodeForFirstFactor"],
+            "a configuration file or an environment variable must have nothing to bind either switch to");
     }
 
     /// <summary>

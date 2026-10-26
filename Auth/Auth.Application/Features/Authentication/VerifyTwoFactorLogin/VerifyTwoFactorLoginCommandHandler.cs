@@ -36,7 +36,6 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
     private readonly ITwoFactorChallengeRepository _challengeRepository;
     private readonly ISecondFactorVerifier _secondFactorVerifier;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
-    private readonly TotpReplayPolicy _replayPolicy;
     private readonly IUserRepository _userRepository;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly ICredentialHasher _credentialHasher;
@@ -48,7 +47,6 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         ITwoFactorChallengeRepository challengeRepository,
         ISecondFactorVerifier secondFactorVerifier,
         ITwoFactorStateStore twoFactorStateStore,
-        TotpReplayPolicy replayPolicy,
         IUserRepository userRepository,
         ILoginAttemptRepository loginAttemptRepository,
         ICredentialHasher credentialHasher,
@@ -59,7 +57,6 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         _challengeRepository = challengeRepository;
         _secondFactorVerifier = secondFactorVerifier;
         _twoFactorStateStore = twoFactorStateStore;
-        _replayPolicy = replayPolicy;
         _userRepository = userRepository;
         _loginAttemptRepository = loginAttemptRepository;
         _credentialHasher = credentialHasher;
@@ -169,7 +166,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         // before any token is minted. A TOTP code also claims its time step
         // there, so the same code presented again is refused.
         var commit = await _twoFactorStateStore.TryCommitLoginAsync(
-            challenge.Id, user.Id, proof.Value, _replayPolicy.RejectReusedCodes, cancellationToken);
+            challenge.Id, user.Id, proof.Value, cancellationToken);
 
         if (commit == LoginCommitOutcome.StepReused)
         {
@@ -186,14 +183,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
             return TwoFactorErrors.CodeAlreadyUsed;
         }
 
-        if (commit == LoginCommitOutcome.ReuseAccepted)
-        {
-            // TwoFactor:RejectReusedCodes is off. The factor was settled, so this
-            // is a success; the line is what an operator reviews while the switch
-            // stays off.
-            _logger.ReusedCodeAccepted(user.Id, TotpReplayLog.SignIn, request.IpAddress);
-        }
-        else if (commit != LoginCommitOutcome.Committed)
+        if (commit != LoginCommitOutcome.Committed)
         {
             // A correct code that still did not commit means another request won
             // the challenge, or spent the same recovery code, at the same instant

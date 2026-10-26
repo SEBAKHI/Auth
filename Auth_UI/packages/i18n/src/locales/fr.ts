@@ -2228,18 +2228,11 @@ export const fr: TranslationResources = {
     twoFactor: {
       title: "Authentification à deux facteurs",
       description:
-        "Comment sont vérifiés les codes à six chiffres d'une application d'authentification : à la connexion, à l'annulation d'une suppression de compte en attente, et à l'activation ou la désactivation de l'authentification à deux facteurs.",
-      rejectReusedCodes: "Refuser un code déjà utilisé (protection contre le rejeu)",
-      rejectReusedCodesHint:
-        "Protection contre le rejeu (replay protection) : chaque code d'une application d'authentification n'est accepté qu'une seule fois. Un code reste valide environ 90 secondes ; sans ce réglage, quelqu'un qui connaît le mot de passe d'un utilisateur et voit un code qu'il vient de saisir — sur une page d'hameçonnage qui le relaie, par-dessus son épaule, sur un écran partagé — peut réutiliser ce même code dans ce délai. Ne le désactivez que pendant un incident où de vrais utilisateurs sont refusés ; chaque code réutilisé accepté pendant qu'il est désactivé est journalisé. Recommandé : activé.",
+        "Ce dont une session a besoin avant de modifier son second facteur, si les administrateurs de la plateforme doivent en prouver un, et combien de temps un code de connexion envoyé par e-mail reste valide. Un code d'application d'authentification n'est toujours accepté qu'une seule fois, et le premier second facteur d'un compte exige toujours un code envoyé à son adresse e-mail tant que l'envoi d'e-mails est activé ; aucun des deux n'a de réglage.",
       reauthenticationMaxAgeMinutes:
         "Connexion récente pour modifier la double authentification (minutes)",
       reauthenticationMaxAgeMinutesHint:
         "Fenêtre de réauthentification (re-authentication window) : ancienneté maximale de la connexion pour qu'une session puisse configurer, activer ou désactiver la double authentification. Une session plus ancienne doit d'abord se reconnecter ; ainsi une session restée ouverte, ou un jeton volé, ne peut pas modifier le second facteur. Aucune valeur ne désactive ce contrôle. Recommandé : 15.",
-      requireEmailCodeForFirstFactor:
-        "Code par e-mail avant le premier second facteur",
-      requireEmailCodeForFirstFactorHint:
-        "Protection du premier facteur (first-comer protection) : un compte qui n'a pas encore de second facteur doit aussi saisir un code envoyé à son adresse e-mail confirmée avant de pouvoir en activer un ; ainsi, quelqu'un qui ne connaît que le mot de passe ne peut pas y lier sa propre application d'authentification. Ne s'applique que lorsque l'envoi d'e-mails est activé ; sans e-mail, la double authentification s'active sans ce code, comme avant. Ne la désactivez que si la livraison des e-mails échoue et que les utilisateurs ne peuvent pas terminer la configuration de la double authentification. Recommandé : activé.",
       enforceForPlatformAdmins: "Exiger l'authentification à deux facteurs pour les administrateurs de la plateforme",
       enforceForPlatformAdminsHint:
         "Obligation MFA (MFA enforcement) : ne concerne que les administrateurs de la plateforme, c'est-à-dire quiconque détient une permission de la plateforme. Tant qu'elle est activée, une session d'administrateur qui n'a pas prouvé de second facteur ne reçoit aucune permission de la plateforme et est d'abord dirigée vers la configuration d'un facteur ou la saisie d'un code. Les utilisateurs des applications, les équipes et les rôles d'organisation ne sont jamais concernés. Ne l'activez qu'une fois que chaque administrateur a un second facteur. Recommandé : activé, une fois tous les administrateurs inscrits.",

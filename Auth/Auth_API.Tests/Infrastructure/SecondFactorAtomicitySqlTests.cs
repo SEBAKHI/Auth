@@ -143,11 +143,10 @@ public class SecondFactorAtomicitySqlTests
     /// <summary>The step a TOTP proof matched in these tests (Unix seconds / 30).</summary>
     private const long Step = 59_313_872;
 
-    // The TOTP settle claims the step through OUTPUT, so its answer is a row, not
-    // a count: the step the row held before (NULL on a first use), or no row when
-    // the claim refused.
+    // The TOTP settle claims the step; its affected-row count is the answer: one
+    // when the step was newer and the factor settled, none when the claim refused.
     private static bool IsStepClaim(RecordedCommand command) =>
-        command.CommandText.Contains("OUTPUT deleted", StringComparison.Ordinal);
+        command.CommandText.Contains("[LastUsedTimeStep] < @Step", StringComparison.Ordinal);
 
     [Fact]
     public async Task LoginCommit_OneTransaction()
@@ -156,11 +155,9 @@ public class SecondFactorAtomicitySqlTests
         var userId = Guid.NewGuid();
 
         // (1, claimed): the challenge is consumed and the factor settled — one commit.
-        var won = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => IsStepClaim(command) ? new { LastUsedTimeStep = (long?)null } : null);
+        var won = new RecordingDbConnectionFactory(affectedRows: 1);
         var committed = await new TwoFactorStateStore(won)
-            .TryCommitLoginAsync(challengeId, userId, SecondFactorProof.Totp(Step), rejectReusedSteps: true, CancellationToken.None);
+            .TryCommitLoginAsync(challengeId, userId, SecondFactorProof.Totp(Step), CancellationToken.None);
 
         committed.Should().Be(LoginCommitOutcome.Committed);
         won.Commands.Should().HaveCount(2);
@@ -170,11 +167,13 @@ public class SecondFactorAtomicitySqlTests
         won.LastTransaction!.Committed.Should().BeTrue();
         won.LastTransaction.RolledBack.Should().BeFalse();
 
-        // (1, no row) and no factor row left: the factor refused — the consumption
+        // (1, 0) and no factor row left: the factor refused — the consumption
         // is rolled back with it.
-        var lost = new RecordingDbConnectionFactory(affectedRows: 1, rowFor: _ => null);
+        var lost = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            affectedFor: command => IsStepClaim(command) ? 0 : 1);
         var refused = await new TwoFactorStateStore(lost)
-            .TryCommitLoginAsync(challengeId, userId, SecondFactorProof.Totp(Step), rejectReusedSteps: true, CancellationToken.None);
+            .TryCommitLoginAsync(challengeId, userId, SecondFactorProof.Totp(Step), CancellationToken.None);
 
         refused.Should().Be(LoginCommitOutcome.FactorLost);
         lost.Commands.Should().HaveCount(3,
@@ -188,14 +187,15 @@ public class SecondFactorAtomicitySqlTests
         Sql(classify).Should().Contain("FROM dbo.TwoFactorAuth").And.NotContain("UPDATE",
             "naming the refusal reads the row and writes nothing");
 
-        // (1, no row) and the factor still enabled: the step was not newer than the
+        // (1, 0) and the factor still enabled: the step was not newer than the
         // last one accepted. Nothing is released either: the challenge is live, so
         // the attempt stays counted.
         var reused = new RecordingDbConnectionFactory(
             affectedRows: 1,
-            rowFor: command => IsStepClaim(command) ? null : new { IsEnabled = true });
+            rowFor: _ => new { IsEnabled = true },
+            affectedFor: command => IsStepClaim(command) ? 0 : 1);
         var replayed = await new TwoFactorStateStore(reused)
-            .TryCommitLoginAsync(challengeId, userId, SecondFactorProof.Totp(Step), rejectReusedSteps: true, CancellationToken.None);
+            .TryCommitLoginAsync(challengeId, userId, SecondFactorProof.Totp(Step), CancellationToken.None);
 
         replayed.Should().Be(LoginCommitOutcome.StepReused);
         reused.Commands.Should().HaveCount(3, "a refused step releases nothing");
@@ -217,7 +217,7 @@ public class SecondFactorAtomicitySqlTests
                 : null);
 
         var act = () => new TwoFactorStateStore(db)
-            .TryCommitLoginAsync(Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.Totp(Step), rejectReusedSteps: true, CancellationToken.None);
+            .TryCommitLoginAsync(Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.Totp(Step), CancellationToken.None);
 
         await act.Should().ThrowAsync<TimeoutException>();
         db.LastTransaction!.Committed.Should().BeFalse("an uncommitted transaction is rolled back on disposal");
@@ -232,7 +232,7 @@ public class SecondFactorAtomicitySqlTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         await new TwoFactorStateStore(db)
-            .TryCommitLoginAsync(challengeId, userId, SecondFactorProof.Totp(Step), rejectReusedSteps: true, CancellationToken.None);
+            .TryCommitLoginAsync(challengeId, userId, SecondFactorProof.Totp(Step), CancellationToken.None);
 
         var consume = Sql(db.Commands[0]);
         consume.Should().StartWith("UPDATE dbo.TwoFactorChallenges SET UsedAt = SYSUTCDATETIME(), AttemptCount = AttemptCount - 1",
@@ -255,7 +255,7 @@ public class SecondFactorAtomicitySqlTests
         var db = new RecordingDbConnectionFactory(affectedRows: 0, affectedFor: Answers(0));
 
         var outcome = await new TwoFactorStateStore(db)
-            .TryCommitLoginAsync(challengeId, Guid.NewGuid(), SecondFactorProof.Totp(Step), rejectReusedSteps: true, CancellationToken.None);
+            .TryCommitLoginAsync(challengeId, Guid.NewGuid(), SecondFactorProof.Totp(Step), CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.ChallengeLost);
         db.LastTransaction!.Committed.Should().BeFalse();
@@ -281,7 +281,7 @@ public class SecondFactorAtomicitySqlTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         var outcome = await new TwoFactorStateStore(db).TryCommitLoginAsync(
-            Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.RecoveryCode(loaded, remaining, qualified: true), rejectReusedSteps: true, CancellationToken.None);
+            Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.RecoveryCode(loaded, remaining, qualified: true), CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.Committed);
         var settle = Sql(db.Commands[1]);
@@ -300,17 +300,16 @@ public class SecondFactorAtomicitySqlTests
     // it does not look.
     private const string ExpectedStepClaim =
         "UPDATE dbo.TwoFactorAuth SET FailedAttempts = 0, LockedUntil = NULL, LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME(), "
-        + "LastUsedTimeStep = CASE WHEN LastUsedTimeStep >= @Step THEN LastUsedTimeStep ELSE @Step END "
-        + "OUTPUT deleted.LastUsedTimeStep "
-        + "WHERE UserId = @UserId AND IsEnabled = 1 AND (@RejectReused = 0 OR LastUsedTimeStep IS NULL OR LastUsedTimeStep < @Step)";
+        + "LastUsedTimeStep = @Step "
+        + "WHERE UserId = @UserId AND IsEnabled = 1 AND (LastUsedTimeStep IS NULL OR LastUsedTimeStep < @Step)";
 
     // Every store method that accepts a TOTP code, run the same way.
-    private static readonly Dictionary<string, Func<TwoFactorStateStore, Guid, bool, Task<LoginCommitOutcome>>> StepClaimingMethods = new()
+    private static readonly Dictionary<string, Func<TwoFactorStateStore, Guid, Task<LoginCommitOutcome>>> StepClaimingMethods = new()
     {
-        ["TryCommitLoginAsync"] = (store, userId, rejectReused) =>
-            store.TryCommitLoginAsync(Guid.NewGuid(), userId, SecondFactorProof.Totp(Step), rejectReused, CancellationToken.None),
-        ["TryClaimTotpStepAsync"] = (store, userId, rejectReused) =>
-            store.TryClaimTotpStepAsync(userId, Step, rejectReused, CancellationToken.None),
+        ["TryCommitLoginAsync"] = (store, userId) =>
+            store.TryCommitLoginAsync(Guid.NewGuid(), userId, SecondFactorProof.Totp(Step), CancellationToken.None),
+        ["TryClaimTotpStepAsync"] = (store, userId) =>
+            store.TryClaimTotpStepAsync(userId, Step, CancellationToken.None),
     };
 
     [Theory]
@@ -321,42 +320,18 @@ public class SecondFactorAtomicitySqlTests
         // One strict statement accepts a TOTP code everywhere one counts: the step
         // must be NEWER than the last one accepted (<, never <=, so the same code
         // twice is refused), on an enabled factor, in the statement that writes it.
+        // No parameter can relax it: there is no setting that lets a reuse through.
         var userId = Guid.NewGuid();
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => IsStepClaim(command) ? new { LastUsedTimeStep = (long?)(Step - 1) } : null);
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
-        var outcome = await StepClaimingMethods[method](new TwoFactorStateStore(db), userId, true);
+        var outcome = await StepClaimingMethods[method](new TwoFactorStateStore(db), userId);
 
-        outcome.Should().Be(LoginCommitOutcome.Committed, "an older step was stored, so this one is new");
+        outcome.Should().Be(LoginCommitOutcome.Committed, "the claim matched the row, so the step was new");
         var claim = db.Commands.Single(IsStepClaim);
         Sql(claim).Should().Be(ExpectedStepClaim);
+        claim.Parameters.Keys.Should().BeEquivalentTo(["UserId", "Step"]);
         claim.Parameters["UserId"].Should().Be(userId);
         claim.Parameters["Step"].Should().Be(Step);
-        claim.Parameters["RejectReused"].Should().Be(true);
-    }
-
-    [Theory]
-    [InlineData("TryCommitLoginAsync", null, LoginCommitOutcome.Committed)]
-    [InlineData("TryCommitLoginAsync", Step - 1, LoginCommitOutcome.Committed)]
-    [InlineData("TryCommitLoginAsync", Step, LoginCommitOutcome.ReuseAccepted)]
-    [InlineData("TryCommitLoginAsync", Step + 1, LoginCommitOutcome.ReuseAccepted)]
-    [InlineData("TryClaimTotpStepAsync", null, LoginCommitOutcome.Committed)]
-    [InlineData("TryClaimTotpStepAsync", Step, LoginCommitOutcome.ReuseAccepted)]
-    [InlineData("TryClaimTotpStepAsync", Step + 1, LoginCommitOutcome.ReuseAccepted)]
-    public async Task TotpStepClaim_SwitchOff_ReportsAReuseItLetThrough(string method, long? stepBefore, LoginCommitOutcome expected)
-    {
-        // With the rollout switch off a reused step still settles. The step the
-        // row held before (OUTPUT deleted.*) is what tells that reuse from a first
-        // use, so every accepted reuse can be logged.
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => IsStepClaim(command) ? new { LastUsedTimeStep = stepBefore } : null);
-
-        var outcome = await StepClaimingMethods[method](new TwoFactorStateStore(db), Guid.NewGuid(), false);
-
-        outcome.Should().Be(expected);
-        db.Commands.Single(IsStepClaim).Parameters["RejectReused"].Should().Be(false);
     }
 
     [Theory]
@@ -371,9 +346,10 @@ public class SecondFactorAtomicitySqlTests
         var userId = Guid.NewGuid();
         var db = new RecordingDbConnectionFactory(
             affectedRows: 1,
-            rowFor: command => IsStepClaim(command) || isEnabled is null ? null : new { IsEnabled = isEnabled.Value });
+            rowFor: command => IsStepClaim(command) || isEnabled is null ? null : new { IsEnabled = isEnabled.Value },
+            affectedFor: command => IsStepClaim(command) ? 0 : 1);
 
-        var outcome = await new TwoFactorStateStore(db).TryClaimTotpStepAsync(userId, Step, true, CancellationToken.None);
+        var outcome = await new TwoFactorStateStore(db).TryClaimTotpStepAsync(userId, Step, CancellationToken.None);
 
         outcome.Should().Be(expected);
         db.Commands.Should().HaveCount(2, "the claim, then the read that names its refusal");
@@ -393,7 +369,7 @@ public class SecondFactorAtomicitySqlTests
             affectedRows: 1,
             throwOn: command => IsStepClaim(command) ? new InvalidOperationException("Invalid column name 'LastUsedTimeStep'.") : null);
 
-        var act = () => new TwoFactorStateStore(db).TryClaimTotpStepAsync(Guid.NewGuid(), Step, true, CancellationToken.None);
+        var act = () => new TwoFactorStateStore(db).TryClaimTotpStepAsync(Guid.NewGuid(), Step, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
         db.Commands.Should().ContainSingle("nothing runs after the claim that faulted");
@@ -422,7 +398,7 @@ public class SecondFactorAtomicitySqlTests
             "TwoFactorBindCodes",
             (db, id) => new TwoFactorBindCodeRepository(db).TryReserveAttemptAsync(id, TwoFactorBindCode.MaxAttempts, CancellationToken.None),
             async (db, id) => await new TwoFactorStateStore(db).TryEnableAsync(
-                Guid.NewGuid(), "v2:ciphertext", "[]", 59_313_872, true, id, new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None) == LoginCommitOutcome.Committed),
+                Guid.NewGuid(), "v2:ciphertext", "[]", 59_313_872, id, new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None) == LoginCommitOutcome.Committed),
     };
 
     [Theory]
@@ -450,11 +426,7 @@ public class SecondFactorAtomicitySqlTests
 
         // The consumption is the first statement a consumer sends: on its own, or
         // ahead of the factor row inside the enable transaction.
-        var consumeDb = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => command.CommandText.Contains("OUTPUT deleted.[LastUsedTimeStep]", StringComparison.Ordinal)
-                ? new { LastUsedTimeStep = (long?)null }
-                : null);
+        var consumeDb = new RecordingDbConnectionFactory(affectedRows: 1);
         (await sibling.Consume(consumeDb, id)).Should().BeTrue();
         var consume = Sql(consumeDb.Commands[0]);
         consume.Should().StartWith($"UPDATE dbo.{table} SET UsedAt = SYSUTCDATETIME(), AttemptCount = AttemptCount - 1");

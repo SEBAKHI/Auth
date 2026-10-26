@@ -28,17 +28,18 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // check; the second finds the step taken and settles nothing.
     // IsEnabled = 1: a factor switched off after the code was checked settles
     // nothing either.
-    // With @RejectReused = 0 (the rollout switch off) a reused step still settles.
-    // The CASE keeps the column monotonic even then, and OUTPUT returns the step
-    // the row held before, so the caller can tell that reuse from a first use.
+    // There is no setting that lets a reused step through: every statement that
+    // raises the step carries StepIsNewer, so the step it writes is always newer
+    // than the one it replaces and the column only ever grows.
     // The column is written only by statements of this store: raised by this
-    // claim and by switching the factor on, both through the CASE below, and
-    // cleared when a pending secret is replaced — a new secret has no accepted code.
+    // claim and by switching the factor on, both through RaiseStep, and cleared
+    // when a pending secret is replaced — a new secret has no accepted code.
     private const string StepIsNewer =
-        "(@RejectReused = 0 OR [LastUsedTimeStep] IS NULL OR [LastUsedTimeStep] < @Step)";
+        "([LastUsedTimeStep] IS NULL OR [LastUsedTimeStep] < @Step)";
 
+    // Only ever written next to StepIsNewer, which makes @Step the larger value.
     private const string RaiseStep =
-        "[LastUsedTimeStep] = CASE WHEN [LastUsedTimeStep] >= @Step THEN [LastUsedTimeStep] ELSE @Step END";
+        "[LastUsedTimeStep] = @Step";
 
     private const string TotpStepClaimSql = @"
             UPDATE [dbo].[TwoFactorAuth] SET
@@ -47,7 +48,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
                 [LastUsedAt] = SYSUTCDATETIME(),
                 [ModifiedAt] = SYSUTCDATETIME(),
                 " + RaiseStep + @"
-            OUTPUT deleted.[LastUsedTimeStep]
             WHERE [UserId] = @UserId
               AND [IsEnabled] = 1
               AND " + StepIsNewer;
@@ -166,7 +166,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
                 [LastUsedAt] = SYSUTCDATETIME(),
                 [ModifiedAt] = SYSUTCDATETIME(),
                 " + RaiseStep + @"
-            OUTPUT deleted.[LastUsedTimeStep]
             WHERE [UserId] = @UserId
               AND [IsEnabled] = 0
               AND [EmailCodeEnabledAt] IS NULL
@@ -177,10 +176,9 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // while the code's step is newer than the last one accepted — the condition of
     // the step claim — so the code a user just signed in with cannot switch the
     // factor off a moment later, and of two requests carrying one code only one
-    // matches. OUTPUT tells a reuse let through by the switch from a first use.
+    // matches.
     private const string RemoveWithTotpSql = @"
             DELETE FROM [dbo].[TwoFactorAuth]
-            OUTPUT deleted.[LastUsedTimeStep]
             WHERE [UserId] = @UserId
               AND [IsEnabled] = 1
               AND " + StepIsNewer;
@@ -384,7 +382,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
                 [LastUsedAt] = SYSUTCDATETIME(),
                 [ModifiedAt] = SYSUTCDATETIME(),
                 " + RaiseStep + @"
-            OUTPUT deleted.[LastUsedTimeStep]
             WHERE [UserId] = @UserId
               AND [IsEnabled] = 0
               AND [EmailCodeEnabledAt] IS NOT NULL
@@ -457,7 +454,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         IDbTransaction transaction,
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken);
 
     private static readonly FrozenDictionary<SecondFactorMethod, SettleAsync> Settlers =
@@ -615,10 +611,9 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         Guid challengeId,
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken) =>
         TryCommitChallengeAsync(
-            challengeId, TwoFactorChallengePurpose.SignIn, userId, proof, rejectReusedSteps, cancellationToken);
+            challengeId, TwoFactorChallengePurpose.SignIn, userId, proof, cancellationToken);
 
     /// <inheritdoc />
     public async Task<LoginCommitOutcome> TryCommitChallengeAsync(
@@ -626,7 +621,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         TwoFactorChallengePurpose purpose,
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken)
     {
         var settle = Settlers[proof.Method];
@@ -635,7 +629,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var outcome = await CommitAsync(
-            connection, challengeId, purpose, userId, proof, settle, rejectReusedSteps, cancellationToken);
+            connection, challengeId, purpose, userId, proof, settle, cancellationToken);
 
         if (outcome == LoginCommitOutcome.ChallengeLost)
         {
@@ -670,14 +664,13 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     public async Task<LoginCommitOutcome> TryClaimTotpStepAsync(
         Guid userId,
         long step,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         // One statement, so no transaction: its affected row is the decision.
         var outcome = await ClaimStepAsync(
-            connection, transaction: null, userId, step, rejectReusedSteps, cancellationToken);
+            connection, transaction: null, userId, step, cancellationToken);
 
         return outcome == LoginCommitOutcome.StepReused
             ? await ClassifyRefusalAsync(connection, userId, outcome, cancellationToken)
@@ -730,7 +723,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         string protectedSecretSeen,
         string recoveryCodesJson,
         long step,
-        bool rejectReusedSteps,
         Guid? bindCodeId,
         SessionUpgrade sessionUpgrade,
         CancellationToken cancellationToken)
@@ -739,10 +731,10 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var (outcome, upgraded) = await EnableAsync(
-            connection, userId, protectedSecretSeen, recoveryCodesJson, step, rejectReusedSteps, bindCodeId,
+            connection, userId, protectedSecretSeen, recoveryCodesJson, step, bindCodeId,
             sessionUpgrade, cancellationToken);
 
-        if (outcome is LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted)
+        if (outcome == LoginCommitOutcome.Committed)
         {
             ReportUpgrade(userId, sessionUpgrade, upgraded, "switching two-factor on");
             return outcome;
@@ -765,7 +757,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     public async Task<LoginCommitOutcome> TryDisableAsync(
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken)
     {
         var remove = Removers[proof.Method];
@@ -773,9 +764,9 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         // The factory hands back an OPEN connection; opening it again throws.
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var outcome = await DisableAsync(connection, userId, proof, remove, rejectReusedSteps, cancellationToken);
+        var outcome = await DisableAsync(connection, userId, proof, remove, cancellationToken);
 
-        if (outcome is LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted)
+        if (outcome == LoginCommitOutcome.Committed)
         {
             return outcome;
         }
@@ -789,7 +780,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     public async Task<LoginCommitOutcome> TryCommitStepUpAsync(
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         SessionUpgrade sessionUpgrade,
         CancellationToken cancellationToken)
     {
@@ -799,9 +789,9 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var (outcome, upgraded) = await StepUpAsync(
-            connection, userId, proof, settle, rejectReusedSteps, sessionUpgrade, cancellationToken);
+            connection, userId, proof, settle, sessionUpgrade, cancellationToken);
 
-        if (outcome is LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted)
+        if (outcome == LoginCommitOutcome.Committed)
         {
             ReportUpgrade(userId, sessionUpgrade, upgraded, "a step-up");
             return outcome;
@@ -828,7 +818,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     public async Task<LoginCommitOutcome> TryRegenerateCodesAsync(
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         string? codesSeen,
         string newCodesJson,
         CancellationToken cancellationToken)
@@ -842,7 +831,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         return await SettleThenWriteAsync(
             userId,
             proof,
-            rejectReusedSteps,
+           
             ReplaceRecoveryCodesSql,
             new { UserId = userId, OldCodes = oldCodes, NewCodes = newCodesJson },
             cancellationToken);
@@ -852,7 +841,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     public async Task<LoginCommitOutcome> TryBeginReplacementAsync(
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         string protectedPendingSecret,
         CancellationToken cancellationToken)
     {
@@ -861,7 +849,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         return await SettleThenWriteAsync(
             userId,
             proof,
-            rejectReusedSteps,
+           
             StorePendingReplacementSql,
             new { UserId = userId, PendingSecretKey = protectedPendingSecret },
             cancellationToken);
@@ -1041,7 +1029,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         string protectedSecretSeen,
         string recoveryCodesJson,
         long step,
-        bool rejectReusedSteps,
         Guid? bindCodeId,
         SessionUpgrade sessionUpgrade,
         CancellationToken cancellationToken)
@@ -1054,9 +1041,9 @@ public class TwoFactorStateStore : ITwoFactorStateStore
 
         var (outcome, upgraded) = await ReplaceEmailCodeWithTotpAsync(
             connection, userId, replacementProof, protectedSecretSeen, recoveryCodesJson, step,
-            rejectReusedSteps, bindCodeId, sessionUpgrade, cancellationToken);
+            bindCodeId, sessionUpgrade, cancellationToken);
 
-        if (outcome is LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted)
+        if (outcome == LoginCommitOutcome.Committed)
         {
             ReportUpgrade(userId, sessionUpgrade, upgraded, "an authenticator app replacing the emailed code");
             return outcome;
@@ -1113,7 +1100,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         string protectedSecretSeen,
         string recoveryCodesJson,
         long step,
-        bool rejectReusedSteps,
         Guid? bindCodeId,
         SessionUpgrade sessionUpgrade,
         CancellationToken cancellationToken)
@@ -1142,20 +1128,19 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         }
 
         // Then the row: the app on and the emailed code off, in one statement.
-        var enabled = await connection.QuerySingleOrDefaultAsync<StepClaimDto>(new CommandDefinition(
+        var enabled = await connection.ExecuteAsync(new CommandDefinition(
             EnableOverEmailCodeSql,
             new
             {
                 UserId = userId,
                 SecretSeen = protectedSecretSeen,
                 RecoveryCodes = recoveryCodesJson,
-                Step = step,
-                RejectReused = rejectReusedSteps
+                Step = step
             },
             transaction,
             cancellationToken: cancellationToken));
 
-        if (enabled is null || !await SetAccountFlagAsync(connection, transaction, userId, true, cancellationToken))
+        if (enabled != 1 || !await SetAccountFlagAsync(connection, transaction, userId, true, cancellationToken))
         {
             transaction.Rollback();
             return (LoginCommitOutcome.FactorLost, UpgradeCounts.None);
@@ -1164,10 +1149,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         var upgraded = await UpgradeSessionsAsync(connection, transaction, userId, sessionUpgrade, cancellationToken);
 
         transaction.Commit();
-        var outcome = enabled.LastUsedTimeStep >= step
-            ? LoginCommitOutcome.ReuseAccepted
-            : LoginCommitOutcome.Committed;
-        return (outcome, upgraded);
+        return (LoginCommitOutcome.Committed, upgraded);
     }
 
     /// <summary>
@@ -1192,7 +1174,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
 
         // Neither an emailed code nor a recovery code has a time step to reuse.
         var settled = await Settlers[proof.Method](
-            connection, transaction, userId, proof, rejectReusedSteps: true, cancellationToken);
+            connection, transaction, userId, proof, cancellationToken);
 
         // A recovery code whose set changed first was spent by another request.
         return settled == LoginCommitOutcome.FactorLost && proof.ChallengeId is null
@@ -1239,7 +1221,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     private async Task<LoginCommitOutcome> SettleThenWriteAsync(
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         string writeSql,
         object writeParameters,
         CancellationToken cancellationToken)
@@ -1252,9 +1233,9 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         LoginCommitOutcome outcome;
         using (var transaction = connection.BeginTransaction())
         {
-            outcome = await settle(connection, transaction, userId, proof, rejectReusedSteps, cancellationToken);
+            outcome = await settle(connection, transaction, userId, proof, cancellationToken);
 
-            if (outcome is LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted)
+            if (outcome == LoginCommitOutcome.Committed)
             {
                 var written = await connection.ExecuteAsync(new CommandDefinition(
                     writeSql, writeParameters, transaction, cancellationToken: cancellationToken));
@@ -1293,15 +1274,14 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         Guid userId,
         SecondFactorProof proof,
         SettleAsync settle,
-        bool rejectReusedSteps,
         SessionUpgrade sessionUpgrade,
         CancellationToken cancellationToken)
     {
         using var transaction = connection.BeginTransaction();
 
-        var settled = await settle(connection, transaction, userId, proof, rejectReusedSteps, cancellationToken);
+        var settled = await settle(connection, transaction, userId, proof, cancellationToken);
 
-        if (settled is not (LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted))
+        if (settled != LoginCommitOutcome.Committed)
         {
             transaction.Rollback();
             return (settled, UpgradeCounts.None);
@@ -1405,7 +1385,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         Guid userId,
         SecondFactorProof proof,
         SettleAsync settle,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken)
     {
         // An emailed code is checked against one challenge; committed against another,
@@ -1431,9 +1410,9 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             return LoginCommitOutcome.ChallengeLost;
         }
 
-        var settled = await settle(connection, transaction, userId, proof, rejectReusedSteps, cancellationToken);
+        var settled = await settle(connection, transaction, userId, proof, cancellationToken);
 
-        if (settled is not (LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted))
+        if (settled != LoginCommitOutcome.Committed)
         {
             // The consumption rolls back with it: a proof that settled nothing
             // leaves the challenge exactly as it found it.
@@ -1450,14 +1429,13 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         IDbTransaction transaction,
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken) =>
         ClaimStepAsync(
             connection,
             transaction,
             userId,
             proof.Step ?? throw new InvalidOperationException("A TOTP proof must carry the time step it matched."),
-            rejectReusedSteps,
+           
             cancellationToken);
 
     private static async Task<LoginCommitOutcome> SettleRecoveryCodeAsync(
@@ -1465,7 +1443,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         IDbTransaction transaction,
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken)
     {
         // A recovery code has no time step; the reuse rule does not apply to it.
@@ -1483,7 +1460,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         IDbTransaction transaction,
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken)
     {
         // An emailed code has no time step; its single use is the challenge's, which
@@ -1527,7 +1503,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         string protectedSecretSeen,
         string recoveryCodesJson,
         long step,
-        bool rejectReusedSteps,
         Guid? bindCodeId,
         SessionUpgrade sessionUpgrade,
         CancellationToken cancellationToken)
@@ -1554,20 +1529,19 @@ public class TwoFactorStateStore : ITwoFactorStateStore
 
         // The factor row, then the account row — the order every lifecycle
         // transaction takes, so two of them can never deadlock each other.
-        var enabled = await connection.QuerySingleOrDefaultAsync<StepClaimDto>(new CommandDefinition(
+        var enabled = await connection.ExecuteAsync(new CommandDefinition(
             EnableSql,
             new
             {
                 UserId = userId,
                 SecretSeen = protectedSecretSeen,
                 RecoveryCodes = recoveryCodesJson,
-                Step = step,
-                RejectReused = rejectReusedSteps
+                Step = step
             },
             transaction,
             cancellationToken: cancellationToken));
 
-        if (enabled is null || !await SetAccountFlagAsync(connection, transaction, userId, true, cancellationToken))
+        if (enabled != 1 || !await SetAccountFlagAsync(connection, transaction, userId, true, cancellationToken))
         {
             // Refused; the caller names why, once nothing is held.
             transaction.Rollback();
@@ -1579,10 +1553,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         var upgraded = await UpgradeSessionsAsync(connection, transaction, userId, sessionUpgrade, cancellationToken);
 
         transaction.Commit();
-        var outcome = enabled.LastUsedTimeStep >= step
-            ? LoginCommitOutcome.ReuseAccepted
-            : LoginCommitOutcome.Committed;
-        return (outcome, upgraded);
+        return (LoginCommitOutcome.Committed, upgraded);
     }
 
     /// <summary>
@@ -1594,14 +1565,13 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         Guid userId,
         SecondFactorProof proof,
         SettleAsync remove,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken)
     {
         using var transaction = connection.BeginTransaction();
 
-        var removed = await remove(connection, transaction, userId, proof, rejectReusedSteps, cancellationToken);
+        var removed = await remove(connection, transaction, userId, proof, cancellationToken);
 
-        if (removed is not (LoginCommitOutcome.Committed or LoginCommitOutcome.ReuseAccepted))
+        if (removed != LoginCommitOutcome.Committed)
         {
             transaction.Rollback();
             return removed;
@@ -1623,25 +1593,17 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         IDbTransaction transaction,
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken)
     {
         var step = proof.Step ?? throw new InvalidOperationException("A TOTP proof must carry the time step it matched.");
 
-        var removed = await connection.QuerySingleOrDefaultAsync<StepClaimDto>(new CommandDefinition(
+        var removed = await connection.ExecuteAsync(new CommandDefinition(
             RemoveWithTotpSql,
-            new { UserId = userId, Step = step, RejectReused = rejectReusedSteps },
+            new { UserId = userId, Step = step },
             transaction,
             cancellationToken: cancellationToken));
 
-        if (removed is null)
-        {
-            return LoginCommitOutcome.StepReused;
-        }
-
-        return removed.LastUsedTimeStep >= step
-            ? LoginCommitOutcome.ReuseAccepted
-            : LoginCommitOutcome.Committed;
+        return removed == 1 ? LoginCommitOutcome.Committed : LoginCommitOutcome.StepReused;
     }
 
     private static async Task<LoginCommitOutcome> RemoveWithRecoveryCodeAsync(
@@ -1649,7 +1611,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         IDbTransaction transaction,
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken)
     {
         // A recovery code has no time step; the reuse rule does not apply to it.
@@ -1694,34 +1655,23 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     }
 
     /// <summary>
-    /// Runs the step claim. A row back means the factor was settled; the step it
-    /// held before tells a first use from a reuse let through by the switch. No
-    /// row back means the claim refused, for a reason only a later read can name.
+    /// Runs the step claim. A matched row means the factor was settled; no match
+    /// means the claim refused, for a reason only a later read can name.
     /// </summary>
     private static async Task<LoginCommitOutcome> ClaimStepAsync(
         IDbConnection connection,
         IDbTransaction? transaction,
         Guid userId,
         long step,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken)
     {
-        // A row DTO, not a bare long?: OUTPUT returns NULL for a first use, which a
-        // scalar read could not tell apart from no row at all.
-        var claimed = await connection.QuerySingleOrDefaultAsync<StepClaimDto>(new CommandDefinition(
+        var claimed = await connection.ExecuteAsync(new CommandDefinition(
             TotpStepClaimSql,
-            new { UserId = userId, Step = step, RejectReused = rejectReusedSteps },
+            new { UserId = userId, Step = step },
             transaction,
             cancellationToken: cancellationToken));
 
-        if (claimed is null)
-        {
-            return LoginCommitOutcome.StepReused;
-        }
-
-        return claimed.LastUsedTimeStep >= step
-            ? LoginCommitOutcome.ReuseAccepted
-            : LoginCommitOutcome.Committed;
+        return claimed == 1 ? LoginCommitOutcome.Committed : LoginCommitOutcome.StepReused;
     }
 
     /// <summary>
@@ -1789,12 +1739,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     {
         public int FailedAttempts { get; init; }
         public DateTime? LockedUntil { get; init; }
-    }
-
-    // The step the row held before the claim settled it (OUTPUT deleted.*).
-    private record StepClaimDto
-    {
-        public long? LastUsedTimeStep { get; init; }
     }
 
     // How many rows a session upgrade matched: the session row, the SSO session.

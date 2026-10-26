@@ -140,7 +140,7 @@ public class TwoFactorEmailSqlTests
         var challengeId = Guid.NewGuid();
 
         var outcome = await new TwoFactorStateStore(db).TryCommitLoginAsync(
-            challengeId, Guid.NewGuid(), SecondFactorProof.EmailCode(challengeId, CodesSeen), true, CancellationToken.None);
+            challengeId, Guid.NewGuid(), SecondFactorProof.EmailCode(challengeId, CodesSeen), CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.Committed);
         db.Commands.Should().HaveCount(3).And.OnlyContain(command => command.InTransaction);
@@ -167,7 +167,7 @@ public class TwoFactorEmailSqlTests
         var challengeId = Guid.NewGuid();
 
         var outcome = await new TwoFactorStateStore(db).TryCommitLoginAsync(
-            challengeId, Guid.NewGuid(), SecondFactorProof.EmailCode(challengeId, CodesSeen), true, CancellationToken.None);
+            challengeId, Guid.NewGuid(), SecondFactorProof.EmailCode(challengeId, CodesSeen), CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.ChallengeLost);
         db.Transactions[0].RolledBack.Should().BeTrue();
@@ -181,7 +181,7 @@ public class TwoFactorEmailSqlTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         var commit = () => new TwoFactorStateStore(db).TryCommitLoginAsync(
-            Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.EmailCode(Guid.NewGuid(), CodesSeen), true, CancellationToken.None);
+            Guid.NewGuid(), Guid.NewGuid(), SecondFactorProof.EmailCode(Guid.NewGuid(), CodesSeen), CancellationToken.None);
 
         await commit.Should().ThrowAsync<InvalidOperationException>();
         db.Commands.Should().BeEmpty();
@@ -195,7 +195,7 @@ public class TwoFactorEmailSqlTests
 
         await new TwoFactorStateStore(db).TryCommitChallengeAsync(
             challengeId, TwoFactorChallengePurpose.DeletionRecovery, Guid.NewGuid(),
-            SecondFactorProof.EmailCode(challengeId, CodesSeen), true, CancellationToken.None);
+            SecondFactorProof.EmailCode(challengeId, CodesSeen), CancellationToken.None);
 
         db.Commands[0].Parameters["Purpose"].Should().Be((byte)TwoFactorChallengePurpose.DeletionRecovery);
     }
@@ -493,16 +493,12 @@ public class TwoFactorEmailSqlTests
     [Fact]
     public async Task ReplaceWithTheApp_SpendsTheProof_ThenSwitchesTheAppOnAndTheEmailedCodeOff_InOneStatement_InOneTransaction()
     {
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => command.CommandText.Contains("OUTPUT deleted", StringComparison.Ordinal)
-                ? new { LastUsedTimeStep = (long?)null }
-                : null);
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
         var userId = Guid.NewGuid();
         var challengeId = Guid.NewGuid();
 
         var outcome = await new TwoFactorStateStore(db).TryReplaceEmailCodeWithTotpAsync(
-            userId, SecondFactorProof.EmailCode(challengeId, CodesSeen), "v2:new-app-secret", "[\"qualified\"]", 59_313_872, true,
+            userId, SecondFactorProof.EmailCode(challengeId, CodesSeen), "v2:new-app-secret", "[\"qualified\"]", 59_313_872,
             bindCodeId: null, new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.Committed);
@@ -524,10 +520,11 @@ public class TwoFactorEmailSqlTests
             affectedRows: 1,
             rowFor: command => command.CommandText.Contains("SELECT CAST(CASE WHEN [EmailCodeEnabledAt]", StringComparison.Ordinal)
                 ? new { HasEmailCode = false }
-                : null);
+                : null,
+            affectedFor: command => command.CommandText.Contains("[LastUsedTimeStep] < @Step", StringComparison.Ordinal) ? 0 : 1);
 
         var outcome = await new TwoFactorStateStore(db).TryReplaceEmailCodeWithTotpAsync(
-            Guid.NewGuid(), SecondFactorProof.RecoveryCode("[\"h1\"]", "[]", qualified: false), "v2:s", "[]", 59_313_872, true,
+            Guid.NewGuid(), SecondFactorProof.RecoveryCode("[\"h1\"]", "[]", qualified: false), "v2:s", "[]", 59_313_872,
             bindCodeId: null, new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.FactorLost);

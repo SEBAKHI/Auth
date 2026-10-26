@@ -2194,18 +2194,11 @@ export const en = {
     twoFactor: {
       title: "Two-factor authentication",
       description:
-        "How the six-digit codes from an authenticator app are checked: at sign-in, when a pending account deletion is cancelled, and when two-factor authentication is switched on or off.",
-      rejectReusedCodes: "Reject a reused code (replay protection)",
-      rejectReusedCodesHint:
-        "Replay protection: each authenticator-app code is accepted only once. A code stays valid for about 90 seconds, so without it, someone who has a user's password and sees a code they just typed — on a phishing page that relays it, over their shoulder, on a shared screen — can use the same code again within that time. Turn it off only during an incident in which genuine users are being refused; every reused code accepted while it is off is logged. Recommended: on.",
+        "What a session needs before it changes its second factor, whether platform administrators must prove one, and how long an emailed sign-in code stays valid. An authenticator-app code is always accepted once only, and an account's first second factor always needs a code sent to its email while email sending is on; neither has a setting.",
       reauthenticationMaxAgeMinutes:
         "Recent sign-in for two-factor changes (minutes)",
       reauthenticationMaxAgeMinutesHint:
         "Re-authentication window: how recent a sign-in must be before a session may set up, turn on or turn off two-factor authentication. An older session is asked to sign in again first, so a session left open, or a stolen token, cannot change the second factor. No value turns this check off. Recommended: 15.",
-      requireEmailCodeForFirstFactor:
-        "Email code before the first second factor",
-      requireEmailCodeForFirstFactorHint:
-        "First-comer protection: an account that has no second factor yet must also enter a code sent to its confirmed email address before it can turn one on, so someone who knows only the password cannot bind an authenticator app of their own. Applies only while email sending is on; with email off, two-factor authentication turns on without the code, as before. Turn it off only if mail delivery fails and people cannot finish setting up two-factor authentication. Recommended: on.",
       enforceForPlatformAdmins: "Require two-factor authentication for platform administrators",
       enforceForPlatformAdminsHint:
         "MFA enforcement (multi-factor authentication): applies to platform administrators only — anyone who holds a platform permission. While on, an administrator session that has not proved a second factor gets no platform permissions and is sent to set one up or enter a code first. Application users, teams and organization roles are never affected. Turn it on only after every administrator has a second factor. Recommended: on, once every administrator has enrolled.",

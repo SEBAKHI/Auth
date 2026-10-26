@@ -68,9 +68,7 @@ public class SetupTwoFactorCommandHandlerTests
                 _totpServiceMock.Object,
                 jwtSettings,
                 Mock.Of<ILogger<AuthenticatorKeyFactory>>()),
-            new FirstFactorEmailProofPolicy(
-                TestHelpers.CreateOptions(_twoFactorSettings),
-                TestHelpers.CreateOptions(_emailSettings)),
+            new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_emailSettings)),
             TestHelpers.CreateSecondFactorLockout(),
             _loggerMock.Object);
 
@@ -347,17 +345,13 @@ public class SetupTwoFactorCommandHandlerTests
     // ── X02 PR B: whether enable will want the emailed code ─────────────────
 
     [Theory]
-    [InlineData(true, true, true)]
-    [InlineData(true, false, false)]
-    [InlineData(false, true, false)]
-    [InlineData(false, false, false)]
-    public async Task Handle_SetsEmailCodeRequired_FromTheSwitchAndEmail(
-        bool switchOn, bool emailEnabled, bool expected)
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task Handle_SetsEmailCodeRequired_FromEmail(bool emailEnabled, bool expected)
     {
         // Setup only ever reaches a pending factor, so this is the account's first:
-        // enable will want the code exactly when both settings say so. A client
-        // that reads false skips the step, and enable then needs none.
-        _twoFactorSettings.RequireEmailCodeForFirstFactor = switchOn;
+        // enable will want the code exactly while email is on. A client that reads
+        // false skips the step, and enable then needs none.
         _emailSettings.Enabled = emailEnabled;
         var userId = Guid.NewGuid();
         GivenSetupCanProceed(userId, TestHelpers.CreateUser(id: userId, email: "test@example.com"), "ABCDEFGHIJKLMNOP");

@@ -553,7 +553,8 @@ commit, and emails the owner; enable emails the owner too (both only when email 
 Enable is written only while the pending row still holds the secret the code was checked against, so of two
 concurrent enables one wins and the other shows no codes.
 An account's first factor also needs a code emailed to its confirmed address while
-`TwoFactor:RequireEmailCodeForFirstFactor` and `Email:Enabled` are both on: it is checked after the authenticator code,
+`Email:Enabled` is on (with email off nothing could deliver it, and the factor binds with the notice alone): it
+is checked after the authenticator code,
 under the same five-failure lock, and spent by the transaction that switches two-factor on — so a password alone no
 longer binds an attacker's authenticator app.
 The emailed code is bound and removed the same way (`email/enable`, `email/confirm`, `email/disable`): a recent
@@ -716,11 +717,9 @@ two-factor on writes the enabling code's step in the same statement that enables
 sign in afterwards. Only these statements of `TwoFactorStateStore` write the column (a pending secret that setup
 replaces has it cleared: a new secret has no accepted code).
 
-`TwoFactor:RejectReusedCodes` (default `true`, hot: read per check) is a rollout switch. Off, a reused step
-still settles — the column keeps the higher step — and each such acceptance is logged as a warning, "Reused
-two-factor code accepted (RejectReusedCodes=false)"; with it on, each refusal is logged as "Reused
-two-factor code rejected". Neither line contains the code. The switch exists only until the rejection has
-run in production without trouble; then it is removed.
+No setting relaxes the claim: a reused step is always refused, and each refusal is logged as a warning,
+"Reused two-factor code rejected", which never contains the code. The rollout switch that could once let a
+reused step through was removed with its branch; an incident is handled by deploying the previous API build.
 
 **What it does not stop.** A phishing page that relays the code and uses it *before* the user does still
 wins; only phishing-resistant sign-in closes that. On the recovery door, an account whose factor row is

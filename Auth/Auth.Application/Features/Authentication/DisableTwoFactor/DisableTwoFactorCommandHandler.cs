@@ -29,7 +29,6 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
     private readonly IPlatformMfaPolicy _platformMfaPolicy;
     private readonly ISecondFactorVerifier _secondFactorVerifier;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
-    private readonly TotpReplayPolicy _replayPolicy;
     private readonly IUserRepository _userRepository;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IDomainEventDispatcher _eventDispatcher;
@@ -40,7 +39,6 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
         IPlatformMfaPolicy platformMfaPolicy,
         ISecondFactorVerifier secondFactorVerifier,
         ITwoFactorStateStore twoFactorStateStore,
-        TotpReplayPolicy replayPolicy,
         IUserRepository userRepository,
         ICredentialRevocationService credentialRevocation,
         IDomainEventDispatcher eventDispatcher,
@@ -50,7 +48,6 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
         _platformMfaPolicy = platformMfaPolicy;
         _secondFactorVerifier = secondFactorVerifier;
         _twoFactorStateStore = twoFactorStateStore;
-        _replayPolicy = replayPolicy;
         _userRepository = userRepository;
         _credentialRevocation = credentialRevocation;
         _eventDispatcher = eventDispatcher;
@@ -110,15 +107,11 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
 
         // 4. The factor row and the account flag, in one transaction.
         var outcome = await _twoFactorStateStore.TryDisableAsync(
-            request.UserId, proof.Value, _replayPolicy.RejectReusedCodes, cancellationToken);
+            request.UserId, proof.Value, cancellationToken);
 
         switch (outcome)
         {
             case LoginCommitOutcome.Committed:
-                break;
-
-            case LoginCommitOutcome.ReuseAccepted:
-                _logger.ReusedCodeAccepted(request.UserId, TotpReplayLog.Disable, request.IpAddress);
                 break;
 
             case LoginCommitOutcome.StepReused:

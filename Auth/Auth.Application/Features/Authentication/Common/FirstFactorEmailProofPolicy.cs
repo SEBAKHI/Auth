@@ -15,20 +15,15 @@ namespace Auth.Application.Features.Authentication.Common;
 /// <para>
 /// The code is required only while email is on: with <c>Email:Enabled</c> false
 /// nothing could deliver it, and the factor binds with the notice alone, as before —
-/// so the rule never becomes a dead end. <c>TwoFactor:RequireEmailCodeForFirstFactor</c>
-/// is the rollout switch in front of it.
+/// so the rule never becomes a dead end.
 /// </para>
 /// </remarks>
 public class FirstFactorEmailProofPolicy
 {
-    private readonly IOptionsMonitor<TwoFactorSettings> _twoFactor;
     private readonly IOptionsMonitor<EmailSettings> _email;
 
-    public FirstFactorEmailProofPolicy(
-        IOptionsMonitor<TwoFactorSettings> twoFactor,
-        IOptionsMonitor<EmailSettings> email)
+    public FirstFactorEmailProofPolicy(IOptionsMonitor<EmailSettings> email)
     {
-        _twoFactor = twoFactor;
         _email = email;
     }
 
@@ -36,11 +31,10 @@ public class FirstFactorEmailProofPolicy
     /// Gets whether binding a first factor needs the emailed code right now.
     /// </summary>
     /// <remarks>
-    /// Read per call, so both settings are hot. A request reads it once and keeps
-    /// the answer, so a setting flipped mid-request cannot split one decision in two.
+    /// Read per call, so the setting is hot. A request reads it once and keeps the
+    /// answer, so a setting flipped mid-request cannot split one decision in two.
     /// <c>Email:Enabled</c> is read the way the email channel reads it, so the code is
     /// never required at an instant the channel would not send it.
     /// </remarks>
-    public bool IsRequired =>
-        _twoFactor.CurrentValue.RequireEmailCodeForFirstFactor && _email.CurrentValue.Enabled;
+    public bool IsRequired => _email.CurrentValue.Enabled;
 }

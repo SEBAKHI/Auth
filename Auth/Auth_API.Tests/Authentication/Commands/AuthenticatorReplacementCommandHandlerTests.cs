@@ -98,7 +98,6 @@ public class AuthenticatorReplacementCommandHandlerTests
                 _totp.Object,
                 TestHelpers.CreateOptions(new JwtSettings { Issuer = "https://auth.example.com" }),
                 Mock.Of<ILogger<AuthenticatorKeyFactory>>()),
-            new TotpReplayPolicy(TestHelpers.CreateOptions(_settings)),
             _users.Object,
             _beginLogger.Object);
 
@@ -140,7 +139,7 @@ public class AuthenticatorReplacementCommandHandlerTests
     {
         GivenFactor();
         _store.Setup(s => s.TryBeginReplacementAsync(
-                It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.Committed);
 
         var result = await Begin().Handle(new BeginAuthenticatorReplacementCommand(UserId, "111111", false, SessionId, null), CancellationToken.None);
@@ -151,37 +150,8 @@ public class AuthenticatorReplacementCommandHandlerTests
         _store.Verify(s => s.TryBeginReplacementAsync(
             UserId,
             It.Is<SecondFactorProof>(p => p.Method == SecondFactorMethod.Totp && p.Step == CurrentStep),
-            true,
             ProtectedPending,
             It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task Begin_ReusedCodeWithTheSwitchOff_SucceedsAndLogsTheReuse()
-    {
-        // Window W of X01: with RejectReusedCodes off a reused code settles, and the
-        // line an operator reviews is written here too.
-        _settings.RejectReusedCodes = false;
-        GivenFactor();
-        _store.Setup(s => s.TryBeginReplacementAsync(
-                It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(LoginCommitOutcome.ReuseAccepted);
-
-        var result = await Begin().Handle(new BeginAuthenticatorReplacementCommand(UserId, "111111", false, SessionId, null), CancellationToken.None);
-
-        result.IsError.Should().BeFalse();
-        result.Value.Secret.Should().Be("GENERATED");
-        _store.Verify(s => s.TryBeginReplacementAsync(
-            UserId, It.IsAny<SecondFactorProof>(), false, ProtectedPending, It.IsAny<CancellationToken>()), Times.Once);
-        _beginLogger.Verify(
-            l => l.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Reused two-factor code accepted")
-                    && v.ToString()!.Contains("replace-authenticator") && !v.ToString()!.Contains("111111")),
-                It.IsAny<Exception?>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
     }
 
     [Fact]

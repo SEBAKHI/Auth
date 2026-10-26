@@ -2181,17 +2181,11 @@ export const tr: TranslationResources = {
     twoFactor: {
       title: "İki faktörlü kimlik doğrulama",
       description:
-        "Kimlik doğrulama uygulamasındaki altı haneli kodların nasıl denetlendiği: girişte, bekleyen bir hesap silme işlemi iptal edilirken ve iki faktörlü kimlik doğrulama açılıp kapatılırken.",
-      rejectReusedCodes: "Yeniden kullanılan kodu reddet (tekrar saldırısı koruması)",
-      rejectReusedCodesHint:
-        "Tekrar saldırısı koruması (replay protection): kimlik doğrulama uygulamasından gelen her kod yalnızca bir kez kabul edilir. Bir kod yaklaşık 90 saniye geçerli kalır; bu ayar olmadan, bir kullanıcının parolasına sahip olan ve onun az önce yazdığı kodu gören biri — kodu anında aktaran bir oltalama sayfasında, omzunun üzerinden ya da paylaşılan bir ekranda — aynı kodu bu süre içinde yeniden kullanabilir. Yalnızca gerçek kullanıcıların reddedildiği bir olay sırasında kapatın; kapalıyken kabul edilen her yeniden kullanılmış kod günlüğe kaydedilir. Önerilen: açık.",
+        "Bir oturumun ikinci faktörünü değiştirmeden önce neye ihtiyaç duyduğu, platform yöneticilerinin bir ikinci faktör kanıtlaması gerekip gerekmediği ve e-postayla gönderilen bir giriş kodunun ne kadar süre geçerli kaldığı. Bir kimlik doğrulama uygulaması kodu her zaman yalnızca bir kez kabul edilir ve e-posta gönderimi açıkken bir hesabın ilk ikinci faktörü her zaman e-postasına gönderilen bir kod gerektirir; ikisinin de ayarı yoktur.",
       reauthenticationMaxAgeMinutes:
         "İki adımlı doğrulama değişiklikleri için oturumun tazeliği (dakika)",
       reauthenticationMaxAgeMinutesHint:
         "Yeniden kimlik doğrulama penceresi (re-authentication window): bir oturumun iki adımlı doğrulamayı kurabilmesi, açabilmesi veya kapatabilmesi için ne kadar yakın zamanda açılmış olması gerektiği. Daha eski bir oturumdan önce yeniden oturum açması istenir; böylece açık bırakılmış bir oturum ya da çalınmış bir erişim belirteci ikinci faktörü değiştiremez. Hiçbir değer bu denetimi kapatmaz. Önerilen: 15.",
-      requireEmailCodeForFirstFactor: "İlk ikinci faktörden önce e-posta kodu",
-      requireEmailCodeForFirstFactorHint:
-        "İlk bağlama koruması (first-comer protection): henüz ikinci faktörü olmayan bir hesap, ilkini açabilmek için doğrulanmış e-posta adresine gönderilen bir kodu da girmelidir; böylece yalnızca parolayı bilen biri kendi doğrulayıcı uygulamasını bağlayamaz. Yalnızca e-posta gönderimi açıkken geçerlidir; e-posta kapalıysa iki adımlı doğrulama, eskisi gibi, bu kod olmadan açılır. Yalnızca e-posta teslimi başarısız olur ve kullanıcılar iki adımlı doğrulamayı kuramazsa kapatın. Önerilen: açık.",
       enforceForPlatformAdmins: "Platform yöneticileri için iki faktörlü kimlik doğrulamayı zorunlu kıl",
       enforceForPlatformAdminsHint:
         "MFA zorunluluğu (MFA enforcement): yalnızca platform yöneticileri, yani bir platform izni olan herkes için geçerlidir. Açıkken, ikinci bir faktör kanıtlamamış bir yönetici oturumu hiçbir platform izni almaz ve önce bir faktör kurmaya ya da kod girmeye yönlendirilir. Uygulama kullanıcıları, ekipler ve kuruluş rolleri hiçbir zaman etkilenmez. Yalnızca her yöneticinin ikinci bir faktörü olduktan sonra açın. Önerilen: tüm yöneticiler kaydolduktan sonra açık.",

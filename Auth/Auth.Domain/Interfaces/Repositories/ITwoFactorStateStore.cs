@@ -126,13 +126,8 @@ public interface ITwoFactorStateStore
     /// the stored set only while it is still the one the proof was made against.
     /// Either both rows change or neither does.
     /// </summary>
-    /// <param name="rejectReusedSteps">
-    /// True to refuse a TOTP step that is not newer than the last one accepted.
-    /// False lets it settle, reported as <see cref="LoginCommitOutcome.ReuseAccepted"/>.
-    /// The caller decides; the store holds no policy.
-    /// </param>
     /// <returns>
-    /// <see cref="LoginCommitOutcome.Committed"/> (or <see cref="LoginCommitOutcome.ReuseAccepted"/>)
+    /// <see cref="LoginCommitOutcome.Committed"/>
     /// when both changed; otherwise the row that refused, and nothing was written:
     /// <see cref="LoginCommitOutcome.StepReused"/> when only the step held it back.
     /// </returns>
@@ -140,7 +135,6 @@ public interface ITwoFactorStateStore
         Guid challengeId,
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -155,7 +149,6 @@ public interface ITwoFactorStateStore
         TwoFactorChallengePurpose purpose,
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -166,10 +159,9 @@ public interface ITwoFactorStateStore
     /// </summary>
     /// <param name="userId">The user whose factor the code was checked against.</param>
     /// <param name="step">The absolute time step the code matched.</param>
-    /// <param name="rejectReusedSteps">As for <see cref="TryCommitLoginAsync"/>.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
-    /// <see cref="LoginCommitOutcome.Committed"/> or <see cref="LoginCommitOutcome.ReuseAccepted"/>
+    /// <see cref="LoginCommitOutcome.Committed"/>
     /// when the step was claimed; <see cref="LoginCommitOutcome.StepReused"/> when it
     /// was not newer; <see cref="LoginCommitOutcome.FactorLost"/> when the factor is
     /// gone or switched off.
@@ -177,7 +169,6 @@ public interface ITwoFactorStateStore
     Task<LoginCommitOutcome> TryClaimTotpStepAsync(
         Guid userId,
         long step,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -211,7 +202,6 @@ public interface ITwoFactorStateStore
     /// </param>
     /// <param name="recoveryCodesJson">The hashed recovery codes to store.</param>
     /// <param name="step">The absolute time step the code matched.</param>
-    /// <param name="rejectReusedSteps">As for <see cref="TryCommitLoginAsync"/>.</param>
     /// <param name="bindCodeId">
     /// The emailed code that proved the mailbox before this first factor, already
     /// checked and holding a reserved attempt; null when the bind needed none. It is
@@ -227,7 +217,7 @@ public interface ITwoFactorStateStore
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
-    /// <see cref="LoginCommitOutcome.Committed"/> (or <see cref="LoginCommitOutcome.ReuseAccepted"/>)
+    /// <see cref="LoginCommitOutcome.Committed"/>
     /// when all changed; <see cref="LoginCommitOutcome.ChallengeLost"/> when the emailed
     /// code was spent first by another request; <see cref="LoginCommitOutcome.AlreadyEnabled"/>
     /// when the factor is on already; <see cref="LoginCommitOutcome.FactorLost"/> when the
@@ -239,7 +229,6 @@ public interface ITwoFactorStateStore
         string protectedSecretSeen,
         string recoveryCodesJson,
         long step,
-        bool rejectReusedSteps,
         Guid? bindCodeId,
         SessionUpgrade sessionUpgrade,
         CancellationToken cancellationToken);
@@ -254,11 +243,10 @@ public interface ITwoFactorStateStore
     /// </summary>
     /// <param name="userId">The user stepping up.</param>
     /// <param name="proof">What the presented code proved.</param>
-    /// <param name="rejectReusedSteps">As for <see cref="TryCommitLoginAsync"/>.</param>
     /// <param name="sessionUpgrade">The session (and SSO session) to upgrade.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
-    /// <see cref="LoginCommitOutcome.Committed"/> (or <see cref="LoginCommitOutcome.ReuseAccepted"/>)
+    /// <see cref="LoginCommitOutcome.Committed"/>
     /// when the factor settled and the session was upgraded; otherwise nothing was
     /// written: <see cref="LoginCommitOutcome.StepReused"/> when a TOTP step was not
     /// newer, <see cref="LoginCommitOutcome.RecoveryCodesChanged"/> when the
@@ -269,7 +257,6 @@ public interface ITwoFactorStateStore
     Task<LoginCommitOutcome> TryCommitStepUpAsync(
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         SessionUpgrade sessionUpgrade,
         CancellationToken cancellationToken);
 
@@ -282,10 +269,9 @@ public interface ITwoFactorStateStore
     /// </summary>
     /// <param name="userId">The user switching the factor off.</param>
     /// <param name="proof">What the presented code proved.</param>
-    /// <param name="rejectReusedSteps">As for <see cref="TryCommitLoginAsync"/>.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
-    /// <see cref="LoginCommitOutcome.Committed"/> (or <see cref="LoginCommitOutcome.ReuseAccepted"/>)
+    /// <see cref="LoginCommitOutcome.Committed"/>
     /// when both changed; otherwise nothing was written, and the outcome names why:
     /// <see cref="LoginCommitOutcome.FactorLost"/> when no enabled factor is left,
     /// <see cref="LoginCommitOutcome.StepReused"/> when a TOTP step was not newer,
@@ -294,7 +280,6 @@ public interface ITwoFactorStateStore
     Task<LoginCommitOutcome> TryDisableAsync(
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -306,7 +291,6 @@ public interface ITwoFactorStateStore
     /// </summary>
     /// <param name="userId">The user regenerating the codes.</param>
     /// <param name="proof">What the presented code proved.</param>
-    /// <param name="rejectReusedSteps">As for <see cref="TryCommitLoginAsync"/>.</param>
     /// <param name="codesSeen">
     /// The stored set exactly as read before the code was checked. For a
     /// recovery-code proof the set the new one replaces is the proof's own (the
@@ -315,7 +299,7 @@ public interface ITwoFactorStateStore
     /// <param name="newCodesJson">The hashed new set.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
-    /// <see cref="LoginCommitOutcome.Committed"/> (or <see cref="LoginCommitOutcome.ReuseAccepted"/>)
+    /// <see cref="LoginCommitOutcome.Committed"/>
     /// when the new set is stored; otherwise nothing was written:
     /// <see cref="LoginCommitOutcome.StepReused"/> when a TOTP step was not newer,
     /// <see cref="LoginCommitOutcome.RecoveryCodesChanged"/> when the stored set changed
@@ -324,7 +308,6 @@ public interface ITwoFactorStateStore
     Task<LoginCommitOutcome> TryRegenerateCodesAsync(
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         string? codesSeen,
         string newCodesJson,
         CancellationToken cancellationToken);
@@ -337,7 +320,6 @@ public interface ITwoFactorStateStore
     /// </summary>
     /// <param name="userId">The user replacing the authenticator.</param>
     /// <param name="proof">What the presented code proved, against the CURRENT factor.</param>
-    /// <param name="rejectReusedSteps">As for <see cref="TryCommitLoginAsync"/>.</param>
     /// <param name="protectedPendingSecret">The new secret, already encrypted.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
@@ -347,7 +329,6 @@ public interface ITwoFactorStateStore
     Task<LoginCommitOutcome> TryBeginReplacementAsync(
         Guid userId,
         SecondFactorProof proof,
-        bool rejectReusedSteps,
         string protectedPendingSecret,
         CancellationToken cancellationToken);
 
@@ -432,7 +413,7 @@ public interface ITwoFactorStateStore
     /// as <see cref="TryEnableAsync"/> does.
     /// </summary>
     /// <returns>
-    /// <see cref="LoginCommitOutcome.Committed"/> (or <see cref="LoginCommitOutcome.ReuseAccepted"/>)
+    /// <see cref="LoginCommitOutcome.Committed"/>
     /// when the app replaced the emailed code; otherwise nothing was written:
     /// <see cref="LoginCommitOutcome.ChallengeLost"/> when a code was spent or
     /// replaced first, <see cref="LoginCommitOutcome.RecoveryCodesChanged"/> when the
@@ -445,7 +426,6 @@ public interface ITwoFactorStateStore
         string protectedSecretSeen,
         string recoveryCodesJson,
         long step,
-        bool rejectReusedSteps,
         Guid? bindCodeId,
         SessionUpgrade sessionUpgrade,
         CancellationToken cancellationToken);

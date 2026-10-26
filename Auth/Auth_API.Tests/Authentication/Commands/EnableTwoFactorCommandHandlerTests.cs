@@ -60,10 +60,7 @@ public class EnableTwoFactorCommandHandlerTests
             verifier,
             _stateStoreMock.Object,
             _totpServiceMock.Object,
-            new TotpReplayPolicy(TestHelpers.CreateOptions(_twoFactorSettings)),
-            new FirstFactorEmailProofPolicy(
-                TestHelpers.CreateOptions(_twoFactorSettings),
-                TestHelpers.CreateOptions(_emailSettings)),
+            new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_emailSettings)),
             new FirstFactorEmailProof(
                 _bindCodeRepositoryMock.Object,
                 _userRepositoryMock.Object,
@@ -117,7 +114,7 @@ public class EnableTwoFactorCommandHandlerTests
     private void GivenCommit(Guid userId, LoginCommitOutcome outcome) =>
         _stateStoreMock
             .Setup(s => s.TryEnableAsync(
-                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(outcome);
 
     // ── T4: enable checks the code like any second factor ───────────────────
@@ -151,7 +148,6 @@ public class EnableTwoFactorCommandHandlerTests
                 ProtectedSecret,
                 "[\"hash:AAAA-1111\",\"hash:BBBB-2222\"]",
                 MatchedStep,
-                true,
                 null,
                 It.IsAny<SessionUpgrade>(),
                 It.IsAny<CancellationToken>()),
@@ -178,11 +174,11 @@ public class EnableTwoFactorCommandHandlerTests
             .ReturnsAsync(() => failures >= TwoFactorAuth.MaxFailedAttempts ? null : ++failures);
         _stateStoreMock
             .Setup(s => s.TryEnableAsync(
-                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .Callback(() => failures = 0)
             .ReturnsAsync(LoginCommitOutcome.Committed);
         _stateStoreMock
-            .Setup(s => s.TryClaimTotpStepAsync(userId, It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryClaimTotpStepAsync(userId, It.IsAny<long>(), It.IsAny<CancellationToken>()))
             .Callback(() => failures = 0)
             .ReturnsAsync(LoginCommitOutcome.Committed);
 
@@ -200,7 +196,7 @@ public class EnableTwoFactorCommandHandlerTests
         _totpServiceMock.Verify(t => t.ValidateCode(PlainSecret, "123456"), Times.Never);
         _stateStoreMock.Verify(
             s => s.TryEnableAsync(
-                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()),
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -267,7 +263,7 @@ public class EnableTwoFactorCommandHandlerTests
         var order = new List<string>();
         _stateStoreMock
             .Setup(s => s.TryEnableAsync(
-                userId, ProtectedSecret, It.IsAny<string>(), MatchedStep, true, null, It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
+                userId, ProtectedSecret, It.IsAny<string>(), MatchedStep, null, It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("commit with the step"))
             .ReturnsAsync(LoginCommitOutcome.Committed);
         _eventDispatcherMock
@@ -280,39 +276,11 @@ public class EnableTwoFactorCommandHandlerTests
         await act.Should().ThrowAsync<InvalidOperationException>();
         order.Should().Equal("commit with the step", "dispatch");
         _stateStoreMock.Verify(
-            s => s.TryClaimTotpStepAsync(It.IsAny<Guid>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            s => s.TryClaimTotpStepAsync(It.IsAny<Guid>(), It.IsAny<long>(), It.IsAny<CancellationToken>()),
             Times.Never, "no separate claim runs after the events any more");
     }
 
     // ── With the rollout switch off ─────────────────────────────────────────
-
-    [Fact]
-    public async Task Handle_ReuseAcceptedWithTheSwitchOff_EnablesAndLogsTheAcceptedLine()
-    {
-        _twoFactorSettings.RejectReusedCodes = false;
-        var userId = Guid.NewGuid();
-        GivenPendingFactor(userId);
-        _stateStoreMock
-            .Setup(s => s.TryEnableAsync(
-                userId, It.IsAny<string>(), It.IsAny<string>(), MatchedStep, false, null, It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(LoginCommitOutcome.ReuseAccepted);
-
-        var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
-
-        result.IsError.Should().BeFalse();
-        _loggerMock.Verify(
-            l => l.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) =>
-                    v.ToString()!.Contains("Reused two-factor code accepted (RejectReusedCodes=false)")
-                    && v.ToString()!.Contains("enable")
-                    && v.ToString()!.Contains(ClientIp)
-                    && !v.ToString()!.Contains("123456")),
-                It.IsAny<Exception?>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
-    }
 
     // ── What follows a commit ───────────────────────────────────────────────
 
@@ -328,7 +296,7 @@ public class EnableTwoFactorCommandHandlerTests
             .Returns<string>(code => $"hash:{code}");
         _stateStoreMock
             .Setup(s => s.TryEnableAsync(
-                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add($"commit:{user.DomainEvents.Count}"))
             .ReturnsAsync(LoginCommitOutcome.Committed);
         TwoFactorEnabledEvent? raised = null;
@@ -361,7 +329,7 @@ public class EnableTwoFactorCommandHandlerTests
         _guardMock.Verify(g => g.EnsureRecentSignInAsync(userId, SessionId, cts.Token), Times.Once);
         _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), cts.Token), Times.Once);
         _stateStoreMock.Verify(
-            s => s.TryEnableAsync(userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), cts.Token),
+            s => s.TryEnableAsync(userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), cts.Token),
             Times.Once);
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), CancellationToken.None), Times.Once);
@@ -387,7 +355,7 @@ public class EnableTwoFactorCommandHandlerTests
         result.IsError.Should().BeFalse();
         _stateStoreMock.Verify(
             s => s.TryEnableAsync(
-                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<Guid?>(),
+                userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<Guid?>(),
                 It.Is<SessionUpgrade>(u => u.SessionId == SessionId && FakeCredentialHasher.CandidatesOf("idp-hash").Equals(u.IdpHashes)
                     && u.Method == AuthenticationMethods.Totp),
                 It.IsAny<CancellationToken>()),

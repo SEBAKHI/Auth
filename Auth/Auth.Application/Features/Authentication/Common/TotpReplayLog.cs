@@ -1,10 +1,11 @@
 namespace Auth.Application.Features.Authentication.Common;
 
 /// <summary>
-/// The two warning lines a reused authenticator-app code leaves, worded once.
-/// While the rollout switch exists an operator reviews them by searching for this
-/// exact text, so every place that claims a code's step writes the same line —
-/// never a near copy that the search would miss.
+/// The warning line a reused authenticator-app code leaves, worded once.
+/// Operators search for this exact text as a security signal — a code presented
+/// again may have been seen over someone's shoulder or relayed by a phishing page —
+/// so every place that claims a code's step writes the same line, never a near
+/// copy that the search would miss.
 /// </summary>
 internal static class TotpReplayLog
 {
@@ -24,15 +25,5 @@ internal static class TotpReplayLog
     public static void ReusedCodeRejected(this ILogger logger, Guid userId, string surface, string? ipAddress) =>
         logger.LogWarning(
             "Reused two-factor code rejected for user {UserId} on {Surface} from {IpAddress}",
-            userId, surface, ipAddress);
-
-    /// <summary>
-    /// A code whose step was already accepted was let through, because
-    /// TwoFactor:RejectReusedCodes is off. The account and the surface, never
-    /// the code.
-    /// </summary>
-    public static void ReusedCodeAccepted(this ILogger logger, Guid userId, string surface, string? ipAddress) =>
-        logger.LogWarning(
-            "Reused two-factor code accepted (RejectReusedCodes=false) for user {UserId} on {Surface} from {IpAddress}",
             userId, surface, ipAddress);
 }

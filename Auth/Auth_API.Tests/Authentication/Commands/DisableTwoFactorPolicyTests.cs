@@ -52,7 +52,6 @@ public class DisableTwoFactorPolicyTests
             policy,
             _verifier.Object,
             _store.Object,
-            new TotpReplayPolicy(TestHelpers.CreateOptions(_settings)),
             Mock.Of<IUserRepository>(),
             Mock.Of<ICredentialRevocationService>(),
             Mock.Of<IDomainEventDispatcher>(),

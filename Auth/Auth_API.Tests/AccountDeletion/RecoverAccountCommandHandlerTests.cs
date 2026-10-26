@@ -67,7 +67,6 @@ public class RecoverAccountCommandHandlerTests
             new FakeCredentialHasher(),
             new Mock<IJwtTokenService>().Object,
             TestHelpers.CreateSecondFactorLockout(),
-            new TotpReplayPolicy(TestHelpers.CreateOptions(_twoFactorSettings)),
             _loginResponseBuilderMock.Object,
             _publisherMock.Object,
             _recovererLoggerMock.Object);
@@ -229,7 +228,7 @@ public class RecoverAccountCommandHandlerTests
         var user = SetupPendingDeletionUser(twoFactorEnabled: true);
         GivenFactor(user.Id, isEnabled: true);
         _stateStoreMock
-            .Setup(s => s.TryClaimTotpStepAsync(user.Id, MatchedStep, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryClaimTotpStepAsync(user.Id, MatchedStep, It.IsAny<CancellationToken>()))
             .ReturnsAsync(claim);
         return user;
     }
@@ -260,7 +259,7 @@ public class RecoverAccountCommandHandlerTests
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("TwoFactor.CodeAlreadyUsed");
         _stateStoreMock.Verify(
-            s => s.TryClaimTotpStepAsync(user.Id, MatchedStep, true, It.IsAny<CancellationToken>()),
+            s => s.TryClaimTotpStepAsync(user.Id, MatchedStep, It.IsAny<CancellationToken>()),
             Times.Once);
         VerifyNothingRecovered();
         _recovererLoggerMock.Verify(
@@ -282,7 +281,7 @@ public class RecoverAccountCommandHandlerTests
         var user = GivenEnabledFactorAndValidCode(LoginCommitOutcome.Committed);
         var order = new List<string>();
         _stateStoreMock
-            .Setup(s => s.TryClaimTotpStepAsync(user.Id, MatchedStep, true, It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryClaimTotpStepAsync(user.Id, MatchedStep, It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("claim"))
             .ReturnsAsync(LoginCommitOutcome.Committed);
         _requestRepositoryMock
@@ -311,7 +310,7 @@ public class RecoverAccountCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         _stateStoreMock.Verify(
-            s => s.TryClaimTotpStepAsync(It.IsAny<Guid>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            s => s.TryClaimTotpStepAsync(It.IsAny<Guid>(), It.IsAny<long>(), It.IsAny<CancellationToken>()),
             Times.Never);
         _userRepositoryMock.Verify(r => r.RestoreAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
         _recovererLoggerMock.Verify(
@@ -319,35 +318,6 @@ public class RecoverAccountCommandHandlerTests
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("without a step claim")),
-                It.IsAny<Exception?>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
-    }
-
-    [Fact]
-    public async Task Handle_ReuseAcceptedWithTheSwitchOff_RecoversAndLogsTheReuse()
-    {
-        // TwoFactor:RejectReusedCodes off: the store let the reused step settle.
-        // Turning the switch off must relax recovery, never break it, so the
-        // account is restored — and the reuse is logged for the operator. The
-        // switch is read per request, not when the recoverer was built.
-        _twoFactorSettings.RejectReusedCodes = false;
-        var user = GivenEnabledFactorAndValidCode(LoginCommitOutcome.Committed);
-        _stateStoreMock
-            .Setup(s => s.TryClaimTotpStepAsync(user.Id, MatchedStep, false, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(LoginCommitOutcome.ReuseAccepted);
-
-        var result = await _handler.Handle(CreateCommand(twoFactorCode: "123456"), CancellationToken.None);
-
-        result.IsError.Should().BeFalse();
-        _userRepositoryMock.Verify(r => r.RestoreAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
-        _recovererLoggerMock.Verify(
-            l => l.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) =>
-                    v.ToString()!.Contains("Reused two-factor code accepted (RejectReusedCodes=false)")
-                    && v.ToString()!.Contains("account-recovery")),
                 It.IsAny<Exception?>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
@@ -373,7 +343,7 @@ public class RecoverAccountCommandHandlerTests
         // token is issued.
         var user = GivenEnabledFactorAndValidCode(LoginCommitOutcome.Committed);
         _stateStoreMock
-            .Setup(s => s.TryClaimTotpStepAsync(user.Id, MatchedStep, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryClaimTotpStepAsync(user.Id, MatchedStep, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Invalid column name 'LastUsedTimeStep'."));
 
         var act = () => _handler.Handle(CreateCommand(twoFactorCode: "123456"), CancellationToken.None);
@@ -570,7 +540,7 @@ public class RecoverAccountCommandHandlerTests
         result.FirstError.Code.Should().Be(UserErrors.InvalidTwoFactorCode.Code);
         order.Should().Equal("reserve", "verify");
         _stateStoreMock.Verify(
-            s => s.TryClaimTotpStepAsync(It.IsAny<Guid>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            s => s.TryClaimTotpStepAsync(It.IsAny<Guid>(), It.IsAny<long>(), It.IsAny<CancellationToken>()),
             Times.Never, "a wrong code settles nothing, so the failure stays counted");
         VerifyNothingRecovered();
     }
@@ -592,7 +562,7 @@ public class RecoverAccountCommandHandlerTests
         _secretProtectorMock.Verify(
             p => p.UnprotectAsync(user.Id, ProtectedSecret, It.IsAny<CancellationToken>()), Times.Once);
         _stateStoreMock.Verify(
-            s => s.TryClaimTotpStepAsync(It.IsAny<Guid>(), It.IsAny<long>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            s => s.TryClaimTotpStepAsync(It.IsAny<Guid>(), It.IsAny<long>(), It.IsAny<CancellationToken>()),
             Times.Never);
         _userRepositoryMock.Verify(r => r.RestoreAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
         _recovererLoggerMock.Verify(

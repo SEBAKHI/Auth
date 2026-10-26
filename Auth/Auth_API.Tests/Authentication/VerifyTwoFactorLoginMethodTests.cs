@@ -56,7 +56,6 @@ public class VerifyTwoFactorLoginMethodTests
             ],
             TestHelpers.CreateSecondFactorLockout()),
         _store.Object,
-        new TotpReplayPolicy(TestHelpers.CreateOptions(new TwoFactorSettings())),
         _users.Object,
         Mock.Of<ILoginAttemptRepository>(),
         _keys,
@@ -74,7 +73,7 @@ public class VerifyTwoFactorLoginMethodTests
         _store.Setup(s => s.GetSnapshotAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(EmailRow(_user.Id));
         _store.Setup(s => s.TryReserveEmailCodeAttemptAsync(_user.Id, It.IsAny<int?>(), It.IsAny<CancellationToken>())).ReturnsAsync(1);
         _store.Setup(s => s.TryCommitLoginAsync(
-                challenge.Id, _user.Id, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                challenge.Id, _user.Id, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.Committed);
         return challenge;
     }

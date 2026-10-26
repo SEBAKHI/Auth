@@ -31,15 +31,14 @@ public class TwoFactorStateStoreSqlTests
         "UPDATE dbo.TwoFactorAuth SET IsEnabled = 1, EnabledAt = SYSUTCDATETIME(), RecoveryCodes = @RecoveryCodes, "
         + "RecoveryCodesQualified = 1, "
         + "FailedAttempts = 0, LockedUntil = NULL, LastUsedAt = SYSUTCDATETIME(), ModifiedAt = SYSUTCDATETIME(), "
-        + "LastUsedTimeStep = CASE WHEN LastUsedTimeStep >= @Step THEN LastUsedTimeStep ELSE @Step END "
-        + "OUTPUT deleted.LastUsedTimeStep "
+        + "LastUsedTimeStep = @Step "
         + "WHERE UserId = @UserId AND IsEnabled = 0 AND EmailCodeEnabledAt IS NULL AND SecretKey = @SecretSeen "
-        + "AND (@RejectReused = 0 OR LastUsedTimeStep IS NULL OR LastUsedTimeStep < @Step)";
+        + "AND (LastUsedTimeStep IS NULL OR LastUsedTimeStep < @Step)";
 
     private const string ExpectedRemoveWithTotp =
-        "DELETE FROM dbo.TwoFactorAuth OUTPUT deleted.LastUsedTimeStep "
+        "DELETE FROM dbo.TwoFactorAuth "
         + "WHERE UserId = @UserId AND IsEnabled = 1 "
-        + "AND (@RejectReused = 0 OR LastUsedTimeStep IS NULL OR LastUsedTimeStep < @Step)";
+        + "AND (LastUsedTimeStep IS NULL OR LastUsedTimeStep < @Step)";
 
     private const string ExpectedRemoveWithRecoveryCode =
         "DELETE FROM dbo.TwoFactorAuth WHERE UserId = @UserId AND IsEnabled = 1 AND RecoveryCodes = @OldCodes";
@@ -77,16 +76,20 @@ public class TwoFactorStateStoreSqlTests
     private static bool Writes(RecordedCommand command, string table) =>
         Regex.IsMatch(command.CommandText, $@"^\s*(UPDATE|DELETE FROM)\s+\[dbo\]\.\[{table}\]");
 
-    private static bool ReturnsTheStep(RecordedCommand command) =>
-        command.CommandText.Contains("OUTPUT deleted.[LastUsedTimeStep]", StringComparison.Ordinal);
+    // A statement that claims a TOTP step: its affected-row count is the answer.
+    private static bool ClaimsTheStep(RecordedCommand command) =>
+        command.CommandText.Contains("[LastUsedTimeStep] < @Step", StringComparison.Ordinal);
+
+    // The step claim refused (the step was not newer), every other statement matched.
+    private static int StepRefused(RecordedCommand command) => ClaimsTheStep(command) ? 0 : 1;
 
     private static bool IsTheRead(RecordedCommand command) =>
         command.CommandText.TrimStart().StartsWith("SELECT [IsEnabled]", StringComparison.Ordinal);
 
     private static Task<LoginCommitOutcome> Enable(
-        TwoFactorStateStore store, Guid userId, bool rejectReused = true, Guid? bindCodeId = null) =>
+        TwoFactorStateStore store, Guid userId, Guid? bindCodeId = null) =>
         store.TryEnableAsync(
-            userId, SecretSeen, NewCodes, Step, rejectReused, bindCodeId,
+            userId, SecretSeen, NewCodes, Step, bindCodeId,
             new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None);
 
     // ── A4: the factor row and the account flag in one transaction ──────────
@@ -97,9 +100,7 @@ public class TwoFactorStateStoreSqlTests
         var userId = Guid.NewGuid();
 
         // Enable, both statements matched: both inside one transaction, committed.
-        var enabled = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null);
+        var enabled = new RecordingDbConnectionFactory(affectedRows: 1);
         (await Enable(new TwoFactorStateStore(enabled), userId)).Should().Be(LoginCommitOutcome.Committed);
         // S08: the session the code was entered in is upgraded last, inside the same
         // transaction (no SSO cookie here, so no SSO session statement).
@@ -114,10 +115,8 @@ public class TwoFactorStateStoreSqlTests
         enabled.LastTransaction!.Committed.Should().BeTrue();
 
         // Disable, both statements matched: likewise.
-        var disabled = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)(Step - 1) } : null);
-        (await new TwoFactorStateStore(disabled).TryDisableAsync(userId, SecondFactorProof.Totp(Step), true, CancellationToken.None))
+        var disabled = new RecordingDbConnectionFactory(affectedRows: 1);
+        (await new TwoFactorStateStore(disabled).TryDisableAsync(userId, SecondFactorProof.Totp(Step), CancellationToken.None))
             .Should().Be(LoginCommitOutcome.Committed);
         disabled.Commands.Should().HaveCount(2);
         disabled.Commands.Should().OnlyContain(command => command.InTransaction);
@@ -131,12 +130,11 @@ public class TwoFactorStateStoreSqlTests
         foreach (var run in new Func<TwoFactorStateStore, Task<LoginCommitOutcome>>[]
                  {
                      store => Enable(store, userId),
-                     store => store.TryDisableAsync(userId, SecondFactorProof.RecoveryCode(OldCodes, NewCodes, qualified: true), true, CancellationToken.None),
+                     store => store.TryDisableAsync(userId, SecondFactorProof.RecoveryCode(OldCodes, NewCodes, qualified: true), CancellationToken.None),
                  })
         {
             var lost = new RecordingDbConnectionFactory(
                 affectedRows: 1,
-                rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null,
                 affectedFor: command => Writes(command, "Users") ? 0 : 1);
 
             (await run(new TwoFactorStateStore(lost))).Should().Be(LoginCommitOutcome.FactorLost);
@@ -153,10 +151,11 @@ public class TwoFactorStateStoreSqlTests
         var userId = Guid.NewGuid();
         var db = new RecordingDbConnectionFactory(
             affectedRows: 1,
-            rowFor: command => IsTheRead(command) ? new { IsEnabled = true } : null);
+            rowFor: command => IsTheRead(command) ? new { IsEnabled = true } : null,
+            affectedFor: StepRefused);
 
         var outcome = await new TwoFactorStateStore(db)
-            .TryDisableAsync(userId, SecondFactorProof.Totp(Step), true, CancellationToken.None);
+            .TryDisableAsync(userId, SecondFactorProof.Totp(Step), CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.StepReused, "the factor is on, so only the step held it back");
         db.Commands.Should().HaveCount(2, "the refused removal, then the read that names the refusal");
@@ -177,9 +176,7 @@ public class TwoFactorStateStoreSqlTests
         // was checked against — the text as read: the encryption uses a random
         // nonce, so a re-encryption of the same secret would never compare equal.
         var userId = Guid.NewGuid();
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null);
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         await Enable(new TwoFactorStateStore(db), userId);
 
@@ -189,7 +186,7 @@ public class TwoFactorStateStoreSqlTests
         enable.Parameters["UserId"].Should().Be(userId);
         enable.Parameters["RecoveryCodes"].Should().Be(NewCodes);
         enable.Parameters["Step"].Should().Be(Step, "the code that switched the factor on is claimed in the same statement");
-        enable.Parameters["RejectReused"].Should().Be(true);
+        enable.Parameters.Keys.Should().BeEquivalentTo(["UserId", "SecretSeen", "RecoveryCodes", "Step"]);
         Sql(db.Commands[1]).Should().Be(ExpectedAccountFlag);
     }
 
@@ -202,7 +199,8 @@ public class TwoFactorStateStoreSqlTests
         // replaced (it is off but no longer the one seen): nothing was written.
         var db = new RecordingDbConnectionFactory(
             affectedRows: 1,
-            rowFor: command => IsTheRead(command) ? new { IsEnabled = isEnabled } : null);
+            rowFor: command => IsTheRead(command) ? new { IsEnabled = isEnabled } : null,
+            affectedFor: StepRefused);
 
         var outcome = await Enable(new TwoFactorStateStore(db), Guid.NewGuid());
 
@@ -211,22 +209,6 @@ public class TwoFactorStateStoreSqlTests
         db.Commands.Should().NotContain(command => Writes(command, "Users"));
         db.LastTransaction!.RolledBack.Should().BeTrue();
         db.Commands[1].InTransaction.Should().BeFalse();
-    }
-
-    [Theory]
-    [InlineData(null, LoginCommitOutcome.Committed)]
-    [InlineData(Step, LoginCommitOutcome.ReuseAccepted)]
-    public async Task Enable_SwitchOff_ReportsAReuseItLetThrough(long? stepBefore, LoginCommitOutcome expected)
-    {
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = stepBefore } : null);
-
-        var outcome = await Enable(new TwoFactorStateStore(db), Guid.NewGuid(), rejectReused: false);
-
-        outcome.Should().Be(expected);
-        db.Commands[0].Parameters["RejectReused"].Should().Be(false);
-        db.LastTransaction!.Committed.Should().BeTrue();
     }
 
     // ── X02 PR B: the emailed code that a first factor needs ────────────────
@@ -244,9 +226,7 @@ public class TwoFactorStateStoreSqlTests
         // takes its challenge in.
         var userId = Guid.NewGuid();
         var codeId = Guid.NewGuid();
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null);
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         var outcome = await Enable(new TwoFactorStateStore(db), userId, bindCodeId: codeId);
 
@@ -294,7 +274,8 @@ public class TwoFactorStateStoreSqlTests
         // the user can still use it, and the refusal is named after it.
         var db = new RecordingDbConnectionFactory(
             affectedRows: 1,
-            rowFor: command => IsTheRead(command) ? new { IsEnabled = true } : null);
+            rowFor: command => IsTheRead(command) ? new { IsEnabled = true } : null,
+            affectedFor: StepRefused);
 
         var outcome = await Enable(new TwoFactorStateStore(db), Guid.NewGuid(), bindCodeId: Guid.NewGuid());
 
@@ -310,10 +291,8 @@ public class TwoFactorStateStoreSqlTests
     [Fact]
     public async Task Enable_WithoutBindCode_TouchesNoCode()
     {
-        // Email off, or the switch: the bind needs no code and none is consumed.
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null);
+        // Email off: the bind needs no code and none is consumed.
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         (await Enable(new TwoFactorStateStore(db), Guid.NewGuid())).Should().Be(LoginCommitOutcome.Committed);
 
@@ -326,17 +305,15 @@ public class TwoFactorStateStoreSqlTests
     public async Task Disable_Totp_RemovesOnlyWhileTheStepIsNewer()
     {
         var userId = Guid.NewGuid();
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)(Step - 1) } : null);
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
-        await new TwoFactorStateStore(db).TryDisableAsync(userId, SecondFactorProof.Totp(Step), true, CancellationToken.None);
+        await new TwoFactorStateStore(db).TryDisableAsync(userId, SecondFactorProof.Totp(Step), CancellationToken.None);
 
         var remove = db.Commands[0];
         Sql(remove).Should().Be(ExpectedRemoveWithTotp);
         remove.Parameters["UserId"].Should().Be(userId);
         remove.Parameters["Step"].Should().Be(Step);
-        remove.Parameters["RejectReused"].Should().Be(true);
+        remove.Parameters.Keys.Should().BeEquivalentTo(["UserId", "Step"]);
         Sql(db.Commands[1]).Should().Be(ExpectedAccountFlag);
         db.Commands[1].Parameters["UserId"].Should().Be(userId);
     }
@@ -348,7 +325,7 @@ public class TwoFactorStateStoreSqlTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         var outcome = await new TwoFactorStateStore(db)
-            .TryDisableAsync(userId, SecondFactorProof.RecoveryCode(OldCodes, NewCodes, qualified: true), true, CancellationToken.None);
+            .TryDisableAsync(userId, SecondFactorProof.RecoveryCode(OldCodes, NewCodes, qualified: true), CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.Committed);
         var remove = db.Commands[0];
@@ -369,28 +346,11 @@ public class TwoFactorStateStoreSqlTests
             affectedRows: 0,
             rowFor: command => IsTheRead(command) ? new { IsEnabled = isEnabled } : null);
 
-        var outcome = await new TwoFactorStateStore(db).TryDisableAsync(Guid.NewGuid(), proof, true, CancellationToken.None);
+        var outcome = await new TwoFactorStateStore(db).TryDisableAsync(Guid.NewGuid(), proof, CancellationToken.None);
 
         outcome.Should().Be(expected);
         db.Commands.Should().NotContain(command => Writes(command, "Users"));
         db.LastTransaction!.RolledBack.Should().BeTrue();
-    }
-
-    [Theory]
-    [InlineData(null, LoginCommitOutcome.Committed)]
-    [InlineData(Step, LoginCommitOutcome.ReuseAccepted)]
-    [InlineData(Step + 1, LoginCommitOutcome.ReuseAccepted)]
-    public async Task Disable_SwitchOff_ReportsAReuseItLetThrough(long? stepBefore, LoginCommitOutcome expected)
-    {
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = stepBefore } : null);
-
-        var outcome = await new TwoFactorStateStore(db)
-            .TryDisableAsync(Guid.NewGuid(), SecondFactorProof.Totp(Step), false, CancellationToken.None);
-
-        outcome.Should().Be(expected);
-        db.Commands[0].Parameters["RejectReused"].Should().Be(false);
     }
 
     [Fact]
@@ -499,7 +459,7 @@ public class TwoFactorStateStoreSqlTests
     private static Task<LoginCommitOutcome> StepUp(
         TwoFactorStateStore store, Guid userId, SecondFactorProof proof, string? idpHash = "idp-hash") =>
         store.TryCommitStepUpAsync(
-            userId, proof, true,
+            userId, proof,
             new SessionUpgrade(StepUpSession, idpHash is null ? null : FakeCredentialHasher.CandidatesOf(CredentialPurpose.IdpSession, idpHash), AuthenticationMethods.From(proof.Method)), CancellationToken.None);
 
     [Fact]
@@ -519,9 +479,7 @@ public class TwoFactorStateStoreSqlTests
     public async Task StepUp_Totp_SettlesTheStep_ThenUpgradesBothSessions_InOneTransaction()
     {
         var userId = Guid.NewGuid();
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)(Step - 1) } : null);
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         var outcome = await StepUp(new TwoFactorStateStore(db), userId, SecondFactorProof.Totp(Step));
 
@@ -530,7 +488,7 @@ public class TwoFactorStateStoreSqlTests
         db.Commands.Should().OnlyContain(command => command.InTransaction,
             "the factor and the session change together or not at all");
         Writes(db.Commands[0], "TwoFactorAuth").Should().BeTrue("the factor row first, as every lifecycle transaction takes it");
-        ReturnsTheStep(db.Commands[0]).Should().BeTrue("the TOTP step claim, the statement sign-in uses");
+        ClaimsTheStep(db.Commands[0]).Should().BeTrue("the TOTP step claim, the statement sign-in uses");
         Sql(db.Commands[1]).Should().Be(ExpectedUserSessionUpgrade);
         db.Commands[1].Parameters["SessionId"].Should().Be(StepUpSession);
         db.Commands[1].Parameters["UserId"].Should().Be(userId);
@@ -561,7 +519,6 @@ public class TwoFactorStateStoreSqlTests
         // the meantime would be a code spent for nothing — and nothing is written.
         var db = new RecordingDbConnectionFactory(
             affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null,
             affectedFor: command => Writes(command, "UserSessions") ? 0 : 1);
 
         var outcome = await StepUp(new TwoFactorStateStore(db), Guid.NewGuid(), SecondFactorProof.Totp(Step));
@@ -576,7 +533,6 @@ public class TwoFactorStateStoreSqlTests
     {
         var db = new RecordingDbConnectionFactory(
             affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)null } : null,
             affectedFor: command => Writes(command, "IdpSessions") ? 0 : 1);
 
         (await StepUp(new TwoFactorStateStore(db), Guid.NewGuid(), SecondFactorProof.Totp(Step)))
@@ -589,7 +545,8 @@ public class TwoFactorStateStoreSqlTests
     {
         var db = new RecordingDbConnectionFactory(
             affectedRows: 1,
-            rowFor: command => IsTheRead(command) ? new { IsEnabled = true } : null);
+            rowFor: command => IsTheRead(command) ? new { IsEnabled = true } : null,
+            affectedFor: StepRefused);
 
         var outcome = await StepUp(new TwoFactorStateStore(db), Guid.NewGuid(), SecondFactorProof.Totp(Step));
 
@@ -617,7 +574,8 @@ public class TwoFactorStateStoreSqlTests
     {
         var db = new RecordingDbConnectionFactory(
             affectedRows: 1,
-            rowFor: command => IsTheRead(command) ? new { IsEnabled = false } : null);
+            rowFor: command => IsTheRead(command) ? new { IsEnabled = false } : null,
+            affectedFor: StepRefused);
 
         (await StepUp(new TwoFactorStateStore(db), Guid.NewGuid(), SecondFactorProof.Totp(Step)))
             .Should().Be(LoginCommitOutcome.FactorLost);
@@ -660,17 +618,15 @@ public class TwoFactorStateStoreSqlTests
     public async Task Regenerate_Totp_ClaimsTheStep_ThenReplacesTheSetSeen_InOneTransaction()
     {
         var userId = Guid.NewGuid();
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)(Step - 1) } : null);
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         var outcome = await new TwoFactorStateStore(db).TryRegenerateCodesAsync(
-            userId, SecondFactorProof.Totp(Step), true, OldCodes, NewCodes, CancellationToken.None);
+            userId, SecondFactorProof.Totp(Step), OldCodes, NewCodes, CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.Committed);
         db.Commands.Should().HaveCount(2);
         db.Commands.Should().OnlyContain(command => command.InTransaction);
-        ReturnsTheStep(db.Commands[0]).Should().BeTrue("the TOTP claim first");
+        ClaimsTheStep(db.Commands[0]).Should().BeTrue("the TOTP claim first");
         Sql(db.Commands[1]).Should().Be(ExpectedReplaceRecoveryCodes);
         db.Commands[1].Parameters["OldCodes"].Should().Be(OldCodes, "a TOTP proof replaces the set as read");
         db.Commands[1].Parameters["NewCodes"].Should().Be(NewCodes);
@@ -684,7 +640,7 @@ public class TwoFactorStateStoreSqlTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         var outcome = await new TwoFactorStateStore(db).TryRegenerateCodesAsync(
-            Guid.NewGuid(), SecondFactorProof.RecoveryCode(OldCodes, withoutTheCode, qualified: true), true, OldCodes, NewCodes, CancellationToken.None);
+            Guid.NewGuid(), SecondFactorProof.RecoveryCode(OldCodes, withoutTheCode, qualified: true), OldCodes, NewCodes, CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.Committed);
         db.Commands.Should().HaveCount(2);
@@ -699,12 +655,11 @@ public class TwoFactorStateStoreSqlTests
         // The claim matched; the set was replaced by a concurrent request (0 rows).
         var db = new RecordingDbConnectionFactory(
             affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)(Step - 1) }
-                : IsTheRead(command) ? new { IsEnabled = true } : null,
+            rowFor: command => IsTheRead(command) ? new { IsEnabled = true } : null,
             affectedFor: command => Sql(command) == ExpectedReplaceRecoveryCodes ? 0 : 1);
 
         var outcome = await new TwoFactorStateStore(db).TryRegenerateCodesAsync(
-            Guid.NewGuid(), SecondFactorProof.Totp(Step), true, OldCodes, NewCodes, CancellationToken.None);
+            Guid.NewGuid(), SecondFactorProof.Totp(Step), OldCodes, NewCodes, CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.RecoveryCodesChanged);
         db.LastTransaction!.RolledBack.Should().BeTrue("the claim must not stand without the new set");
@@ -714,12 +669,10 @@ public class TwoFactorStateStoreSqlTests
     [Fact]
     public async Task BeginReplacement_ClaimsTheStep_ThenStoresTheWaitingSecret_InOneTransaction()
     {
-        var db = new RecordingDbConnectionFactory(
-            affectedRows: 1,
-            rowFor: command => ReturnsTheStep(command) ? new { LastUsedTimeStep = (long?)(Step - 1) } : null);
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         var outcome = await new TwoFactorStateStore(db).TryBeginReplacementAsync(
-            Guid.NewGuid(), SecondFactorProof.Totp(Step), true, "v2:new-secret", CancellationToken.None);
+            Guid.NewGuid(), SecondFactorProof.Totp(Step), "v2:new-secret", CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.Committed);
         db.Commands.Should().HaveCount(2);

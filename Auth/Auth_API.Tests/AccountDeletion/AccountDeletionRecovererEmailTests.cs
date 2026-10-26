@@ -71,7 +71,6 @@ public class AccountDeletionRecovererEmailTests
         new FakeCredentialHasher(),
         Mock.Of<IJwtTokenService>(j => j.GenerateRefreshToken() == "unhanded-token"),
         TestHelpers.CreateSecondFactorLockout(),
-        new TotpReplayPolicy(TestHelpers.CreateOptions(new TwoFactorSettings())),
         _builder.Object,
         Mock.Of<IPublisher>(),
         NullLogger<AccountDeletionRecoverer>.Instance);
@@ -95,7 +94,7 @@ public class AccountDeletionRecovererEmailTests
                 challenge.Id, TwoFactorChallengePurpose.DeletionRecovery, TwoFactorChallenge.MaxAttempts, It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
         _store.Setup(s => s.TryCommitChallengeAsync(
-                challenge.Id, TwoFactorChallengePurpose.DeletionRecovery, _user.Id, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(),
+                challenge.Id, TwoFactorChallengePurpose.DeletionRecovery, _user.Id, It.IsAny<SecondFactorProof>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.Committed);
         return challenge;
@@ -131,7 +130,7 @@ public class AccountDeletionRecovererEmailTests
         // The order the name claims (OI-220 (10)): each step records itself.
         var order = new List<string>();
         _store.Setup(s => s.TryCommitChallengeAsync(
-                challenge.Id, TwoFactorChallengePurpose.DeletionRecovery, _user.Id, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(),
+                challenge.Id, TwoFactorChallengePurpose.DeletionRecovery, _user.Id, It.IsAny<SecondFactorProof>(),
                 It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("spent"))
             .ReturnsAsync(LoginCommitOutcome.Committed);
@@ -146,7 +145,7 @@ public class AccountDeletionRecovererEmailTests
         _signedInWith!.Value.IsMfaSatisfied.Should().BeFalse();
         _store.Verify(s => s.TryCommitChallengeAsync(
             challenge.Id, TwoFactorChallengePurpose.DeletionRecovery, _user.Id,
-            It.Is<SecondFactorProof>(p => p.Method == SecondFactorMethod.EmailCode), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            It.Is<SecondFactorProof>(p => p.Method == SecondFactorMethod.EmailCode), It.IsAny<CancellationToken>()),
             Times.Once);
         order.Should().Equal(["spent", "cancelled"],
             "an accepted code is spent before the request is cancelled, so it cannot be presented again");

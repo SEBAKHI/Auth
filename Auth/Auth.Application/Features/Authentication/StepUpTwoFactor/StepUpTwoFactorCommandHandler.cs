@@ -35,7 +35,6 @@ public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorComm
     private readonly IUserSessionRepository _sessionRepository;
     private readonly ISecondFactorVerifier _secondFactorVerifier;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
-    private readonly TotpReplayPolicy _replayPolicy;
     private readonly ICredentialHasher _credentialHasher;
     private readonly IPublisher _publisher;
     private readonly ILogger<StepUpTwoFactorCommandHandler> _logger;
@@ -44,7 +43,6 @@ public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorComm
         IUserSessionRepository sessionRepository,
         ISecondFactorVerifier secondFactorVerifier,
         ITwoFactorStateStore twoFactorStateStore,
-        TotpReplayPolicy replayPolicy,
         ICredentialHasher credentialHasher,
         IPublisher publisher,
         ILogger<StepUpTwoFactorCommandHandler> logger)
@@ -52,7 +50,6 @@ public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorComm
         _sessionRepository = sessionRepository;
         _secondFactorVerifier = secondFactorVerifier;
         _twoFactorStateStore = twoFactorStateStore;
-        _replayPolicy = replayPolicy;
         _credentialHasher = credentialHasher;
         _publisher = publisher;
         _logger = logger;
@@ -123,15 +120,11 @@ public class StepUpTwoFactorCommandHandler : IRequestHandler<StepUpTwoFactorComm
             proof.Value.Methods);
 
         var outcome = await _twoFactorStateStore.TryCommitStepUpAsync(
-            request.UserId, proof.Value, _replayPolicy.RejectReusedCodes, sessionUpgrade, cancellationToken);
+            request.UserId, proof.Value, sessionUpgrade, cancellationToken);
 
         switch (outcome)
         {
             case LoginCommitOutcome.Committed:
-                break;
-
-            case LoginCommitOutcome.ReuseAccepted:
-                _logger.ReusedCodeAccepted(request.UserId, TotpReplayLog.StepUp, request.IpAddress);
                 break;
 
             case LoginCommitOutcome.StepReused:

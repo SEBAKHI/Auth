@@ -55,7 +55,6 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
     private readonly ISecondFactorVerifier _secondFactorVerifier;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ITotpService _totpService;
-    private readonly TotpReplayPolicy _replayPolicy;
     private readonly FirstFactorEmailProofPolicy _emailProofPolicy;
     private readonly FirstFactorEmailProof _emailProof;
     private readonly IUserRepository _userRepository;
@@ -70,7 +69,6 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         ISecondFactorVerifier secondFactorVerifier,
         ITwoFactorStateStore twoFactorStateStore,
         ITotpService totpService,
-        TotpReplayPolicy replayPolicy,
         FirstFactorEmailProofPolicy emailProofPolicy,
         FirstFactorEmailProof emailProof,
         IUserRepository userRepository,
@@ -84,7 +82,6 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         _secondFactorVerifier = secondFactorVerifier;
         _twoFactorStateStore = twoFactorStateStore;
         _totpService = totpService;
-        _replayPolicy = replayPolicy;
         _emailProofPolicy = emailProofPolicy;
         _emailProof = emailProof;
         _userRepository = userRepository;
@@ -278,7 +275,6 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
                 secretSeen,
                 recoveryCodesJson,
                 step,
-                _replayPolicy.RejectReusedCodes,
                 bindCodeId,
                 sessionUpgrade,
                 cancellationToken)
@@ -288,7 +284,6 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
                 secretSeen,
                 recoveryCodesJson,
                 step,
-                _replayPolicy.RejectReusedCodes,
                 bindCodeId,
                 sessionUpgrade,
                 cancellationToken);
@@ -296,10 +291,6 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         switch (outcome)
         {
             case LoginCommitOutcome.Committed:
-                break;
-
-            case LoginCommitOutcome.ReuseAccepted:
-                _logger.ReusedCodeAccepted(request.UserId, TotpReplayLog.Enable, request.IpAddress);
                 break;
 
             case LoginCommitOutcome.AlreadyEnabled:

@@ -62,7 +62,6 @@ public class DisableTwoFactorCommandHandlerTests
             _platformMfaPolicyMock.Object,
             verifier,
             _stateStoreMock.Object,
-            new TotpReplayPolicy(TestHelpers.CreateOptions(_twoFactorSettings)),
             _userRepositoryMock.Object,
             _revocationMock.Object,
             _eventDispatcherMock.Object,
@@ -105,7 +104,7 @@ public class DisableTwoFactorCommandHandlerTests
 
     private void GivenCommit(Guid userId, LoginCommitOutcome outcome) =>
         _stateStoreMock
-            .Setup(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(outcome);
 
     private void VerifyNothingAfterTheCommit()
@@ -140,8 +139,8 @@ public class DisableTwoFactorCommandHandlerTests
         GivenEnabledFactor(userId);
         SecondFactorProof? committed = null;
         _stateStoreMock
-            .Setup(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), true, It.IsAny<CancellationToken>()))
-            .Callback<Guid, SecondFactorProof, bool, CancellationToken>((_, proof, _, _) => committed = proof)
+            .Setup(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
+            .Callback<Guid, SecondFactorProof, CancellationToken>((_, proof, _) => committed = proof)
             .ReturnsAsync(LoginCommitOutcome.Committed);
 
         var result = await _handler.Handle(CreateCommand(userId, "RECOVERY-1", useRecoveryCode: true), CancellationToken.None);
@@ -168,7 +167,6 @@ public class DisableTwoFactorCommandHandlerTests
             s => s.TryDisableAsync(
                 userId,
                 It.Is<SecondFactorProof>(p => p.Method == SecondFactorMethod.Totp && p.Step == MatchedStep),
-                true,
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -187,7 +185,7 @@ public class DisableTwoFactorCommandHandlerTests
         _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
         _totpServiceMock.Verify(t => t.ValidateCode(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         _stateStoreMock.Verify(
-            s => s.TryDisableAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            s => s.TryDisableAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -236,7 +234,7 @@ public class DisableTwoFactorCommandHandlerTests
         result.FirstError.Code.Should().Be(UserErrors.InvalidTwoFactorCode.Code);
         _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _stateStoreMock.Verify(
-            s => s.TryDisableAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            s => s.TryDisableAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()),
             Times.Never);
         VerifyNothingAfterTheCommit();
     }
@@ -312,26 +310,6 @@ public class DisableTwoFactorCommandHandlerTests
 
     // ── With the rollout switch off ─────────────────────────────────────────
 
-    [Fact]
-    public async Task Handle_ReuseAcceptedWithTheSwitchOff_DisablesAndLogsTheAcceptedLine()
-    {
-        // TwoFactor:RejectReusedCodes off: the store let the reused step through.
-        // The line the owner reviews weekly must still be written on this surface.
-        _twoFactorSettings.RejectReusedCodes = false;
-        var userId = Guid.NewGuid();
-        GivenEnabledFactor(userId);
-        _stateStoreMock
-            .Setup(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), false, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(LoginCommitOutcome.ReuseAccepted);
-
-        var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
-
-        result.IsError.Should().BeFalse();
-        VerifyWarning("Reused two-factor code accepted (RejectReusedCodes=false)", Times.Once());
-        _eventDispatcherMock.Verify(
-            d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), CancellationToken.None), Times.Once);
-    }
-
     // ── T3: after the commit ───────────────────────────────────────────────
 
     [Fact]
@@ -364,7 +342,7 @@ public class DisableTwoFactorCommandHandlerTests
         GivenEnabledFactor(userId);
         var order = new List<string>();
         _stateStoreMock
-            .Setup(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("commit"))
             .ReturnsAsync(LoginCommitOutcome.Committed);
         _revocationMock
@@ -425,7 +403,7 @@ public class DisableTwoFactorCommandHandlerTests
         _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), cts.Token), Times.Once);
         _userRepositoryMock.Verify(r => r.GetByIdAsync(userId, cts.Token), Times.Once);
         _stateStoreMock.Verify(
-            s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), cts.Token), Times.Once);
+            s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), cts.Token), Times.Once);
         _revocationMock.Verify(
             r => r.RevokeCredentialsAsync(userId, SessionId, IdpSessionToken, userId, It.IsAny<string>(), CancellationToken.None),
             Times.Once);

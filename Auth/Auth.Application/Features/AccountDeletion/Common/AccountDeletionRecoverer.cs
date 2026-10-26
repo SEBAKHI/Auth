@@ -44,7 +44,6 @@ public class AccountDeletionRecoverer
     private readonly ICredentialHasher _credentialHasher;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ISecondFactorLockout _lockout;
-    private readonly TotpReplayPolicy _replayPolicy;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly IPublisher _publisher;
     private readonly ILogger<AccountDeletionRecoverer> _logger;
@@ -59,7 +58,6 @@ public class AccountDeletionRecoverer
         ICredentialHasher credentialHasher,
         IJwtTokenService jwtTokenService,
         ISecondFactorLockout lockout,
-        TotpReplayPolicy replayPolicy,
         ILoginResponseBuilder loginResponseBuilder,
         IPublisher publisher,
         ILogger<AccountDeletionRecoverer> logger)
@@ -73,7 +71,6 @@ public class AccountDeletionRecoverer
         _credentialHasher = credentialHasher;
         _jwtTokenService = jwtTokenService;
         _lockout = lockout;
-        _replayPolicy = replayPolicy;
         _loginResponseBuilder = loginResponseBuilder;
         _publisher = publisher;
         _logger = logger;
@@ -349,7 +346,7 @@ public class AccountDeletionRecoverer
 
         var commit = await _twoFactorStateStore.TryCommitChallengeAsync(
             challenge.Id, TwoFactorChallengePurpose.DeletionRecovery, userId, proof.Value,
-            _replayPolicy.RejectReusedCodes, cancellationToken);
+            cancellationToken);
 
         return commit == LoginCommitOutcome.Committed
             ? proof.Value.Methods
@@ -454,7 +451,7 @@ public class AccountDeletionRecoverer
         }
 
         var claim = await _twoFactorStateStore.TryClaimTotpStepAsync(
-            userId, step, _replayPolicy.RejectReusedCodes, cancellationToken);
+            userId, step, cancellationToken);
 
         if (claim == LoginCommitOutcome.StepReused)
         {
@@ -462,11 +459,7 @@ public class AccountDeletionRecoverer
             return TwoFactorErrors.CodeAlreadyUsed;
         }
 
-        if (claim == LoginCommitOutcome.ReuseAccepted)
-        {
-            _logger.ReusedCodeAccepted(userId, TotpReplayLog.AccountRecovery, ipAddress);
-        }
-        else if (claim != LoginCommitOutcome.Committed)
+        if (claim != LoginCommitOutcome.Committed)
         {
             // The factor was switched off or removed between the read and the
             // claim: the answer a missing factor has always had here.
