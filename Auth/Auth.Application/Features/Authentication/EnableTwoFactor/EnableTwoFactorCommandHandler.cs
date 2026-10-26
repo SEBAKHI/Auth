@@ -132,7 +132,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
             return TwoFactorErrors.ReplacementProofRequired;
         }
 
-        // Read once: both settings are hot, and one request decides once. An emailed
+        // Read once: Email:Enabled is hot, and one request decides once. An emailed
         // proof that the emailed code may go went through the mailbox: it is the
         // first-factor mailbox proof too, so that code is never asked as well. A
         // recovery code proves no mailbox, so it is.

@@ -28,12 +28,16 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // check; the second finds the step taken and settles nothing.
     // IsEnabled = 1: a factor switched off after the code was checked settles
     // nothing either.
-    // There is no setting that lets a reused step through: every statement that
-    // raises the step carries StepIsNewer, so the step it writes is always newer
-    // than the one it replaces while the secret stays the same.
-    // The column is written only by statements of this store: raised by this
-    // claim and by switching the factor on, both through RaiseStep, and cleared
-    // when a pending secret is replaced — a new secret has no accepted code.
+    // There is no setting that lets a reused step through: RaiseStep is only ever
+    // written next to StepIsNewer, so for the same secret the step it writes is
+    // always newer than the one it replaces.
+    // The column is written only by statements of this store: raised through
+    // RaiseStep by this claim, by switching the factor on (EnableSql) and by
+    // switching the app on in place of the emailed code (EnableOverEmailCodeSql);
+    // set unconditionally by ConfirmReplacementSql to the step of the NEW secret's
+    // code, since no code of that secret was accepted before; and cleared by
+    // RotatePendingSecretSql and BindEmailCodeOverRowSql, whose new secret, or no
+    // secret, has no accepted code.
     private const string StepIsNewer =
         "([LastUsedTimeStep] IS NULL OR [LastUsedTimeStep] < @Step)";
 
@@ -831,7 +835,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         return await SettleThenWriteAsync(
             userId,
             proof,
-
             ReplaceRecoveryCodesSql,
             new { UserId = userId, OldCodes = oldCodes, NewCodes = newCodesJson },
             cancellationToken);
@@ -849,7 +852,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         return await SettleThenWriteAsync(
             userId,
             proof,
-
             StorePendingReplacementSql,
             new { UserId = userId, PendingSecretKey = protectedPendingSecret },
             cancellationToken);
@@ -1435,7 +1437,6 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             transaction,
             userId,
             proof.Step ?? throw new InvalidOperationException("A TOTP proof must carry the time step it matched."),
-
             cancellationToken);
 
     private static async Task<LoginCommitOutcome> SettleRecoveryCodeAsync(

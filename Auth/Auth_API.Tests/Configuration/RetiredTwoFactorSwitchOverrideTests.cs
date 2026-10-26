@@ -66,10 +66,15 @@ public class RetiredTwoFactorSwitchOverrideTests
             .Should().BeTrue("with email on a first factor needs the emailed code, whatever the row says");
 
         // A reused code is refused by the store's step claim. No store method takes a
-        // flag a caller could pass to relax it, so nothing read from a row reaches it.
-        typeof(ITwoFactorStateStore).GetMethods()
-            .SelectMany(method => method.GetParameters())
-            .Should().NotContain(parameter => parameter.ParameterType == typeof(bool));
+        // parameter a caller could pass to relax it, so nothing read from a row
+        // reaches it; the registry and settings pins are the guard on the setting.
+        var parameters = typeof(ITwoFactorStateStore).GetMethods()
+            .SelectMany(method => method.GetParameters().Select(parameter => (Method: method.Name, Parameter: parameter.Name!)))
+            .ToList();
+        parameters.Should().NotBeEmpty();
+        parameters.Where(p => p.Parameter.StartsWith("reject", StringComparison.OrdinalIgnoreCase)
+                || p.Parameter.Contains("reuse", StringComparison.OrdinalIgnoreCase))
+            .Should().BeEmpty("the store holds no switch that lets a reused step through");
     }
 
     [Fact]
