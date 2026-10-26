@@ -112,6 +112,25 @@ public class StartRegistrationCommandHandlerTests
         refusals.Distinct().Should().ContainSingle("one refusal, whatever the address is");
     }
 
+    [Theory]
+    [InlineData("free")]
+    [InlineData("existing")]
+    [InlineData("soft-deleted")]
+    [InlineData("reserved")]
+    public async Task ClosedServer_WithEmailOff_RefusesAsClosed_BeforeTouchingTheAddress(string kind)
+    {
+        // The closed door is checked first, so a shut server answers as before
+        // whatever the email switch says, and the guides can say so.
+        var scenario = Scenario.Of(kind);
+        scenario.Registration.AllowSelfRegistration = false;
+        scenario.Email.Enabled = false;
+
+        var result = await scenario.RunAsync(Command());
+
+        result.FirstError.Code.Should().Be(UserErrors.SelfRegistrationClosed.Code);
+        scenario.Calls.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task NothingIsCreated()
     {

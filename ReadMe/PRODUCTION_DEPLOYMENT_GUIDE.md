@@ -959,7 +959,8 @@ Check on a test account that the sign-in page offers the code, that one message 
 administrator with a password signing in by code is asked for the password. A platform administrator without
 a password signs in with the mailbox and the authenticator app only, and without the app the mailbox alone
 opens it. Four ways lead there: authority granted to an account with no password and no app; the first code
-confirmation of an administrator-created account without the app; the owner removing the password (refused
+confirmation, without the app, of an account whose address was never confirmed (one an administrator created,
+or a sign-up from before verify-first); the owner removing the password (refused
 until the app is bound) and then switching the app off, which is refused only while
 `TwoFactor:EnforceForPlatformAdmins` is on; and another administrator resetting the account's app. Wherever
 such administrators exist, keep `TwoFactor:EnforceForPlatformAdmins` on, give every such account the app

@@ -692,7 +692,8 @@ its holder can use.
 
 **No code step while email is off.** With `Email:Enabled` off, both starts — `email-code/start` and
 `registration/start` — refuse every address with `403 User.EmailCodeSignInUnavailable`, before the address is
-normalized or classified (a closed sign-up is checked first and keeps `User.SelfRegistrationClosed`), and so do
+normalized or classified (at `registration/start` a closed sign-up is checked first and keeps
+`User.SelfRegistrationClosed`), and so do
 the three steps that take a code — `email-code/verify`, `email-code/sign-in` and `email-code/recover` — before
 any lookup and without charging an attempt. The registration's start reuses the sign-in page's refusal: the
 same row, the same reason. Until this release it answered 200 with email off and stored a code nobody could
@@ -738,8 +739,9 @@ factor and its authenticator app its only second proof. With the app bound, the 
 lead to one that has neither a password nor the app:
 
 1. platform authority granted to an account that has no password and no app;
-2. the first code confirmation of an administrator-created account, which retires its unproven password
-   (below), while it has no app;
+2. the first code confirmation of an account whose address was never confirmed (one an administrator
+   created, or a sign-up from before verify-first), which retires its unproven password (below), while it has
+   no app;
 3. the owner removes the password (allowed only with the app bound) and then switches the app off, which is
    refused only while `TwoFactor:EnforceForPlatformAdmins` is on;
 4. another administrator resets the account's app, which checks that administrator's grants and the account's
