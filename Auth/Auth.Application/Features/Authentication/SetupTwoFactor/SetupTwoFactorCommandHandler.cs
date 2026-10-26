@@ -63,6 +63,18 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
             return session.Errors;
         }
 
+        // A first factor, too (D-215-1, REVIEW 110 F5): a password account signed in
+        // by emailed code proved its mailbox only, and an app bound from that session
+        // would lock the owner's next password sign-in behind a code they do not have.
+        // A passwordless account's code is its first factor, so it passes.
+        if (!session.Value.Methods.HasPrimary)
+        {
+            _logger.LogInformation(
+                "Two-factor setup for user {UserId} asked for a sign-in that proves a first factor (methods {AuthMethods})",
+                request.UserId, session.Value.Methods.Value);
+            return AuthErrors.ReauthenticationRequired;
+        }
+
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (user == null)
         {

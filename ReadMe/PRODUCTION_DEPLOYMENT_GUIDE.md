@@ -948,14 +948,20 @@ be saved off while email sending is off, and switching email off asks first, wit
 that sign in only by code.
 
 **Upgrading to the release with sign-in by emailed code** (OI-215), for each existing deployment, in this
-order: publish the database package first (three notification types and their templates, seed rows only, no
-table change); then the API; then the accounts and console applications, with a short gap — an older
+order: publish the database package first (three notification types and their templates, and two columns
+appended to `PendingRegistrations` with named defaults — `WrongCodeCount` and `WrongCodeWindowStartUtc`, the
+per-address wrong-code ceiling; read the generated script first, it must add them in place, never rebuild the
+table); then the API, which reads those columns in every start and every code check and answers 500 without
+them; then the
+accounts and console applications, with a short gap — an older
 application on the new API keeps its screens, and a newer application is never deployed before its API.
 Check on a test account that the sign-in page offers the code, that one message arrives, and that a platform
-administrator signing in by code is asked for the password. *Password at sign-up* and *Name at sign-up*
+administrator with a password signing in by code is asked for the password. A platform administrator without
+a password signs in with the mailbox and the authenticator app only: give every such account the app before
+the authority. *Password at sign-up* and *Name at sign-up*
 arrive on; turning the first off is a per-deployment choice, not part of the upgrade. To undo: turn
-*Password at sign-up* back on before redeploying the previous API and applications; the seed rows stay,
-unused. On the older build, a session that holds the new sign-in bit reads as an emailed code only, so an
+*Password at sign-up* back on before redeploying the previous API and applications; the seed rows and the two
+columns stay, unused by the older build. On the older build, a session that holds the new sign-in bit reads as an emailed code only, so an
 account without a password cannot manage its authenticator app until the new build returns, and signs in
 through "forgot password" (which sets a first password) or a provider.
 
@@ -990,6 +996,7 @@ All of these live under `"Email"` in `appsettings.Production.json`.
 | `ResetTokenExpirationMinutes` | `30` | Lifetime of a password-reset link. |
 | `RateLimitWindowSeconds` | `60` | Window for the per-user code request limit. |
 | `MaxOtpRequestsPerWindow` | `3` | How many codes one user may request per window. |
+| `MaxWrongCodesPerDay` | `20` | How many wrong sign-up or sign-in codes one address may enter in 24 hours, across every code and step; reached, its codes are refused until the window passes (the password, a provider and "forgot password" stay open). |
 
 **`Email:FrontendBaseUrl` refuses to start the application when it is not an absolute URL — empty,
 relative, or the base file's `{{FRONTEND_BASE_URL}}` placeholder — and `Email:Enabled` is `true`,

@@ -664,7 +664,8 @@ For development you do not need to touch this: `appsettings.Development.json` al
     "ResetTokenExpirationMinutes": 30,
     "RateLimitWindowSeconds": 60,
     "MaxOtpRequestsPerWindow": 3,
-    "Enabled": true
+    "Enabled": true,
+    "MaxWrongCodesPerDay": 20
   }
 }
 ```
@@ -677,6 +678,7 @@ For development you do not need to touch this: `appsettings.Development.json` al
 | `OtpExpirationMinutes` | How long a one-time code stays valid. The file sets 5 |
 | `ResetTokenExpirationMinutes` | How long a password-reset link stays valid. The file sets 30 |
 | `MaxOtpRequestsPerWindow`, `RateLimitWindowSeconds` | How many one-time codes a single recipient may request, and over what period |
+| `MaxWrongCodesPerDay` | How many wrong sign-up or sign-in codes one address may enter in 24 hours, whichever code and step they come through; then every code for it is refused until the window passes. 20 as shipped, 5–100 (see `email-code/start`) |
 | `Enabled` | Master switch, `true` in the base file (Development turns it off). `false` means no mail is sent at all |
 
 **`FrontendBaseUrl` will stop your startup if you get it wrong, and that is intentional.** With email on — the base file's default — an empty, relative or still-placeholder (`{{FRONTEND_BASE_URL}}`) value fails configuration validation immediately:
@@ -2576,7 +2578,7 @@ Self-registration is three requests, and this is the first. It takes an email ad
 }
 ```
 
-**The response is the same shape, with the same timing, for every address** — one that is free, one that already has an account, and one that a deleted account has reserved. Only what is mailed differs: a free address receives the code; an address that already has an account receives a notice that someone tried to sign up with it, with links to sign in or reset the password, and no code. So nothing about this endpoint tells a caller whether an address is registered here, and the same holds for the two requests that follow.
+**The response is the same shape, with the same timing, for every address** — one that is free, one that already has an account, and one that a deleted account has reserved. Only what is mailed differs: a free address receives the registration code; an address that already has an account receives the **sign-in code** (`email-sign-in-code`), exactly as `email-code/start` sends it (OI-215; before, a notice with no code); an address a deleted account has reserved receives a notice that someone tried to sign up with it, with links to sign in or reset the password, and no code. The code minted for an account opens that account (`email-code/sign-in`), so it is never minted without being sent to it. So nothing about this endpoint tells a caller whether an address is registered here, and the same holds for the two requests that follow.
 
 **Asking again rotates the code.** A second call for the same address while a code is live issues a new code and voids the old one; the handle stays the same. Each address may be mailed at most three times a minute, and a code stays valid until `expiresAt`.
 
@@ -2669,9 +2671,11 @@ The third request, and the only one that creates anything. It takes the handle, 
 
 The row is the registration's own: one live row and one mail window per address, shared with `registration/start`, so the two doors together never mail an address more than either would alone. Asking again rotates the code.
 
-**Errors:** `400` for an address that is not one; `403 User.EmailCodeSignInUnavailable` for **every** address while `Email:Enabled` is off (nothing could deliver a code), before any lookup.
+**Errors:** `400` for an address that is not one; `403 User.EmailCodeSignInUnavailable` for **every** address while `Email:Enabled` is off (nothing could deliver a code), before any lookup. The steps that take the code refuse the same way while email is off, so the screens need email to sign up too: a development machine runs with `Email:Enabled` on (in Development the API writes the code it sends to its log) or with a local mail sink.
 
-`registration/start` keeps its own behaviour for API clients (its closed door refuses before classification); the screens no longer call it.
+`registration/start` keeps its own door for API clients (its closed door refuses before classification), and classifies an address exactly as this start does; the screens no longer call it.
+
+**The wrong-code ceiling (D-110-2).** Each code has five tries. On top of that, every wrong code at any step that checks the pending row's code — `email-code/verify`, `email-code/sign-in`, `email-code/recover`, `registration/verify` and `registration/complete` — counts against the **address**, under the row's lock, in a window that opens at its first wrong code and lasts 24 hours. A new code never resets the count (a successful one ends the row). Once `Email:MaxWrongCodesPerDay` (default 20, 5–100) is reached, every code for that address is refused with **`400 EmailVerification.WrongCodeLimitReached`** — a right one too — until the window passes, before any comparison. The password, a provider and "forgot password" stay open. It is the same for every address, with an account or without.
 
 *In code:* `Auth/Auth.Application/Features/Authentication/StartEmailCodeSignIn/StartEmailCodeSignInCommandHandler.cs`.
 
@@ -2685,7 +2689,7 @@ Checks the code **without spending it**, and only after it matched says what com
 
 **Response (200):** `{ "step": "signIn" }`, `{ "step": "recover" }`, or `{ "step": "completeAccount", "passwordRequired": true, "nameRequired": false }` — the last with the fields the deployment's settings ask a new account for (`Registration:PasswordAtSignUp`, `Registration:NameAtSignUp`).
 
-**Errors:** `400 EmailVerification.InvalidOrExpiredOtp` / `EmailVerification.TooManyAttempts` (five wrong codes across every step of the row spend it); `403 User.SelfRegistrationClosed` for a matched code to an address with no account while sign-up is closed; `409 User.DuplicateEmail` for an account being deleted for good.
+**Errors:** `403 User.EmailCodeSignInUnavailable` while `Email:Enabled` is off, before any lookup and with no attempt charged (the same for `sign-in` and `recover`); `400 EmailVerification.InvalidOrExpiredOtp` / `EmailVerification.TooManyAttempts` (five wrong codes across every step of the row spend it) / `EmailVerification.WrongCodeLimitReached` (the address's wrong-code ceiling, above); `403 User.SelfRegistrationClosed` for a matched code to an address with no account while sign-up is closed; `409 User.DuplicateEmail` for an account being deleted for good.
 
 | `step` | Next request |
 |---|---|
@@ -2727,19 +2731,21 @@ Spends the code and signs in. A sign-in exit like `login`: it mints the browser 
 
 **Full proof is read from the platform claims, never from the enforcement switch.** A password account that holds a platform permission always proves its password after the code, whatever `TwoFactor:EnforceForPlatformAdmins` says: keyed on the switch, a mailbox holder would reach an administrator whenever it is off. `requireFullProof` is add-only: a client that forges it only asks for more.
 
+**The rule covers platform administrators with a password.** Two ways remain to an administrator without one: platform authority granted to a passwordless account, and the first code confirmation of an administrator-created account (it retires the unproven password, above). Such an account signs in by code: its mailbox is its first factor and its authenticator app its only second proof. Without the app, whoever holds the mailbox holds the account, and with `TwoFactor:EnforceForPlatformAdmins` on the code session is sent to enrol one, which the mailbox holder can do. Bind the app before granting the authority; `remove-password` refuses such an account until its app is bound.
+
 **How the session records it.** A sign-in opened by the emailed code records `EmailCode`; for an account **without a password** it also records `EmailCodeFirstFactor`, so the code counts as that account's first factor:
 
 | Bit | Value | Meaning | First factor | Proves the password |
 |---|---|---|---|---|
 | `Password` | 1 | The password | yes | yes |
-| `Totp` | 2 | The authenticator app | — (second factor) | no |
+| `ExternalIdentity` | 2 | Google or Apple | yes | no |
 | `EmailCode` | 4 | An emailed code was proved | no, by itself | no |
-| `ExternalIdentity` | 8 | Google or Apple | yes | no |
+| `Totp` | 8 | The authenticator app | — (second factor) | no |
 | `RecoveryCode` | 16 | A recovery code | — (second factor) | no |
 | — | 32, 64 | Reserved for passkeys | | |
 | `EmailCodeFirstFactor` | 128 | The emailed code opened the sign-in of an account without a password | yes | no |
 
-A session's two-factor status is unchanged in form: a first factor and the app or a recovery code. A password account that signs in by code holds `EmailCode` only, so anything that needs a first factor asks for its password; an account without one holds the new bit and manages its app and platform authority fully. An older build reads the stored value through its own mask and sees `EmailCode` alone.
+A session's two-factor status is unchanged in form: a first factor and the app or a recovery code. A password account that signs in by code holds `EmailCode` only, so anything that needs a first factor asks for its password — binding the authenticator app included (`2fa/setup` and `2fa/enable` answer `403 Auth.ReauthenticationRequired`); an account without one holds the new bit and manages its app and platform authority fully. An older build reads the stored value through its own mask and sees `EmailCode` alone.
 
 **Errors:** the code's `400`s as on `verify`; the lock refusals as on `login`; `429` from the budget.
 
@@ -2747,7 +2753,7 @@ A session's two-factor status is unchanged in form: a first factor and the app o
 
 #### POST `/api/v1/auth/email-code/recover`
 
-The third way back from the deletion grace period, beside the password (`deletion/recover`) and the provider (`deletion/recover-external`): an account without a password could otherwise never return. Same request as `sign-in` plus `twoFactorCode` (the app's code or a recovery code). With the app bound and no code sent, it answers `403 User.TwoFactorRequired` **before** spending the code, so the person keeps it for the next try. A password account that holds platform authority, or a request with `requireFullProof`, is answered `nextStep: passwordRequired` and recovers through `deletion/recover`. Only an administrator's lock refuses.
+The third way back from the deletion grace period, beside the password (`deletion/recover`) and the provider (`deletion/recover-external`): an account without a password could otherwise never return. Same request as `sign-in` plus `twoFactorCode` (the app's code or a recovery code). With the app bound and no code sent, it answers `403 User.TwoFactorRequired` **before** spending the code, so the person keeps it for the next try; and the emailed code is spent only after the app's code was accepted, so a wrong app code keeps it too. A password account that holds platform authority, or a request with `requireFullProof`, is answered `nextStep: passwordRequired` and recovers through `deletion/recover`. Only an administrator's lock refuses.
 
 **Auth:** Anonymous, first-party origins only, issues a first-party session | **Rate Limited:** `login` policy.
 
@@ -2759,11 +2765,11 @@ Removes the signed-in account's own password (D-215-3). Afterwards the account s
 
 **Auth:** Authenticated. **No body**: the confirmation is the screen's.
 
-**Allowed only when all of these hold:** a sign-in within `TwoFactor:ReauthenticationMaxAgeMinutes` that **proved the password**, and the authenticator app too when it is on (an emailed code never suffices); `Email:Enabled` on and the address confirmed; and the emailed code is not the account's second factor (it would follow a sign-in by emailed code: switch it off or bind the app first). Platform administrators may remove theirs too.
+**Allowed only when all of these hold:** a sign-in within `TwoFactor:ReauthenticationMaxAgeMinutes` that **proved the password**, and the authenticator app too when it is on (an emailed code never suffices); `Email:Enabled` on and the address confirmed; the emailed code is not the account's second factor (it would follow a sign-in by emailed code: switch it off or bind the app first); and an account that holds any platform permission has its **authenticator app bound** (D-110-1): without a password and without the app, the mailbox alone would open it. Platform administrators may remove theirs once the app is bound.
 
 **Effects, in one transaction:** the hash is removed only over the hash that was read, and joins the password history; a `PasswordRemovedEvent` is audited and emails the account (`password-removed`); every other credential of the account is revoked — **always**, whatever `Session:TerminateSessionsOnPasswordChange` says — and the current session is kept.
 
-**Response:** `204`. **Errors:** `403 Auth.ReauthenticationRequired` (sign in again with the password), `403 User.EmailNotConfirmed`, `409 User.PasswordNotSet`, `409 User.PasswordRemovalRequiresEmail`, `409 User.PasswordRemovalBlockedByEmailCodeFactor`.
+**Response:** `204`. **Errors:** `403 Auth.ReauthenticationRequired` (sign in again with the password), `403 User.EmailNotConfirmed`, `409 User.PasswordNotSet`, `409 User.PasswordRemovalRequiresEmail`, `409 User.PasswordRemovalBlockedByEmailCodeFactor`, `409 User.PasswordRemovalRequiresAuthenticatorApp` (platform authority without the app; the profile card says to set the app up first).
 
 Binding the emailed code as a second factor (`POST /api/v1/auth/2fa/email/enable`) is refused for an account without a password (`TwoFactor.EmailCodeRequiresPassword`, in place since the emailed second factor itself).
 
@@ -3524,7 +3530,7 @@ A client that treats the first 200 as success will appear to sign people in and 
 
 Generate a TOTP secret and QR code URI for 2FA setup.
 
-**Auth:** Authenticated
+**Auth:** Authenticated, from a sign-in that proved a first factor: a password account signed in by emailed code alone is answered `403 Auth.ReauthenticationRequired` here and on `2fa/enable` (it proved its mailbox only; an app bound from there would lock the owner's next password sign-in). A passwordless account's code is its first factor.
 
 **Response (200):**
 
@@ -7790,7 +7796,7 @@ This answer is the same for every address, whether or not it already has an acco
 
 **`POST /api/v1/auth/verify-email` and `POST /api/v1/auth/resend-verification-email` are not part of this flow any more.** They remain for an account that exists with an unconfirmed address — one an administrator created, or one signed in with a correct password before confirming — and for that case the email-keyed verify-email still confirms the address and signs the person in. Both answer a confirmed address exactly as they answer an unknown one.
 
-**In the accounts application this is `/register`, then `/register/verify`, which asks for the name and password once the code matched** (OI-215: the sign-up starts and checks the code through `email-code/start` and `email-code/verify`, and falls back to `registration/start` while email sending is off). The identity of the pending sign-up is kept in the tab across a reload of the code screen; the code itself is kept in memory only, so a reload after it matched asks for it again. Signing in with a correct password on an account whose address is still unconfirmed does not show an error either: it sends the person to `/verify-email`, where confirming the code signs them in.
+**In the accounts application this is `/register`, then `/register/verify`, which asks for the name and password once the code matched** (OI-215: the sign-up starts and checks the code through `email-code/start` and `email-code/verify`; with email sending off there is no sign-up, and the page says a new account needs a code sent to its address). The identity of the pending sign-up is kept in the tab across a reload of the code screen; the code itself is kept in memory only, so a reload after it matched asks for it again. Signing in with a correct password on an account whose address is still unconfirmed does not show an error either: it sends the person to `/verify-email`, where confirming the code signs them in.
 *In code:* `Auth_UI/apps/accounts/src/pages/auth/registration-flow.ts`; the sign-in branch is `Auth_UI/packages/auth/src/pages/login.tsx:110-115`.
 
 **No welcome email is sent after registration.** `welcome-email` is a seeded notification type, and it is the only seeded type with no template of its own, so there is nothing for the system to render.

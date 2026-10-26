@@ -106,6 +106,15 @@ public static class UserErrors
         code: "User.PasswordRemovalBlockedByEmailCodeFactor",
         description: "The password cannot be removed while the second step of signing in is a code sent by email. Turn that off, or use an authenticator app, first.");
 
+    /// <summary>
+    /// The password cannot be removed from an account that holds platform authority
+    /// unless its authenticator app is bound (D-110-1): without both, the mailbox alone
+    /// would open an administrator's account.
+    /// </summary>
+    public static Error PasswordRemovalRequiresAuthenticatorApp => Error.Conflict(
+        code: "User.PasswordRemovalRequiresAuthenticatorApp",
+        description: "The password cannot be removed from an account with platform administration rights unless an authenticator app is set up. Set one up first.");
+
     public static Error InvalidCredentials => Error.Validation(
         code: "User.InvalidCredentials",
         description: "The provided credentials are invalid.");

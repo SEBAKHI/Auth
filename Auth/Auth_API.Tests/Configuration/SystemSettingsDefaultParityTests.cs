@@ -113,6 +113,8 @@ public class SystemSettingsDefaultParityTests
     // OI-215: a deployment that changes nothing keeps a password and a name at sign-up.
     [InlineData("Registration", "PasswordAtSignUp", "True")]
     [InlineData("Registration", "NameAtSignUp", "True")]
+    // D-110-2: twenty wrong codes per address in 24 hours.
+    [InlineData("Email", "MaxWrongCodesPerDay", "20")]
     public void ProductionDefaults_AgreeInFileClassAndRegistry(
         string configRoot, string fieldPath, string expected)
     {

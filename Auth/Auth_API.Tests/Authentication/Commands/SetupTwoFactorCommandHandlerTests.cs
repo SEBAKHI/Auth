@@ -5,6 +5,7 @@ using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -41,7 +42,7 @@ public class SetupTwoFactorCommandHandlerTests
         // TwoFactorLifecycleGuardTests holds every lifecycle handler to it.
         _guardMock
             .Setup(g => g.EnsureRecentSignInAsync(It.IsAny<Guid>(), SessionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new RecentSession(SessionId, "Chrome on Windows"));
+            .ReturnsAsync(new RecentSession(SessionId, "Chrome on Windows", AuthenticationMethods.Password));
         _secretProtectorMock
             .Setup(p => p.ProtectAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(ProtectedSecret);
@@ -244,6 +245,37 @@ public class SetupTwoFactorCommandHandlerTests
         _stateStoreMock.Verify(
             s => s.TryStorePendingSecretAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    /// <summary>
+    /// REVIEW 110 F5: binding the app needs a session that proved a first factor. A
+    /// password account signed in by emailed code proved its mailbox only; a
+    /// passwordless account's code is its first factor (D-215-1).
+    /// </summary>
+    [Theory]
+    [InlineData(4, true)] // the emailed code alone: a password account signed in by code
+    [InlineData(4 | 128, false)] // the code as a passwordless account's first factor
+    [InlineData(1, false)] // the password
+    [InlineData(1 | 4, false)] // the password and the emailed code
+    public async Task Handle_FromASessionWithoutAFirstFactor_AsksForAFreshSignIn(int methods, bool refused)
+    {
+        var userId = Guid.NewGuid();
+        GivenSetupCanProceed(userId, TestHelpers.CreateUser(id: userId), "ABCDEFGHIJKLMNOP");
+        _guardMock
+            .Setup(g => g.EnsureRecentSignInAsync(userId, SessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RecentSession(SessionId, "Chrome on Windows", AuthenticationMethods.FromStored(methods)));
+
+        var result = await _handler.Handle(new SetupTwoFactorCommand(userId, SessionId), CancellationToken.None);
+
+        result.IsError.Should().Be(refused);
+        if (refused)
+        {
+            result.FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
+            _totpServiceMock.Verify(s => s.GenerateSecret(), Times.Never);
+            _stateStoreMock.Verify(
+                s => s.TryStorePendingSecretAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
     }
 
     [Fact]

@@ -51,7 +51,7 @@ public class User : AggregateRoot
     /// has one, otherwise its address (OI-215). The one server rule for "the name to
     /// show"; never blank.
     /// </summary>
-    public string NameToShow => DisplayNameFor(FirstName, LastName) ?? Email.Value;
+    public string NameToShow => DisplayNameFrom(FirstName, LastName) ?? Email.Value;
 
     /// <summary>
     /// <see cref="NameToShow"/> for a read model that carries the stored display name
@@ -60,6 +60,13 @@ public class User : AggregateRoot
     /// </summary>
     public static string NameToShowFrom(string? storedDisplayName, string email) =>
         string.IsNullOrWhiteSpace(storedDisplayName) ? email : storedDisplayName.Trim();
+
+    /// <summary>
+    /// <see cref="NameToShow"/> for a read model that carries the two name parts and
+    /// the address: the name when either part is not blank, otherwise the address.
+    /// </summary>
+    public static string NameToShowFrom(string? firstName, string? lastName, string email) =>
+        DisplayNameFrom(firstName, lastName) ?? email;
 
     /// <summary>
     /// Gets the user's phone number.
@@ -263,7 +270,7 @@ public class User : AggregateRoot
             PasswordHash = passwordHash,
             FirstName = firstName,
             LastName = lastName,
-            DisplayName = DisplayNameFor(firstName, lastName),
+            DisplayName = DisplayNameFrom(firstName, lastName),
             PhoneNumber = ValueObjects.PhoneNumber.FromNullable(phoneNumber),
             Status = UserStatus.Active,
             EmailConfirmed = false,
@@ -304,7 +311,7 @@ public class User : AggregateRoot
             PasswordHash = null,
             FirstName = firstName,
             LastName = lastName,
-            DisplayName = DisplayNameFor(firstName, lastName),
+            DisplayName = DisplayNameFrom(firstName, lastName),
             Status = UserStatus.Active,
             EmailConfirmed = true,
             PhoneConfirmed = false,
@@ -351,7 +358,7 @@ public class User : AggregateRoot
         // over these two, so a display name that could differ from it would be a
         // second copy that no write ever reaches. Derived by the same rule the
         // next read applies to that column, so the two are the same value.
-        DisplayName = DisplayNameFor(firstName, lastName);
+        DisplayName = DisplayNameFrom(firstName, lastName);
         PhoneNumber = ValueObjects.PhoneNumber.FromNullable(phoneNumber);
         PreferredLanguage = preferredLanguage;
         TimeZone = timeZone;
@@ -789,15 +796,17 @@ public class User : AggregateRoot
     /// The first and last name joined by one space, leaving out a part that is blank:
     /// empty for an account without a name (OI-215), never a lone space.
     /// </summary>
-    public string GetFullName() => DisplayNameFor(FirstName, LastName) ?? string.Empty;
+    public string GetFullName() => DisplayNameFrom(FirstName, LastName) ?? string.Empty;
 
     /// <summary>
     /// The one derivation of a display name from the two name parts: the parts that
     /// are not blank, trimmed and joined by a space; null when both are blank. The
     /// store's computed FullName column puts a space between the two whatever they
-    /// hold, and reading it through this rule gives the same value.
+    /// hold, and reading it through this rule gives the same value. Public for the
+    /// one reader whose published contract is null for "no name" (the application
+    /// directory); every other reader shows <see cref="NameToShowFrom(string?, string?, string)"/>.
     /// </summary>
-    private static string? DisplayNameFor(string? firstName, string? lastName)
+    public static string? DisplayNameFrom(string? firstName, string? lastName)
     {
         var name = string.Join(' ', new[] { firstName, lastName }
             .Where(part => !string.IsNullOrWhiteSpace(part))

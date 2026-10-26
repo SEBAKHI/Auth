@@ -89,7 +89,7 @@ public class EnableTwoFactorCommandHandlerTests
     {
         _guardMock
             .Setup(g => g.EnsureRecentSignInAsync(userId, SessionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new RecentSession(SessionId, DeviceName));
+            .ReturnsAsync(new RecentSession(SessionId, DeviceName, AuthenticationMethods.Password));
         _stateStoreMock
             .Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TwoFactorSnapshot(
@@ -218,6 +218,37 @@ public class EnableTwoFactorCommandHandlerTests
         result.FirstError.Code.Should().Be(expectedCode);
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    /// <summary>
+    /// REVIEW 110 F5: the code-only session of a password account binds no app; the
+    /// passwordless account's code session and a password session do.
+    /// </summary>
+    [Theory]
+    [InlineData(4, true)] // the emailed code alone: a password account signed in by code
+    [InlineData(4 | 128, false)] // the code as a passwordless account's first factor
+    [InlineData(1, false)] // the password
+    public async Task Enable_FromASessionWithoutAFirstFactor_AsksForAFreshSignIn_BeforeCountingAnything(int methods, bool refused)
+    {
+        var userId = Guid.NewGuid();
+        GivenPendingFactor(userId);
+        GivenCommit(userId, LoginCommitOutcome.Committed);
+        _guardMock
+            .Setup(g => g.EnsureRecentSignInAsync(userId, SessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RecentSession(SessionId, DeviceName, AuthenticationMethods.FromStored(methods)));
+
+        var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
+
+        if (refused)
+        {
+            result.FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
+            _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never,
+                "a request that can never succeed costs no attempt");
+        }
+        else
+        {
+            result.IsError.Should().BeFalse();
+        }
     }
 
     [Fact]

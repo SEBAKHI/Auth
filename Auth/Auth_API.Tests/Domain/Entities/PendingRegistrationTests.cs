@@ -48,9 +48,9 @@ public class PendingRegistrationTests
         pending.IsCodeLive(Now).Should().BeTrue();
         pending.IsCodeLive(Now.AddMinutes(5)).Should().BeFalse("the code expired; expiry is compared, never swept");
 
-        for (var i = 0; i < PendingRegistration.MaxAttempts - 1; i++) pending.RecordFailedAttempt();
+        for (var i = 0; i < PendingRegistration.MaxAttempts - 1; i++) pending.RecordFailedAttempt(DateTime.UtcNow);
         pending.IsCodeLive(Now).Should().BeTrue("four wrong guesses leave one");
-        pending.RecordFailedAttempt();
+        pending.RecordFailedAttempt(DateTime.UtcNow);
         pending.IsExhausted.Should().BeTrue();
         pending.IsCodeLive(Now).Should().BeFalse("the fifth wrong guess kills the code, not the row");
         pending.IsConsumed.Should().BeFalse("exhaustion never stamps ConsumedAt — that means an account exists");
@@ -65,7 +65,7 @@ public class PendingRegistrationTests
     {
         var pending = Issued();
         var id = pending.Id;
-        pending.RecordFailedAttempt();
+        pending.RecordFailedAttempt(DateTime.UtcNow);
         pending.MarkVerified(Now);
         pending.MarkMailed(Now);
         pending.TryChargeMailWindow(Window, MaxPerWindow, Now);
@@ -132,7 +132,7 @@ public class PendingRegistrationTests
             pending.IssueCode($"hash-{codes}", 5, "en", Now);
             while (pending.IsCodeLive(Now))
             {
-                pending.RecordFailedAttempt();
+                pending.RecordFailedAttempt(DateTime.UtcNow);
                 acceptedGuesses++;
             }
         }
@@ -178,6 +178,58 @@ public class PendingRegistrationTests
         pending.MailedAt.Should().Be(Now);
         pending.VerifiedAt.Should().Be(Now);
         pending.ConsumedAt.Should().Be(Now);
+    }
+
+    // ── The address's wrong-code ceiling (D-110-2) ──────────────────────────
+
+    [Fact]
+    public void RecordFailedAttempt_CountsAgainstTheAddress_AcrossEveryCodeItIsIssued()
+    {
+        var pending = Issued();
+        var now = Now.AddMinutes(1);
+
+        for (var rotation = 0; rotation < 4; rotation++)
+        {
+            for (var i = 0; i < PendingRegistration.MaxAttempts; i++) pending.RecordFailedAttempt(now);
+            pending.IsExhausted.Should().BeTrue();
+            pending.IssueCode($"hash-{rotation + 2}", 5, "en", now);
+            pending.AttemptCount.Should().Be(0, "a new code has its own five tries");
+        }
+
+        pending.WrongCodeCount.Should().Be(20, "four codes' five tries each, and no new code reset the address's count");
+        pending.HasReachedWrongCodeCeiling(20, now).Should().BeTrue("the 21st check is refused, whatever code it brings");
+        pending.HasReachedWrongCodeCeiling(21, now).Should().BeFalse();
+    }
+
+    [Fact]
+    public void TheCeiling_LastsTwentyFourHoursFromTheWindowsFirstWrongCode_ThenANewWindowOpens()
+    {
+        var pending = Issued();
+        var first = Now.AddMinutes(1);
+        pending.RecordFailedAttempt(first);
+        for (var i = 1; i < 20; i++) pending.RecordFailedAttempt(first.AddHours(1));
+
+        pending.WrongCodeWindowStartUtc.Should().Be(first, "the window opens at its first wrong code");
+        pending.HasReachedWrongCodeCeiling(20, first.AddHours(23).AddMinutes(59)).Should().BeTrue();
+        pending.HasReachedWrongCodeCeiling(20, first.AddHours(24)).Should().BeFalse("the window has passed");
+
+        pending.RecordFailedAttempt(first.AddHours(24));
+        pending.WrongCodeCount.Should().Be(1, "the next wrong code opens a new window");
+        pending.WrongCodeWindowStartUtc.Should().Be(first.AddHours(24));
+    }
+
+    [Fact]
+    public void ANewRow_StartsWithNoWrongCodes_AndTheFirstOneOpensTheWindow()
+    {
+        var pending = Issued();
+
+        pending.WrongCodeCount.Should().Be(0);
+        pending.HasReachedWrongCodeCeiling(5, Now).Should().BeFalse();
+
+        pending.RecordFailedAttempt(Now.AddHours(5));
+        pending.WrongCodeCount.Should().Be(1);
+        pending.WrongCodeWindowStartUtc.Should().Be(Now.AddHours(5),
+            "a stored start older than any wrong code is not the window's");
     }
 
     private static PendingRegistration Issued()

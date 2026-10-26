@@ -546,6 +546,11 @@ export const en = {
     haveAccount: "Already have an account?",
     signUp: "Sign up",
     registerEmailHint: "We'll send a 6-digit code to this address to confirm it's yours.",
+    registerClosedTitle: "Sign-up is closed",
+    registerClosed:
+      "New accounts can't be created here with an email address. If you already have an account, sign in.",
+    registerUnavailable:
+      "A new account can't be created with an email address right now: this server isn't sending email, and such an account needs a code sent to its address. If you already have an account, sign in.",
     sendCode: "Send code",
     sendingCode: "Sending code…",
     requestNewCode: "Send a new code",
@@ -2060,8 +2065,8 @@ export const en = {
       "{{category}} is switched off, so the value that needs fixing cannot be edited. Switch it back on, correct the value, then save.",
     emailOffAccounts: "Accounts whose second step is a code by email: {{count}}. With email off, each of them can sign in only with a recovery code.",
     emailOffAccountsUnknown: "The accounts whose second step is a code by email could not be counted. With email off, each of them can sign in only with a recovery code.",
-    emailOffPasswordlessAccounts: "Accounts that sign in only with a code by email: {{count}}. With email off, none of them can sign in, except through Google or Apple.",
-    emailOffPasswordlessAccountsUnknown: "The accounts that sign in only with a code by email could not be counted. With email off, none of them can sign in, except through Google or Apple.",
+    emailOffPasswordlessAccounts: "Accounts that sign in only with a code by email (no password, no Google or Apple): {{count}}. With email off, none of them can sign in.",
+    emailOffPasswordlessAccountsUnknown: "The accounts that sign in only with a code by email (no password, no Google or Apple) could not be counted. With email off, none of them can sign in.",
     highImpactConfirmTitle: "Save settings that affect security?",
     highImpactConfirmBody:
       "These settings decide who can sign in, how, and with which passwords: {{fields}}. A value the server accepts can still lock administrators out, you included, or weaken a protection for every account. Check them before saving.",
@@ -2572,6 +2577,9 @@ export const en = {
       maxOtpRequestsPerWindow: "Codes per window",
       maxOtpRequestsPerWindowHint:
         "Max verification codes one address can request per window. Recommended: 3 — stops mail-bombing.",
+      maxWrongCodesPerDay: "Wrong codes per address per day",
+      maxWrongCodesPerDayHint:
+        "How many wrong codes one address may enter in 24 hours, across every code sent to it and every step that asks for one (sign-up, sign-in by code, account recovery). Once reached, every code for that address is refused until 24 hours after its first wrong code; the password, Google or Apple, and “Forgot password?” keep working. A new code does not reset it. Recommended: 20.",
     },
     notificationsSection: {
       newDeviceAlertEnabled: "Alert on sign-in from a new device",
@@ -2917,6 +2925,8 @@ export const en = {
       "Sign in with a six-digit code sent to your email instead of a password. You can set a password again at any time.",
     removePasswordBlockedByEmailCode:
       "Your password can be removed once your second step is the authenticator app: a code by email after a sign-in by code would prove the same mailbox twice. Turn off the code by email, or set up the authenticator app, first.",
+    removePasswordBlockedByPlatformAuthority:
+      "Your account has platform administration rights, so it must keep a second proof your email cannot give: set up the authenticator app first, then you can remove your password.",
     removePasswordConfirmTitle: "Remove your password?",
     removePasswordConfirmBody:
       "From now on you sign in with a code sent to {{email}}, and anyone who controls that mailbox can sign in to your account unless your authenticator app is on. Every other device signed in to your account is signed out, and we email you that the password was removed.",

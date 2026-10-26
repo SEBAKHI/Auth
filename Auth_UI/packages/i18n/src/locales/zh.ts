@@ -532,6 +532,11 @@ export const zh: TranslationResources = {
     haveAccount: "已有账户？",
     signUp: "注册",
     registerEmailHint: "我们将向该地址发送一个 6 位验证码，以确认它属于您。",
+    registerClosedTitle: "注册已关闭",
+    registerClosed:
+      "此处无法使用电子邮件地址创建新账户。如果您已有账户，请登录。",
+    registerUnavailable:
+      "目前无法使用电子邮件地址创建新账户：此服务器不发送电子邮件，而这类账户需要发送到其地址的验证码。如果您已有账户，请登录。",
     sendCode: "发送验证码",
     sendingCode: "正在发送验证码…",
     requestNewCode: "发送新验证码",
@@ -1936,8 +1941,8 @@ export const zh: TranslationResources = {
       "「{{category}}」已关闭，因此需要修正的值无法编辑。请重新启用，修正该值，然后保存。",
     emailOffAccounts: "以邮件验证码作为第二步验证的账户：{{count}}。关闭邮件后，这些账户只能使用恢复代码登录。",
     emailOffAccountsUnknown: "无法统计以邮件验证码作为第二步验证的账户。关闭邮件后，这些账户只能使用恢复代码登录。",
-    emailOffPasswordlessAccounts: "仅通过邮件验证码登录的账户：{{count}}。关闭邮件后，这些账户除通过 Google 或 Apple 外均无法登录。",
-    emailOffPasswordlessAccountsUnknown: "无法统计仅通过邮件验证码登录的账户。关闭邮件后，这些账户除通过 Google 或 Apple 外均无法登录。",
+    emailOffPasswordlessAccounts: "仅通过邮件验证码登录的账户（无密码，也未关联 Google 或 Apple）：{{count}}。关闭邮件后，这些账户均无法登录。",
+    emailOffPasswordlessAccountsUnknown: "无法统计仅通过邮件验证码登录的账户（无密码，也未关联 Google 或 Apple）。关闭邮件后，这些账户均无法登录。",
     highImpactConfirmTitle: "保存影响安全的设置？",
     highImpactConfirmBody:
       "这些设置决定谁可以登录、如何登录以及可以使用哪些密码：{{fields}}。即使服务器接受某个值，它仍可能将包括您在内的管理员挡在门外，或削弱所有账户的某项保护。保存前请仔细检查。",
@@ -2427,6 +2432,9 @@ export const zh: TranslationResources = {
       maxOtpRequestsPerWindow: "每窗口验证码数量",
       maxOtpRequestsPerWindowHint:
         "单个地址在每个窗口内可请求的验证码上限。推荐：3——防止邮件轰炸。",
+      maxWrongCodesPerDay: "每个地址每日错误验证码次数",
+      maxWrongCodesPerDayHint:
+        "一个地址在 24 小时内可输入的错误验证码次数，涵盖发送给它的所有验证码以及所有需要验证码的步骤（注册、验证码登录、账户恢复）。达到上限后，该地址的所有验证码都会被拒绝，直到其第一个错误验证码的 24 小时之后；密码、Google 或 Apple 以及“忘记密码？”仍可使用。新验证码不会重置计数。推荐：20。",
     },
     notificationsSection: {
       newDeviceAlertEnabled: "新设备登录时提醒",
@@ -2744,6 +2752,8 @@ export const zh: TranslationResources = {
       "改用发送到您邮箱的六位数验证码登录，而不是密码。您可以随时重新设置密码。",
     removePasswordBlockedByEmailCode:
       "当您的第二步验证为身份验证器应用时才能移除密码：通过验证码登录后再用邮件验证码，等于两次证明同一个邮箱。请先关闭邮件验证码，或设置身份验证器应用。",
+    removePasswordBlockedByPlatformAuthority:
+      "您的账户拥有平台管理权限，因此必须保留一项电子邮件无法提供的第二重证明：请先设置身份验证器应用，然后才能删除密码。",
     removePasswordConfirmTitle: "移除您的密码？",
     removePasswordConfirmBody:
       "从现在起，您将使用发送到 {{email}} 的验证码登录；除非启用了身份验证器应用，任何控制该邮箱的人都能登录您的账户。所有其他已登录您账户的设备都将被登出，我们会发邮件告知您密码已移除。",

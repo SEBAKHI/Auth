@@ -14,6 +14,11 @@ CREATE TABLE [dbo].[PendingRegistrations]
     [ConsumedAt] DATETIME2 NULL,               -- A Users row now exists for this address
     [PreferredLanguage] NVARCHAR(10) NULL,
     [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_PendingRegistrations_CreatedAt] DEFAULT GETUTCDATE(),
+    -- The wrong-code ceiling (D-110-2): wrong codes for this address in the window
+    -- that opened at its first wrong code, across every code it was issued.
+    -- Appended last, with named defaults, so a publish adds them in place.
+    [WrongCodeCount] INT NOT NULL CONSTRAINT [DF_PendingRegistrations_WrongCodeCount] DEFAULT 0,
+    [WrongCodeWindowStartUtc] DATETIME2 NOT NULL CONSTRAINT [DF_PendingRegistrations_WrongCodeWindowStartUtc] DEFAULT GETUTCDATE(),
 
     CONSTRAINT [PK_PendingRegistrations] PRIMARY KEY CLUSTERED ([Id])
 );
@@ -39,6 +44,14 @@ GO
 -- many codes an address is issued per window survives rotation. That cap is
 -- the guessing bound (codes per window x five attempts per code), not a
 -- courtesy; keep it on the row, never on the code.
+--
+-- WrongCodeCount / WrongCodeWindowStartUtc are the bound that survives a new
+-- code (D-110-2): since a code also signs in to the address's account (OI-215),
+-- every wrong code at any step counts here, a rotation never resets it, and once
+-- Email:MaxWrongCodesPerDay is reached every code for the address is refused
+-- until 24 hours after the window opened. The sweep below never removes a row
+-- inside its window: it keeps a row at least a day past its code's expiry, and
+-- a wrong code is only ever presented while the code is live.
 --
 -- There is deliberately no IsDecoy column. A row is written for a free
 -- address, for one that already has an account and for one reserved by a

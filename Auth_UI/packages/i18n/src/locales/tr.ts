@@ -542,6 +542,11 @@ export const tr: TranslationResources = {
     haveAccount: "Zaten hesabınız var mı?",
     signUp: "Kaydol",
     registerEmailHint: "Bu adresin size ait olduğunu doğrulamak için 6 haneli bir kod göndereceğiz.",
+    registerClosedTitle: "Kayıt kapalı",
+    registerClosed:
+      "Burada e-posta adresiyle yeni hesap oluşturulamaz. Zaten bir hesabınız varsa giriş yapın.",
+    registerUnavailable:
+      "Şu anda e-posta adresiyle yeni hesap oluşturulamıyor: bu sunucu e-posta göndermiyor ve böyle bir hesap, adresine gönderilen bir kod gerektirir. Zaten bir hesabınız varsa giriş yapın.",
     sendCode: "Kod gönder",
     sendingCode: "Kod gönderiliyor…",
     requestNewCode: "Yeni kod gönder",
@@ -2046,8 +2051,8 @@ export const tr: TranslationResources = {
       "{{category}} kapalı olduğundan düzeltilmesi gereken değer düzenlenemiyor. Yeniden açın, değeri düzeltin, sonra kaydedin.",
     emailOffAccounts: "İkinci adımı e-postayla kod olan hesaplar: {{count}}. E-posta kapalıyken her biri yalnızca bir kurtarma koduyla oturum açabilir.",
     emailOffAccountsUnknown: "İkinci adımı e-postayla kod olan hesaplar sayılamadı. E-posta kapalıyken her biri yalnızca bir kurtarma koduyla oturum açabilir.",
-    emailOffPasswordlessAccounts: "Yalnızca e-postayla gönderilen bir kodla oturum açan hesaplar: {{count}}. E-posta kapalıyken bunların hiçbiri Google veya Apple dışında oturum açamaz.",
-    emailOffPasswordlessAccountsUnknown: "Yalnızca e-postayla gönderilen bir kodla oturum açan hesaplar sayılamadı. E-posta kapalıyken bunların hiçbiri Google veya Apple dışında oturum açamaz.",
+    emailOffPasswordlessAccounts: "Yalnızca e-postayla gönderilen bir kodla oturum açan hesaplar (parolası, Google veya Apple bağlantısı olmayan): {{count}}. E-posta kapalıyken bunların hiçbiri oturum açamaz.",
+    emailOffPasswordlessAccountsUnknown: "Yalnızca e-postayla gönderilen bir kodla oturum açan hesaplar (parolası, Google veya Apple bağlantısı olmayan) sayılamadı. E-posta kapalıyken bunların hiçbiri oturum açamaz.",
     highImpactConfirmTitle: "Güvenliği etkileyen ayarlar kaydedilsin mi?",
     highImpactConfirmBody:
       "Bu ayarlar kimin, nasıl ve hangi parolalarla oturum açabileceğini belirler: {{fields}}. Sunucunun kabul ettiği bir değer bile, siz dahil yöneticilerin oturum açmasını engelleyebilir ya da tüm hesaplar için bir korumayı zayıflatabilir. Kaydetmeden önce bunları kontrol edin.",
@@ -2563,6 +2568,9 @@ export const tr: TranslationResources = {
       maxOtpRequestsPerWindow: "Pencere başına kod sayısı",
       maxOtpRequestsPerWindowHint:
         "Bir adresin pencere başına isteyebileceği en fazla doğrulama kodu. Önerilen: 3 — posta bombardımanını durdurur.",
+      maxWrongCodesPerDay: "Adres başına günlük yanlış kod",
+      maxWrongCodesPerDayHint:
+        "Bir adresin 24 saat içinde, kendisine gönderilen tüm kodlarda ve kod isteyen her adımda (kayıt, kodla giriş, hesap kurtarma) girebileceği yanlış kod sayısı. Sınıra ulaşıldığında, o adresin ilk yanlış kodundan 24 saat geçene kadar her kodu reddedilir; parola, Google veya Apple ve “Parolanızı mı unuttunuz?” çalışmaya devam eder. Yeni bir kod sayacı sıfırlamaz. Önerilen: 20.",
     },
     notificationsSection: {
       newDeviceAlertEnabled: "Yeni cihazdan girişte uyar",
@@ -2909,6 +2917,8 @@ export const tr: TranslationResources = {
       "Parola yerine e-postanıza gönderilen altı haneli bir kodla oturum açın. İstediğiniz zaman yeniden parola belirleyebilirsiniz.",
     removePasswordBlockedByEmailCode:
       "İkinci adımınız kimlik doğrulayıcı uygulama olduğunda parolanız kaldırılabilir: kodla oturum açtıktan sonra e-postayla gelen kod aynı posta kutusunu iki kez kanıtlar. Önce e-postayla kodu kapatın veya kimlik doğrulayıcı uygulamayı kurun.",
+    removePasswordBlockedByPlatformAuthority:
+      "Hesabınızın platform yönetimi yetkisi var; bu yüzden e-postanızın veremeyeceği ikinci bir kanıtı korumalı: önce kimlik doğrulama uygulamasını kurun, ardından parolanızı kaldırabilirsiniz.",
     removePasswordConfirmTitle: "Parolanız kaldırılsın mı?",
     removePasswordConfirmBody:
       "Bundan sonra {{email}} adresine gönderilen bir kodla oturum açarsınız ve kimlik doğrulayıcı uygulamanız açık değilse o posta kutusunu kontrol eden herkes hesabınıza girebilir. Hesabınızda oturum açmış diğer tüm cihazların oturumu kapatılır ve parolanın kaldırıldığını size e-postayla bildiririz.",

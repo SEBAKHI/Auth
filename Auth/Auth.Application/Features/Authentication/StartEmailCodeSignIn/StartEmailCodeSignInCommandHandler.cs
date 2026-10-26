@@ -1,10 +1,11 @@
 using System.Globalization;
 using Auth.Application.Common;
 using Auth.Application.Configuration;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Authentication.StartRegistration;
 using Auth.Application.Features.Users.Common;
+
 using Auth.Application.Interfaces;
-using Auth.Application.Notifications;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
@@ -29,7 +30,8 @@ namespace Auth.Application.Features.Authentication.StartEmailCodeSignIn;
 /// included), the registration code to a free address while sign-up is open, a "no
 /// account here" notice to a free address while it is closed, and today's notice to
 /// an address a deletion tombstone reserves. The code is minted and stored in every
-/// case; for the two notices it is never sent.
+/// case; for the two notices it is never sent. The choice is
+/// <see cref="EmailCodeStartMessages"/>'s, which the registration's start shares.
 /// </para>
 /// <para>
 /// The row is the registration's own (<see cref="IPendingRegistrationRepository.StartAsync"/>):
@@ -52,6 +54,7 @@ public class StartEmailCodeSignInCommandHandler
     private readonly IdentifierReservationGuard _reservationGuard;
     private readonly INotificationService _notificationService;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly EmailCodeStartMessages _messages;
     private readonly RegistrationSettings _registrationSettings;
     private readonly EmailSettings _emailSettings;
     private readonly IEnvironmentInfo _environment;
@@ -64,6 +67,7 @@ public class StartEmailCodeSignInCommandHandler
         IdentifierReservationGuard reservationGuard,
         INotificationService notificationService,
         IDomainEventDispatcher eventDispatcher,
+        EmailCodeStartMessages messages,
         IOptionsSnapshot<RegistrationSettings> registrationSettings,
         IOptionsSnapshot<EmailSettings> emailSettings,
         IEnvironmentInfo environment,
@@ -75,6 +79,7 @@ public class StartEmailCodeSignInCommandHandler
         _reservationGuard = reservationGuard;
         _notificationService = notificationService;
         _eventDispatcher = eventDispatcher;
+        _messages = messages;
         _registrationSettings = registrationSettings.Value;
         _emailSettings = emailSettings.Value;
         _environment = environment;
@@ -125,14 +130,15 @@ public class StartEmailCodeSignInCommandHandler
         // rendered and enqueued the same way, and the row is stamped the same way.
         if (start.Action == PendingRegistrationStartAction.Minted)
         {
-            var message = ChooseMessage(email, owner, reserved, requestLanguage, start.Code!, out var carriesCode);
+            var message = _messages.Choose(
+                email, owner, reserved, _registrationSettings.AllowSelfRegistration, requestLanguage, start.Code!);
 
-            if (carriesCode)
+            if (message.CarriesCode)
             {
                 LogCodeInDevelopment(email, start.Code!);
             }
 
-            var sent = await _notificationService.SendAsync(message, cancellationToken);
+            var sent = await _notificationService.SendAsync(message.Request, cancellationToken);
 
             // A failure changes nothing the caller sees: MailedAt stays null, so the
             // next start for this address mints again.
@@ -162,105 +168,6 @@ public class StartEmailCodeSignInCommandHandler
 
         return new StartRegistrationResponse(row.Handle, maskedEmail, row.ExpiresAt);
     }
-
-    /// <summary>
-    /// The one message this start sends, by what the address is. Decided here and
-    /// nowhere else, after both lookups and the row.
-    /// </summary>
-    private NotificationRequest ChooseMessage(
-        string email,
-        UserNotificationIdentity? owner,
-        bool reserved,
-        string requestLanguage,
-        string code,
-        out bool carriesCode)
-    {
-        if (owner is not null)
-        {
-            carriesCode = true;
-            return SignInCodeMessage(email, owner, requestLanguage, code);
-        }
-
-        if (reserved)
-        {
-            carriesCode = false;
-            return ReservedNoticeMessage(email, requestLanguage);
-        }
-
-        if (_registrationSettings.AllowSelfRegistration)
-        {
-            carriesCode = true;
-            return RegistrationCodeMessage(email, requestLanguage, code);
-        }
-
-        carriesCode = false;
-        return NoAccountNoticeMessage(email, requestLanguage);
-    }
-
-    private NotificationRequest SignInCodeMessage(
-        string email, UserNotificationIdentity owner, string requestLanguage, string code)
-    {
-        var name = User.NameToShowFrom(owner.DisplayName, email);
-        return new NotificationRequest
-        {
-            TypeCode = NotificationTypeCodes.EmailSignInCode,
-            RecipientAddress = email,
-            RecipientUserId = owner.Id,
-            RecipientName = name,
-            // The owner's stored language, stated explicitly so the renderer takes
-            // no branch of its own.
-            LanguageCode = Languages.Normalize(owner.PreferredLanguage) ?? requestLanguage,
-            ApplicationId = null,
-            TriggeredBy = Guid.Empty,
-            Variables = new Dictionary<string, object?>
-            {
-                ["UserName"] = name,
-                ["OtpCode"] = code,
-                ["ExpirationMinutes"] = _emailSettings.OtpExpirationMinutes
-            }
-        };
-    }
-
-    private NotificationRequest RegistrationCodeMessage(string email, string language, string code) => new()
-    {
-        TypeCode = NotificationTypeCodes.RegistrationVerification,
-        RecipientAddress = email,
-        // No user and no name: there is none yet.
-        LanguageCode = language,
-        TriggeredBy = Guid.Empty,
-        Variables = new Dictionary<string, object?>
-        {
-            ["OtpCode"] = code,
-            ["ExpirationMinutes"] = _emailSettings.OtpExpirationMinutes
-        }
-    };
-
-    private NotificationRequest ReservedNoticeMessage(string email, string language) => new()
-    {
-        TypeCode = NotificationTypeCodes.RegistrationAttemptExistingAccount,
-        RecipientAddress = email,
-        LanguageCode = language,
-        TriggeredBy = Guid.Empty,
-        Variables = new Dictionary<string, object?>
-        {
-            ["SignInLink"] = _emailSettings.BuildFrontendUrl("/login"),
-            ["ResetPasswordLink"] = _emailSettings.BuildFrontendUrl("/forgot-password"),
-            ["AttemptedAt"] = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss'Z'", CultureInfo.InvariantCulture)
-        }
-    };
-
-    private NotificationRequest NoAccountNoticeMessage(string email, string language) => new()
-    {
-        TypeCode = NotificationTypeCodes.SignInNoAccount,
-        RecipientAddress = email,
-        LanguageCode = language,
-        TriggeredBy = Guid.Empty,
-        Variables = new Dictionary<string, object?>
-        {
-            ["SignInLink"] = _emailSettings.BuildFrontendUrl("/login"),
-            ["AttemptedAt"] = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss'Z'", CultureInfo.InvariantCulture)
-        }
-    };
 
     /// <summary>
     /// The code in the development log, for a message that carries one: this start

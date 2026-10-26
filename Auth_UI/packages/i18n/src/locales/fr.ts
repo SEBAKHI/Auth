@@ -548,6 +548,11 @@ export const fr: TranslationResources = {
     haveAccount: "Vous avez déjà un compte ?",
     signUp: "S'inscrire",
     registerEmailHint: "Nous enverrons un code à 6 chiffres à cette adresse pour confirmer qu'elle est bien la vôtre.",
+    registerClosedTitle: "Les inscriptions sont fermées",
+    registerClosed:
+      "Il n’est pas possible de créer ici un nouveau compte avec une adresse e-mail. Si vous en avez déjà un, connectez-vous.",
+    registerUnavailable:
+      "Impossible de créer un compte avec une adresse e-mail pour le moment : ce serveur n’envoie pas d’e-mails, et un tel compte a besoin d’un code envoyé à son adresse. Si vous en avez déjà un, connectez-vous.",
     sendCode: "Envoyer le code",
     sendingCode: "Envoi du code…",
     requestNewCode: "Envoyer un nouveau code",
@@ -2086,8 +2091,8 @@ export const fr: TranslationResources = {
       "La catégorie {{category}} est désactivée, la valeur à corriger ne peut donc pas être modifiée. Réactivez-la, corrigez la valeur, puis enregistrez.",
     emailOffAccounts: "Comptes dont la deuxième étape est un code par e-mail : {{count}}. E-mail désactivé, chacun ne peut se connecter qu'avec un code de récupération.",
     emailOffAccountsUnknown: "Les comptes dont la deuxième étape est un code par e-mail n'ont pas pu être comptés. E-mail désactivé, chacun ne peut se connecter qu'avec un code de récupération.",
-    emailOffPasswordlessAccounts: "Comptes qui se connectent uniquement avec un code par e-mail : {{count}}. E-mail désactivé, aucun d'eux ne peut se connecter, sauf via Google ou Apple.",
-    emailOffPasswordlessAccountsUnknown: "Les comptes qui se connectent uniquement avec un code par e-mail n'ont pas pu être comptés. E-mail désactivé, aucun d'eux ne peut se connecter, sauf via Google ou Apple.",
+    emailOffPasswordlessAccounts: "Comptes qui se connectent uniquement avec un code par e-mail (sans mot de passe, ni Google ou Apple) : {{count}}. E-mail désactivé, aucun d'eux ne peut se connecter.",
+    emailOffPasswordlessAccountsUnknown: "Les comptes qui se connectent uniquement avec un code par e-mail (sans mot de passe, ni Google ou Apple) n'ont pas pu être comptés. E-mail désactivé, aucun d'eux ne peut se connecter.",
     highImpactConfirmTitle:
       "Enregistrer des paramètres qui touchent à la sécurité ?",
     highImpactConfirmBody:
@@ -2615,6 +2620,9 @@ export const fr: TranslationResources = {
       maxOtpRequestsPerWindow: "Codes par fenêtre",
       maxOtpRequestsPerWindowHint:
         "Nombre maximal de codes de vérification qu'une même adresse peut demander par fenêtre. Recommandé : 3 — stoppe le bombardement d'e-mails.",
+      maxWrongCodesPerDay: "Codes erronés par adresse et par jour",
+      maxWrongCodesPerDayHint:
+        "Nombre de codes erronés qu’une adresse peut saisir en 24 heures, sur tous les codes qui lui sont envoyés et à chaque étape qui en demande un (inscription, connexion par code, récupération du compte). Une fois atteint, tout code de cette adresse est refusé jusqu’à 24 heures après son premier code erroné ; le mot de passe, Google ou Apple et « Mot de passe oublié ? » restent disponibles. Un nouveau code ne le remet pas à zéro. Recommandé : 20.",
     },
     notificationsSection: {
       newDeviceAlertEnabled:
@@ -2969,6 +2977,8 @@ export const fr: TranslationResources = {
       "Connectez-vous avec un code à six chiffres envoyé à votre adresse e-mail au lieu d'un mot de passe. Vous pouvez redéfinir un mot de passe à tout moment.",
     removePasswordBlockedByEmailCode:
       "Votre mot de passe peut être supprimé une fois que votre deuxième étape est l'application d'authentification : un code par e-mail après une connexion par code prouverait deux fois la même boîte. Désactivez d'abord le code par e-mail, ou configurez l'application d'authentification.",
+    removePasswordBlockedByPlatformAuthority:
+      "Votre compte dispose de droits d’administration de la plateforme : il doit garder une seconde preuve que votre e-mail ne peut pas fournir. Configurez d’abord l’application d’authentification, puis vous pourrez supprimer votre mot de passe.",
     removePasswordConfirmTitle: "Supprimer votre mot de passe ?",
     removePasswordConfirmBody:
       "Désormais, vous vous connectez avec un code envoyé à {{email}}, et quiconque contrôle cette boîte peut se connecter à votre compte, sauf si votre application d'authentification est activée. Tous les autres appareils connectés à votre compte sont déconnectés, et nous vous informons par e-mail de la suppression du mot de passe.",

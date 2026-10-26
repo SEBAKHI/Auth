@@ -86,6 +86,12 @@ public class AccountDeletionRecoverer
     /// identity. Recorded on the session the recovery signs in, with the second
     /// factor the code proved when one was checked and claimed here.
     /// </param>
+    /// <param name="spendFirstProof">
+    /// For an entry whose first proof is single-use (the emailed code, OI-215): spends
+    /// it once the second factor was accepted and before anything is cancelled, so a
+    /// wrong authenticator code costs the person no new email, and a proof spent by a
+    /// concurrent request recovers nothing. False refuses with the code's own error.
+    /// </param>
     public async Task<ErrorOr<LoginResponse>> RecoverAsync(
         User user,
         AccountDeletionRequest request,
@@ -94,7 +100,8 @@ public class AccountDeletionRecoverer
         string? ipAddress,
         string? userAgent,
         string? deviceId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<CancellationToken, Task<bool>>? spendFirstProof = null)
     {
         var methods = primaryMethod;
 
@@ -135,6 +142,13 @@ public class AccountDeletionRecoverer
 
                 methods = methods.With(verified.Value);
             }
+        }
+
+        if (spendFirstProof is not null && !await spendFirstProof(cancellationToken))
+        {
+            _logger.LogWarning(
+                "Recovery of account {UserId} refused: its emailed code was spent or changed in between", user.Id);
+            return EmailVerificationErrors.InvalidOrExpiredOtp;
         }
 
         var cancelResult = request.Cancel();

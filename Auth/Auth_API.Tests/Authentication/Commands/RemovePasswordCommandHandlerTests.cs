@@ -113,6 +113,46 @@ public class RemovePasswordCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ForAPlatformAdministratorWithoutTheApp_IsRefused_BeforeTheSessionIsJudged()
+    {
+        // D-110-1, the seventh condition: without a password and without the app, the
+        // mailbox alone would open an account that administers the platform.
+        var scenario = new Scenario().WithPlatformPermission();
+
+        var result = await scenario.RunAsync();
+
+        result.FirstError.Should().Be(UserErrors.PasswordRemovalRequiresAuthenticatorApp);
+        scenario.Users.Verify(u => u.RemovePasswordAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        scenario.Guard.Invocations.Should().BeEmpty("the screen says to set up the app first, not to sign in again");
+        scenario.Revocation.Invocations.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Handle_ForAPlatformAdministratorWithTheApp_RemovesIt()
+    {
+        var scenario = new Scenario().WithPlatformPermission()
+            .WithFactor(EmailFactorFixtures.TotpRow(Guid.Empty))
+            .SignedInWith(PasswordSignIn.With(AuthenticationMethods.Totp));
+
+        var result = await scenario.RunAsync();
+
+        result.IsError.Should().BeFalse("with the app bound, the account keeps a second proof the mailbox cannot give");
+        scenario.User.PasswordHash.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_ForAnAccountWithoutPlatformAuthority_NeedsNoApp()
+    {
+        var scenario = new Scenario();
+
+        var result = await scenario.RunAsync();
+
+        result.IsError.Should().BeFalse();
+        scenario.Claims.Verify(c => c.ResolveAsync(scenario.User.Id, null, It.IsAny<CancellationToken>()), Times.Once,
+            "the authority is read from the platform claims, never from the enforcement switch");
+    }
+
+    [Fact]
     public async Task Handle_WithoutAPassword_IsRefused()
     {
         var scenario = new Scenario(passwordHash: null);
@@ -142,6 +182,7 @@ public class RemovePasswordCommandHandlerTests
         public Mock<ICredentialRevocationService> Revocation { get; } = new();
         public Mock<IPasswordHistoryRepository> History { get; } = new();
         public Mock<IDomainEventDispatcher> Events { get; } = new();
+        public Mock<ITokenClaimsResolver> Claims { get; } = new();
         public EmailSettings Email { get; } = new() { Enabled = true };
         public User User { get; }
         public Guid SessionId { get; } = Guid.NewGuid();
@@ -154,6 +195,8 @@ public class RemovePasswordCommandHandlerTests
             Users.Setup(u => u.RemovePasswordAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(true);
             SignedInWith(PasswordSignIn);
+            Claims.Setup(c => c.ResolveAsync(It.IsAny<Guid>(), null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => new TokenClaims([], _permissions, []));
             Events.Setup(e => e.DispatchEventsAsync(It.IsAny<Auth.Domain.Primitives.AggregateRoot>(), It.IsAny<CancellationToken>()))
                 .Callback<Auth.Domain.Primitives.AggregateRoot, CancellationToken>((root, _) =>
                 {
@@ -170,6 +213,14 @@ public class RemovePasswordCommandHandlerTests
             return this;
         }
 
+        private IReadOnlyList<string> _permissions = [];
+
+        public Scenario WithPlatformPermission()
+        {
+            _permissions = ["users:read"];
+            return this;
+        }
+
         public Scenario WithFactor(TwoFactorSnapshot snapshot)
         {
             Factors.Setup(f => f.GetSnapshotAsync(User.Id, It.IsAny<CancellationToken>())).ReturnsAsync(snapshot);
@@ -179,6 +230,7 @@ public class RemovePasswordCommandHandlerTests
         public Task<ErrorOr<Success>> RunAsync() =>
             new RemovePasswordCommandHandler(
                 Users.Object, Factors.Object, Guard.Object, Revocation.Object, History.Object, Events.Object,
+                new EmailCodeFullProofRule(Claims.Object),
                 TestHelpers.CreateOptions(Email), TestHelpers.CreateOptions(new PasswordSettings()),
                 new Mock<ILogger<RemovePasswordCommandHandler>>().Object)
                 .Handle(new RemovePasswordCommand(User.Id, SessionId, "idp-cookie"), CancellationToken.None);

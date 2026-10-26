@@ -58,6 +58,8 @@ vi.mock("@authsystem/ui/branding", () => ({
     staySignedInOffered: true,
   }),
   BrandingLogo: () => <span data-testid="platform-mark" />,
+  // The sign-in options are not yet known: the sign-up page shows its form.
+  useSignInOptions: () => null,
 }))
 // Chrome only: the toggles need the theme and language provider stack.
 vi.mock("@authsystem/ui/common/language-toggle", () => ({

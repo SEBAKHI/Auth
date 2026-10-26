@@ -1,4 +1,5 @@
 using Auth.Application.Configuration;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -10,7 +11,7 @@ namespace Auth.Application.Features.Authentication.RemovePassword;
 
 /// <summary>
 /// Removes an account's password at its owner's request (OI-215, D-215-3), under the
-/// owner's six conditions.
+/// owner's six conditions and the seventh of D-110-1.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -23,6 +24,9 @@ namespace Auth.Application.Features.Authentication.RemovePassword;
 /// <item>The emailed code is not the account's second factor: after a sign-in by
 /// emailed code it would prove the same mailbox again. Switch it off, or use the
 /// authenticator app, first.</item>
+/// <item>An account that holds any platform permission has its authenticator app
+/// bound (D-110-1, the seventh condition): without a password and without the app,
+/// the mailbox alone would open an account that administers the platform.</item>
 /// <item>A recent sign-in that proved the password, and the authenticator app when it
 /// is bound (condition 1). An emailed code never suffices: whoever holds only the
 /// mailbox must not be able to turn an account code-only quietly.</item>
@@ -34,7 +38,7 @@ namespace Auth.Application.Features.Authentication.RemovePassword;
 /// whatever <c>Session:TerminateSessionsOnPasswordChange</c> says, because the owner
 /// listed it as a condition (4), and the current session is kept; the event is audited
 /// and emailed to the owner (4, 5). An account holding platform authority may do it
-/// too (6).
+/// too (6), once its authenticator app is bound (7).
 /// </para>
 /// </remarks>
 public class RemovePasswordCommandHandler : IRequestHandler<RemovePasswordCommand, ErrorOr<Success>>
@@ -45,6 +49,7 @@ public class RemovePasswordCommandHandler : IRequestHandler<RemovePasswordComman
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPasswordHistoryRepository _passwordHistoryRepository;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly EmailCodeFullProofRule _fullProof;
     private readonly EmailSettings _emailSettings;
     private readonly PasswordSettings _passwordSettings;
     private readonly ILogger<RemovePasswordCommandHandler> _logger;
@@ -56,6 +61,7 @@ public class RemovePasswordCommandHandler : IRequestHandler<RemovePasswordComman
         ICredentialRevocationService credentialRevocation,
         IPasswordHistoryRepository passwordHistoryRepository,
         IDomainEventDispatcher eventDispatcher,
+        EmailCodeFullProofRule fullProof,
         IOptionsSnapshot<EmailSettings> emailSettings,
         IOptionsSnapshot<PasswordSettings> passwordSettings,
         ILogger<RemovePasswordCommandHandler> logger)
@@ -66,6 +72,7 @@ public class RemovePasswordCommandHandler : IRequestHandler<RemovePasswordComman
         _credentialRevocation = credentialRevocation;
         _passwordHistoryRepository = passwordHistoryRepository;
         _eventDispatcher = eventDispatcher;
+        _fullProof = fullProof;
         _emailSettings = emailSettings.Value;
         _passwordSettings = passwordSettings.Value;
         _logger = logger;
@@ -100,6 +107,16 @@ public class RemovePasswordCommandHandler : IRequestHandler<RemovePasswordComman
         if (factor?.HasEmailCode == true)
         {
             return UserErrors.PasswordRemovalBlockedByEmailCodeFactor;
+        }
+
+        // 2b. Platform authority keeps a second proof the mailbox cannot give
+        // (D-110-1): the authenticator app, bound.
+        if (factor?.IsEnabled != true && await _fullProof.HoldsPlatformAuthorityAsync(user.Id, cancellationToken))
+        {
+            _logger.LogInformation(
+                "Password removal for user {UserId} refused: the account holds platform permissions and has no authenticator app",
+                user.Id);
+            return UserErrors.PasswordRemovalRequiresAuthenticatorApp;
         }
 
         // 3. A recent sign-in that proved the password itself, and the app when it is

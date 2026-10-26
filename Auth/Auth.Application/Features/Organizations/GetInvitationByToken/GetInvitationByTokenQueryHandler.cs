@@ -79,7 +79,7 @@ public class GetInvitationByTokenQueryHandler : IRequestHandler<GetInvitationByT
             OrganizationLogoUrl = _imageUrlComposer.Compose(organization?.LogoUrl),
             Email = invitation.Email.Value,
             RoleName = role?.Name ?? string.Empty,
-            InvitedByName = inviter != null ? $"{inviter.FirstName} {inviter.LastName}".Trim() : string.Empty,
+            InvitedByName = inviter?.NameToShow ?? string.Empty,
             Status = invitation.Status.ToString(),
             ExpiresAt = invitation.ExpiresAt,
             IsExpired = invitation.IsExpired(),

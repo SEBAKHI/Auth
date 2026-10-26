@@ -11,8 +11,10 @@ namespace Auth_API.Tests.Infrastructure;
 /// OI-215 V5, V6, V11: the statements behind the sign-in by emailed code. A code is
 /// spent under the row's lock, re-checked without a charge, so it signs in once; the
 /// first confirmation and the owner's removal each write only over the state their
-/// request read. The SQL is the unit under test; the race on a real engine is the
-/// LocalDB probe.
+/// request read. The SQL is the unit under test. The race on a real engine (one code,
+/// two sign-ins at once: exactly one wins) was run against throwaway LocalDB with a
+/// scratch console over the real repository in REVIEW 110 (F7), with its deliberate
+/// breaks; it is not committed.
 /// </summary>
 /// <remarks>
 /// Deliberate break: drop <c>[ConsumedAt] IS NULL</c> from the consume's read, or the
@@ -138,7 +140,7 @@ public class EmailCodeSignInSqlTests
     }
 
     private static PendingRegistrationRepository Repository(RecordingDbConnectionFactory db, IOtpHasher hasher) =>
-        new(db, Mock.Of<IOtpGenerator>(), hasher);
+        new(db, Mock.Of<IOtpGenerator>(), hasher, TestHelpers.CreateOptions(new EmailSettings()));
 
     private static UserRepository Users(RecordingDbConnectionFactory db) => new(
         db,

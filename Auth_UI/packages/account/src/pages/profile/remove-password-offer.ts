@@ -10,11 +10,22 @@ import type { Schemas } from "@authsystem/api/types"
 export function removePasswordOffer(
   me: Schemas["UserDto"],
   codeSignInOffered: boolean
-): "offered" | "blockedByEmailCode" | "none" {
+):
+  | "offered"
+  | "blockedByEmailCode"
+  | "blockedByPlatformAuthority"
+  | "none" {
   if (me.hasPassword !== true || !codeSignInOffered || me.emailConfirmed !== true) {
     return "none"
   }
   // The emailed code would follow a sign-in by emailed code: refused until the
   // emailed second step is switched off or the authenticator app is bound.
-  return me.emailCodeEnabled === true ? "blockedByEmailCode" : "offered"
+  if (me.emailCodeEnabled === true) return "blockedByEmailCode"
+  // Platform authority keeps a second proof the mailbox cannot give (D-110-1):
+  // refused until the authenticator app is bound. `permissions` is the
+  // account's platform authority, the server's own reading of it.
+  if ((me.permissions?.length ?? 0) > 0 && me.totpEnabled !== true) {
+    return "blockedByPlatformAuthority"
+  }
+  return "offered"
 }

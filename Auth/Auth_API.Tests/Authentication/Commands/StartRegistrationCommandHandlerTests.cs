@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Auth.Application.Configuration;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Authentication.StartRegistration;
 using Auth.Application.Features.Users.Common;
 using Auth.Application.Interfaces;
@@ -131,8 +132,12 @@ public class StartRegistrationCommandHandlerTests
     }
 
     [Fact]
-    public async Task Start_SendsTheCodeOnlyToAFreeAddress_AndTheNoticeToEveryOther()
+    public async Task Start_SendsTheRegistrationCodeToAFreeAddress_TheSignInCodeToAnAccount_AndTheNoticeToAReservedOne()
     {
+        // REVIEW 110 F1 (b): the code this start mints for an address with an
+        // account also signs in to that account, so it is the sign-in code, sent to
+        // it: never a code nobody was sent. One classification with the sign-in
+        // page's start.
         var free = new Scenario().Free();
         var existing = new Scenario().Existing();
         var softDeleted = new Scenario().SoftDeleted();
@@ -149,34 +154,41 @@ public class StartRegistrationCommandHandlerTests
         code.Variables["OtpCode"].Should().Be("123456");
         code.Variables["ExpirationMinutes"].Should().Be(5);
 
-        foreach (var (name, scenario) in new[] { ("existing", existing), ("soft-deleted", softDeleted), ("reserved", reserved) })
+        foreach (var (name, scenario) in new[] { ("existing", existing), ("soft-deleted", softDeleted) })
         {
-            var notice = scenario.Sent.Single();
-            notice.TypeCode.Should().Be(NotificationTypeCodes.RegistrationAttemptExistingAccount,
-                $"the {name} address gets the notice, never a code");
-            notice.RecipientAddress.Should().Be("jane@one.example");
-            notice.Variables.Keys.Should().BeEquivalentTo(["SignInLink", "ResetPasswordLink", "AttemptedAt"]);
-            notice.Variables["SignInLink"].Should().Be("https://accounts.example/login");
-            notice.Variables["ResetPasswordLink"].Should().Be("https://accounts.example/forgot-password");
-            notice.Variables.Should().NotContainKey("OtpCode", "the code minted for a taken address is never sent");
+            var signInCode = scenario.Sent.Should().ContainSingle($"the {name} address gets exactly one message").Subject;
+            signInCode.TypeCode.Should().Be(NotificationTypeCodes.EmailSignInCode,
+                $"the {name} address gets the sign-in code its holder can use, never a code it was not sent");
+            signInCode.RecipientAddress.Should().Be("jane@one.example");
+            signInCode.RecipientUserId.Should().Be(scenario.OwnerId);
+            signInCode.Variables["OtpCode"].Should().Be("123456");
+            signInCode.Variables["UserName"].Should().Be("Jane Doe");
         }
+
+        var notice = reserved.Sent.Single();
+        notice.TypeCode.Should().Be(NotificationTypeCodes.RegistrationAttemptExistingAccount, "a reserved address has no account to sign in to");
+        notice.Variables.Keys.Should().BeEquivalentTo(["SignInLink", "ResetPasswordLink", "AttemptedAt"]);
+        notice.Variables["SignInLink"].Should().Be("https://accounts.example/login");
+        notice.Variables["ResetPasswordLink"].Should().Be("https://accounts.example/forgot-password");
+        notice.Variables.Should().NotContainKey("OtpCode", "the code minted for a reserved address is never sent");
     }
 
     [Fact]
     public async Task AnAddressInDeletionGrace_IsClassifiedExisting_AtStart()
     {
         // A Users row in any state blocks the address — the unique index does
-        // not care about status — so the owner is told, in their language.
+        // not care about status — so the owner gets the sign-in code, in their
+        // language, which leads to the recovery.
         var scenario = new Scenario().SoftDeleted(language: "fr");
 
         await scenario.RunAsync(Command(language: "en"));
 
-        scenario.Sent.Single().TypeCode.Should().Be(NotificationTypeCodes.RegistrationAttemptExistingAccount);
+        scenario.Sent.Single().TypeCode.Should().Be(NotificationTypeCodes.EmailSignInCode);
         scenario.Sent.Single().LanguageCode.Should().Be("fr");
     }
 
     [Fact]
-    public async Task TheNoticeToAnExistingOwner_UsesTheOwnersLanguage_AndIsAnonymous()
+    public async Task TheMessageToAnExistingOwner_UsesTheOwnersLanguage_AndIsAnonymous()
     {
         var existing = new Scenario().Existing(language: "ar");
         var reserved = new Scenario().Reserved();
@@ -334,16 +346,19 @@ public class StartRegistrationCommandHandlerTests
             "the code is the whole proof of the address, and Email:Enabled is a hot setting an operator can flip in production");
     }
 
-    [Fact]
-    public async Task ACodeMintedForATakenAddress_IsNeverLogged_EvenInDevelopment()
+    [Theory]
+    [InlineData("existing")]
+    [InlineData("reserved")]
+    public async Task ACodeMintedForATakenAddress_IsNeverLogged_EvenInDevelopment(string kind)
     {
-        var scenario = new Scenario().Existing();
+        var scenario = kind == "existing" ? new Scenario().Existing() : new Scenario().Reserved();
         scenario.Email.Enabled = false;
         scenario.Environment.Setup(e => e.IsDevelopment).Returns(true);
 
         await scenario.RunAsync(Command());
 
-        scenario.CodeWasLogged().Should().BeFalse("a code that never goes out must not exist in the log either");
+        scenario.CodeWasLogged().Should().BeFalse(
+            "a reserved address's code never goes out, and an account's sign-in code opens nothing while email is off");
     }
 
     // ── The audit trail ─────────────────────────────────────────────────────
@@ -529,6 +544,7 @@ public class StartRegistrationCommandHandlerTests
                 new IdentifierReservationGuard(Tombstones.Object, _hasher),
                 Notifications.Object,
                 Events.Object,
+                new EmailCodeStartMessages(TestHelpers.CreateOptions(Email)),
                 TestHelpers.CreateOptions(Registration),
                 TestHelpers.CreateOptions(Email),
                 Environment.Object,

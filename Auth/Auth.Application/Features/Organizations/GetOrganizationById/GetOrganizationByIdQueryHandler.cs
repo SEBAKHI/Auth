@@ -78,14 +78,14 @@ public class GetOrganizationByIdQueryHandler : IRequestHandler<GetOrganizationBy
                 Email = user?.Email?.Value ?? string.Empty,
                 FirstName = user?.FirstName,
                 LastName = user?.LastName,
-                FullName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : null,
+                FullName = user?.NameToShow,
                 RoleId = member.RoleId,
                 RoleCode = role?.Code ?? string.Empty,
                 RoleName = role?.Name ?? string.Empty,
                 IsActive = member.IsActive,
                 JoinedAt = member.JoinedAt,
                 InvitedBy = member.InvitedBy,
-                InvitedByName = inviter != null ? $"{inviter.FirstName} {inviter.LastName}".Trim() : null,
+                InvitedByName = inviter?.NameToShow,
                 ExpiresAt = member.ExpiresAt
             });
         }
@@ -113,7 +113,7 @@ public class GetOrganizationByIdQueryHandler : IRequestHandler<GetOrganizationBy
                 IsActive = app.IsActive,
                 EnabledAt = app.EnabledAt,
                 EnabledBy = app.EnabledBy,
-                EnabledByName = enabledByUser != null ? $"{enabledByUser.FirstName} {enabledByUser.LastName}".Trim() : null,
+                EnabledByName = enabledByUser?.NameToShow,
                 ExpiresAt = app.ExpiresAt,
                 SubscriptionTier = app.SubscriptionTier,
                 AssignedUserCount = assignedUserCounts.GetValueOrDefault(app.ApplicationId)
@@ -135,7 +135,7 @@ public class GetOrganizationByIdQueryHandler : IRequestHandler<GetOrganizationBy
             Website = organization.Website,
             ContactEmail = organization.ContactEmail,
             OwnerId = organization.OwnerId,
-            OwnerName = owner != null ? $"{owner.FirstName} {owner.LastName}".Trim() : null,
+            OwnerName = owner?.NameToShow,
             OwnerEmail = owner?.Email?.Value,
             IsActive = organization.IsActive,
             MemberCount = members.Count,

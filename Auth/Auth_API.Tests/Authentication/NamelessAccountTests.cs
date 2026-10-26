@@ -77,6 +77,50 @@ public class NamelessAccountTests
             .Should().ContainSingle(e => e.ErrorCode == "User.LastNameTooLong");
     }
 
+    [Fact]
+    public void TheAdministratorsEdit_StillRefusesOmittedNames_SoAPartialBodyBlanksNothing()
+    {
+        // REVIEW 110 F11: a full update; null is "not sent", the empty string clears.
+        var result = new UpdateUserCommandValidator().Validate(AdministratorEdit(null!, null!));
+
+        result.Errors.Select(e => e.ErrorCode).Should().BeEquivalentTo(["User.FirstNameRequired", "User.LastNameRequired"]);
+    }
+
+    /// <summary>
+    /// REVIEW 110 F4: one server rule for the name to show (the name, or the address),
+    /// <c>User.NameToShow</c> and its read-model forms. A hand-made concatenation of the
+    /// two parts gives "" for a nameless person, which was mailed ("<blank> has invited
+    /// you") and shown. None is left in Auth.Application; the application directory,
+    /// whose published contract is null for "no name", reads <c>User.DisplayNameFrom</c>.
+    /// </summary>
+    [Fact]
+    public void NoHandler_BuildsANameFromItsTwoParts_ByHand()
+    {
+        var concatenation = new System.Text.RegularExpressions.Regex(
+            @"\$""\{[A-Za-z_.?]*FirstName\} \{[A-Za-z_.?]*LastName\}""");
+        var root = Path.Combine(SolutionDirectory(), "Auth.Application");
+
+        var offenders = Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
+            .Where(path => concatenation.IsMatch(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .ToList();
+
+        Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories).Should().NotBeEmpty("the guard must read real files");
+        offenders.Should().BeEmpty("a nameless person's name is their address (User.NameToShow), never \"\"");
+    }
+
+    private static string SolutionDirectory()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Auth.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        directory.Should().NotBeNull("the tests must run from inside the solution tree");
+        return directory!.FullName;
+    }
+
     private static UpdateUserCommand AdministratorEdit(string firstName, string lastName) =>
         new(Guid.NewGuid(), firstName, lastName) { ModifiedBy = Guid.NewGuid() };
 }

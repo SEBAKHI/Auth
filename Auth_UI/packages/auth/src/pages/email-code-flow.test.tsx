@@ -351,17 +351,48 @@ describe("EmailCodeFlow", () => {
     })
   })
 
-  it("closes the code for good after the last wrong try", async () => {
-    answerVerify(() => problem(400, "EmailVerification.TooManyAttempts"))
-    renderFlow()
+  it.each([
+    "EmailVerification.TooManyAttempts",
+    "EmailVerification.WrongCodeLimitReached",
+  ])(
+    // D-110-2: the address's wrong codes for the day close the code as its own five tries do.
+    "closes the code for good after %s",
+    async (code) => {
+      answerVerify(() => problem(400, code))
+      renderFlow()
 
-    await typeCode()
+      await typeCode()
 
-    expect(
-      await screen.findByText("refused: EmailVerification.TooManyAttempts")
-    ).toBeInTheDocument()
-    await userEvent.setup().type(screen.getByLabelText(/verification code/i), "654321")
-    expect(screen.getByRole("button", { name: /^verify$/i })).toBeDisabled()
-    expect(mocks.signInWithEmailCode).not.toHaveBeenCalled()
-  })
+      expect(await screen.findByText(`refused: ${code}`)).toBeInTheDocument()
+      await userEvent.setup().type(screen.getByLabelText(/verification code/i), "654321")
+      expect(screen.getByRole("button", { name: /^verify$/i })).toBeDisabled()
+      expect(
+        mocks.post.mock.calls.filter(([route]) => route === "/api/v1/Auth/email-code/verify"),
+        "a spent code is not sent again, even by the sixth digit"
+      ).toHaveLength(1)
+      expect(mocks.signInWithEmailCode).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([
+    ["EmailVerification.TooManyAttempts", true],
+    ["EmailVerification.WrongCodeLimitReached", false],
+  ])(
+    // A new code gets five new tries; at the address's limit for the day it would
+    // be refused too, so the screen offers none (REVIEW 110 F2).
+    "after %s, offers a new code: %s",
+    async (code, offered) => {
+      answerVerify(() => problem(400, code))
+      // Already expired, so the resend cooldown is over from the start.
+      renderFlow({ pending: { ...PENDING, expiresAt: new Date(Date.now() - 1000).toISOString() } })
+
+      await typeCode()
+
+      expect(await screen.findByText(`refused: ${code}`)).toBeInTheDocument()
+      const resend = screen.getByRole("button", { name: "Send a new code" })
+      if (offered) expect(resend).toBeEnabled()
+      else expect(resend).toBeDisabled()
+      expect(screen.getByRole("button", { name: /different email/i })).toBeEnabled()
+    }
+  )
 })

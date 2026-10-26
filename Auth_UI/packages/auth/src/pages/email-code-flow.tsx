@@ -283,6 +283,10 @@ function CodeStage({
   const [requesting, setRequesting] = React.useState(false)
   // Five wrong tries spend the code for good; only a new one can be tried.
   const [exhausted, setExhausted] = React.useState(false)
+  // The address's wrong codes for the day (D-110-2): a new code would be refused
+  // too, so none is offered; the password and "forgot password" are one step
+  // back, behind "use a different email".
+  const [limitReached, setLimitReached] = React.useState(false)
   // The code was just sent: the next one is a minute away, or sooner when it
   // expires first (a reload long after the send finds it already expired).
   const [cooldownUntil, setCooldownUntil] = React.useState(
@@ -299,10 +303,12 @@ function CodeStage({
   const expiry = useCountdown(expiresAt)
   const cooldown = useCountdown(cooldownUntil)
   // Not while a code is being checked: the new code would void it mid-request.
-  const canResend = cooldown.expired && !requesting && !submitting
+  const canResend = cooldown.expired && !requesting && !submitting && !limitReached
 
   const submit = async (value: string) => {
-    if (value.length < OTP_CODE_LENGTH || submittingRef.current) return
+    // A spent code (its own five tries, or the address's for the day) is never
+    // sent again from here: the six boxes still auto-submit on the sixth digit.
+    if (value.length < OTP_CODE_LENGTH || submittingRef.current || exhausted) return
     // The clock here only reports; the server decides.
     submittingRef.current = true
     setSubmitting(true)
@@ -313,9 +319,14 @@ function CodeStage({
     } catch (error) {
       setErrorMessage(getErrorMessage(error))
       setOtp("")
-      if (getErrorCodes(error).includes("EmailVerification.TooManyAttempts")) {
+      // Five wrong tries of this code, or the address's wrong codes for the day
+      // (D-110-2): either way this code is done; the server's text says what next.
+      const codes = getErrorCodes(error)
+      const limit = codes.includes("EmailVerification.WrongCodeLimitReached")
+      if (limit || codes.includes("EmailVerification.TooManyAttempts")) {
         setExhausted(true)
       }
+      if (limit) setLimitReached(true)
     } finally {
       submittingRef.current = false
       setSubmitting(false)
@@ -586,7 +597,8 @@ function CompleteAccountStage({
 /**
  * An account waiting for deletion, proven by the code: one button brings it
  * back and signs in. The authenticator app is asked when the server says the
- * account has one; the code is spent only once the request is complete.
+ * account has one; the emailed code is spent only after the app's code was
+ * accepted, so a mistyped app code is simply typed again.
  */
 function RecoverStage({
   appHeader,

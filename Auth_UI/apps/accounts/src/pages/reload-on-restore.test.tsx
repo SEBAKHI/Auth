@@ -38,6 +38,8 @@ vi.mock("@authsystem/auth/external/external-providers", () => ({
 vi.mock("@authsystem/ui/branding", () => ({
   useBranding: () => ({ name: "AuthSystem", logoUrl: null, isPending: false, staySignedInOffered: true }),
   BrandingLogo: () => null,
+  // The sign-in options are not yet known: the sign-up page shows its form.
+  useSignInOptions: () => null,
 }))
 vi.mock("@authsystem/ui/common/language-toggle", () => ({
   LanguageToggle: () => null,

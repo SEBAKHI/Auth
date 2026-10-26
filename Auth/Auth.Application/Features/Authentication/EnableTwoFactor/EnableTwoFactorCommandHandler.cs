@@ -104,6 +104,18 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
             return session.Errors;
         }
 
+        // And a first factor (D-215-1, REVIEW 110 F5): a password account signed in
+        // by emailed code holds the mailbox only; binding the app from there would
+        // turn the owner's next password sign-in into a lock-out. The passwordless
+        // account's code is its first factor and passes.
+        if (!session.Value.Methods.HasPrimary)
+        {
+            _logger.LogInformation(
+                "Binding the authenticator app for user {UserId} asked for a sign-in that proves a first factor (methods {AuthMethods})",
+                request.UserId, session.Value.Methods.Value);
+            return AuthErrors.ReauthenticationRequired;
+        }
+
         // A further factor needs a session that proved two (FA11 (11-2)), before
         // anything is counted. With an authenticator on the account the reservation
         // below refuses anyway; the rule stands for every factor that can coexist

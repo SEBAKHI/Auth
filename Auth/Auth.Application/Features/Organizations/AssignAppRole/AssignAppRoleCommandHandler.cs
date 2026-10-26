@@ -133,7 +133,7 @@ public class AssignAppRoleCommandHandler : IRequestHandler<AssignAppRoleCommand,
             RoleName = role.Name,
             AssignedAt = assignment.AssignedAt,
             AssignedBy = assignment.AssignedBy,
-            AssignedByName = assignedByUser != null ? $"{assignedByUser.FirstName} {assignedByUser.LastName}".Trim() : null,
+            AssignedByName = assignedByUser?.NameToShow,
             ExpiresAt = assignment.ExpiresAt
         };
     }

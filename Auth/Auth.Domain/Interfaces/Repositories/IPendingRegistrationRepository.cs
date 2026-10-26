@@ -35,6 +35,12 @@ public interface IPendingRegistrationRepository
     /// is consumed. Used by the check-only step and by the completion step's
     /// first check alike — one increment site.
     /// </summary>
+    /// <remarks>
+    /// The same site counts the address's wrong codes against its 24-hour ceiling
+    /// (D-110-2, <c>Email:MaxWrongCodesPerDay</c>), read here so that no step that
+    /// checks a code — the registration's or the sign-in's — can forget it; and it
+    /// refuses every code, a right one too, while the ceiling is reached.
+    /// </remarks>
     Task<PendingRegistrationCodeCheck> CheckCodeUnderLockAsync(string handle, string code, CancellationToken cancellationToken);
 
     /// <summary>
@@ -111,6 +117,12 @@ public enum PendingRegistrationCodeOutcome
 
     /// <summary>The current code already took its five wrong guesses.</summary>
     Exhausted,
+
+    /// <summary>
+    /// The address reached its wrong-code ceiling for the current 24-hour window
+    /// (D-110-2): nothing was compared and nothing charged.
+    /// </summary>
+    WrongCodeCeilingReached,
 
     /// <summary>Wrong code; one more attempt has been charged and committed.</summary>
     Wrong,

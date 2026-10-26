@@ -1,4 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod"
+import { Info } from "lucide-react"
+import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Link, useLocation, useNavigate } from "react-router-dom"
@@ -6,8 +8,10 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { privacyPolicyUrl } from "@authsystem/api/env"
-import { getErrorMessage } from "@authsystem/api/errors"
+import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
+import { useSignInOptions } from "@authsystem/ui/branding"
 import { Button } from "@authsystem/ui/button"
 import { FieldGroup } from "@authsystem/ui/field"
 import {
@@ -47,6 +51,13 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
  * The provider buttons sit OUTSIDE the form on purpose. A Google or Apple
  * identity proves its own mailbox and skips the code entirely.
  *
+ * Where a sign-up cannot happen the page says so and points to the sign-in
+ * (REVIEW 110 F10, F1): before an address is typed when the public options say
+ * sign-up is closed — a hint, possibly from a cached copy, while the server
+ * still answers every address alike — and once the server refuses the start
+ * because it sends no email, since then no code could reach anyone. A payload
+ * that says nothing of email is never read as "email off".
+ *
  * Back to this page asks the server again rather than reviving it (OI-150).
  */
 export function RegisterPage() {
@@ -57,6 +68,14 @@ export function RegisterPage() {
   // screens; each link and navigation carries it forward unchanged.
   const { search } = useLocation()
   const { layout: appHeader } = useFlowBranding(getValidReturnTo(search))
+  const signInOptions = useSignInOptions()
+  const [noEmail, setNoEmail] = React.useState(false)
+  const unavailable =
+    signInOptions?.selfRegistrationOpen === false
+      ? "closed"
+      : noEmail
+        ? "noEmail"
+        : null
 
   const schema = z.object({
     email: z
@@ -80,8 +99,44 @@ export function RegisterPage() {
       )
       navigate({ pathname: "/register/verify", search })
     } catch (error) {
+      if (getErrorCodes(error).includes("User.EmailCodeSignInUnavailable")) {
+        setNoEmail(true)
+        return
+      }
       toast.error(getErrorMessage(error))
     }
+  }
+
+  if (unavailable) {
+    return (
+      <AuthLayout
+        title={t(
+          unavailable === "closed"
+            ? "auth.registerClosedTitle"
+            : "auth.registerTitle"
+        )}
+        {...appHeader}
+      >
+        <div className="flex flex-col gap-4">
+          <Alert data-testid="register-unavailable">
+            <Info />
+            <AlertDescription>
+              {t(
+                unavailable === "closed"
+                  ? "auth.registerClosed"
+                  : "auth.registerUnavailable"
+              )}
+            </AlertDescription>
+          </Alert>
+          <Button asChild className="w-full">
+            <Link to={{ pathname: "/login", search }}>{t("auth.signIn")}</Link>
+          </Button>
+        </div>
+        {/* Google and Apple have their own switch (Registration:AllowExternalProvisioning),
+            and neither needs email: their door stays where it always was. */}
+        <ExternalProviders recoveryPath="/account-recovery" />
+      </AuthLayout>
+    )
   }
 
   return (

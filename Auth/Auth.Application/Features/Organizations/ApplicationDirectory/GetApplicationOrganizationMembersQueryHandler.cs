@@ -3,6 +3,7 @@ using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Organizations;
+using Auth.Domain.Entities;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -117,9 +118,12 @@ public sealed class GetApplicationOrganizationMembersQueryHandler
                 group => (IReadOnlyList<string>)group.Select(row => row.RoleCode).Distinct(StringComparer.Ordinal).ToList());
     }
 
-    private static string? NameOf(ApplicationDirectoryMemberRow member)
-    {
-        var name = $"{member.FirstName} {member.LastName}".Trim();
-        return name.Length == 0 ? null : name;
-    }
+    /// <summary>
+    /// The member's name, or null for one without a name. Deliberately not the
+    /// platform's "name to show" (the address in its place, OI-215): this directory is
+    /// read by other applications, and its published contract is null for "no name",
+    /// with the address in its own field.
+    /// </summary>
+    private static string? NameOf(ApplicationDirectoryMemberRow member) =>
+        User.DisplayNameFrom(member.FirstName, member.LastName);
 }

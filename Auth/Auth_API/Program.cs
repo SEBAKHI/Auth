@@ -822,6 +822,7 @@ builder.Services.AddScoped<FirstFactorEmailProof>();
 // verify, sign-in and recovery steps. Scoped: it reads the Registration switches per request.
 builder.Services.AddScoped<EmailCodeAccountResolver>();
 builder.Services.AddScoped<EmailCodeCheck>();
+builder.Services.AddScoped<EmailCodeStartMessages>();
 // Whether a code sign-in must also prove the password: platform claims, never the
 // enforcement switch (OI-215, T4 (a)).
 builder.Services.AddScoped<EmailCodeFullProofRule>();

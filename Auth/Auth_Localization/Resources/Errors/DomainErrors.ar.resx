@@ -523,6 +523,9 @@
   <data name="EmailVerification.TooManyAttempts" xml:space="preserve">
     <value>محاولات تحقق كثيرة جدًا. يرجى طلب رمز جديد.</value>
   </data>
+  <data name="EmailVerification.WrongCodeLimitReached" xml:space="preserve">
+    <value>أُدخلت رموز خاطئة كثيرة لهذا العنوان خلال الساعات الأربع والعشرين الأخيرة. ادخل بكلمة المرور، أو أعد تعيينها من «هل نسيت كلمة المرور؟»، أو حاول لاحقًا.</value>
+  </data>
   <data name="EmailVerification.TooManyRequests" xml:space="preserve">
     <value>طلبات رمز تحقق كثيرة جدًا. يرجى المحاولة لاحقًا.</value>
   </data>
@@ -1635,6 +1638,9 @@
   </data>
   <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
     <value>لا يمكن إزالة كلمة المرور ما دامت خطوتك الثانية رمزًا يصل إلى بريدك الإلكتروني. أوقفها أولًا، أو استعمل تطبيق المصادقة.</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresAuthenticatorApp" xml:space="preserve">
+    <value>لا يمكن إزالة كلمة المرور من حساب له صلاحيات إدارة المنصّة ما لم يُربط به تطبيق مصادقة. اربط تطبيق المصادقة أولًا.</value>
   </data>
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>لا يمكن حفظ '{0}' بهذه القيمة: التسجيل بلا كلمة مرور يحتاج إلى تفعيل إرسال البريد الإلكتروني، لأن هذه الحسابات تدخل برمز يصل إلى البريد.</value>

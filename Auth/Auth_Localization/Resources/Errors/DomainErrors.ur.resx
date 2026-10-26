@@ -521,6 +521,9 @@
   <data name="EmailVerification.TooManyAttempts" xml:space="preserve">
     <value>تصدیق کی بہت زیادہ کوششیں۔ براہ کرم نیا کوڈ حاصل کریں۔</value>
   </data>
+  <data name="EmailVerification.WrongCodeLimitReached" xml:space="preserve">
+    <value>پچھلے 24 گھنٹوں میں اس پتے کے لیے بہت زیادہ غلط کوڈ درج کیے گئے۔ اپنے پاس ورڈ سے سائن ان کریں، «پاس ورڈ بھول گئے؟» سے اسے ری سیٹ کریں، یا بعد میں دوبارہ کوشش کریں۔</value>
+  </data>
   <data name="EmailVerification.TooManyRequests" xml:space="preserve">
     <value>تصدیقی کوڈ کی بہت زیادہ درخواستیں۔ براہ کرم بعد میں دوبارہ کوشش کریں۔</value>
   </data>
@@ -1633,6 +1636,9 @@
   </data>
   <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
     <value>جب تک آپ کا دوسرا مرحلہ ای میل کے ذریعے بھیجا گیا کوڈ ہے، پاس ورڈ ہٹایا نہیں جا سکتا۔ پہلے اسے بند کریں، یا تصدیقی ایپ استعمال کریں۔</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresAuthenticatorApp" xml:space="preserve">
+    <value>جس اکاؤنٹ کے پاس پلیٹ فارم کے انتظام کے اختیارات ہوں، اس کا پاس ورڈ تب تک نہیں ہٹایا جا سکتا جب تک تصدیقی ایپ سیٹ اپ نہ ہو۔ پہلے ایپ سیٹ اپ کریں۔</value>
   </data>
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>'{0}' کو اس طرح محفوظ نہیں کیا جا سکتا: پاس ورڈ کے بغیر سائن اپ کے لیے ای میل بھیجنا آن ہونا ضروری ہے، کیونکہ ایسے اکاؤنٹس ای میل کے ذریعے بھیجے گئے کوڈ سے سائن اِن کرتے ہیں۔</value>

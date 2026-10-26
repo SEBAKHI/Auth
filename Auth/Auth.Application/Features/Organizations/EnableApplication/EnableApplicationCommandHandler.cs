@@ -124,7 +124,7 @@ public class EnableApplicationCommandHandler : IRequestHandler<EnableApplication
             IsActive = subscription.IsActive,
             EnabledAt = subscription.EnabledAt,
             EnabledBy = subscription.EnabledBy,
-            EnabledByName = enabledByUser != null ? $"{enabledByUser.FirstName} {enabledByUser.LastName}".Trim() : null,
+            EnabledByName = enabledByUser?.NameToShow,
             ExpiresAt = subscription.ExpiresAt,
             SubscriptionTier = subscription.SubscriptionTier,
             AssignedUserCount = 0

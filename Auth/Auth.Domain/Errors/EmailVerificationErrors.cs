@@ -19,6 +19,15 @@ public static class EmailVerificationErrors
         code: "EmailVerification.TooManyAttempts",
         description: "Too many verification attempts. Please request a new code.");
 
+    /// <summary>
+    /// The address reached its ceiling of wrong codes for the current 24 hours
+    /// (D-110-2): every code is refused until the window passes, whichever step it
+    /// comes through. The password, a provider and "forgot password" stay open.
+    /// </summary>
+    public static Error WrongCodeLimitReached => Error.Validation(
+        code: "EmailVerification.WrongCodeLimitReached",
+        description: "Too many wrong codes were entered for this address in the last 24 hours. Sign in with your password, or reset it with \"Forgot password\", or try again later.");
+
     public static Error TooManyRequests => Error.Validation(
         code: "EmailVerification.TooManyRequests",
         description: "Too many verification code requests. Please try again later.");

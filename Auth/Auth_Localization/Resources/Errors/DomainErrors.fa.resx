@@ -521,6 +521,9 @@
   <data name="EmailVerification.TooManyAttempts" xml:space="preserve">
     <value>تلاش‌های بیش از حد مجاز برای تأیید. لطفاً کد جدیدی درخواست کنید.</value>
   </data>
+  <data name="EmailVerification.WrongCodeLimitReached" xml:space="preserve">
+    <value>در ۲۴ ساعت گذشته کدهای نادرست زیادی برای این نشانی وارد شده است. با رمز عبور وارد شوید، آن را با «رمز عبور را فراموش کرده‌اید؟» بازنشانی کنید، یا بعداً دوباره تلاش کنید.</value>
+  </data>
   <data name="EmailVerification.TooManyRequests" xml:space="preserve">
     <value>درخواست‌های بیش از حد مجاز برای کد تأیید. لطفاً بعداً دوباره تلاش کنید.</value>
   </data>
@@ -1633,6 +1636,9 @@
   </data>
   <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
     <value>تا وقتی گام دوم شما کدی است که به ایمیل فرستاده می‌شود، رمز عبور را نمی‌توان حذف کرد. ابتدا آن را خاموش کنید یا از برنامهٔ احراز هویت استفاده کنید.</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresAuthenticatorApp" xml:space="preserve">
+    <value>رمز عبور حسابی که اختیارات مدیریت پلتفرم دارد تنها وقتی حذف می‌شود که برنامهٔ احراز هویت برای آن راه‌اندازی شده باشد. ابتدا برنامه را راه‌اندازی کنید.</value>
   </data>
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>'{0}' را نمی‌توان این‌گونه ذخیره کرد: ثبت‌نام بدون رمز عبور نیاز دارد که ارسال ایمیل روشن باشد، زیرا این حساب‌ها با کدی که به ایمیل فرستاده می‌شود وارد می‌شوند.</value>

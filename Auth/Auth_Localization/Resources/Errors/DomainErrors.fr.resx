@@ -521,6 +521,9 @@
   <data name="EmailVerification.TooManyAttempts" xml:space="preserve">
     <value>Trop de tentatives de vérification. Veuillez demander un nouveau code.</value>
   </data>
+  <data name="EmailVerification.WrongCodeLimitReached" xml:space="preserve">
+    <value>Trop de codes erronés ont été saisis pour cette adresse au cours des dernières 24 heures. Connectez-vous avec votre mot de passe, réinitialisez-le avec « Mot de passe oublié ? », ou réessayez plus tard.</value>
+  </data>
   <data name="EmailVerification.TooManyRequests" xml:space="preserve">
     <value>Trop de demandes de code de vérification. Veuillez réessayer plus tard.</value>
   </data>
@@ -1633,6 +1636,9 @@
   </data>
   <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
     <value>Le mot de passe ne peut pas être supprimé tant que votre deuxième étape est un code envoyé par e-mail. Désactivez-la d’abord, ou utilisez une application d’authentification.</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresAuthenticatorApp" xml:space="preserve">
+    <value>Le mot de passe d’un compte disposant de droits d’administration de la plateforme ne peut être supprimé que si une application d’authentification est configurée. Configurez-en une d’abord.</value>
   </data>
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>« {0} » ne peut pas être enregistré ainsi : l’inscription sans mot de passe nécessite l’envoi d’e-mails, car ces comptes se connectent avec un code envoyé par e-mail.</value>

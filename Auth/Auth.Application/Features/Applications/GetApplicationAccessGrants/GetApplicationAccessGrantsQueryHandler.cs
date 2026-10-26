@@ -2,6 +2,7 @@ using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Entities;
 using ErrorOr;
 using MediatR;
 
@@ -48,7 +49,7 @@ public class GetApplicationAccessGrantsQueryHandler
             Email = grant.Email,
             FirstName = grant.FirstName,
             LastName = grant.LastName,
-            FullName = $"{grant.FirstName} {grant.LastName}".Trim(),
+            FullName = User.NameToShowFrom(grant.FirstName, grant.LastName, grant.Email),
             DisplayName = grant.DisplayName,
             ProfileImageUrl = _imageUrlComposer.Compose(grant.ProfileImageUrl),
             Status = grant.Status,

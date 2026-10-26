@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Auth.Application.Configuration;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Authentication.StartEmailCodeSignIn;
 using Auth.Application.Features.Authentication.StartRegistration;
 using Auth.Application.Features.Users.Common;
@@ -266,6 +267,7 @@ public class StartEmailCodeSignInCommandHandlerTests
                 new IdentifierReservationGuard(Tombstones.Object, _hasher),
                 Notifications.Object,
                 Events.Object,
+                new EmailCodeStartMessages(TestHelpers.CreateOptions(Email)),
                 TestHelpers.CreateOptions(Registration),
                 TestHelpers.CreateOptions(Email),
                 Environment.Object,

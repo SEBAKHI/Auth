@@ -521,6 +521,9 @@
   <data name="EmailVerification.TooManyAttempts" xml:space="preserve">
     <value>验证尝试次数过多，请申请新的验证码。</value>
   </data>
+  <data name="EmailVerification.WrongCodeLimitReached" xml:space="preserve">
+    <value>过去 24 小时内为此地址输入了过多错误的验证码。请使用密码登录、通过“忘记密码？”重置密码，或稍后再试。</value>
+  </data>
   <data name="EmailVerification.TooManyRequests" xml:space="preserve">
     <value>验证码请求次数过多，请稍后再试。</value>
   </data>
@@ -1633,6 +1636,9 @@
   </data>
   <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
     <value>在您的第二步验证为电子邮件验证码期间，无法删除密码。请先将其关闭，或改用身份验证器应用。</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresAuthenticatorApp" xml:space="preserve">
+    <value>拥有平台管理权限的账户，只有在设置了身份验证器应用后才能删除密码。请先设置身份验证器应用。</value>
   </data>
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>无法这样保存“{0}”：无密码注册需要开启电子邮件发送，因为此类账户使用电子邮件验证码登录。</value>

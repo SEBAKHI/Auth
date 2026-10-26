@@ -521,6 +521,9 @@
   <data name="EmailVerification.TooManyAttempts" xml:space="preserve">
     <value>Çok fazla doğrulama denemesi. Lütfen yeni bir kod talep edin.</value>
   </data>
+  <data name="EmailVerification.WrongCodeLimitReached" xml:space="preserve">
+    <value>Bu adres için son 24 saatte çok fazla yanlış kod girildi. Parolanızla giriş yapın, “Parolanızı mı unuttunuz?” ile sıfırlayın veya daha sonra yeniden deneyin.</value>
+  </data>
   <data name="EmailVerification.TooManyRequests" xml:space="preserve">
     <value>Çok fazla doğrulama kodu talebi. Lütfen daha sonra tekrar deneyin.</value>
   </data>
@@ -1633,6 +1636,9 @@
   </data>
   <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
     <value>İkinci adımınız e-postayla gönderilen bir kod olduğu sürece parola kaldırılamaz. Önce bunu kapatın veya bir kimlik doğrulama uygulaması kullanın.</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresAuthenticatorApp" xml:space="preserve">
+    <value>Platform yönetimi yetkisi olan bir hesabın parolası, bir kimlik doğrulama uygulaması kurulmadıkça kaldırılamaz. Önce bir uygulama kurun.</value>
   </data>
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>'{0}' bu şekilde kaydedilemez: parolasız kayıt için e-posta gönderiminin açık olması gerekir, çünkü bu hesaplar e-postayla gönderilen bir kodla giriş yapar.</value>

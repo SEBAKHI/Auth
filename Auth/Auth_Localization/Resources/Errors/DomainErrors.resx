@@ -523,6 +523,9 @@
   <data name="EmailVerification.TooManyAttempts" xml:space="preserve">
     <value>Too many verification attempts. Please request a new code.</value>
   </data>
+  <data name="EmailVerification.WrongCodeLimitReached" xml:space="preserve">
+    <value>Too many wrong codes were entered for this address in the last 24 hours. Sign in with your password, reset it with “Forgot password?”, or try again later.</value>
+  </data>
   <data name="EmailVerification.TooManyRequests" xml:space="preserve">
     <value>Too many verification code requests. Please try again later.</value>
   </data>
@@ -1635,6 +1638,9 @@
   </data>
   <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
     <value>The password cannot be removed while your second step is a code sent by email. Turn that off, or use an authenticator app, first.</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresAuthenticatorApp" xml:space="preserve">
+    <value>The password cannot be removed from an account with platform administration rights unless an authenticator app is set up. Set one up first.</value>
   </data>
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>'{0}' cannot be saved this way: sign-up without a password needs email sending on, because such accounts sign in with a code sent by email.</value>

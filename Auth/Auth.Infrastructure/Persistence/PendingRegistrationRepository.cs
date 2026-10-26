@@ -1,9 +1,11 @@
 using System.Data;
+using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Options;
 
 namespace Auth.Infrastructure.Persistence;
 
@@ -19,26 +21,36 @@ namespace Auth.Infrastructure.Persistence;
 /// SqlClient throws for a command issued on a connection with an open
 /// transaction it was not handed, and that throw surfaces to the client as a
 /// 400 with nothing pointing at the cause.
+/// <para>
+/// The wrong-code ceiling (D-110-2) is read here, from the live setting, for the
+/// same reason the attempt gate lives here: it is a decision about the locked row,
+/// and every step that checks a code goes through this one site, so none of them
+/// can be built without it.
+/// </para>
 /// </remarks>
 public sealed class PendingRegistrationRepository : IPendingRegistrationRepository
 {
     private const string Columns = @"
                 [Id], [Handle], [Email], [NormalizedEmail], [OtpHash], [ExpiresAt],
                 [AttemptCount], [MailedCount], [MailWindowStartUtc], [MailedAt],
-                [VerifiedAt], [ConsumedAt], [PreferredLanguage], [CreatedAt]";
+                [VerifiedAt], [ConsumedAt], [PreferredLanguage], [CreatedAt],
+                [WrongCodeCount], [WrongCodeWindowStartUtc]";
 
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly IOtpGenerator _otpGenerator;
     private readonly IOtpHasher _otpHasher;
+    private readonly IOptionsMonitor<EmailSettings> _emailSettings;
 
     public PendingRegistrationRepository(
         IDbConnectionFactory connectionFactory,
         IOtpGenerator otpGenerator,
-        IOtpHasher otpHasher)
+        IOtpHasher otpHasher,
+        IOptionsMonitor<EmailSettings> emailSettings)
     {
         _connectionFactory = connectionFactory;
         _otpGenerator = otpGenerator;
         _otpHasher = otpHasher;
+        _emailSettings = emailSettings;
     }
 
     /// <inheritdoc />
@@ -82,7 +94,8 @@ public sealed class PendingRegistrationRepository : IPendingRegistrationReposito
                     ) VALUES (
                         @Id, @Handle, @Email, @NormalizedEmail, @OtpHash, @ExpiresAt,
                         @AttemptCount, @MailedCount, @MailWindowStartUtc, @MailedAt,
-                        @VerifiedAt, @ConsumedAt, @PreferredLanguage, @CreatedAt
+                        @VerifiedAt, @ConsumedAt, @PreferredLanguage, @CreatedAt,
+                        @WrongCodeCount, @WrongCodeWindowStartUtc
                     )",
                     Parameters(created),
                     transaction);
@@ -119,7 +132,8 @@ public sealed class PendingRegistrationRepository : IPendingRegistrationReposito
 
         // Dead, or never handed to the outbox. A fresh code, if the address's
         // window still allows one; the counters are the guessing bound and
-        // survive the rotation because the row does.
+        // survive the rotation because the row does — the wrong-code ceiling's
+        // two columns are deliberately absent from the statement below.
         if (!row.TryChargeMailWindow(request.MailWindow, request.MaxMailsPerWindow, now))
         {
             transaction.Commit();
@@ -201,6 +215,16 @@ public sealed class PendingRegistrationRepository : IPendingRegistrationReposito
         }
 
         var row = dto.ToEntity();
+        var now = DateTime.UtcNow;
+
+        // The address's ceiling first, before any comparison: once it is reached
+        // a right code is refused too, or the ceiling would only slow a guesser
+        // down to the moment they are right.
+        if (row.HasReachedWrongCodeCeiling(_emailSettings.CurrentValue.EffectiveMaxWrongCodesPerDay, now))
+        {
+            transaction.Rollback();
+            return new PendingRegistrationCodeCheck(PendingRegistrationCodeOutcome.WrongCodeCeilingReached, row);
+        }
 
         // The gate and the comparison sit under the same lock, so concurrent
         // guesses at one row see each other's increments.
@@ -213,16 +237,20 @@ public sealed class PendingRegistrationRepository : IPendingRegistrationReposito
         if (!_otpHasher.Verify(row.OtpScope, code, row.OtpHash))
         {
             // The failure is what must commit: a rolled-back increment would
-            // hand the guess back.
+            // hand the guess back. The ceiling's count is the entity's, computed
+            // on the row this transaction holds, so two concurrent guesses are
+            // counted one after the other.
+            row.RecordFailedAttempt(now);
             await connection.ExecuteAsync(@"
                 UPDATE [dbo].[PendingRegistrations]
-                SET [AttemptCount] = [AttemptCount] + 1
+                SET [AttemptCount] = [AttemptCount] + 1,
+                    [WrongCodeCount] = @WrongCodeCount,
+                    [WrongCodeWindowStartUtc] = @WrongCodeWindowStartUtc
                 WHERE [Id] = @Id",
-                new { row.Id },
+                new { row.Id, row.WrongCodeCount, row.WrongCodeWindowStartUtc },
                 transaction);
             transaction.Commit();
 
-            row.RecordFailedAttempt();
             return new PendingRegistrationCodeCheck(PendingRegistrationCodeOutcome.Wrong, row);
         }
 
@@ -353,7 +381,9 @@ public sealed class PendingRegistrationRepository : IPendingRegistrationReposito
         row.VerifiedAt,
         row.ConsumedAt,
         row.PreferredLanguage,
-        row.CreatedAt
+        row.CreatedAt,
+        row.WrongCodeCount,
+        row.WrongCodeWindowStartUtc
     };
 
     private sealed record PendingRegistrationDto
@@ -372,9 +402,12 @@ public sealed class PendingRegistrationRepository : IPendingRegistrationReposito
         public DateTime? ConsumedAt { get; init; }
         public string? PreferredLanguage { get; init; }
         public DateTime CreatedAt { get; init; }
+        public int WrongCodeCount { get; init; }
+        public DateTime WrongCodeWindowStartUtc { get; init; }
 
         public PendingRegistration ToEntity() => new(
             Id, Handle, Email, NormalizedEmail, OtpHash, ExpiresAt, AttemptCount, MailedCount,
-            MailWindowStartUtc, MailedAt, VerifiedAt, ConsumedAt, PreferredLanguage, CreatedAt);
+            MailWindowStartUtc, MailedAt, VerifiedAt, ConsumedAt, PreferredLanguage, CreatedAt,
+            WrongCodeCount, WrongCodeWindowStartUtc);
     }
 }

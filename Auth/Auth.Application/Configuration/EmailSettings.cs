@@ -82,6 +82,22 @@ public class EmailSettings
     public string FrontendBaseUrl { get; set; } = string.Empty;
 
     /// <summary>
+    /// How many wrong codes an address may present in 24 hours, across every code it
+    /// is issued and every step that checks one (D-110-2). Reached, every code for the
+    /// address is refused until the window passes; the password, a provider and
+    /// "forgot password" stay open. A code also signs in to the address's account
+    /// (OI-215), so five guesses per code and a free new code are no bound on their
+    /// own: this one survives a new code.
+    /// </summary>
+    public int MaxWrongCodesPerDay { get; set; } = 20;
+
+    /// <summary>
+    /// <see cref="MaxWrongCodesPerDay"/> as enforced: never below one code's five
+    /// tries, so a hostile value cannot shut the code door of every address.
+    /// </summary>
+    public int EffectiveMaxWrongCodesPerDay => Math.Max(5, MaxWrongCodesPerDay);
+
+    /// <summary>
     /// Gets the rate limit window as a TimeSpan.
     /// </summary>
     public TimeSpan RateLimitWindow => TimeSpan.FromSeconds(RateLimitWindowSeconds);

@@ -68,7 +68,7 @@ public class GetAllOrganizationsQueryHandler
                 Website = organization.Website,
                 ContactEmail = organization.ContactEmail,
                 OwnerId = organization.OwnerId,
-                OwnerName = owner != null ? $"{owner.FirstName} {owner.LastName}".Trim() : null,
+                OwnerName = owner?.NameToShow,
                 OwnerEmail = owner?.Email?.Value,
                 IsActive = organization.IsActive,
                 MemberCount = memberCounts.GetValueOrDefault(organization.Id),

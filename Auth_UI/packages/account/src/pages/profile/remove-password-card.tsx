@@ -28,8 +28,9 @@ import { removePasswordOffer } from "./remove-password-offer"
  * again, and the "sign in again" dialog asks that sign-in for full proof, so a
  * sign-in by code there still asks for the password.
  *
- * Where the emailed code is the second step, the card says what to do first
- * instead of showing a button that would only be refused.
+ * Where the emailed code is the second step, or the account holds platform
+ * authority without the authenticator app (D-110-1), the card says what to do
+ * first instead of showing a button that would only be refused.
  */
 export function RemovePasswordCard({ me }: { me: Schemas["UserDto"] }) {
   const { t } = useTranslation()
@@ -68,7 +69,9 @@ export function RemovePasswordCard({ me }: { me: Schemas["UserDto"] }) {
         <CardDescription>
           {offer === "offered"
             ? t("profile.removePasswordBody")
-            : t("profile.removePasswordBlockedByEmailCode")}
+            : offer === "blockedByEmailCode"
+              ? t("profile.removePasswordBlockedByEmailCode")
+              : t("profile.removePasswordBlockedByPlatformAuthority")}
         </CardDescription>
       </CardHeader>
       {offer === "offered" ? (

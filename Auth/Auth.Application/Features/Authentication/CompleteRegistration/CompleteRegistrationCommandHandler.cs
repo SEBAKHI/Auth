@@ -120,6 +120,9 @@ public class CompleteRegistrationCommandHandler : IRequestHandler<CompleteRegist
         {
             case PendingRegistrationCodeOutcome.Match:
                 break;
+            case PendingRegistrationCodeOutcome.WrongCodeCeilingReached:
+                _logger.LogWarning("Registration completion refused: the address of pending row {PendingRegistrationId} reached its wrong-code ceiling", check.Row!.Id);
+                return EmailVerificationErrors.WrongCodeLimitReached;
             case PendingRegistrationCodeOutcome.Exhausted:
                 _logger.LogWarning("Registration completion refused: code for pending row {PendingRegistrationId} is exhausted", check.Row!.Id);
                 return EmailVerificationErrors.TooManyAttempts;

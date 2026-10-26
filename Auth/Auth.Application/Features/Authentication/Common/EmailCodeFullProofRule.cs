@@ -45,7 +45,19 @@ public class EmailCodeFullProofRule
             return true;
         }
 
-        var platformClaims = await _tokenClaimsResolver.ResolveAsync(user.Id, applicationId: null, cancellationToken);
+        return await HoldsPlatformAuthorityAsync(user.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// Whether the account holds any platform permission, read from the platform
+    /// claims (the first half of the platform rule) and never from the enforcement
+    /// switch. Shared with the password removal, whose seventh condition (D-110-1)
+    /// is the same rule seen from the other side: the mailbox alone must not open
+    /// an account that administers the platform.
+    /// </summary>
+    public async Task<bool> HoldsPlatformAuthorityAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var platformClaims = await _tokenClaimsResolver.ResolveAsync(userId, applicationId: null, cancellationToken);
         return platformClaims.Permissions.Count > 0;
     }
 }

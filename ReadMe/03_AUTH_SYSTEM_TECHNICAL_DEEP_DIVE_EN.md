@@ -684,13 +684,35 @@ authority — changes the page, the answer, its timing class or the number of me
 message to every address, and only its kind differs (a sign-in code, the registration code, or a notice), seen
 only by the mailbox's holder. After the code matched, the server names the next step.
 
+**Both starts classify the same way.** The registration's own start (`registration/start`, kept for API
+clients) sends the sign-in code to an address that has an account, as the sign-in page's start does; its
+answer keeps its shape. A code is therefore never minted for an account without reaching that account's
+mailbox, and the code in a mailbox is always one its holder can use.
+
+**No code step while email is off.** With `Email:Enabled` off, the start refuses every address
+(`User.EmailCodeSignInUnavailable`), and so do the three steps that take a code — `email-code/verify`,
+`email-code/sign-in` and `email-code/recover` — before any lookup and without charging an attempt. The sign-up
+screens need email too: a development machine signs up with email on (the API writes the code it sends to its
+log in Development) or with a local mail sink.
+
+**The guessing bound survives a new code.** A code has five tries, and an exhausted code is replaced by the
+next start. On top of that, every wrong code at any step that checks one — the registration's verify and
+completion included — counts against the address, under the pending row's lock, in a window that opens at the
+first wrong code and lasts 24 hours. A new code never resets it. Once `Email:MaxWrongCodesPerDay` (default 20)
+is reached, every code for that address is refused with `EmailVerification.WrongCodeLimitReached`, a right one
+too, until the window passes; the password, a provider and "forgot password" stay open. The ceiling is the same
+for every address, with an account or without, so it tells a guesser nothing about the address. The price,
+accepted: whoever spends an address's twenty keeps a passwordless person on "forgot password" for a day.
+
 **The emailed code is a first factor only for an account without a password** (D-215-1). The session records
 `EmailCode` for any sign-in the code opened, and adds `EmailCodeFirstFactor` (bit 128) when the account had
 no password at that moment. That bit is a primary method, never proves a password, and has no `amr` value
 (RFC 8176 has none for email). So an account without a password, signed in by code and finished with its
 authenticator app, is two-factor: it manages its app and holds platform authority fully. A password account
 that signs in by code for convenience holds `EmailCode` alone, so anything that needs a first factor asks for
-its password.
+its password — binding the authenticator app included: its setup and its enable refuse such a session with
+`Auth.ReauthenticationRequired`, or the mailbox holder could bind an app and lock the owner's next password
+sign-in behind a code the owner does not have.
 
 **Full proof.** The sign-in by code does not finish for a password account that holds any platform permission,
 or when the "sign in again" dialog asked for full proof: the answer is `passwordRequired` and the ordinary
@@ -704,7 +726,16 @@ under its own signal code with the account id only. An account with the authenti
 **What this opens, stated plainly.** While email is on, whoever controls the mailbox of a password account
 without an authenticator app can sign in without the password and without changing it. Before, the same
 person needed the password reset, which changes the password and so is noticed. The owner accepted this
-(D-215-2). Platform administrators are excluded by the full-proof rule, and accounts with the app still need it.
+(D-215-2). Platform administrators **with a password** are excluded by the full-proof rule, and accounts with
+the app still need it.
+
+**A platform administrator without a password.** Two ways remain to one: platform authority granted to an
+account that has no password, and the first code confirmation of an administrator-created account, which
+retires its unproven password (below). Such an account signs in by code, so its mailbox is its first factor and
+its authenticator app its only second proof. With the app bound, the app is still asked. Without it, whoever
+holds the mailbox holds the account, and with `TwoFactor:EnforceForPlatformAdmins` on, the code session is sent
+to enrol an app, which the mailbox holder can do. Give such accounts the authenticator app before the
+authority.
 
 **The first confirmation by code retires an unproven password.** An address confirmed by a sign-in code for
 the first time, on an account that already has a password (an administrator-created one, or a sign-up from
@@ -714,10 +745,12 @@ credential-revocation service. The sign-in continues as one without a password.
 
 **Removing a password** is the owner's own action, under six conditions: a recent sign-in that proved the
 password (and the app when it is on — an emailed code never suffices); email on and the address confirmed; a
-confirmation on the screen; an email and every other credential revoked, whatever the session setting says; an
-audit entry; and the same rule for platform administrators. It is refused while the emailed code is the
-account's second factor. An account without a password can come back from its deletion grace period by code
-(`email-code/recover`), with its app when bound.
+confirmation on the screen; an email and every other credential revoked, whatever the session setting says; and
+an audit entry. A seventh holds for an account with any platform permission: its authenticator app must be
+bound (`User.PasswordRemovalRequiresAuthenticatorApp`), so the mailbox alone never opens an account that
+administers the platform. It is refused while the emailed code is the account's second factor. An account
+without a password can come back from its deletion grace period by code (`email-code/recover`), with its app
+when bound; the emailed code is spent only after the app's code was accepted.
 
 ### Two-factor authentication
 

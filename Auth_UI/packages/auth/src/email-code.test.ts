@@ -29,29 +29,21 @@ describe("startSignUpCode", () => {
     ])
   })
 
-  it("falls back to the registration's start while email sending is off", async () => {
-    post.mockImplementation(async (path: string) =>
-      path === "/api/v1/Auth/email-code/start"
-        ? { error: { status: 403, code: "User.EmailCodeSignInUnavailable" } }
-        : ok(STARTED)
-    )
+  it("never falls back to the registration's start while email sending is off", async () => {
+    // REVIEW 110 F1 (c): with email off no step that takes a code accepts one,
+    // so a code from any other start would only strand the person on a screen
+    // that refuses it.
+    post.mockResolvedValue({ error: { status: 403, code: "User.EmailCodeSignInUnavailable" } })
 
-    const pending = await startSignUpCode("jane@one.example", "en")
-
-    expect(pending.pendingId).toBe("handle-1")
-    expect(post.mock.calls).toEqual([
-      [
-        "/api/v1/Auth/email-code/start",
-        { body: { email: "jane@one.example", preferredLanguage: "en" } },
-      ],
-      [
-        "/api/v1/Auth/registration/start",
-        { body: { email: "jane@one.example", preferredLanguage: "en" } },
-      ],
+    await expect(startSignUpCode("jane@one.example", "en")).rejects.toMatchObject({
+      status: 403,
+    })
+    expect(post.mock.calls.map(([path]) => path)).toEqual([
+      "/api/v1/Auth/email-code/start",
     ])
   })
 
-  it("does not fall back for any other refusal", async () => {
+  it("passes every other refusal through as it is", async () => {
     post.mockResolvedValue({ error: { status: 429, code: "RateLimit.Exceeded" } })
 
     await expect(startSignUpCode("jane@one.example", "en")).rejects.toMatchObject({

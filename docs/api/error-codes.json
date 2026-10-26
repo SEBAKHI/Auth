@@ -729,6 +729,12 @@
       "source": "catalog"
     },
     {
+      "code": "EmailVerification.WrongCodeLimitReached",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "Environment.Required",
       "status": 400,
       "source": "catalog",
@@ -2832,6 +2838,11 @@
     },
     {
       "code": "User.PasswordRemovalBlockedByEmailCodeFactor",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "User.PasswordRemovalRequiresAuthenticatorApp",
       "status": 409,
       "source": "catalog"
     },

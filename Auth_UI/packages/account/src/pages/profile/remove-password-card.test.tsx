@@ -66,6 +66,10 @@ describe("removePasswordOffer", () => {
     ["email sending off", ME, false, "none"],
     ["an unconfirmed address", { ...ME, emailConfirmed: false }, true, "none"],
     ["the emailed code as the second step", { ...ME, emailCodeEnabled: true }, true, "blockedByEmailCode"],
+    // D-110-1: platform authority keeps the app as a second proof.
+    ["platform authority without the app", { ...ME, permissions: ["users:read"] }, true, "blockedByPlatformAuthority"],
+    ["platform authority with the app", { ...ME, permissions: ["users:read"], totpEnabled: true }, true, "offered"],
+    ["no platform authority", { ...ME, permissions: [] }, true, "offered"],
   ])("%s", (_label, me, codeSignInOffered, expected) => {
     expect(removePasswordOffer(me as typeof ME, codeSignInOffered)).toBe(expected)
   })
@@ -104,6 +108,14 @@ describe("RemovePasswordCard", () => {
     expect(
       screen.getByText(/Turn off the code by email, or set up the authenticator app, first/)
     ).toBeInTheDocument()
+  })
+
+  it("explains the authenticator app a platform administrator needs first", () => {
+    renderCard({ ...ME, permissions: ["users:read"] } as typeof ME)
+
+    expect(screen.queryByRole("button", { name: "Remove password" })).toBeNull()
+    expect(screen.getByText(/platform administration rights/)).toBeInTheDocument()
+    expect(screen.getByText(/set up the authenticator app first/)).toBeInTheDocument()
   })
 
   it("shows nothing while email sending is off", () => {

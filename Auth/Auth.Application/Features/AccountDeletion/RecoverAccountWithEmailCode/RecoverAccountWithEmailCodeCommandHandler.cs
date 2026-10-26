@@ -28,8 +28,9 @@ namespace Auth.Application.Features.AccountDeletion.RecoverAccountWithEmailCode;
 /// <para>
 /// Only an administrator's lock refuses, as on the provider entry: a lock raised by
 /// wrong passwords is left in place, since a code proves the mailbox, never the
-/// password (owner decision G8). The code is spent once the request is complete
-/// enough to recover with, so a missing second-factor code costs no email.
+/// password (owner decision G8). The emailed code is spent only after the second
+/// factor was accepted, inside the shared pipeline, so neither a missing nor a wrong
+/// authenticator code costs the person a new email.
 /// </para>
 /// </remarks>
 public class RecoverAccountWithEmailCodeCommandHandler
@@ -104,11 +105,9 @@ public class RecoverAccountWithEmailCodeCommandHandler
             return UserErrors.TwoFactorRequired;
         }
 
-        if (!await _pendingRegistrations.TryConsumeSignInCodeAsync(row.Id, request.Otp, cancellationToken))
-        {
-            return EmailVerificationErrors.InvalidOrExpiredOtp;
-        }
-
+        // The code is spent by the pipeline, after the authenticator's code was
+        // accepted and before the deletion is cancelled: a wrong app code leaves it
+        // for the next try, and two requests with one code recover once.
         return await _recoverer.RecoverAsync(
             user,
             deletionRequest,
@@ -117,6 +116,7 @@ public class RecoverAccountWithEmailCodeCommandHandler
             request.IpAddress,
             request.UserAgent,
             request.DeviceId,
-            cancellationToken);
+            cancellationToken,
+            spendFirstProof: token => _pendingRegistrations.TryConsumeSignInCodeAsync(row.Id, request.Otp, token));
     }
 }

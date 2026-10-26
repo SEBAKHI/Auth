@@ -5,12 +5,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import "@authsystem/i18n"
 
-const { post, toast } = vi.hoisted(() => ({
+const { post, toast, branding } = vi.hoisted(() => ({
   post: vi.fn(),
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
+  branding: {
+    signInOptions: null as null | {
+      codeSignInOffered: boolean
+      primaryMethod: "password" | "code"
+      selfRegistrationOpen: boolean
+      passwordAtSignUp: boolean
+      nameAtSignUp: boolean
+    },
+  },
 }))
 
 vi.mock("sonner", () => ({ toast }))
+// The deployment's public sign-in options, as the branding answer carries them.
+vi.mock("@authsystem/ui/branding", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@authsystem/ui/branding")>()),
+  useSignInOptions: () => branding.signInOptions,
+}))
 vi.mock("@authsystem/api/client", () => ({
   api: { POST: (...args: unknown[]) => post(...args) },
 }))
@@ -100,11 +114,79 @@ async function submitAddress(
   await user.click(screen.getByRole("button", { name: /send code/i }))
 }
 
+const OPEN = {
+  codeSignInOffered: true,
+  primaryMethod: "password" as const,
+  selfRegistrationOpen: true,
+  passwordAtSignUp: true,
+  nameAtSignUp: true,
+}
+
 describe("RegisterPage", () => {
   beforeEach(() => {
     post.mockReset()
     toast.error.mockReset()
     clearRegistrationFlow()
+    branding.signInOptions = null
+  })
+
+  // REVIEW 110 F10: a closed sign-up is said before an address is typed.
+  it("says sign-up is closed, points to the sign-in, and starts nothing", async () => {
+    branding.signInOptions = { ...OPEN, selfRegistrationOpen: false }
+    const user = userEvent.setup()
+    renderAt(`/register${RETURN_TO_QUERY}`)
+
+    expect(screen.getByRole("heading", { name: "Sign-up is closed" })).toBeVisible()
+    expect(screen.getByTestId("register-unavailable")).toHaveTextContent(
+      "New accounts can't be created here with an email address."
+    )
+    expect(screen.queryByLabelText(/^email$/i)).not.toBeInTheDocument()
+
+    expect(
+      screen.getByRole("button", { name: /google/i }),
+      "a provider sign-up has its own switch and needs no email"
+    ).toBeVisible()
+
+    await user.click(screen.getByRole("link", { name: /sign in/i }))
+    expect(screen.getByTestId("landing")).toHaveTextContent(`/login${RETURN_TO_QUERY}`)
+    expect(post).not.toHaveBeenCalled()
+  })
+
+  // REVIEW 110 F1 (c): with email off no code can be sent, so no sign-up starts;
+  // the page says so once the server refuses, never from a payload that is silent.
+  it("says a new account needs email once the server refuses for that reason", async () => {
+    post.mockResolvedValue({
+      error: { status: 403, code: "User.EmailCodeSignInUnavailable" },
+    })
+    const user = userEvent.setup()
+    renderAt("/register")
+
+    await submitAddress(user, "jane@one.example")
+
+    expect(await screen.findByTestId("register-unavailable")).toHaveTextContent(
+      "this server isn't sending email"
+    )
+    expect(screen.queryByLabelText(/^email$/i)).not.toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /sign in/i })).toBeVisible()
+    expect(screen.getByRole("button", { name: /google/i })).toBeVisible()
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(readPendingRegistration()).toBeNull()
+  })
+
+  it("keeps the form for options that say nothing of email", () => {
+    branding.signInOptions = { ...OPEN, codeSignInOffered: false }
+    renderAt("/register")
+
+    expect(screen.queryByTestId("register-unavailable")).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/^email$/i)).toBeVisible()
+  })
+
+  it("shows the form while sign-up is open and email is on", () => {
+    branding.signInOptions = OPEN
+    renderAt("/register")
+
+    expect(screen.queryByTestId("register-unavailable")).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/^email$/i)).toBeVisible()
   })
 
   it("asks for an email and nothing else", () => {

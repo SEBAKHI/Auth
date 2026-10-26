@@ -116,14 +116,14 @@ public class UpdateMemberRoleCommandHandler : IRequestHandler<UpdateMemberRoleCo
             Email = user?.Email?.Value ?? string.Empty,
             FirstName = user?.FirstName,
             LastName = user?.LastName,
-            FullName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : null,
+            FullName = user?.NameToShow,
             RoleId = membership.RoleId,
             RoleCode = role.Code,
             RoleName = role.Name,
             IsActive = membership.IsActive,
             JoinedAt = membership.JoinedAt,
             InvitedBy = membership.InvitedBy,
-            InvitedByName = inviter != null ? $"{inviter.FirstName} {inviter.LastName}".Trim() : null,
+            InvitedByName = inviter?.NameToShow,
             ExpiresAt = membership.ExpiresAt
         };
     }

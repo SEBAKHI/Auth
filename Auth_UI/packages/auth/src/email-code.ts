@@ -1,5 +1,4 @@
 import { api } from "@authsystem/api/client"
-import { getErrorCodes } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 
 /**
@@ -101,31 +100,10 @@ export async function verifyEmailCode(
 
 /**
  * The sign-up's start: the sign-in page's, so an address that already has an
- * account gets a sign-in code. While email sending is off that start refuses
- * every address, and the registration's own start takes over (development
- * writes its code to the API log). Both write the same pending row, and the code
- * check that follows is the same.
+ * account gets a sign-in code. While email sending is off it refuses every
+ * address, and the sign-up with it (REVIEW 110 F1): every step that takes a code
+ * refuses then too, so a code minted by any other start could open nothing. A
+ * development machine signs up with email sending on — in Development the API
+ * writes the code it sends to its log — or with a local mail sink.
  */
-export async function startSignUpCode(
-  email: string,
-  preferredLanguage: string
-): Promise<PendingEmailCode> {
-  try {
-    return await startEmailCode(email, preferredLanguage)
-  } catch (error) {
-    if (!getErrorCodes(error).includes("User.EmailCodeSignInUnavailable")) {
-      throw error
-    }
-  }
-  const data = await unwrap(
-    api.POST("/api/v1/Auth/registration/start", {
-      body: { email, preferredLanguage },
-    })
-  )
-  return {
-    pendingId: data.pendingId,
-    email,
-    maskedEmail: data.maskedEmail,
-    expiresAt: data.expiresAt,
-  }
-}
+export const startSignUpCode = startEmailCode
