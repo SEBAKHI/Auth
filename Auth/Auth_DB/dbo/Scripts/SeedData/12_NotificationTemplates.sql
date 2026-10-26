@@ -3759,3 +3759,455 @@ BEGIN
     PRINT 'two-factor-email-code template version 2 already exists, or the template does not';
 END
 GO
+
+-- ============================================================
+-- Template 25: email-sign-in-code (global, Email channel, OI-215)
+--
+-- The code an existing account enters to sign in by email. Sent when someone
+-- types the address on the sign-in page and chooses the code; the page says the
+-- same thing for every address. A reader who did not ask for it learns only
+-- that someone typed their address: without the code nobody signs in this way.
+-- No link: a code message is read, never clicked, and the subject carries no
+-- code. UserName is the address when the account has no name.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000025')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000025', '40000000-0000-0000-0000-000000000025', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000025', '42000000-0000-0000-0000-000000000025', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0025-000000000001', '43000000-0000-0000-0000-000000000025', N'en', N'Your sign-in code',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>Your code to sign in</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">Someone asked to sign in to your {{ Platform.Name }} account with a code sent to this address. If it is you, enter the code below on the sign-in page. It expires in {{ ExpirationMinutes }} minutes.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">If this was not you</p>
+    <p class="notice-text">Do not enter the code, and never share it with anyone — {{ Platform.Name }} will never ask you for it. Without this code nobody can sign in this way, so you can ignore this email.</p>
+</div>'),
+    ('44000000-0000-0000-0025-000000000002', '43000000-0000-0000-0000-000000000025', N'ar', N'رمز الدخول إلى حسابك',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>رمزك لتسجيل الدخول</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">طلب أحدهم الدخول إلى حسابك على {{ Platform.Name }} برمز يصل إلى هذا العنوان. فإن كنت أنت، فأدخل الرمز أدناه في صفحة تسجيل الدخول. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">إن لم تكن أنت</p>
+    <p class="notice-text">لا تُدخل الرمز، ولا تشاركه مع أي شخص — لن يطلبه منك فريق {{ Platform.Name }} أبدًا. ولا يستطيع أحد الدخول بهذه الطريقة بدون هذا الرمز، فلك أن تتجاهل هذه الرسالة.</p>
+</div>'),
+    ('44000000-0000-0000-0025-000000000003', '43000000-0000-0000-0000-000000000025', N'tr', N'Giriş kodunuz',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>Giriş kodunuz</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">Biri {{ Platform.Name }} hesabınıza bu adrese gönderilen bir kodla giriş yapmak istedi. Bu sizseniz, aşağıdaki kodu giriş sayfasına girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolar.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Bu siz değilseniz</p>
+    <p class="notice-text">Kodu girmeyin ve kimseyle paylaşmayın — {{ Platform.Name }} bu kodu sizden asla istemez. Bu kod olmadan kimse bu yolla giriş yapamaz; bu e-postayı yok sayabilirsiniz.</p>
+</div>'),
+    ('44000000-0000-0000-0025-000000000004', '43000000-0000-0000-0000-000000000025', N'fr', N'Votre code de connexion',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>Votre code pour vous connecter</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">Quelqu''un a demandé à se connecter à votre compte {{ Platform.Name }} avec un code envoyé à cette adresse. Si c''est vous, saisissez le code ci-dessous sur la page de connexion. Il expirera dans {{ ExpirationMinutes }} minutes.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Si ce n''est pas vous</p>
+    <p class="notice-text">Ne saisissez pas le code et ne le partagez avec personne — {{ Platform.Name }} ne vous le demandera jamais. Sans ce code, personne ne peut se connecter de cette façon : vous pouvez ignorer cet e-mail.</p>
+</div>'),
+    ('44000000-0000-0000-0025-000000000005', '43000000-0000-0000-0000-000000000025', N'zh', N'您的登录验证码',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>您的登录验证码</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">有人请求使用发送到此地址的验证码登录您的 {{ Platform.Name }} 账户。如果是您本人，请在登录页面输入以下验证码。验证码将在 {{ ExpirationMinutes }} 分钟后失效。</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">如果不是您本人</p>
+    <p class="notice-text">请不要输入此验证码，也不要透露给任何人 — {{ Platform.Name }} 绝不会向您索要。没有此验证码，任何人都无法以这种方式登录，您可以忽略这封邮件。</p>
+</div>'),
+    ('44000000-0000-0000-0025-000000000006', '43000000-0000-0000-0000-000000000025', N'ur', N'آپ کا سائن اِن کوڈ',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>سائن اِن کرنے کا آپ کا کوڈ</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">کسی نے اس پتے پر بھیجے گئے کوڈ کے ذریعے آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کرنا چاہا ہے۔ اگر یہ آپ ہیں تو نیچے دیا گیا کوڈ سائن اِن صفحے پر درج کریں۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی۔</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">اگر یہ آپ نہیں ہیں</p>
+    <p class="notice-text">کوڈ درج نہ کریں اور نہ کسی کے ساتھ شیئر کریں — {{ Platform.Name }} آپ سے یہ کوڈ کبھی نہیں مانگے گا۔ اس کوڈ کے بغیر کوئی اس طرح سائن اِن نہیں کر سکتا، اس لیے آپ یہ ای میل نظرانداز کر سکتے ہیں۔</p>
+</div>'),
+    ('44000000-0000-0000-0025-000000000007', '43000000-0000-0000-0000-000000000025', N'fa', N'کد ورود شما',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>کد شما برای ورود</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">کسی خواسته است با کدی که به این نشانی فرستاده می‌شود به حساب شما در {{ Platform.Name }} وارد شود. اگر خودتان هستید، کد زیر را در صفحهٔ ورود وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">اگر شما نبودید</p>
+    <p class="notice-text">کد را وارد نکنید و آن را با هیچ‌کس در میان نگذارید — {{ Platform.Name }} هرگز این کد را از شما نمی‌خواهد. بدون این کد هیچ‌کس نمی‌تواند از این راه وارد شود، پس می‌توانید این ایمیل را نادیده بگیرید.</p>
+</div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000025'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000025';
+
+    PRINT 'Created email-sign-in-code template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'email-sign-in-code template already exists';
+END
+GO
+
+-- ============================================================
+-- Template 26: sign-in-no-account (global, Email channel, OI-215)
+--
+-- Sent instead of a code when someone asks to sign in by email with an address
+-- that has no account here while new accounts cannot be created. An ordinary
+-- notice: nothing was created and no code was sent. No greeting by name: there
+-- is nobody to greet. The button goes to the ordinary sign-in page.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000026')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000026', '40000000-0000-0000-0000-000000000026', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000026', '42000000-0000-0000-0000-000000000026', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0026-000000000001', '43000000-0000-0000-0000-000000000026', N'en', N'A sign-in was attempted with your email address',
+N'<div class="header">
+    <p class="eyebrow">Account notice</p>
+    <h1>There is no account with this address</h1>
+</div>
+<p class="message">Hello,</p>
+<p class="message">Someone — perhaps you — just asked to sign in to {{ Platform.Name }} with this email address. There is no account with this address here, and new accounts cannot be created right now, so no code was sent and nothing was created.</p>
+<div class="notice">
+    <p class="notice-title">When</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">If you have an account under another address, sign in with that one. If you were invited, use the link in your invitation.</p>
+<p class="message">If this was not you, no action is required.</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">Sign in</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>'),
+    ('44000000-0000-0000-0026-000000000002', '43000000-0000-0000-0000-000000000026', N'ar', N'محاولة دخول بعنوان بريدك الإلكتروني',
+N'<div class="header">
+    <p class="eyebrow">إشعار الحساب</p>
+    <h1>لا يوجد حساب بهذا العنوان</h1>
+</div>
+<p class="message">مرحبًا،</p>
+<p class="message">طلب أحدهم — وقد تكون أنت — الدخول إلى {{ Platform.Name }} بعنوان البريد هذا. ولا يوجد هنا حساب بهذا العنوان، ولا يمكن إنشاء حسابات جديدة الآن، فلم يُرسل أي رمز ولم يُنشأ أي شيء.</p>
+<div class="notice">
+    <p class="notice-title">الوقت</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">إن كان لك حساب بعنوان آخر، فادخل به. وإن تلقّيت دعوة، فاستعمل الرابط الموجود فيها.</p>
+<p class="message">إن لم تكن أنت، فلا يلزمك أي إجراء.</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">تسجيل الدخول</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط إلى متصفحك:</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>'),
+    ('44000000-0000-0000-0026-000000000003', '43000000-0000-0000-0000-000000000026', N'tr', N'E-posta adresinizle giriş denendi',
+N'<div class="header">
+    <p class="eyebrow">Hesap bildirimi</p>
+    <h1>Bu adresle bir hesap yok</h1>
+</div>
+<p class="message">Merhaba,</p>
+<p class="message">Biri — belki siz — bu e-posta adresiyle {{ Platform.Name }} hizmetine giriş yapmak istedi. Burada bu adresle bir hesap yok ve şu anda yeni hesap oluşturulamıyor; bu yüzden kod gönderilmedi ve hiçbir şey oluşturulmadı.</p>
+<div class="notice">
+    <p class="notice-title">Zaman</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">Başka bir adresle hesabınız varsa onunla giriş yapın. Davet edildiyseniz davetinizdeki bağlantıyı kullanın.</p>
+<p class="message">Bu siz değilseniz herhangi bir işlem yapmanız gerekmez.</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">Giriş yap</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı tarayıcınıza kopyalayın:</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>'),
+    ('44000000-0000-0000-0026-000000000004', '43000000-0000-0000-0000-000000000026', N'fr', N'Une connexion a été tentée avec votre adresse e-mail',
+N'<div class="header">
+    <p class="eyebrow">Avis de compte</p>
+    <h1>Aucun compte n''utilise cette adresse</h1>
+</div>
+<p class="message">Bonjour,</p>
+<p class="message">Quelqu''un — peut-être vous — vient de demander à se connecter à {{ Platform.Name }} avec cette adresse e-mail. Aucun compte n''utilise cette adresse ici, et il n''est pas possible de créer de nouveaux comptes pour le moment : aucun code n''a donc été envoyé et rien n''a été créé.</p>
+<div class="notice">
+    <p class="notice-title">Date</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">Si vous avez un compte sous une autre adresse, connectez-vous avec celle-ci. Si vous avez été invité, utilisez le lien de votre invitation.</p>
+<p class="message">Si ce n''était pas vous, aucune action n''est nécessaire.</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">Se connecter</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>'),
+    ('44000000-0000-0000-0026-000000000005', '43000000-0000-0000-0000-000000000026', N'zh', N'有人尝试使用您的电子邮件地址登录',
+N'<div class="header">
+    <p class="eyebrow">账户通知</p>
+    <h1>没有使用此地址的账户</h1>
+</div>
+<p class="message">您好，</p>
+<p class="message">有人（可能是您）刚刚请求使用此电子邮件地址登录 {{ Platform.Name }}。此处没有使用该地址的账户，且目前无法创建新账户，因此未发送任何验证码，也未创建任何内容。</p>
+<div class="notice">
+    <p class="notice-title">时间</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">如果您使用其他地址注册了账户，请使用该地址登录。如果您收到了邀请，请使用邀请中的链接。</p>
+<p class="message">如果不是您本人，无需采取任何操作。</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">登录</a>
+</div>
+<p class="link-fallback">如果按钮无效，请将此链接复制到浏览器中：</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>'),
+    ('44000000-0000-0000-0026-000000000006', '43000000-0000-0000-0000-000000000026', N'ur', N'آپ کے ای میل پتے سے سائن اِن کی کوشش کی گئی',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی اطلاع</p>
+    <h1>اس پتے کا کوئی اکاؤنٹ نہیں ہے</h1>
+</div>
+<p class="message">السلام علیکم،</p>
+<p class="message">کسی نے — شاید آپ نے — ابھی اس ای میل پتے سے {{ Platform.Name }} میں سائن اِن کرنا چاہا ہے۔ یہاں اس پتے کا کوئی اکاؤنٹ نہیں ہے، اور اس وقت نئے اکاؤنٹ نہیں بنائے جا سکتے، اس لیے کوئی کوڈ نہیں بھیجا گیا اور کچھ نہیں بنایا گیا۔</p>
+<div class="notice">
+    <p class="notice-title">وقت</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">اگر آپ کا اکاؤنٹ کسی دوسرے پتے پر ہے تو اسی سے سائن اِن کریں۔ اگر آپ کو دعوت ملی ہے تو دعوت میں دیا گیا لنک استعمال کریں۔</p>
+<p class="message">اگر یہ آپ نہیں تھے تو کسی کارروائی کی ضرورت نہیں۔</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">سائن اِن</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک اپنے براؤزر میں کاپی کریں:</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>'),
+    ('44000000-0000-0000-0026-000000000007', '43000000-0000-0000-0000-000000000026', N'fa', N'تلاش برای ورود با نشانی ایمیل شما',
+N'<div class="header">
+    <p class="eyebrow">اطلاعیهٔ حساب</p>
+    <h1>حسابی با این نشانی وجود ندارد</h1>
+</div>
+<p class="message">سلام،</p>
+<p class="message">کسی — شاید خود شما — همین حالا خواسته است با این نشانی ایمیل به {{ Platform.Name }} وارد شود. اینجا حسابی با این نشانی وجود ندارد و اکنون نمی‌توان حساب تازه ساخت؛ پس هیچ کدی فرستاده نشد و چیزی ساخته نشد.</p>
+<div class="notice">
+    <p class="notice-title">زمان</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">اگر با نشانی دیگری حساب دارید، با همان وارد شوید. اگر دعوت‌نامه دریافت کرده‌اید، از پیوند داخل آن استفاده کنید.</p>
+<p class="message">اگر شما نبودید، لازم نیست کاری انجام دهید.</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">ورود</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را در مرورگر خود کپی کنید:</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000026'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000026';
+
+    PRINT 'Created sign-in-no-account template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'sign-in-no-account template already exists';
+END
+GO
+
+-- ============================================================
+-- Template 27: password-removed (global, Email channel, OI-215)
+--
+-- Tells the owner that the account's password was removed: by them (Reason
+-- owner), or because a sign-in by code proved the address for the first time and
+-- the password had been set before that proof (set-before-address-proven).
+-- From then on the account signs in with a code sent to this address. The
+-- button goes to the ordinary security page, never a one-click undo.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000027')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000027', '40000000-0000-0000-0000-000000000027', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000027', '42000000-0000-0000-0000-000000000027', 1, N'Initial version (default design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0027-000000000001', '43000000-0000-0000-0000-000000000027', N'en', N'Your password was removed',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>Your password was removed</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">{% if Reason == "set-before-address-proven" %}Someone signed in to your {{ Platform.Name }} account with a code sent to this address, which confirmed the address for the first time. The account had a password that was set before anyone had proven this address, so that password was removed and the account''s other sign-ins were ended.{% else %}The password on your {{ Platform.Name }} account was removed, and your other devices were signed out.{% endif %} From now on you sign in with a code sent to this address. You can add a password again from your security settings.</p>
+<div class="notice">
+    <p class="notice-title">When</p>
+    <p class="notice-text">{{ RemovedAt }}</p>
+</div>
+<p class="message">If that was you, there is nothing else to do.</p>
+<p class="message">If it was not, someone else can read this mailbox or is signed in to your account. Secure your email account first, then review your security settings.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Review your security settings</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0027-000000000002', '43000000-0000-0000-0000-000000000027', N'ar', N'أُزيلت كلمة مرور حسابك',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>أُزيلت كلمة مرور حسابك</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">{% if Reason == "set-before-address-proven" %}دخل أحدهم إلى حسابك على {{ Platform.Name }} برمز وصل إلى هذا العنوان، فتأكّد العنوان بذلك لأول مرة. وكانت للحساب كلمة مرور وُضعت قبل أن يُثبت أحدٌ ملكية هذا العنوان، فأُزيلت، وأُنهيت جلسات الدخول الأخرى للحساب.{% else %}أُزيلت كلمة مرور حسابك على {{ Platform.Name }}، وسُجِّل خروجك من أجهزتك الأخرى.{% endif %} ومن الآن تدخل إلى حسابك برمز يصل إلى هذا العنوان. ويمكنك إضافة كلمة مرور من جديد من إعدادات الأمان.</p>
+<div class="notice">
+    <p class="notice-title">الوقت</p>
+    <p class="notice-text">{{ RemovedAt }}</p>
+</div>
+<p class="message">إن كنت أنت، فلا شيء آخر عليك.</p>
+<p class="message">وإن لم تكن أنت، فشخص آخر يستطيع قراءة هذا البريد أو قد دخل إلى حسابك. أمِّن حساب بريدك أولًا، ثم راجع إعدادات الأمان.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">مراجعة إعدادات الأمان</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط إلى متصفحك:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0027-000000000003', '43000000-0000-0000-0000-000000000027', N'tr', N'Parolanız kaldırıldı',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>Parolanız kaldırıldı</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">{% if Reason == "set-before-address-proven" %}Biri {{ Platform.Name }} hesabınıza bu adrese gönderilen bir kodla giriş yaptı ve bu, adresi ilk kez doğruladı. Hesapta, bu adresin sahibi henüz kanıtlanmadan önce belirlenmiş bir parola vardı; bu parola kaldırıldı ve hesabın diğer oturumları sonlandırıldı.{% else %}{{ Platform.Name }} hesabınızın parolası kaldırıldı ve diğer cihazlarınızda oturumunuz kapatıldı.{% endif %} Bundan sonra bu adrese gönderilen bir kodla giriş yaparsınız. Güvenlik ayarlarınızdan yeniden parola ekleyebilirsiniz.</p>
+<div class="notice">
+    <p class="notice-title">Zaman</p>
+    <p class="notice-text">{{ RemovedAt }}</p>
+</div>
+<p class="message">Bunu siz yaptıysanız başka bir şey yapmanız gerekmez.</p>
+<p class="message">Siz yapmadıysanız, başka biri bu posta kutusunu okuyabiliyor veya hesabınızda oturum açmış. Önce e-posta hesabınızı güvenceye alın, ardından güvenlik ayarlarınızı gözden geçirin.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Güvenlik ayarlarınızı gözden geçirin</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı tarayıcınıza kopyalayın:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0027-000000000004', '43000000-0000-0000-0000-000000000027', N'fr', N'Votre mot de passe a été supprimé',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>Votre mot de passe a été supprimé</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">{% if Reason == "set-before-address-proven" %}Quelqu''un s''est connecté à votre compte {{ Platform.Name }} avec un code envoyé à cette adresse, ce qui a confirmé l''adresse pour la première fois. Le compte avait un mot de passe défini avant que quiconque ait prouvé posséder cette adresse : ce mot de passe a été supprimé et les autres connexions du compte ont été fermées.{% else %}Le mot de passe de votre compte {{ Platform.Name }} a été supprimé, et vous avez été déconnecté de vos autres appareils.{% endif %} Désormais, vous vous connectez avec un code envoyé à cette adresse. Vous pouvez à nouveau ajouter un mot de passe depuis vos paramètres de sécurité.</p>
+<div class="notice">
+    <p class="notice-title">Date</p>
+    <p class="notice-text">{{ RemovedAt }}</p>
+</div>
+<p class="message">Si c''était vous, vous n''avez rien d''autre à faire.</p>
+<p class="message">Sinon, quelqu''un d''autre peut lire cette boîte de réception ou est connecté à votre compte. Sécurisez d''abord votre compte de messagerie, puis vérifiez vos paramètres de sécurité.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Vérifier vos paramètres de sécurité</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0027-000000000005', '43000000-0000-0000-0000-000000000027', N'zh', N'您的密码已被删除',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>您的密码已被删除</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">{% if Reason == "set-before-address-proven" %}有人使用发送到此地址的验证码登录了您的 {{ Platform.Name }} 账户，这是该地址首次得到确认。该账户此前有一个在任何人证明拥有此地址之前设置的密码，因此该密码已被删除，账户的其他登录也已结束。{% else %}您的 {{ Platform.Name }} 账户的密码已被删除，您在其他设备上的登录已退出。{% endif %} 从现在起，您将使用发送到此地址的验证码登录。您可以在安全设置中重新添加密码。</p>
+<div class="notice">
+    <p class="notice-title">时间</p>
+    <p class="notice-text">{{ RemovedAt }}</p>
+</div>
+<p class="message">如果是您本人操作，则无需执行其他操作。</p>
+<p class="message">如果不是您本人，说明有人能够读取此邮箱或已登录您的账户。请先保护您的电子邮件账户，然后检查您的安全设置。</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">检查您的安全设置</a>
+</div>
+<p class="link-fallback">如果按钮无效，请将此链接复制到浏览器中：</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0027-000000000006', '43000000-0000-0000-0000-000000000027', N'ur', N'آپ کا پاس ورڈ ہٹا دیا گیا',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>آپ کا پاس ورڈ ہٹا دیا گیا</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">{% if Reason == "set-before-address-proven" %}کسی نے اس پتے پر بھیجے گئے کوڈ سے آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کیا، جس سے یہ پتہ پہلی بار تصدیق ہوا۔ اکاؤنٹ کا ایک پاس ورڈ تھا جو اس پتے کی ملکیت ثابت ہونے سے پہلے رکھا گیا تھا، اس لیے وہ پاس ورڈ ہٹا دیا گیا اور اکاؤنٹ کے دوسرے سائن اِن ختم کر دیے گئے۔{% else %}آپ کے {{ Platform.Name }} اکاؤنٹ کا پاس ورڈ ہٹا دیا گیا ہے، اور آپ کے دوسرے آلات سے سائن آؤٹ کر دیا گیا ہے۔{% endif %} اب سے آپ اس پتے پر بھیجے گئے کوڈ سے سائن اِن کریں گے۔ آپ اپنی سیکیورٹی ترتیبات سے دوبارہ پاس ورڈ شامل کر سکتے ہیں۔</p>
+<div class="notice">
+    <p class="notice-title">وقت</p>
+    <p class="notice-text">{{ RemovedAt }}</p>
+</div>
+<p class="message">اگر یہ آپ نے کیا تھا تو مزید کچھ کرنے کی ضرورت نہیں۔</p>
+<p class="message">اگر نہیں، تو کوئی اور یہ میل باکس پڑھ سکتا ہے یا آپ کے اکاؤنٹ میں سائن اِن ہے۔ پہلے اپنا ای میل اکاؤنٹ محفوظ کریں، پھر اپنی سیکیورٹی ترتیبات کا جائزہ لیں۔</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">اپنی سیکیورٹی ترتیبات کا جائزہ لیں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک اپنے براؤزر میں کاپی کریں:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0027-000000000007', '43000000-0000-0000-0000-000000000027', N'fa', N'رمز عبور شما حذف شد',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>رمز عبور شما حذف شد</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">{% if Reason == "set-before-address-proven" %}کسی با کدی که به این نشانی فرستاده شد به حساب شما در {{ Platform.Name }} وارد شد و به این ترتیب نشانی برای نخستین بار تأیید شد. حساب رمز عبوری داشت که پیش از آنکه کسی مالکیت این نشانی را ثابت کند تعیین شده بود؛ آن رمز عبور حذف شد و ورودهای دیگر حساب پایان یافت.{% else %}رمز عبور حساب شما در {{ Platform.Name }} حذف شد و از دستگاه‌های دیگرتان خارج شدید.{% endif %} از این پس با کدی که به این نشانی فرستاده می‌شود وارد می‌شوید. می‌توانید از تنظیمات امنیتی دوباره رمز عبور اضافه کنید.</p>
+<div class="notice">
+    <p class="notice-title">زمان</p>
+    <p class="notice-text">{{ RemovedAt }}</p>
+</div>
+<p class="message">اگر خودتان بودید، کار دیگری لازم نیست.</p>
+<p class="message">اگر نه، شخص دیگری می‌تواند این صندوق ایمیل را بخواند یا به حساب شما وارد شده است. ابتدا حساب ایمیل خود را ایمن کنید، سپس تنظیمات امنیتی را بازبینی کنید.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">بازبینی تنظیمات امنیتی</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را در مرورگر خود کپی کنید:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000027'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000027';
+
+    PRINT 'Created password-removed template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'password-removed template already exists';
+END
+GO

@@ -1624,4 +1624,19 @@
   <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
     <value>خطوتك الثانية رمز يُرسل بالبريد الإلكتروني. لتنتقل إلى تطبيق مصادقة، أدخل كذلك رمزًا نرسله إليك بالبريد، أو أحد رموز الاسترداد.</value>
   </data>
+  <data name="User.EmailCodeSignInUnavailable" xml:space="preserve">
+    <value>الدخول برمز يصل إلى البريد الإلكتروني غير متاح على هذا الخادم.</value>
+  </data>
+  <data name="User.PasswordNotSet" xml:space="preserve">
+    <value>لا توجد كلمة مرور لهذا الحساب.</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresEmail" xml:space="preserve">
+    <value>لا يمكن إزالة كلمة المرور ما دام هذا الخادم لا يرسل البريد الإلكتروني: فلن يستطيع حسابك الدخول بدونها.</value>
+  </data>
+  <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
+    <value>لا يمكن إزالة كلمة المرور ما دامت خطوتك الثانية رمزًا يصل إلى بريدك الإلكتروني. أوقفها أولًا، أو استعمل تطبيق المصادقة.</value>
+  </data>
+  <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
+    <value>لا يمكن حفظ '{0}' بهذه القيمة: التسجيل بلا كلمة مرور يحتاج إلى تفعيل إرسال البريد الإلكتروني، لأن هذه الحسابات تدخل برمز يصل إلى البريد.</value>
+  </data>
 </root>

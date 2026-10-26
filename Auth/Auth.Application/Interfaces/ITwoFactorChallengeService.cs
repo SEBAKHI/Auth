@@ -57,6 +57,17 @@ public interface ITwoFactorChallengeService
         User user,
         ExternalUserInfo provider,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether a sign-in opened by a code emailed to the account already proved what
+    /// its second factor would: the factor is the emailed code (and not the
+    /// authenticator app), which goes to that same mailbox (OI-215, the logic of
+    /// D-243). Such a sign-in asks for no second step; an account with the
+    /// authenticator app is challenged as always.
+    /// </summary>
+    /// <param name="user">The account the code sign-in resolved to.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<bool> SignInCodeProvesFactorAsync(User user, CancellationToken cancellationToken);
 }
 
 /// <summary>

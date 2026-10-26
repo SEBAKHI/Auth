@@ -1622,4 +1622,19 @@
   <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
     <value>İkinci adımınız e-postayla gönderilen bir kod. Bir doğrulayıcı uygulamaya geçmek için size e-postayla gönderdiğimiz bir kodu ya da kurtarma kodlarınızdan birini de girin.</value>
   </data>
+  <data name="User.EmailCodeSignInUnavailable" xml:space="preserve">
+    <value>E-postayla gönderilen kodla giriş bu sunucuda kullanılamıyor.</value>
+  </data>
+  <data name="User.PasswordNotSet" xml:space="preserve">
+    <value>Bu hesabın parolası yok.</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresEmail" xml:space="preserve">
+    <value>Bu sunucu e-posta göndermediği sürece parola kaldırılamaz: hesabınız parolasız giriş yapamazdı.</value>
+  </data>
+  <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
+    <value>İkinci adımınız e-postayla gönderilen bir kod olduğu sürece parola kaldırılamaz. Önce bunu kapatın veya bir kimlik doğrulama uygulaması kullanın.</value>
+  </data>
+  <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
+    <value>'{0}' bu şekilde kaydedilemez: parolasız kayıt için e-posta gönderiminin açık olması gerekir, çünkü bu hesaplar e-postayla gönderilen bir kodla giriş yapar.</value>
+  </data>
 </root>

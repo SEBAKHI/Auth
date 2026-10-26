@@ -489,7 +489,15 @@ public static class SystemSettingsRegistry
                 // an operator who shuts public sign-up has usually decided that
                 // accounts arrive by invitation instead — folding the two
                 // together would break the workflow the first choice implies.
-                new SettingFieldDefinition("AllowInvitationRegistration", SettingKind.Bool, DefaultValue: true)
+                new SettingFieldDefinition("AllowInvitationRegistration", SettingKind.Bool, DefaultValue: true),
+                // What a sign-up asks for (OI-215). Appended last, like every field
+                // added after the section existed. Both default to true: a
+                // deployment that changes nothing keeps today's sign-up. The
+                // password switch is honoured only while Email:Enabled is on, and a
+                // save that would leave it off with email off is refused from
+                // either section (SystemSettingsValueValidator).
+                new SettingFieldDefinition("PasswordAtSignUp", SettingKind.Bool, DefaultValue: true),
+                new SettingFieldDefinition("NameAtSignUp", SettingKind.Bool, DefaultValue: true)
             ]),
 
         // Beside Registration rather than inside it. That section answers who may

@@ -69,7 +69,7 @@ public class GetAuditLogsByEntityQueryHandler : IRequestHandler<GetAuditLogsByEn
                 var user = await _userRepository.GetByIdAsync(log.UserId.Value, cancellationToken);
                 if (user != null)
                 {
-                    dto.UserName = user.DisplayName ?? $"{user.FirstName} {user.LastName}".Trim();
+                    dto.UserName = user.NameToShow;
                     dto.UserEmail = user.Email;
                 }
             }

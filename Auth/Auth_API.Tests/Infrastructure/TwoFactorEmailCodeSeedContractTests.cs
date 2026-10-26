@@ -38,7 +38,9 @@ public class TwoFactorEmailCodeSeedContractTests
         var ids = Regex.Matches(seed, @"IF NOT EXISTS \(SELECT 1 FROM \[dbo\]\.\[NotificationTypes\] WHERE \[Id\] = '40000000-0000-0000-0000-0000000000(\d\d)'")
             .Select(m => int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture)).ToList();
 
-        ids.Max().Should().Be(24, "the next free id after X12's 0023");
+        ids.Should().Contain(24, "the next free id after X12's 0023");
+        // OI-215: its three types take the next free ids after this one.
+        ids.Max().Should().Be(27, "OI-215's three types take 0025 to 0027");
         ids.Should().OnlyHaveUniqueItems();
 
         var block = TypeBlock(seed);
@@ -275,6 +277,7 @@ public class TwoFactorSignalCodesTests
         TwoFactorSignalCodes.EmailCodeUnavailable.Should().Be("two-factor.email-code-unavailable");
         TwoFactorSignalCodes.EmailCodeThrottled.Should().Be("two-factor.email-code-throttled");
         TwoFactorSignalCodes.ProviderMailboxWaived.Should().Be("two-factor.provider-mailbox-waived");
+        TwoFactorSignalCodes.SignInCodeMailboxWaived.Should().Be("two-factor.sign-in-code-mailbox-waived");
     }
 
     [Fact]
@@ -286,7 +289,7 @@ public class TwoFactorSignalCodesTests
             .Select(f => (string)f.GetRawConstantValue()!)
             .ToList();
 
-        constants.Should().HaveCount(3);
+        constants.Should().HaveCount(4);
         TwoFactorSignalCodes.All.Should().BeEquivalentTo(constants);
         constants.Should().OnlyHaveUniqueItems().And.AllSatisfy(code => Format.IsMatch(code).Should().BeTrue(code));
         constants.Should().NotIntersectWith(AccountLockSignalCodes.All);

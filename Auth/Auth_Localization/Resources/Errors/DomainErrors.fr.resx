@@ -1622,4 +1622,19 @@
   <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
     <value>Votre deuxième étape est un code envoyé par e-mail. Pour passer à une application d'authentification, saisissez aussi un code que nous vous envoyons par e-mail, ou l'un de vos codes de récupération.</value>
   </data>
+  <data name="User.EmailCodeSignInUnavailable" xml:space="preserve">
+    <value>La connexion avec un code envoyé par e-mail n’est pas disponible sur ce serveur.</value>
+  </data>
+  <data name="User.PasswordNotSet" xml:space="preserve">
+    <value>Ce compte n’a pas de mot de passe.</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresEmail" xml:space="preserve">
+    <value>Le mot de passe ne peut pas être supprimé tant que ce serveur n’envoie pas d’e-mails : votre compte ne pourrait plus se connecter sans lui.</value>
+  </data>
+  <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
+    <value>Le mot de passe ne peut pas être supprimé tant que votre deuxième étape est un code envoyé par e-mail. Désactivez-la d’abord, ou utilisez une application d’authentification.</value>
+  </data>
+  <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
+    <value>« {0} » ne peut pas être enregistré ainsi : l’inscription sans mot de passe nécessite l’envoi d’e-mails, car ces comptes se connectent avec un code envoyé par e-mail.</value>
+  </data>
 </root>

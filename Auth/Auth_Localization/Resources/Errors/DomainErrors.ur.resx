@@ -1622,4 +1622,19 @@
   <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
     <value>آپ کا دوسرا مرحلہ ای میل سے بھیجا گیا کوڈ ہے۔ تصدیقی ایپ پر منتقل ہونے کے لیے وہ کوڈ بھی درج کریں جو ہم آپ کو ای میل کریں، یا اپنے ریکوری کوڈز میں سے ایک۔</value>
   </data>
+  <data name="User.EmailCodeSignInUnavailable" xml:space="preserve">
+    <value>اس سرور پر ای میل کے ذریعے بھیجے گئے کوڈ سے سائن اِن دستیاب نہیں ہے۔</value>
+  </data>
+  <data name="User.PasswordNotSet" xml:space="preserve">
+    <value>اس اکاؤنٹ کا کوئی پاس ورڈ نہیں ہے۔</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresEmail" xml:space="preserve">
+    <value>جب تک یہ سرور ای میل نہیں بھیجتا، پاس ورڈ ہٹایا نہیں جا سکتا: اس کے بغیر آپ کا اکاؤنٹ سائن اِن نہیں کر سکے گا۔</value>
+  </data>
+  <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
+    <value>جب تک آپ کا دوسرا مرحلہ ای میل کے ذریعے بھیجا گیا کوڈ ہے، پاس ورڈ ہٹایا نہیں جا سکتا۔ پہلے اسے بند کریں، یا تصدیقی ایپ استعمال کریں۔</value>
+  </data>
+  <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
+    <value>'{0}' کو اس طرح محفوظ نہیں کیا جا سکتا: پاس ورڈ کے بغیر سائن اپ کے لیے ای میل بھیجنا آن ہونا ضروری ہے، کیونکہ ایسے اکاؤنٹس ای میل کے ذریعے بھیجے گئے کوڈ سے سائن اِن کرتے ہیں۔</value>
+  </data>
 </root>

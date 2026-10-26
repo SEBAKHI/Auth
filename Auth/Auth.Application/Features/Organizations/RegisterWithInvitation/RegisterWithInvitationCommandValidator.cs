@@ -12,8 +12,10 @@ public class RegisterWithInvitationCommandValidator : AbstractValidator<Register
     public RegisterWithInvitationCommandValidator()
     {
         RuleFor(x => x.Token).NotEmpty().WithErrorCode(OrganizationErrors.InvitationTokenRequired.Code);
-        RuleFor(x => x.Password).IsRequiredPassword();
-        RuleFor(x => x.FirstName).IsValidFirstName();
-        RuleFor(x => x.LastName).IsValidLastName();
+        // Shape only: whether the password and the names are required is the
+        // handler's, read from the Registration switches (OI-215).
+        RuleFor(x => x.Password).IsOptionalPassword();
+        RuleFor(x => x.FirstName).IsValidOptionalFirstName();
+        RuleFor(x => x.LastName).IsValidOptionalLastName();
     }
 }

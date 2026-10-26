@@ -195,6 +195,11 @@ internal static class SystemSettingsValueValidator
                         "FrontendBaseUrl", "must be an absolute URL while email sending is enabled."));
                 }
 
+                ValidatePasswordlessSignUpHasEmail(values, section, errors, baselineValue ?? effectiveValue, liveValue ?? effectiveValue);
+                break;
+
+            case "Registration":
+                ValidatePasswordlessSignUpHasEmail(values, section, errors, baselineValue ?? effectiveValue, liveValue ?? effectiveValue);
                 break;
 
             case "Cors":
@@ -850,6 +855,44 @@ internal static class SystemSettingsValueValidator
     }
 
     private const int MaxIdleMinutes = 1440;
+
+    /// <summary>
+    /// Sign-up without a password needs email sending on (OI-215): such an account signs
+    /// in only with a code emailed to it. Judged on the values as they will be after a
+    /// save or reset of EITHER section, as the idle-limit rule above is: this section's
+    /// field from the payload or the after-save fallback, the other section's from the
+    /// running configuration. A key absent from every layer runs with its class default
+    /// (both on). The run-time half is <c>SignUpRequirements</c>, which asks for a
+    /// password while email is off whatever the switch says.
+    /// </summary>
+    private static void ValidatePasswordlessSignUpHasEmail(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        SettingSectionDefinition section,
+        List<Error> errors,
+        Func<string, string?> afterSaveFallback,
+        Func<string, string?> liveValue)
+    {
+        const string passwordKey = "Registration:PasswordAtSignUp";
+        const string emailKey = "Email:Enabled";
+        const string passwordField = "PasswordAtSignUp";
+        const string emailField = "Enabled";
+
+        var savingRegistration = section.Key == "Registration";
+        var passwordText = savingRegistration
+            ? PayloadOrEffective(values, section, passwordField, afterSaveFallback)
+            : liveValue(passwordKey);
+        var emailText = savingRegistration
+            ? liveValue(emailKey)
+            : PayloadOrEffective(values, section, emailField, afterSaveFallback);
+
+        var passwordAtSignUp = bool.TryParse(passwordText, out var p) ? p : new RegistrationSettings().PasswordAtSignUp;
+        var emailEnabled = bool.TryParse(emailText, out var e) ? e : new EmailSettings().Enabled;
+
+        if (!passwordAtSignUp && !emailEnabled)
+        {
+            errors.Add(SystemSettingsErrors.PasswordlessSignUpRequiresEmail(savingRegistration ? passwordField : emailField));
+        }
+    }
 
     /// <summary>
     /// The payload's value when the field is part of it, otherwise what the given

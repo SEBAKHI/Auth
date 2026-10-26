@@ -11,11 +11,10 @@ namespace Auth.Application.Common;
 public static class NameLookupHelper
 {
     /// <summary>
-    /// Display name for a user: the explicit display name when set, otherwise
-    /// "First Last" (the convention used across audit-log and organization DTOs).
+    /// Display name for a user (the convention used across audit-log and organization
+    /// DTOs): <see cref="User.NameToShow"/>, its name, or its address when it has none.
     /// </summary>
-    public static string DisplayName(User user) =>
-        user.DisplayName ?? $"{user.FirstName} {user.LastName}".Trim();
+    public static string DisplayName(User user) => user.NameToShow;
 
     /// <summary>
     /// Resolves the distinct non-null <paramref name="userIds"/> to display

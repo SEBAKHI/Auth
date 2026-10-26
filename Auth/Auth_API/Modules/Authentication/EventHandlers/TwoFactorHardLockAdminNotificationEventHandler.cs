@@ -4,6 +4,7 @@ using Auth.Application.Features.Users.ResetUserTwoFactor;
 using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
 using Auth.Domain.Constants;
+using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
@@ -112,7 +113,7 @@ public class TwoFactorHardLockAdminNotificationEventHandler : INotificationHandl
                 return;
             }
 
-            var accountName = account.DisplayName ?? account.GetFullName();
+            var accountName = account.NameToShow;
 
             // The same values for every audience: what one message can say, the
             // others could too. The template decides what each audience reads.
@@ -143,7 +144,7 @@ public class TwoFactorHardLockAdminNotificationEventHandler : INotificationHandl
             foreach (var administrator in administrators)
             {
                 await SendAsync(
-                    administrator.UserId, administrator.Email, administrator.DisplayName, Audiences.Administrator,
+                    administrator.UserId, administrator.Email, User.NameToShowFrom(administrator.DisplayName, administrator.Email), Audiences.Administrator,
                     values, notification, cancellationToken);
             }
         }

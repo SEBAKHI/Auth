@@ -2,9 +2,11 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using Auth.Application.Features.AccountDeletion.RecoverAccount;
 using Auth.Application.Features.AccountDeletion.RecoverAccountExternal;
+using Auth.Application.Features.AccountDeletion.RecoverAccountWithEmailCode;
 using Auth.Application.Features.Authentication.CompleteRegistration;
 using Auth.Application.Features.Authentication.ExternalLogin;
 using Auth.Application.Features.Authentication.Login;
+using Auth.Application.Features.Authentication.SignInWithEmailCode;
 using Auth.Application.Features.Authentication.VerifyEmail;
 using Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
 using Auth_API.Common.FirstParty;
@@ -48,6 +50,10 @@ public class StaySignedInExitCoverageTests
         [$"{nameof(AuthController)}.{nameof(AuthController.VerifyEmail)}"] = (Lifetime.BrowserSession, typeof(VerifyEmailCommand)),
         [$"{nameof(AuthController)}.{nameof(AuthController.RecoverAccount)}"] = (Lifetime.BrowserSession, typeof(RecoverAccountCommand)),
         [$"{nameof(AuthController)}.{nameof(AuthController.RecoverAccountExternal)}"] = (Lifetime.BrowserSession, typeof(RecoverAccountExternalCommand)),
+        // OI-215: the sign-in by emailed code carries the choice, like the password; its
+        // recovery entry signs in for a browser session, like the other two.
+        [$"{nameof(AuthController)}.{nameof(AuthController.SignInWithEmailCode)}"] = (Lifetime.PersonsChoice, typeof(SignInWithEmailCodeCommand)),
+        [$"{nameof(AuthController)}.{nameof(AuthController.RecoverAccountWithEmailCode)}"] = (Lifetime.BrowserSession, typeof(RecoverAccountWithEmailCodeCommand)),
         [$"{nameof(AuthController)}.{nameof(AuthController.RefreshToken)}"] = (Lifetime.PresentedSession, null),
     };
 
@@ -107,6 +113,7 @@ public class StaySignedInExitCoverageTests
         ["LoginCommandHandler.cs"] = "request.StaySignedIn",
         ["ExternalLoginCommandHandler.cs"] = "request.StaySignedIn",
         ["VerifyTwoFactorLoginCommandHandler.cs"] = "request.StaySignedIn",
+        ["SignInWithEmailCodeCommandHandler.cs"] = "request.StaySignedIn",
         ["VerifyEmailCommandHandler.cs"] = "<none>",
         ["CompleteRegistrationCommandHandler.cs"] = "<none>",
         ["AccountDeletionRecoverer.cs"] = "<none>",
@@ -146,7 +153,7 @@ public class StaySignedInExitCoverageTests
             }
         }
 
-        callers.Should().HaveCount(7, "seven sign-in exits today; a new one is listed here with its choice");
+        callers.Should().HaveCount(8, "eight sign-in exits today; a new one is listed here with its choice");
         callers.Select(c => c.Name).Should().BeEquivalentTo(PersistentArgument.Keys);
         foreach (var (name, argument) in callers)
         {

@@ -1622,4 +1622,19 @@
   <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
     <value>مرحلهٔ دوم شما کدی است که با ایمیل فرستاده می‌شود. برای رفتن به برنامهٔ احراز هویت، کدی را هم که برایتان ایمیل می‌کنیم یا یکی از کدهای بازیابی خود را وارد کنید.</value>
   </data>
+  <data name="User.EmailCodeSignInUnavailable" xml:space="preserve">
+    <value>ورود با کدی که به ایمیل فرستاده می‌شود در این سرور در دسترس نیست.</value>
+  </data>
+  <data name="User.PasswordNotSet" xml:space="preserve">
+    <value>این حساب رمز عبور ندارد.</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresEmail" xml:space="preserve">
+    <value>تا وقتی این سرور ایمیل نمی‌فرستد، رمز عبور را نمی‌توان حذف کرد: حساب شما بدون آن نمی‌توانست وارد شود.</value>
+  </data>
+  <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
+    <value>تا وقتی گام دوم شما کدی است که به ایمیل فرستاده می‌شود، رمز عبور را نمی‌توان حذف کرد. ابتدا آن را خاموش کنید یا از برنامهٔ احراز هویت استفاده کنید.</value>
+  </data>
+  <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
+    <value>'{0}' را نمی‌توان این‌گونه ذخیره کرد: ثبت‌نام بدون رمز عبور نیاز دارد که ارسال ایمیل روشن باشد، زیرا این حساب‌ها با کدی که به ایمیل فرستاده می‌شود وارد می‌شوند.</value>
+  </data>
 </root>

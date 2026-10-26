@@ -68,10 +68,14 @@ public class JwtTokenService : IJwtTokenService, IDisposable
             new(JwtClaimNames.Email, user.Email),
             new(JwtClaimNames.JwtId, Guid.NewGuid().ToString()),
             new(JwtClaimNames.IssuedAt, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
-            new(JwtClaimNames.Name, user.GetFullName()),
-            new(JwtClaimNames.GivenName, user.FirstName),
-            new(JwtClaimNames.FamilyName, user.LastName),
         };
+
+        // The name claims only where there is a name (OI-215): an account may have
+        // none, and a blank claim, or a lone space, is a value a relying party would
+        // show. A blank part is left out, never passed on (a null value throws).
+        AddWhenPresent(claims, JwtClaimNames.Name, user.GetFullName());
+        AddWhenPresent(claims, JwtClaimNames.GivenName, user.FirstName);
+        AddWhenPresent(claims, JwtClaimNames.FamilyName, user.LastName);
 
         // Stable session identifier, constant across access-token refreshes.
         if (sessionId.HasValue)
@@ -443,6 +447,14 @@ public class JwtTokenService : IJwtTokenService, IDisposable
             .TrimEnd('=')
             .Replace('+', '-')
             .Replace('/', '_');
+    }
+
+    private static void AddWhenPresent(List<Claim> claims, string type, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            claims.Add(new Claim(type, value.Trim()));
+        }
     }
 
     public void Dispose()

@@ -314,7 +314,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
                         new SessionLimitEnforcedEvent(
                             user.Id,
                             user.Email,
-                            user.DisplayName ?? user.FirstName,
+                            user.NameToShow,
                             [.. evicted.Select(s => new EndedSession(
                                 s.Id, s.DeviceName, s.IpAddress, s.LastActivityAt))],
                             deviceName,
@@ -554,7 +554,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             new NewDeviceSignInEvent(
                 user.Id,
                 user.Email,
-                user.DisplayName ?? user.FirstName,
+                user.NameToShow,
                 deviceName,
                 ipAddress,
                 DateTime.UtcNow),

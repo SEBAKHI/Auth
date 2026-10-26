@@ -63,6 +63,44 @@ public class PlatformBrandingDto
     /// sign-in whatever the page sends (OI-165).
     /// </summary>
     public bool StaySignedInOffered { get; set; } = true;
+
+    /// <summary>
+    /// Whether the sign-in page offers a code sent by email (OI-215): true while email
+    /// sending is on. A hint for the page, which the browser caches with the rest of
+    /// this answer: the server decides every request on its own settings.
+    /// </summary>
+    public bool CodeSignInOffered { get; set; } = true;
+
+    /// <summary>
+    /// Which method the sign-in page puts first (OI-215, D-215-6 (a)): <c>code</c> when a
+    /// new account signs up without a password, otherwise <c>password</c>. The other
+    /// method stays a visible link.
+    /// </summary>
+    public string PrimaryMethod { get; set; } = SignInMethods.Password;
+
+    /// <summary>Whether a visitor may create an account (<c>Registration:AllowSelfRegistration</c>).</summary>
+    public bool SelfRegistrationOpen { get; set; } = true;
+
+    /// <summary>
+    /// Whether a sign-up asks for a password (OI-215): the switch, honoured only while
+    /// email is on.
+    /// </summary>
+    public bool PasswordAtSignUp { get; set; } = true;
+
+    /// <summary>Whether a sign-up asks for a first and last name (OI-215).</summary>
+    public bool NameAtSignUp { get; set; } = true;
+}
+
+/// <summary>
+/// The wire names of the two sign-in methods the sign-in page offers (OI-215).
+/// </summary>
+public static class SignInMethods
+{
+    /// <summary>The address and the password.</summary>
+    public const string Password = "password";
+
+    /// <summary>A code emailed to the address.</summary>
+    public const string Code = "code";
 }
 
 /// <summary>

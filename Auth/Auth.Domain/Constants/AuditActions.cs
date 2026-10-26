@@ -133,6 +133,12 @@ public static class AuditActions
     // Security
     public const string PasswordCreated = "password.created";
     public const string PasswordChanged = "password.changed";
+
+    /// <summary>
+    /// The account's password was removed (OI-215): by the owner, or retired when a sign-in by
+    /// code confirmed the address for the first time. The reason is in the details.
+    /// </summary>
+    public const string PasswordRemoved = "password.removed";
     public const string TwoFactorEnabled = "twofactor.enabled";
     public const string TwoFactorDisabled = "twofactor.disabled";
     public const string TwoFactorRecoveryCodesRegenerated = "twofactor.recovery-codes-regenerated";
@@ -247,6 +253,7 @@ public static class AuditActions
 
             [PasswordCreated] = AuditActionTypes.Security,
             [PasswordChanged] = AuditActionTypes.Security,
+            [PasswordRemoved] = AuditActionTypes.Security,
             [TwoFactorEnabled] = AuditActionTypes.Security,
             [TwoFactorDisabled] = AuditActionTypes.Security,
             [TwoFactorRecoveryCodesRegenerated] = AuditActionTypes.Security,

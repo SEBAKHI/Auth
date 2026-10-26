@@ -132,9 +132,7 @@ public class SecretOperationChallengeService
                 operation, EmailMasking.Mask(admin.Email.Value), otp, _emailSettings.OtpExpirationMinutes);
         }
 
-        var recipientName = !string.IsNullOrWhiteSpace(admin.DisplayName)
-            ? admin.DisplayName
-            : !string.IsNullOrWhiteSpace(admin.FirstName) ? admin.FirstName : "Administrator";
+        var recipientName = admin.NameToShow;
 
         var sendResult = await _notificationService.SendAsync(
             new NotificationRequest

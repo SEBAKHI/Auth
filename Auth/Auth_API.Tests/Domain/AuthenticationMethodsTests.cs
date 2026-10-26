@@ -33,7 +33,45 @@ public class AuthenticationMethodsTests
         { "email code + totp", Email.With(Totp), false, false },
         { "email code + recovery code", Email.With(Recovery), false, false },
         { "password + email code", Pwd.With(Email), true, false },
+        // OI-215 (D-215-1): the emailed code of an account without a password is its
+        // first factor, and the authenticator app or a recovery code completes two.
+        { "passwordless email code", Passwordless, true, false },
+        { "passwordless email code + totp", Passwordless.With(Totp), true, true },
+        { "passwordless email code + recovery code", Passwordless.With(Recovery), true, true },
+        { "first-factor bit alone", AuthenticationMethods.EmailCodeFirstFactor, true, false },
     };
+
+    private static AuthenticationMethods Passwordless => AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false);
+
+    [Fact]
+    public void ForEmailCodeSignIn_RecordsTheFirstFactorOnlyWithoutAPassword()
+    {
+        AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: true).Should().Be(Email,
+            "a password account's emailed code proves the mailbox the reset already reaches, and nothing more");
+        Passwordless.Should().Be(Email.With(AuthenticationMethods.EmailCodeFirstFactor));
+        Passwordless.Value.Should().Be(4 | 128);
+    }
+
+    [Fact]
+    public void EmailCodeFirstFactor_NeverProvesThePassword_AndHasNoAmrOfItsOwn()
+    {
+        Passwordless.ProvesPassword.Should().BeFalse("only a password sign-in lifts a lock raised by wrong passwords");
+        Passwordless.ToAmrValues().Should().BeEmpty("RFC 8176 has no value for an emailed code (S19 decides)");
+        Passwordless.With(Totp).ToAmrValues().Should().Equal("otp", "mfa");
+        Passwordless.With(Recovery).ToAmrValues().Should().Equal("mfa");
+    }
+
+    [Fact]
+    public void FromStored_ABuildBeforeTheBitReadsTheEmailedCodeAlone()
+    {
+        // The rollback path: the older build's mask had no 128, so a stored 132 is the
+        // emailed code alone there, which no policy counts.
+        const int maskBeforeOi215 = 1 | 2 | 4 | 8 | 16;
+        var stored = Passwordless.ToStored();
+        stored.Should().Be(132);
+        AuthenticationMethods.FromStored(stored!.Value & maskBeforeOi215).Should().Be(Email);
+        AuthenticationMethods.FromStored(stored).Should().Be(Passwordless, "this build keeps the bit");
+    }
 
     [Theory]
     [MemberData(nameof(TruthTable))]
@@ -76,10 +114,11 @@ public class AuthenticationMethodsTests
         Email.Value.Should().Be(4);
         Totp.Value.Should().Be(8);
         Recovery.Value.Should().Be(16);
+        AuthenticationMethods.EmailCodeFirstFactor.Value.Should().Be(128);
 
-        var all = Pwd.With(Ext).With(Email).With(Totp).With(Recovery);
+        var all = Pwd.With(Ext).With(Email).With(Totp).With(Recovery).With(AuthenticationMethods.EmailCodeFirstFactor);
         AuthenticationMethods.FromStored(all.ToStored()).Should().Be(all);
-        all.ToStored().Should().Be(31);
+        all.ToStored().Should().Be(159);
     }
 
     [Fact]

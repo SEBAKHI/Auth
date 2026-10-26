@@ -1622,4 +1622,19 @@
   <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
     <value>您的第二步验证是通过邮件发送的验证码。要改用验证器应用，还需输入我们通过邮件发送给您的验证码，或您的一个恢复代码。</value>
   </data>
+  <data name="User.EmailCodeSignInUnavailable" xml:space="preserve">
+    <value>此服务器不支持使用电子邮件验证码登录。</value>
+  </data>
+  <data name="User.PasswordNotSet" xml:space="preserve">
+    <value>此账户没有密码。</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresEmail" xml:space="preserve">
+    <value>在此服务器不发送电子邮件期间，无法删除密码：否则您的账户将无法登录。</value>
+  </data>
+  <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
+    <value>在您的第二步验证为电子邮件验证码期间，无法删除密码。请先将其关闭，或改用身份验证器应用。</value>
+  </data>
+  <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
+    <value>无法这样保存“{0}”：无密码注册需要开启电子邮件发送，因为此类账户使用电子邮件验证码登录。</value>
+  </data>
 </root>

@@ -11,8 +11,10 @@ public class UpdateUserCommandValidator : AbstractValidator<UpdateUserCommand>
 {
     public UpdateUserCommandValidator()
     {
-        RuleFor(x => x.FirstName).IsValidFirstName();
-        RuleFor(x => x.LastName).IsValidLastName();
+        // An empty name is allowed (OI-215): an account may have none; only the
+        // length is bounded.
+        RuleFor(x => x.FirstName).IsValidOptionalFirstName();
+        RuleFor(x => x.LastName).IsValidOptionalLastName();
         RuleFor(x => x.PhoneNumber).IsValidPhoneNumber().When(x => x.PhoneNumber is not null);
         RuleFor(x => x.PreferredLanguage).IsValidPreferredLanguage().When(x => x.PreferredLanguage is not null);
         RuleFor(x => x.TimeZone).IsValidTimeZone(UserErrors.TimeZoneInvalid).When(x => x.TimeZone is not null);

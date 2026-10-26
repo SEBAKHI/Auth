@@ -132,6 +132,29 @@ public static class NotificationTypeCodes
     public const string TwoFactorEmailCode = "two-factor-email-code";
 
     /// <summary>
+    /// The code an existing account enters to sign in by email (OI-215), sent when
+    /// someone types its address on the sign-in page and chooses the code. The page
+    /// says the same thing for every address; only this message, read by the
+    /// mailbox's holder, says there is an account. Its rendered body carries the
+    /// live code, so it is a sensitive type; no link, and no code in the subject.
+    /// </summary>
+    public const string EmailSignInCode = "email-sign-in-code";
+
+    /// <summary>
+    /// The notice sent instead of a code when someone asks to sign in by email with an
+    /// address that has no account here while new accounts cannot be created (OI-215).
+    /// No code and no secret; its only link is the ordinary sign-in page.
+    /// </summary>
+    public const string SignInNoAccount = "sign-in-no-account";
+
+    /// <summary>
+    /// Tells the owner that the account's password was removed (OI-215): by the owner
+    /// from the profile, or because a sign-in by code proved the address for the first
+    /// time and the password had been set before that. No secret.
+    /// </summary>
+    public const string PasswordRemoved = "password-removed";
+
+    /// <summary>
     /// System types that back critical auth flows; their global templates must
     /// always have a published version and cannot be unpublished or deleted.
     /// </summary>
@@ -161,6 +184,9 @@ public static class NotificationTypeCodes
             // messages that break that silence.
             PasswordCreated,
             PasswordChanged,
+            // And its removal (OI-215): an account turned code-only without its
+            // owner hearing about it is the same quiet takeover.
+            PasswordRemoved,
             // The same silence for the second factor: switching it off is the step an
             // attacker who already holds the password takes next.
             TwoFactorChanged,
@@ -178,7 +204,12 @@ public static class NotificationTypeCodes
             // the only thing that tells an account owner someone typed their
             // address into the sign-up form. Neither is an operator's to switch off.
             RegistrationVerification,
-            RegistrationAttemptExistingAccount
+            RegistrationAttemptExistingAccount,
+            // An account without a password cannot sign in without the code, and
+            // the notice is the only answer an address without an account gets
+            // (OI-215). Neither is an operator's to switch off.
+            EmailSignInCode,
+            SignInNoAccount
         ];
 
     /// <summary>
@@ -214,6 +245,9 @@ public static class NotificationTypeCodes
         TwoFactorBindCode,
         // The code that completes a sign-in whose second factor is email.
         TwoFactorEmailCode,
+        // The code that signs an existing account in by email (OI-215). The notice
+        // to an address without an account is NOT here: it carries no secret.
+        EmailSignInCode,
     };
 
     /// <summary>

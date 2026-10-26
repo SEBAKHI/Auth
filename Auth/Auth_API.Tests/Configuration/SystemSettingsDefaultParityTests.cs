@@ -110,6 +110,9 @@ public class SystemSettingsDefaultParityTests
     [InlineData("IdentityProvider", "ApplicationSessionsEndWithSsoSession", "True")]
     // S24: an emailed second-factor code lives ten minutes after each send.
     [InlineData("TwoFactor", "EmailCodeLifetimeMinutes", "10")]
+    // OI-215: a deployment that changes nothing keeps a password and a name at sign-up.
+    [InlineData("Registration", "PasswordAtSignUp", "True")]
+    [InlineData("Registration", "NameAtSignUp", "True")]
     public void ProductionDefaults_AgreeInFileClassAndRegistry(
         string configRoot, string fieldPath, string expected)
     {

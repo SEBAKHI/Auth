@@ -45,6 +45,18 @@ public interface IPendingRegistrationRepository
     Task MarkMailedAsync(Guid id, string otpHash, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Spends a code on a sign-in to the account that already exists for the row's
+    /// address (OI-215): one transaction that locks the row, checks the code once
+    /// more WITHOUT charging an attempt (the attempt gate ran in the check before),
+    /// and stamps it consumed — its one meaning holds, a Users row exists for the
+    /// address. So a code signs in once: a second sign-in with it finds no live row.
+    /// </summary>
+    /// <param name="id">The pending row the code was checked against.</param>
+    /// <param name="code">The code, presented again by the caller.</param>
+    /// <returns>False when the row is gone, expired, consumed, or no longer holds that code.</returns>
+    Task<bool> TryConsumeSignInCodeAsync(Guid id, string code, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Stamps the unconsumed row for an address as consumed — a Users row now
     /// exists for it, through whichever door. Returns how many rows changed
     /// (0 when there was nothing pending).

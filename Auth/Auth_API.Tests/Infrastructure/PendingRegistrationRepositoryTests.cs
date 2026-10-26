@@ -453,21 +453,23 @@ public class PendingRegistrationRepositoryTests
     }
 
     [Fact]
-    public void OnlyTwoStatementsInTheApplication_WriteConsumedAt()
+    public void OnlyThreeStatementsInTheApplication_WriteConsumedAt()
     {
         // ConsumedAt means one thing: a Users row now exists for the address.
-        // Two places can say so — the by-address consumer every other door
-        // runs after its insert, and the verified creation that inserts and
-        // consumes in one transaction. Starting, checking and rotating never do.
-        Regex.Matches(RepositorySource(), @"SET \[ConsumedAt\]").Count.Should().Be(1,
-            "in this repository only ConsumeByEmailAsync consumes");
+        // Three places can say so — the by-address consumer every other door
+        // runs after its insert, the verified creation that inserts and
+        // consumes in one transaction, and the sign-in by code (OI-215), which
+        // spends the code on the account that already exists. Starting,
+        // checking and rotating never do.
+        Regex.Matches(RepositorySource(), @"SET \[ConsumedAt\]").Count.Should().Be(2,
+            "in this repository only ConsumeByEmailAsync and TryConsumeSignInCodeAsync consume");
 
         var persistence = Path.Combine(SolutionDirectory(), "Auth.Infrastructure", "Persistence");
         var writers = Directory.GetFiles(persistence, "*.cs", SearchOption.AllDirectories)
             .SelectMany(file => Regex.Matches(File.ReadAllText(file), @"SET \[ConsumedAt\]").Select(_ => Path.GetFileName(file)))
             .ToList();
 
-        writers.Should().BeEquivalentTo(["PendingRegistrationRepository.cs", "UserRepository.cs"],
+        writers.Should().BeEquivalentTo(["PendingRegistrationRepository.cs", "PendingRegistrationRepository.cs", "UserRepository.cs"],
             "the other writer is UserRepository.CreateVerifiedAsync, in the same transaction as the account row");
     }
 

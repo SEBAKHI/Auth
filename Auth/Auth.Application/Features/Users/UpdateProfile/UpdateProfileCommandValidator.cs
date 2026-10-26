@@ -11,8 +11,10 @@ public class UpdateProfileCommandValidator : AbstractValidator<UpdateProfileComm
 {
     public UpdateProfileCommandValidator()
     {
-        RuleFor(x => x.FirstName!).IsValidFirstName().When(x => x.FirstName is not null);
-        RuleFor(x => x.LastName!).IsValidLastName().When(x => x.LastName is not null);
+        // An empty name is allowed (OI-215): an account may have none, and must be
+        // able to save its profile; only the length is bounded.
+        RuleFor(x => x.FirstName).IsValidOptionalFirstName().When(x => x.FirstName is not null);
+        RuleFor(x => x.LastName).IsValidOptionalLastName().When(x => x.LastName is not null);
         RuleFor(x => x.PhoneNumber).IsValidPhoneNumber().When(x => x.PhoneNumber is not null);
         RuleFor(x => x.PreferredLanguage).IsValidPreferredLanguage().When(x => x.PreferredLanguage is not null);
         RuleFor(x => x.TimeZone).IsValidTimeZone(UserErrors.TimeZoneInvalid).When(x => x.TimeZone is not null);

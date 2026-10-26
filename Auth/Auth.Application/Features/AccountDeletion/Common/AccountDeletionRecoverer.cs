@@ -14,10 +14,10 @@ using MediatR;
 namespace Auth.Application.Features.AccountDeletion.Common;
 
 /// <summary>
-/// The shared grace-period recovery pipeline behind both recovery entry
-/// points (password and external identity): 2FA gate, deterministic
-/// cancel-vs-claim race, account restore, cancelled event and auto-login.
-/// Callers authenticate the user BEFORE invoking this.
+/// The shared grace-period recovery pipeline behind the three recovery entry
+/// points (password, external identity, and the emailed code of OI-215): 2FA
+/// gate, deterministic cancel-vs-claim race, account restore, cancelled event and
+/// auto-login. Callers authenticate the user BEFORE invoking this.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -104,7 +104,17 @@ public class AccountDeletionRecoverer
         {
             var snapshot = await _twoFactorStateStore.GetSnapshotAsync(user.Id, cancellationToken);
 
-            if (string.IsNullOrEmpty(twoFactorCode))
+            // The emailed-code entry (OI-215) of an account whose second factor is the
+            // emailed code: the code that opened it just proved the mailbox a second
+            // code would go to, so none is asked, as at sign-in. The authenticator app
+            // is still asked: it proves something no mailbox does.
+            if (EmailCodeProofStrategy.OpenedByEmailCode(primaryMethod) && snapshot is { HasEmailCode: true, IsEnabled: false })
+            {
+                _logger.LogInformation(
+                    "{EventCode}: no second step for the recovery by code of account {UserId}: the code proved the mailbox its second factor would",
+                    TwoFactorSignalCodes.SignInCodeMailboxWaived, user.Id);
+            }
+            else if (string.IsNullOrEmpty(twoFactorCode))
             {
                 // The emailed code's account on the password entry asks for a code
                 // it can send; every other case asks for the code it always asked for.
@@ -112,17 +122,19 @@ public class AccountDeletionRecoverer
                     ? TwoFactorErrors.RecoveryEmailCodeRequired
                     : UserErrors.TwoFactorRequired;
             }
-
-            // Verified and claimed BEFORE the request is cancelled, so a code
-            // already accepted cannot be presented again to restore the account.
-            var verified = await VerifyTwoFactorCodeAsync(
-                user.Id, snapshot, request, primaryMethod, twoFactorCode, ipAddress, cancellationToken);
-            if (verified.IsError)
+            else
             {
-                return verified.Errors;
-            }
+                // Verified and claimed BEFORE the request is cancelled, so a code
+                // already accepted cannot be presented again to restore the account.
+                var verified = await VerifyTwoFactorCodeAsync(
+                    user.Id, snapshot, request, primaryMethod, twoFactorCode, ipAddress, cancellationToken);
+                if (verified.IsError)
+                {
+                    return verified.Errors;
+                }
 
-            methods = methods.With(verified.Value);
+                methods = methods.With(verified.Value);
+            }
         }
 
         var cancelResult = request.Cancel();

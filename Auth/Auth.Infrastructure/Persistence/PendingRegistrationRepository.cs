@@ -241,6 +241,62 @@ public sealed class PendingRegistrationRepository : IPendingRegistrationReposito
     }
 
     /// <inheritdoc />
+    public Task<bool> TryConsumeSignInCodeAsync(Guid id, string code, CancellationToken cancellationToken)
+        => TryConsumeSignInCodeAsync(id, code, retryAfterDeadlock: true, cancellationToken);
+
+    private async Task<bool> TryConsumeSignInCodeAsync(
+        Guid id, string code, bool retryAfterDeadlock, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await TryConsumeSignInCodeOnceAsync(id, code, cancellationToken);
+        }
+        catch (SqlException ex) when (ex.Number is 1205 && retryAfterDeadlock)
+        {
+            // The same pair of access paths as the completion step (clustered key,
+            // then the filtered indexes): a check or a start landing on this row in
+            // the same few milliseconds can deadlock with it. The victim rolled back
+            // and wrote nothing; once more on a fresh connection, where a row the
+            // other side consumed answers false on its own.
+            return await TryConsumeSignInCodeAsync(id, code, retryAfterDeadlock: false, cancellationToken);
+        }
+    }
+
+    private async Task<bool> TryConsumeSignInCodeOnceAsync(Guid id, string code, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        // Alive by the same predicate the check reads by, and held to the commit:
+        // two sign-ins with one code both reach this line, and only the first finds
+        // the row unconsumed.
+        var otpHash = await connection.QuerySingleOrDefaultAsync<string>(@"
+            SELECT [OtpHash]
+            FROM [dbo].[PendingRegistrations] WITH (UPDLOCK, HOLDLOCK)
+            WHERE [Id] = @Id AND [ConsumedAt] IS NULL AND [ExpiresAt] > @Now",
+            new { Id = id, Now = DateTime.UtcNow },
+            transaction);
+
+        // A mismatch is the row rotated since the check, not a guess: nothing is
+        // charged and nothing written.
+        if (otpHash is null || !_otpHasher.Verify(PendingRegistration.OtpScopeFor(id), code, otpHash))
+        {
+            transaction.Rollback();
+            return false;
+        }
+
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[PendingRegistrations]
+            SET [ConsumedAt] = GETUTCDATE()
+            WHERE [Id] = @Id AND [ConsumedAt] IS NULL",
+            new { Id = id },
+            transaction);
+
+        transaction.Commit();
+        return true;
+    }
+
+    /// <inheritdoc />
     public async Task MarkMailedAsync(Guid id, string otpHash, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

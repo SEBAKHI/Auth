@@ -818,6 +818,13 @@ builder.Services.AddScoped<IReauthenticationGuard, ReauthenticationGuard>();
 // required while Email:Enabled is on, read per call.
 builder.Services.AddSingleton<FirstFactorEmailProofPolicy>();
 builder.Services.AddScoped<FirstFactorEmailProof>();
+// What a matched sign-in code's address leads to (OI-215): one classification for the
+// verify, sign-in and recovery steps. Scoped: it reads the Registration switches per request.
+builder.Services.AddScoped<EmailCodeAccountResolver>();
+builder.Services.AddScoped<EmailCodeCheck>();
+// Whether a code sign-in must also prove the password: platform claims, never the
+// enforcement switch (OI-215, T4 (a)).
+builder.Services.AddScoped<EmailCodeFullProofRule>();
 // The secret a new authenticator app is set up with: the first one, or a replacement.
 builder.Services.AddScoped<AuthenticatorKeyFactory>();
 builder.Services.AddScoped<IPersonalOrganizationCreator, PersonalOrganizationCreator>();

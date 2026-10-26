@@ -7,6 +7,7 @@ using Auth.Application.Validators;
 using Auth_API.Tests.Helpers;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
+using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
@@ -58,7 +59,7 @@ public class RegisterWithInvitationCommandHandlerTests
         _handler = CreateHandler(new RegistrationSettings());
     }
 
-    private RegisterWithInvitationCommandHandler CreateHandler(RegistrationSettings settings)
+    private RegisterWithInvitationCommandHandler CreateHandler(RegistrationSettings settings, EmailSettings? email = null)
     {
         return new RegisterWithInvitationCommandHandler(
             _userRepoMock.Object,
@@ -72,6 +73,7 @@ public class RegisterWithInvitationCommandHandlerTests
             new Mock<IPendingRegistrationConsumer>().Object,
             _tokenKeyServiceMock,
             TestHelpers.CreateOptions(settings),
+            TestHelpers.CreateOptions(email ?? new EmailSettings()),
             new Mock<ILogger<RegisterWithInvitationCommandHandler>>().Object);
     }
 
@@ -310,6 +312,52 @@ public class RegisterWithInvitationCommandHandlerTests
         var result = await handler.Handle(CreateCommand(), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
+    }
+
+    #endregion
+
+    #region OI-215 (V8): the Registration switches reach the invitation door
+
+    [Fact]
+    public async Task Handle_WithBothSwitchesOff_CreatesAnAccountWithoutAPasswordOrAName()
+    {
+        SetupInvitation();
+        User? createdUser = null;
+        _userRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((u, _) => createdUser = u);
+        var handler = CreateHandler(new RegistrationSettings { PasswordAtSignUp = false, NameAtSignUp = false });
+
+        var result = await handler.Handle(new RegisterWithInvitationCommand(Token, null, null, null), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        createdUser!.PasswordHash.Should().BeNull("it signs in by emailed code, whose session records the first factor");
+        createdUser.NameToShow.Should().Be("invitee@example.com");
+        _passwordHasherMock.Verify(h => h.HashPassword(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WithTheSwitchesOn_RefusesAMissingPasswordAndName_BeforeCreatingAnything()
+    {
+        SetupInvitation();
+
+        var result = await _handler.Handle(new RegisterWithInvitationCommand(Token, null, null, null), CancellationToken.None);
+
+        result.Errors.Select(e => e.Code).Should().Equal(
+            PasswordErrors.Required.Code, UserErrors.FirstNameRequired.Code, UserErrors.LastNameRequired.Code);
+        _userRepoMock.Verify(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WithThePasswordSwitchOffButEmailOff_StillRequiresAPassword()
+    {
+        SetupInvitation();
+        var handler = CreateHandler(new RegistrationSettings { PasswordAtSignUp = false }, new EmailSettings { Enabled = false });
+
+        var result = await handler.Handle(new RegisterWithInvitationCommand(Token, null, "Jane", "Doe"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(PasswordErrors.Required.Code);
+        _userRepoMock.Verify(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     #endregion

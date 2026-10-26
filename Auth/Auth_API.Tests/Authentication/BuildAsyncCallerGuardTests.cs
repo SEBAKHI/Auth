@@ -24,10 +24,14 @@ public class BuildAsyncCallerGuardTests
         ["ExternalLoginCommandHandler.cs"] = "AuthenticationMethods.ExternalIdentity",
         // An emailed code alone: never a first factor (D2).
         ["VerifyEmailCommandHandler.cs"] = "AuthenticationMethods.EmailCode",
-        // Verify-first registration: the emailed code and the password just set.
-        ["CompleteRegistrationCommandHandler.cs"] = "AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode)",
+        // Verify-first registration: the emailed code and the password just set, or,
+        // with no password set (OI-215), the code as the account's first factor.
+        ["CompleteRegistrationCommandHandler.cs"] = "methods",
         // The first factor recorded on the challenge, and the second just settled.
         ["VerifyTwoFactorLoginCommandHandler.cs"] = "methods",
+        // The sign-in by emailed code (OI-215): the code, and for an account without a
+        // password the first-factor bit (D-215-1).
+        ["SignInWithEmailCodeCommandHandler.cs"] = "methods",
         // The entry point's first factor, with the TOTP code when one was claimed.
         ["AccountDeletionRecoverer.cs"] = "methods",
         // The application token exchange: the code does not carry the IdP session's
@@ -110,13 +114,15 @@ public class BuildAsyncCallerGuardTests
     [Fact]
     public void TheChallengeGates_RecordTheirFirstFactor()
     {
-        // The three gates that open a challenge record the factor that opened it,
+        // The four gates that open a challenge record the factor that opened it,
         // so the verify step can merge it with the second.
         var expected = new Dictionary<string, string>
         {
             ["LoginCommandHandler.cs"] = "AuthenticationMethods.Password",
             ["ExternalLoginCommandHandler.cs"] = "AuthenticationMethods.ExternalIdentity",
             ["VerifyEmailCommandHandler.cs"] = "AuthenticationMethods.EmailCode",
+            // OI-215: the code, with the first-factor bit for an account without a password.
+            ["SignInWithEmailCodeCommandHandler.cs"] = "methods",
         };
 
         var gates = ApiSourceScan.ProductionSources()

@@ -84,6 +84,16 @@ public class EmailCodeProofStrategy : ISecondFactorProofStrategy
     public static bool MayFollow(AuthenticationMethods primaryMethod) =>
         primaryMethod == AuthenticationMethods.Password;
 
+    /// <summary>
+    /// Whether <paramref name="primaryMethod"/> is a sign-in by emailed code (OI-215),
+    /// of an account with a password or without. Such a sign-in already proved the
+    /// mailbox, so an account whose second factor is the emailed code is asked for no
+    /// second step after it.
+    /// </summary>
+    public static bool OpenedByEmailCode(AuthenticationMethods primaryMethod) =>
+        primaryMethod == AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: true)
+        || primaryMethod == AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false);
+
     /// <inheritdoc />
     public bool IsBound(TwoFactorSnapshot snapshot) => snapshot.HasEmailCode;
 

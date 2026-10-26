@@ -988,7 +988,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 new RefreshTokenReuseDetectedEvent(
                     user.Id,
                     user.Email,
-                    user.DisplayName ?? user.FirstName,
+                    user.NameToShow,
                     ipAddress,
                     DateTime.UtcNow),
                 cancellationToken);

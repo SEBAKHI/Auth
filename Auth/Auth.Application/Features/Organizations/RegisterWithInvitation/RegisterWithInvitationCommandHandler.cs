@@ -1,6 +1,7 @@
 using System.Globalization;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Organizations.AcceptInvitation;
 using Auth.Application.Features.Users.Common;
 using Auth.Application.Interfaces;
@@ -36,6 +37,7 @@ public class RegisterWithInvitationCommandHandler
     private readonly IPendingRegistrationConsumer _pendingRegistrationConsumer;
     private readonly ICredentialHasher _credentialHasher;
     private readonly RegistrationSettings _registrationSettings;
+    private readonly EmailSettings _emailSettings;
 
     private readonly ILogger<RegisterWithInvitationCommandHandler> _logger;
 
@@ -51,12 +53,14 @@ public class RegisterWithInvitationCommandHandler
         IPendingRegistrationConsumer pendingRegistrationConsumer,
         ICredentialHasher credentialHasher,
         IOptionsSnapshot<RegistrationSettings> registrationSettings,
+        IOptionsSnapshot<EmailSettings> emailSettings,
 
         ILogger<RegisterWithInvitationCommandHandler> logger)
     {
         _pendingRegistrationConsumer = pendingRegistrationConsumer;
         _credentialHasher = credentialHasher;
         _registrationSettings = registrationSettings.Value;
+        _emailSettings = emailSettings.Value;
         _userRepository = userRepository;
         _organizationRepository = organizationRepository;
         _passwordHasher = passwordHasher;
@@ -148,25 +152,42 @@ public class RegisterWithInvitationCommandHandler
             return reservation.Errors;
         }
 
-        var passwordValidation = _passwordValidator.Validate(request.Password, nameof(request.Password));
-        if (passwordValidation.IsError)
+        // What the sign-up must give (OI-215): the same switches as the public
+        // sign-up. A password sent where none is required is held to the policy
+        // and kept.
+        var missing = SignUpRequirements.From(_registrationSettings, _emailSettings)
+            .Missing(request.Password, request.FirstName, request.LastName);
+        if (missing.Count > 0)
         {
-            return passwordValidation.Errors;
+            return missing;
         }
 
-        var breachResult = await _breachEvaluator.EvaluateAsync(request.Password, cancellationToken);
-        if (breachResult.IsError)
+        var password = SignUpRequirements.Sent(request.Password) ? request.Password! : null;
+        if (password is not null)
         {
-            return breachResult.Errors;
+            var passwordValidation = _passwordValidator.Validate(password, nameof(request.Password));
+            if (passwordValidation.IsError)
+            {
+                return passwordValidation.Errors;
+            }
+
+            var breachResult = await _breachEvaluator.EvaluateAsync(password, cancellationToken);
+            if (breachResult.IsError)
+            {
+                return breachResult.Errors;
+            }
         }
 
-        var passwordHash = _passwordHasher.HashPassword(request.Password);
+        // No password, no hash: the account signs in by emailed code, whose first
+        // session records the code as its first factor (D-215-1). This step issues
+        // no session either way, as before.
+        var passwordHash = password is null ? null : _passwordHasher.HashPassword(password);
 
         var user = User.Create(
             email: invitation.Email.Value,
             passwordHash: passwordHash,
-            firstName: request.FirstName,
-            lastName: request.LastName,
+            firstName: request.FirstName ?? string.Empty,
+            lastName: request.LastName ?? string.Empty,
             createdBy: Guid.Empty,
             // Site language becomes the durable preference (explicit choice, else
             // the request culture) — notifications follow this language.
@@ -213,7 +234,7 @@ public class RegisterWithInvitationCommandHandler
 
         // The acceptance's own result, so a new account is sent on exactly as an existing one
         // would be (OI-192). Still no session here: the page signs in with the password just
-        // chosen, through the ordinary login call.
+        // chosen, through the ordinary login call, or by emailed code when it set none.
         var accepted = acceptResult.Value;
         return new RegisterWithInvitationResponse(
             user.Id,

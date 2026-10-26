@@ -1624,4 +1624,19 @@
   <data name="TwoFactor.ReplacementProofRequired" xml:space="preserve">
     <value>Your second step is a code sent by email. To switch to an authenticator app, also enter a code we email you, or one of your recovery codes.</value>
   </data>
+  <data name="User.EmailCodeSignInUnavailable" xml:space="preserve">
+    <value>Signing in with a code sent by email is not available on this server.</value>
+  </data>
+  <data name="User.PasswordNotSet" xml:space="preserve">
+    <value>This account has no password.</value>
+  </data>
+  <data name="User.PasswordRemovalRequiresEmail" xml:space="preserve">
+    <value>The password cannot be removed while this server does not send email: your account could not sign in without it.</value>
+  </data>
+  <data name="User.PasswordRemovalBlockedByEmailCodeFactor" xml:space="preserve">
+    <value>The password cannot be removed while your second step is a code sent by email. Turn that off, or use an authenticator app, first.</value>
+  </data>
+  <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
+    <value>'{0}' cannot be saved this way: sign-up without a password needs email sending on, because such accounts sign in with a code sent by email.</value>
+  </data>
 </root>

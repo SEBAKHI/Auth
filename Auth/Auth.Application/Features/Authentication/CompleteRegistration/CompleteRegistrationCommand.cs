@@ -15,9 +15,12 @@ namespace Auth.Application.Features.Authentication.CompleteRegistration;
 /// </summary>
 /// <param name="PendingId">The handle the start step answered with.</param>
 /// <param name="Otp">The code that reached the address, presented once more.</param>
-/// <param name="Password">The new account's password.</param>
-/// <param name="FirstName">The new account's first name.</param>
-/// <param name="LastName">The new account's last name.</param>
+/// <param name="Password">
+/// The new account's password. Optional while <c>Registration:PasswordAtSignUp</c> is
+/// off and email is on (OI-215): without one the account signs in by emailed code.
+/// </param>
+/// <param name="FirstName">The new account's first name; optional while <c>Registration:NameAtSignUp</c> is off.</param>
+/// <param name="LastName">The new account's last name; optional likewise.</param>
 /// <param name="TimeZone">IANA time zone, or null for UTC.</param>
 /// <param name="CreateOrganization">Whether to create the personal organization; off by default.</param>
 /// <param name="DeviceId">The calling browser's own identifier, for the session.</param>
@@ -26,9 +29,9 @@ namespace Auth.Application.Features.Authentication.CompleteRegistration;
 public record CompleteRegistrationCommand(
     string PendingId,
     string Otp,
-    string Password,
-    string FirstName,
-    string LastName,
+    string? Password,
+    string? FirstName,
+    string? LastName,
     string? TimeZone,
     bool CreateOrganization,
     string? DeviceId,

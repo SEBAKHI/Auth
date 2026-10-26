@@ -159,5 +159,5 @@ public class AccountDeletionRequestor
     /// The display name used in deletion notifications, mirroring the
     /// recipient-name convention of the other notification flows.
     /// </summary>
-    public static string DisplayNameOf(User user) => user.DisplayName ?? user.FirstName ?? "User";
+    public static string DisplayNameOf(User user) => user.NameToShow;
 }

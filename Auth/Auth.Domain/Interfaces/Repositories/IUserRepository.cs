@@ -255,6 +255,35 @@ public interface IUserRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task ConfirmEmailAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Confirms an address through a sign-in by emailed code (OI-215, D-215-5 (a)), and
+    /// in the same statement removes a password set before that proof: only while the
+    /// address is still unconfirmed and the stored hash is still the one the caller read
+    /// (null for none). Clears <c>MustChangePassword</c> and the password expiry with
+    /// it; leaves the change stamp. <see cref="Entities.User.ConfirmEmailBySignInCode"/>
+    /// is the rule this writes.
+    /// </summary>
+    /// <param name="readPasswordHash">The hash the caller read, or null when the account had none.</param>
+    /// <returns>False when the row changed since it was read: confirmed, or given another password.</returns>
+    Task<bool> ConfirmEmailBySignInCodeAsync(Guid userId, string? readPasswordHash, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Removes the account's password at its owner's request (OI-215, D-215-3), only
+    /// while the stored hash is still <paramref name="readPasswordHash"/> and the
+    /// address confirmed, and stamps the change, as a password change does; the
+    /// removed hash goes into the password history in the same transaction. A reset
+    /// or change that landed in between is kept: nothing is written.
+    /// </summary>
+    /// <returns>Whether the password was removed.</returns>
+    Task<bool> RemovePasswordAsync(Guid userId, string readPasswordHash, Guid modifiedBy, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// How many live accounts can sign in only with an emailed code (OI-215): no
+    /// password and no linked provider. The number the console shows before email
+    /// sending is switched off. A count, never a list.
+    /// </summary>
+    Task<int> CountEmailCodeOnlyAccountsAsync(CancellationToken cancellationToken);
+
     #region User Roles
 
     /// <summary>

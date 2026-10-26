@@ -150,8 +150,8 @@ public class InitiateOwnershipTransferCommandHandler
         await _transferCodeRepository.CreateAsync(transferCode, cancellationToken);
 
         var owner = await _userRepository.GetByIdAsync(organization.OwnerId, cancellationToken);
-        var ownerName = owner?.DisplayName ?? owner?.FirstName ?? "The organization owner";
-        var targetName = targetUser.DisplayName ?? targetUser.FirstName ?? "User";
+        var ownerName = owner?.NameToShow ?? "The organization owner";
+        var targetName = targetUser.NameToShow;
 
         var sendResult = await _notificationService.SendAsync(
             new NotificationRequest

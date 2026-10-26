@@ -40,9 +40,26 @@ public class User : AggregateRoot
     public string LastName { get; private set; } = string.Empty;
 
     /// <summary>
-    /// Gets the user's display name.
+    /// Gets the user's display name: the first and last name, or null for an account
+    /// that has neither (OI-215). Never blank: the store computes it with a space
+    /// between the two, and a space is not a name.
     /// </summary>
     public string? DisplayName { get; private set; }
+
+    /// <summary>
+    /// Gets the name the platform shows and mails for this account: its name when it
+    /// has one, otherwise its address (OI-215). The one server rule for "the name to
+    /// show"; never blank.
+    /// </summary>
+    public string NameToShow => DisplayNameFor(FirstName, LastName) ?? Email.Value;
+
+    /// <summary>
+    /// <see cref="NameToShow"/> for a read model that carries the stored display name
+    /// (the computed FullName column) instead of the account: the name when it is not
+    /// blank, otherwise the address.
+    /// </summary>
+    public static string NameToShowFrom(string? storedDisplayName, string email) =>
+        string.IsNullOrWhiteSpace(storedDisplayName) ? email : storedDisplayName.Trim();
 
     /// <summary>
     /// Gets the user's phone number.
@@ -194,7 +211,7 @@ public class User : AggregateRoot
         PasswordHash = passwordHash;
         FirstName = firstName;
         LastName = lastName;
-        DisplayName = displayName;
+        DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
         PhoneNumber = ValueObjects.PhoneNumber.FromNullable(phoneNumber);
         Status = status;
         EmailConfirmed = emailConfirmed;
@@ -221,9 +238,15 @@ public class User : AggregateRoot
         DeletedAt = deletedAt;
     }
 
+    /// <summary>
+    /// Creates an account. <paramref name="passwordHash"/> is null only for an account
+    /// that signs up without a password (OI-215, <c>Registration:PasswordAtSignUp</c>
+    /// off): it signs in with a code emailed to its address. The names may be empty
+    /// when the sign-up did not ask for them.
+    /// </summary>
     public static User Create(
         string email,
-        string passwordHash,
+        string? passwordHash,
         string firstName,
         string lastName,
         Guid createdBy,
@@ -240,7 +263,7 @@ public class User : AggregateRoot
             PasswordHash = passwordHash,
             FirstName = firstName,
             LastName = lastName,
-            DisplayName = $"{firstName} {lastName}",
+            DisplayName = DisplayNameFor(firstName, lastName),
             PhoneNumber = ValueObjects.PhoneNumber.FromNullable(phoneNumber),
             Status = UserStatus.Active,
             EmailConfirmed = false,
@@ -252,7 +275,7 @@ public class User : AggregateRoot
             TimeZone = timeZone,
             Theme = theme,
             IsSystemUser = false,
-            PasswordChangedAt = DateTime.UtcNow
+            PasswordChangedAt = passwordHash is null ? null : DateTime.UtcNow
         };
         user.SetCreated(createdBy);
         user.RaiseDomainEvent(new UserCreatedEvent(user.Id, user.Email, user.FirstName, user.LastName, createdBy));
@@ -281,7 +304,7 @@ public class User : AggregateRoot
             PasswordHash = null,
             FirstName = firstName,
             LastName = lastName,
-            DisplayName = $"{firstName} {lastName}",
+            DisplayName = DisplayNameFor(firstName, lastName),
             Status = UserStatus.Active,
             EmailConfirmed = true,
             PhoneConfirmed = false,
@@ -326,9 +349,9 @@ public class User : AggregateRoot
         LastName = lastName;
         // Derived, never supplied: the store keeps FullName as a computed column
         // over these two, so a display name that could differ from it would be a
-        // second copy that no write ever reaches. GetFullName() is used verbatim
-        // so this value and the next read of it are the same string.
-        DisplayName = GetFullName();
+        // second copy that no write ever reaches. Derived by the same rule the
+        // next read applies to that column, so the two are the same value.
+        DisplayName = DisplayNameFor(firstName, lastName);
         PhoneNumber = ValueObjects.PhoneNumber.FromNullable(phoneNumber);
         PreferredLanguage = preferredLanguage;
         TimeZone = timeZone;
@@ -342,7 +365,7 @@ public class User : AggregateRoot
         PasswordChangedAt = DateTime.UtcNow;
         MustChangePassword = false;
         SetModified(modifiedBy);
-        RaiseDomainEvent(new PasswordChangedEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName()));
+        RaiseDomainEvent(new PasswordChangedEvent(Id, modifiedBy, Email, NameToShow));
     }
 
     /// <summary>
@@ -365,8 +388,82 @@ public class User : AggregateRoot
         PasswordChangedAt = DateTime.UtcNow;
         MustChangePassword = false;
         SetModified(modifiedBy);
-        RaiseDomainEvent(new PasswordCreatedEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName()));
+        RaiseDomainEvent(new PasswordCreatedEvent(Id, modifiedBy, Email, NameToShow));
         return Result.Success;
+    }
+
+    /// <summary>
+    /// Removes the password at its owner's request (OI-215, D-215-3): from then on the
+    /// account signs in with a code emailed to its address.
+    /// </summary>
+    /// <remarks>
+    /// The conditions an aggregate can judge live here: there is a password, and the
+    /// address is confirmed, since the code goes to that address and nothing else
+    /// could let the account back in. The others are the handler's: email sending on,
+    /// a recent sign-in that proved the password (and the authenticator app when it
+    /// is on), and no emailed second factor. The change stamp is written as for any
+    /// password change by the owner.
+    /// </remarks>
+    public ErrorOr<Success> RemovePassword(Guid modifiedBy)
+    {
+        if (PasswordHash is null)
+        {
+            return UserErrors.PasswordNotSet;
+        }
+
+        if (!EmailConfirmed)
+        {
+            return UserErrors.EmailNotConfirmed;
+        }
+
+        RetirePassword();
+        PasswordChangedAt = DateTime.UtcNow;
+        SetModified(modifiedBy);
+        RaiseDomainEvent(new PasswordRemovedEvent(Id, modifiedBy, Email, NameToShow, PasswordRemovalReasons.Owner));
+        return Result.Success;
+    }
+
+    /// <summary>
+    /// Confirms the address through a sign-in by emailed code, the first proof that
+    /// whoever signs in holds the mailbox (OI-215, D-215-5 (a)). A password set before
+    /// that proof is removed with the confirmation: an administrator chose it, or a
+    /// stranger typed it before the address was proven, and either way its holder was
+    /// never shown to own the mailbox. The sign-in then continues as a passwordless one.
+    /// </summary>
+    /// <remarks>
+    /// The change stamp is left as it is: the person proved the mailbox, not a
+    /// password, and the stamp is what the administrator's reset of a locked second
+    /// factor reads as the owner's own password change.
+    /// </remarks>
+    /// <param name="modifiedBy">The account itself.</param>
+    /// <returns>Whether a password was removed; nothing changes for a confirmed address.</returns>
+    public bool ConfirmEmailBySignInCode(Guid modifiedBy)
+    {
+        if (EmailConfirmed)
+        {
+            return false;
+        }
+
+        EmailConfirmed = true;
+        var removed = PasswordHash is not null;
+        if (removed)
+        {
+            RetirePassword();
+            RaiseDomainEvent(new PasswordRemovedEvent(
+                Id, modifiedBy, Email, NameToShow, PasswordRemovalReasons.SetBeforeAddressProven));
+        }
+
+        SetModified(modifiedBy);
+        return removed;
+    }
+
+    // An account without a password has nothing to change or let expire: a forced
+    // change would ask for a password that no longer exists, a dead end.
+    private void RetirePassword()
+    {
+        PasswordHash = null;
+        MustChangePassword = false;
+        PasswordExpiresUtc = null;
     }
 
     /// <summary>
@@ -483,7 +580,7 @@ public class User : AggregateRoot
     {
         TwoFactorEnabled = true;
         SetModified(modifiedBy);
-        RaiseDomainEvent(new TwoFactorEnabledEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName(), deviceName));
+        RaiseDomainEvent(new TwoFactorEnabledEvent(Id, modifiedBy, Email, NameToShow, deviceName));
     }
 
     /// <summary>
@@ -497,7 +594,7 @@ public class User : AggregateRoot
     {
         TwoFactorEnabled = false;
         SetModified(modifiedBy);
-        RaiseDomainEvent(new TwoFactorDisabledEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName(), deviceName));
+        RaiseDomainEvent(new TwoFactorDisabledEvent(Id, modifiedBy, Email, NameToShow, deviceName));
     }
 
     /// <summary>
@@ -514,7 +611,7 @@ public class User : AggregateRoot
         TwoFactorEnabled = true;
         SetModified(modifiedBy);
 
-        var displayName = DisplayName ?? GetFullName();
+        var displayName = NameToShow;
         if (replacedAuthenticator)
         {
             RaiseDomainEvent(new TwoFactorDisabledEvent(
@@ -536,7 +633,7 @@ public class User : AggregateRoot
         TwoFactorEnabled = false;
         SetModified(modifiedBy);
         RaiseDomainEvent(new TwoFactorEmailCodeDisabledEvent(
-            Id, modifiedBy, Email, DisplayName ?? GetFullName(), deviceName, TwoFactorEmailCodeDisableReasons.User));
+            Id, modifiedBy, Email, NameToShow, deviceName, TwoFactorEmailCodeDisableReasons.User));
     }
 
     /// <summary>
@@ -552,7 +649,7 @@ public class User : AggregateRoot
         TwoFactorEnabled = true;
         SetModified(modifiedBy);
 
-        var displayName = DisplayName ?? GetFullName();
+        var displayName = NameToShow;
         RaiseDomainEvent(new TwoFactorEmailCodeDisabledEvent(
             Id, modifiedBy, Email, displayName, deviceName, TwoFactorEmailCodeDisableReasons.ReplacedByAuthenticator));
         RaiseDomainEvent(new TwoFactorEnabledEvent(Id, modifiedBy, Email, displayName, deviceName, ReplacedEmailCode: true));
@@ -568,7 +665,7 @@ public class User : AggregateRoot
     public void RegenerateTwoFactorRecoveryCodes(Guid modifiedBy, string? deviceName)
     {
         SetModified(modifiedBy);
-        RaiseDomainEvent(new TwoFactorRecoveryCodesRegeneratedEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName(), deviceName));
+        RaiseDomainEvent(new TwoFactorRecoveryCodesRegeneratedEvent(Id, modifiedBy, Email, NameToShow, deviceName));
     }
 
     /// <summary>
@@ -581,7 +678,7 @@ public class User : AggregateRoot
     public void ReplaceTwoFactorAuthenticator(Guid modifiedBy, string? deviceName)
     {
         SetModified(modifiedBy);
-        RaiseDomainEvent(new TwoFactorAuthenticatorReplacedEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName(), deviceName));
+        RaiseDomainEvent(new TwoFactorAuthenticatorReplacedEvent(Id, modifiedBy, Email, NameToShow, deviceName));
     }
 
     /// <summary>
@@ -617,7 +714,7 @@ public class User : AggregateRoot
     {
         TwoFactorEnabled = false;
         SetModified(resetBy);
-        RaiseDomainEvent(new TwoFactorResetEvent(Id, resetBy, Email, DisplayName ?? GetFullName()));
+        RaiseDomainEvent(new TwoFactorResetEvent(Id, resetBy, Email, NameToShow));
     }
 
     public void RequirePasswordChange(Guid modifiedBy)
@@ -688,5 +785,24 @@ public class User : AggregateRoot
         };
     }
 
-    public string GetFullName() => $"{FirstName} {LastName}";
+    /// <summary>
+    /// The first and last name joined by one space, leaving out a part that is blank:
+    /// empty for an account without a name (OI-215), never a lone space.
+    /// </summary>
+    public string GetFullName() => DisplayNameFor(FirstName, LastName) ?? string.Empty;
+
+    /// <summary>
+    /// The one derivation of a display name from the two name parts: the parts that
+    /// are not blank, trimmed and joined by a space; null when both are blank. The
+    /// store's computed FullName column puts a space between the two whatever they
+    /// hold, and reading it through this rule gives the same value.
+    /// </summary>
+    private static string? DisplayNameFor(string? firstName, string? lastName)
+    {
+        var name = string.Join(' ', new[] { firstName, lastName }
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .Select(part => part!.Trim()));
+
+        return name.Length == 0 ? null : name;
+    }
 }
