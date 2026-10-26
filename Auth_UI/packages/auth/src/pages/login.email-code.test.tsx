@@ -268,6 +268,24 @@ describe("LoginPage: the code and the password", () => {
     expect(window.localStorage.getItem(LAST_SIGN_IN_METHOD_KEY)).toBeNull()
   })
 
+  it("opens password-first when another screen's code sign-in needs the password", () => {
+    // The sign-up and the invitation send the address they just proved here;
+    // the code first would cost a second email before the password step.
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: "/login", state: { email: "jane@one.example", method: "password" } },
+        ]}
+      >
+        <LoginPage />
+      </MemoryRouter>
+    )
+
+    expect(passwordField()).toBeInTheDocument()
+    expect(screen.getByLabelText("auth.email")).toHaveValue("jane@one.example")
+    expect(codeLink()).toBeInTheDocument()
+  })
+
   it("still requires the password where it is shown", async () => {
     mocks.branding.signInOptions = PASSWORD_FIRST
     renderPage()

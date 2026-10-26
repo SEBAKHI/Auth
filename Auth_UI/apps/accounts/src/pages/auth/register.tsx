@@ -22,7 +22,7 @@ import {
 import { Input } from "@authsystem/ui/input"
 import { Spinner } from "@authsystem/ui/spinner"
 
-import { startEmailCode } from "@authsystem/auth/email-code"
+import { startSignUpCode } from "@authsystem/auth/email-code"
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 import { useFlowBranding } from "@authsystem/auth/flow-branding"
 import { useReloadOnRestore } from "@authsystem/auth/reload-on-restore"
@@ -76,7 +76,7 @@ export function RegisterPage() {
       // The sign-in page's start (OI-215): an address that already has an
       // account receives a sign-in code, and the code screen signs it in.
       savePendingRegistration(
-        await startEmailCode(values.email, i18n.language)
+        await startSignUpCode(values.email, i18n.language)
       )
       navigate({ pathname: "/register/verify", search })
     } catch (error) {

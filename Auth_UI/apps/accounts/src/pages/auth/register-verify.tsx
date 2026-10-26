@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Navigate, useLocation, useNavigate } from "react-router-dom"
 
+import { startSignUpCode } from "@authsystem/auth/email-code"
 import { EmailCodeFlow } from "@authsystem/auth/pages/email-code-flow"
 import { useReloadOnRestore } from "@authsystem/auth/reload-on-restore"
 
@@ -42,6 +43,7 @@ export function RegisterVerifyPage() {
       pending={pending}
       staySignedIn={false}
       requireFullProof={false}
+      startCode={startSignUpCode}
       onPendingChange={savePendingRegistration}
       onEnded={clearRegistrationFlow}
       onChangeAddress={() => {
@@ -52,7 +54,10 @@ export function RegisterVerifyPage() {
       // with the address it just proved.
       onPasswordRequired={(email) => {
         clearRegistrationFlow()
-        navigate({ pathname: "/login", search }, { state: { email } })
+        navigate(
+          { pathname: "/login", search },
+          { state: { email, method: "password" } }
+        )
       }}
     />
   )

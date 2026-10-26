@@ -165,23 +165,36 @@ describe("EmailCodeFlow", () => {
     for (const mock of Object.values(mocks)) mock.mockReset()
   })
 
-  it("shows the same screen for every address, and asks the server nothing on arrival", () => {
-    const first = renderFlow()
-    const forAnAccount = first.container.innerHTML
-    first.unmount()
+  it("shows the same screen whatever the server chose, and asks the server nothing on arrival", () => {
+    // The clock is frozen so the countdown reads the same in both renders.
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date("2099-09-10T10:00:00.000Z"))
+    try {
+      // The start answers the same shape for every address, but its values are
+      // the server's: a handle and a masked address that could differ by what
+      // the address is. Nothing of them reaches the screen — only what the
+      // visitor typed, and the expiry.
+      const first = renderFlow({
+        pending: { ...PENDING, pendingId: "handle-for-an-account", maskedEmail: "j***e@one.example" },
+      })
+      const forOne = first.container.innerHTML
+      first.unmount()
+      const second = renderFlow({
+        pending: { ...PENDING, pendingId: "handle-for-no-account", maskedEmail: "x***@one.example" },
+      })
 
-    // Whatever the server would answer once the code matched, the screen before
-    // it is a function of the typed address alone.
-    answerVerify({ step: "completeAccount", passwordRequired: true, nameRequired: true })
-    const second = renderFlow()
-
-    expect(second.container.innerHTML).toBe(forAnAccount)
-    expect(
-      screen.getByText(
-        "We sent a message to jane@one.example. Enter the six-digit code in it."
-      )
-    ).toBeInTheDocument()
-    expect(mocks.post).not.toHaveBeenCalled()
+      expect(second.container.innerHTML).toBe(forOne)
+      expect(forOne).not.toContain("handle-for")
+      expect(forOne).not.toContain("***")
+      expect(
+        screen.getByText(
+          "We sent a message to jane@one.example. Enter the six-digit code in it."
+        )
+      ).toBeInTheDocument()
+      expect(mocks.post).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("signs in once the code matched, and remembers the method as one word", async () => {

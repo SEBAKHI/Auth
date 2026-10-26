@@ -29,6 +29,14 @@ const mocks = vi.hoisted(() => ({
   login: vi.fn(),
   logout: vi.fn(),
   warning: vi.fn(),
+  /** The deployment's sign-up options (OI-215); null is "not known", as outside a provider. */
+  signInOptions: null as null | {
+    codeSignInOffered: boolean
+    primaryMethod: "password" | "code"
+    selfRegistrationOpen: boolean
+    passwordAtSignUp: boolean
+    nameAtSignUp: boolean
+  },
   auth: {
     status: "unauthenticated" as
       "loading" | "authenticated" | "unauthenticated",
@@ -49,6 +57,19 @@ vi.mock("@authsystem/api/client", () => ({
 
 vi.mock("@authsystem/auth/auth-context", () => ({
   useAuth: () => ({ ...mocks.auth, login: mocks.login, logout: mocks.logout }),
+}))
+
+vi.mock("@authsystem/ui/branding", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@authsystem/ui/branding")>()),
+  useSignInOptions: () => mocks.signInOptions,
+  // The code screens' header reads the platform's branding.
+  useBranding: () => ({
+    name: "AuthSystem",
+    logoUrl: null,
+    isPending: false,
+    staySignedInOffered: true,
+    signInOptions: mocks.signInOptions,
+  }),
 }))
 
 vi.mock("sonner", () => ({
@@ -184,6 +205,7 @@ beforeEach(async () => {
   })
   mocks.auth.status = "unauthenticated"
   mocks.auth.user = null
+  mocks.signInOptions = null
   mocks.post.mockImplementation(() => ok(accepted()))
   window.sessionStorage.clear()
 })
@@ -610,5 +632,97 @@ describe("(c) a new account", () => {
 
     await waitFor(() => expect(assign).toHaveBeenCalledWith(LAUNCH))
     expect(mocks.warning).not.toHaveBeenCalled()
+  })
+})
+
+describe("(d) a new account under the sign-up switches (OI-215)", () => {
+  const OPTIONS = {
+    codeSignInOffered: true,
+    primaryMethod: "code" as const,
+    selfRegistrationOpen: true,
+    passwordAtSignUp: false,
+    nameAtSignUp: true,
+  }
+  const registered = {
+    userId: "66666666-6666-6666-6666-666666666666",
+    email: EMAIL,
+    organizationName: "Northwind",
+    roleName: "Member",
+    organizationId: ORGANIZATION_ID,
+    applicationRoleOutcome: "Applied",
+    application: { code: "CRM", name: "Customer Desk" },
+    launchUrl: LAUNCH,
+  }
+
+  beforeEach(() => {
+    mocks.post.mockImplementation((path: string) =>
+      path === "/api/v1/Invitations/{token}/register"
+        ? ok(registered)
+        : path === "/api/v1/Auth/email-code/start"
+          ? ok({
+              pendingId: "handle-1",
+              maskedEmail: "r***@example.com",
+              expiresAt: "2099-12-01T00:10:00Z",
+            })
+          : ok(accepted())
+    )
+  })
+
+  it("asks no password, registers without one, and sends a sign-in code to the invited address", async () => {
+    mocks.signInOptions = OPTIONS
+    const user = userEvent.setup()
+    renderPage(preview({ userExists: false }))
+
+    await user.type(await screen.findByLabelText("First name"), "Rae")
+    await user.type(screen.getByLabelText("Last name"), "Rep")
+    expect(screen.queryByLabelText("Password")).toBeNull()
+    expect(screen.queryByLabelText("Confirm password")).toBeNull()
+    await user.click(screen.getByRole("button", { name: "Create account & join" }))
+
+    expect(
+      await screen.findByRole("heading", { name: "Check your email" })
+    ).toBeInTheDocument()
+    const calls = mocks.post.mock.calls.map(([path, init]) => [
+      path,
+      (init as { body?: unknown } | undefined)?.body,
+    ])
+    expect(calls).toEqual([
+      [
+        "/api/v1/Invitations/{token}/register",
+        { password: null, firstName: "Rae", lastName: "Rep" },
+      ],
+      [
+        "/api/v1/Auth/email-code/start",
+        { email: EMAIL, preferredLanguage: "en" },
+      ],
+    ])
+    expect(mocks.login).not.toHaveBeenCalled()
+  })
+
+  it("asks nothing at all when neither switch asks", async () => {
+    mocks.signInOptions = { ...OPTIONS, nameAtSignUp: false }
+    const user = userEvent.setup()
+    renderPage(preview({ userExists: false }))
+
+    await user.click(
+      await screen.findByRole("button", { name: "Create account & join" })
+    )
+
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith(
+        "/api/v1/Invitations/{token}/register",
+        expect.objectContaining({
+          body: { password: null, firstName: null, lastName: null },
+        })
+      )
+    )
+    expect(screen.queryByLabelText("First name")).toBeNull()
+  })
+
+  it("asks for everything while the options are not known", async () => {
+    renderPage(preview({ userExists: false }))
+
+    expect(await screen.findByLabelText("First name")).toBeInTheDocument()
+    expect(screen.getByLabelText("Password")).toBeInTheDocument()
   })
 })

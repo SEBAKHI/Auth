@@ -2751,7 +2751,7 @@ export const zh: TranslationResources = {
       "移除密码需要您最近使用密码（以及已启用的身份验证器应用）登录过。请重新登录，然后再移除。",
     passwordRemoved: "密码已移除。从现在起请使用发送到您邮箱的验证码登录。",
     setPasswordBody:
-      "此账户尚未设置密码——您一直通过 Google 等关联账户登录。我们会向您发送创建密码的链接，之后两种方式都可以使用。",
+      "此账户尚未设置密码：它通过发送到您邮箱的验证码或 Google 等关联账户登录。我们会向您发送创建密码的链接，之后也可以使用密码登录。",
     emailSetPasswordLink: "给我发送链接",
     twoStepVerification: "两步验证",
     twoStepVerificationBody:

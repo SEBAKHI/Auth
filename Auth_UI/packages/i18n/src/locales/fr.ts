@@ -2976,7 +2976,7 @@ export const fr: TranslationResources = {
       "Supprimer votre mot de passe demande une connexion récente avec votre mot de passe (et votre application d'authentification, si elle est activée). Reconnectez-vous, puis supprimez-le.",
     passwordRemoved: "Mot de passe supprimé. Connectez-vous désormais avec un code envoyé à votre adresse e-mail.",
     setPasswordBody:
-      "Ce compte n'a pas encore de mot de passe : vous ne vous êtes connecté qu'avec un compte associé comme Google. Nous vous enverrons un lien pour en créer un, et les deux méthodes fonctionneront ensuite.",
+      "Ce compte n'a pas encore de mot de passe : il se connecte avec un code envoyé à votre adresse e-mail ou avec un compte associé comme Google. Nous vous enverrons un lien pour en créer un, et le mot de passe fonctionnera ensuite aussi.",
     emailSetPasswordLink: "M'envoyer un lien",
     twoStepVerification: "Validation en deux étapes",
     twoStepVerificationBody:

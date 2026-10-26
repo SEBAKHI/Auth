@@ -77,6 +77,7 @@ export function EmailCodeFlow({
   onPendingChange,
   onEnded,
   completionOptions,
+  startCode = startEmailCode,
 }: {
   pending: PendingEmailCode
   /** The sign-in page's "Stay signed in" answer, false where the box is not offered. */
@@ -94,6 +95,8 @@ export function EmailCodeFlow({
   onEnded?: () => void
   /** What this sign-in adds to the completion rule (an invitation's landing). */
   completionOptions?: CompletionOptions
+  /** How a new code is asked for: the sign-up passes its own start. */
+  startCode?: (email: string, preferredLanguage: string) => Promise<PendingEmailCode>
 }) {
   const { t } = useTranslation()
   const { signInWithEmailCode, recoverWithEmailCode, completeRegistration } =
@@ -235,6 +238,7 @@ export function EmailCodeFlow({
       appHeader={appHeader}
       pageFooter={pageFooter}
       onChangeAddress={onChangeAddress}
+      startCode={startCode}
       onResent={(next) => {
         setPending(next)
         onPendingChange?.(next)
@@ -260,6 +264,7 @@ function CodeStage({
   onChangeAddress,
   onResent,
   onVerified,
+  startCode,
 }: {
   pending: PendingEmailCode
   notice: string | null
@@ -268,6 +273,7 @@ function CodeStage({
   onChangeAddress: () => void
   onResent: (pending: PendingEmailCode) => void
   onVerified: (otp: string, next: EmailCodeNextStep) => Promise<void>
+  startCode: (email: string, preferredLanguage: string) => Promise<PendingEmailCode>
 }) {
   const { t, i18n } = useTranslation()
   const [otp, setOtp] = React.useState("")
@@ -277,9 +283,13 @@ function CodeStage({
   const [requesting, setRequesting] = React.useState(false)
   // Five wrong tries spend the code for good; only a new one can be tried.
   const [exhausted, setExhausted] = React.useState(false)
-  // The code was just sent: the next one is a minute away.
+  // The code was just sent: the next one is a minute away, or sooner when it
+  // expires first (a reload long after the send finds it already expired).
   const [cooldownUntil, setCooldownUntil] = React.useState(
-    () => new Date(Date.now() + RESEND_COOLDOWN_MS)
+    () =>
+      new Date(
+        Math.min(Date.now() + RESEND_COOLDOWN_MS, Date.parse(pending.expiresAt))
+      )
   )
 
   const expiresAt = React.useMemo(
@@ -288,7 +298,8 @@ function CodeStage({
   )
   const expiry = useCountdown(expiresAt)
   const cooldown = useCountdown(cooldownUntil)
-  const canResend = cooldown.expired && !requesting
+  // Not while a code is being checked: the new code would void it mid-request.
+  const canResend = cooldown.expired && !requesting && !submitting
 
   const submit = async (value: string) => {
     if (value.length < OTP_CODE_LENGTH || submittingRef.current) return
@@ -319,7 +330,7 @@ function CodeStage({
     // be hammered.
     setCooldownUntil(new Date(Date.now() + RESEND_COOLDOWN_MS))
     try {
-      onResent(await startEmailCode(pending.email, i18n.language))
+      onResent(await startCode(pending.email, i18n.language))
       // The new code voids the old one, and its five tries are new too.
       setOtp("")
       setExhausted(false)

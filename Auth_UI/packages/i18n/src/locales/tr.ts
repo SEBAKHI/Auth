@@ -2916,7 +2916,7 @@ export const tr: TranslationResources = {
       "Parolanızı kaldırmak için parolanızla (ve açıksa kimlik doğrulayıcı uygulamanızla) yakın zamanda oturum açmış olmanız gerekir. Yeniden oturum açın, ardından kaldırın.",
     passwordRemoved: "Parola kaldırıldı. Bundan sonra e-postanıza gönderilen bir kodla oturum açın.",
     setPasswordBody:
-      "Bu hesabın henüz bir parolası yok; şimdiye kadar yalnızca Google gibi bağlı bir hesapla giriş yaptınız. Parola oluşturmanız için size bir bağlantı göndereceğiz; sonrasında iki yöntem de çalışır.",
+      "Bu hesabın henüz bir parolası yok: e-postanıza gönderilen bir kodla veya Google gibi bağlı bir hesapla oturum açıyor. Parola oluşturmanız için size bir bağlantı göndereceğiz; sonrasında parola da çalışır.",
     emailSetPasswordLink: "Bana bir bağlantı gönder",
     twoStepVerification: "İki adımlı doğrulama",
     twoStepVerificationBody:

@@ -61,6 +61,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 interface LocationState {
   email?: string
+  /**
+   * The method to open with: a sign-in by code from another screen that needs
+   * the password lands here with the password first, not with a second code.
+   */
+  method?: SignInMethod
 }
 
 /**
@@ -128,7 +133,9 @@ export function LoginPage({
   const options = signInOptions ?? null
   const codeOffered = options?.codeSignInOffered === true
   const [remembered] = React.useState(readLastSignInMethod)
-  const [chosen, setChosen] = React.useState<SignInMethod | null>(null)
+  const [chosen, setChosen] = React.useState<SignInMethod | null>(
+    state?.method === "password" ? "password" : null
+  )
   const method: SignInMethod =
     options && codeOffered
       ? (chosen ?? primarySignInMethod(options, remembered))

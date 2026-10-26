@@ -1840,23 +1840,23 @@ There is also `RequirePermission`, which hides a button or menu item rather than
 
 #### Sign-up and password managers
 
-Self-registration in the accounts application is three screens, and the third one is where a password manager decides whether it has just seen a new credential worth saving. The screens are:
+Self-registration in the accounts application is two screens, and the second one ends in the step where a password manager decides whether it has just seen a new credential worth saving. Since OI-215 the code screen is the sign-in page's code flow: once the code matched, the server names the next step, and for a new account that is «Complete your account» on the same screen. The screens are:
 
 | Screen | What it asks for | What it sends |
 |---|---|---|
 | `/register` | The email address, nothing else | `POST /api/v1/Auth/email-code/start` with the address and the display language (OI-215; `registration/start` before) |
-| `/register/verify` | The six-digit code that was mailed to that address | `POST /api/v1/Auth/registration/verify` with the pending handle and the code |
-| `/register/complete` | A first name, a last name and a password | `POST /api/v1/Auth/registration/complete` with the handle, the code, the password and the names — never the address |
+| `/register/verify` | The six-digit code that was mailed to that address; then, for a new account, the fields the settings ask for (a first and last name, a password, or none); an address that already has an account signs in instead | `POST /api/v1/Auth/email-code/verify` with the pending handle and the code, then `POST /api/v1/Auth/registration/complete` with the handle, the code and the fields asked — never the address (`email-code/sign-in` for an existing account) |
+| `/register/complete` | Nothing: the former third screen, kept as an address | Redirects to `/register/verify`, which asks for the code again (a matched code is never stored) |
 
-**The third screen shows the address in a real, read-only field with `autocomplete="username"`.** That field exists for password managers: it is the field they pair the new password with, so the saved entry carries the address a person can sign in with. The password field carries `autocomplete="new-password"` and a show/hide button instead of a "confirm password" field. When the account is created the form is removed from the page before the application navigates, and where the browser supports the Credential Management API the credential is offered to it directly.
+**«Complete your account» shows the address in a real, read-only field with `autocomplete="username"`.** That field exists for password managers: it is the field they pair the new password with, so the saved entry carries the address a person can sign in with. The password field carries `autocomplete="new-password"` and a show/hide button instead of a "confirm password" field. When the account is created the form is removed from the page before the application navigates, and where the browser supports the Credential Management API the credential is offered to it directly.
 
-**Whether a given password manager actually saves the credential cannot be checked by the automated suites.** The browser-driven tests run without any password manager, and no password manager exposes its prompt to automation. So this is a manual check, and it is recorded here rather than assumed. Run it on a real deployment (or on the two development servers over https) after any change to `Auth_UI/apps/accounts/src/pages/auth/register-complete.tsx` or to `Auth_UI/packages/auth/src/password-field.tsx`, and write the date and the result into the table.
+**Whether a given password manager actually saves the credential cannot be checked by the automated suites.** The browser-driven tests run without any password manager, and no password manager exposes its prompt to automation. So this is a manual check, and it is recorded here rather than assumed. Run it on a real deployment (or on the two development servers over https) after any change to `Auth_UI/packages/auth/src/pages/email-code-flow.tsx` or to `Auth_UI/packages/auth/src/password-field.tsx`, and write the date and the result into the table.
 
 **The procedure, once per row:**
 
 1. Sign out of the manager's existing entry for the site, so a stale entry cannot be mistaken for a new one.
 2. Open `/register`, enter an address you can read mail for, and go through the code screen.
-3. On `/register/complete`, click into the password field. Note whether the manager offers to generate a password.
+3. On «Complete your account» (still `/register/verify`), click into the password field. Note whether the manager offers to generate a password.
 4. Enter the names and a password and press **Create account**.
 5. Note whether the manager offers to save. Open the saved entry and check that its username is the **full address**, not a masked form and not empty.
 6. Sign out, open `/login`, and note whether the manager fills both fields from that entry.
@@ -7790,7 +7790,7 @@ This answer is the same for every address, whether or not it already has an acco
 
 **`POST /api/v1/auth/verify-email` and `POST /api/v1/auth/resend-verification-email` are not part of this flow any more.** They remain for an account that exists with an unconfirmed address — one an administrator created, or one signed in with a correct password before confirming — and for that case the email-keyed verify-email still confirms the address and signs the person in. Both answer a confirmed address exactly as they answer an unknown one.
 
-**In the accounts application this is `/register`, then `/register/verify`, then `/register/complete`.** The identity of the pending sign-up is kept in the tab across a reload of the code screen; the code itself is kept in memory only, so a reload of the last screen asks for it again. Signing in with a correct password on an account whose address is still unconfirmed does not show an error either: it sends the person to `/verify-email`, where confirming the code signs them in.
+**In the accounts application this is `/register`, then `/register/verify`, which asks for the name and password once the code matched** (OI-215: the sign-up starts and checks the code through `email-code/start` and `email-code/verify`, and falls back to `registration/start` while email sending is off). The identity of the pending sign-up is kept in the tab across a reload of the code screen; the code itself is kept in memory only, so a reload after it matched asks for it again. Signing in with a correct password on an account whose address is still unconfirmed does not show an error either: it sends the person to `/verify-email`, where confirming the code signs them in.
 *In code:* `Auth_UI/apps/accounts/src/pages/auth/registration-flow.ts`; the sign-in branch is `Auth_UI/packages/auth/src/pages/login.tsx:110-115`.
 
 **No welcome email is sent after registration.** `welcome-email` is a seeded notification type, and it is the only seeded type with no template of its own, so there is nothing for the system to render.

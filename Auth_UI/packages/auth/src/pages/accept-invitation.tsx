@@ -507,7 +507,9 @@ function RegisterAndJoin({
             })
           }
           onPasswordRequired={(email) =>
-            navigate("/login", { state: { email, from: codeSignIn.landing } })
+            navigate("/login", {
+              state: { email, from: codeSignIn.landing, method: "password" },
+            })
           }
         />
       </React.Suspense>

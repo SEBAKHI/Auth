@@ -2924,7 +2924,7 @@ export const en = {
       "Removing your password needs a recent sign-in with your password (and your authenticator app, when it is on). Sign in again, then remove it.",
     passwordRemoved: "Password removed. Sign in with a code sent to your email from now on.",
     setPasswordBody:
-      "This account has no password yet — you've only signed in through a connected account like Google. We'll email you a link to create one, and after that either way will work.",
+      "This account has no password yet: it signs in with a code sent to your email, or through a connected account like Google. We'll email you a link to create one, and after that the password works too.",
     emailSetPasswordLink: "Email me a link",
     twoStepVerification: "2-Step Verification",
     twoStepVerificationBody:

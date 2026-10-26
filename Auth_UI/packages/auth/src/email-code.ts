@@ -1,4 +1,5 @@
 import { api } from "@authsystem/api/client"
+import { getErrorCodes } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 
 /**
@@ -96,4 +97,35 @@ export async function verifyEmailCode(
   const next = toEmailCodeNextStep(data)
   if (!next) throw new Error("Unknown email-code step")
   return next
+}
+
+/**
+ * The sign-up's start: the sign-in page's, so an address that already has an
+ * account gets a sign-in code. While email sending is off that start refuses
+ * every address, and the registration's own start takes over (development
+ * writes its code to the API log). Both write the same pending row, and the code
+ * check that follows is the same.
+ */
+export async function startSignUpCode(
+  email: string,
+  preferredLanguage: string
+): Promise<PendingEmailCode> {
+  try {
+    return await startEmailCode(email, preferredLanguage)
+  } catch (error) {
+    if (!getErrorCodes(error).includes("User.EmailCodeSignInUnavailable")) {
+      throw error
+    }
+  }
+  const data = await unwrap(
+    api.POST("/api/v1/Auth/registration/start", {
+      body: { email, preferredLanguage },
+    })
+  )
+  return {
+    pendingId: data.pendingId,
+    email,
+    maskedEmail: data.maskedEmail,
+    expiresAt: data.expiresAt,
+  }
 }

@@ -385,6 +385,12 @@ test("a code the browser's clock calls expired is still sent - the server decide
   await expect(page.getByText(/code has expired/i)).toBeVisible({
     timeout: 10_000,
   })
+  // An expired code can be replaced at once: the minute between sends never
+  // outlasts the code it follows.
+  await expect(
+    page.getByRole("button", { name: "Send a new code" })
+  ).toBeEnabled()
+
   await typeCode(page, "123456")
 
   await expectCompletion(page)

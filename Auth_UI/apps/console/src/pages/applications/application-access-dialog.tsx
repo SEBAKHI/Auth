@@ -85,7 +85,7 @@ export function ApplicationAccessDialog({
     key: grant.userId as string,
     label:
       fullName(grant.firstName, grant.lastName) ||
-      grant.displayName ||
+      grant.displayName?.trim() ||
       (grant.email as string),
   }))
 

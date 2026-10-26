@@ -145,14 +145,14 @@ function PermissionUsersTab({ permissionId }: { permissionId: string }) {
     avatarColumn<Schemas["PermissionUserDto"]>({
       getSrc: (row) => row.profileImageUrl,
       getName: (row) =>
-        row.displayName ||
+        row.displayName?.trim() ||
         fullName(row.firstName, row.lastName, row.email ?? ""),
       covers: ["profileImageUrl"],
     }),
     {
       id: "firstName",
       accessorFn: (row) =>
-        row.displayName ||
+        row.displayName?.trim() ||
         fullName(row.firstName, row.lastName, row.email ?? ""),
       header: t("common.name"),
       meta: {
@@ -165,7 +165,7 @@ function PermissionUsersTab({ permissionId }: { permissionId: string }) {
           className="min-w-0 text-start"
         >
           <p className="truncate font-medium">
-            {row.original.displayName ||
+            {row.original.displayName?.trim() ||
               fullName(
                 row.original.firstName,
                 row.original.lastName,
