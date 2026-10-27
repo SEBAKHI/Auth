@@ -8,14 +8,23 @@
  * the CSP's `script-src 'self'` admits it unchanged. Its name carries a hash
  * of its content, like the bundle's own assets, so a changed script is never
  * served from a stale cache; dev and build serve it at the same path.
+ *
+ * The file served is `bootTheme` as THIS config's loader transpiled it, which
+ * no unit test sees and CI does not run. After any change to `bootTheme`, run
+ * the isolated `first-paint` specs locally (both apps, rebuilt):
+ * `npx playwright test first-paint --config playwright.isolated.config.ts`.
  */
 import { createHash } from "node:crypto"
 import type { Plugin } from "vite"
 
-import { bootThemeScript } from "./packages/ui/src/theme/boot-theme"
+import { bootThemeScript, type BootOptions } from "./packages/ui/src/theme/boot-theme"
 
-export function themeBoot(): Plugin {
-  const source = bootThemeScript()
+/**
+ * `hints`: whether the app captures an application's colour mode from the
+ * address and keeps it for the flow (the accounts app); the console does not.
+ */
+export function themeBoot(options: BootOptions): Plugin {
+  const source = bootThemeScript(options)
   const hash = createHash("sha256").update(source).digest("hex").slice(0, 8)
   const fileName = `assets/theme-boot-${hash}.js`
 

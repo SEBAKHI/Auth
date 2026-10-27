@@ -33,8 +33,8 @@ function arriveAt(path: string) {
 }
 
 /** What the served file does: the serialized function, run on its own. */
-function runServedScript() {
-  new Function(bootThemeScript())()
+function runServedScript(hints = true) {
+  new Function(bootThemeScript({ hints }))()
 }
 
 /** A choice stored the way the theme menu stores it. */
@@ -164,8 +164,32 @@ describe("bootTheme", () => {
     runServedScript()
 
     expect(html.classList.contains("dark")).toBe(true)
-    expect(bootThemeScript()).toMatch(/^\(function bootTheme\(win\) \{/)
-    expect(bootThemeScript().trimEnd()).toMatch(/\}\)\(window\);$/)
+    expect(bootThemeScript({ hints: true })).toMatch(/^\(function bootTheme\(win, options/)
+    expect(bootThemeScript({ hints: true }).trimEnd()).toMatch(/\}\)\(window, \{"hints":true\}\);$/)
+  })
+
+  it("an address that names a hint replaces the kept record, so the record is not read", () => {
+    storeThroughThemeProvider("light")
+    arriveAt("/profile?ui_theme=dark")
+    captureEntryHints({ pendingRequest: null, clientId: null, continuation: "never" })
+    // A new entry whose only hint is unusable: captureEntryHints will end the
+    // kept record, so the stored choice decides.
+    arriveAt("/profile?ui_theme=Dark")
+
+    bootTheme(window)
+
+    expect(html.classList.contains("light")).toBe(true)
+  })
+
+  it("in the console, neither the address nor a kept record speaks: its ThemeProvider reads neither", () => {
+    arriveAt("/?ui_theme=dark")
+    captureEntryHints({ pendingRequest: null, clientId: null, continuation: "never" })
+    arriveAt("/?ui_theme=dark")
+
+    runServedScript(false)
+
+    expect(html.classList.contains("light")).toBe(true)
+    expect(html.classList.contains("dark")).toBe(false)
   })
 })
 

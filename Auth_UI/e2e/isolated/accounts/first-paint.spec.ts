@@ -51,6 +51,23 @@ for (const [name, path, stored] of [
   })
 }
 
+test("a mode the user picked holds on the flow's next page, though its address names the application's", async ({
+  page,
+}) => {
+  // The application sends light; on the sign-in page the user picks dark.
+  await arrive(page, `${SIGN_IN}&ui_theme=light`, null)
+  await page.getByRole("button", { name: "Theme" }).click()
+  await page.getByRole("menuitem", { name: "Dark" }).click()
+  await expect(page.locator("html")).toHaveClass(/\bdark\b/)
+
+  // The flow's next accounts page: the server names light again.
+  await page.goto(`/create-organization?client_id=app&auth_request=${HANDLE}&ui_theme=light`)
+  const frames = await framesBeforeContent(page)
+
+  expect(frames.length).toBeGreaterThan(MIN_FRAMES)
+  expect(frames.filter((frame) => !frame.dark || frame.background !== DARK)).toEqual([])
+})
+
 test("a stored light choice on a dark device: no frame before the content is painted dark", async ({ page }) => {
   const frames = await arrive(page, SIGN_IN, "light")
 

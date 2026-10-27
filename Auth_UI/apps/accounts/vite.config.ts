@@ -10,7 +10,7 @@ import { vendorChunk } from "../../vendor-chunks"
 // https://vite.dev/config/
 export default defineConfig((config) => ({
   // themeBoot: the colour mode on <html> before the first paint (theme-boot.ts).
-  plugins: [themeBoot(), react(), tailwindcss()],
+  plugins: [themeBoot({ hints: true }), react(), tailwindcss()],
   server: {
     // The console dev server owns 5173; accounts runs alongside it.
     port: 5174,

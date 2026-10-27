@@ -57,6 +57,13 @@ interface StoredHints extends FlowHints {
   flow: string | null
   /** The application the entry named (`client_id`), or null when it named none. */
   client: string | null
+  /**
+   * The flow's pages' address, without the two hints, as a digest: every page
+   * of one flow carries the same query once the hints are taken off. Read by the
+   * boot script in <head> (`packages/ui/src/theme/boot-theme.ts`), which cannot
+   * read the request's shape, to tell a page of the kept flow from any other.
+   */
+  marker?: string
   expiresAt: number
 }
 
@@ -100,9 +107,10 @@ export function resolveUiTheme(raw: string | null | undefined): ThemeHint | null
 }
 
 /**
- * FNV-1a, 32 bits: a short, stable name for the pending request a page serves.
- * Enough to tell the flows of one tab apart, and it keeps the request's handle
- * itself out of storage.
+ * FNV-1a, 32 bits: a short, stable name for the pending request a page serves,
+ * and for the address of its pages. Enough to tell the flows of one tab apart,
+ * and it keeps the request's handle itself out of storage. The boot script
+ * computes the same digest of the address (`boot-theme.ts`); a test holds the two.
  */
 function digest(value: string): string {
   let hash = 0x811c9dc5
@@ -124,6 +132,7 @@ function read(now: number): StoredHints | null {
     return {
       flow: typeof value.flow === "string" ? value.flow : null,
       client: typeof value.client === "string" ? value.client : null,
+      marker: typeof value.marker === "string" ? value.marker : undefined,
       expiresAt: value.expiresAt,
       language: isLanguageCode(value.language) ? value.language : undefined,
       theme: resolveUiTheme(value.theme) ?? undefined,
@@ -205,6 +214,9 @@ export function captureEntryHints(entry: EntryContext, now: number = Date.now())
   const namesHints = params.has(UI_LOCALES_PARAM) || params.has(UI_THEME_PARAM)
   const flow = entry.pendingRequest ? digest(entry.pendingRequest) : null
   const kept = read(now)
+  const rest = new URLSearchParams(params)
+  rest.delete(UI_LOCALES_PARAM)
+  rest.delete(UI_THEME_PARAM)
 
   if (flow !== null || namesHints) {
     if (flow === null || kept?.flow !== flow) {
@@ -214,7 +226,14 @@ export function captureEntryHints(entry: EntryContext, now: number = Date.now())
       // survives its later redirects; a direct link without a usable hint
       // keeps nothing.
       if (flow !== null || language || theme) {
-        write({ flow, client: entry.clientId, expiresAt: now + FLOW_HINTS_LIFETIME_MS, language, theme })
+        write({
+          flow,
+          client: entry.clientId,
+          marker: flow !== null ? digest(rest.toString()) : undefined,
+          expiresAt: now + FLOW_HINTS_LIFETIME_MS,
+          language,
+          theme,
+        })
       } else {
         clear()
       }

@@ -10,7 +10,7 @@ import { vendorChunk } from "../../vendor-chunks"
 // https://vite.dev/config/
 export default defineConfig((config) => ({
   // themeBoot: the colour mode on <html> before the first paint (theme-boot.ts).
-  plugins: [themeBoot(), react(), tailwindcss()],
+  plugins: [themeBoot({ hints: false }), react(), tailwindcss()],
   server: {
     // Pinned rather than left to the default: accounts owns 5174 and the API's
     // CORS allow-list names both ports, so a silent fallback port fails CORS.
