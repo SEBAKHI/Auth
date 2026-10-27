@@ -699,6 +699,28 @@ public class AuthorizationRequestHandleTests
     }
 
     [Fact]
+    public async Task Hints_NeverReachTheRelyingParty_OnACodeOrAnError()
+    {
+        // The hints shape this provider's pages; the relying party's redirect_uri
+        // gets what OAuth defines for it and nothing more.
+        SetupApplication();
+        var (token, _) = SetupSession();
+
+        var (issued, code) = await RunAsync(() => _handler.Handle(
+            Command(idpSessionToken: token, uiLocales: "ar", uiTheme: "dark"), CancellationToken.None));
+        var refused = (await _handler.Handle(
+            Command(prompt: "none", uiLocales: "ar", uiTheme: "dark"), CancellationToken.None)).Value;
+
+        code.Should().NotBeNull();
+        issued.RedirectUrl.Should().StartWith($"{RedirectUri}?code=");
+        refused.RedirectUrl.Should().Be($"{RedirectUri}?error=login_required&state=xyz");
+        foreach (var url in new[] { issued.RedirectUrl, refused.RedirectUrl })
+        {
+            QueryOf(url).Keys.Should().NotContain("ui_locales").And.NotContain("ui_theme");
+        }
+    }
+
+    [Fact]
     public async Task Resume_ThatNeedsAnOrganization_ReusesTheHandle()
     {
         var application = SetupApplication();

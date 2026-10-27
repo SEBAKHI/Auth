@@ -76,6 +76,14 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
         // the resume reads it, so sign-in fails with "Invalid object name" without it.
         new("AuthorizationRequests table",
             "SELECT CASE WHEN OBJECT_ID('dbo.AuthorizationRequests', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
+        // The presentation hints of a pending request (ui_locales, ui_theme): the
+        // insert and the resume read name both columns, so every sign-in that
+        // passes through an accounts page fails with "Invalid column name" without
+        // them. Each half is named on its own.
+        new("AuthorizationRequests.UiLocale column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.AuthorizationRequests', 'UiLocale') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("AuthorizationRequests.UiTheme column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.AuthorizationRequests', 'UiTheme') IS NOT NULL THEN 1 ELSE 0 END"),
         // Organization creation from an application: every application read
         // selects both columns, so every sign-in fails with "Invalid column
         // name" without either one. Each half is named on its own.

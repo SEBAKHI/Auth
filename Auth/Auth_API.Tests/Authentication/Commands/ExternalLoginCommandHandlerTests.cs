@@ -618,6 +618,53 @@ public class ExternalLoginCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ExistingAccount_KeepsItsOwnLanguage_WhateverThePageLanguage()
+    {
+        // Only a NEW account takes the language of the page it was created on. An
+        // existing account's language is its owner's choice, and a sign-in from an
+        // Arabic page leaves a French account French.
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, preferredLanguage: "fr");
+        var externalUser = CreateExternalUserInfo();
+        var externalLogin = TestHelpers.CreateUserExternalLogin(userId: userId);
+
+        _providerFactoryMock
+            .Setup(f => f.GetProvider(command.Provider))
+            .Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalLogin);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(externalLogin.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        var original = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = new System.Globalization.CultureInfo("ar");
+        try
+        {
+            var result = await _handler.Handle(command, CancellationToken.None);
+
+            result.IsError.Should().BeFalse();
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = original;
+        }
+
+        user.PreferredLanguage.Should().Be("fr");
+        _userRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
     public async Task Handle_TwoFactorEnabled_ReturnsChallengeWithoutTokens()
     {
         // Arrange

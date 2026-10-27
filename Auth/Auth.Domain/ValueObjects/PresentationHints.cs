@@ -76,19 +76,32 @@ public sealed record class PresentationHints
     /// <summary>
     /// The first supported language among the space-separated tags, in the
     /// order sent; English when tags were sent and none is supported; null when
-    /// the parameter is absent or blank.
+    /// the parameter is absent or holds no tag.
     /// </summary>
+    /// <remarks>
+    /// Only the space separates tags and only a well-formed tag (ASCII letters,
+    /// digits and hyphens) is read, so no other character's notion of
+    /// "whitespace" decides anything: the accounts app's resolver applies the
+    /// same two rules, character for character.
+    /// </remarks>
     private static string? ResolveLanguage(string? uiLocales)
     {
-        if (string.IsNullOrWhiteSpace(uiLocales))
+        if (uiLocales is null)
         {
             return null;
         }
 
-        var tags = uiLocales.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        // Bounded before the split: the tags past MaxLocaleTags stay one unread
+        // remainder, however many there are.
+        var tags = uiLocales.Split(' ', MaxLocaleTags + 1, StringSplitOptions.RemoveEmptyEntries);
+        if (tags.Length == 0)
+        {
+            return null;
+        }
+
         foreach (var tag in tags.Take(MaxLocaleTags))
         {
-            if (tag.Length <= MaxLocaleTagLength && Languages.Normalize(tag) is { } language)
+            if (tag.Length <= MaxLocaleTagLength && IsWellFormedTag(tag) && Languages.Normalize(tag) is { } language)
             {
                 return language;
             }
@@ -96,6 +109,9 @@ public sealed record class PresentationHints
 
         return Languages.Default;
     }
+
+    private static bool IsWellFormedTag(string tag) =>
+        tag.All(character => char.IsAsciiLetterOrDigit(character) || character == '-');
 
     private static string? ResolveTheme(string? uiTheme) =>
         uiTheme is not null && Themes.Contains(uiTheme, StringComparer.Ordinal) ? uiTheme : null;

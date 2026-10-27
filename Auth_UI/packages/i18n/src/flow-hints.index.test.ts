@@ -17,7 +17,7 @@ describe("initI18n with a flow hint", () => {
     window.localStorage.setItem("auth.language", "ar")
     window.history.replaceState(null, "", "/login?ui_locales=fa")
     const { captureEntryHints } = await import("./flow-hints")
-    captureEntryHints(null)
+    captureEntryHints({ pendingRequest: null, clientId: null, continuation: "never" })
 
     const { initI18n } = await import("./index")
     const i18n = await initI18n()
@@ -30,7 +30,7 @@ describe("initI18n with a flow hint", () => {
   it("ends the hint when the user stores a language of their own", async () => {
     window.history.replaceState(null, "", "/login?ui_locales=fa&ui_theme=dark")
     const { captureEntryHints, readFlowHints } = await import("./flow-hints")
-    captureEntryHints(null)
+    captureEntryHints({ pendingRequest: null, clientId: null, continuation: "never" })
 
     const { persistLanguage } = await import("./index")
     persistLanguage("tr")

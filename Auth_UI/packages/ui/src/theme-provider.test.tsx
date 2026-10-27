@@ -186,7 +186,7 @@ describe("ThemeProvider with an application's colour mode (ui_theme)", () => {
     sessionStorage.clear()
     document.documentElement.classList.remove("light", "dark")
     window.history.replaceState(null, "", "/login?ui_theme=dark")
-    captureEntryHints(null)
+    captureEntryHints({ pendingRequest: null, clientId: null, continuation: "never" })
   })
 
   afterEach(() => {

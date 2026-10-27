@@ -62,11 +62,27 @@ function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null
 }
 
+/** Which of the two page preferences the user changed in this save. */
+interface Changed {
+  preferredLanguage: boolean
+  theme: boolean
+}
+
+function changedPreferences(
+  values: { preferredLanguage?: string; theme?: string },
+  initial: { preferredLanguage?: string; theme?: string } | undefined
+): Changed {
+  return {
+    preferredLanguage: (values.preferredLanguage ?? "") !== (initial?.preferredLanguage ?? ""),
+    theme: (values.theme ?? "") !== (initial?.theme ?? ""),
+  }
+}
+
 function AccountTab({ me }: { me: Schemas["UserDto"] }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const profileImage = useProfileImage()
-  const { theme: activeTheme, setTheme } = useTheme()
+  const { setTheme } = useTheme()
   const meName = me.displayName || fullName(me.firstName, me.lastName, me.email ?? "")
 
   // The names are optional (OI-215): an account may be created without them,
@@ -95,7 +111,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
   })
 
   const mutation = useMutation({
-    mutationFn: async (values: Values) => {
+    mutationFn: async ({ values }: { values: Values; changed: Changed }) => {
       const { error } = await api.PUT("/api/v1/Users/me", {
         body: {
           firstName: values.firstName,
@@ -108,23 +124,29 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
       })
       if (error) throw error
     },
-    onSuccess: (_, values) => {
+    onSuccess: (_, { values, changed }) => {
       void queryClient.invalidateQueries({ queryKey: ["me"] })
-      // Apply the saved preferences immediately, without a reload.
+      // Apply the saved preferences immediately, without a reload. The language
+      // and the theme only when the user changed that field: the form also
+      // carries the profile's stored ones, which an application's language or
+      // colour mode outranks on this page until the user picks one
+      // (flow-hints.ts). Saving a phone number is not that choice.
       setActiveTimeZone(emptyToNull(values.timeZone))
       const code = values.preferredLanguage
       if (
+        changed.preferredLanguage &&
         code &&
-        SUPPORTED_LANGUAGES.some((lang) => lang.code === code) &&
-        i18n.language !== code
+        SUPPORTED_LANGUAGES.some((lang) => lang.code === code)
       ) {
         persistLanguage(code as LanguageCode)
-        void applyLanguage(code as LanguageCode)
+        if (i18n.language !== code) void applyLanguage(code as LanguageCode)
       }
       const theme = values.theme
-      if (theme && isTheme(theme) && activeTheme !== theme) {
+      if (changed.theme && theme && isTheme(theme)) {
         setTheme(theme)
       }
+      // What was saved is what the next save compares against.
+      form.reset(values)
       toast.success(t("profile.profileUpdated"))
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -153,7 +175,9 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
         </div>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
+            onSubmit={form.handleSubmit((values) =>
+              mutation.mutate({ values, changed: changedPreferences(values, form.formState.defaultValues) })
+            )}
           >
             <FieldGroup>
               <div className="grid gap-7 sm:grid-cols-2">

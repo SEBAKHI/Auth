@@ -7,10 +7,10 @@ import { isLanguageCode, type LanguageCode } from "./languages"
  * The authorize and end-session endpoints resolve the two and add them to the
  * accounts page they redirect to; an application linking straight to an
  * accounts page may add them itself. They hold for the rest of that flow in
- * this tab — across the sign-in pages, a trip to Google and back, and an
+ * this tab — across the sign-in pages and their interstitials, a reload, and the
  * "expired" page — and are written to nothing the user owns: not the stored
  * language or theme, not the profile. A choice the user makes here ends the
- * hint it overrides.
+ * hint it overrides, and a page of another flow ends them all.
  *
  * `sessionStorage`, not `localStorage`: the hint dies with the tab, and never
  * reaches the next visit. The resume URL never carries the hints (the server
@@ -41,32 +41,37 @@ const MAX_LOCALE_TAGS = 10
 /** The longest tag considered (the server's MaxLocaleTagLength). */
 const MAX_LOCALE_TAG_LENGTH = 35
 
+/** A language tag's characters: ASCII letters, digits and hyphens (RFC 5646). */
+const TAG_PATTERN = /^[A-Za-z0-9-]+$/
+
 /**
- * How long a hint outlives its last capture: the default lifetime of a pending
- * authorize request (`IdentityProvider:AuthorizationRequestLifetimeMinutes`).
- * Past it there is no flow left for the hint to belong to.
+ * How long hints last after the entry that wrote them: the default lifetime of a
+ * pending authorize request (`IdentityProvider:AuthorizationRequestLifetimeMinutes`).
+ * Past it there is no flow left for them to belong to. Later pages of the same
+ * flow keep them without extending this.
  */
 export const FLOW_HINTS_LIFETIME_MS = 60 * 60 * 1000
 
 interface StoredHints extends FlowHints {
-  /** The flow the hints came with, or null for a direct link. */
+  /** The flow the hints came with, or null for a direct link or a sign-out. */
   flow: string | null
+  /** The application the entry named (`client_id`), or null when it named none. */
+  client: string | null
   expiresAt: number
 }
 
 /**
  * The first supported language among the space-separated tags, in the order
  * sent; `en` when tags were sent and none is supported; null when the
- * parameter is absent or blank.
+ * parameter is absent or holds no tag.
  */
 export function resolveUiLocales(raw: string | null | undefined): LanguageCode | null {
-  if (raw == null || raw.trim() === "") return null
+  if (raw == null) return null
 
-  const tags = raw
-    .split(" ")
-    .filter((tag) => tag !== "")
-    .slice(0, MAX_LOCALE_TAGS)
-  for (const tag of tags) {
+  const tags = raw.split(" ").filter((tag) => tag !== "")
+  if (tags.length === 0) return null
+
+  for (const tag of tags.slice(0, MAX_LOCALE_TAGS)) {
     if (tag.length > MAX_LOCALE_TAG_LENGTH) continue
     const language = primaryLanguage(tag)
     if (language) return language
@@ -75,9 +80,15 @@ export function resolveUiLocales(raw: string | null | undefined): LanguageCode |
   return "en"
 }
 
-/** A tag's language part when it is a supported language (the server's `Languages.Normalize`). */
+/**
+ * A tag's language part when it is a well-formed tag of a supported language:
+ * the part before the first hyphen, lower-cased (the server's
+ * `PresentationHints` over `Languages.Normalize`).
+ */
 function primaryLanguage(tag: string): LanguageCode | null {
-  const lower = tag.trim().toLowerCase()
+  if (!TAG_PATTERN.test(tag)) return null
+
+  const lower = tag.toLowerCase()
   const dash = lower.indexOf("-")
   const primary = dash > 0 ? lower.slice(0, dash) : lower
   return isLanguageCode(primary) ? primary : null
@@ -112,6 +123,7 @@ function read(now: number): StoredHints | null {
 
     return {
       flow: typeof value.flow === "string" ? value.flow : null,
+      client: typeof value.client === "string" ? value.client : null,
       expiresAt: value.expiresAt,
       language: isLanguageCode(value.language) ? value.language : undefined,
       theme: resolveUiTheme(value.theme) ?? undefined,
@@ -125,28 +137,63 @@ function write(value: StoredHints): void {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value))
   } catch {
-    /* storage refused: the hint lasts for this page only */
+    // Storage refused: nothing is kept, so the page shows as it would without
+    // hints. Never an error the person sees.
+  }
+}
+
+function clear(): void {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // Nothing could be kept either.
   }
 }
 
 /**
+ * Whether an accounts page, reached with no hint and no pending request in its
+ * address, continues the flow whose hints are kept:
+ *
+ * - `"always"`: a page that exists only inside a sign-in already under way,
+ *   reached from another page of it with the request in router state (the
+ *   second factor, a forced password change, the email check); a reload of it
+ *   is still that flow.
+ * - `"same-client"`: a page an endpoint sends the browser to with the
+ *   application's `client_id` (the expired request, the sign-out pages); it
+ *   continues the kept flow only when it names the same application.
+ * - `"never"`: any other page: a direct visit, a link from an email. It ends
+ *   the kept hints, so an application that sends none never inherits another's.
+ */
+export type EntryContinuation = "always" | "same-client" | "never"
+
+/** What the accounts app knows about the page the tab arrived at. */
+export interface EntryContext {
+  /**
+   * The pending authorize request the page serves, as `return-to.ts` (the one
+   * module that knows its shapes) reads it off the address; null when none.
+   */
+  pendingRequest: string | null
+  /** The `client_id` the address names, or null. */
+  clientId: string | null
+  /** How a page with no hint and no pending request relates to the kept flow. */
+  continuation: EntryContinuation
+}
+
+/**
  * Reads the hints off the address the tab arrived at, and removes them from it.
- * Call once, before the first render.
+ * Call once, before anything reads the address: the router snapshots it when
+ * it is created, so this must run before the router module is evaluated.
  *
- * `pendingRequest` is the authorize request this page serves, as
- * `return-to.ts` (the one module that knows its shapes) reads it off the same
- * address; null when the page serves none.
- *
- * - A URL that names hints, or opens a flow other than the kept one, replaces
- *   what was kept with what it says (nothing, when it names none): an
- *   application that sends no hint never inherits another's.
- * - A URL of the flow already kept leaves it alone. The server adds the stored
- *   hints again on every page of the flow, and a choice the user made since
- *   must not be undone by the next redirect.
+ * - A page of the flow already kept leaves it alone, whatever its address
+ *   names: the server adds the stored hints to every page of the flow, and a
+ *   choice the user made since must not be undone by the next redirect.
+ * - A page of another flow, or one that names hints and serves no flow,
+ *   replaces what was kept with what it says (nothing, when it names none).
+ * - Any other page keeps or ends the kept hints by its `continuation`.
  * - The two parameters leave the address bar, so a reload after the user
  *   changed the language does not apply the application's again.
  */
-export function captureEntryHints(pendingRequest: string | null, now: number = Date.now()): void {
+export function captureEntryHints(entry: EntryContext, now: number = Date.now()): void {
   let url: URL
   try {
     url = new URL(window.location.href)
@@ -156,17 +203,24 @@ export function captureEntryHints(pendingRequest: string | null, now: number = D
 
   const params = url.searchParams
   const namesHints = params.has(UI_LOCALES_PARAM) || params.has(UI_THEME_PARAM)
-  const flow = pendingRequest ? digest(pendingRequest) : null
+  const flow = entry.pendingRequest ? digest(entry.pendingRequest) : null
   const kept = read(now)
 
-  const sameFlow = flow !== null && kept?.flow === flow
-  if (!sameFlow && (namesHints || flow !== null)) {
-    write({
-      flow,
-      expiresAt: now + FLOW_HINTS_LIFETIME_MS,
-      language: resolveUiLocales(params.get(UI_LOCALES_PARAM)) ?? undefined,
-      theme: resolveUiTheme(params.get(UI_THEME_PARAM)) ?? undefined,
-    })
+  if (flow !== null || namesHints) {
+    if (flow === null || kept?.flow !== flow) {
+      const language = resolveUiLocales(params.get(UI_LOCALES_PARAM)) ?? undefined
+      const theme = resolveUiTheme(params.get(UI_THEME_PARAM)) ?? undefined
+      // A flow is kept even without hints, so a choice made on its pages
+      // survives its later redirects; a direct link without a usable hint
+      // keeps nothing.
+      if (flow !== null || language || theme) {
+        write({ flow, client: entry.clientId, expiresAt: now + FLOW_HINTS_LIFETIME_MS, language, theme })
+      } else {
+        clear()
+      }
+    }
+  } else if (kept && !continuesKeptFlow(entry, kept)) {
+    clear()
   }
 
   if (namesHints) {
@@ -175,8 +229,20 @@ export function captureEntryHints(pendingRequest: string | null, now: number = D
     try {
       window.history.replaceState(window.history.state, "", url.toString())
     } catch {
-      /* a sandboxed frame may refuse; the hints are kept either way */
+      // A sandboxed frame may refuse. The address keeps the parameters, and a
+      // reload reads them again as this entry did.
     }
+  }
+}
+
+function continuesKeptFlow(entry: EntryContext, kept: StoredHints): boolean {
+  switch (entry.continuation) {
+    case "always":
+      return true
+    case "same-client":
+      return kept.client === entry.clientId
+    case "never":
+      return false
   }
 }
 

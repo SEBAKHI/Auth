@@ -3891,6 +3891,34 @@ organizations as your server: the machine directory".
 **Rollback:** switch the consent off (effective at the next read), or revoke the machine key (no new
 token; the last one lasts five minutes at most), or redeploy the previous API (the column stays, unused).
 
+## S. The application's language and colour mode on the accounts pages (`ui_locales`, `ui_theme`)
+
+A relying party may send `ui_locales` (its language) and `ui_theme` (`light`, `dark` or `system`) on
+`/api/v1/auth/authorize` and `/api/v1/auth/end-session`; the accounts sign-in and sign-out pages then show
+in them for that flow, and write them nothing the user owns. Details for application developers:
+`ReadMe/APPLICATION_INTEGRATION_GUIDE.md`, step 2 of "How a person actually signs in".
+
+* **The schema:** two columns appended last to `AuthorizationRequests`, `UiLocale NVARCHAR(10) NULL` and
+  `UiTheme NVARCHAR(10) NULL`, with the check constraint `CK_AuthorizationRequests_UiTheme`. Both are
+  nullable with no default. The generated script must show one `ALTER TABLE … ADD` of the two columns and
+  one `ADD CONSTRAINT` of the check, with no `tmp_ms_xx` and no `DROP`.
+* **Order, for each existing deployment: the DACPAC first, then the Auth API, then the accounts
+  application.** The API writes both columns on every sign-in that passes through an accounts page and
+  reads them on every resume, so an API published before the DACPAC fails every such sign-in, in every
+  application, with 500; `/ready` reads **Degraded** and the API log names
+  "AuthorizationRequests.UiLocale column" and "AuthorizationRequests.UiTheme column". If that happens,
+  publish the DACPAC at once; no restart is needed. The other way round is safe: the API before this change
+  keeps writing rows on the new table. An accounts application before this change ignores the two
+  parameters on its pages, so the API alone changes nothing a user sees.
+* **No setting and no console change.** The console needs no deploy for this change.
+* **Checks:** `/.well-known/openid-configuration` lists `ui_locales_supported`; from a browser with no
+  single sign-on session, a test application's sign-in sent with `ui_locales=ar&ui_theme=dark` shows the
+  sign-in page in Arabic, right to left, dark, and its address no longer carries the two parameters; the
+  same with `ui_locales=de` shows it in English.
+
+**Rollback:** redeploy the previous Auth API and accounts application; each may go back on its own. The two
+columns can stay; the previous API does not read them.
+
 ---
 
 **The whole flow:** install the prerequisites → create the files the repository does not ship →

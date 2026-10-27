@@ -108,7 +108,11 @@ describe("the profile's language at sign-in, against an application's (ui_locale
 
   it("keeps the application's language and stores nothing while its flow is in force", async () => {
     window.history.replaceState(null, "", `/login?client_id=CRM&auth_request=${"a".repeat(64)}&ui_locales=ar`)
-    captureEntryHints(getValidReturnTo(window.location.search))
+    captureEntryHints({
+      pendingRequest: getValidReturnTo(window.location.search),
+      clientId: "CRM",
+      continuation: "never",
+    })
     await i18n.changeLanguage("ar")
     const { login } = renderProvider()
 

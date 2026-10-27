@@ -56,7 +56,7 @@ describe("ThemeSync", () => {
 
   it("keeps the application's colour mode, and writes nothing", () => {
     window.history.replaceState(null, "", "/login?ui_theme=light")
-    captureEntryHints(null)
+    captureEntryHints({ pendingRequest: null, clientId: null, continuation: "never" })
 
     renderSynced()
 

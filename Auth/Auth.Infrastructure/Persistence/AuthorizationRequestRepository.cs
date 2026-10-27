@@ -185,8 +185,10 @@ public class AuthorizationRequestRepository : IAuthorizationRequestRepository
             CreateOrganization,
             CreatedAt,
             ExpiresAt,
-            // Read back through the same resolution: a stored value is already
-            // resolved and reads as itself, and anything else reads as no hint.
+            // Read back through the same resolution as authorize: a stored value is
+            // already resolved and reads as itself. A language this build no longer
+            // supports reads as English, as authorize would show it; an unknown
+            // colour mode reads as none. NULL reads as no hint.
             PresentationHints.From(UiLocale, UiTheme));
     }
 }

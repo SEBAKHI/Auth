@@ -1,19 +1,16 @@
+// FIRST, before any module that reads the address: the application's hints are
+// taken off it here, and the router snapshots it when ./App.tsx is evaluated.
+import "./capture-entry-hints"
+
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
 import "./index.css"
-import { getValidReturnTo } from "@authsystem/auth/return-to"
 import { initI18n } from "@authsystem/i18n"
-import { captureEntryHints } from "@authsystem/i18n/flow-hints"
 import App from "./App.tsx"
 import { installChunkLoadRecovery } from "@authsystem/ui/common/chunk-recovery"
 import { applyCachedTheme } from "@authsystem/ui/theme/apply-theme"
 import { ThemeProvider } from "@authsystem/ui/theme-provider.tsx"
-
-// The language and colour mode the application that sent this tab asked for
-// (ui_locales, ui_theme), kept for its flow and taken off the address bar. First,
-// because the language and the theme below are chosen from them.
-captureEntryHints(getValidReturnTo(window.location.search))
 
 // Registered before anything is imported on demand: a chunk removed by a deploy
 // can fail during preload, which never reaches a route error boundary.
