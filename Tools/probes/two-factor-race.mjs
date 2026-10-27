@@ -47,7 +47,7 @@
  *                 ten held at the barrier together. The build before X02 must
  *                 FAIL: several enables succeed, each showing codes of its own.
  *   regenerate-race  the recovery layer under concurrency (S08 PR B), on one
- *                 account whose own session proved two factors (the registration's
+ *                 account whose own session proved two factors (its first
  *                 session, upgraded when two-factor is switched on), in two parts:
  *                 (a) new recovery codes three times at once — one authenticator
  *                     code and two different recovery codes. PASS: exactly one
@@ -106,9 +106,10 @@
  *   INCONCLUSIVE overlap not proven (not all requests reached the barrier, or the
  *                answers show they ran one at a time), or a 429 (window not fresh)
  *
- * Safety: a localhost API and a local SQL Server only. Throwaway accounts made
- * through the API's own flows; one-time codes read from the API's Serilog file
- * (Email disabled in dev); no stored secret decrypted; no secret or code printed;
+ * Safety: a localhost API and a local SQL Server only. Throwaway accounts: a
+ * confirmed row with no password written here (registration/start refuses while
+ * email is off, OI-215), then the API's own "forgot password" and reset; one-time
+ * codes and the reset link read from the API's Serilog file (Email disabled in dev); no stored secret decrypted; no secret or code printed;
  * every setup step checked (sqlcmd -b); revert SQL printed, removing child rows first.
  *
  * Env: PROBE_API_URL (default https://localhost:5201, localhost only), PROBE_LOGS_DIR
@@ -130,6 +131,7 @@ import { dirname, join, resolve } from "node:path";
 import { connect as tlsConnect } from "node:tls";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { confirmedAccountSql } from "../lib/dev-accounts.mjs";
 
 const execFileAsync = promisify(execFile);
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -320,6 +322,20 @@ async function otpAfter(mark) {
   throw new SetupError("no OTP appeared in the API log (is PROBE_LOGS_DIR the API's Logs directory?)");
 }
 
+// The reset link of "forgot password", which the API logs while email is off.
+async function resetTokenAfter(mark) {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const file = logMark().file ?? mark.file;
+    if (file) {
+      const appended = readFileSync(file, "utf8").slice(file === mark.file ? mark.length : 0);
+      const matches = [...appended.matchAll(/Password reset link for [^\s:]+:\s*\S*?[?&]token=([^&\s"]+)/g)];
+      if (matches.length > 0) return decodeURIComponent(matches[matches.length - 1][1]);
+    }
+    await sleep(150);
+  }
+  throw new SetupError("no reset link appeared in the API log (is PROBE_LOGS_DIR the API's Logs directory, and Email off?)");
+}
+
 // ── sqlcmd. -b makes any T-SQL error a non-zero exit, so a failed setup aborts
 //    instead of passing silently. The shell profile exports empty SQLCMD* vars
 //    that break -E, so clear them. ───────────────────────────────────────────
@@ -404,37 +420,36 @@ class Barrier {
   }
 }
 
-// ── Account setup through the API's own flows ─────────────────────────────────
+// ── Account setup ─────────────────────────────────────────────────────────────
+// The probe needs email off (the codes come from the log), and since OI-215
+// registration/start refuses every address while it is off. So an account starts
+// as a confirmed row with no password, written here, takes its first password
+// through the API's own "forgot password" and reset, and signs in: that sign-in is
+// the account's first session, recent enough to change two-factor.
 const uniqueEmail = (tag) => `x08-${tag}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}@x08.probe.local`;
 
 async function register(tag) {
   const email = uniqueEmail(tag);
-  const mark = logMark();
-  const start = await call("/api/v1/auth/registration/start", { method: "POST", body: { email, preferredLanguage: "en" } });
-  // Tracked from here, not from the end: a run that dies after this call has
-  // already left a pending registration and an outbox row behind, and the revert
-  // finds them by the address.
+  // Tracked from here, not from the end: a run that dies after the row is written
+  // has already left it behind, and the revert finds it by the address.
   const account = { email, userId: null };
   accounts.push(account);
-  if (start.status !== 200) throw new SetupError(`registration/start: ${start.status} ${start.text.slice(0, 160)}`);
-  const otp = await otpAfter(mark);
-  const pendingId = start.json.pendingId ?? start.json.PendingId;
+  account.userId = await sqlScalar(confirmedAccountSql(email), "the account row");
 
-  const verify = await call("/api/v1/auth/registration/verify", { method: "POST", body: { pendingId, otp } });
-  if (verify.status !== 204) throw new SetupError(`registration/verify: ${verify.status} ${verify.text.slice(0, 160)}`);
-
-  const complete = await call("/api/v1/auth/registration/complete", {
-    method: "POST",
-    body: { pendingId, otp, password: PASSWORD, firstName: "Probe", lastName: "User", createOrganization: false },
+  const mark = logMark();
+  const ask = await call("/api/v1/auth/forgot-password", { method: "POST", body: { email } });
+  if (ask.status >= 400) throw new SetupError(`forgot-password: ${ask.status} ${ask.text.slice(0, 160)}`);
+  const resetToken = await resetTokenAfter(mark);
+  const reset = await call("/api/v1/auth/reset-password", {
+    method: "POST", body: { token: resetToken, newPassword: PASSWORD, confirmNewPassword: PASSWORD, terminateSessions: false },
   });
-  if (complete.status !== 200) throw new SetupError(`registration/complete: ${complete.status} ${complete.text.slice(0, 160)}`);
+  if (reset.status < 200 || reset.status >= 300) throw new SetupError(`reset-password: ${reset.status} ${reset.text.slice(0, 160)}`);
 
-  const token = complete.json.token?.accessToken ?? complete.json.Token?.AccessToken;
-  const refreshToken = complete.json.token?.refreshToken ?? complete.json.Token?.RefreshToken;
-  const userId = complete.json.user?.id ?? complete.json.User?.Id;
-  if (!token || !userId) throw new SetupError("registration/complete returned no token or user id");
-  account.userId = userId;
-  return { email, userId, token, refreshToken };
+  const signIn = await callPaced("/api/v1/auth/login", { method: "POST", body: { email, password: PASSWORD } });
+  const token = signIn.json?.token?.accessToken;
+  const refreshToken = signIn.json?.token?.refreshToken;
+  if (signIn.status !== 200 || !token) throw new SetupError(`first sign-in: ${signIn.status} ${signIn.text.slice(0, 160)}`);
+  return { email, userId: account.userId, token, refreshToken };
 }
 
 // The enable after this setup would also need the code emailed to the account
@@ -721,10 +736,10 @@ async function renew(refreshToken) {
 
 async function lifecycleDisable() {
   const name = "lifecycle-disable";
-  // The first device: the registration's own session, so its sign-in is recent
+  // The first device: the account's first session, so its sign-in is recent
   // enough to change two-factor.
   const { email, userId, token, refreshToken } = await register("ldisable");
-  if (!refreshToken) throw new SetupError("registration/complete returned no refresh token in its body");
+  if (!refreshToken) throw new SetupError("the first sign-in returned no refresh token in its body");
   const { secret } = await enableTwoFactor(token);
 
   // A second device signs in with the password and a code.
@@ -821,7 +836,7 @@ async function lifecycleEnable() {
 //    each committed once however many requests race ───────────────────────────
 async function regenerateRace() {
   const name = "regenerate-race";
-  // The registration's own session: recent, and switching two-factor on upgrades
+  // The account's first session: recent, and switching two-factor on upgrades
   // it with the authenticator code — so it proved two factors, as both changes ask.
   const { email, userId, token } = await register("regen");
   const { secret, recoveryCodes } = await enableTwoFactor(token);
@@ -916,9 +931,9 @@ function revertBlock({ email }) {
   ];
   const lines = [
     "SET XACT_ABORT ON;", "BEGIN TRAN;",
-    // The account is found by its address, so a run that died before the
-    // registration completed is reverted too: its pending registration and its
-    // outbox rows go, and every delete keyed on the user matches nothing.
+    // The account is found by its address, so a run that died part-way is
+    // reverted too: what it left goes, and a delete that matches nothing is
+    // harmless. (Pending registrations come from runs before OI-215.)
     `DECLARE @UserId UNIQUEIDENTIFIER = (SELECT Id FROM dbo.Users WHERE LOWER(Email) = LOWER('${email}'));`,
     "DELETE FROM dbo.SecretOperationChallenges WHERE RequestedBy = @UserId;",
     "DELETE FROM dbo.OwnershipTransferCodes WHERE TargetUserId = @UserId OR InitiatedBy = @UserId;",

@@ -1,5 +1,5 @@
 import { expect, request, test, type APIRequestContext, type Page } from "@playwright/test"
-import { execSync } from "node:child_process"
+import { execFileSync } from "node:child_process"
 import * as fs from "node:fs"
 import * as path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -11,7 +11,10 @@ import { fileURLToPath } from "node:url"
  *  - Auth API running via the `https` launch profile (https://localhost:5101)
  *    with dev defaults: Email:Enabled=false, Notifications:UseOutbox=false —
  *    OTPs and would-be emails are then written to the Serilog file, which is
- *    the established E2E practice for reading verification codes.
+ *    the established E2E practice for reading verification codes. Accounts
+ *    are made without registration/start, which refuses while email is off
+ *    (OI-215): see signUp.
+ *  - sqlcmd reaching the API's database (E2E_SQL_SERVER, E2E_SQL_DB).
  *  - The Vite dev servers are booted/reused by playwright.config.ts.
  *
  * Journeys 4 (post-grace worker execution) and 5 (stubbed Apple) are covered
@@ -100,10 +103,10 @@ async function waitForLogMatch(
   }
 }
 
-/** OTP logged by the sign-up start step and the resend path (email disabled). */
-function registrationOtpPattern(email: string): RegExp {
+/** The reset link "forgot password" logs while email is disabled; captures its token. */
+function resetLinkPattern(email: string): RegExp {
   return new RegExp(
-    `Email disabled - OTP for "?${escapeRegExp(maskEmail(email))}"?: "?(\\d{6})"?`
+    `Password reset link for "?${escapeRegExp(maskEmail(email))}"?: "?\\S*?[?&]token=([^&\\s"]+)`
   )
 }
 
@@ -140,38 +143,89 @@ async function apiPost(api: APIRequestContext, url: string, data: unknown) {
   return response
 }
 
+/** Runs one T-SQL batch against the dev database and returns what it printed. */
+function runSql(query: string): string {
+  try {
+    // -I: QUOTED_IDENTIFIER ON — required to write through filtered indexes.
+    return execFileSync(
+      "sqlcmd",
+      [
+        "-S",
+        SQL_SERVER,
+        "-E",
+        "-d",
+        SQL_DB,
+        "-b",
+        "-I",
+        "-W",
+        "-h",
+        "-1",
+        "-Q",
+        `SET NOCOUNT ON; ${query}`,
+      ],
+      { stdio: "pipe", encoding: "utf8" }
+    ).trim()
+  } catch (error) {
+    const e = error as { status?: number; stderr?: string; stdout?: string }
+    throw new Error(
+      `sqlcmd failed (${e.status}): ${e.stderr ?? ""}${e.stdout ?? ""}`,
+      {
+        cause: error,
+      }
+    )
+  }
+}
+
 /**
- * Walks the real verify-first sign-up: start (which mails the code, and in
- * development writes it to the Serilog file instead) → read the code from the
- * log → complete with the code, a name and a password. The completion consumes
- * the code, so it cannot shadow a later deletion OTP for the same address, and
- * answers with a full login body — the session the browser fixtures adopt.
+ * A login-capable throwaway account. Since OI-215 registration/start refuses
+ * every address while email is off, and this specification needs email off for
+ * the deletion codes it reads from the log. So the account starts as a
+ * confirmed row with no password (the one Tools/lib/dev-accounts.mjs writes),
+ * takes its first password through the API's own "forgot password" — the link
+ * read from the log — and reset, and signs in: that answer is a full login
+ * body, the session the browser fixtures adopt.
  */
 async function signUp(
   api: APIRequestContext,
   tag: string
 ): Promise<{ email: string; refreshToken: string }> {
   const email = uniqueEmail(tag)
+  runSql(
+    "DECLARE @Id UNIQUEIDENTIFIER = NEWID(); " +
+      "INSERT INTO dbo.Users (Id, Username, Email, NormalizedEmail, FirstName, LastName, IsEmailConfirmed, CreatedBy) " +
+      `VALUES (@Id, N'${email}', N'${email}', UPPER(N'${email}'), N'E2e', N'Deletion-${tag}', 1, @Id);`
+  )
+
   const since = logOffset()
+  const asked = await apiPost(api, "/api/v1/Auth/forgot-password", { email })
+  expect(asked.ok(), `forgot-password failed: ${await asked.text()}`).toBe(true)
+  const token = decodeURIComponent(
+    await waitForLogMatch(resetLinkPattern(email), since)
+  )
 
-  const started = await apiPost(api, "/api/v1/Auth/registration/start", { email })
-  expect(started.ok(), `registration/start failed: ${await started.text()}`).toBe(true)
-  const { pendingId } = (await started.json()) as { pendingId: string }
-
-  const otp = await waitForLogMatch(registrationOtpPattern(email), since)
-
-  const completed = await apiPost(api, "/api/v1/Auth/registration/complete", {
-    pendingId,
-    otp,
-    password: PASSWORD,
-    firstName: "E2e",
-    lastName: `Deletion-${tag}`,
+  const reset = await apiPost(api, "/api/v1/Auth/reset-password", {
+    token,
+    newPassword: PASSWORD,
+    confirmNewPassword: PASSWORD,
+    terminateSessions: false,
   })
-  expect(completed.ok(), `registration/complete failed: ${await completed.text()}`).toBe(true)
+  expect(reset.ok(), `reset-password failed: ${await reset.text()}`).toBe(true)
 
-  const body = (await completed.json()) as { token?: { refreshToken?: string } }
+  const signedIn = await apiPost(api, "/api/v1/Auth/login", {
+    email,
+    password: PASSWORD,
+  })
+  expect(
+    signedIn.ok(),
+    `the first sign-in failed: ${await signedIn.text()}`
+  ).toBe(true)
+
+  const body = (await signedIn.json()) as { token?: { refreshToken?: string } }
   const refreshToken = body.token?.refreshToken
-  expect(refreshToken, "registration/complete did not return a session").toBeTruthy()
+  expect(
+    refreshToken,
+    "the first sign-in did not return a session"
+  ).toBeTruthy()
   return { email, refreshToken: refreshToken as string }
 }
 
@@ -187,24 +241,14 @@ async function createConfirmedUser(api: APIRequestContext, tag: string): Promise
  * which is exactly what an external-login-created account looks like.
  */
 function clearPasswordHash(email: string): void {
-  try {
-    // -I: QUOTED_IDENTIFIER ON — required to write through filtered indexes.
-    execSync(
-      `sqlcmd -S ${SQL_SERVER} -E -d ${SQL_DB} -b -I -Q "UPDATE [dbo].[Users] SET [PasswordHash] = NULL WHERE [Email] = '${email}'"`,
-      { stdio: "pipe" }
-    )
-  } catch (error) {
-    const e = error as { status?: number; stderr?: Buffer; stdout?: Buffer }
-    throw new Error(
-      `sqlcmd failed (${e.status}): ${e.stderr?.toString() ?? ""}${e.stdout?.toString() ?? ""}`,
-      { cause: error }
-    )
-  }
+  runSql(
+    `UPDATE [dbo].[Users] SET [PasswordHash] = NULL WHERE [Email] = '${email}'`
+  )
 }
 
 /**
  * Signs up, then strips the password the sign-up set. The session the
- * completion issued stays valid — refresh does not read the hash — and its
+ * first sign-in issued stays valid — refresh does not read the hash — and its
  * refresh token lets the browser adopt the session the same way the SPA does
  * (no login form to type into, which a passwordless account could not use).
  */
