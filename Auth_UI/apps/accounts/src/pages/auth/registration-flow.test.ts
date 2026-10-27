@@ -2,23 +2,10 @@ import { beforeEach, describe, expect, it } from "vitest"
 
 import {
   clearRegistrationFlow,
-  clearVerifiedCode,
-  getVerifiedCode,
   PENDING_REGISTRATION_STORAGE_KEY,
   readPendingRegistration,
   savePendingRegistration,
-  setVerifiedCode,
 } from "./registration-flow"
-
-/** Values only: the test stub for localStorage is not JSON-serialisable. */
-function everyStoredValue(storage: Storage): string[] {
-  const values: string[] = []
-  for (let index = 0; index < storage.length; index += 1) {
-    const key = storage.key(index)
-    if (key !== null) values.push(storage.getItem(key) ?? "")
-  }
-  return values
-}
 
 const PENDING = {
   pendingId: "handle-1",
@@ -29,51 +16,31 @@ const PENDING = {
 
 describe("registration flow store", () => {
   beforeEach(() => {
-    clearRegistrationFlow()
     window.sessionStorage.clear()
   })
 
-  it("keeps the identity in session storage and the code in memory only", () => {
+  it("keeps the identity in session storage", () => {
     savePendingRegistration(PENDING)
-    setVerifiedCode("123456")
 
     expect(readPendingRegistration()).toEqual(PENDING)
     expect(
       window.sessionStorage.getItem(PENDING_REGISTRATION_STORAGE_KEY)
     ).toContain("handle-1")
-    // The proof never touches storage of either kind: a reload forgets it by
-    // design, and another tab must never find it.
-    expect(JSON.stringify(window.sessionStorage)).not.toContain("123456")
-    expect(everyStoredValue(window.localStorage).join("|")).not.toContain("123456")
-    expect(getVerifiedCode()).toBe("123456")
   })
 
-  it("drops the code whenever a new one is issued", () => {
+  it("replaces the identity when a new code is issued", () => {
     savePendingRegistration(PENDING)
-    setVerifiedCode("123456")
 
     savePendingRegistration({ ...PENDING, expiresAt: "2026-09-10T10:10:00.000Z" })
 
-    expect(getVerifiedCode()).toBeNull()
+    expect(readPendingRegistration()?.expiresAt).toBe("2026-09-10T10:10:00.000Z")
   })
 
-  it("forgets the code but keeps the identity when only the proof is withdrawn", () => {
+  it("forgets the identity when the flow ends", () => {
     savePendingRegistration(PENDING)
-    setVerifiedCode("123456")
-
-    clearVerifiedCode()
-
-    expect(getVerifiedCode()).toBeNull()
-    expect(readPendingRegistration()).toEqual(PENDING)
-  })
-
-  it("forgets both when the flow ends", () => {
-    savePendingRegistration(PENDING)
-    setVerifiedCode("123456")
 
     clearRegistrationFlow()
 
-    expect(getVerifiedCode()).toBeNull()
     expect(readPendingRegistration()).toBeNull()
     expect(
       window.sessionStorage.getItem(PENDING_REGISTRATION_STORAGE_KEY)

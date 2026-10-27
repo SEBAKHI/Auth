@@ -10,6 +10,11 @@ using Auth.Application.Features.AccountDeletion.ConfirmPublicDeletion;
 using Auth.Application.Features.AccountDeletion.PublicRequestDeletion;
 using Auth.Application.Features.AccountDeletion.RecoverAccount;
 using Auth.Application.Features.AccountDeletion.RecoverAccountExternal;
+using Auth.Application.Features.AccountDeletion.RecoverAccountWithEmailCode;
+using Auth.Application.Features.Authentication.RemovePassword;
+using Auth.Application.Features.Authentication.SignInWithEmailCode;
+using Auth.Application.Features.Authentication.StartEmailCodeSignIn;
+using Auth.Application.Features.Authentication.VerifyEmailCodeSignIn;
 using Auth.Application.Features.Authentication.ForgetKnownDevice;
 using Auth.Application.Features.Authentication.ForgotPassword;
 using Auth.Application.Features.Authentication.GetKnownDevices;
@@ -123,7 +128,8 @@ public class AuthController : ApiController
     // 200, not 201: nothing was created.
     [ProducesResponseType(typeof(StartRegistrationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    // Registration:AllowSelfRegistration closed — User.SelfRegistrationClosed.
+    // Registration:AllowSelfRegistration closed — User.SelfRegistrationClosed;
+    // Email:Enabled off — User.EmailCodeSignInUnavailable, as for email-code/start.
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> StartRegistration([FromBody] StartRegistrationRequest request, CancellationToken cancellationToken)
@@ -199,6 +205,141 @@ public class AuthController : ApiController
             GetUserAgent());
 
         var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Step 1 of a sign-in by emailed code (OI-215), which is also step 1 of a sign-up
+    /// by code: takes an address and sends one message to it. Answers the same shape for
+    /// every address; only the message, which the mailbox's holder reads, differs: a
+    /// sign-in code to an account, a registration code to a free address while sign-up
+    /// is open, a notice otherwise.
+    /// </summary>
+    /// <param name="request">The address and, optionally, the site language.</param>
+    /// <returns>The opaque handle for the next steps, the masked address, and when the code expires.</returns>
+    [HttpPost("email-code/start")]
+    [AllowAnonymous]
+    // One message per start: the sign-up budget, as for registration/start.
+    [EnableRateLimiting("register")]
+    [RequireFirstPartyOrigin]
+    [ProducesResponseType(typeof(StartRegistrationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    // Email:Enabled off — User.EmailCodeSignInUnavailable.
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> StartEmailCodeSignIn([FromBody] StartEmailCodeSignInRequest request, CancellationToken cancellationToken)
+    {
+        var command = new StartEmailCodeSignInCommand(
+            request.Email,
+            request.PreferredLanguage,
+            GetClientIpAddress(),
+            GetUserAgent());
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Step 2 of a sign-in by emailed code (OI-215): checks the code without spending
+    /// it and, after a match only, says what happens next — sign in, recover an account
+    /// waiting for deletion, or complete a new account with the fields it needs.
+    /// </summary>
+    /// <param name="request">The handle from step 1 and the six-digit code.</param>
+    [HttpPost("email-code/verify")]
+    [AllowAnonymous]
+    // The follow-up budget, as for registration/verify: this step sends nothing.
+    [EnableRateLimiting("registration-followup")]
+    [RequireFirstPartyOrigin]
+    [ProducesResponseType(typeof(EmailCodeNextStep), StatusCodes.Status200OK)]
+    // EmailVerification.InvalidOtpFormat | InvalidOrExpiredOtp | TooManyAttempts
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    // No account and sign-up closed — User.SelfRegistrationClosed.
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    // The account is being deleted for good — User.DuplicateEmail.
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> VerifyEmailCodeSignIn([FromBody] VerifyEmailCodeSignInRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new VerifyEmailCodeSignInCommand(request.PendingId, request.Otp), cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Step 3 of a sign-in by emailed code (OI-215): spends the code and signs in, or
+    /// opens the second step, or — with no session — says what comes first: the
+    /// password (an account with one that holds platform authority, or a sign-in that
+    /// asked for full proof), the recovery of an account waiting for deletion, or the
+    /// completion of a new account.
+    /// </summary>
+    /// <param name="request">The handle, the code, and the sign-in's options.</param>
+    /// <returns>The same session a sign-in issues, a pending second step, or the next step.</returns>
+    [HttpPost("email-code/sign-in")]
+    [AllowAnonymous]
+    // One sign-in, one permit, like the password sign-in.
+    [EnableRateLimiting("login")]
+    [RequireFirstPartyOrigin]
+    [IssuesFirstPartySession]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> SignInWithEmailCode([FromBody] SignInWithEmailCodeRequest request, CancellationToken cancellationToken)
+    {
+        var command = new SignInWithEmailCodeCommand(
+            request.PendingId,
+            request.Otp,
+            request.RequireFullProof,
+            request.StaySignedIn,
+            GetDeviceId(request.DeviceId),
+            GetClientIpAddress(),
+            GetUserAgent());
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Recovers an account waiting for deletion with the code of a sign-in by emailed
+    /// code (OI-215): the third recovery entry, beside the password and the provider.
+    /// Success cancels the deletion, restores the account and signs it in.
+    /// </summary>
+    [HttpPost("email-code/recover")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [RequireFirstPartyOrigin]
+    [IssuesFirstPartySession]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> RecoverAccountWithEmailCode(
+        [FromBody] RecoverAccountWithEmailCodeRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new RecoverAccountWithEmailCodeCommand(
+                request.PendingId,
+                request.Otp,
+                request.TwoFactorCode,
+                request.RequireFullProof,
+                GetClientIpAddress(),
+                GetUserAgent(),
+                GetDeviceId(request.DeviceId)),
+            cancellationToken);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -895,6 +1036,37 @@ public class AuthController : ApiController
             request.ConfirmNewPassword);
 
         var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Removes the current user's password (OI-215): from then on the account signs in
+    /// with a code emailed to its address. Needs email sending on, a confirmed address,
+    /// no emailed second factor, and a recent sign-in that proved the password (and the
+    /// authenticator app when it is bound). Other devices are signed out; this one stays.
+    /// </summary>
+    [HttpPost("remove-password")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    // Auth.ReauthenticationRequired | User.EmailNotConfirmed
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    // User.PasswordNotSet | PasswordRemovalRequiresEmail | PasswordRemovalBlockedByEmailCodeFactor
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RemovePassword(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _sender.Send(
+            new RemovePasswordCommand(userId, GetCurrentSessionId(), IdpSessionCookie.Read(Request, _idpSettings)),
+            cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),

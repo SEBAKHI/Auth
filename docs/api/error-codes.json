@@ -729,6 +729,12 @@
       "source": "catalog"
     },
     {
+      "code": "EmailVerification.WrongCodeLimitReached",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "Environment.Required",
       "status": 400,
       "source": "catalog",
@@ -2295,6 +2301,12 @@
       "pointer": "#/logoUrl"
     },
     {
+      "code": "SystemSettings.PasswordlessSignUpRequiresEmail",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "SystemSettings.PlatformNameRequired",
       "status": 400,
       "source": "catalog",
@@ -2682,6 +2694,11 @@
       "source": "catalog"
     },
     {
+      "code": "User.EmailCodeSignInUnavailable",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
       "code": "User.EmailNotConfirmed",
       "status": 403,
       "source": "catalog"
@@ -2809,10 +2826,30 @@
       "source": "catalog"
     },
     {
+      "code": "User.PasswordNotSet",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
       "code": "User.PasswordRecentlyUsed",
       "status": 400,
       "source": "catalog",
       "pointer": null
+    },
+    {
+      "code": "User.PasswordRemovalBlockedByEmailCodeFactor",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "User.PasswordRemovalRequiresAuthenticatorApp",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "User.PasswordRemovalRequiresEmail",
+      "status": 409,
+      "source": "catalog"
     },
     {
       "code": "User.PasswordTooWeak",

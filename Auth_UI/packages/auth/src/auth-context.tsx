@@ -42,8 +42,10 @@ import {
   setPendingTwoFactorChallenge,
   type TwoFactorMethod,
 } from "./pending-challenge"
+import { toEmailCodeNextStep, type EmailCodeNextStep } from "./email-code"
 import { permissionMatches } from "./permission-matching"
 import { markRecoveryCodeSignIn } from "./recovery-code-notice"
+import { challengeEnded } from "./sign-in-method"
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated"
 
@@ -68,11 +70,46 @@ export interface ExternalLoginExtras {
 export interface CompleteRegistrationInput {
   pendingId: string
   otp: string
-  password: string
-  firstName: string
-  lastName: string
+  /**
+   * Absent when the deployment signs new accounts up without one (OI-215): the
+   * account then signs in with a code emailed to it.
+   */
+  password?: string
+  /** Absent when the deployment asks for no name (OI-215). */
+  firstName?: string
+  lastName?: string
   timeZone?: string
 }
+
+/** The code of a sign-in by emailed code, presented to finish it (OI-215). */
+export interface EmailCodeSignInInput {
+  pendingId: string
+  otp: string
+  /**
+   * Add-only: an account with a password proves it too, as the "sign in again"
+   * dialog asks before a security change.
+   */
+  requireFullProof: boolean
+  staySignedIn: boolean
+}
+
+/** The code of a sign-in by emailed code, presented to recover an account waiting for deletion. */
+export interface EmailCodeRecoveryInput {
+  pendingId: string
+  otp: string
+  /** The authenticator app's code, or a recovery code, once the server asked for it. */
+  twoFactorCode?: string
+  requireFullProof: boolean
+}
+
+/**
+ * A sign-in by emailed code ends like any other — a session or a challenge — or,
+ * with no session issued, names what comes next: the password, the recovery of
+ * an account waiting for deletion, or a new account (OI-215).
+ */
+export type EmailCodeSignInResult =
+  | LoginResult
+  | { status: "nextStep"; nextStep: EmailCodeNextStep }
 
 const KNOWN_TWO_FACTOR_METHODS: readonly TwoFactorMethod[] = [
   "totp",
@@ -156,6 +193,10 @@ interface AuthContextValue {
   ) => Promise<{ requiresPasswordChange: boolean }>
   completeEmailVerification: (email: string, otp: string) => Promise<LoginResult>
   completeRegistration: (input: CompleteRegistrationInput) => Promise<LoginResult>
+  /** Spends a matched emailed code to sign in (OI-215). */
+  signInWithEmailCode: (input: EmailCodeSignInInput) => Promise<EmailCodeSignInResult>
+  /** Spends a matched emailed code to recover an account waiting for deletion. */
+  recoverWithEmailCode: (input: EmailCodeRecoveryInput) => Promise<EmailCodeSignInResult>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
   /**
@@ -335,7 +376,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Shared tail of every login variant: either a 2FA challenge (no tokens
   // yet, the verify step completes the session) or a full token response.
   // `staySignedIn` rides with a challenge to the second factor, in memory only;
-  // only the password and provider sign-ins have one to give (OI-154).
+  // only the password, provider and emailed-code sign-ins have one to give
+  // (OI-154, OI-215).
   const adoptLoginResponse = React.useCallback(
     (
       data: {
@@ -530,6 +572,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.status !== "authenticated") {
         throw new Error("Two-factor verification failed")
       }
+      // The sign-in page's method, remembered now that it ended in a session
+      // (D-215-4); nothing when the challenge did not start there.
+      challengeEnded(challengeToken)
       // A recovery code is single-use: the security page says so once, with the
       // way to a new set (AM-S08-1).
       if (useRecoveryCode) markRecoveryCodeSignIn(data.user?.id)
@@ -565,9 +610,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           body: {
             pendingId: input.pendingId,
             otp: input.otp,
-            password: input.password,
-            firstName: input.firstName,
-            lastName: input.lastName,
+            password: input.password ?? null,
+            firstName: input.firstName ?? null,
+            lastName: input.lastName ?? null,
             timeZone: input.timeZone ?? null,
           },
         }
@@ -579,6 +624,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return adoptLoginResponse(data)
     },
     [adoptLoginResponse]
+  )
+
+  // Both answer a sign-in body. With no session and no challenge in it, the body
+  // names the next step instead, and nothing is adopted.
+  const adoptEmailCodeResponse = React.useCallback(
+    (
+      data: Parameters<typeof adoptLoginResponse>[0] & {
+        nextStep?: {
+          step?: string | null
+          passwordRequired?: boolean | null
+          nameRequired?: boolean | null
+        } | null
+      },
+      staySignedIn = false
+    ): EmailCodeSignInResult => {
+      if (!data.token && !data.twoFactorChallengeToken) {
+        const nextStep = toEmailCodeNextStep(data.nextStep)
+        if (nextStep) return { status: "nextStep", nextStep }
+      }
+      return adoptLoginResponse(data, staySignedIn)
+    },
+    [adoptLoginResponse]
+  )
+
+  const signInWithEmailCode = React.useCallback(
+    async (input: EmailCodeSignInInput): Promise<EmailCodeSignInResult> => {
+      const { data, error } = await api.POST("/api/v1/Auth/email-code/sign-in", {
+        body: {
+          pendingId: input.pendingId,
+          otp: input.otp,
+          requireFullProof: input.requireFullProof,
+          staySignedIn: input.staySignedIn,
+        },
+      })
+      if (error || !data) {
+        throw error ?? new Error("Sign-in failed")
+      }
+
+      return adoptEmailCodeResponse(data, input.staySignedIn)
+    },
+    [adoptEmailCodeResponse]
+  )
+
+  const recoverWithEmailCode = React.useCallback(
+    async (input: EmailCodeRecoveryInput): Promise<EmailCodeSignInResult> => {
+      const { data, error } = await api.POST("/api/v1/Auth/email-code/recover", {
+        body: {
+          pendingId: input.pendingId,
+          otp: input.otp,
+          twoFactorCode: input.twoFactorCode ?? null,
+          requireFullProof: input.requireFullProof,
+        },
+      })
+      if (error || !data) {
+        throw error ?? new Error("Account recovery failed")
+      }
+
+      return adoptEmailCodeResponse(data)
+    },
+    [adoptEmailCodeResponse]
   )
 
   const logout = React.useCallback(async () => {
@@ -649,6 +754,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       completeTwoFactor,
       completeEmailVerification,
       completeRegistration,
+      signInWithEmailCode,
+      recoverWithEmailCode,
       logout,
       refreshUser: loadCurrentUser,
       rereadUser,
@@ -668,6 +775,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       completeTwoFactor,
       completeEmailVerification,
       completeRegistration,
+      signInWithEmailCode,
+      recoverWithEmailCode,
       logout,
       loadCurrentUser,
       rereadUser,

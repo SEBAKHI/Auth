@@ -69,9 +69,12 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
   const { theme: activeTheme, setTheme } = useTheme()
   const meName = me.displayName || fullName(me.firstName, me.lastName, me.email ?? "")
 
+  // The names are optional (OI-215): an account may be created without them,
+  // and must then be able to save the rest of its profile. The address stands
+  // in for the name wherever one is shown.
   const schema = z.object({
-    firstName: z.string().min(1, t("validation.required")),
-    lastName: z.string().min(1, t("validation.required")),
+    firstName: z.string(),
+    lastName: z.string(),
     phoneNumber: z.string().optional(),
     preferredLanguage: z.string().optional(),
     timeZone: z.string().optional(),

@@ -18,9 +18,10 @@ const sources = import.meta.glob(
   { eager: true, query: "?raw", import: "default" }
 ) as Record<string, string>
 
-// The six forms that set a new password when S09 was written.
+// The six forms that set a new password when S09 was written (the sign-up's
+// moved into the shared code flow with OI-215).
 const KNOWN_FORMS = [
-  "apps/accounts/src/pages/auth/register-complete.tsx",
+  "packages/auth/src/pages/email-code-flow.tsx",
   "apps/console/src/pages/users/user-form-dialog.tsx",
   "packages/account/src/pages/profile/profile-security.tsx",
   "packages/auth/src/pages/accept-invitation.tsx",

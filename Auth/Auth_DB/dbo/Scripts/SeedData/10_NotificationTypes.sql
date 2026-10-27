@@ -423,10 +423,11 @@ BEGIN
 END
 
 -- two-factor-email-code (the code emailed at sign-in as the second factor)
--- For an account whose second factor is the emailed code: after the password,
--- the person asks for a code and enters it. Sent only when asked, never on its
--- own. No link: a code message is read, never clicked, and the subject carries
--- no code. IpAddress is optional: the client address may be unknown.
+-- For an account whose second factor is the emailed code: after the password
+-- (or a provider) the code is sent with the sign-in's challenge, and again when
+-- the person asks for it (D-243). No link: a code message is read, never
+-- clicked, and the subject carries no code. IpAddress is optional: the client
+-- address may be unknown.
 IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000024')
 BEGIN
     INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
@@ -451,4 +452,69 @@ SET [VariablesJson] = N'[{"name":"UserName","description":"Recipient display nam
     [SampleDataJson] = N'{"UserName":"Jane Doe","OtpCode":"123456","ExpirationMinutes":10,"RequestedAt":"2026-10-23 09:14:00Z","IpAddress":"203.0.113.7","Purpose":"sign-in"}'
 WHERE [Id] = '40000000-0000-0000-0000-000000000024'
   AND [VariablesJson] NOT LIKE N'%"name":"Purpose"%';
+
+-- email-sign-in-code (OTP, sign-in by emailed code, OI-215)
+-- Sent to an address that has an account when someone types it on the sign-in
+-- page and chooses the code. The page says the same thing for every address;
+-- only this message, read by the mailbox's holder, says there is an account.
+-- For an account without a password the code is its first factor. No link: a
+-- code message is read, never clicked, and the subject carries no code.
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000025')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000025',
+        N'email-sign-in-code',
+        N'Email Sign-In Code',
+        N'One-time code an existing account enters to sign in by email, sent when someone types its address on the sign-in page and chooses the code',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name, or the address when the account has no name","example":"Jane Doe","required":true},{"name":"OtpCode","description":"6-digit sign-in code","example":"123456","required":true},{"name":"ExpirationMinutes","description":"Minutes until the code expires","example":"15","required":true}]',
+        N'{"UserName":"Jane Doe","OtpCode":"123456","ExpirationMinutes":15}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created email-sign-in-code notification type';
+END
+
+-- sign-in-no-account (notice, no code, OI-215)
+-- Sent instead of a code when someone asks to sign in by emailed code with an
+-- address that has no account while new accounts cannot be created. The page
+-- says the same thing as for an address with an account; this message is the
+-- only place the difference shows, to the mailbox's holder alone. An ordinary
+-- notice: nothing happened to any account. Its one link is the ordinary sign-in
+-- page. No UserName: there is nobody to greet.
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000026')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000026',
+        N'sign-in-no-account',
+        N'Sign-In Attempt Without an Account',
+        N'Tells the holder of an address with no account here that someone asked to sign in with it while new accounts cannot be created, and that no code was sent',
+        1,
+        N'[{"name":"SignInLink","description":"Absolute URL of the sign-in page","example":"https://example.com/login","required":true},{"name":"AttemptedAt","description":"UTC timestamp of the attempt","example":"2026-10-26 09:14:00Z","required":true}]',
+        N'{"SignInLink":"https://example.com/login","AttemptedAt":"2026-10-26 09:14:00Z"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created sign-in-no-account notification type';
+END
+
+-- password-removed (security notice, OI-215)
+-- Sent when an account's password was removed: by its owner from the profile
+-- (Reason owner), or when a sign-in by emailed code confirmed the address for
+-- the first time and the password had been set before that proof (Reason
+-- set-before-address-proven). The account then signs in with a code sent to
+-- this address. No secret; the link goes to the ordinary security page, never
+-- to a one-click undo a mail scanner's prefetch could fire.
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000027')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000027',
+        N'password-removed',
+        N'Password Removed',
+        N'Tells an account owner that the account''s password was removed, by the owner or because a sign-in by code proved the address for the first time, and that it now signs in with a code sent by email',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name, or the address when the account has no name","example":"Jane Doe","required":true},{"name":"Reason","description":"Why the password was removed: owner (the owner removed it) or set-before-address-proven (set before the address was proven, retired by the first sign-in by code)","example":"owner","required":true},{"name":"RemovedAt","description":"UTC timestamp when the password was removed","example":"2026-10-26 09:14:00Z","required":true},{"name":"ManageSecurityLink","description":"Absolute URL of the profile security page","example":"https://example.com/profile?tab=security","required":true}]',
+        N'{"UserName":"Jane Doe","Reason":"owner","RemovedAt":"2026-10-26 09:14:00Z","ManageSecurityLink":"https://example.com/profile?tab=security"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created password-removed notification type';
+END
 GO

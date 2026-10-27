@@ -135,7 +135,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
 
         // Send from the database-managed template; language follows the user's
         // stored PreferredLanguage. Link building stays a config concern here.
-        var recipientName = user.DisplayName ?? user.FirstName ?? "User";
+        var recipientName = user.NameToShow;
         var sendResult = await _notificationService.SendAsync(
             new NotificationRequest
             {

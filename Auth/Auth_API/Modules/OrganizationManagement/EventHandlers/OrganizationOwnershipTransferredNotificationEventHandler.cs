@@ -34,8 +34,8 @@ public class OrganizationOwnershipTransferredNotificationEventHandler
         var previousOwner = await _userRepository.GetByIdAsync(notification.PreviousOwnerId, cancellationToken);
         var newOwner = await _userRepository.GetByIdAsync(notification.NewOwnerId, cancellationToken);
 
-        var previousOwnerName = previousOwner?.DisplayName ?? previousOwner?.FirstName ?? "The previous owner";
-        var newOwnerName = newOwner?.DisplayName ?? newOwner?.FirstName ?? "The new owner";
+        var previousOwnerName = previousOwner?.NameToShow ?? "The previous owner";
+        var newOwnerName = newOwner?.NameToShow ?? "The new owner";
 
         foreach (var recipient in new[] { previousOwner, newOwner })
         {
@@ -44,7 +44,7 @@ public class OrganizationOwnershipTransferredNotificationEventHandler
                 continue;
             }
 
-            var recipientName = recipient.DisplayName ?? recipient.FirstName ?? "User";
+            var recipientName = recipient.NameToShow;
             var sendResult = await _notificationService.SendAsync(
                 new NotificationRequest
                 {

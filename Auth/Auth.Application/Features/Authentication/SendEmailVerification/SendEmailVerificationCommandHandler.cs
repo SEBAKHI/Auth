@@ -112,7 +112,7 @@ public class SendEmailVerificationCommandHandler
         // Send email from the database-managed template. RecipientUserId makes
         // the notification language follow the user's stored PreferredLanguage
         // (the site language chosen at registration) rather than the request culture.
-        var recipientName = user.DisplayName ?? user.FirstName ?? "User";
+        var recipientName = user.NameToShow;
         var sendResult = await _notificationService.SendAsync(
             new NotificationRequest
             {

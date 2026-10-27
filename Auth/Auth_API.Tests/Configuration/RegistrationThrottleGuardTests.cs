@@ -41,6 +41,9 @@ public class RegistrationThrottleGuardTests
     private const string AuthCatchAllPath = "/api/v{version:int}/auth/{**catch-all}";
     private const string StartPath = "/api/v{version:int}/auth/registration/start";
     private const string FollowupPath = "/api/v{version:int}/auth/registration/{**catch-all}";
+    // OI-215: the sign-in by emailed code's start sends mail; its check sends nothing.
+    private const string EmailCodeStartPath = "/api/v{version:int}/auth/email-code/start";
+    private const string EmailCodeVerifyPath = "/api/v{version:int}/auth/email-code/verify";
 
     private const string RegisterPolicy = "register";
     private const string FollowupPolicy = "registration-followup";
@@ -57,6 +60,9 @@ public class RegistrationThrottleGuardTests
         { "[HttpPost(\"registration/start\")]", RegisterPolicy },
         { "[HttpPost(\"registration/verify\")]", FollowupPolicy },
         { "[HttpPost(\"registration/complete\")]", FollowupPolicy },
+        // OI-215: the code sign-in's start sends mail; its check sends nothing.
+        { "[HttpPost(\"email-code/start\")]", RegisterPolicy },
+        { "[HttpPost(\"email-code/verify\")]", FollowupPolicy },
     };
 
     [Theory]
@@ -87,13 +93,16 @@ public class RegistrationThrottleGuardTests
     {
         var users = ControllerActionsByPolicy();
 
+        // OI-215: the start of a sign-in by emailed code is also the start of a sign-up
+        // by code, and its check is a follow-up; its sign-in step is a sign-in.
         users[RegisterPolicy].Should().BeEquivalentTo(
-            [("AuthController.cs", "StartRegistration")],
+            [("AuthController.cs", "StartRegistration"), ("AuthController.cs", "StartEmailCodeSignIn")],
             "the register budget is one permit per sign-up, and the start step is the one request of a sign-up that sends mail");
 
         users[FollowupPolicy].Should().BeEquivalentTo(
-            [("AuthController.cs", "VerifyRegistration"), ("AuthController.cs", "CompleteRegistration")],
-            "the follow-up budget is for the two steps that send nothing: one check and one completion per sign-up");
+            [("AuthController.cs", "VerifyRegistration"), ("AuthController.cs", "CompleteRegistration"),
+             ("AuthController.cs", "VerifyEmailCodeSignIn")],
+            "the follow-up budget is for the steps that send nothing: one check and one completion per sign-up");
     }
 
     [Fact]
@@ -147,6 +156,8 @@ public class RegistrationThrottleGuardTests
     {
         { StartPath, RegisterPolicy },
         { FollowupPath, FollowupPolicy },
+        { EmailCodeStartPath, RegisterPolicy },
+        { EmailCodeVerifyPath, FollowupPolicy },
     };
 
     [Theory]
@@ -186,6 +197,10 @@ public class RegistrationThrottleGuardTests
             "the follow-up route must win the match against the auth catch-all it sits inside");
         start.Order.Should().BeLessThan(followup.Order,
             "the start route sits inside the follow-up catch-all and spends a different budget, so it must win that match too");
+
+        // OI-215: both code routes outrank the auth catch-all their sign-in step stays on.
+        routes.Single(route => route.Path == EmailCodeStartPath).Order.Should().BeLessThan(catchAll.Order);
+        routes.Single(route => route.Path == EmailCodeVerifyPath).Order.Should().BeLessThan(catchAll.Order);
     }
 
     [Fact]

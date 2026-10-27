@@ -100,7 +100,7 @@ public sealed class EmailCodeSender : IEmailCodeSender
             return await RefusalAsync(user.Id, challenge, hardLimit, cancellationToken);
         }
 
-        var recipientName = user.DisplayName ?? user.GetFullName();
+        var recipientName = user.NameToShow;
         var sendResult = await _notificationService.SendAsync(
             new NotificationRequest
             {

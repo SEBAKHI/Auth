@@ -19,7 +19,10 @@ namespace Auth.Domain.Entities;
 /// rotated in place by the next start for the address, keeping the row, its
 /// id and its mail counters. Those counters are what bound guessing: codes
 /// per window times attempts per code. They belong to the address, so they
-/// survive rotation.
+/// survive rotation. So does the wrong-code ceiling (D-110-2): once the code
+/// opens existing accounts (OI-215), five guesses per code and a free new code
+/// are no bound, so every wrong code also counts against the address, across
+/// every code it is issued, for 24 hours.
 /// </remarks>
 public class PendingRegistration : AggregateRoot
 {
@@ -29,6 +32,14 @@ public class PendingRegistration : AggregateRoot
     /// whichever door they come through.
     /// </summary>
     public const int MaxAttempts = 5;
+
+    /// <summary>
+    /// The window the wrong-code ceiling is counted in (D-110-2): it opens at the
+    /// address's first wrong code and lasts 24 hours, whatever happens to the code
+    /// in between. How many wrong codes it admits is a setting
+    /// (<c>Email:MaxWrongCodesPerDay</c>).
+    /// </summary>
+    public static readonly TimeSpan WrongCodeWindow = TimeSpan.FromHours(24);
 
     /// <summary>
     /// The opaque value the client holds; a keyed digest of the address,
@@ -50,6 +61,15 @@ public class PendingRegistration : AggregateRoot
 
     /// <summary>Wrong codes presented against the current code.</summary>
     public int AttemptCount { get; private set; }
+
+    /// <summary>
+    /// Wrong codes presented for this address inside the current wrong-code window,
+    /// across every code it was issued (D-110-2). A new code leaves it alone.
+    /// </summary>
+    public int WrongCodeCount { get; private set; }
+
+    /// <summary>Start of the window <see cref="WrongCodeCount"/> is counted in.</summary>
+    public DateTime WrongCodeWindowStartUtc { get; private set; }
 
     /// <summary>Codes issued for this address inside the current mail window.</summary>
     public int MailedCount { get; private set; }
@@ -98,6 +118,14 @@ public class PendingRegistration : AggregateRoot
     /// <summary>The current code has taken its five wrong guesses.</summary>
     public bool IsExhausted => AttemptCount >= MaxAttempts;
 
+    /// <summary>
+    /// The address has spent its wrong codes for the current window (D-110-2): every
+    /// code it presents is refused, a right one too, until the window passes. Read
+    /// under the row's lock, before the code is compared.
+    /// </summary>
+    public bool HasReachedWrongCodeCeiling(int maxPerWindow, DateTime nowUtc) =>
+        WrongCodeCount >= maxPerWindow && WrongCodeWindowStartUtc + WrongCodeWindow > nowUtc;
+
     /// <summary>The current code is past its expiry at <paramref name="nowUtc"/>.</summary>
     public bool IsExpired(DateTime nowUtc) => ExpiresAt <= nowUtc;
 
@@ -130,7 +158,9 @@ public class PendingRegistration : AggregateRoot
         DateTime? verifiedAt,
         DateTime? consumedAt,
         string? preferredLanguage,
-        DateTime createdAt) : base(id)
+        DateTime createdAt,
+        int wrongCodeCount = 0,
+        DateTime wrongCodeWindowStartUtc = default) : base(id)
     {
         Handle = handle;
         Email = Email.From(email);
@@ -145,6 +175,8 @@ public class PendingRegistration : AggregateRoot
         ConsumedAt = consumedAt;
         PreferredLanguage = preferredLanguage;
         CreatedAt = createdAt;
+        WrongCodeCount = wrongCodeCount;
+        WrongCodeWindowStartUtc = wrongCodeWindowStartUtc;
     }
 
     /// <summary>
@@ -169,6 +201,8 @@ public class PendingRegistration : AggregateRoot
             AttemptCount = 0,
             MailedCount = 0,
             MailWindowStartUtc = nowUtc,
+            WrongCodeCount = 0,
+            WrongCodeWindowStartUtc = nowUtc,
             CreatedAt = nowUtc
         };
     }
@@ -229,8 +263,8 @@ public class PendingRegistration : AggregateRoot
     /// <summary>
     /// Issues the row's current code: the first one on a new row, or a
     /// rotation in place of a dead one. Attempts, the verified stamp and the
-    /// mailed stamp all start over; the id, the handle and the mail counters
-    /// do not.
+    /// mailed stamp all start over; the id, the handle, the mail counters and
+    /// the wrong-code ceiling's count do not.
     /// </summary>
     public void IssueCode(string otpHash, int expirationMinutes, string? preferredLanguage, DateTime nowUtc)
     {
@@ -260,8 +294,24 @@ public class PendingRegistration : AggregateRoot
     /// <summary>The message this start produced — the code, or the notice sent in its place — reached the outbox.</summary>
     public void MarkMailed(DateTime nowUtc) => MailedAt ??= nowUtc;
 
-    /// <summary>One more wrong code against the current one.</summary>
-    public void RecordFailedAttempt() => AttemptCount++;
+    /// <summary>
+    /// One more wrong code: against the current code, and against the address's
+    /// wrong-code window, which opens anew at the first wrong code after the old
+    /// one passed.
+    /// </summary>
+    public void RecordFailedAttempt(DateTime nowUtc)
+    {
+        AttemptCount++;
+
+        if (WrongCodeCount == 0 || WrongCodeWindowStartUtc + WrongCodeWindow <= nowUtc)
+        {
+            WrongCodeWindowStartUtc = nowUtc;
+            WrongCodeCount = 1;
+            return;
+        }
+
+        WrongCodeCount++;
+    }
 
     /// <summary>The current code was presented correctly (first time only is kept).</summary>
     public void MarkVerified(DateTime nowUtc) => VerifiedAt ??= nowUtc;

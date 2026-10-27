@@ -202,9 +202,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             "Invitation created for {Email} to organization {OrganizationId} by {InvitedBy}",
             EmailMasking.Mask(request.Email), request.OrganizationId, request.InvitedBy);
 
-        var inviterName = inviter != null
-            ? $"{inviter.FirstName} {inviter.LastName}".Trim()
-            : "An administrator";
+        var inviterName = inviter?.NameToShow ?? "An administrator";
 
         // Send from the database-managed template. Language priority: inviter's
         // explicit choice → invitee's profile (matched by email inside the
@@ -258,7 +256,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             ExpiresAt = invitation.ExpiresAt,
             IsExpired = invitation.IsExpired(),
             InvitedBy = invitation.InvitedBy,
-            InvitedByName = inviter != null ? $"{inviter.FirstName} {inviter.LastName}".Trim() : null,
+            InvitedByName = inviter?.NameToShow,
             InvitedByEmail = inviter?.Email?.Value,
             AcceptedAt = invitation.AcceptedAt,
             AcceptedByUserId = invitation.AcceptedByUserId,

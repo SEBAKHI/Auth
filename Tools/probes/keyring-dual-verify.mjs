@@ -46,9 +46,16 @@
  *   - with PROBE_KEYRING_THROWAWAY=yes, which states that the API runs on a
  *     throwaway secrets file and a throwaway database;
  *   - on a ring that never rotated (else INCONCLUSIVE, nothing changed).
- * Accounts are made through the API's own flows. Without PROBE_ADMIN_EMAIL and
- * PROBE_ADMIN_PASSWORD it registers its own administrator and grants it the
- * platform's Super Administrator role in the throwaway database. One-time codes
+ * An account is a confirmed row with no password, written to the throwaway
+ * database, that takes its first password through the API's own "forgot password"
+ * and reset (registration/start refuses while email is off, OI-215). Without
+ * PROBE_ADMIN_EMAIL and PROBE_ADMIN_PASSWORD it makes its own administrator that
+ * way and grants it the platform's Super Administrator role there. The pending
+ * registration under test comes from registration/start itself, with email
+ * sending switched on through System settings for that one request and switched
+ * back after, so the API keeps its database settings layer on (never
+ * AUTH_DISABLE_DB_SETTINGS=true) and the administrator holds
+ * system-settings:manage. One-time codes
  * and the reset link come from the API's Serilog file (Email off, Development);
  * so does the invitation link, from the rendered email the API writes at Debug
  * in Development only (its notification row is redacted once delivered). No
@@ -65,7 +72,8 @@
  * localhost\SQLEXPRESS01, a local server only), PROBE_SQLCMD_DB (default
  * AuthSystem), PROBE_KEYRING_THROWAWAY=yes (required), PROBE_ADMIN_EMAIL and
  * PROBE_ADMIN_PASSWORD (optional: an account with secrets.manage, webhook-key,
- * application and organization rights, and no second factor).
+ * application, organization and system-settings:manage rights, and no second
+ * factor).
  *
  * Usage: node Tools/probes/keyring-dual-verify.mjs
  * Exit:  0 PASS · 1 FAIL · 4 INCONCLUSIVE · 3 setup aborted · 2 refused
@@ -76,6 +84,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { confirmedAccountSql, withEmailSendingOn } from "../lib/dev-accounts.mjs";
 
 const execFileAsync = promisify(execFile);
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -261,16 +270,24 @@ const guid = (value) => {
   return value;
 };
 
-// ── Accounts, through the API's own flows ────────────────────────────────────
+// ── Accounts ─────────────────────────────────────────────────────────────────
+// The probe keeps email off (codes and links come from the log), and since OI-215
+// registration/start refuses every address while it is off. So an account starts
+// as a confirmed row with no password, written here, takes its first password
+// through the API's own "forgot password" and reset, and signs in. The pending
+// registration under test is the exception: its code is a credential the keyring
+// keys, so it comes from registration/start itself, with email sending switched on
+// for that one request by the administrator and switched back after.
 const uniqueEmail = (tag) => `kr-${tag}-${Date.now().toString(36)}${randomBytes(2).toString("hex")}@probe.example.com`;
 
-async function startRegistration(email) {
+async function startRegistration(email, admin) {
   const mark = logMark();
-  const start = must(
-    await paced("/api/v1/auth/registration/start", { method: "POST", body: { email, preferredLanguage: "en" } }),
-    [200],
-    "registration/start",
-  );
+  const start = await withEmailSendingOn({ api: API, token: admin }, async () =>
+    must(
+      await paced("/api/v1/auth/registration/start", { method: "POST", body: { email, preferredLanguage: "en" } }),
+      [200],
+      "registration/start",
+    ));
   const otp = await otpAfter(mark);
   return { email, pendingId: start.json.pendingId, otp };
 }
@@ -289,10 +306,21 @@ async function completeRegistration(pending) {
 }
 
 async function register(tag) {
-  const pending = await startRegistration(uniqueEmail(tag));
-  const done = await completeRegistration(pending);
-  if (!done.ok) throw new SetupError(`registration of ${tag}: ${done.detail}`);
-  return { email: pending.email, userId: guid(done.userId), token: done.token };
+  const email = uniqueEmail(tag);
+  const userId = guid(await sql(confirmedAccountSql(email)));
+  const mark = logMark();
+  must(await paced("/api/v1/auth/forgot-password", { method: "POST", body: { email } }), [200, 202, 204], `${tag}: forgot-password`);
+  const resetToken = await resetTokenAfter(mark);
+  must(
+    await call("/api/v1/auth/reset-password", {
+      method: "POST", body: { token: resetToken, newPassword: PASSWORD, confirmNewPassword: PASSWORD, terminateSessions: false },
+    }),
+    [200, 204],
+    `${tag}: reset-password`,
+  );
+  const signIn = must(await login(email, PASSWORD), [200], `${tag}: first sign-in`);
+  if (!signIn.json.token?.accessToken) throw new SetupError(`${tag}: the first sign-in returned no access token`);
+  return { email, userId, token: signIn.json.token.accessToken };
 }
 
 async function login(email, password) {
@@ -411,7 +439,7 @@ async function issueSet(label, ctx) {
   if (!set.challengeToken) throw new SetupError(`${label}: the two-factor account was not asked for a second factor`);
 
   // Pending registration: its handle and its emailed code.
-  set.pending = await startRegistration(uniqueEmail(`reg${label}`));
+  set.pending = await startRegistration(uniqueEmail(`reg${label}`), ctx.admin);
   return set;
 }
 

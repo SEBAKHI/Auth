@@ -51,8 +51,8 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, Error
 
         // Update profile
         user.UpdateProfile(
-            firstName: request.FirstName,
-            lastName: request.LastName,
+            firstName: request.FirstName ?? string.Empty,
+            lastName: request.LastName ?? string.Empty,
             phoneNumber: request.PhoneNumber,
             preferredLanguage: request.PreferredLanguage,
             timeZone: request.TimeZone,

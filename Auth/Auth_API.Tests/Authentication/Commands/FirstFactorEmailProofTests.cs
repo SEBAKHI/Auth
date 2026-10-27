@@ -97,7 +97,9 @@ public class FirstFactorEmailProofTests
     {
         _guard
             .Setup(g => g.EnsureRecentSignInAsync(userId, SessionId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new RecentSession(SessionId, "Firefox on Linux", sessionMethods));
+            .ReturnsAsync(new RecentSession(SessionId, "Firefox on Linux",
+                // A first factor unless the test says otherwise: binding the app needs one (REVIEW 110 F5).
+                sessionMethods.Value == 0 ? AuthenticationMethods.Password : sessionMethods));
         _stateStore
             .Setup(s => s.HasEnabledFactorAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(enabled);

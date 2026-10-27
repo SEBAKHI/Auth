@@ -28,10 +28,15 @@ public class GetPlatformBrandingQueryHandlerTests
         _handler = Handler(new IdentityProviderSettings());
     }
 
-    private GetPlatformBrandingQueryHandler Handler(IdentityProviderSettings idpSettings) => new(
+    private GetPlatformBrandingQueryHandler Handler(
+        IdentityProviderSettings idpSettings,
+        RegistrationSettings? registration = null,
+        EmailSettings? email = null) => new(
         _settingsRepoMock.Object,
         _imageUrlComposerMock.Object,
-        TestHelpers.CreateOptions(idpSettings));
+        TestHelpers.CreateOptions(idpSettings),
+        TestHelpers.CreateOptions(registration ?? new RegistrationSettings()),
+        TestHelpers.CreateOptions(email ?? new EmailSettings()));
 
     [Fact]
     public async Task Handle_NoSettingsRow_ReturnsDefaults()

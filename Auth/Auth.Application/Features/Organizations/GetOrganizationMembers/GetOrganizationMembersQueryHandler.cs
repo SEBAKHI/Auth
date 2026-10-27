@@ -92,7 +92,7 @@ public class GetOrganizationMembersQueryHandler : IRequestHandler<GetOrganizatio
                 Email = user?.Email?.Value ?? string.Empty,
                 FirstName = user?.FirstName,
                 LastName = user?.LastName,
-                FullName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : null,
+                FullName = user?.NameToShow,
                 ProfileImageUrl = _imageUrlComposer.Compose(user?.ProfileImageUrl),
                 RoleId = member.RoleId,
                 RoleCode = role?.Code ?? string.Empty,

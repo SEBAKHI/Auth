@@ -58,6 +58,8 @@ vi.mock("@authsystem/ui/branding", () => ({
     staySignedInOffered: true,
   }),
   BrandingLogo: () => <span data-testid="platform-mark" />,
+  // The sign-in options are not yet known: the sign-up page shows its form.
+  useSignInOptions: () => null,
 }))
 // Chrome only: the toggles need the theme and language provider stack.
 vi.mock("@authsystem/ui/common/language-toggle", () => ({
@@ -74,12 +76,10 @@ import { VerifyEmailPage } from "@authsystem/auth/pages/verify-email-page"
 
 import { AccountsLoginPage } from "./auth/login"
 import { RegisterPage } from "./auth/register"
-import { RegisterCompletePage } from "./auth/register-complete"
 import { RegisterVerifyPage } from "./auth/register-verify"
 import {
   clearRegistrationFlow,
   savePendingRegistration,
-  setVerifiedCode,
 } from "./auth/registration-flow"
 import { AccountsTwoFactorPage } from "./auth/two-factor"
 
@@ -140,7 +140,7 @@ const PAGES: FlowPage[] = [
     name: "register: the code",
     path: "/register/verify",
     element: <RegisterVerifyPage />,
-    heading: "Confirm email",
+    heading: "Check your email",
     carries: "query",
     setup: () =>
       savePendingRegistration({
@@ -149,22 +149,6 @@ const PAGES: FlowPage[] = [
         maskedEmail: "j***@one.example",
         expiresAt: inFuture(),
       }),
-  },
-  {
-    name: "register: name and password",
-    path: "/register/complete",
-    element: <RegisterCompletePage />,
-    heading: "Set up your account",
-    carries: "query",
-    setup: () => {
-      savePendingRegistration({
-        pendingId: "handle-1",
-        email: "jane@one.example",
-        maskedEmail: "j***@one.example",
-        expiresAt: inFuture(),
-      })
-      setVerifiedCode("123456")
-    },
   },
   {
     name: "forgot password",
@@ -272,7 +256,6 @@ describe("the application header on every screen of the flow", () => {
       "/login",
       "/register",
       "/register/verify",
-      "/register/complete",
       "/forgot-password",
       "/two-factor",
       "/verify-email",

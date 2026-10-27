@@ -1,9 +1,9 @@
 using System.Globalization;
 using Auth.Application.Common;
 using Auth.Application.Configuration;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Users.Common;
 using Auth.Application.Interfaces;
-using Auth.Application.Notifications;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
@@ -32,15 +32,21 @@ namespace Auth.Application.Features.Authentication.StartRegistration;
 /// order, writes (or rotates) the same pending row under the same lock, renders
 /// and enqueues one message, stamps the row, raises the same audit event, and
 /// answers with the same shape. The single difference is which message goes
-/// out: a code to a free address, or a notice to the address's owner that the
-/// address cannot be used for a new account. The code is minted and stored for
-/// a taken address too — it is simply never sent — so the verify step has
-/// nothing to branch on either.
+/// out, chosen by <see cref="EmailCodeStartMessages"/>, the classification the
+/// sign-in page's start uses too (OI-215, REVIEW 110 F1): the registration code
+/// to a free address; the sign-in code to an address that has an account, since
+/// that code also signs in to the account and must never be minted for it
+/// without reaching it; and a notice, with the code never sent, to an address a
+/// deletion tombstone reserves.
 /// </para>
 /// <para>
-/// The door is checked before anything else: a server that does not allow
-/// self-registration must not classify the address, or the closed door becomes
-/// an oracle for who is registered here.
+/// Two refusals come before anything else, both the same for every address: a
+/// server that does not allow self-registration, and email sending off (REVIEW-FIXES
+/// 110 G1). Neither may classify the address, or the refusal becomes an oracle for
+/// who is registered here. With email off nothing could deliver a code, so none is
+/// minted: a code for an address with an account would otherwise sit live and
+/// "mailed" in its row, and the owner's next start would leave it alone and send
+/// nothing once email came back on.
 /// </para>
 /// </remarks>
 public class StartRegistrationCommandHandler
@@ -52,6 +58,7 @@ public class StartRegistrationCommandHandler
     private readonly IdentifierReservationGuard _reservationGuard;
     private readonly INotificationService _notificationService;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly EmailCodeStartMessages _messages;
     private readonly RegistrationSettings _registrationSettings;
     private readonly EmailSettings _emailSettings;
     private readonly IEnvironmentInfo _environment;
@@ -64,6 +71,7 @@ public class StartRegistrationCommandHandler
         IdentifierReservationGuard reservationGuard,
         INotificationService notificationService,
         IDomainEventDispatcher eventDispatcher,
+        EmailCodeStartMessages messages,
         IOptionsSnapshot<RegistrationSettings> registrationSettings,
         IOptionsSnapshot<EmailSettings> emailSettings,
         IEnvironmentInfo environment,
@@ -75,6 +83,7 @@ public class StartRegistrationCommandHandler
         _reservationGuard = reservationGuard;
         _notificationService = notificationService;
         _eventDispatcher = eventDispatcher;
+        _messages = messages;
         _registrationSettings = registrationSettings.Value;
         _emailSettings = emailSettings.Value;
         _environment = environment;
@@ -97,6 +106,17 @@ public class StartRegistrationCommandHandler
             return UserErrors.SelfRegistrationClosed;
         }
 
+        // Email sending off, at the same position and for the same reason: one
+        // refusal for every address, the sign-in page's own (its start, and every
+        // step that takes a code, refuse the same way while email is off).
+        if (!_emailSettings.Enabled)
+        {
+            _logger.LogInformation(
+                "Self-registration start refused for {Email}: email sending is off",
+                EmailMasking.Mask(request.Email));
+            return UserErrors.EmailCodeSignInUnavailable;
+        }
+
         // One normalization, and everything below — the mask the screen shows,
         // the key the row is stored under, the address the message goes to —
         // derives from it. Masking the raw input in one branch and the stored
@@ -114,7 +134,6 @@ public class StartRegistrationCommandHandler
         // that difference is what a deletion tombstone is meant to hide.
         var reserved = await _reservationGuard.IsReservedAsync(email, cancellationToken);
         var owner = await _userRepository.GetNotificationIdentityByEmailAsync(email, cancellationToken);
-        var addressIsFree = !reserved && owner is null;
 
         // The row, for every class of address. The repository holds the lock,
         // finds or creates the address's one unconsumed row, leaves a live and
@@ -132,23 +151,21 @@ public class StartRegistrationCommandHandler
         var row = start.Row;
 
         // A message only when a code was minted: a live code is already in
-        // someone's inbox, and a spent mail window is the guessing bound. The
-        // code itself goes out only to a free address; its owner-facing twin
-        // says the address cannot be used for a new account. Both are rendered
-        // and enqueued the same way, and the row is stamped the same way, so
-        // the two cost the same on the wire and in the outbox.
+        // someone's inbox, and a spent mail window is the guessing bound. Every
+        // kind is rendered and enqueued the same way, and the row is stamped the
+        // same way, so they cost the same on the wire and in the outbox. The door
+        // above is open, so a free address always gets the registration code.
         if (start.Action == PendingRegistrationStartAction.Minted)
         {
-            if (addressIsFree)
+            var message = _messages.Choose(
+                email, owner, reserved, selfRegistrationOpen: true, requestLanguage, start.Code!);
+
+            if (message.CarriesCode)
             {
                 LogCodeInDevelopment(email, start.Code!);
             }
 
-            var message = addressIsFree
-                ? CodeMessage(email, requestLanguage, start.Code!)
-                : NoticeMessage(email, owner, requestLanguage);
-
-            var sent = await _notificationService.SendAsync(message, cancellationToken);
+            var sent = await _notificationService.SendAsync(message.Request, cancellationToken);
 
             // A failure here changes nothing the caller sees. The row is
             // committed and MailedAt stays null, so the next start for this
@@ -184,58 +201,22 @@ public class StartRegistrationCommandHandler
         return new StartRegistrationResponse(row.Handle, maskedEmail, row.ExpiresAt);
     }
 
-    private NotificationRequest CodeMessage(string email, string language, string code) => new()
-    {
-        TypeCode = NotificationTypeCodes.RegistrationVerification,
-        RecipientAddress = email,
-        // No RecipientUserId and no RecipientName: there is no user. The
-        // language is stated explicitly so the renderer looks nobody up.
-        LanguageCode = language,
-        TriggeredBy = Guid.Empty,
-        Variables = new Dictionary<string, object?>
-        {
-            ["OtpCode"] = code,
-            ["ExpirationMinutes"] = _emailSettings.OtpExpirationMinutes
-        }
-    };
-
-    private NotificationRequest NoticeMessage(string email, UserNotificationIdentity? owner, string requestLanguage) => new()
-    {
-        TypeCode = NotificationTypeCodes.RegistrationAttemptExistingAccount,
-        RecipientAddress = email,
-        RecipientUserId = owner?.Id,
-        // The delivery log's recipient column, like every other user-addressed
-        // message; the template itself greets nobody by name.
-        RecipientName = owner?.DisplayName,
-        // The owner's stored language when there is an owner; a reserved
-        // address has none and gets the language of the request that typed it.
-        // Computed here, explicitly, so the renderer takes no branch of its own.
-        LanguageCode = Languages.Normalize(owner?.PreferredLanguage) ?? requestLanguage,
-        TriggeredBy = Guid.Empty,
-        Variables = new Dictionary<string, object?>
-        {
-            ["SignInLink"] = _emailSettings.BuildFrontendUrl("/login"),
-            ["ResetPasswordLink"] = _emailSettings.BuildFrontendUrl("/forgot-password"),
-            ["AttemptedAt"] = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss'Z'", CultureInfo.InvariantCulture)
-        }
-    };
-
     /// <summary>
-    /// With email disabled the log is the only other place the code exists,
-    /// which is what makes the flow testable locally. Gated on the environment
-    /// as well as the setting: this code is the whole proof of the address —
-    /// presenting it turns a stranger's typing into an account — and
-    /// Email:Enabled is a hot setting an operator can flip from the console in
-    /// production, so on its own it would put a live code in the production
-    /// log. Only for a code that actually goes out: a code minted for a taken
-    /// address is never sent, and must not be logged either.
+    /// The code in the development log, for a message that carries one, as the
+    /// sign-in page's start does: this start runs only while email is on, which is
+    /// now the only way to sign up on a development machine, and such a machine
+    /// rarely has a mail server, so the log is where a developer reads it. Gated on
+    /// the environment: the code is the whole proof of the mailbox — presenting it
+    /// turns a stranger's typing into an account, or signs in to one — and must
+    /// never reach a production log. Never for the notice to a reserved address,
+    /// whose code is never sent.
     /// </summary>
     private void LogCodeInDevelopment(string email, string code)
     {
-        if (!_emailSettings.Enabled && _environment.IsDevelopment)
+        if (_environment.IsDevelopment)
         {
             _logger.LogWarning(
-                "Email disabled - OTP for {Email}: {Otp} (expires in {Minutes} minutes)",
+                "Development only - OTP for {Email}: {Otp} (expires in {Minutes} minutes)",
                 EmailMasking.Mask(email), code, _emailSettings.OtpExpirationMinutes);
         }
     }

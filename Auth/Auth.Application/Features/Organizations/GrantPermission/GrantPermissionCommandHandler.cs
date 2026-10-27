@@ -147,7 +147,7 @@ public class GrantPermissionCommandHandler : IRequestHandler<GrantPermissionComm
             PermissionName = permission.Name,
             GrantedAt = grant.GrantedAt,
             GrantedBy = grant.GrantedBy,
-            GrantedByName = grantedByUser != null ? $"{grantedByUser.FirstName} {grantedByUser.LastName}".Trim() : null,
+            GrantedByName = grantedByUser?.NameToShow,
             ExpiresAt = grant.ExpiresAt
         };
     }

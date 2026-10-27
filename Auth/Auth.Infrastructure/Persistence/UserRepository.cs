@@ -1219,6 +1219,101 @@ public class UserRepository : IUserRepository
             });
     }
 
+    // The first confirmation by a sign-in code (OI-215, D-215-5 (a)): the address and
+    // the retirement of a password set before it was proven are one statement, so no
+    // reader sees a confirmed address that still carries that password. Only over the
+    // state the sign-in read: still unconfirmed, still the same hash (or none). The
+    // change stamp is left alone: the mailbox was proven, never a password.
+    internal const string ConfirmEmailBySignInCodeSql = @"
+            UPDATE [dbo].[Users] SET
+                [IsEmailConfirmed] = 1,
+                [PasswordHash] = NULL,
+                [MustChangePassword] = 0,
+                [PasswordExpiresUtc] = NULL,
+                [ModifiedAt] = GETUTCDATE(),
+                [ModifiedBy] = @UserId
+            WHERE [Id] = @UserId
+              AND [IsEmailConfirmed] = 0
+              AND (([PasswordHash] IS NULL AND @ReadPasswordHash IS NULL) OR [PasswordHash] = @ReadPasswordHash)";
+
+    /// <inheritdoc />
+    public async Task<bool> ConfirmEmailBySignInCodeAsync(
+        Guid userId, string? readPasswordHash, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        return await connection.ExecuteAsync(new CommandDefinition(
+            ConfirmEmailBySignInCodeSql,
+            new { UserId = userId, ReadPasswordHash = readPasswordHash },
+            cancellationToken: cancellationToken)) == 1;
+    }
+
+    // The owner's removal (OI-215, D-215-3): only over the hash the handler read and
+    // only on a confirmed address, with the change stamp a password change writes.
+    internal const string RemovePasswordSql = @"
+            UPDATE [dbo].[Users] SET
+                [PasswordHash] = NULL,
+                [LastPasswordChangeUtc] = GETUTCDATE(),
+                [MustChangePassword] = 0,
+                [PasswordExpiresUtc] = NULL,
+                [ModifiedAt] = GETUTCDATE(),
+                [ModifiedBy] = @ModifiedBy
+            WHERE [Id] = @UserId
+              AND [IsEmailConfirmed] = 1
+              AND [PasswordHash] = @ReadPasswordHash";
+
+    /// <inheritdoc />
+    public async Task<bool> RemovePasswordAsync(
+        Guid userId, string readPasswordHash, Guid modifiedBy, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        var removed = await connection.ExecuteAsync(new CommandDefinition(
+            RemovePasswordSql,
+            new { UserId = userId, ReadPasswordHash = readPasswordHash, ModifiedBy = modifiedBy },
+            transaction,
+            cancellationToken: cancellationToken)) == 1;
+
+        if (!removed)
+        {
+            transaction.Rollback();
+            return false;
+        }
+
+        // The removed hash joins the history in the same transaction, as a change's
+        // old hash does, so the history checks that read it still see it.
+        await connection.ExecuteAsync(new CommandDefinition(@"
+            INSERT INTO [dbo].[PasswordHistory] ([Id], [UserId], [PasswordHash], [CreatedAt])
+            VALUES (NEWID(), @UserId, @PasswordHash, GETUTCDATE())",
+            new { UserId = userId, PasswordHash = readPasswordHash },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        transaction.Commit();
+        return true;
+    }
+
+    /// <inheritdoc />
+    public async Task<int> CountEmailCodeOnlyAccountsAsync(CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Live accounts with no password and no provider: the emailed code is their
+        // only way in. An account waiting for deletion is not counted; it signs in by
+        // nothing until it is recovered. Nor is the system account, which signs in
+        // by no means at all.
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(@"
+            SELECT COUNT(*)
+            FROM [dbo].[Users] u
+            WHERE u.[PasswordHash] IS NULL
+              AND u.[IsDeleted] = 0
+              AND u.[Id] <> @SystemUserId
+              AND NOT EXISTS (SELECT 1 FROM [dbo].[UserExternalLogins] el WHERE el.[UserId] = u.[Id])",
+            new { SystemUserId = WellKnownUserIds.System },
+            cancellationToken: cancellationToken));
+    }
+
     #region User Roles
 
     /// <inheritdoc />

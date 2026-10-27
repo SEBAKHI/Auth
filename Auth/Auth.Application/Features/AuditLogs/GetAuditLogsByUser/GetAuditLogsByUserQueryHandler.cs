@@ -70,7 +70,7 @@ public class GetAuditLogsByUserQueryHandler : IRequestHandler<GetAuditLogsByUser
                 PerformedBy = log.PerformedBy,
 
                 SessionId = log.SessionId,
-                UserName = user.DisplayName ?? $"{user.FirstName} {user.LastName}".Trim(),
+                UserName = user.NameToShow,
                 UserEmail = user.Email,
                 ApplicationId = log.ApplicationId,
                 ActionType = log.ActionType,

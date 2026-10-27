@@ -661,11 +661,12 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
    */
   const [pendingValues, setPendingValues] = React.useState<FieldValues | null>(null)
   const [highImpactNames, setHighImpactNames] = React.useState<string[]>([])
-  // Accounts whose second factor is the emailed code, counted by the server when
-  // this save turns email sending off (S24, ARR-0694): undefined while not asked,
-  // null while counting, "unknown" when the count failed.
+  // Accounts whose second factor is the emailed code, and accounts that sign in
+  // only with an emailed code (OI-215), counted by the server when this save
+  // turns email sending off (S24, ARR-0694): undefined while not asked, null
+  // while counting, "unknown" when the count failed.
   const [emailCodeAccounts, setEmailCodeAccounts] = React.useState<
-    number | null | "unknown" | undefined
+    { secondFactor: number; passwordless: number } | null | "unknown" | undefined
   >(undefined)
   const [conflictFields, setConflictFields] = React.useState<string[] | null>(null)
   /** Whether the bar's list of unsaved changes is showing. */
@@ -1151,7 +1152,14 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
     const { data, error } = await api.GET(
       "/api/v1/admin/system-settings/email/two-factor-accounts"
     )
-    setEmailCodeAccounts(error || !data ? "unknown" : Number(data.count ?? 0))
+    setEmailCodeAccounts(
+      error || !data
+        ? "unknown"
+        : {
+            secondFactor: Number(data.count ?? 0),
+            passwordless: Number(data.passwordlessCount ?? 0),
+          }
+    )
   }
 
   /**
@@ -1407,9 +1415,19 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
               {emailCodeAccounts === null ? (
                 <Spinner />
               ) : emailCodeAccounts === "unknown" ? (
-                t("systemSettings.emailOffAccountsUnknown")
+                <>
+                  {t("systemSettings.emailOffAccountsUnknown")}{" "}
+                  {t("systemSettings.emailOffPasswordlessAccountsUnknown")}
+                </>
               ) : (
-                t("systemSettings.emailOffAccounts", { count: emailCodeAccounts })
+                <>
+                  {t("systemSettings.emailOffAccounts", {
+                    count: emailCodeAccounts.secondFactor,
+                  })}{" "}
+                  {t("systemSettings.emailOffPasswordlessAccounts", {
+                    count: emailCodeAccounts.passwordless,
+                  })}
+                </>
               )}
             </p>
           )}

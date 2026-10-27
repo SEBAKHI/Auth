@@ -132,7 +132,7 @@ public class FirstFactorEmailProof
         // Sent while email is on — the only state in which a code is required — so
         // there is no development log line that prints it: the code exists in the
         // email alone.
-        var recipientName = user.DisplayName ?? user.GetFullName();
+        var recipientName = user.NameToShow;
         var sendResult = await _notificationService.SendAsync(
             new NotificationRequest
             {

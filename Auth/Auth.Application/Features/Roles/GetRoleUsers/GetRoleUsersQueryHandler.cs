@@ -2,6 +2,7 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
+using Auth.Domain.Entities;
 using ErrorOr;
 using MediatR;
 
@@ -52,7 +53,7 @@ public class GetRoleUsersQueryHandler : IRequestHandler<GetRoleUsersQuery, Error
             Email = user.Email,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            FullName = $"{user.FirstName} {user.LastName}".Trim(),
+            FullName = User.NameToShowFrom(user.FirstName, user.LastName, user.Email),
             DisplayName = user.DisplayName,
             ProfileImageUrl = _imageUrlComposer.Compose(user.ProfileImageUrl),
             Status = user.Status,

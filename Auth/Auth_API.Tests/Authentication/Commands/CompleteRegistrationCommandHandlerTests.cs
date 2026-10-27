@@ -442,6 +442,88 @@ public class CompleteRegistrationCommandHandlerTests
             o => o.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()), Times.Exactly(organizationsCreated));
     }
 
+    // ── OI-215 (V8): what a sign-up gives follows the Registration switches ──
+
+    private static CompleteRegistrationCommand Bare(string? password = null, string? firstName = null, string? lastName = null) =>
+        new("handle-1", "123456", password, firstName, lastName, null, false, "device-1", "203.0.113.7", "TestAgent/1.0");
+
+    private static AuthenticationMethods SessionMethods(Scenario scenario) =>
+        (AuthenticationMethods)scenario.Session.Invocations.Single(i => i.Method.Name == "BuildAsync").Arguments[4];
+
+    [Fact]
+    public async Task WithBothSwitchesOff_AnAccountWithoutAPasswordOrAName_IsCreated_AndSignsInByItsCode()
+    {
+        var scenario = new Scenario();
+        scenario.Registration.PasswordAtSignUp = false;
+        scenario.Registration.NameAtSignUp = false;
+
+        var result = await scenario.RunAsync(Bare());
+
+        result.IsError.Should().BeFalse();
+        scenario.CreatedUser!.PasswordHash.Should().BeNull();
+        scenario.CreatedUser.FirstName.Should().BeEmpty();
+        scenario.CreatedUser.NameToShow.Should().Be("jane@one.example");
+        scenario.Calls.Should().NotContain("hasher.HashPassword").And.NotContain("breach.EvaluateAsync");
+        SessionMethods(scenario).Should().Be(AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false),
+            "without a password the code is the account's first factor (D-215-1)");
+    }
+
+    [Fact]
+    public async Task WithTheSwitchesOn_AMissingPasswordAndName_AreRefused_AfterTheCode_AndNothingIsCreated()
+    {
+        var scenario = new Scenario();
+
+        var result = await scenario.RunAsync(Bare());
+
+        result.Errors.Select(e => e.Code).Should().Equal(
+            PasswordErrors.Required.Code, UserErrors.FirstNameRequired.Code, UserErrors.LastNameRequired.Code);
+        result.Errors.Select(e => e.Metadata![Auth.Domain.Constants.ErrorMetadataKeys.Property]).Should().Equal("Password", "FirstName", "LastName");
+        scenario.Calls.Should().Equal(new List<string> { "pending.CheckCodeUnderLockAsync" },
+            "the requirements are judged after the code, and nothing after them was reached");
+        scenario.CreatedUser.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task WithThePasswordSwitchOffButEmailOff_APasswordIsStillRequired()
+    {
+        var scenario = new Scenario();
+        scenario.Registration.PasswordAtSignUp = false;
+        scenario.Email.Enabled = false;
+
+        var result = await scenario.RunAsync(Bare(firstName: "Jane", lastName: "Doe"));
+
+        result.FirstError.Code.Should().Be(PasswordErrors.Required.Code,
+            "an account without a password signs in only by an emailed code, which nothing could deliver");
+        scenario.CreatedUser.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task APasswordSentWhereNoneIsRequired_IsHeldToThePolicy_AndKept()
+    {
+        var weak = new Scenario();
+        weak.Registration.PasswordAtSignUp = false;
+        var refused = await weak.RunAsync(Bare(password: "weak", firstName: "Jane", lastName: "Doe"));
+        refused.IsError.Should().BeTrue("a field sent is validated even when it is not required");
+
+        var kept = new Scenario();
+        kept.Registration.PasswordAtSignUp = false;
+        var accepted = await kept.RunAsync(Bare(password: "ValidPass1!", firstName: "Jane", lastName: "Doe"));
+        accepted.IsError.Should().BeFalse();
+        kept.CreatedUser!.PasswordHash.Should().Be("hashed");
+        SessionMethods(kept).Should().Be(AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode));
+    }
+
+    [Fact]
+    public void TheValidator_LeavesWhetherAFieldIsRequired_ToTheHandler()
+    {
+        var validator = new CompleteRegistrationCommandValidator();
+
+        validator.Validate(Bare()).IsValid.Should().BeTrue(
+            "the switches decide, after the code; the validator checks the shape alone");
+        validator.Validate(Bare(password: new string('a', 200), firstName: new string('b', 101))).Errors
+            .Select(e => e.ErrorCode).Should().Contain([PasswordErrors.TooLong.Code, UserErrors.FirstNameTooLong.Code]);
+    }
+
     // ── Fixture ─────────────────────────────────────────────────────────────
 
     private sealed class Scenario
@@ -458,6 +540,7 @@ public class CompleteRegistrationCommandHandlerTests
         public Mock<IDomainEventDispatcher> Events { get; } = new();
         public Mock<ILoginResponseBuilder> Session { get; } = new();
         public RegistrationSettings Registration { get; } = new() { AllowSelfRegistration = true };
+        public EmailSettings Email { get; } = new();
         public PendingRegistration Row { get; }
         public User? CreatedUser { get; private set; }
         public Guid SessionId { get; } = Guid.NewGuid();
@@ -559,6 +642,7 @@ public class CompleteRegistrationCommandHandlerTests
                 Events.Object,
                 Session.Object,
                 TestHelpers.CreateOptions(Registration),
+                TestHelpers.CreateOptions(Email),
                 new Mock<ILogger<CompleteRegistrationCommandHandler>>().Object).Handle(command, CancellationToken.None);
         }
     }

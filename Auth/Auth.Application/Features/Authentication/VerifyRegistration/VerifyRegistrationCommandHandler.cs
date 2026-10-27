@@ -57,6 +57,14 @@ public class VerifyRegistrationCommandHandler : IRequestHandler<VerifyRegistrati
             case PendingRegistrationCodeOutcome.Match:
                 return Result.Success;
 
+            case PendingRegistrationCodeOutcome.WrongCodeCeilingReached:
+                // The address's ceiling (D-110-2): this step checks the same code the
+                // sign-in by code spends, so it is bounded by the same count.
+                _logger.LogWarning(
+                    "Registration code for pending row {PendingRegistrationId} refused: the address reached its wrong-code ceiling",
+                    check.Row!.Id);
+                return EmailVerificationErrors.WrongCodeLimitReached;
+
             case PendingRegistrationCodeOutcome.Exhausted:
                 // The gate refused before any comparison: no attempt was charged
                 // and no hash was computed. Named separately so the screen can

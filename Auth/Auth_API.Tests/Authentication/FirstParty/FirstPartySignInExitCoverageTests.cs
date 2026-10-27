@@ -2,10 +2,12 @@ using System.Reflection;
 using Auth.Application.DTOs;
 using Auth.Application.Features.AccountDeletion.RecoverAccount;
 using Auth.Application.Features.AccountDeletion.RecoverAccountExternal;
+using Auth.Application.Features.AccountDeletion.RecoverAccountWithEmailCode;
 using Auth.Application.Features.Authentication.CompleteRegistration;
 using Auth.Application.Features.Authentication.ExternalLogin;
 using Auth.Application.Features.Authentication.Login;
 using Auth.Application.Features.Authentication.RefreshToken;
+using Auth.Application.Features.Authentication.SignInWithEmailCode;
 using Auth.Application.Features.Authentication.VerifyEmail;
 using Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
 using Auth.Application.Interfaces;
@@ -48,6 +50,9 @@ public class FirstPartySignInExitCoverageTests
         [typeof(VerifyEmailCommand)] = (typeof(AuthController), nameof(AuthController.VerifyEmail)),
         [typeof(RecoverAccountCommand)] = (typeof(AuthController), nameof(AuthController.RecoverAccount)),
         [typeof(RecoverAccountExternalCommand)] = (typeof(AuthController), nameof(AuthController.RecoverAccountExternal)),
+        // OI-215: the sign-in by emailed code and its recovery entry.
+        [typeof(SignInWithEmailCodeCommand)] = (typeof(AuthController), nameof(AuthController.SignInWithEmailCode)),
+        [typeof(RecoverAccountWithEmailCodeCommand)] = (typeof(AuthController), nameof(AuthController.RecoverAccountWithEmailCode)),
         [typeof(VerifyTwoFactorLoginCommand)] = (typeof(TwoFactorController), nameof(TwoFactorController.Verify)),
         [typeof(RefreshTokenCommand)] = (typeof(AuthController), nameof(AuthController.RefreshToken)),
     };

@@ -53,6 +53,25 @@ public static class SharedValidationRules
             .MaximumLength(100).WithErrorCode(UserErrors.LastNameTooLong.Code);
     }
 
+    /// <summary>
+    /// A first name an account may leave empty (OI-215): a sign-up that did not ask
+    /// for one, and the profile or administrator edit of an account that has none.
+    /// Only the length is bounded; whether a sign-up requires the name is the
+    /// handler's, read from <c>Registration:NameAtSignUp</c>.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string?> IsValidOptionalFirstName<T>(this IRuleBuilder<T, string?> ruleBuilder)
+    {
+        return ruleBuilder
+            .MaximumLength(100).WithErrorCode(UserErrors.FirstNameTooLong.Code);
+    }
+
+    /// <inheritdoc cref="IsValidOptionalFirstName{T}"/>
+    public static IRuleBuilderOptions<T, string?> IsValidOptionalLastName<T>(this IRuleBuilder<T, string?> ruleBuilder)
+    {
+        return ruleBuilder
+            .MaximumLength(100).WithErrorCode(UserErrors.LastNameTooLong.Code);
+    }
+
     public static IRuleBuilderOptions<T, string?> IsValidPhoneNumber<T>(this IRuleBuilder<T, string?> ruleBuilder)
     {
         return ruleBuilder
@@ -67,6 +86,17 @@ public static class SharedValidationRules
             // minimum. Without one this field accepted a request-body-sized
             // string, and every byte of it was regex-scanned and then fed to
             // Argon2id on an anonymous endpoint.
+            .MaximumLength(PasswordLimits.MaxLength).WithErrorCode(PasswordErrors.TooLong.Code);
+    }
+
+    /// <summary>
+    /// A password a sign-up may leave out (OI-215, <c>Registration:PasswordAtSignUp</c>
+    /// off): the same ceiling when one is sent, nothing when none is. Whether one is
+    /// required is the handler's, decided after the code was checked.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string?> IsOptionalPassword<T>(this IRuleBuilder<T, string?> ruleBuilder)
+    {
+        return ruleBuilder
             .MaximumLength(PasswordLimits.MaxLength).WithErrorCode(PasswordErrors.TooLong.Code);
     }
 

@@ -159,7 +159,7 @@ public class VerifyRegistrationCommandHandlerTests
         var row = PendingRegistration.Create("handle-1", "jane@one.example", Now);
         row.TryChargeMailWindow(TimeSpan.FromSeconds(60), 3, Now);
         row.IssueCode("hash-of-123456", 5, "en", Now);
-        for (var i = 0; i < attempts; i++) row.RecordFailedAttempt();
+        for (var i = 0; i < attempts; i++) row.RecordFailedAttempt(DateTime.UtcNow);
         return row;
     }
 }

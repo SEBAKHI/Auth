@@ -940,6 +940,39 @@ ownership-transfer codes, new-device alerts, account-deletion confirmation codes
 codes that authorize secret-key operations are all delivered by email and by nothing else. Turning
 email off does not disable those features — it makes them fail invisibly, which is worse.
 
+**Email can also be the way in.** Every visitor may sign in with a code emailed to the address, and with
+*Password at sign-up* off (System settings → Who may create an account) new accounts have no password at
+all. Mail delay then becomes sign-in delay, and a mail outage keeps every account without a password out
+unless a provider is linked to it. Watch delivery for a while before you switch that setting off. It cannot
+be saved off while email sending is off, and switching email off asks first, with the number of accounts
+that sign in only by code.
+
+**Upgrading to the release with sign-in by emailed code** (OI-215), for each existing deployment, in this
+order: publish the database package first (three notification types and their templates, and two columns
+appended to `PendingRegistrations` with named defaults — `WrongCodeCount` and `WrongCodeWindowStartUtc`, the
+per-address wrong-code ceiling; read the generated script first, it must add them in place, never rebuild the
+table); then the API, which reads those columns in every start and every code check and answers 500 without
+them; then the
+accounts and console applications, with a short gap — an older
+application on the new API keeps its screens, and a newer application is never deployed before its API.
+Check on a test account that the sign-in page offers the code, that one message arrives, and that a platform
+administrator with a password signing in by code is asked for the password. A platform administrator without
+a password signs in with the mailbox and the authenticator app only, and without the app the mailbox alone
+opens it. Four ways lead there: authority granted to an account with no password and no app; the first code
+confirmation, without the app, of an account whose address was never confirmed (one an administrator created,
+or a sign-up from before verify-first); the owner removing the password (refused
+until the app is bound) and then switching the app off, which is refused only while
+`TwoFactor:EnforceForPlatformAdmins` is on; and another administrator resetting the account's app. Wherever
+such administrators exist, keep `TwoFactor:EnforceForPlatformAdmins` on, give every such account the app
+before the authority, and confirm who is asking, through a channel other than that mailbox, before resetting
+such an administrator's app. API clients that call `registration/start` with email sending off now get
+`403 User.EmailCodeSignInUnavailable` instead of 200. *Password at sign-up* and *Name at sign-up*
+arrive on; turning the first off is a per-deployment choice, not part of the upgrade. To undo: turn
+*Password at sign-up* back on before redeploying the previous API and applications; the seed rows and the two
+columns stay, unused by the older build. On the older build, a session that holds the new sign-in bit reads as an emailed code only, so an
+account without a password cannot manage its authenticator app until the new build returns, and signs in
+through "forgot password" (which sets a first password) or a provider.
+
 ### What happens when `Email:Enabled` is false
 
 **The send path reports success and delivers nothing.** It writes a single log line at Information
@@ -950,6 +983,9 @@ there is no trace anywhere.
 
 Nothing in the system will tell you. A user who asks for a password reset sees a normal success
 screen. An administrator who tries to rotate a signing key waits for a code that never arrives.
+The sign-in and sign-up codes are the exception: both starts (`email-code/start` and
+`registration/start`) refuse every address with `403 User.EmailCodeSignInUnavailable`, and the steps
+that take a code refuse too, so no such code is minted while nothing can deliver it.
 *In code:* `Auth/Auth.Infrastructure/Notifications/Channels/EmailNotificationChannel.cs`.
 
 ### The `Email` settings
@@ -971,6 +1007,7 @@ All of these live under `"Email"` in `appsettings.Production.json`.
 | `ResetTokenExpirationMinutes` | `30` | Lifetime of a password-reset link. |
 | `RateLimitWindowSeconds` | `60` | Window for the per-user code request limit. |
 | `MaxOtpRequestsPerWindow` | `3` | How many codes one user may request per window. |
+| `MaxWrongCodesPerDay` | `20` | How many wrong sign-up or sign-in codes one address may enter in 24 hours, across every code and step; reached, its codes are refused until the window passes (the password, a provider and "forgot password" stay open). |
 
 **`Email:FrontendBaseUrl` refuses to start the application when it is not an absolute URL — empty,
 relative, or the base file's `{{FRONTEND_BASE_URL}}` placeholder — and `Email:Enabled` is `true`,

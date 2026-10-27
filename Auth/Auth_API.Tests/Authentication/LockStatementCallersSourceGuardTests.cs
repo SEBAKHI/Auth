@@ -32,8 +32,11 @@ public class LockStatementCallersSourceGuardTests
         ["IAccountLockout.RecordPasswordFailureAsync"] = ["LoginCommandHandler.cs"],
         ["IAccountLockout.RecordSignInAsync"] = ["LoginResponseBuilder.cs"],
         ["IAccountLockout.ClearAutomaticLockAsync"] = ["ResetPasswordCommandHandler.cs", "ChangePasswordCommandHandler.cs"],
+        // OI-215: the sign-in by emailed code repairs a lapsed lock as the provider
+        // sign-in does, and lifts none.
         ["IAccountLockout.RepairLapsedLockAsync"] =
-            ["LoginCommandHandler.cs", "ExternalLoginCommandHandler.cs", "VerifyEmailCommandHandler.cs"],
+            ["LoginCommandHandler.cs", "ExternalLoginCommandHandler.cs", "VerifyEmailCommandHandler.cs",
+             "SignInWithEmailCodeCommandHandler.cs"],
 
         // The repository's statements: only through the lockout, which applies the
         // normalized limits and writes the signals.

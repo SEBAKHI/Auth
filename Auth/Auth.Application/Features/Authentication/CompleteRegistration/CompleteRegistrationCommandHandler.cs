@@ -2,6 +2,7 @@ using System.Globalization;
 using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Users.Common;
 using Auth.Application.Interfaces;
 using Auth.Application.Validators;
@@ -32,8 +33,10 @@ namespace Auth.Application.Features.Authentication.CompleteRegistration;
 /// code. A wrong code is answered here — before any password work, before
 /// any read of Users or the tombstones — so a caller with a handle and no
 /// code spends nothing of ours and learns nothing about the address.</item>
-/// <item>The password policy and the breach check. Outside any lock: the
-/// breach check is an external call.</item>
+/// <item>What the sign-up must give (OI-215, <see cref="SignUpRequirements"/>):
+/// a password and a name unless the Registration switches leave them out. Then
+/// the password policy and the breach check, for a password that was sent.
+/// Outside any lock: the breach check is an external call.</item>
 /// <item>Whether the address already has an account or is reserved. After
 /// the proof only: the same checks before it would let a code-less caller
 /// classify addresses through this endpoint.</item>
@@ -63,6 +66,7 @@ public class CompleteRegistrationCommandHandler : IRequestHandler<CompleteRegist
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly RegistrationSettings _registrationSettings;
+    private readonly EmailSettings _emailSettings;
     private readonly ILogger<CompleteRegistrationCommandHandler> _logger;
 
     public CompleteRegistrationCommandHandler(
@@ -76,8 +80,10 @@ public class CompleteRegistrationCommandHandler : IRequestHandler<CompleteRegist
         IDomainEventDispatcher eventDispatcher,
         ILoginResponseBuilder loginResponseBuilder,
         IOptionsSnapshot<RegistrationSettings> registrationSettings,
+        IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<CompleteRegistrationCommandHandler> logger)
     {
+        _emailSettings = emailSettings.Value;
         _pendingRegistrations = pendingRegistrations;
         _userRepository = userRepository;
         _reservationGuard = reservationGuard;
@@ -114,6 +120,9 @@ public class CompleteRegistrationCommandHandler : IRequestHandler<CompleteRegist
         {
             case PendingRegistrationCodeOutcome.Match:
                 break;
+            case PendingRegistrationCodeOutcome.WrongCodeCeilingReached:
+                _logger.LogWarning("Registration completion refused: the address of pending row {PendingRegistrationId} reached its wrong-code ceiling", check.Row!.Id);
+                return EmailVerificationErrors.WrongCodeLimitReached;
             case PendingRegistrationCodeOutcome.Exhausted:
                 _logger.LogWarning("Registration completion refused: code for pending row {PendingRegistrationId} is exhausted", check.Row!.Id);
                 return EmailVerificationErrors.TooManyAttempts;
@@ -127,18 +136,31 @@ public class CompleteRegistrationCommandHandler : IRequestHandler<CompleteRegist
         var row = check.Row!;
         var email = row.Email.Value;
 
-        // 4. The password. Policy first, then the breach check (an external call,
-        // and the reason none of this sits under a lock).
-        var passwordValidation = _passwordValidator.Validate(request.Password, nameof(request.Password));
-        if (passwordValidation.IsError)
+        // 4. What the sign-up must give (OI-215), then the password: policy first,
+        // then the breach check (an external call, and the reason none of this
+        // sits under a lock). A password sent where none is required is held to
+        // the same policy and kept.
+        var missing = SignUpRequirements.From(_registrationSettings, _emailSettings)
+            .Missing(request.Password, request.FirstName, request.LastName);
+        if (missing.Count > 0)
         {
-            return passwordValidation.Errors;
+            return missing;
         }
 
-        var breachResult = await _breachEvaluator.EvaluateAsync(request.Password, cancellationToken);
-        if (breachResult.IsError)
+        var password = SignUpRequirements.Sent(request.Password) ? request.Password! : null;
+        if (password is not null)
         {
-            return breachResult.Errors;
+            var passwordValidation = _passwordValidator.Validate(password, nameof(request.Password));
+            if (passwordValidation.IsError)
+            {
+                return passwordValidation.Errors;
+            }
+
+            var breachResult = await _breachEvaluator.EvaluateAsync(password, cancellationToken);
+            if (breachResult.IsError)
+            {
+                return breachResult.Errors;
+            }
         }
 
         // 5. The address, after the proof. Another door may have created the
@@ -159,13 +181,14 @@ public class CompleteRegistrationCommandHandler : IRequestHandler<CompleteRegist
         // 6. The hash and the entity. Confirmed before it is written: the code
         // is the proof, so there is no window in which this account is recorded
         // as unconfirmed.
-        var passwordHash = _passwordHasher.HashPassword(request.Password);
+        // No password, no hash: the account signs in by emailed code (D-215-1).
+        var passwordHash = password is null ? null : _passwordHasher.HashPassword(password);
 
         var user = User.Create(
             email: email,
             passwordHash: passwordHash,
-            firstName: request.FirstName,
-            lastName: request.LastName,
+            firstName: request.FirstName ?? string.Empty,
+            lastName: request.LastName ?? string.Empty,
             createdBy: Guid.Empty,
             // The site language of the request that completes wins; the one
             // the code went out in is the fallback; then the default.
@@ -225,9 +248,13 @@ public class CompleteRegistrationCommandHandler : IRequestHandler<CompleteRegist
             // The emailed code and the password this request set: no second factor,
             // and an account this new holds no platform permission. Setting a
             // password is not proving one, and a new account holds no lock to lift.
+            // Without a password the code is the account's first factor (D-215-1).
+            var methods = passwordHash is null
+                ? AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false)
+                : AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode);
             loginResponse = await _loginResponseBuilder.BuildAsync(
                 user, request.IpAddress, request.UserAgent, request.DeviceId,
-                AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode),
+                methods,
                 passwordProven: false, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

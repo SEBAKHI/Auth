@@ -210,14 +210,14 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
     avatarColumn<Schemas["ApplicationUserDto"]>({
       getSrc: (row) => row.profileImageUrl,
       getName: (row) =>
-        row.displayName ||
+        row.displayName?.trim() ||
         fullName(row.firstName, row.lastName, row.email ?? ""),
       covers: ["profileImageUrl"],
     }),
     {
       id: "firstName",
       accessorFn: (row) =>
-        row.displayName ||
+        row.displayName?.trim() ||
         fullName(row.firstName, row.lastName, row.email ?? ""),
       header: t("common.name"),
       // `fullName` too: the cell composes that exact string out of the two name
@@ -232,7 +232,7 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
           className="min-w-0 text-start"
         >
           <p className="truncate font-medium">
-            {row.original.displayName ||
+            {row.original.displayName?.trim() ||
               fullName(
                 row.original.firstName,
                 row.original.lastName,

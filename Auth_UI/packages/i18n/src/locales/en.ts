@@ -546,6 +546,11 @@ export const en = {
     haveAccount: "Already have an account?",
     signUp: "Sign up",
     registerEmailHint: "We'll send a 6-digit code to this address to confirm it's yours.",
+    registerClosedTitle: "Sign-up is closed",
+    registerClosed:
+      "New accounts can't be created here with an email address. If you already have an account, sign in.",
+    registerUnavailable:
+      "A new account can't be created with an email address right now: this server isn't sending email, and such an account needs a code sent to its address. If you already have an account, sign in.",
     sendCode: "Send code",
     sendingCode: "Sending code…",
     requestNewCode: "Send a new code",
@@ -580,6 +585,18 @@ export const en = {
     showPassword: "Show password",
     hidePassword: "Hide password",
     accountCreated: "Your account is ready.",
+    signInOrCreateTitle: "Sign in or create an account",
+    continueWithEmail: "Continue with email",
+    signInWithPasswordInstead: "Sign in with a password instead",
+    signInWithEmailCode: "Sign in with a code sent to your email",
+    invalidCredentialsOrCode:
+      "Incorrect email or password. If you haven't set a password for your account, sign in with a code sent to your email.",
+    passwordToFinishTitle: "Enter your password to finish signing in",
+    passwordToFinishSubtitle: "Your email is confirmed. This sign-in also needs your account's password.",
+    emailCodeTitle: "Check your email",
+    emailCodeMessageSent: "We sent a message to {{email}}. Enter the six-digit code in it.",
+    completeAccountTitle: "Complete your account",
+    completeAccountSubtitle: "Your address is confirmed. Add these details to finish creating your account.",
   },
   dashboard: {
     window: "Period",
@@ -1299,6 +1316,7 @@ export const en = {
       organizationMemberRemoved: "Member removed from an organization",
       passwordCreated: "Password added to an account that had none",
       passwordChanged: "Password changed",
+      passwordRemoved: "Password removed",
       twofactorEnabled: "Two-factor authentication enabled",
       twofactorDisabled: "Two-factor authentication disabled",
       twofactorRecoveryCodesRegenerated: "Recovery codes regenerated",
@@ -1603,6 +1621,9 @@ export const en = {
       twoFactorBindCode: "Two-factor setup code",
       twoFactorHardLocked: "Two-factor authentication locked",
       twoFactorEmailCode: "Two-factor sign-in code",
+      emailSignInCode: "Sign-in code by email",
+      signInNoAccount: "Sign-in attempt on an address without an account",
+      passwordRemoved: "Password removed",
     },
     application: "Application",
     global: "Global",
@@ -2044,6 +2065,8 @@ export const en = {
       "{{category}} is switched off, so the value that needs fixing cannot be edited. Switch it back on, correct the value, then save.",
     emailOffAccounts: "Accounts whose second step is a code by email: {{count}}. With email off, each of them can sign in only with a recovery code.",
     emailOffAccountsUnknown: "The accounts whose second step is a code by email could not be counted. With email off, each of them can sign in only with a recovery code.",
+    emailOffPasswordlessAccounts: "Accounts that sign in only with a code by email (no password, no Google or Apple): {{count}}. With email off, none of them can sign in.",
+    emailOffPasswordlessAccountsUnknown: "The accounts that sign in only with a code by email (no password, no Google or Apple) could not be counted. With email off, none of them can sign in.",
     highImpactConfirmTitle: "Save settings that affect security?",
     highImpactConfirmBody:
       "These settings decide who can sign in, how, and with which passwords: {{fields}}. A value the server accepts can still lock administrators out, you included, or weaken a protection for every account. Check them before saving.",
@@ -2202,7 +2225,7 @@ export const en = {
       enforceForPlatformAdmins: "Require two-factor authentication for platform administrators",
       enforceForPlatformAdminsHint:
         "MFA enforcement (multi-factor authentication): applies to platform administrators only — anyone who holds a platform permission. While on, an administrator session that has not proved a second factor gets no platform permissions and is sent to set one up or enter a code first. Application users, teams and organization roles are never affected. Turn it on only after every administrator has a second factor. Recommended: on, once every administrator has enrolled.",
-      emailCodeLifetimeMinutes: "Lifetime of an emailed sign-in code (minutes)",
+      emailCodeLifetimeMinutes: "Lifetime of a second-step code sent by email (minutes)",
       emailCodeLifetimeMinutesHint:
         "Code lifetime: how long a code emailed as the second factor stays valid after each send, from 5 to 10 minutes. A shorter value gives someone guessing less time, but a code that arrives late may expire before it is entered — keep it longer than your mail usually takes to arrive. Applies only to accounts whose second factor is the emailed code. Recommended: 10.",
     },
@@ -2434,6 +2457,12 @@ export const en = {
       allowInvitationRegistration: "Sign-up through an invitation",
       allowInvitationRegistrationHint:
         "Whether redeeming an organization invitation may create an account. Closing public sign-up usually means accounts should arrive by invitation instead, so this is a separate switch; close all three and accounts exist only when an administrator creates them. Invitations already sent are not cancelled, and someone who already has an account can still accept one, because that adds a membership rather than creating an account.",
+      passwordAtSignUp: "Password at sign-up",
+      passwordAtSignUpHint:
+        "Whether a new account sets a password. Off, sign-up asks for none (passwordless sign-up): the new account signs in with a six-digit code sent to its email, the sign-in page puts that code first, and the person may add a password later from their profile. Honoured only while email sending is on, and it cannot be saved off while email is off. Accounts that already exist keep their password. Recommended: on, unless your users should sign in by an email code.",
+      nameAtSignUp: "Name at sign-up",
+      nameAtSignUpHint:
+        "Whether a new account gives a first and last name. Off, sign-up asks for none: the address is shown wherever the account's name would be, and the person may add a name later from their profile. Applies to public sign-up and to invitations alike. Recommended: on, unless the name is of no use to your applications.",
     },
     organizations: {
       title: "Who may create an organization",
@@ -2548,6 +2577,9 @@ export const en = {
       maxOtpRequestsPerWindow: "Codes per window",
       maxOtpRequestsPerWindowHint:
         "Max verification codes one address can request per window. Recommended: 3 — stops mail-bombing.",
+      maxWrongCodesPerDay: "Wrong codes per address per day",
+      maxWrongCodesPerDayHint:
+        "How many wrong codes one address may enter in 24 hours, across every code sent to it and every step that asks for one (sign-up, sign-in by code, account recovery). Once reached, every code for that address is refused until 24 hours after its first wrong code; the password, Google or Apple, and “Forgot password?” keep working. A new code does not reset it. Recommended: 20.",
     },
     notificationsSection: {
       newDeviceAlertEnabled: "Alert on sign-in from a new device",
@@ -2888,8 +2920,21 @@ export const en = {
     changePassword: "Change password",
     passwordChanged: "Password changed.",
     setPassword: "Set a password",
+    removePassword: "Remove password",
+    removePasswordBody:
+      "Sign in with a six-digit code sent to your email instead of a password. You can set a password again at any time.",
+    removePasswordBlockedByEmailCode:
+      "Your password can be removed once your second step is the authenticator app: a code by email after a sign-in by code would prove the same mailbox twice. Turn off the code by email, or set up the authenticator app, first.",
+    removePasswordBlockedByPlatformAuthority:
+      "Your account has platform administration rights, so it must keep a second proof your email cannot give: set up the authenticator app first, then you can remove your password.",
+    removePasswordConfirmTitle: "Remove your password?",
+    removePasswordConfirmBody:
+      "From now on you sign in with a code sent to {{email}}, and anyone who controls that mailbox can sign in to your account unless your authenticator app is on. Every other device signed in to your account is signed out, and we email you that the password was removed.",
+    removePasswordReauthenticate:
+      "Removing your password needs a recent sign-in with your password (and your authenticator app, when it is on). Sign in again, then remove it.",
+    passwordRemoved: "Password removed. Sign in with a code sent to your email from now on.",
     setPasswordBody:
-      "This account has no password yet — you've only signed in through a connected account like Google. We'll email you a link to create one, and after that either way will work.",
+      "This account has no password yet: it signs in with a code sent to your email, or through a connected account like Google. We'll email you a link to create one, and after that the password works too.",
     emailSetPasswordLink: "Email me a link",
     twoStepVerification: "2-Step Verification",
     twoStepVerificationBody:

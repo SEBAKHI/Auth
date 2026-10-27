@@ -36,6 +36,17 @@ public static class SystemSettingsErrors
         code: "SystemSettings.ConcurrencyConflict",
         description: "The section was modified by someone else since you loaded it. Reload and reapply your changes.");
 
+    /// <summary>
+    /// A save or reset that would leave sign-up without a password while email is off
+    /// (OI-215): such accounts sign in only with an emailed code, which nothing could
+    /// deliver. <paramref name="path"/> is the field of the section being saved:
+    /// <c>PasswordAtSignUp</c> in Registration, <c>Enabled</c> in Email.
+    /// </summary>
+    public static Error PasswordlessSignUpRequiresEmail(string path) => Error.Validation(
+        code: "SystemSettings.PasswordlessSignUpRequiresEmail",
+        description: $"'{path}' cannot be saved this way: sign-up without a password needs email sending on, because such accounts sign in with a code sent by email.",
+        metadata: new() { ["args"] = new object[] { path } });
+
     public static Error EmailSendingDisabled => Error.Validation(
         code: "SystemSettings.EmailSendingDisabled",
         description: "Email sending is disabled (Email:Enabled is off), so there is nothing to test.");

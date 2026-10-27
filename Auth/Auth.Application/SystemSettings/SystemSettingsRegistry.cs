@@ -489,7 +489,15 @@ public static class SystemSettingsRegistry
                 // an operator who shuts public sign-up has usually decided that
                 // accounts arrive by invitation instead — folding the two
                 // together would break the workflow the first choice implies.
-                new SettingFieldDefinition("AllowInvitationRegistration", SettingKind.Bool, DefaultValue: true)
+                new SettingFieldDefinition("AllowInvitationRegistration", SettingKind.Bool, DefaultValue: true),
+                // What a sign-up asks for (OI-215). Appended last, like every field
+                // added after the section existed. Both default to true: a
+                // deployment that changes nothing keeps today's sign-up. The
+                // password switch is honoured only while Email:Enabled is on, and a
+                // save that would leave it off with email off is refused from
+                // either section (SystemSettingsValueValidator).
+                new SettingFieldDefinition("PasswordAtSignUp", SettingKind.Bool, DefaultValue: true),
+                new SettingFieldDefinition("NameAtSignUp", SettingKind.Bool, DefaultValue: true)
             ]),
 
         // Beside Registration rather than inside it. That section answers who may
@@ -588,7 +596,10 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("OtpExpirationMinutes", SettingKind.Int, Min: 1, Max: 60, DefaultValue: 15),
                 new SettingFieldDefinition("ResetTokenExpirationMinutes", SettingKind.Int, Min: 5, Max: 1440, DefaultValue: 30),
                 new SettingFieldDefinition("RateLimitWindowSeconds", SettingKind.Int, Min: 10, Max: 3600, DefaultValue: 60),
-                new SettingFieldDefinition("MaxOtpRequestsPerWindow", SettingKind.Int, Min: 1, Max: 20, DefaultValue: 3)
+                new SettingFieldDefinition("MaxOtpRequestsPerWindow", SettingKind.Int, Min: 1, Max: 20, DefaultValue: 3),
+                // D-110-2, appended last: the wrong codes an address may present in
+                // 24 hours, whichever code and step they come through.
+                new SettingFieldDefinition("MaxWrongCodesPerDay", SettingKind.Int, Min: 5, Max: 100, DefaultValue: 20)
             ]),
 
         new SettingSectionDefinition(

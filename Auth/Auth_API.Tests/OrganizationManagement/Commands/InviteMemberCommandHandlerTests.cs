@@ -782,6 +782,39 @@ public class InviteMemberCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_FromANamelessInviter_MailsTheInvitersAddressAsTheName()
+    {
+        // REVIEW 110 F4: "<blank> has invited you" is what a hand-made concatenation
+        // mailed for an inviter without a name. The one rule shows the address instead.
+        var orgId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+        var inviterId = Guid.NewGuid();
+        var command = new InviteMemberCommand(OrganizationId: orgId, Email: "newmember@example.com", RoleId: roleId)
+        { InvitedBy = inviterId };
+
+        _organizationRepositoryMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, name: "Test Org", isActive: true));
+        _roleRepositoryMock.Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(id: roleId, code: "ORG-MEMBER", name: "Member"));
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(inviterId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(id: inviterId, email: "inviter@example.com", firstName: "", lastName: ""));
+        _userRepositoryMock.Setup(r => r.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _organizationRepositoryMock.Setup(r => r.GetPendingInvitationsAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<OrganizationInvitation>());
+        _organizationRepositoryMock.Setup(r => r.CreateInvitationAsync(It.IsAny<OrganizationInvitation>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationInvitation inv, CancellationToken _) => inv);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.InvitedByName.Should().Be("inviter@example.com");
+        _notificationServiceMock.Verify(s => s.SendAsync(
+            It.Is<NotificationRequest>(r => Equals(r.Variables["InviterName"], "inviter@example.com")),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task Handle_EmailSendFails_StillReturnsInvitationWithToken()
     {
         // Arrange

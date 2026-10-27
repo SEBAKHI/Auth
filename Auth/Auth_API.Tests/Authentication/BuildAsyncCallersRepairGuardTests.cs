@@ -43,6 +43,8 @@ public class BuildAsyncCallersRepairGuardTests
         ["ExternalLoginCommandHandler.cs"] = "false",
         ["VerifyEmailCommandHandler.cs"] = "false",
         ["CompleteRegistrationCommandHandler.cs"] = "false",
+        // OI-215: an emailed code proves the mailbox, never the password (G8).
+        ["SignInWithEmailCodeCommandHandler.cs"] = "false",
         ["ExchangeAuthorizationCodeCommandHandler.cs"] = "false",
     };
 
@@ -97,7 +99,7 @@ public class BuildAsyncCallersRepairGuardTests
     {
         var callers = Callers();
 
-        callers.Should().HaveCount(7, "seven sign-in exits today; a new one is listed here with its reason");
+        callers.Should().HaveCount(8, "eight sign-in exits today; a new one is listed here with its reason");
         callers.Select(c => c.Name).Should().BeEquivalentTo(Expected.Keys);
         foreach (var (name, argument) in callers)
         {

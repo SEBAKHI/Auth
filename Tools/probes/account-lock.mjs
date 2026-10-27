@@ -10,7 +10,9 @@
  *   Password__ConsecutiveFailureLimit=10  Password__MaxFailedAttempts=5
  *   Password__LockoutDurationMinutes=1    AUTH_DISABLE_DB_SETTINGS=true
  * (Email off, the dev default: the probe reads one-time codes and the reset link
- * from the API's Serilog file.) Addresses are simulated with X-Forwarded-For,
+ * from the API's Serilog file. Since registration/start refuses while email is
+ * off, OI-215, each account is a confirmed row with no password written here,
+ * given its first password through "forgot password" and the reset.) Addresses are simulated with X-Forwarded-For,
  * which the API trusts before S15: each address has its own rate window and its
  * own per-address ceiling.
  *
@@ -93,6 +95,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { confirmedAccountSql } from "../lib/dev-accounts.mjs";
 
 const execFileAsync = promisify(execFile);
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -178,7 +181,6 @@ async function fromLogAfter(mark, pattern, what) {
   throw new SetupError(`no ${what} appeared in the API log (is PROBE_LOGS_DIR the API's Logs directory, and Email off?)`);
 }
 
-const otpAfter = (mark) => fromLogAfter(mark, /OTP for "?[^\s":]+"?:\s*"?(\d{6})"?/g, "one-time code");
 const resetTokenAfter = (mark) =>
   fromLogAfter(mark, /Password reset link for [^\s:]+:\s*\S*?[?&]token=([^&\s"]+)/g, "reset link").then(decodeURIComponent);
 
@@ -210,31 +212,36 @@ async function lockRow(userId) {
 
 const show = (row) => `(Status ${row.status}, count ${row.count}, expiry ${row.end})`;
 
-// ── Accounts through the API's own flows ─────────────────────────────────────
+// ── Accounts ─────────────────────────────────────────────────────────────────
+// The probe keeps email off (the reset link comes from the log), and since OI-215
+// registration/start refuses every address while it is off. So an account starts
+// as a confirmed row with no password, written here, takes its first password
+// through the API's own "forgot password" and reset, and signs in from `from`.
+// What the probe measures starts after that.
 const uniqueEmail = (tag) => `x12-${tag}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}@x12.probe.local`;
 
 async function register(tag, from) {
   const email = uniqueEmail(tag);
   const account = { email, userId: null };
   accounts.push(account);
+  account.userId = await sql(confirmedAccountSql(email));
   const mark = logMark();
-  const start = await call("/api/v1/auth/registration/start", { method: "POST", body: { email, preferredLanguage: "en" }, from });
-  if (start.status !== 200) throw new SetupError(`registration/start: ${start.status} ${start.text.slice(0, 160)}`);
-  const otp = await otpAfter(mark);
-  const pendingId = start.json.pendingId ?? start.json.PendingId;
-  const verify = await call("/api/v1/auth/registration/verify", { method: "POST", body: { pendingId, otp }, from });
-  if (verify.status !== 204) throw new SetupError(`registration/verify: ${verify.status} ${verify.text.slice(0, 160)}`);
-  const complete = await call("/api/v1/auth/registration/complete", {
-    method: "POST", from,
-    body: { pendingId, otp, password: PASSWORD, firstName: "Probe", lastName: "User", createOrganization: false },
+  const ask = await call("/api/v1/auth/forgot-password", { method: "POST", body: { email }, from });
+  if (ask.status >= 400) throw new SetupError(`forgot-password: ${ask.status} ${ask.text.slice(0, 160)}`);
+  const token = await resetTokenAfter(mark);
+  const reset = await call("/api/v1/auth/reset-password", {
+    method: "POST", from, body: { token, newPassword: PASSWORD, confirmNewPassword: PASSWORD, terminateSessions: false },
   });
-  if (complete.status !== 200) throw new SetupError(`registration/complete: ${complete.status} ${complete.text.slice(0, 160)}`);
-  account.userId = complete.json.user?.id ?? complete.json.User?.Id;
+  if (reset.status < 200 || reset.status >= 300) throw new SetupError(`reset-password: ${reset.status} ${reset.text.slice(0, 160)}`);
+  const signIn = await login(email, PASSWORD, from);
+  if (signIn.status !== 200 || !signIn.json?.token?.accessToken) {
+    throw new SetupError(`first sign-in: ${signIn.status} ${signIn.text.slice(0, 160)}`);
+  }
   return {
     email,
     userId: account.userId,
-    token: complete.json.token?.accessToken,
-    refreshToken: complete.json.token?.refreshToken,
+    token: signIn.json.token.accessToken,
+    refreshToken: signIn.json.token.refreshToken,
   };
 }
 

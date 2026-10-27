@@ -68,6 +68,15 @@ public record LoginResponse : ISessionIssuingResponse
     public SignInEmailCodeResponse? TwoFactorEmailCode { get; init; }
 
     /// <summary>
+    /// Gets what a sign-in by emailed code does next when it issued no session and no
+    /// challenge (OI-215): the password sign-in continues it, the address's account
+    /// waits for deletion, or the address has no account. Null — and then not
+    /// written — on every other answer, so a client built before the code sign-in
+    /// reads the body it always read.
+    /// </summary>
+    public EmailCodeNextStep? NextStep { get; init; }
+
+    /// <summary>
     /// Gets the plain IdP session token minted for this login. NEVER serialized:
     /// the controller moves it into the HttpOnly IdP session cookie and the
     /// browser is the only place it lives outside the hashed database row.

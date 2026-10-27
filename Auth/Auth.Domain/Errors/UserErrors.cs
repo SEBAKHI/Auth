@@ -71,6 +71,50 @@ public static class UserErrors
         code: "User.InvitationRegistrationClosed",
         description: "Accounts cannot be created from invitations on this server. Ask the organization that invited you to add you another way.");
 
+    /// <summary>
+    /// The sign-in by emailed code (OI-215) is unavailable because this server sends
+    /// no email (<c>Email:Enabled</c> off): nothing could deliver the code. Answered
+    /// before the address is so much as looked up, so every address gets it.
+    /// </summary>
+    public static Error EmailCodeSignInUnavailable => Error.Forbidden(
+        code: "User.EmailCodeSignInUnavailable",
+        description: "Signing in with a code sent by email is not available on this server.");
+
+    /// <summary>
+    /// The account has no password, so there is none to remove (OI-215).
+    /// </summary>
+    public static Error PasswordNotSet => Error.Conflict(
+        code: "User.PasswordNotSet",
+        description: "This account has no password.");
+
+    /// <summary>
+    /// The password cannot be removed while this server sends no email (OI-215,
+    /// D-215-3 condition 2): an account without a password signs in only with a code
+    /// emailed to it, so it would have no way in.
+    /// </summary>
+    public static Error PasswordRemovalRequiresEmail => Error.Conflict(
+        code: "User.PasswordRemovalRequiresEmail",
+        description: "The password cannot be removed while this server does not send email: the account could not sign in without it.");
+
+    /// <summary>
+    /// The password cannot be removed while the emailed code is the account's second
+    /// factor (OI-215): after a sign-in by emailed code that factor would prove the
+    /// same mailbox again. The way on is to switch the emailed code off, or to use an
+    /// authenticator app, first.
+    /// </summary>
+    public static Error PasswordRemovalBlockedByEmailCodeFactor => Error.Conflict(
+        code: "User.PasswordRemovalBlockedByEmailCodeFactor",
+        description: "The password cannot be removed while the second step of signing in is a code sent by email. Turn that off, or use an authenticator app, first.");
+
+    /// <summary>
+    /// The password cannot be removed from an account that holds platform authority
+    /// unless its authenticator app is bound (D-110-1): without both, the mailbox alone
+    /// would open an administrator's account.
+    /// </summary>
+    public static Error PasswordRemovalRequiresAuthenticatorApp => Error.Conflict(
+        code: "User.PasswordRemovalRequiresAuthenticatorApp",
+        description: "The password cannot be removed from an account with platform administration rights unless an authenticator app is set up. Set one up first.");
+
     public static Error InvalidCredentials => Error.Validation(
         code: "User.InvalidCredentials",
         description: "The provided credentials are invalid.");

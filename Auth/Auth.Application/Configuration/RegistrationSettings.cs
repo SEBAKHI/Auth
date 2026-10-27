@@ -65,4 +65,26 @@ public class RegistrationSettings
     /// </para>
     /// </summary>
     public bool AllowInvitationRegistration { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether a new account chooses a password when it signs up, through
+    /// the public sign-up and through an invitation (OI-215). On by default, which is
+    /// what every deployment did before the switch existed.
+    /// <para>
+    /// Off, a new account has no password: it signs in with a code emailed to its
+    /// address, which is then its first factor (D-215-1), and may add a password from
+    /// its profile. The switch is honoured only while <c>Email:Enabled</c> is on: with
+    /// email off nothing could deliver that code, so a sign-up asks for a password
+    /// whatever this says, and a save that would leave this off with email off is
+    /// refused. It governs new sign-ups only: an account keeps the sign-in it has.
+    /// </para>
+    /// </summary>
+    public bool PasswordAtSignUp { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether a new account gives its first and last name when it signs
+    /// up (OI-215). On by default. Off, the names are optional: an account without one
+    /// is shown by its address, and its access token carries no name claims.
+    /// </summary>
+    public bool NameAtSignUp { get; set; } = true;
 }

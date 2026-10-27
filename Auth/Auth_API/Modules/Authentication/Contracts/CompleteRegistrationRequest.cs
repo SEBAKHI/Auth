@@ -12,11 +12,17 @@ public record CompleteRegistrationRequest
 
     public string Otp { get; init; } = string.Empty;
 
-    public string Password { get; init; } = string.Empty;
+    /// <summary>
+    /// Required unless <c>Registration:PasswordAtSignUp</c> is off and email is on
+    /// (OI-215); the code sign-in's verify step says which.
+    /// </summary>
+    public string? Password { get; init; }
 
-    public string FirstName { get; init; } = string.Empty;
+    /// <summary>Required unless <c>Registration:NameAtSignUp</c> is off (OI-215).</summary>
+    public string? FirstName { get; init; }
 
-    public string LastName { get; init; } = string.Empty;
+    /// <summary>Required unless <c>Registration:NameAtSignUp</c> is off (OI-215).</summary>
+    public string? LastName { get; init; }
 
     public string? TimeZone { get; init; }
 

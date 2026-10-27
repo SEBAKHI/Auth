@@ -15,6 +15,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { withEmailSendingOn } from "./lib/dev-accounts.mjs";
 
 const API = process.env.VERIFY_API_URL ?? "http://localhost:5100";
 
@@ -132,17 +133,20 @@ async function probeJwtLifetime() {
 async function probePasswordPolicy() {
   // Sign-up checks the password only after the mailed code has proven the
   // address, so the probe starts a sign-up and reads the code from the log
-  // (Email:Enabled=false writes it there in Development). A too-short password
+  // (Development writes the code a start sends there). The start refuses while
+  // email sending is off (OI-215), so it runs with email switched on for that one
+  // request, and the Email section is put back as it was. A too-short password
   // then always fails before anything is written, so no account is ever
   // created and the same code serves both attempts; the rejection message
   // quotes the CONFIGURED minimum, which is the proof.
   const email = `probe-${Date.now()}@example.com`;
   const logBefore = newestLog().length;
-  const started = await call("/api/v1/Auth/registration/start", {
-    method: "POST",
-    auth: false,
-    body: { email },
-  });
+  const started = await withEmailSendingOn({ api: API, token }, () =>
+    call("/api/v1/Auth/registration/start", {
+      method: "POST",
+      auth: false,
+      body: { email },
+    }));
   if (!started.json?.pendingId) {
     record("Password minimum length", "IOptionsSnapshot (scoped)", false,
       `registration/start failed: ${started.status} ${JSON.stringify(started.json)}`);
@@ -151,10 +155,10 @@ async function probePasswordPolicy() {
   const masked = maskEmail(email).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const otp = newestLog()
     .slice(logBefore)
-    .match(new RegExp(`Email disabled - OTP for "?${masked}"?: "?(\\d{6})"?`))?.[1];
+    .match(new RegExp(`Development only - OTP for "?${masked}"?: "?(\\d{6})"?`))?.[1];
   if (!otp) {
     record("Password minimum length", "IOptionsSnapshot (scoped)", false,
-      "the sign-up code was not found in the newest log; is Email:Enabled=false and the environment Development?");
+      "the sign-up code was not found in the newest log; is the environment Development?");
     return;
   }
   const attempt = () =>

@@ -11,7 +11,11 @@ namespace Auth.Application.Features.SystemSettings.GetEmailCodeFactorCount;
 public record GetEmailCodeFactorCountQuery : IRequest<ErrorOr<EmailCodeFactorCountResponse>>;
 
 /// <summary>
-/// The count, and nothing else: no account is named.
+/// The counts, and nothing else: no account is named.
 /// </summary>
 /// <param name="Count">Accounts whose second factor is the emailed code.</param>
-public record EmailCodeFactorCountResponse(int Count);
+/// <param name="PasswordlessCount">
+/// Accounts that can sign in only with an emailed code (OI-215): no password and no
+/// linked provider. With email off they cannot sign in at all.
+/// </param>
+public record EmailCodeFactorCountResponse(int Count, int PasswordlessCount);

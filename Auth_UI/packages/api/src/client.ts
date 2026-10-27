@@ -48,6 +48,13 @@ const TWO_FACTOR_SIGN_IN_EMAIL_CODE_PATH = "/api/v1/auth/2fa/verify/email-code"
 const REGISTRATION_START_PATH = "/api/v1/Auth/registration/start"
 const REGISTRATION_VERIFY_PATH = "/api/v1/Auth/registration/verify"
 const REGISTRATION_COMPLETE_PATH = "/api/v1/Auth/registration/complete"
+// Sign-in by emailed code (OI-215): the address, the code, then the sign-in or
+// the grace-period recovery it leads to. All four are made by someone who has no
+// session yet, and the last two mint one.
+const EMAIL_CODE_START_PATH = "/api/v1/Auth/email-code/start"
+const EMAIL_CODE_VERIFY_PATH = "/api/v1/Auth/email-code/verify"
+const EMAIL_CODE_SIGN_IN_PATH = "/api/v1/Auth/email-code/sign-in"
+const EMAIL_CODE_RECOVER_PATH = "/api/v1/Auth/email-code/recover"
 // An application's organization-creation step. Authenticated by the single
 // sign-on cookie ALONE, so it acts for the user the authorize endpoint sees: the
 // SPA's bearer would be ignored, and a 401 there means "no SSO session", not
@@ -421,6 +428,10 @@ const ANONYMOUS_PATHS = new Set(
     REGISTRATION_START_PATH,
     REGISTRATION_VERIFY_PATH,
     REGISTRATION_COMPLETE_PATH,
+    EMAIL_CODE_START_PATH,
+    EMAIL_CODE_VERIFY_PATH,
+    EMAIL_CODE_SIGN_IN_PATH,
+    EMAIL_CODE_RECOVER_PATH,
     ORGANIZATION_SETUP_PATH,
   ].map((path) => path.toLowerCase())
 )

@@ -160,7 +160,7 @@ public class ResendEmailVerificationCommandHandler
 
         // Send email from the database-managed template; language follows the
         // user's stored PreferredLanguage.
-        var recipientName = user.DisplayName ?? user.FirstName ?? "User";
+        var recipientName = user.NameToShow;
         var sendResult = await _notificationService.SendAsync(
             new NotificationRequest
             {

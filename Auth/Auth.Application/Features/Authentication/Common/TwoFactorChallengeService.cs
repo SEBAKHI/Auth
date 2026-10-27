@@ -122,9 +122,20 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService
             return false;
         }
 
-        // The emailed code alone: a row holding the authenticator app (or both) keeps
-        // its challenge, since the app proves something no mailbox does.
-        var snapshot = await _twoFactorStateStore.GetSnapshotAsync(user.Id, cancellationToken);
+        return await EmailCodeIsTheOnlyFactorAsync(user.Id, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<bool> SignInCodeProvesFactorAsync(User user, CancellationToken cancellationToken) =>
+        EmailCodeIsTheOnlyFactorAsync(user.Id, cancellationToken);
+
+    /// <summary>
+    /// The emailed code alone: a row holding the authenticator app (or both) keeps
+    /// its challenge, since the app proves something no mailbox does.
+    /// </summary>
+    private async Task<bool> EmailCodeIsTheOnlyFactorAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var snapshot = await _twoFactorStateStore.GetSnapshotAsync(userId, cancellationToken);
         return snapshot is { HasEmailCode: true, IsEnabled: false };
     }
 

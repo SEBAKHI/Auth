@@ -542,6 +542,11 @@ export const tr: TranslationResources = {
     haveAccount: "Zaten hesabınız var mı?",
     signUp: "Kaydol",
     registerEmailHint: "Bu adresin size ait olduğunu doğrulamak için 6 haneli bir kod göndereceğiz.",
+    registerClosedTitle: "Kayıt kapalı",
+    registerClosed:
+      "Burada e-posta adresiyle yeni hesap oluşturulamaz. Zaten bir hesabınız varsa giriş yapın.",
+    registerUnavailable:
+      "Şu anda e-posta adresiyle yeni hesap oluşturulamıyor: bu sunucu e-posta göndermiyor ve böyle bir hesap, adresine gönderilen bir kod gerektirir. Zaten bir hesabınız varsa giriş yapın.",
     sendCode: "Kod gönder",
     sendingCode: "Kod gönderiliyor…",
     requestNewCode: "Yeni kod gönder",
@@ -577,6 +582,18 @@ export const tr: TranslationResources = {
     showPassword: "Parolayı göster",
     hidePassword: "Parolayı gizle",
     accountCreated: "Hesabınız hazır.",
+    signInOrCreateTitle: "Oturum açın veya hesap oluşturun",
+    continueWithEmail: "E-postayla devam et",
+    signInWithPasswordInstead: "Bunun yerine parolayla oturum açın",
+    signInWithEmailCode: "E-postanıza gönderilen bir kodla oturum açın",
+    invalidCredentialsOrCode:
+      "E-posta veya parola yanlış. Hesabınız için parola belirlemediyseniz e-postanıza gönderilen bir kodla oturum açın.",
+    passwordToFinishTitle: "Oturum açmayı tamamlamak için parolanızı girin",
+    passwordToFinishSubtitle: "E-postanız doğrulandı. Bu oturum açma, hesabınızın parolasını da gerektiriyor.",
+    emailCodeTitle: "E-postanızı kontrol edin",
+    emailCodeMessageSent: "{{email}} adresine bir ileti gönderdik. İçindeki altı haneli kodu girin.",
+    completeAccountTitle: "Hesabınızı tamamlayın",
+    completeAccountSubtitle: "Adresiniz doğrulandı. Hesabınızı oluşturmayı tamamlamak için bu bilgileri ekleyin.",
   },
   dashboard: {
     window: "Dönem",
@@ -1298,6 +1315,7 @@ export const tr: TranslationResources = {
       organizationMemberRemoved: "Üye organizasyondan kaldırıldı",
       passwordCreated: "Parolası olmayan bir hesaba parola eklendi",
       passwordChanged: "Parola değiştirildi",
+      passwordRemoved: "Parola kaldırıldı",
       twofactorEnabled: "İki adımlı doğrulama etkinleştirildi",
       twofactorDisabled: "İki adımlı doğrulama devre dışı bırakıldı",
       twofactorRecoveryCodesRegenerated: "Kurtarma kodları yeniden oluşturuldu",
@@ -1594,6 +1612,9 @@ export const tr: TranslationResources = {
       twoFactorBindCode: "İki adımlı doğrulama kurulum kodu",
       twoFactorHardLocked: "İki adımlı doğrulama kilitlendi",
       twoFactorEmailCode: "İki adımlı doğrulama giriş kodu",
+      emailSignInCode: "E-postayla oturum açma kodu",
+      signInNoAccount: "Hesabı olmayan bir adresle oturum açma girişimi",
+      passwordRemoved: "Parola kaldırıldı",
     },
     application: "Uygulama",
     global: "Genel",
@@ -2030,6 +2051,8 @@ export const tr: TranslationResources = {
       "{{category}} kapalı olduğundan düzeltilmesi gereken değer düzenlenemiyor. Yeniden açın, değeri düzeltin, sonra kaydedin.",
     emailOffAccounts: "İkinci adımı e-postayla kod olan hesaplar: {{count}}. E-posta kapalıyken her biri yalnızca bir kurtarma koduyla oturum açabilir.",
     emailOffAccountsUnknown: "İkinci adımı e-postayla kod olan hesaplar sayılamadı. E-posta kapalıyken her biri yalnızca bir kurtarma koduyla oturum açabilir.",
+    emailOffPasswordlessAccounts: "Yalnızca e-postayla gönderilen bir kodla oturum açan hesaplar (parolası, Google veya Apple bağlantısı olmayan): {{count}}. E-posta kapalıyken bunların hiçbiri oturum açamaz.",
+    emailOffPasswordlessAccountsUnknown: "Yalnızca e-postayla gönderilen bir kodla oturum açan hesaplar (parolası, Google veya Apple bağlantısı olmayan) sayılamadı. E-posta kapalıyken bunların hiçbiri oturum açamaz.",
     highImpactConfirmTitle: "Güvenliği etkileyen ayarlar kaydedilsin mi?",
     highImpactConfirmBody:
       "Bu ayarlar kimin, nasıl ve hangi parolalarla oturum açabileceğini belirler: {{fields}}. Sunucunun kabul ettiği bir değer bile, siz dahil yöneticilerin oturum açmasını engelleyebilir ya da tüm hesaplar için bir korumayı zayıflatabilir. Kaydetmeden önce bunları kontrol edin.",
@@ -2189,7 +2212,7 @@ export const tr: TranslationResources = {
       enforceForPlatformAdmins: "Platform yöneticileri için iki faktörlü kimlik doğrulamayı zorunlu kıl",
       enforceForPlatformAdminsHint:
         "MFA zorunluluğu (MFA enforcement): yalnızca platform yöneticileri, yani bir platform izni olan herkes için geçerlidir. Açıkken, ikinci bir faktör kanıtlamamış bir yönetici oturumu hiçbir platform izni almaz ve önce bir faktör kurmaya ya da kod girmeye yönlendirilir. Uygulama kullanıcıları, ekipler ve kuruluş rolleri hiçbir zaman etkilenmez. Yalnızca her yöneticinin ikinci bir faktörü olduktan sonra açın. Önerilen: tüm yöneticiler kaydolduktan sonra açık.",
-      emailCodeLifetimeMinutes: "E-postayla gönderilen giriş kodunun geçerlilik süresi (dakika)",
+      emailCodeLifetimeMinutes: "E-postayla gönderilen ikinci adım kodunun geçerlilik süresi (dakika)",
       emailCodeLifetimeMinutesHint:
         "Kod geçerlilik süresi (code lifetime): ikinci faktör olarak e-postayla gönderilen bir kodun her gönderimden sonra geçerli kaldığı süre, 5 ile 10 dakika arası. Daha kısa bir değer tahmin etmeye çalışana daha az zaman bırakır, ancak geç ulaşan bir kodun süresi girilmeden dolabilir — bu değeri e-postanızın genellikle ulaşma süresinden uzun tutun. Yalnızca ikinci faktörü e-posta kodu olan hesaplar için geçerlidir. Önerilen: 10.",
     },
@@ -2423,6 +2446,12 @@ export const tr: TranslationResources = {
       allowInvitationRegistration: "Davetle kayıt",
       allowInvitationRegistrationHint:
         "Bir kuruluş davetinin kullanılmasının hesap oluşturup oluşturamayacağı. Herkese açık kaydı kapatmak genellikle hesapların davetle gelmesi gerektiği anlamına gelir; bu yüzden ayrı bir anahtardır. Üçünü de kapatın, hesaplar yalnızca bir yönetici oluşturduğunda var olur. Gönderilmiş davetler iptal edilmez ve hesabı olan biri daveti yine kabul edebilir, çünkü bu hesap oluşturmaz, üyelik ekler.",
+      passwordAtSignUp: "Kayıtta parola",
+      passwordAtSignUpHint:
+        "Yeni bir hesabın parola belirleyip belirlemediği. Kapalıyken kayıt parola istemez (parolasız kayıt): yeni hesap e-postasına gönderilen altı haneli bir kodla oturum açar, oturum açma sayfası bu kodu öne çıkarır ve kişi daha sonra profilinden parola ekleyebilir. Yalnızca e-posta gönderimi açıkken geçerlidir; e-posta kapalıyken kapalı olarak kaydedilemez. Mevcut hesaplar parolalarını korur. Önerilen: açık, kullanıcılarınızın e-posta koduyla oturum açması gerekmiyorsa.",
+      nameAtSignUp: "Kayıtta ad",
+      nameAtSignUpHint:
+        "Yeni bir hesabın ad ve soyadı verip vermediği. Kapalıyken kayıt ad istemez: hesabın adının görüneceği her yerde adres gösterilir ve kişi daha sonra profilinden ad ekleyebilir. Hem genel kayda hem davetlere uygulanır. Önerilen: açık, ad uygulamalarınızda bir işe yaramıyorsa kapalı.",
     },
     organizations: {
       title: "Kuruluşu kim oluşturabilir",
@@ -2539,6 +2568,9 @@ export const tr: TranslationResources = {
       maxOtpRequestsPerWindow: "Pencere başına kod sayısı",
       maxOtpRequestsPerWindowHint:
         "Bir adresin pencere başına isteyebileceği en fazla doğrulama kodu. Önerilen: 3 — posta bombardımanını durdurur.",
+      maxWrongCodesPerDay: "Adres başına günlük yanlış kod",
+      maxWrongCodesPerDayHint:
+        "Bir adresin 24 saat içinde, kendisine gönderilen tüm kodlarda ve kod isteyen her adımda (kayıt, kodla giriş, hesap kurtarma) girebileceği yanlış kod sayısı. Sınıra ulaşıldığında, o adresin ilk yanlış kodundan 24 saat geçene kadar her kodu reddedilir; parola, Google veya Apple ve “Parolanızı mı unuttunuz?” çalışmaya devam eder. Yeni bir kod sayacı sıfırlamaz. Önerilen: 20.",
     },
     notificationsSection: {
       newDeviceAlertEnabled: "Yeni cihazdan girişte uyar",
@@ -2880,8 +2912,21 @@ export const tr: TranslationResources = {
     changePassword: "Parolayı değiştir",
     passwordChanged: "Parola değiştirildi.",
     setPassword: "Parola belirle",
+    removePassword: "Parolayı kaldır",
+    removePasswordBody:
+      "Parola yerine e-postanıza gönderilen altı haneli bir kodla oturum açın. İstediğiniz zaman yeniden parola belirleyebilirsiniz.",
+    removePasswordBlockedByEmailCode:
+      "İkinci adımınız kimlik doğrulayıcı uygulama olduğunda parolanız kaldırılabilir: kodla oturum açtıktan sonra e-postayla gelen kod aynı posta kutusunu iki kez kanıtlar. Önce e-postayla kodu kapatın veya kimlik doğrulayıcı uygulamayı kurun.",
+    removePasswordBlockedByPlatformAuthority:
+      "Hesabınızın platform yönetimi yetkisi var; bu yüzden e-postanızın veremeyeceği ikinci bir kanıtı korumalı: önce kimlik doğrulama uygulamasını kurun, ardından parolanızı kaldırabilirsiniz.",
+    removePasswordConfirmTitle: "Parolanız kaldırılsın mı?",
+    removePasswordConfirmBody:
+      "Bundan sonra {{email}} adresine gönderilen bir kodla oturum açarsınız ve kimlik doğrulayıcı uygulamanız açık değilse o posta kutusunu kontrol eden herkes hesabınıza girebilir. Hesabınızda oturum açmış diğer tüm cihazların oturumu kapatılır ve parolanın kaldırıldığını size e-postayla bildiririz.",
+    removePasswordReauthenticate:
+      "Parolanızı kaldırmak için parolanızla (ve açıksa kimlik doğrulayıcı uygulamanızla) yakın zamanda oturum açmış olmanız gerekir. Yeniden oturum açın, ardından kaldırın.",
+    passwordRemoved: "Parola kaldırıldı. Bundan sonra e-postanıza gönderilen bir kodla oturum açın.",
     setPasswordBody:
-      "Bu hesabın henüz bir parolası yok; şimdiye kadar yalnızca Google gibi bağlı bir hesapla giriş yaptınız. Parola oluşturmanız için size bir bağlantı göndereceğiz; sonrasında iki yöntem de çalışır.",
+      "Bu hesabın henüz bir parolası yok: e-postanıza gönderilen bir kodla veya Google gibi bağlı bir hesapla oturum açıyor. Parola oluşturmanız için size bir bağlantı göndereceğiz; sonrasında parola da çalışır.",
     emailSetPasswordLink: "Bana bir bağlantı gönder",
     twoStepVerification: "İki adımlı doğrulama",
     twoStepVerificationBody:

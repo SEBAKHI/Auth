@@ -27,7 +27,7 @@ public class CredentialHasherSourceGuardTests
     [
         // S24: the challenge a recovery's emailed code is checked against needs a unique
         // fingerprint in TokenHash; its token is never handed to anyone.
-        App + "AccountDeletion/Common/AccountDeletionRecoverer.cs:201 Hash TwoFactorChallenge",
+        App + "AccountDeletion/Common/AccountDeletionRecoverer.cs:227 Hash TwoFactorChallenge",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:358 Hash AuthorizationCode",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:605 Hash AuthorizationRequestHandle",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:646 Candidates AuthorizationRequestHandle",
@@ -40,7 +40,7 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/Common/LoginResponseBuilder.cs:211 Hash RefreshToken",
         App + "Authentication/Common/LoginResponseBuilder.cs:411 Hash IdpSession",
         App + "Authentication/Common/TwoFactorChallengeService.cs:79 Hash TwoFactorChallenge",
-        App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:260 Candidates IdpSession",
+        App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:272 Candidates IdpSession",
         App + "Authentication/ExternalLogin/IssueExternalNonceCommandHandler.cs:34 Hash ExternalNonce",
         App + "Authentication/ForgotPassword/ForgotPasswordCommandHandler.cs:111 Hash PasswordReset",
         App + "Authentication/IntrospectToken/IntrospectTokenQueryHandler.cs:145 Candidates RefreshToken",
@@ -61,7 +61,7 @@ public class CredentialHasherSourceGuardTests
         App + "Organizations/GetInvitationByToken/GetInvitationByTokenQueryHandler.cs:49 Candidates Invitation",
         App + "Organizations/InviteMember/InviteMemberCommandHandler.cs:187 Hash Invitation",
         App + "Organizations/OrganizationSetup/OrganizationSetupSession.cs:157 Candidates AuthorizationRequestHandle",
-        App + "Organizations/RegisterWithInvitation/RegisterWithInvitationCommandHandler.cs:98 Candidates Invitation",
+        App + "Organizations/RegisterWithInvitation/RegisterWithInvitationCommandHandler.cs:102 Candidates Invitation",
         App + "Organizations/ResendInvitation/ResendInvitationCommandHandler.cs:77 Hash Invitation",
         App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:43 Candidates WebhookKey",
         // S11 PR B: the issuing form a matched webhook key is compared with, to re-fingerprint it.
@@ -112,6 +112,10 @@ public class CredentialHasherSourceGuardTests
         "UserSessionRepository.cs [DeviceHash] @DeviceHash",
         // A password-hash concurrency guard on the Argon2id value the same request verified.
         "UserRepository.cs [PasswordHash] @VerifiedHash",
+        // OI-215: a password removed (by its owner, or retired by the first confirmation of
+        // the address) only while the stored Argon2id value is the one the same request
+        // read — a concurrency guard, never a lookup by a presented credential.
+        "UserRepository.cs [PasswordHash] @ReadPasswordHash",
         // The webhook re-fingerprint (S11 PR B): a concurrency guard on the stored value the same
         // validation just matched, never a lookup by a presented key.
         "WebhookKeyRepository.cs [KeyHash] @MatchedHash",

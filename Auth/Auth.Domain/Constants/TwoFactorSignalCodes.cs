@@ -40,6 +40,15 @@ public static class TwoFactorSignalCodes
     /// </summary>
     public const string ProviderMailboxWaived = "two-factor.provider-mailbox-waived";
 
+    /// <summary>
+    /// A sign-in by emailed code of an account whose second factor is the emailed code
+    /// asked for no second step: the code that opened it just proved the same mailbox
+    /// a second code would go to (OI-215). Information: the line names the account,
+    /// never the address.
+    /// </summary>
+    public const string SignInCodeMailboxWaived = "two-factor.sign-in-code-mailbox-waived";
+
     /// <summary>Every code above, for the format and uniqueness checks.</summary>
-    public static IReadOnlyList<string> All { get; } = [EmailCodeUnavailable, EmailCodeThrottled, ProviderMailboxWaived];
+    public static IReadOnlyList<string> All { get; } =
+        [EmailCodeUnavailable, EmailCodeThrottled, ProviderMailboxWaived, SignInCodeMailboxWaived];
 }

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
@@ -43,7 +44,7 @@ public class PendingRegistrationRepositoryTests
             .Callback<string, string>((scope, _) => scopes.Add(scope))
             .Returns("hash-of-123456");
 
-        var result = await new PendingRegistrationRepository(factory, generator.Object, hasher.Object)
+        var result = await new PendingRegistrationRepository(factory, generator.Object, hasher.Object, Settings())
             .StartAsync(Request, CancellationToken.None);
 
         result.Action.Should().Be(PendingRegistrationStartAction.Minted);
@@ -98,7 +99,7 @@ public class PendingRegistrationRepositoryTests
             rowFor: _ => Row(expiresIn: TimeSpan.FromMinutes(4), mailed: true));
         var generator = new Mock<IOtpGenerator>(MockBehavior.Strict);
 
-        var result = await new PendingRegistrationRepository(factory, generator.Object, Mock.Of<IOtpHasher>())
+        var result = await new PendingRegistrationRepository(factory, generator.Object, Mock.Of<IOtpHasher>(), Settings())
             .StartAsync(Request, CancellationToken.None);
 
         result.Action.Should().Be(PendingRegistrationStartAction.Unchanged);
@@ -126,7 +127,7 @@ public class PendingRegistrationRepositoryTests
         var hasher = new Mock<IOtpHasher>();
         hasher.Setup(h => h.Hash($"pending-registration:{RowId}", "654321")).Returns("hash-of-654321");
 
-        var result = await new PendingRegistrationRepository(factory, generator.Object, hasher.Object)
+        var result = await new PendingRegistrationRepository(factory, generator.Object, hasher.Object, Settings())
             .StartAsync(Request, CancellationToken.None);
 
         result.Action.Should().Be(PendingRegistrationStartAction.Minted, because);
@@ -151,6 +152,8 @@ public class PendingRegistrationRepositoryTests
         update.Parameters["OtpHash"].Should().Be("hash-of-654321");
         update.Parameters["MailedCount"].Should().Be(2);
         update.Parameters["PreferredLanguage"].Should().Be("ar");
+        update.CommandText.Should().NotContain("WrongCode",
+            "the address's wrong-code ceiling survives a new code (D-110-2): a rotation that reset it would give every new code a fresh twenty");
         factory.LastTransaction!.Committed.Should().BeTrue();
     }
 
@@ -165,7 +168,7 @@ public class PendingRegistrationRepositoryTests
                 mailedCount: Request.MaxMailsPerWindow, windowStartedAgo: TimeSpan.FromSeconds(30)));
         var generator = new Mock<IOtpGenerator>(MockBehavior.Strict);
 
-        var result = await new PendingRegistrationRepository(factory, generator.Object, Mock.Of<IOtpHasher>())
+        var result = await new PendingRegistrationRepository(factory, generator.Object, Mock.Of<IOtpHasher>(), Settings())
             .StartAsync(Request, CancellationToken.None);
 
         result.Action.Should().Be(PendingRegistrationStartAction.Unchanged);
@@ -193,7 +196,7 @@ public class PendingRegistrationRepositoryTests
         var generator = new Mock<IOtpGenerator>();
         generator.Setup(g => g.GenerateNumericOtp(6)).Returns("123456");
 
-        var result = await new PendingRegistrationRepository(factory, generator.Object, MintingHasher())
+        var result = await new PendingRegistrationRepository(factory, generator.Object, MintingHasher(), Settings())
             .StartAsync(Request, CancellationToken.None);
 
         result.Action.Should().Be(PendingRegistrationStartAction.Unchanged, "the winner's code is live and mailed");
@@ -216,7 +219,7 @@ public class PendingRegistrationRepositoryTests
         var generator = new Mock<IOtpGenerator>();
         generator.Setup(g => g.GenerateNumericOtp(6)).Returns("123456");
 
-        var act = () => new PendingRegistrationRepository(factory, generator.Object, MintingHasher())
+        var act = () => new PendingRegistrationRepository(factory, generator.Object, MintingHasher(), Settings())
             .StartAsync(Request, CancellationToken.None);
 
         await act.Should().ThrowAsync<Microsoft.Data.SqlClient.SqlException>("one retry, never a loop");
@@ -269,6 +272,80 @@ public class PendingRegistrationRepositoryTests
         update.Parameters["Id"].Should().Be(RowId);
         update.InTransaction.Should().BeTrue();
         factory.LastTransaction!.Committed.Should().BeTrue("a rolled-back increment would hand the guess back");
+    }
+
+    // ── The address's wrong-code ceiling (D-110-2) ──────────────────────────
+
+    [Fact]
+    public async Task CheckCode_OnAWrongCode_CountsItAgainstTheAddressInTheSameStatement()
+    {
+        var factory = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: _ => Row(expiresIn: TimeSpan.FromMinutes(4), mailed: true, attempts: 1,
+                wrongCodes: 7, wrongWindowStartedAgo: TimeSpan.FromHours(3)));
+        var hasher = new Mock<IOtpHasher>();
+        hasher.Setup(h => h.Verify(It.IsAny<string>(), "000000", It.IsAny<string>())).Returns(false);
+
+        var result = await Repository(factory, hasher.Object).CheckCodeUnderLockAsync("handle-1", "000000", CancellationToken.None);
+
+        result.Outcome.Should().Be(PendingRegistrationCodeOutcome.Wrong);
+        var update = factory.Commands[1];
+        update.CommandText.Should().Contain("[WrongCodeCount] = @WrongCodeCount").And.Contain("[WrongCodeWindowStartUtc] = @WrongCodeWindowStartUtc");
+        update.Parameters["WrongCodeCount"].Should().Be(8, "the eighth wrong code of the window, whichever code it was aimed at");
+        ((DateTime)update.Parameters["WrongCodeWindowStartUtc"]!).Should().BeCloseTo(DateTime.UtcNow.AddHours(-3), TimeSpan.FromSeconds(5),
+            "the window keeps its start until 24 hours have passed");
+        update.InTransaction.Should().BeTrue("counted under the lock the read took, so concurrent guesses are counted one after the other");
+    }
+
+    [Fact]
+    public async Task CheckCode_AtTheAddresssCeiling_RefusesARightCodeToo_WithoutHashing_OrWriting()
+    {
+        var factory = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: _ => Row(expiresIn: TimeSpan.FromMinutes(4), mailed: true, attempts: 0,
+                wrongCodes: 20, wrongWindowStartedAgo: TimeSpan.FromHours(23)));
+        var hasher = new Mock<IOtpHasher>(MockBehavior.Strict);
+
+        var result = await Repository(factory, hasher.Object).CheckCodeUnderLockAsync("handle-1", "123456", CancellationToken.None);
+
+        result.Outcome.Should().Be(PendingRegistrationCodeOutcome.WrongCodeCeilingReached,
+            "a fresh code (no attempts yet) does not reopen the address's twenty");
+        factory.Commands.Should().HaveCount(1, "a SELECT and nothing else: nothing compared, nothing charged");
+        factory.LastTransaction!.RolledBack.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CheckCode_OnceTheWindowPassed_ComparesAgain_AndOpensANewWindowAtTheNextWrongCode()
+    {
+        var factory = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: _ => Row(expiresIn: TimeSpan.FromMinutes(4), mailed: true, attempts: 0,
+                wrongCodes: 20, wrongWindowStartedAgo: TimeSpan.FromHours(25)));
+        var hasher = new Mock<IOtpHasher>();
+        hasher.Setup(h => h.Verify(It.IsAny<string>(), "000000", It.IsAny<string>())).Returns(false);
+
+        var result = await Repository(factory, hasher.Object).CheckCodeUnderLockAsync("handle-1", "000000", CancellationToken.None);
+
+        result.Outcome.Should().Be(PendingRegistrationCodeOutcome.Wrong);
+        factory.Commands[1].Parameters["WrongCodeCount"].Should().Be(1, "a new window, opened by this wrong code");
+        ((DateTime)factory.Commands[1].Parameters["WrongCodeWindowStartUtc"]!).Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task CheckCode_ReadsTheCeilingFromTheLiveSetting_NeverBelowOneCodesFiveTries()
+    {
+        var factory = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: _ => Row(expiresIn: TimeSpan.FromMinutes(4), mailed: true, wrongCodes: 5, wrongWindowStartedAgo: TimeSpan.FromHours(1)));
+
+        var atFive = await new PendingRegistrationRepository(factory, MintingGenerator(), Mock.Of<IOtpHasher>(MockBehavior.Strict), Settings(max: 5))
+            .CheckCodeUnderLockAsync("handle-1", "123456", CancellationToken.None);
+        var hostile = await new PendingRegistrationRepository(factory, MintingGenerator(), Mock.Of<IOtpHasher>(MockBehavior.Strict), Settings(max: 0))
+            .CheckCodeUnderLockAsync("handle-1", "123456", CancellationToken.None);
+
+        atFive.Outcome.Should().Be(PendingRegistrationCodeOutcome.WrongCodeCeilingReached);
+        hostile.Outcome.Should().Be(PendingRegistrationCodeOutcome.WrongCodeCeilingReached,
+            "zero is read as five, so a hostile value cannot shut every address's code door at once");
     }
 
     [Fact]
@@ -453,28 +530,33 @@ public class PendingRegistrationRepositoryTests
     }
 
     [Fact]
-    public void OnlyTwoStatementsInTheApplication_WriteConsumedAt()
+    public void OnlyThreeStatementsInTheApplication_WriteConsumedAt()
     {
         // ConsumedAt means one thing: a Users row now exists for the address.
-        // Two places can say so — the by-address consumer every other door
-        // runs after its insert, and the verified creation that inserts and
-        // consumes in one transaction. Starting, checking and rotating never do.
-        Regex.Matches(RepositorySource(), @"SET \[ConsumedAt\]").Count.Should().Be(1,
-            "in this repository only ConsumeByEmailAsync consumes");
+        // Three places can say so — the by-address consumer every other door
+        // runs after its insert, the verified creation that inserts and
+        // consumes in one transaction, and the sign-in by code (OI-215), which
+        // spends the code on the account that already exists. Starting,
+        // checking and rotating never do.
+        Regex.Matches(RepositorySource(), @"SET \[ConsumedAt\]").Count.Should().Be(2,
+            "in this repository only ConsumeByEmailAsync and TryConsumeSignInCodeAsync consume");
 
         var persistence = Path.Combine(SolutionDirectory(), "Auth.Infrastructure", "Persistence");
         var writers = Directory.GetFiles(persistence, "*.cs", SearchOption.AllDirectories)
             .SelectMany(file => Regex.Matches(File.ReadAllText(file), @"SET \[ConsumedAt\]").Select(_ => Path.GetFileName(file)))
             .ToList();
 
-        writers.Should().BeEquivalentTo(["PendingRegistrationRepository.cs", "UserRepository.cs"],
+        writers.Should().BeEquivalentTo(["PendingRegistrationRepository.cs", "PendingRegistrationRepository.cs", "UserRepository.cs"],
             "the other writer is UserRepository.CreateVerifiedAsync, in the same transaction as the account row");
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     private static PendingRegistrationRepository Repository(RecordingDbConnectionFactory factory, IOtpHasher? hasher = null) =>
-        new(factory, MintingGenerator(), hasher ?? MintingHasher());
+        new(factory, MintingGenerator(), hasher ?? MintingHasher(), Settings());
+
+    private static TestHelpers.TestOptions<EmailSettings> Settings(int max = 20) =>
+        TestHelpers.CreateOptions(new EmailSettings { MaxWrongCodesPerDay = max });
 
     private static IOtpGenerator MintingGenerator() =>
         Mock.Of<IOtpGenerator>(g => g.GenerateNumericOtp(6) == "123456");
@@ -490,7 +572,9 @@ public class PendingRegistrationRepositoryTests
         int mailedCount = 1,
         TimeSpan? windowStartedAgo = null,
         string handle = "handle-1",
-        string otpHash = "hash-of-123456")
+        string otpHash = "hash-of-123456",
+        int wrongCodes = 0,
+        TimeSpan? wrongWindowStartedAgo = null)
     {
         var now = DateTime.UtcNow;
         return new
@@ -508,7 +592,9 @@ public class PendingRegistrationRepositoryTests
             VerifiedAt = (DateTime?)null,
             ConsumedAt = (DateTime?)null,
             PreferredLanguage = (string?)"en",
-            CreatedAt = now.AddMinutes(-10)
+            CreatedAt = now.AddMinutes(-10),
+            WrongCodeCount = wrongCodes,
+            WrongCodeWindowStartUtc = now - (wrongWindowStartedAgo ?? TimeSpan.FromMinutes(10))
         };
     }
 

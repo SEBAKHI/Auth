@@ -97,9 +97,7 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
             ? await _roleRepository.GetByIdAsync(namedRole.RoleId, cancellationToken)
             : null;
 
-        var inviterName = inviter != null
-            ? $"{inviter.FirstName} {inviter.LastName}".Trim()
-            : "An administrator";
+        var inviterName = inviter?.NameToShow ?? "An administrator";
 
         // Send from the database-managed template; the invitee's profile language
         // (matched by email inside the service) wins over the resender's culture.
@@ -153,7 +151,7 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
             IsExpired = status == InvitationStatus.Expired,
             CanResend = invitation.CanBeResent(),
             InvitedBy = invitation.InvitedBy,
-            InvitedByName = inviter != null ? $"{inviter.FirstName} {inviter.LastName}".Trim() : null,
+            InvitedByName = inviter?.NameToShow,
             InvitedByEmail = inviter?.Email?.Value,
             AcceptedAt = invitation.AcceptedAt,
             AcceptedByUserId = invitation.AcceptedByUserId,

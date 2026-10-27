@@ -70,11 +70,11 @@ public class NotifyPrivacyPolicyVersionCommandHandler
                 {
                     TypeCode = NotificationTypeCodes.PrivacyPolicyUpdated,
                     RecipientAddress = recipient.Email,
-                    RecipientName = recipient.DisplayName ?? recipient.FirstName ?? "User",
+                    RecipientName = User.NameToShowFrom(recipient.DisplayName, recipient.Email),
                     RecipientUserId = recipient.Id,
                     Variables = new Dictionary<string, object?>
                     {
-                        ["UserName"] = recipient.DisplayName ?? recipient.FirstName ?? "User",
+                        ["UserName"] = User.NameToShowFrom(recipient.DisplayName, recipient.Email),
                         ["PolicyVersion"] = version.Version,
                         ["EffectiveDate"] = version.EffectiveDateUtc.ToString("yyyy-MM-dd"),
                         ["PolicyLink"] = policyLink

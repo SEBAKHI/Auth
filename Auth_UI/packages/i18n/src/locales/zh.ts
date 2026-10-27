@@ -532,6 +532,11 @@ export const zh: TranslationResources = {
     haveAccount: "已有账户？",
     signUp: "注册",
     registerEmailHint: "我们将向该地址发送一个 6 位验证码，以确认它属于您。",
+    registerClosedTitle: "注册已关闭",
+    registerClosed:
+      "此处无法使用电子邮件地址创建新账户。如果您已有账户，请登录。",
+    registerUnavailable:
+      "目前无法使用电子邮件地址创建新账户：此服务器不发送电子邮件，而这类账户需要发送到其地址的验证码。如果您已有账户，请登录。",
     sendCode: "发送验证码",
     sendingCode: "正在发送验证码…",
     requestNewCode: "发送新验证码",
@@ -561,6 +566,18 @@ export const zh: TranslationResources = {
     showPassword: "显示密码",
     hidePassword: "隐藏密码",
     accountCreated: "您的账户已准备就绪。",
+    signInOrCreateTitle: "登录或创建账户",
+    continueWithEmail: "通过电子邮件继续",
+    signInWithPasswordInstead: "改用密码登录",
+    signInWithEmailCode: "使用发送到您邮箱的验证码登录",
+    invalidCredentialsOrCode:
+      "电子邮件或密码不正确。如果您尚未为账户设置密码，请使用发送到您邮箱的验证码登录。",
+    passwordToFinishTitle: "输入密码以完成登录",
+    passwordToFinishSubtitle: "您的电子邮件已确认。此次登录还需要您账户的密码。",
+    emailCodeTitle: "查看您的邮箱",
+    emailCodeMessageSent: "我们已向 {{email}} 发送了一封邮件。请输入其中的六位数代码。",
+    completeAccountTitle: "完善您的账户",
+    completeAccountSubtitle: "您的地址已确认。请补充以下信息以完成账户创建。",
   },
   dashboard: {
     window: "时间范围",
@@ -1239,6 +1256,7 @@ export const zh: TranslationResources = {
       organizationMemberRemoved: "从组织中移除成员",
       passwordCreated: "为原本没有密码的账户添加密码",
       passwordChanged: "更改密码",
+      passwordRemoved: "移除密码",
       twofactorEnabled: "启用两步验证",
       twofactorDisabled: "停用两步验证",
       twofactorRecoveryCodesRegenerated: "重新生成两步验证恢复代码",
@@ -1517,6 +1535,9 @@ export const zh: TranslationResources = {
       twoFactorBindCode: "双重认证设置验证码",
       twoFactorHardLocked: "双重认证已锁定",
       twoFactorEmailCode: "双重认证登录验证码",
+      emailSignInCode: "邮件登录验证码",
+      signInNoAccount: "使用无账户地址的登录尝试",
+      passwordRemoved: "已移除密码",
     },
     application: "应用程序",
     global: "全局",
@@ -1920,6 +1941,8 @@ export const zh: TranslationResources = {
       "「{{category}}」已关闭，因此需要修正的值无法编辑。请重新启用，修正该值，然后保存。",
     emailOffAccounts: "以邮件验证码作为第二步验证的账户：{{count}}。关闭邮件后，这些账户只能使用恢复代码登录。",
     emailOffAccountsUnknown: "无法统计以邮件验证码作为第二步验证的账户。关闭邮件后，这些账户只能使用恢复代码登录。",
+    emailOffPasswordlessAccounts: "仅通过邮件验证码登录的账户（无密码，也未关联 Google 或 Apple）：{{count}}。关闭邮件后，这些账户均无法登录。",
+    emailOffPasswordlessAccountsUnknown: "无法统计仅通过邮件验证码登录的账户（无密码，也未关联 Google 或 Apple）。关闭邮件后，这些账户均无法登录。",
     highImpactConfirmTitle: "保存影响安全的设置？",
     highImpactConfirmBody:
       "这些设置决定谁可以登录、如何登录以及可以使用哪些密码：{{fields}}。即使服务器接受某个值，它仍可能将包括您在内的管理员挡在门外，或削弱所有账户的某项保护。保存前请仔细检查。",
@@ -2073,7 +2096,7 @@ export const zh: TranslationResources = {
       enforceForPlatformAdmins: "要求平台管理员使用双重认证",
       enforceForPlatformAdminsHint:
         "MFA 强制（MFA enforcement）：仅适用于平台管理员，即持有任何平台权限的人。开启后，尚未证明第二因素的管理员会话不会获得任何平台权限，并会先被引导去设置第二因素或输入验证码。应用用户、团队和组织角色永远不受影响。仅在每位管理员都有第二因素后才开启。建议：所有管理员完成注册后开启。",
-      emailCodeLifetimeMinutes: "电子邮件登录验证码有效期（分钟）",
+      emailCodeLifetimeMinutes: "通过电子邮件发送的第二步验证码有效期（分钟）",
       emailCodeLifetimeMinutesHint:
         "验证码有效期（code lifetime）：作为第二因素通过电子邮件发送的验证码在每次发送后保持有效的时间，范围为 5 到 10 分钟。较短的值让猜测者的时间更少，但迟到的验证码可能在输入前就已失效——请将其设置得长于邮件通常的送达时间。仅适用于第二因素为电子邮件验证码的账户。建议：10。",
     },
@@ -2297,6 +2320,12 @@ export const zh: TranslationResources = {
       allowInvitationRegistration: "通过邀请注册",
       allowInvitationRegistrationHint:
         "使用组织邀请是否可以创建账户。关闭公开注册通常意味着账户应改为通过邀请产生，因此这是一个独立开关；三个都关闭后，账户只有管理员创建时才存在。已发出的邀请不会被取消；已有账户的人仍可接受邀请，因为那只是添加成员身份，并不创建账户。",
+      passwordAtSignUp: "注册时设置密码",
+      passwordAtSignUpHint:
+        "新账户是否设置密码。关闭后，注册不再要求密码（无密码注册）：新账户使用发送到其邮箱的六位数验证码登录，登录页会优先显示该验证码方式，用户之后可在个人资料中添加密码。仅在开启邮件发送时生效；邮件关闭时无法将其保存为关闭。现有账户保留其密码。建议：开启，除非您的用户应通过邮件验证码登录。",
+      nameAtSignUp: "注册时填写姓名",
+      nameAtSignUpHint:
+        "新账户是否填写名字和姓氏。关闭后，注册不再要求姓名：凡显示账户姓名之处都改为显示邮箱地址，用户之后可在个人资料中添加姓名。同时适用于公开注册和邀请。建议：开启，除非姓名对您的应用毫无用处。",
     },
     organizations: {
       title: "谁可以创建组织",
@@ -2403,6 +2432,9 @@ export const zh: TranslationResources = {
       maxOtpRequestsPerWindow: "每窗口验证码数量",
       maxOtpRequestsPerWindowHint:
         "单个地址在每个窗口内可请求的验证码上限。推荐：3——防止邮件轰炸。",
+      maxWrongCodesPerDay: "每个地址每日错误验证码次数",
+      maxWrongCodesPerDayHint:
+        "一个地址在 24 小时内可输入的错误验证码次数，涵盖发送给它的所有验证码以及所有需要验证码的步骤（注册、验证码登录、账户恢复）。达到上限后，该地址的所有验证码都会被拒绝，直到其第一个错误验证码的 24 小时之后；密码、Google 或 Apple 以及“忘记密码？”仍可使用。新验证码不会重置计数。推荐：20。",
     },
     notificationsSection: {
       newDeviceAlertEnabled: "新设备登录时提醒",
@@ -2715,8 +2747,21 @@ export const zh: TranslationResources = {
     changePassword: "修改密码",
     passwordChanged: "密码已修改。",
     setPassword: "设置密码",
+    removePassword: "移除密码",
+    removePasswordBody:
+      "改用发送到您邮箱的六位数验证码登录，而不是密码。您可以随时重新设置密码。",
+    removePasswordBlockedByEmailCode:
+      "当您的第二步验证为身份验证器应用时才能移除密码：通过验证码登录后再用邮件验证码，等于两次证明同一个邮箱。请先关闭邮件验证码，或设置身份验证器应用。",
+    removePasswordBlockedByPlatformAuthority:
+      "您的账户拥有平台管理权限，因此必须保留一项电子邮件无法提供的第二重证明：请先设置身份验证器应用，然后才能删除密码。",
+    removePasswordConfirmTitle: "移除您的密码？",
+    removePasswordConfirmBody:
+      "从现在起，您将使用发送到 {{email}} 的验证码登录；除非启用了身份验证器应用，任何控制该邮箱的人都能登录您的账户。所有其他已登录您账户的设备都将被登出，我们会发邮件告知您密码已移除。",
+    removePasswordReauthenticate:
+      "移除密码需要您最近使用密码（以及已启用的身份验证器应用）登录过。请重新登录，然后再移除。",
+    passwordRemoved: "密码已移除。从现在起请使用发送到您邮箱的验证码登录。",
     setPasswordBody:
-      "此账户尚未设置密码——您一直通过 Google 等关联账户登录。我们会向您发送创建密码的链接，之后两种方式都可以使用。",
+      "此账户尚未设置密码：它通过发送到您邮箱的验证码或 Google 等关联账户登录。我们会向您发送创建密码的链接，之后也可以使用密码登录。",
     emailSetPasswordLink: "给我发送链接",
     twoStepVerification: "两步验证",
     twoStepVerificationBody:
