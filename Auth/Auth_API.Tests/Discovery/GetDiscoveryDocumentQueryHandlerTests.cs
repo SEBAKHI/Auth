@@ -174,6 +174,18 @@ public class GetDiscoveryDocumentQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_AdvertisesTheUiLocalesTheSignInPagesHonour()
+    {
+        // OpenID Connect Discovery §3: a relying party learns here which ui_locales
+        // values change the sign-in and sign-out pages.
+        var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
+
+        result.Value.UiLocalesSupported.Should().Equal(Auth.Domain.Constants.Languages.Supported);
+        JsonSerializer.Serialize(result.Value, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
+            .Should().Contain("\"ui_locales_supported\":[\"en\",\"ar\",\"tr\",\"fr\",\"zh\",\"ur\",\"fa\"]");
+    }
+
+    [Fact]
     public async Task Serialization_HasNoIntrospectionEndpoint()
     {
         // The key itself must be gone, because a client library treats a listed endpoint as one

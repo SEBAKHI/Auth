@@ -239,7 +239,14 @@ public class AuthorizeCommandHandler :
         }
 
         // Every check above has passed: this is what an accounts page may store.
-        var pending = new PendingContext(application, prompt, requestedScopes, resumedHandle);
+        // The presentation hints are no check: an unusable value is dropped, never
+        // refused, so they cannot turn a valid request into an error.
+        var pending = new PendingContext(
+            application,
+            prompt,
+            requestedScopes,
+            resumedHandle,
+            PresentationHints.From(request.UiLocales, request.UiTheme));
 
         // --- IdP session: no valid session means the browser goes to login ---
 
@@ -429,14 +436,15 @@ public class AuthorizeCommandHandler :
 
     /// <summary>
     /// A request that passed every check, with what a stored copy of it needs:
-    /// its application, its parsed prompt and scopes, and the handle it already
-    /// has when it is being resumed.
+    /// its application, its parsed prompt and scopes, the handle it already has
+    /// when it is being resumed, and how its accounts pages should look.
     /// </summary>
     private sealed record PendingContext(
         Auth.Domain.Entities.Application Application,
         PromptValues Prompt,
         ScopeSet RequestedScopes,
-        string? ResumedHandle);
+        string? ResumedHandle,
+        PresentationHints Hints);
 
     /// <summary>
     /// The outcome of the freshness check: whether to demand re-authentication,
@@ -562,6 +570,12 @@ public class AuthorizeCommandHandler :
     /// as a remote file inclusion and refuses the page (OI-145). The application
     /// code is the only thing the page shows from it, for branding; the resume
     /// refuses a code that is not the stored request's.
+    /// <para>
+    /// The presentation hints ride along in either shape, resolved: a language
+    /// code and a colour mode, short words a firewall reads as nothing. The page
+    /// keeps them for the rest of the flow and never sends them back; a resume
+    /// reads them from the stored request.
+    /// </para>
     /// </remarks>
     private async Task<string> AccountsRedirectAsync(
         string page, AuthorizeCommand request, PendingContext pending, CancellationToken cancellationToken)
@@ -576,13 +590,17 @@ public class AuthorizeCommandHandler :
         {
             if (!_idpSettings.AuthorizationRequestHandlesEnabled)
             {
-                return $"{accountsBase}/{page}?returnTo={Uri.EscapeDataString(request.OriginalRequestUrl)}";
+                return PresentationHintsQuery.AppendTo(
+                    $"{accountsBase}/{page}?returnTo={Uri.EscapeDataString(request.OriginalRequestUrl)}",
+                    pending.Hints);
             }
 
             handle = await StoreRequestAsync(request, pending, cancellationToken);
         }
 
-        return $"{accountsBase}/{page}?client_id={Uri.EscapeDataString(request.ClientId!)}&auth_request={handle}";
+        return PresentationHintsQuery.AppendTo(
+            $"{accountsBase}/{page}?client_id={Uri.EscapeDataString(request.ClientId!)}&auth_request={handle}",
+            pending.Hints);
     }
 
     /// <summary>
@@ -616,7 +634,8 @@ public class AuthorizeCommandHandler :
             // Validated above: present means "true".
             createOrganization: request.CreateOrganization is not null,
             _idpSettings.AuthorizationRequestLifetime,
-            UtcNow());
+            UtcNow(),
+            pending.Hints);
 
         await _authorizationRequestRepository.CreateAsync(stored, cancellationToken);
 
@@ -709,7 +728,11 @@ public class AuthorizeCommandHandler :
         resume.StepUpTicket,
         stored.Scope,
         stored.CreateOrganization ? "true" : null,
-        resume.UserAgent);
+        resume.UserAgent,
+        // Resolved values, which resolve to themselves: the resume URL never
+        // carries the hints, so the stored request is their only way back.
+        stored.Hints.Language,
+        stored.Hints.Theme);
 
     /// <summary>The current time, from the injected clock, as every rule here reads it.</summary>
     private DateTime UtcNow() => _timeProvider.GetUtcNow().UtcDateTime;

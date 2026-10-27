@@ -100,4 +100,12 @@ public record DiscoveryDocumentDto
     /// </summary>
     [JsonPropertyName("prompt_values_supported")]
     public IReadOnlyList<string>? PromptValuesSupported { get; init; }
+
+    /// <summary>
+    /// The languages the sign-in and sign-out pages can show in (OpenID Connect
+    /// Discovery §3): the <c>ui_locales</c> values that are honoured. Any other
+    /// value shows the pages in English.
+    /// </summary>
+    [JsonPropertyName("ui_locales_supported")]
+    public IReadOnlyList<string>? UiLocalesSupported { get; init; }
 }

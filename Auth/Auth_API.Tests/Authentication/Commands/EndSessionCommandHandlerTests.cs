@@ -165,6 +165,34 @@ public class EndSessionCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_PresentationHints_RideToBothAccountsPages_Resolved()
+    {
+        // ui_locales (RP-Initiated Logout §2) and ui_theme shape the logout pages
+        // as they shape the sign-in pages; the language travels resolved.
+        SetupApplication();
+        SetupLiveSession();
+
+        var confirm = await _handler.Handle(
+            new EndSessionCommand(ClientId, "xyz", "sso-token", UiLocales: "ar-EG", UiTheme: "dark"),
+            CancellationToken.None);
+
+        confirm.Value.RedirectUrl.Should().Be(
+            $"{AccountsBase}/logout?client_id=CRM&state=xyz&ui_locales=ar&ui_theme=dark");
+
+        _idpSessions
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IdpSession?)null);
+
+        var signedOut = await _handler.Handle(
+            new EndSessionCommand(ClientId, "xyz", "sso-token", UiLocales: "de", UiTheme: "blue"),
+            CancellationToken.None);
+
+        signedOut.Value.RedirectUrl.Should().Be(
+            $"{AccountsBase}/signed-out?client_id=CRM&state=xyz&ui_locales=en",
+            "unsupported tags show the pages in English, and an unknown colour mode is dropped");
+    }
+
+    [Fact]
     public async Task Handle_OnlyEverNamesOurOwnOrigin()
     {
         // With no post_logout_redirect_uri, no caller-supplied value reaches the

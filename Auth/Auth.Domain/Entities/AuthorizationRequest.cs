@@ -1,4 +1,5 @@
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Entities;
 
@@ -96,6 +97,13 @@ public class AuthorizationRequest : EntityBase
     /// </summary>
     public DateTime ExpiresAt { get; private set; }
 
+    /// <summary>
+    /// Gets the language and colour mode the relying party asked the accounts
+    /// pages of this request to show in, resolved; <see cref="PresentationHints.None"/>
+    /// when it named neither.
+    /// </summary>
+    public PresentationHints Hints { get; private set; } = PresentationHints.None;
+
     private AuthorizationRequest() : base()
     {
     }
@@ -118,8 +126,10 @@ public class AuthorizationRequest : EntityBase
         string scope,
         bool createOrganization,
         DateTime createdAt,
-        DateTime expiresAt) : base(id)
+        DateTime expiresAt,
+        PresentationHints? hints = null) : base(id)
     {
+        Hints = hints ?? PresentationHints.None;
         HandleHash = handleHash;
         ApplicationId = applicationId;
         ClientId = clientId;
@@ -158,7 +168,8 @@ public class AuthorizationRequest : EntityBase
         string scope,
         bool createOrganization,
         TimeSpan lifetime,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        PresentationHints? hints = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(handleHash);
         ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
@@ -182,7 +193,8 @@ public class AuthorizationRequest : EntityBase
             Scope = scope,
             CreateOrganization = createOrganization,
             CreatedAt = nowUtc,
-            ExpiresAt = nowUtc.Add(lifetime)
+            ExpiresAt = nowUtc.Add(lifetime),
+            Hints = hints ?? PresentationHints.None
         };
     }
 

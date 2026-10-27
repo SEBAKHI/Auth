@@ -18,8 +18,15 @@ CREATE TABLE [dbo].[AuthorizationRequests]
     [CreateOrganization] BIT NOT NULL,        -- create_organization=true
     [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_AuthorizationRequests_CreatedAt] DEFAULT GETUTCDATE(),
     [ExpiresAt] DATETIME2 NOT NULL,
+    -- Presentation hints, resolved (PresentationHints): the accounts pages of this
+    -- request show in this language and colour mode. NULL when the relying party
+    -- named none. Last, and nullable without a default, so the API before them
+    -- keeps writing rows while the schema is ahead of it.
+    [UiLocale] NVARCHAR(10) NULL,             -- ui_locales, as one supported language code
+    [UiTheme] NVARCHAR(10) NULL,              -- ui_theme: light, dark or system
 
     CONSTRAINT [PK_AuthorizationRequests] PRIMARY KEY CLUSTERED ([Id]),
+    CONSTRAINT [CK_AuthorizationRequests_UiTheme] CHECK ([UiTheme] IS NULL OR [UiTheme] IN (N'light', N'dark', N'system')),
     -- Pending requests are throwaway artifacts scoped to the client, like the
     -- codes they lead to, so they cascade away with the application.
     CONSTRAINT [FK_AuthorizationRequests_Applications] FOREIGN KEY ([ApplicationId]) REFERENCES [dbo].[Applications]([Id]) ON DELETE CASCADE

@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { dropFlowHint, readFlowHints } from "@authsystem/i18n/flow-hints"
 import { adoptStyleSheet } from "@authsystem/ui/hooks/use-adopted-style-sheet"
 
 export type Theme = "dark" | "light" | "system"
@@ -92,6 +93,13 @@ export function ThemeProvider({
   ...props
 }: ThemeProviderProps) {
   const [theme, setThemeState] = React.useState<Theme>(() => {
+    // An application's colour mode, while a flow it started is in force; it is
+    // shown, never stored (flow-hints.ts).
+    const hinted = readFlowHints().theme
+    if (hinted) {
+      return hinted
+    }
+
     const storedTheme = localStorage.getItem(storageKey)
     if (isTheme(storedTheme)) {
       return storedTheme
@@ -108,6 +116,8 @@ export function ThemeProvider({
 
   const setTheme = React.useCallback(
     (nextTheme: Theme) => {
+      // A choice made here outranks the application's hint, and ends it.
+      dropFlowHint("theme")
       localStorage.setItem(storageKey, nextTheme)
       setThemeState(nextTheme)
     },
@@ -156,6 +166,7 @@ export function ThemeProvider({
                 ? "light"
                 : "dark"
 
+        dropFlowHint("theme")
         localStorage.setItem(storageKey, nextTheme)
         return nextTheme
       })

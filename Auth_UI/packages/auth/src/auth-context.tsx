@@ -32,6 +32,7 @@ import i18n, {
   SUPPORTED_LANGUAGES,
   type LanguageCode,
 } from "@authsystem/i18n"
+import { readFlowHints } from "@authsystem/i18n/flow-hints"
 import { setActiveTimeZone } from "@authsystem/i18n/timezone"
 import { setDataTableScope } from "@authsystem/ui/data-table/storage"
 import type { UserInfo } from "@authsystem/api/types"
@@ -263,6 +264,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (languageAdoptedRef.current) return
       languageAdoptedRef.current = true
+      // An application's language is in force for this flow: its pages stay in
+      // it, and nothing is stored over the user's own choice.
+      if (readFlowHints().language) return
       const code = profile?.preferredLanguage
       const supported = SUPPORTED_LANGUAGES.some((l) => l.code === code)
       if (code && supported && i18n.language !== code) {

@@ -1,6 +1,7 @@
 using Auth.Domain.Enums;
 using System.Data.Common;
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 using Auth.Infrastructure.Persistence;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
@@ -24,7 +25,8 @@ public class AuthorizationRequestPersistenceTests
 
     private static AuthorizationRequest Request() => AuthorizationRequest.Create(
         "handle-hash", Guid.NewGuid(), "SHOP", "code", "https://shop.example.com/cb", new string('a', 43), "S256",
-        "rp state", "login create", 300, "openid email", createOrganization: true, TimeSpan.FromMinutes(60), Now);
+        "rp state", "login create", 300, "openid email", createOrganization: true, TimeSpan.FromMinutes(60), Now,
+        PresentationHints.From("ar-EG", "dark"));
 
     private static object Row(Guid id) => new
     {
@@ -42,7 +44,9 @@ public class AuthorizationRequestPersistenceTests
         Scope = "openid profile",
         CreateOrganization = true,
         CreatedAt = Now,
-        ExpiresAt = Now.AddMinutes(60)
+        ExpiresAt = Now.AddMinutes(60),
+        UiLocale = "fa",
+        UiTheme = "light"
     };
 
     [Fact]
@@ -55,7 +59,7 @@ public class AuthorizationRequestPersistenceTests
 
         var command = db.LastCommand!;
         command.CommandText.Should().Contain("INSERT INTO [dbo].[AuthorizationRequests]");
-        command.Parameters.Should().HaveCount(15);
+        command.Parameters.Should().HaveCount(17);
         command.Parameters["Id"].Should().Be(request.Id);
         command.Parameters["HandleHash"].Should().Be("handle-hash");
         command.Parameters["ApplicationId"].Should().Be(request.ApplicationId);
@@ -71,6 +75,8 @@ public class AuthorizationRequestPersistenceTests
         command.Parameters["CreateOrganization"].Should().Be(true);
         command.Parameters["CreatedAt"].Should().Be(Now);
         command.Parameters["ExpiresAt"].Should().Be(Now.AddMinutes(60));
+        command.Parameters["UiLocale"].Should().Be("ar", "the resolved language, never the tags as sent");
+        command.Parameters["UiTheme"].Should().Be("dark");
         foreach (var name in command.Parameters.Keys)
         {
             command.CommandText.Should().Contain($"[{name}]").And.Contain($"@{name}");
@@ -182,6 +188,54 @@ public class AuthorizationRequestPersistenceTests
         request.Scope.Should().Be("openid profile");
         request.CreateOrganization.Should().BeTrue();
         request.ExpiresAt.Should().Be(Now.AddMinutes(60));
+        request.Hints.Language.Should().Be("fa");
+        request.Hints.Theme.Should().Be("light");
+    }
+
+    [Fact]
+    public async Task CreateAsync_NoHints_WritesNulls()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var request = AuthorizationRequest.Create(
+            "handle-hash", Guid.NewGuid(), "SHOP", "code", "https://shop.example.com/cb", new string('a', 43), "S256",
+            null, null, null, "openid", createOrganization: false, TimeSpan.FromMinutes(60), Now);
+
+        await Repository(db).CreateAsync(request, CancellationToken.None);
+
+        db.LastCommand!.Parameters["UiLocale"].Should().BeNull();
+        db.LastCommand.Parameters["UiTheme"].Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetLiveByHandleHashAsync_RowWithoutHints_ReadsAsNone()
+    {
+        // A row written before the columns existed, or by a request that named none.
+        var id = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => new
+        {
+            Id = id,
+            HandleHash = "handle-hash",
+            ApplicationId = Guid.NewGuid(),
+            ClientId = "SHOP",
+            ResponseType = "code",
+            RedirectUri = "https://shop.example.com/cb",
+            CodeChallenge = new string('a', 43),
+            CodeChallengeMethod = "S256",
+            State = (string?)null,
+            Prompt = (string?)null,
+            MaxAge = (int?)null,
+            Scope = "openid",
+            CreateOrganization = false,
+            CreatedAt = Now,
+            ExpiresAt = Now.AddMinutes(60),
+            UiLocale = (string?)null,
+            UiTheme = (string?)null
+        });
+
+        var request = await Repository(db)
+            .GetLiveByHandleHashAsync(FakeCredentialHasher.CandidatesOf(CredentialPurpose.AuthorizationRequestHandle, "handle-hash"), Now, CancellationToken.None);
+
+        request!.Hints.Should().BeSameAs(PresentationHints.None);
     }
 
     [Fact]
