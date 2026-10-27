@@ -4,11 +4,13 @@ import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
 import { devHttps } from "../../dev-https"
+import { themeBoot } from "../../theme-boot"
 import { vendorChunk } from "../../vendor-chunks"
 
 // https://vite.dev/config/
 export default defineConfig((config) => ({
-  plugins: [react(), tailwindcss()],
+  // themeBoot: the colour mode on <html> before the first paint (theme-boot.ts).
+  plugins: [themeBoot({ hints: true }), react(), tailwindcss()],
   server: {
     // The console dev server owns 5173; accounts runs alongside it.
     port: 5174,
