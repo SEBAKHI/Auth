@@ -103,7 +103,9 @@ public class AuthorizationRequestHandleTests
         string? createOrganization = null,
         string? state = "xyz",
         string? idpSessionToken = null,
-        string? stepUpTicket = null) => new(
+        string? stepUpTicket = null,
+        string? uiLocales = null,
+        string? uiTheme = null) => new(
             "code",
             ClientId,
             RedirectUri,
@@ -117,7 +119,9 @@ public class AuthorizationRequestHandleTests
             maxAge,
             stepUpTicket,
             scope,
-            createOrganization);
+            createOrganization,
+            UiLocales: uiLocales,
+            UiTheme: uiTheme);
 
     private ResumeAuthorizationCommand Resume(
         string? handle,
@@ -239,21 +243,24 @@ public class AuthorizationRequestHandleTests
     public void AccountsPages_AreNotEmpty() => AccountsPages.Count.Should().BeGreaterThan(0);
 
     /// <summary>Each accounts page an authorize request can be sent to, reached the way it is reached.</summary>
-    private async Task<AuthorizeResult> ReachAsync(string page)
+    private async Task<AuthorizeResult> ReachAsync(string page, string? uiLocales = null, string? uiTheme = null)
     {
         var application = SetupApplication();
         switch (page)
         {
             case "login":
-                return (await _handler.Handle(Command(), CancellationToken.None)).Value;
+                return (await _handler.Handle(
+                    Command(uiLocales: uiLocales, uiTheme: uiTheme), CancellationToken.None)).Value;
             case "register":
-                return (await _handler.Handle(Command(prompt: "create"), CancellationToken.None)).Value;
+                return (await _handler.Handle(
+                    Command(prompt: "create", uiLocales: uiLocales, uiTheme: uiTheme), CancellationToken.None)).Value;
             case "create-organization":
                 SetupCreatorRole(application);
                 var (token, userId) = SetupSession();
                 SetupOrganization(userId, null);
                 return (await _handler.Handle(
-                    Command(createOrganization: "true", idpSessionToken: token), CancellationToken.None)).Value;
+                    Command(createOrganization: "true", idpSessionToken: token, uiLocales: uiLocales, uiTheme: uiTheme),
+                    CancellationToken.None)).Value;
             default:
                 throw new ArgumentOutOfRangeException(nameof(page), page, null);
         }
@@ -423,6 +430,8 @@ public class AuthorizationRequestHandleTests
         ["max_age"] = ("321", row => row.MaxAge, 321),
         ["scope"] = ("profile openid", row => row.Scope, "openid profile"),
         ["create_organization"] = ("true", row => row.CreateOrganization, true),
+        ["ui_locales"] = ("ar-EG fr", row => row.Hints.Language, "ar"),
+        ["ui_theme"] = ("dark", row => row.Hints.Theme, "dark"),
     };
 
     [Fact]
@@ -448,7 +457,8 @@ public class AuthorizationRequestHandleTests
             new AuthorizeCommand(
                 sent["response_type"], sent["client_id"], sent["redirect_uri"], sent["code_challenge"],
                 sent["code_challenge_method"], sent["state"], IdpSessionToken: null, OriginalUrl, "127.0.0.1",
-                sent["prompt"], sent["max_age"], StepUpTicket: null, sent["scope"], sent["create_organization"]),
+                sent["prompt"], sent["max_age"], StepUpTicket: null, sent["scope"], sent["create_organization"],
+                UiLocales: sent["ui_locales"], UiTheme: sent["ui_theme"]),
             CancellationToken.None);
 
         result.Value.RedirectUrl.Should().StartWith($"{Accounts}/register?");
@@ -484,6 +494,8 @@ public class AuthorizationRequestHandleTests
         ["max_age"] = (command => command.MaxAge, "321"),
         ["scope"] = (command => command.Scope, "openid profile"),
         ["create_organization"] = (command => command.CreateOrganization, "true"),
+        ["ui_locales"] = (command => command.UiLocales, "ar"),
+        ["ui_theme"] = (command => command.UiTheme, "dark"),
     };
 
     public static TheoryData<string> EquivalenceCases => new()
@@ -626,6 +638,86 @@ public class AuthorizationRequestHandleTests
         again.Value.RedirectUrl.Should().Be($"{Accounts}/login?client_id={ClientId}&auth_request={handle}");
         again.Value.IsLoginRedirect.Should().BeTrue();
         _store.Rows.Should().ContainSingle();
+    }
+
+    // Presentation hints: ui_locales and ui_theme ride to the accounts pages, resolved.
+
+    [Theory]
+    [MemberData(nameof(AccountsPages))]
+    public async Task Authorize_ToAnAccountsPage_CarriesTheResolvedHints_AndNothingElse(string page)
+    {
+        var result = await ReachAsync(page, uiLocales: "ar-EG fr", uiTheme: "dark");
+
+        var query = QueryOf(result.RedirectUrl);
+        query.Keys.Should().BeEquivalentTo(["client_id", "auth_request", "ui_locales", "ui_theme"]);
+        query["ui_locales"].Should().Be("ar", "the resolved language travels, never the tags as sent");
+        query["ui_theme"].Should().Be("dark");
+        query.Values.Should().NotContain(value => value.Contains("://"));
+        _store.Rows.Should().ContainSingle().Which.Hints.Should().Be(PresentationHints.From("ar", "dark"));
+    }
+
+    [Fact]
+    public async Task Authorize_UnusableHints_AreDefaultedOrDropped_NeverRefused()
+    {
+        SetupApplication();
+
+        var result = await _handler.Handle(Command(uiLocales: "de nl", uiTheme: "blue"), CancellationToken.None);
+
+        result.Value.IsLoginRedirect.Should().BeTrue("a presentation hint never turns a valid request into an error");
+        var query = QueryOf(result.Value.RedirectUrl);
+        query["ui_locales"].Should().Be("en", "tags were sent and none is supported: the pages show in English");
+        query.Should().NotContainKey("ui_theme", "an unknown colour mode is dropped");
+    }
+
+    [Fact]
+    public async Task Resume_ThatNeedsSignInAgain_CarriesTheStoredHints()
+    {
+        SetupApplication();
+        var first = await _handler.Handle(Command(uiLocales: "fa", uiTheme: "light"), CancellationToken.None);
+        var handle = HandleIn(first.Value.RedirectUrl);
+
+        // The resume URL carries no hint: the stored request is their only way back.
+        var again = await _handler.Handle(Resume(handle), CancellationToken.None);
+
+        again.Value.RedirectUrl.Should().Be(
+            $"{Accounts}/login?client_id={ClientId}&auth_request={handle}&ui_locales=fa&ui_theme=light");
+    }
+
+    [Fact]
+    public async Task Authorize_WithHandlesOff_CarriesTheHintsBesideReturnTo()
+    {
+        _settings.AuthorizationRequestHandlesEnabled = false;
+        SetupApplication();
+
+        var result = await _handler.Handle(Command(uiLocales: "ur", uiTheme: "system"), CancellationToken.None);
+
+        var query = QueryOf(result.Value.RedirectUrl);
+        query.Keys.Should().BeEquivalentTo(["returnTo", "ui_locales", "ui_theme"]);
+        query["ui_locales"].Should().Be("ur");
+        query["ui_theme"].Should().Be("system");
+        _store.Rows.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Hints_NeverReachTheRelyingParty_OnACodeOrAnError()
+    {
+        // The hints shape this provider's pages; the relying party's redirect_uri
+        // gets what OAuth defines for it and nothing more.
+        SetupApplication();
+        var (token, _) = SetupSession();
+
+        var (issued, code) = await RunAsync(() => _handler.Handle(
+            Command(idpSessionToken: token, uiLocales: "ar", uiTheme: "dark"), CancellationToken.None));
+        var refused = (await _handler.Handle(
+            Command(prompt: "none", uiLocales: "ar", uiTheme: "dark"), CancellationToken.None)).Value;
+
+        code.Should().NotBeNull();
+        issued.RedirectUrl.Should().StartWith($"{RedirectUri}?code=");
+        refused.RedirectUrl.Should().Be($"{RedirectUri}?error=login_required&state=xyz");
+        foreach (var url in new[] { issued.RedirectUrl, refused.RedirectUrl })
+        {
+            QueryOf(url).Keys.Should().NotContain("ui_locales").And.NotContain("ui_theme");
+        }
     }
 
     [Fact]

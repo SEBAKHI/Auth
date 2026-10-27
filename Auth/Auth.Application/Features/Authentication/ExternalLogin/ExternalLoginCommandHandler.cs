@@ -1,3 +1,4 @@
+using System.Globalization;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Common;
@@ -230,7 +231,12 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
                     firstName: FirstNonEmpty(externalUser.FirstName, request.GivenName),
                     lastName: FirstNonEmpty(externalUser.LastName, request.FamilyName),
                     createdBy: Guid.Empty,
-                    profileImageUrl: importedAvatarKey);
+                    profileImageUrl: importedAvatarKey,
+                    // The site language of the request, as a registration by email
+                    // stores it: an account opened from an application's Arabic
+                    // pages gets its mail in Arabic, not in the default.
+                    preferredLanguage: Languages.Normalize(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName)
+                        ?? Languages.Default);
 
                 await _userRepository.CreateAsync(user, cancellationToken);
 

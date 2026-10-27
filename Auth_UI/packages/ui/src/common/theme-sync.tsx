@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { useAuth } from "@authsystem/auth/auth-context"
+import { readFlowHints } from "@authsystem/i18n/flow-hints"
 import { isTheme, useTheme } from "@authsystem/ui/theme-provider"
 
 /**
@@ -9,6 +10,9 @@ import { isTheme, useTheme } from "@authsystem/ui/theme-provider"
  * cannot own this: packages/auth must not depend on packages/ui). The
  * once-per-session guard keeps a mid-session manual change from being
  * overwritten by stale server state; it resets on logout.
+ *
+ * Steps aside while an application's colour mode is in force: the pages of
+ * that flow keep the application's look, and the profile is not written.
  */
 export function ThemeSync() {
   const { status, user } = useAuth()
@@ -28,7 +32,7 @@ export function ThemeSync() {
     }
     adoptedRef.current = true
 
-    if (profileTheme && isTheme(profileTheme)) {
+    if (profileTheme && isTheme(profileTheme) && !readFlowHints().theme) {
       setTheme(profileTheme)
     }
   }, [status, profileTheme, setTheme])

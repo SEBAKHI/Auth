@@ -618,6 +618,53 @@ public class ExternalLoginCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ExistingAccount_KeepsItsOwnLanguage_WhateverThePageLanguage()
+    {
+        // Only a NEW account takes the language of the page it was created on. An
+        // existing account's language is its owner's choice, and a sign-in from an
+        // Arabic page leaves a French account French.
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, preferredLanguage: "fr");
+        var externalUser = CreateExternalUserInfo();
+        var externalLogin = TestHelpers.CreateUserExternalLogin(userId: userId);
+
+        _providerFactoryMock
+            .Setup(f => f.GetProvider(command.Provider))
+            .Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalLogin);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(externalLogin.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        var original = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = new System.Globalization.CultureInfo("ar");
+        try
+        {
+            var result = await _handler.Handle(command, CancellationToken.None);
+
+            result.IsError.Should().BeFalse();
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = original;
+        }
+
+        user.PreferredLanguage.Should().Be("fr");
+        _userRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
     public async Task Handle_TwoFactorEnabled_ReturnsChallengeWithoutTokens()
     {
         // Arrange
@@ -829,6 +876,56 @@ public class ExternalLoginCommandHandlerTests
         _externalLoginRepositoryMock.Verify(
             r => r.CreateAsync(It.IsAny<UserExternalLogin>(), It.IsAny<CancellationToken>()),
             Times.Once());
+    }
+
+    [Theory]
+    [InlineData("ar", "ar")]
+    [InlineData("fa", "fa")]
+    [InlineData("de", "en")]
+    public async Task Handle_NewUser_IsCreatedInTheRequestsLanguage(string requestCulture, string expectedLanguage)
+    {
+        // As a registration by email stores it: an account opened from an
+        // application's Arabic pages gets its mail in Arabic. Before, every
+        // provider account was created in English whatever the page said.
+        var command = CreateCommand();
+        var externalUser = CreateExternalUserInfo();
+        User? created = null;
+
+        _providerFactoryMock
+            .Setup(f => f.GetProvider(command.Provider))
+            .Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserExternalLogin?)null);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(externalUser.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _userRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((user, _) => created = user)
+            .ReturnsAsync((User user, CancellationToken _) => user);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(It.IsAny<User>(), command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        var original = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = new System.Globalization.CultureInfo(requestCulture);
+        try
+        {
+            var result = await _handler.Handle(command, CancellationToken.None);
+
+            result.IsError.Should().BeFalse();
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentUICulture = original;
+        }
+
+        created.Should().NotBeNull();
+        created!.PreferredLanguage.Should().Be(expectedLanguage);
     }
 
     [Fact]

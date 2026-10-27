@@ -75,7 +75,9 @@ public class GetDiscoveryDocumentQueryHandler
             CodeChallengeMethodsSupported = ["S256"],
             // "create": OIDC Initiating User Registration 1.0 — registration
             // instead of sign-in when the browser has no session.
-            PromptValuesSupported = ["login", "none", "create"]
+            PromptValuesSupported = ["login", "none", "create"],
+            // ui_locales on authorize and end-session: the accounts pages' languages.
+            UiLocalesSupported = Languages.Supported
         };
 
         return Task.FromResult<ErrorOr<DiscoveryDocumentDto>>(document);

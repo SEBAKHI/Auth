@@ -43,6 +43,15 @@ namespace Auth.Application.Features.Authentication.Authorize;
 /// The browser's <c>User-Agent</c> header. Recorded on the code, so a server-side
 /// application's sign-in describes the person's browser, not the server (OI-178).
 /// </param>
+/// <param name="UiLocales">
+/// The OIDC <c>ui_locales</c> parameter: the relying party's languages, space-
+/// separated, most preferred first. Shapes the accounts pages only; an unusable
+/// value is dropped, never refused (<see cref="Auth.Domain.ValueObjects.PresentationHints"/>).
+/// </param>
+/// <param name="UiTheme">
+/// The <c>ui_theme</c> parameter: <c>light</c>, <c>dark</c> or <c>system</c>, the
+/// colour mode of the accounts pages. Any other value is dropped.
+/// </param>
 public record AuthorizeCommand(
     string? ResponseType,
     string? ClientId,
@@ -58,7 +67,9 @@ public record AuthorizeCommand(
     string? StepUpTicket = null,
     string? Scope = null,
     string? CreateOrganization = null,
-    string? UserAgent = null) : IRequest<ErrorOr<AuthorizeResult>>;
+    string? UserAgent = null,
+    string? UiLocales = null,
+    string? UiTheme = null) : IRequest<ErrorOr<AuthorizeResult>>;
 
 /// <summary>
 /// Where the authorize endpoint should send the browser (always a 302).

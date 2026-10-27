@@ -33,12 +33,21 @@ namespace Auth.Application.Features.Authentication.EndSession;
 /// registered address by its hash instead of carrying it
 /// (<see cref="EndSession.PostLogoutReturnHash"/>).
 /// </param>
+/// <param name="UiLocales">
+/// The <c>ui_locales</c> parameter (RP-Initiated Logout §2): the languages the
+/// accounts logout pages should show in. An unusable value is dropped.
+/// </param>
+/// <param name="UiTheme">
+/// The <c>ui_theme</c> parameter: <c>light</c>, <c>dark</c> or <c>system</c>.
+/// </param>
 public record EndSessionCommand(
     string? ClientId,
     string? State,
     string? IdpSessionToken,
     string? PostLogoutRedirectUri = null,
-    string? PostLogoutReturnHash = null) : IRequest<ErrorOr<EndSessionResult>>;
+    string? PostLogoutReturnHash = null,
+    string? UiLocales = null,
+    string? UiTheme = null) : IRequest<ErrorOr<EndSessionResult>>;
 
 /// <summary>
 /// Where the browser goes next.

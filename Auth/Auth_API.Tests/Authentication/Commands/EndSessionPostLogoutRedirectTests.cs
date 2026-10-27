@@ -132,6 +132,21 @@ public class EndSessionPostLogoutRedirectTests
     }
 
     [Fact]
+    public async Task Handle_PresentationHints_NeverReachThePostLogoutReturn()
+    {
+        // ui_locales and ui_theme shape the accounts sign-out pages only; the
+        // relying party's own return gets its state and nothing more.
+        NoSession();
+
+        var result = await _handler.Handle(
+            new EndSessionCommand(
+                ClientId, "xyz", "sso-token", PostLogoutRedirectUri: Registered, UiLocales: "ar", UiTheme: "dark"),
+            CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().Be(Registered + "?state=xyz");
+    }
+
+    [Fact]
     public async Task Handle_WithNoSessionAndNoState_GoesBackToTheAddressAsRegistered()
     {
         NoSession();

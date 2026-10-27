@@ -3,6 +3,7 @@ using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -73,6 +74,9 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
         // confirmation screen shows the user to tell them WHICH application is
         // asking them to sign out, and its list is the only one a return
         // address can come from.
+        // How the accounts pages of this sign-out look; never a reason to refuse it.
+        var hints = PresentationHints.From(request.UiLocales, request.UiTheme);
+
         Domain.Entities.Application? application = null;
         var clientId = request.ClientId;
         var returnDropped = false;
@@ -118,7 +122,7 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
             return new EndSessionResult
             {
                 RedirectUrl = postLogoutRedirectUri is null
-                    ? BuildSignedOutUrl(clientId, request.State)
+                    ? BuildSignedOutUrl(clientId, request.State, hints)
                     : BuildReturnUrl(postLogoutRedirectUri, request.State)
             };
         }
@@ -137,7 +141,8 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
             RedirectUrl = BuildConfirmationUrl(
                 clientId,
                 request.State,
-                ArrivesByHashOnly(request) ? null : postLogoutRedirectUri)
+                ArrivesByHashOnly(request) ? null : postLogoutRedirectUri,
+                hints)
         };
     }
 
@@ -205,11 +210,12 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
         return null;
     }
 
-    private string BuildConfirmationUrl(string? clientId, string? state, string? postLogoutRedirectUri) =>
-        BuildAccountsUrl("logout", clientId, state, postLogoutRedirectUri);
+    private string BuildConfirmationUrl(
+        string? clientId, string? state, string? postLogoutRedirectUri, PresentationHints hints) =>
+        BuildAccountsUrl("logout", clientId, state, postLogoutRedirectUri, hints);
 
-    private string BuildSignedOutUrl(string? clientId, string? state) =>
-        BuildAccountsUrl("signed-out", clientId, state, postLogoutRedirectUri: null);
+    private string BuildSignedOutUrl(string? clientId, string? state, PresentationHints hints) =>
+        BuildAccountsUrl("signed-out", clientId, state, postLogoutRedirectUri: null, hints);
 
     /// <summary>
     /// The relying party's registered address, with its state: the one
@@ -229,8 +235,10 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
     /// and is only ever a query value — never rendered, never interpreted here.
     /// A return address travels as its hash, never itself: an accounts URL whose
     /// query holds a whole address can be refused by a web application firewall.
+    /// The presentation hints travel resolved, as on the sign-in pages.
     /// </remarks>
-    private string BuildAccountsUrl(string path, string? clientId, string? state, string? postLogoutRedirectUri)
+    private string BuildAccountsUrl(
+        string path, string? clientId, string? state, string? postLogoutRedirectUri, PresentationHints hints)
     {
         var accountsBase = _idpSettings.AccountsBaseUrl.TrimEnd('/');
 
@@ -250,8 +258,10 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
             query.Add($"{PostLogoutReturnHash.Parameter}={PostLogoutReturnHash.Of(postLogoutRedirectUri)}");
         }
 
-        return query.Count == 0
-            ? $"{accountsBase}/{path}"
-            : $"{accountsBase}/{path}?{string.Join('&', query)}";
+        return PresentationHintsQuery.AppendTo(
+            query.Count == 0
+                ? $"{accountsBase}/{path}"
+                : $"{accountsBase}/{path}?{string.Join('&', query)}",
+            hints);
     }
 }

@@ -1,19 +1,11 @@
 import i18n from "i18next"
 import { initReactI18next } from "react-i18next"
 
+import { dropFlowHint, readFlowHints } from "./flow-hints"
+import { isLanguageCode, SUPPORTED_LANGUAGES, type LanguageCode } from "./languages"
 import { en } from "./locales/en"
 
-export const SUPPORTED_LANGUAGES = [
-  { code: "en", label: "English", dir: "ltr" },
-  { code: "ar", label: "العربية", dir: "rtl" },
-  { code: "tr", label: "Türkçe", dir: "ltr" },
-  { code: "fr", label: "Français", dir: "ltr" },
-  { code: "zh", label: "中文", dir: "ltr" },
-  { code: "ur", label: "اردو", dir: "rtl" },
-  { code: "fa", label: "فارسی", dir: "rtl" },
-] as const
-
-export type LanguageCode = (typeof SUPPORTED_LANGUAGES)[number]["code"]
+export { SUPPORTED_LANGUAGES, type LanguageCode }
 
 const LANGUAGE_STORAGE_KEY = "auth.language"
 
@@ -40,11 +32,14 @@ const LOADERS: Record<
   fa: () => import("./locales/fa"),
 }
 
-function isLanguageCode(value: string | null): value is LanguageCode {
-  return SUPPORTED_LANGUAGES.some((lang) => lang.code === value)
-}
-
+/**
+ * The language a page opens in: the application's, while a flow it started is
+ * in force (`flow-hints.ts`); then the one stored on this browser; then English.
+ */
 function getInitialLanguage(): LanguageCode {
+  const hinted = readFlowHints().language
+  if (hinted) return hinted
+
   try {
     const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY)
     if (isLanguageCode(stored)) return stored
@@ -120,7 +115,12 @@ export async function initI18n(): Promise<typeof i18n> {
   return i18n
 }
 
+/**
+ * Stores a language the user chose (or the profile's, adopted at sign-in). It
+ * also ends an application's language hint: a choice made here outranks it.
+ */
 export function persistLanguage(code: LanguageCode): void {
+  dropFlowHint("language")
   try {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, code)
   } catch {

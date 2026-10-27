@@ -141,6 +141,18 @@ public class DatabaseReadinessHealthCheckTests
     }
 
     [Theory]
+    [InlineData("UiLocale")]
+    [InlineData("UiTheme")]
+    public void TheSchemaExpectations_CoverThePresentationHintColumns(string column)
+    {
+        DatabaseReadinessHealthCheck.SchemaExpectations.Should().ContainSingle(
+            expectation => expectation.Sql.Contains($"COL_LENGTH('dbo.AuthorizationRequests', '{column}')")
+                           && expectation.Name == $"AuthorizationRequests.{column} column",
+            "the pending request's insert and resume read name both columns, so an API ahead of its DACPAC " +
+            "fails every sign-in through an accounts page with 'Invalid column name'");
+    }
+
+    [Theory]
     [InlineData("TwoFactorAuth", "EmailCodeEnabledAt")]
     [InlineData("TwoFactorAuth", "EmailFailedAttempts")]
     [InlineData("TwoFactorAuth", "EmailLockedUntil")]

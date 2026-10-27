@@ -236,6 +236,8 @@ its discovery document.
        &code_challenge_method=S256
        &state=<a random value you will check on the way back>
        &scope=profile%20email%20phone
+       &ui_locales=ar
+       &ui_theme=dark
    ```
 
    `response_type` must be exactly `code` and `code_challenge_method` must be exactly `S256`; nothing else
@@ -263,12 +265,37 @@ its discovery document.
 
    *In code:* the parser is `Auth/Auth.Domain/ValueObjects/ScopeSet.cs:99`; the check is
    `AuthorizeCommandHandler.cs:198-206`, the grant `AuthorizeCommandHandler.cs:323`.
-   *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:355-404`;
+
+   `ui_locales` and `ui_theme` make the AuthSystem pages your user may pass through (sign-in,
+   registration, organization creation) look like your application: **send your application's current
+   language and colour mode**, the ones the user sees right now. Both are optional, and neither can make
+   the request fail.
+   - **`ui_locales`** (OpenID Connect): your language, as a language tag such as `ar` or `ar-EG`, or
+     several separated by spaces, most preferred first. The pages show in the first one AuthSystem has
+     (the discovery document's `ui_locales_supported`: `en`, `ar`, `tr`, `fr`, `zh`, `ur`, `fa`); only
+     the part before the first `-` counts, so `zh-Hant` is `zh`. If you send it and none matches, the
+     pages show in **English**. If you leave it out, they show in the language the person last chose on
+     AuthSystem, or else in English. Only the first 10 tags are read, and a tag longer than 35 characters
+     is skipped.
+   - **`ui_theme`**: `light`, `dark` or `system` (follow the device), exactly as written. Any other
+     value is ignored. Send `system` when your application follows the device: the pages then do the same.
+   - **A hint, not a setting.** It lasts for this sign-in only, in that browser tab, and is written to
+     nothing the user owns: not their profile, not their saved choice on AuthSystem. A language or mode
+     the person picks on those pages wins over yours. The emails AuthSystem sends along the way (a
+     verification code, a second-factor code) go out in the account's own language, because they go to
+     the account's owner, who is not always the person at the browser; a new account takes the language
+     of the page it was created on.
+
+   *In code:* the resolution is `Auth/Auth.Domain/ValueObjects/PresentationHints.cs:81-97`, and the
+   same table, `docs/api/ui-locales-cases.json`, tests both it and the accounts application's copy in
+   `Auth_UI/packages/i18n/src/flow-hints.ts`.
+   *In code:* `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:502-556`;
    validation at `AuthorizeCommandHandler.cs:144-232`.
 3. **If the user has no valid AuthSystem session,** AuthSystem keeps your request on the server and
-   redirects the browser to the accounts application's login page with two values only: your
+   redirects the browser to the accounts application's login page with two values: your
    application's code and a short random reference to the request,
-   `?client_id=<your code>&auth_request=<64 lowercase hex characters>`. Neither your `redirect_uri` nor
+   `?client_id=<your code>&auth_request=<64 lowercase hex characters>`, followed by the resolved
+   `ui_locales` and `ui_theme` when you sent them (`&ui_locales=ar&ui_theme=dark`). Neither your `redirect_uri` nor
    your `state` travels to the accounts pages, so a web application firewall in front of them has no
    address in a link to refuse. The request stays resumable for
    `IdentityProvider:AuthorizationRequestLifetimeMinutes` (60 by default), and nothing changes in what
@@ -2190,9 +2217,10 @@ this server builds them:
 | `grant_types_supported` | `["authorization_code", "refresh_token", "client_credentials"]` — the last for [machine credentials](#machine-credentials) |
 | `code_challenge_methods_supported` | `["S256"]` |
 | `prompt_values_supported` | `["login", "none", "create"]` — `create` opens registration instead of sign-in whenever the person has to authenticate |
+| `ui_locales_supported` | `["en", "ar", "tr", "fr", "zh", "ur", "fa"]` — the `ui_locales` values that change the sign-in and sign-out pages ([step 2](#step-2-how-a-person-actually-signs-in)) |
 | `claims_supported` | `["sub","email","name","roles","permissions","iat","exp","aud","iss","given_name","family_name","locale","zoneinfo","picture","email_verified","phone_number","phone_number_verified"]` — the access token's claims, then what UserInfo adds for the granted scopes |
 
-*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:34-71`.
+*In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:34-81`.
 The `v1` in those paths is a hard-coded literal, not derived from your request. There is no
 `id_token_signing_alg_values_supported`: this server does not issue OIDC id_tokens, and the document
 deliberately omits what it does not implement. There is no `introspection_endpoint` either:
@@ -2234,7 +2262,12 @@ GET {public base URL}/api/v1/auth/end-session
     ?client_id=<your application code>
     &state=<an opaque random value, at most 512 characters>
     &post_logout_redirect_uri=<an address registered for your application>
+    &ui_locales=<your current language, optional>
+    &ui_theme=<light, dark or system, optional>
 ```
+
+`ui_locales` (RP-Initiated Logout) and `ui_theme` shape the sign-out pages exactly as they shape the
+sign-in pages ([step 2](#step-2-how-a-person-actually-signs-in)).
 
 * **There is no `id_token_hint`.** This server issues no id tokens, so it cannot tell your request from
   any page that loads this address. When an SSO session is live, it therefore shows its sign-out page and
@@ -2514,6 +2547,11 @@ way. Either path ends at English.
 
 **Your own application's language is your own business.** The SDK sends no language header on the calls it
 makes, so anything AuthSystem logs or returns to the SDK comes back in English.
+
+**The pages your user sees are a different matter.** The sign-in and sign-out pages take your language and
+colour mode from `ui_locales` and `ui_theme` on the authorize and end-session addresses, not from these
+headers; [step 2](#step-2-how-a-person-actually-signs-in) describes both. A link of yours straight to an
+AuthSystem page (the profile, for instance) may carry the same two parameters.
 
 ---
 

@@ -1,0 +1,39 @@
+{
+  "$comment": "How the presentation hints of an authorize or end-session request resolve. Read by the server's PresentationHints tests and by the accounts app's flow-hints tests, so the two resolvers cannot drift. null input means the parameter was absent; null expected means no hint. Only the space separates tags, and only ASCII letters, digits and hyphens make a tag: the last rows pin that no other character's idea of whitespace decides anything.",
+  "uiLocales": [
+    { "input": null, "expected": null },
+    { "input": "", "expected": null },
+    { "input": "   ", "expected": null },
+    { "input": "ar", "expected": "ar" },
+    { "input": "AR", "expected": "ar" },
+    { "input": "ar-EG", "expected": "ar" },
+    { "input": "ar-EG fr", "expected": "ar" },
+    { "input": "  fa  ", "expected": "fa" },
+    { "input": "de fr", "expected": "fr" },
+    { "input": "de  x-klingon   ur", "expected": "ur" },
+    { "input": "zh-Hant-TW", "expected": "zh" },
+    { "input": "en-US", "expected": "en" },
+    { "input": "de", "expected": "en" },
+    { "input": "-ar", "expected": "en" },
+    { "input": "de nl sv da no fi pl cs sk ar", "expected": "ar" },
+    { "input": "de nl sv da no fi pl cs sk hu ar", "expected": "en" },
+    { "input": "abcdefghijabcdefghijabcdefghijabcdef tr", "expected": "tr" },
+    { "input": "ar-abcdefghijabcdefghijabcdefghijabc fr", "expected": "fr" },
+    { "input": "de  nl sv da no fi pl cs sk  ar", "expected": "ar" },
+    { "input": "\ufeffar", "expected": "en" },
+    { "input": "\u0085", "expected": "en" },
+    { "input": "ar\tfr", "expected": "en" },
+    { "input": "ar\t fr", "expected": "fr" },
+    { "input": "\t", "expected": "en" }
+  ],
+  "uiTheme": [
+    { "input": null, "expected": null },
+    { "input": "", "expected": null },
+    { "input": "light", "expected": "light" },
+    { "input": "dark", "expected": "dark" },
+    { "input": "system", "expected": "system" },
+    { "input": "Dark", "expected": null },
+    { "input": " dark", "expected": null },
+    { "input": "blue", "expected": null }
+  ]
+}

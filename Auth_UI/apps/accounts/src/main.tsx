@@ -1,3 +1,7 @@
+// FIRST, before any module that reads the address: the application's hints are
+// taken off it here, and the router snapshots it when ./App.tsx is evaluated.
+import "./capture-entry-hints"
+
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 

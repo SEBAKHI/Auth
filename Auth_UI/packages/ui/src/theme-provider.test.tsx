@@ -2,6 +2,8 @@ import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import { captureEntryHints, readFlowHints } from "@authsystem/i18n/flow-hints"
+
 import { isTheme, ThemeProvider, useTheme } from "./theme-provider"
 
 function ThemeProbe() {
@@ -175,5 +177,61 @@ describe("ThemeProvider", () => {
     expect(() => render(<Broken />)).toThrow(
       "useTheme must be used within a ThemeProvider"
     )
+  })
+})
+
+describe("ThemeProvider with an application's colour mode (ui_theme)", () => {
+  beforeEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+    document.documentElement.classList.remove("light", "dark")
+    window.history.replaceState(null, "", "/login?ui_theme=dark")
+    captureEntryHints({ pendingRequest: null, clientId: null, continuation: "never" })
+  })
+
+  afterEach(() => {
+    sessionStorage.clear()
+    window.history.replaceState(null, "", "/")
+  })
+
+  it("shows the application's mode over the stored one, and stores nothing", () => {
+    localStorage.setItem("theme", "light")
+
+    render(
+      <ThemeProvider defaultTheme="system" disableTransitionOnChange={false}>
+        <ThemeProbe />
+      </ThemeProvider>
+    )
+
+    expect(screen.getByLabelText("theme")).toHaveTextContent("dark")
+    expect(document.documentElement).toHaveClass("dark")
+    expect(localStorage.getItem("theme")).toBe("light")
+  })
+
+  it("a mode the user picks is stored and ends the application's", async () => {
+    render(
+      <ThemeProvider defaultTheme="system" disableTransitionOnChange={false}>
+        <ThemeProbe />
+      </ThemeProvider>
+    )
+
+    await userEvent.click(screen.getByRole("button", { name: "dark" }))
+
+    expect(localStorage.getItem("theme")).toBe("dark")
+    expect(readFlowHints().theme).toBeUndefined()
+  })
+
+  it("the keyboard shortcut is a choice of the user's too", async () => {
+    render(
+      <ThemeProvider defaultTheme="system" disableTransitionOnChange={false}>
+        <ThemeProbe />
+      </ThemeProvider>
+    )
+
+    await userEvent.keyboard("d")
+
+    expect(screen.getByLabelText("theme")).toHaveTextContent("light")
+    expect(localStorage.getItem("theme")).toBe("light")
+    expect(readFlowHints().theme).toBeUndefined()
   })
 })

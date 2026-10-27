@@ -3,6 +3,7 @@ using Asp.Versioning;
 using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Authorize;
 using Auth.Application.Features.Authentication.ClientCredentials;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Authentication.EndSession;
 using Auth.Application.Features.Authentication.ChangePassword;
 using Auth.Application.Features.Authentication.CompleteRegistration;
@@ -513,6 +514,8 @@ public class AuthController : ApiController
         [FromQuery(Name = "max_age")] string? maxAge,
         [FromQuery(Name = "scope")] string? scope,
         [FromQuery(Name = "create_organization")] string? createOrganization,
+        [FromQuery(Name = PresentationHintsQuery.UiLocales)] string? uiLocales,
+        [FromQuery(Name = PresentationHintsQuery.UiTheme)] string? uiTheme,
         CancellationToken cancellationToken)
     {
         // The legacy returnTo, sent only while AuthorizationRequestHandlesEnabled
@@ -543,7 +546,9 @@ public class AuthController : ApiController
             // Model binding turns "create_organization=" into null, which would
             // read as "not asked". Present but empty is a value, and not "true".
             createOrganization ?? (Request.Query.ContainsKey("create_organization") ? string.Empty : null),
-            GetUserAgent());
+            GetUserAgent(),
+            uiLocales,
+            uiTheme);
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -731,6 +736,10 @@ public class AuthController : ApiController
     /// the accounts logout page names the same registered address by its hash,
     /// because its own URLs never carry a whole address.
     /// </para>
+    /// <para>
+    /// <c>ui_locales</c> (RP-Initiated Logout §2) and <c>ui_theme</c> shape the
+    /// accounts logout pages as they shape the sign-in pages.
+    /// </para>
     /// </remarks>
     [HttpGet("end-session")]
     [AllowAnonymous]
@@ -741,6 +750,8 @@ public class AuthController : ApiController
         [FromQuery(Name = "state")] string? state,
         [FromQuery(Name = "post_logout_redirect_uri")] string? postLogoutRedirectUri,
         [FromQuery(Name = PostLogoutReturnHash.Parameter)] string? postLogoutReturnHash,
+        [FromQuery(Name = PresentationHintsQuery.UiLocales)] string? uiLocales,
+        [FromQuery(Name = PresentationHintsQuery.UiTheme)] string? uiTheme,
         CancellationToken cancellationToken)
     {
         var command = new EndSessionCommand(
@@ -748,7 +759,9 @@ public class AuthController : ApiController
             state,
             IdpSessionCookie.Read(Request, _idpSettings),
             postLogoutRedirectUri,
-            postLogoutReturnHash);
+            postLogoutReturnHash,
+            uiLocales,
+            uiTheme);
 
         var result = await _sender.Send(command, cancellationToken);
 

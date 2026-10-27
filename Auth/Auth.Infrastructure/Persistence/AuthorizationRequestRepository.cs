@@ -21,11 +21,13 @@ public class AuthorizationRequestRepository : IAuthorizationRequestRepository
             INSERT INTO [dbo].[AuthorizationRequests] (
                 [Id], [HandleHash], [ApplicationId], [ClientId], [ResponseType],
                 [RedirectUri], [CodeChallenge], [CodeChallengeMethod], [State], [Prompt],
-                [MaxAge], [Scope], [CreateOrganization], [CreatedAt], [ExpiresAt]
+                [MaxAge], [Scope], [CreateOrganization], [CreatedAt], [ExpiresAt],
+                [UiLocale], [UiTheme]
             ) VALUES (
                 @Id, @HandleHash, @ApplicationId, @ClientId, @ResponseType,
                 @RedirectUri, @CodeChallenge, @CodeChallengeMethod, @State, @Prompt,
-                @MaxAge, @Scope, @CreateOrganization, @CreatedAt, @ExpiresAt
+                @MaxAge, @Scope, @CreateOrganization, @CreatedAt, @ExpiresAt,
+                @UiLocale, @UiTheme
             )";
 
     /// <summary>
@@ -47,7 +49,8 @@ public class AuthorizationRequestRepository : IAuthorizationRequestRepository
             SELECT
                 [Id], [HandleHash], [ApplicationId], [ClientId], [ResponseType],
                 [RedirectUri], [CodeChallenge], [CodeChallengeMethod], [State], [Prompt],
-                [MaxAge], [Scope], [CreateOrganization], [CreatedAt], [ExpiresAt]
+                [MaxAge], [Scope], [CreateOrganization], [CreatedAt], [ExpiresAt],
+                [UiLocale], [UiTheme]
             FROM [dbo].[AuthorizationRequests]
             WHERE [HandleHash] IN @Hashes
               AND [ExpiresAt] > @Now";
@@ -109,7 +112,9 @@ public class AuthorizationRequestRepository : IAuthorizationRequestRepository
             request.Scope,
             request.CreateOrganization,
             request.CreatedAt,
-            request.ExpiresAt
+            request.ExpiresAt,
+            UiLocale = request.Hints.Language,
+            UiTheme = request.Hints.Theme
         });
     }
 
@@ -161,6 +166,8 @@ public class AuthorizationRequestRepository : IAuthorizationRequestRepository
         public bool CreateOrganization { get; init; }
         public DateTime CreatedAt { get; init; }
         public DateTime ExpiresAt { get; init; }
+        public string? UiLocale { get; init; }
+        public string? UiTheme { get; init; }
 
         public AuthorizationRequest ToEntity() => new(
             Id,
@@ -177,6 +184,11 @@ public class AuthorizationRequestRepository : IAuthorizationRequestRepository
             Scope,
             CreateOrganization,
             CreatedAt,
-            ExpiresAt);
+            ExpiresAt,
+            // Read back through the same resolution as authorize: a stored value is
+            // already resolved and reads as itself. A language this build no longer
+            // supports reads as English, as authorize would show it; an unknown
+            // colour mode reads as none. NULL reads as no hint.
+            PresentationHints.From(UiLocale, UiTheme));
     }
 }
