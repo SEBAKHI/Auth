@@ -1,5 +1,6 @@
 using Auth.Domain.Enums;
 using Auth.Domain.ReadModels.Notifications;
+using Auth.Domain.ValueObjects;
 using Auth.Infrastructure.Notifications;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -109,7 +110,7 @@ public class TemplateCacheTests
         {
             loads++;
             return Task.FromResult<NotificationLayoutRenderSource?>(
-                new NotificationLayoutRenderSource(Guid.NewGuid(), null, "<html></html>", "{}"));
+                new NotificationLayoutRenderSource(Guid.NewGuid(), null, "<html></html>", "{}", CardColors.Default));
         }
 
         await _cache.GetLayoutAsync(NotificationChannelType.Email, null, Loader);

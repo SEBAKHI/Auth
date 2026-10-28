@@ -777,6 +777,12 @@
   <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
     <value>Le brouillon de mise en page enregistré sélectionné pour publication a changé. Rechargez et vérifiez le dernier brouillon avant de publier.</value>
   </data>
+  <data name="Notification.LayoutCardColorInvalid" xml:space="preserve">
+    <value>Une couleur de carte s'écrit # suivi de six chiffres hexadécimaux, par exemple #1A1A1C, ou reste vide pour utiliser la couleur par défaut.</value>
+  </data>
+  <data name="Notification.LayoutCardColorNotInLayout" xml:space="preserve">
+    <value>La mise en page affiche le logo, mais sa couleur de carte {0} n'y apparaît nulle part : le logo serait entouré d'un cadre visible. Réglez la couleur de carte sur la couleur située derrière le logo, au format #RRGGBB.</value>
+  </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>Le modèle contient une syntaxe non valide : {0}</value>
   </data>

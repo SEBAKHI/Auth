@@ -18,6 +18,7 @@ import { Button } from "@authsystem/ui/button"
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
   FieldTitle,
@@ -56,13 +57,46 @@ interface LayoutDraftState {
   name: string
   content: string
   strings: LayoutStrings
+  /** "" means the default card colour. */
+  cardColorLight: string
+  cardColorDark: string
 }
 
 interface LayoutSaveSnapshot {
   name: string
   content: string
   stringsJson: string
+  cardColorLight: string
+  cardColorDark: string
   expectedModifiedAt: string | null
+}
+
+// The cards of the shipped layout. A layout that sets no colour is drawn with these,
+// and the server builds the logo backgrounds in them (CardColor.DefaultLight/Dark).
+const DEFAULT_CARD_COLOR_LIGHT = "#FFFFFF"
+const DEFAULT_CARD_COLOR_DARK = "#1A1A1C"
+
+// Mirrors the server's CardColor rule only to flag a typo before saving; the server
+// still decides, and its error is shown when the two disagree.
+const CARD_COLOR = /^#[0-9A-Fa-f]{6}$/
+
+function isCardColorValid(value: string) {
+  return value.trim() === "" || CARD_COLOR.test(value.trim())
+}
+
+/** The preview's wire form: null for "use the default". */
+function cardColorOrNull(value: string) {
+  const trimmed = value.trim()
+  return trimmed === "" ? null : trimmed
+}
+
+/**
+ * The draft save's wire form: "" returns the colour to the default. Null would mean
+ * "keep the saved colour" there, which is what a client that never sends the field
+ * gets, so clearing the field has to say so explicitly.
+ */
+function cardColorForSave(value: string) {
+  return value.trim()
 }
 
 function parseStrings(json: string | null | undefined): LayoutStrings {
@@ -118,6 +152,16 @@ export function NotificationLayoutDetailPage() {
         insertText: "{{ strings.footer | raw }}",
         description: t("notifications.layoutSlotFooter"),
       },
+      {
+        name: "Layout.CardColorLight",
+        insertText: "{{ Layout.CardColorLight }}",
+        description: t("notifications.layoutSlotCardColorLight"),
+      },
+      {
+        name: "Layout.CardColorDark",
+        insertText: "{{ Layout.CardColorDark }}",
+        description: t("notifications.layoutSlotCardColorDark"),
+      },
     ],
     [t]
   )
@@ -146,6 +190,8 @@ export function NotificationLayoutDetailPage() {
       name: layout?.name ?? "",
       content: layout?.draftContent ?? "",
       strings: parseStrings(layout?.draftStringsJson),
+      cardColorLight: layout?.draftCardColorLight ?? "",
+      cardColorDark: layout?.draftCardColorDark ?? "",
     }),
     [layout]
   )
@@ -155,8 +201,10 @@ export function NotificationLayoutDetailPage() {
     editedDraft !== null && editedDraft.source === layout
       ? editedDraft
       : loadedDraft
-  const { name, content, strings } = draft
-  const updateDraft = <K extends "name" | "content" | "strings">(
+  const { name, content, strings, cardColorLight, cardColorDark } = draft
+  const updateDraft = <
+    K extends "name" | "content" | "strings" | "cardColorLight" | "cardColorDark",
+  >(
     field: K,
     next: React.SetStateAction<LayoutDraftState[K]>
   ) =>
@@ -175,6 +223,8 @@ export function NotificationLayoutDetailPage() {
     updateDraft("content", next)
   const setStrings = (next: React.SetStateAction<LayoutStrings>) =>
     updateDraft("strings", next)
+  const setCardColorLight = (next: string) => updateDraft("cardColorLight", next)
+  const setCardColorDark = (next: string) => updateDraft("cardColorDark", next)
   const [previewLanguage, setPreviewLanguage] = React.useState("en")
   const [preview, setPreview] = React.useState<NotificationPreviewDto | null>(
     null
@@ -187,12 +237,33 @@ export function NotificationLayoutDetailPage() {
     Boolean(layout) &&
     (name !== (layout?.name ?? "") ||
       content !== (layout?.draftContent ?? "") ||
-      stringsJson !== JSON.stringify(parseStrings(layout?.draftStringsJson)))
+      stringsJson !== JSON.stringify(parseStrings(layout?.draftStringsJson)) ||
+      cardColorLight !== (layout?.draftCardColorLight ?? "") ||
+      cardColorDark !== (layout?.draftCardColorDark ?? ""))
+  // Only email layouts carry a logo with a built-in background.
+  const isEmailLayout = layout?.channel === "Email"
+  const cardColorLightValid = isCardColorValid(cardColorLight)
+  const cardColorDarkValid = isCardColorValid(cardColorDark)
+  const cardColorsValid = cardColorLightValid && cardColorDarkValid
 
   const debouncedPreviewInput = useDebouncedValue(
     React.useMemo(
-      () => ({ content, stringsJson, previewLanguage }),
-      [content, stringsJson, previewLanguage]
+      () => ({
+        content,
+        stringsJson,
+        previewLanguage,
+        cardColorLight: cardColorLightValid ? cardColorOrNull(cardColorLight) : null,
+        cardColorDark: cardColorDarkValid ? cardColorOrNull(cardColorDark) : null,
+      }),
+      [
+        content,
+        stringsJson,
+        previewLanguage,
+        cardColorLight,
+        cardColorDark,
+        cardColorLightValid,
+        cardColorDarkValid,
+      ]
     ),
     600
   )
@@ -202,6 +273,8 @@ export function NotificationLayoutDetailPage() {
       content: string
       stringsJson: string
       previewLanguage: string
+      cardColorLight: string | null
+      cardColorDark: string | null
     }) =>
       unwrap(
         api.POST("/api/v1/notification-layouts/preview", {
@@ -209,6 +282,8 @@ export function NotificationLayoutDetailPage() {
             layoutContent: input.content,
             layoutStringsJson: input.stringsJson,
             languageCode: input.previewLanguage,
+            cardColorLight: input.cardColorLight,
+            cardColorDark: input.cardColorDark,
           },
         })
       ),
@@ -238,6 +313,8 @@ export function NotificationLayoutDetailPage() {
             name: snapshot.name,
             draftContent: snapshot.content,
             draftStringsJson: snapshot.stringsJson,
+            draftCardColorLight: cardColorForSave(snapshot.cardColorLight),
+            draftCardColorDark: cardColorForSave(snapshot.cardColorDark),
             expectedModifiedAt: snapshot.expectedModifiedAt,
           },
         })
@@ -252,13 +329,17 @@ export function NotificationLayoutDetailPage() {
         const matchesSnapshot =
           latest.name === snapshot.name &&
           latest.content === snapshot.content &&
-          JSON.stringify(latest.strings) === snapshot.stringsJson
+          JSON.stringify(latest.strings) === snapshot.stringsJson &&
+          latest.cardColorLight === snapshot.cardColorLight &&
+          latest.cardColorDark === snapshot.cardColorDark
         return matchesSnapshot
           ? {
               source: cached,
               name: cached.name ?? "",
               content: cached.draftContent ?? "",
               strings: parseStrings(cached.draftStringsJson),
+              cardColorLight: cached.draftCardColorLight ?? "",
+              cardColorDark: cached.draftCardColorDark ?? "",
             }
           : { ...latest, source: cached }
       })
@@ -275,6 +356,8 @@ export function NotificationLayoutDetailPage() {
       name,
       content,
       stringsJson,
+      cardColorLight,
+      cardColorDark,
       expectedModifiedAt: layout?.modifiedAt ?? null,
     })
   }
@@ -338,7 +421,7 @@ export function NotificationLayoutDetailPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
-                disabled={!isDirty || saveMutation.isPending}
+                disabled={!isDirty || !cardColorsValid || saveMutation.isPending}
                 onClick={saveDraft}
               >
                 {t("notifications.saveDraft")}
@@ -421,6 +504,58 @@ export function NotificationLayoutDetailPage() {
                 disabled={!canManage}
               />
             </Field>
+
+            {isEmailLayout ? (
+              <>
+                <Field data-disabled={!canManage} data-invalid={!cardColorLightValid}>
+                  <FieldLabel htmlFor="layout-card-color-light">
+                    {t("notifications.cardColorLight")}
+                  </FieldLabel>
+                  <Input
+                    id="layout-card-color-light"
+                    value={cardColorLight}
+                    onChange={(e) => setCardColorLight(e.target.value)}
+                    placeholder={DEFAULT_CARD_COLOR_LIGHT}
+                    aria-invalid={!cardColorLightValid}
+                    spellCheck={false}
+                    autoComplete="off"
+                    disabled={!canManage}
+                  />
+                  <FieldDescription>
+                    {t("notifications.cardColorHint", {
+                      color: DEFAULT_CARD_COLOR_LIGHT,
+                    })}
+                  </FieldDescription>
+                  {cardColorLightValid ? null : (
+                    <FieldError>{t("notifications.cardColorInvalid")}</FieldError>
+                  )}
+                </Field>
+
+                <Field data-disabled={!canManage} data-invalid={!cardColorDarkValid}>
+                  <FieldLabel htmlFor="layout-card-color-dark">
+                    {t("notifications.cardColorDark")}
+                  </FieldLabel>
+                  <Input
+                    id="layout-card-color-dark"
+                    value={cardColorDark}
+                    onChange={(e) => setCardColorDark(e.target.value)}
+                    placeholder={DEFAULT_CARD_COLOR_DARK}
+                    aria-invalid={!cardColorDarkValid}
+                    spellCheck={false}
+                    autoComplete="off"
+                    disabled={!canManage}
+                  />
+                  <FieldDescription>
+                    {t("notifications.cardColorHint", {
+                      color: DEFAULT_CARD_COLOR_DARK,
+                    })}
+                  </FieldDescription>
+                  {cardColorDarkValid ? null : (
+                    <FieldError>{t("notifications.cardColorInvalid")}</FieldError>
+                  )}
+                </Field>
+              </>
+            ) : null}
 
             {/* The editor is a CodeMirror surface, not a labelable control, so
                 the field is titled and the editor carries the same aria-label. */}

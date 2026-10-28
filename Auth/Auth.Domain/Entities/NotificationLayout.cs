@@ -1,8 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 
 namespace Auth.Domain.Entities;
@@ -14,7 +16,7 @@ namespace Auth.Domain.Entities;
 /// Layouts use draft/published column pairs rather than version history: publish
 /// copies the draft columns in one atomic update.
 /// </summary>
-public class NotificationLayout : AggregateRoot
+public partial class NotificationLayout : AggregateRoot
 {
     /// <summary>
     /// Gets the owning application, or null for the global default layout.
@@ -53,12 +55,37 @@ public class NotificationLayout : AggregateRoot
     public DateTime? PublishedAt { get; private set; }
     public Guid? PublishedBy { get; private set; }
 
+    /// <summary>
+    /// Gets the draft card colour for light mode, or null for the default. The email logo's
+    /// background is built in this colour, so it must be the colour behind the logo.
+    /// </summary>
+    public CardColor? DraftCardColorLight { get; private set; }
+
+    /// <summary>Gets the draft card colour for dark mode, or null for the default.</summary>
+    public CardColor? DraftCardColorDark { get; private set; }
+
+    /// <summary>
+    /// Gets the live card colours. Versioned with the content on purpose: a colour that went
+    /// live on save, while the card it describes still sat in the draft, would put every
+    /// message sent in between inside a visible box.
+    /// </summary>
+    public CardColor? PublishedCardColorLight { get; private set; }
+    public CardColor? PublishedCardColorDark { get; private set; }
+
+    /// <summary>Gets the draft colours with every unset one resolved to its default.</summary>
+    public CardColors DraftCardColors => CardColors.Of(DraftCardColorLight, DraftCardColorDark);
+
+    /// <summary>Gets the live colours with every unset one resolved to its default.</summary>
+    public CardColors PublishedCardColors => CardColors.Of(PublishedCardColorLight, PublishedCardColorDark);
+
     public bool IsPublished => PublishedContent is not null;
 
     public bool HasUnpublishedChanges =>
         !IsPublished ||
         !string.Equals(DraftContent, PublishedContent, StringComparison.Ordinal) ||
-        !StringsJsonEquivalent(DraftStringsJson, PublishedStringsJson);
+        !StringsJsonEquivalent(DraftStringsJson, PublishedStringsJson) ||
+        DraftCardColorLight != PublishedCardColorLight ||
+        DraftCardColorDark != PublishedCardColorDark;
 
     /// <summary>
     /// Semantic comparison of the chrome-strings JSON. The draft is re-serialized
@@ -103,7 +130,11 @@ public class NotificationLayout : AggregateRoot
         DateTime createdAt,
         Guid createdBy,
         DateTime? modifiedAt,
-        Guid? modifiedBy) : base(id)
+        Guid? modifiedBy,
+        CardColor? draftCardColorLight = null,
+        CardColor? draftCardColorDark = null,
+        CardColor? publishedCardColorLight = null,
+        CardColor? publishedCardColorDark = null) : base(id)
     {
         ApplicationId = applicationId;
         Channel = channel;
@@ -118,6 +149,10 @@ public class NotificationLayout : AggregateRoot
         CreatedBy = createdBy;
         ModifiedAt = modifiedAt;
         ModifiedBy = modifiedBy;
+        DraftCardColorLight = draftCardColorLight;
+        DraftCardColorDark = draftCardColorDark;
+        PublishedCardColorLight = publishedCardColorLight;
+        PublishedCardColorDark = publishedCardColorDark;
     }
 
     /// <summary>
@@ -129,6 +164,8 @@ public class NotificationLayout : AggregateRoot
         string name,
         string draftContent,
         string draftStringsJson,
+        CardColor? draftCardColorLight,
+        CardColor? draftCardColorDark,
         Guid createdBy)
     {
         if (string.IsNullOrWhiteSpace(draftContent))
@@ -142,7 +179,9 @@ public class NotificationLayout : AggregateRoot
             Channel = channel,
             Name = name.Trim(),
             DraftContent = draftContent,
-            DraftStringsJson = string.IsNullOrWhiteSpace(draftStringsJson) ? "{}" : draftStringsJson
+            DraftStringsJson = string.IsNullOrWhiteSpace(draftStringsJson) ? "{}" : draftStringsJson,
+            DraftCardColorLight = draftCardColorLight,
+            DraftCardColorDark = draftCardColorDark
         };
         layout.SetCreated(createdBy);
         return layout;
@@ -151,7 +190,13 @@ public class NotificationLayout : AggregateRoot
     /// <summary>
     /// Updates the draft content and chrome strings (does not affect the live layout).
     /// </summary>
-    public ErrorOr<Success> UpdateDraft(string name, string draftContent, string draftStringsJson, Guid userId)
+    public ErrorOr<Success> UpdateDraft(
+        string name,
+        string draftContent,
+        string draftStringsJson,
+        CardColor? draftCardColorLight,
+        CardColor? draftCardColorDark,
+        Guid userId)
     {
         if (string.IsNullOrWhiteSpace(draftContent))
         {
@@ -161,9 +206,60 @@ public class NotificationLayout : AggregateRoot
         Name = name.Trim();
         DraftContent = draftContent;
         DraftStringsJson = string.IsNullOrWhiteSpace(draftStringsJson) ? "{}" : draftStringsJson;
+        DraftCardColorLight = draftCardColorLight;
+        DraftCardColorDark = draftCardColorDark;
         SetModified(userId);
         return Result.Success;
     }
+
+    /// <summary>
+    /// Verifies that the draft writes the card colour behind each logo it shows, given the
+    /// draft as rendered (so a colour supplied through a variable counts as written).
+    /// </summary>
+    /// <remarks>
+    /// The logo's background is part of the image and is built in the declared colour. A
+    /// layout that changes its card but not the declared colour publishes cleanly and then
+    /// frames the logo in a box in every message; this catches that before it goes live.
+    /// A colour can only be checked where the layout shows the matching logo.
+    /// <para>
+    /// Comments are not counted: a colour named only in a CSS or HTML comment paints nothing,
+    /// and a comment that prints the colour variable would otherwise satisfy the check for
+    /// every colour. Outlook conditional comments (<c>&lt;!--[if …]&gt;</c>) are kept, because
+    /// Outlook renders what they hold.
+    /// </para>
+    /// </remarks>
+    public ErrorOr<Success> CheckLogoBackgrounds(string renderedDraft)
+    {
+        var colours = DraftCardColors;
+        var painted = PaintedMarkup(renderedDraft);
+        if (DraftContent.Contains(LightLogoVariable, StringComparison.Ordinal) && !colours.Light.AppearsIn(painted))
+        {
+            return NotificationErrors.LayoutCardColorNotInLayout(colours.Light.Value);
+        }
+
+        if (DraftContent.Contains(DarkLogoVariable, StringComparison.Ordinal) && !colours.Dark.AppearsIn(painted))
+        {
+            return NotificationErrors.LayoutCardColorNotInLayout(colours.Dark.Value);
+        }
+
+        return Result.Success;
+    }
+
+    private const string LightLogoVariable = "Platform.EmailLogoUrl";
+    private const string DarkLogoVariable = "Platform.EmailLogoDarkUrl";
+
+    /// <summary>The rendered layout without its CSS and HTML comments.</summary>
+    private static string PaintedMarkup(string html) =>
+        HtmlCommentRegex().Replace(CssCommentRegex().Replace(html, string.Empty), string.Empty);
+
+    [GeneratedRegex(@"/\*[\s\S]*?\*/")]
+    private static partial Regex CssCommentRegex();
+
+    // An Outlook conditional comment (<!--[if mso]> … <![endif]-->) holds markup Outlook
+    // renders, and the "<!-->" that closes <!--[if !mso]><!--> opens nothing: a match
+    // starting there would run to the next "-->" and swallow the markup in between.
+    [GeneratedRegex(@"<!--(?!\[if|>)[\s\S]*?-->")]
+    private static partial Regex HtmlCommentRegex();
 
     /// <summary>
     /// Verifies that the saved draft is the exact revision reviewed by the caller.
@@ -194,6 +290,8 @@ public class NotificationLayout : AggregateRoot
 
         PublishedContent = DraftContent;
         PublishedStringsJson = DraftStringsJson;
+        PublishedCardColorLight = DraftCardColorLight;
+        PublishedCardColorDark = DraftCardColorDark;
         PublishedAt = DateTime.UtcNow;
         PublishedBy = userId;
         SetModified(userId);

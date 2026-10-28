@@ -3,10 +3,12 @@ using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
 using Auth.Domain.Constants;
+using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Notifications;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -84,7 +86,8 @@ public class NotificationRenderingService : INotificationRenderer
         }
 
         // 3. Render content and compose with the layout.
-        var model = await BuildModelAsync(request.Variables, request.ApplicationId, cancellationToken);
+        var platform = await _platformSettingsRepository.GetAsync(cancellationToken);
+        var model = await BuildModelAsync(request.Variables, request.ApplicationId, platform, cancellationToken);
         var composed = await ComposeAsync(
             request.Channel,
             request.ApplicationId,
@@ -93,8 +96,10 @@ public class NotificationRenderingService : INotificationRenderer
             translation.BodyHtml,
             translation.BodyText,
             model,
+            platform,
             layoutContentOverride: null,
             layoutStringsJsonOverride: null,
+            layoutCardColorsOverride: null,
             failOnUnknownVariables: false,
             cancellationToken);
 
@@ -125,7 +130,8 @@ public class NotificationRenderingService : INotificationRenderer
         CancellationToken cancellationToken)
     {
         var language = Languages.Normalize(request.LanguageCode) ?? Languages.Default;
-        var model = await BuildModelAsync(request.Variables, request.ApplicationId, cancellationToken);
+        var platform = await _platformSettingsRepository.GetAsync(cancellationToken);
+        var model = await BuildModelAsync(request.Variables, request.ApplicationId, platform, cancellationToken);
 
         var composed = await ComposeAsync(
             request.Channel,
@@ -135,8 +141,10 @@ public class NotificationRenderingService : INotificationRenderer
             request.BodyHtml,
             request.BodyText,
             model,
+            platform,
             request.LayoutContentOverride,
             request.LayoutStringsJsonOverride,
+            request.LayoutCardColorsOverride,
             request.FailOnUnknownVariables,
             cancellationToken);
 
@@ -251,6 +259,7 @@ public class NotificationRenderingService : INotificationRenderer
     private async Task<Dictionary<string, object?>> BuildModelAsync(
         IReadOnlyDictionary<string, object?> variables,
         Guid? applicationId,
+        PlatformSettings? platform,
         CancellationToken cancellationToken)
     {
         // Globals the renderer supplies to every template and layout. Explicit
@@ -266,45 +275,11 @@ public class NotificationRenderingService : INotificationRenderer
         // This lets admin-authored variables reference real linked-app and platform
         // data without the calling flow having to pass it. Recipient/flow-specific
         // values still come from the caller's Variables (merged last, they win).
-        var platform = await _platformSettingsRepository.GetAsync(cancellationToken);
         var platformName = platform?.PlatformName ?? _emailSettings.SenderName;
-        // Null (never "") when no logo is configured: Liquid treats an empty
-        // string as truthy, so the layout's {% if Platform.LogoUrl %} needs nil
-        // to fall back to the text wordmark.
-        var platformLogoUrl = _imageUrlComposer.Compose(platform?.LogoUrl);
 
-        // Email cannot use the stored WebP logo — Gmail transcodes WebP to JPEG (flattening a
-        // transparent mark onto black) and Outlook for Windows cannot decode it at all. The
-        // layout therefore points at pre-built opaque PNG renditions instead. These are looked
-        // up, never built, here: with the outbox enabled this runs inside the HTTP request that
-        // triggers the mail. A missing rendition stays null so the layout falls back to the
-        // text wordmark rather than re-emitting the unsafe source.
-        var emailLogo = await _imageStorage.GetEmailLogoRenditionAsync(
-            platform?.LogoUrl, EmailLogoVariant.Light, cancellationToken);
-        var emailLogoDark = await _imageStorage.GetEmailLogoRenditionAsync(
-            platform?.LogoUrlDark, EmailLogoVariant.Dark, cancellationToken);
-
-        // An externally hosted absolute URL has no rendition and cannot get one; pass it
-        // through so that escape hatch keeps working.
-        var emailLogoUrl = emailLogo is null
-            ? (IsAbsoluteUrl(platform?.LogoUrl) ? platformLogoUrl : null)
-            : _imageUrlComposer.Compose(emailLogo.Key);
-        var emailLogoDarkUrl = emailLogoDark is null
-            ? (IsAbsoluteUrl(platform?.LogoUrlDark) ? _imageUrlComposer.Compose(platform?.LogoUrlDark) : null)
-            : _imageUrlComposer.Compose(emailLogoDark.Key);
-
-        model["Platform"] = new Dictionary<string, object?>(StringComparer.Ordinal)
-        {
-            ["Name"] = platformName,
-            ["LogoUrl"] = string.IsNullOrWhiteSpace(platformLogoUrl) ? null : platformLogoUrl,
-            ["EmailLogoUrl"] = string.IsNullOrWhiteSpace(emailLogoUrl) ? null : emailLogoUrl,
-            ["EmailLogoDarkUrl"] = string.IsNullOrWhiteSpace(emailLogoDarkUrl) ? null : emailLogoDarkUrl,
-            // Outlook's Word engine ignores height:auto, so the layout must state both.
-            ["EmailLogoWidth"] = emailLogo?.Width,
-            ["EmailLogoHeight"] = emailLogo?.Height,
-            ["EmailLogoDarkWidth"] = emailLogoDark?.Width,
-            ["EmailLogoDarkHeight"] = emailLogoDark?.Height
-        };
+        // The template body has no card of its own, so it sees the logos on the default
+        // cards; the layout gets its own colours' backgrounds in ComposeAsync.
+        model["Platform"] = await BuildPlatformModelAsync(platform, CardColors.Default, cancellationToken);
 
         // Application must ALWAYS be present (the variable catalog promises it):
         // global templates — and the publish gate, which validates them without an
@@ -338,6 +313,54 @@ public class NotificationRenderingService : INotificationRenderer
         return model;
     }
 
+    /// <summary>
+    /// The <c>Platform</c> object, with the email logos built on the given card colours.
+    /// </summary>
+    private async Task<Dictionary<string, object?>> BuildPlatformModelAsync(
+        PlatformSettings? platform,
+        CardColors cardColors,
+        CancellationToken cancellationToken)
+    {
+        // Null (never "") when no logo is configured: Liquid treats an empty
+        // string as truthy, so the layout's {% if Platform.LogoUrl %} needs nil
+        // to fall back to the text wordmark.
+        var platformLogoUrl = _imageUrlComposer.Compose(platform?.LogoUrl);
+
+        // Email cannot use the stored WebP logo — Gmail transcodes WebP to JPEG (flattening a
+        // transparent mark onto black) and Outlook for Windows cannot decode it at all. The
+        // layout therefore points at pre-built opaque PNG renditions instead, each built on the
+        // card colour the layout draws behind it. These are looked up, never built, here: with
+        // the outbox enabled this runs inside the HTTP request that triggers the mail. A missing
+        // rendition stays null so the layout falls back to the text wordmark rather than
+        // re-emitting the unsafe source or a background built for another card.
+        var emailLogo = await _imageStorage.GetEmailLogoRenditionAsync(
+            platform?.LogoUrl, EmailLogoVariant.Light, cardColors.Light, cancellationToken);
+        var emailLogoDark = await _imageStorage.GetEmailLogoRenditionAsync(
+            platform?.LogoUrlDark, EmailLogoVariant.Dark, cardColors.Dark, cancellationToken);
+
+        // An externally hosted absolute URL has no rendition and cannot get one; pass it
+        // through so that escape hatch keeps working.
+        var emailLogoUrl = emailLogo is null
+            ? (IsAbsoluteUrl(platform?.LogoUrl) ? platformLogoUrl : null)
+            : _imageUrlComposer.Compose(emailLogo.Key);
+        var emailLogoDarkUrl = emailLogoDark is null
+            ? (IsAbsoluteUrl(platform?.LogoUrlDark) ? _imageUrlComposer.Compose(platform?.LogoUrlDark) : null)
+            : _imageUrlComposer.Compose(emailLogoDark.Key);
+
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["Name"] = platform?.PlatformName ?? _emailSettings.SenderName,
+            ["LogoUrl"] = string.IsNullOrWhiteSpace(platformLogoUrl) ? null : platformLogoUrl,
+            ["EmailLogoUrl"] = string.IsNullOrWhiteSpace(emailLogoUrl) ? null : emailLogoUrl,
+            ["EmailLogoDarkUrl"] = string.IsNullOrWhiteSpace(emailLogoDarkUrl) ? null : emailLogoDarkUrl,
+            // Outlook's Word engine ignores height:auto, so the layout must state both.
+            ["EmailLogoWidth"] = emailLogo?.Width,
+            ["EmailLogoHeight"] = emailLogo?.Height,
+            ["EmailLogoDarkWidth"] = emailLogoDark?.Width,
+            ["EmailLogoDarkHeight"] = emailLogoDark?.Height
+        };
+    }
+
     private async Task<ErrorOr<(string Subject, string BodyHtml, string BodyText)>> ComposeAsync(
         NotificationChannelType channel,
         Guid? applicationId,
@@ -346,8 +369,10 @@ public class NotificationRenderingService : INotificationRenderer
         string bodyHtmlSource,
         string? bodyTextSource,
         Dictionary<string, object?> model,
+        PlatformSettings? platform,
         string? layoutContentOverride,
         string? layoutStringsJsonOverride,
+        CardColors? layoutCardColorsOverride,
         bool failOnUnknownVariables,
         CancellationToken cancellationToken)
     {
@@ -370,10 +395,12 @@ public class NotificationRenderingService : INotificationRenderer
         // Layout: explicit override (layout draft preview) → app-specific → global.
         string layoutContent;
         string layoutStringsJson;
+        CardColors cardColors;
         if (layoutContentOverride is not null)
         {
             layoutContent = layoutContentOverride;
             layoutStringsJson = layoutStringsJsonOverride ?? "{}";
+            cardColors = layoutCardColorsOverride ?? CardColors.Default;
         }
         else
         {
@@ -388,6 +415,7 @@ public class NotificationRenderingService : INotificationRenderer
 
             layoutContent = layout.Content;
             layoutStringsJson = layout.StringsJson;
+            cardColors = layout.CardColors;
         }
 
         var stringsResult = RenderChromeStrings(layoutStringsJson, language, model);
@@ -401,8 +429,22 @@ public class NotificationRenderingService : INotificationRenderer
             ["content"] = bodyResult.Value,
             ["dir"] = Languages.GetDirection(language),
             ["lang"] = language,
-            ["strings"] = stringsResult.Value
+            ["strings"] = stringsResult.Value,
+            // The layout's own card colours, so it can paint its card from the very values
+            // the logo backgrounds are built in: {{ Layout.CardColorDark }}.
+            ["Layout"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["CardColorLight"] = cardColors.Light.Value,
+                ["CardColorDark"] = cardColors.Dark.Value
+            }
         };
+
+        // The logo URLs are chosen only now that the layout is known: a layout on another
+        // card needs the backgrounds built for that card.
+        if (cardColors != CardColors.Default)
+        {
+            layoutModel["Platform"] = await BuildPlatformModelAsync(platform, cardColors, cancellationToken);
+        }
 
         var htmlResult = RenderPart(layoutContent, layoutModel, language, encodeHtml: true, failOnUnknownVariables: false, unknown);
         if (htmlResult.IsError)

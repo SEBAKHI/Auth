@@ -777,6 +777,12 @@
   <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
     <value>اشاعت کے لیے منتخب محفوظ شدہ لے آؤٹ مسودہ تبدیل ہو گیا ہے۔ اشاعت سے پہلے تازہ ترین مسودہ دوبارہ لوڈ کر کے جائزہ لیں۔</value>
   </data>
+  <data name="Notification.LayoutCardColorInvalid" xml:space="preserve">
+    <value>کارڈ کا رنگ # کے بعد چھ ہیکساڈیسیمل ہندسوں کی صورت میں لکھیں، مثلاً #1A1A1C، یا پہلے سے طے شدہ رنگ کے لیے خالی چھوڑ دیں۔</value>
+  </data>
+  <data name="Notification.LayoutCardColorNotInLayout" xml:space="preserve">
+    <value>لے آؤٹ لوگو دکھاتا ہے، لیکن اس کا کارڈ رنگ {0} لے آؤٹ میں کہیں موجود نہیں، اس لیے لوگو ایک نظر آنے والے خانے میں دکھے گا۔ کارڈ کا رنگ لوگو کے پیچھے والے رنگ پر #RRGGBB کی صورت میں مقرر کریں۔</value>
+  </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>سانچے میں غلط ساخت موجود ہے: {0}</value>
   </data>

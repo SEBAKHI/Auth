@@ -1,11 +1,15 @@
+using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.Features.Notifications.PublishNotificationLayout;
+using Auth.Application.Features.Notifications.UpdateNotificationLayoutDraft;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Auth.Infrastructure.Notifications;
 using Auth_API.Tests.Helpers;
+using Auth_API.Tests.Infrastructure;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
@@ -14,14 +18,24 @@ namespace Auth_API.Tests.Notifications.Commands;
 /// <summary>
 /// Handler tests for the layout publish gate: a layout must render cleanly AND
 /// actually include the content slot — publishing one without it would blank
-/// every subsequent message.
+/// every subsequent message — AND, for email, write the card colour behind each
+/// logo it shows, or the logo's built-in background frames it in a box.
 /// </summary>
 public class NotificationLayoutCommandHandlerTests
 {
     private readonly Mock<INotificationLayoutRepository> _layoutRepoMock = new();
     private readonly Mock<IApplicationRepository> _appRepoMock = new();
     private readonly Mock<ITemplateCacheInvalidator> _cacheInvalidatorMock = new();
+    private readonly Mock<IPlatformSettingsRepository> _platformRepoMock = new();
+    private readonly Mock<IImageStorageService> _imageStorageMock = new();
     private readonly Guid _userId = Guid.NewGuid();
+
+    // A layout whose dark card has its own colour and that shows the dark logo on it: the case where
+    // the logo's background is built in the default dark grey unless the layout says otherwise.
+    private const string CustomDarkCardLayout =
+        "<html><style>@media (prefers-color-scheme: dark) { .card { background-color:#3C6E47; } }</style>" +
+        "<body>{% if Platform.EmailLogoDarkUrl %}<img src=\"{{ Platform.EmailLogoDarkUrl }}\">{% endif %}" +
+        "{{ content | raw }}</body></html>";
 
     private PublishNotificationLayoutCommandHandler CreateHandler()
     {
@@ -33,10 +47,10 @@ public class NotificationLayoutCommandHandlerTests
             _layoutRepoMock.Object,
             new Mock<IUserRepository>().Object,
             _appRepoMock.Object,
-            new Mock<IPlatformSettingsRepository>().Object,
+            _platformRepoMock.Object,
             new FluidTemplateRenderer(),
             new Mock<IImageUrlComposer>().Object,
-            new Mock<IImageStorageService>().Object,
+            _imageStorageMock.Object,
             TestHelpers.CreateOptions(new EmailSettings { SenderName = "Auth System" }),
             new Mock<ILogger<NotificationRenderingService>>().Object);
 
@@ -45,13 +59,18 @@ public class NotificationLayoutCommandHandlerTests
             _appRepoMock.Object,
             renderer,
             _cacheInvalidatorMock.Object,
+            new EmailLogoRenditions(
+                _platformRepoMock.Object,
+                _layoutRepoMock.Object,
+                _imageStorageMock.Object,
+                new Mock<ILogger<EmailLogoRenditions>>().Object),
             new Mock<ILogger<PublishNotificationLayoutCommandHandler>>().Object);
     }
 
-    private NotificationLayout CreateLayout(string draftContent)
+    private NotificationLayout CreateLayout(string draftContent, CardColor? darkCard = null)
     {
         var layout = NotificationLayout.Create(
-            null, NotificationChannelType.Email, "Default", draftContent, "{}", _userId).Value;
+            null, NotificationChannelType.Email, "Default", draftContent, "{}", null, darkCard, _userId).Value;
         _layoutRepoMock
             .Setup(r => r.GetByIdAsync(layout.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(layout);
@@ -167,6 +186,181 @@ public class NotificationLayoutCommandHandlerTests
                 It.IsAny<DateTime>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    [Fact]
+    public async Task Publish_CardRecolouredButCardColourLeftAtTheDefault_IsBlocked()
+    {
+        // The layout's dark card took another colour, nothing told the server, and the dark
+        // logo was built on the default grey - a visible box in every message.
+        var layout = CreateLayout(CustomDarkCardLayout);
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new PublishNotificationLayoutCommand(layout.Id, layout.ModifiedAt ?? layout.CreatedAt)
+            { PublishedBy = _userId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Notification.LayoutCardColorNotInLayout");
+        result.FirstError.Description.Should().Contain("#1A1A1C");
+        layout.IsPublished.Should().BeFalse();
+        _layoutRepoMock.Verify(
+            r => r.TryPublishAsync(It.IsAny<NotificationLayout>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Publish_CardColourMatchingTheCard_PublishesItAndBuildsItsBackgroundFirst()
+    {
+        var customCard = CardColor.Create("#3C6E47").Value;
+        var layout = CreateLayout(CustomDarkCardLayout, darkCard: customCard);
+        var expectedRevisionAt = layout.ModifiedAt ?? layout.CreatedAt;
+        var settings = PlatformSettings.CreateDefault();
+        settings.Update("Platform", "light.webp", "dark.webp", null, _userId);
+        _platformRepoMock.Setup(r => r.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(settings);
+        var order = new List<string>();
+        _imageStorageMock
+            .Setup(s => s.EnsureEmailLogoRenditionAsync(
+                It.IsAny<string?>(), It.IsAny<EmailLogoVariant>(), It.IsAny<CardColor>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("build"))
+            .ReturnsAsync((EmailLogoRendition?)null);
+        _layoutRepoMock
+            .Setup(r => r.TryPublishAsync(layout, expectedRevisionAt, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("publish"))
+            .ReturnsAsync(true);
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new PublishNotificationLayoutCommand(layout.Id, expectedRevisionAt) { PublishedBy = _userId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        layout.PublishedCardColors.Dark.Should().Be(customCard);
+        _imageStorageMock.Verify(
+            s => s.EnsureEmailLogoRenditionAsync("dark.webp", EmailLogoVariant.Dark, customCard, It.IsAny<CancellationToken>()),
+            Times.Once);
+        order.Should().StartWith("build").And.EndWith("publish",
+            "the first message sent on the new colour must find its background");
+    }
+
+    [Fact]
+    public async Task Publish_CardPaintedFromTheLayoutVariable_Passes()
+    {
+        // The layout can paint its card from the very field the background is built from;
+        // the check reads the rendered layout, so a colour written through it counts.
+        var customCard = CardColor.Create("#3C6E47").Value;
+        var layout = CreateLayout(
+            "<html><style>.card { background-color:{{ Layout.CardColorDark }}; }</style>" +
+            "<body><img src=\"{{ Platform.EmailLogoDarkUrl }}\">{{ content | raw }}</body></html>",
+            darkCard: customCard);
+        var expectedRevisionAt = layout.ModifiedAt ?? layout.CreatedAt;
+        _layoutRepoMock
+            .Setup(r => r.TryPublishAsync(layout, expectedRevisionAt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new PublishNotificationLayoutCommand(layout.Id, expectedRevisionAt) { PublishedBy = _userId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    private UpdateNotificationLayoutDraftCommandHandler CreateDraftHandler() =>
+        new(
+            _layoutRepoMock.Object,
+            _appRepoMock.Object,
+            new FluidTemplateRenderer(),
+            new EmailLogoRenditions(
+                _platformRepoMock.Object,
+                _layoutRepoMock.Object,
+                _imageStorageMock.Object,
+                new Mock<ILogger<EmailLogoRenditions>>().Object),
+            new Mock<ILogger<UpdateNotificationLayoutDraftCommandHandler>>().Object);
+
+    private static UpdateNotificationLayoutDraftCommand DraftSave(
+        NotificationLayout layout, string? light, string? dark) =>
+        new(layout.Id, layout.Name, layout.DraftContent, layout.DraftStringsJson, null, light, dark);
+
+    [Fact]
+    public async Task SaveDraft_WithoutTheColourFields_KeepsTheSavedColours()
+    {
+        // A script, or a console tab opened before the colours existed, sends no colours.
+        // That must not erase the ones an admin set.
+        var customCard = CardColor.Create("#3C6E47").Value;
+        var layout = CreateLayout("<html>{{ content | raw }}</html>", darkCard: customCard);
+
+        var result = await CreateDraftHandler().Handle(DraftSave(layout, null, null), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        layout.DraftCardColorDark.Should().Be(customCard);
+        result.Value.DraftCardColorDark.Should().Be("#3C6E47");
+    }
+
+    [Fact]
+    public async Task SaveDraft_WithAnEmptyColour_ReturnsItToTheDefault()
+    {
+        var layout = CreateLayout("<html>{{ content | raw }}</html>", darkCard: CardColor.Create("#3C6E47").Value);
+
+        var result = await CreateDraftHandler().Handle(DraftSave(layout, "#ABCDEF", ""), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        layout.DraftCardColorDark.Should().BeNull("an empty colour means the default");
+        layout.DraftCardColorLight.Should().Be(CardColor.Create("#ABCDEF").Value);
+    }
+
+    // The shipped layout itself (seed 11), so the gate is held to the document most
+    // deployments publish, not only to a synthetic one.
+    private static string ShippedLayout() => EmailLayoutContractTests.SeededLayoutDocument();
+
+    private async Task<ErrorOr.ErrorOr<Auth.Application.DTOs.NotificationLayoutDto>> PublishAsync(NotificationLayout layout)
+    {
+        var expectedRevisionAt = layout.ModifiedAt ?? layout.CreatedAt;
+        _layoutRepoMock
+            .Setup(r => r.TryPublishAsync(layout, expectedRevisionAt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        return await CreateHandler().Handle(
+            new PublishNotificationLayoutCommand(layout.Id, expectedRevisionAt) { PublishedBy = _userId },
+            CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Publish_TheShippedLayoutAsShipped_Passes()
+    {
+        var result = await PublishAsync(CreateLayout(ShippedLayout()));
+
+        result.IsError.Should().BeFalse("the shipped layout paints its cards in the default colours");
+    }
+
+    [Fact]
+    public async Task Publish_TheShippedLayoutWithADarkCardColourItsCssNeverPaints_IsRefused()
+    {
+        // The colour is set, the CSS still paints the default dark grey: the logo would sit on
+        // its own colour inside a grey card. Nothing in the layout may count as painting it,
+        // a comment that prints the colour variable included.
+        var customCard = CardColor.Create("#3C6E47").Value;
+
+        var result = await PublishAsync(CreateLayout(ShippedLayout(), darkCard: customCard));
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Notification.LayoutCardColorNotInLayout");
+        result.FirstError.Description.Should().Contain("#3C6E47");
+    }
+
+    [Fact]
+    public async Task Publish_TheShippedLayoutRepaintedDarkWithTheColourLeftEmpty_IsRefused()
+    {
+        // The other way round: the dark palette repainted in the CSS, the colour field left at
+        // the default, so the logo would be built on a grey that is no longer anywhere.
+        var repainted = ShippedLayout().Replace("#1A1A1C", "#3C6E47", StringComparison.OrdinalIgnoreCase);
+
+        var result = await PublishAsync(CreateLayout(repainted));
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Notification.LayoutCardColorNotInLayout");
+        result.FirstError.Description.Should().Contain("#1A1A1C");
     }
 
     [Fact]

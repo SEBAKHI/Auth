@@ -127,6 +127,15 @@ public static class NotificationErrors
         code: "Notification.LayoutPublishTargetChanged",
         description: "The saved layout draft selected for publishing has changed. Reload and review the latest draft before publishing.");
 
+    public static Error LayoutCardColorInvalid => Error.Validation(
+        code: "Notification.LayoutCardColorInvalid",
+        description: "A card colour must be written as # followed by six hexadecimal digits, for example #1A1A1C, or left empty to use the default.");
+
+    public static Error LayoutCardColorNotInLayout(string colour) => Error.Validation(
+        code: "Notification.LayoutCardColorNotInLayout",
+        description: $"The layout shows the logo, but its card colour {colour} appears nowhere in the layout, so the logo would sit inside a visible box. Set the card colour to the colour behind the logo, written #RRGGBB.",
+        metadata: new() { ["args"] = new object[] { colour } });
+
     #endregion
 
     #region Rendering Errors

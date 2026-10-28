@@ -20,12 +20,24 @@ CREATE TABLE [dbo].[NotificationLayouts]
     [CreatedBy] UNIQUEIDENTIFIER NOT NULL,
     [ModifiedAt] DATETIME2 NULL,
     [ModifiedBy] UNIQUEIDENTIFIER NULL,
+    -- Card colours (#RRGGBB, upper case; NULL = the default #FFFFFF / #1A1A1C). The email
+    -- logo's background is baked into the PNG in this colour, so it must equal the card
+    -- behind the logo. Draft/published pair like the content, copied by the same publish.
+    -- Declared LAST so DacFx adds them with ALTER TABLE instead of rebuilding the table.
+    [DraftCardColorLight] NVARCHAR(7) NULL,
+    [DraftCardColorDark] NVARCHAR(7) NULL,
+    [PublishedCardColorLight] NVARCHAR(7) NULL,
+    [PublishedCardColorDark] NVARCHAR(7) NULL,
 
     CONSTRAINT [PK_NotificationLayouts] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_NotificationLayouts_Applications] FOREIGN KEY ([ApplicationId]) REFERENCES [dbo].[Applications]([Id]),
     CONSTRAINT [CK_NotificationLayouts_Channel] CHECK ([Channel] IN (1, 2, 3)),
     CONSTRAINT [CK_NotificationLayouts_DraftStringsJson] CHECK (ISJSON([DraftStringsJson]) = 1),
     CONSTRAINT [CK_NotificationLayouts_PublishedStringsJson] CHECK ([PublishedStringsJson] IS NULL OR ISJSON([PublishedStringsJson]) = 1),
+    CONSTRAINT [CK_NotificationLayouts_DraftCardColorLight] CHECK ([DraftCardColorLight] IS NULL OR [DraftCardColorLight] LIKE N'#[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]'),
+    CONSTRAINT [CK_NotificationLayouts_DraftCardColorDark] CHECK ([DraftCardColorDark] IS NULL OR [DraftCardColorDark] LIKE N'#[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]'),
+    CONSTRAINT [CK_NotificationLayouts_PublishedCardColorLight] CHECK ([PublishedCardColorLight] IS NULL OR [PublishedCardColorLight] LIKE N'#[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]'),
+    CONSTRAINT [CK_NotificationLayouts_PublishedCardColorDark] CHECK ([PublishedCardColorDark] IS NULL OR [PublishedCardColorDark] LIKE N'#[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]'),
     -- One layout per (application, channel) scope; SQL Server treats NULLs as equal in
     -- unique constraints, so exactly one global layout per channel is allowed.
     CONSTRAINT [UQ_NotificationLayouts_App_Channel] UNIQUE ([ApplicationId], [Channel])

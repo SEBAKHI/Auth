@@ -777,6 +777,12 @@
   <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
     <value>所选的已保存待发布布局草稿已发生变化。请重新加载并检查最新草稿后再发布。</value>
   </data>
+  <data name="Notification.LayoutCardColorInvalid" xml:space="preserve">
+    <value>卡片颜色须写成 # 加六位十六进制数字（例如 #1A1A1C），或留空以使用默认颜色。</value>
+  </data>
+  <data name="Notification.LayoutCardColorNotInLayout" xml:space="preserve">
+    <value>该布局显示了徽标，但其卡片颜色 {0} 在布局中没有出现，徽标会显示在一个可见的方框内。请将卡片颜色设为徽标背后的颜色，格式为 #RRGGBB。</value>
+  </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>模板包含无效语法：{0}</value>
   </data>

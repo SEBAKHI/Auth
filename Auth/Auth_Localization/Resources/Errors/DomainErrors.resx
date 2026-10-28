@@ -779,6 +779,12 @@
   <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
     <value>The saved layout draft selected for publishing has changed. Reload and review the latest draft before publishing.</value>
   </data>
+  <data name="Notification.LayoutCardColorInvalid" xml:space="preserve">
+    <value>A card colour must be written as # followed by six hexadecimal digits, for example #1A1A1C, or left empty to use the default.</value>
+  </data>
+  <data name="Notification.LayoutCardColorNotInLayout" xml:space="preserve">
+    <value>The layout shows the logo, but its card colour {0} appears nowhere in the layout, so the logo would sit inside a visible box. Set the card colour to the colour behind the logo, written #RRGGBB.</value>
+  </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>The template contains invalid syntax: {0}</value>
   </data>

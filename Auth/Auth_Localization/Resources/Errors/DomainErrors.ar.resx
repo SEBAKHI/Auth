@@ -779,6 +779,12 @@
   <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
     <value>تغيّرت مسودة التخطيط المحفوظة المحددة للنشر. أعد التحميل وراجع أحدث مسودة قبل النشر.</value>
   </data>
+  <data name="Notification.LayoutCardColorInvalid" xml:space="preserve">
+    <value>يُكتب لون البطاقة بالعلامة # تليها ست خانات ست عشرية، مثل #1A1A1C، أو يُترك فارغًا لاستعمال اللون الافتراضي.</value>
+  </data>
+  <data name="Notification.LayoutCardColorNotInLayout" xml:space="preserve">
+    <value>التخطيط يعرض الشعار، لكن لون بطاقته {0} غير مكتوب في أي مكان من التخطيط، فسيظهر الشعار داخل مربّع مرئي. اضبط لون البطاقة على اللون الذي خلف الشعار، بصيغة #RRGGBB.</value>
+  </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>يحتوي القالب على صيغة غير صالحة: {0}</value>
   </data>

@@ -1,5 +1,6 @@
 using Auth.Application.Notifications;
 using Auth.Domain.Enums;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 
 namespace Auth.Application.Interfaces;
@@ -62,6 +63,12 @@ public record NotificationContentRenderRequest
     /// </summary>
     public string? LayoutContentOverride { get; init; }
     public string? LayoutStringsJsonOverride { get; init; }
+
+    /// <summary>
+    /// The card colours of the overriding layout, which pick the email logo backgrounds it
+    /// shows. Read only with <see cref="LayoutContentOverride"/>; null means the defaults.
+    /// </summary>
+    public CardColors? LayoutCardColorsOverride { get; init; }
 
     /// <summary>
     /// When true, every variable the templates reference but the model does not

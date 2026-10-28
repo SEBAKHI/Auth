@@ -10,6 +10,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Notifications;
+using Auth.Domain.ValueObjects;
 using Auth.Infrastructure.Notifications;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Caching.Memory;
@@ -59,7 +60,7 @@ public class NotificationTemplateCommandHandlerTests
         layoutRepo
             .Setup(r => r.GetPublishedAsync(NotificationChannelType.Email, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new NotificationLayoutRenderSource(
-                Guid.NewGuid(), null, "<html>{{ content | raw }}</html>", "{}"));
+                Guid.NewGuid(), null, "<html>{{ content | raw }}</html>", "{}", CardColors.Default));
 
         return new NotificationRenderingService(
             new TemplateCache(new MemoryCache(new MemoryCacheOptions())),

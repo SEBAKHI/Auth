@@ -25,5 +25,13 @@ public class UpdateNotificationLayoutDraftCommandValidator
         RuleFor(x => x.DraftStringsJson)
             .Must(CreateNotificationLayoutCommandValidator.BeValidJsonObject)
             .WithErrorCode(NotificationErrors.LayoutStringsInvalidJson.Code);
+
+        RuleFor(x => x.DraftCardColorLight)
+            .Must(CreateNotificationLayoutCommandValidator.BeValidOptionalCardColor)
+            .WithErrorCode(NotificationErrors.LayoutCardColorInvalid.Code);
+
+        RuleFor(x => x.DraftCardColorDark)
+            .Must(CreateNotificationLayoutCommandValidator.BeValidOptionalCardColor)
+            .WithErrorCode(NotificationErrors.LayoutCardColorInvalid.Code);
     }
 }

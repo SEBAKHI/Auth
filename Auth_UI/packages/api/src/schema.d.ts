@@ -16623,6 +16623,8 @@ export interface components {
             /** @default {} */
             draftStringsJson: string;
             channel?: components["schemas"]["NotificationChannelType"];
+            draftCardColorLight?: null | string;
+            draftCardColorDark?: null | string;
         };
         CreateNotificationTemplateRequest: {
             /** Format: uuid */
@@ -17168,6 +17170,8 @@ export interface components {
             name?: string;
             draftContent?: string;
             draftStringsJson?: string;
+            draftCardColorLight?: null | string;
+            draftCardColorDark?: null | string;
             isPublished?: boolean;
             hasUnpublishedChanges?: boolean;
             /** Format: date-time */
@@ -17902,6 +17906,8 @@ export interface components {
             layoutStringsJson: string;
             /** @default en */
             languageCode: string;
+            cardColorLight?: null | string;
+            cardColorDark?: null | string;
         };
         PreviewNotificationTemplateRequest: {
             /** Format: uuid */
@@ -18541,6 +18547,8 @@ export interface components {
             draftStringsJson: string;
             /** Format: date-time */
             expectedModifiedAt?: null | string;
+            draftCardColorLight?: null | string;
+            draftCardColorDark?: null | string;
         };
         UpdateNotificationTemplateDraftRequest: {
             translations: components["schemas"]["DraftTranslationRequest"][];

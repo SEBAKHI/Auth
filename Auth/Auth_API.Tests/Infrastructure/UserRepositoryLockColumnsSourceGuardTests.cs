@@ -293,9 +293,7 @@ public class UserRepositoryLockColumnsSourceGuardTests
 
     private static readonly string[] DeadProcedures = ["sp_CheckAccountLockout", "sp_RecordLoginAttempt", "sp_ValidateCredentials"];
 
-    private static IEnumerable<string> DatabaseScripts() =>
-        Directory.EnumerateFiles(Path.Combine(ApiSourceScan.SolutionDirectory(), "Auth_DB"), "*.sql", SearchOption.AllDirectories)
-            .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj"));
+    private static IEnumerable<string> DatabaseScripts() => ApiSourceScan.DatabaseScripts();
 
     [Fact]
     public void NoDatabaseScript_WritesTheLockColumns()

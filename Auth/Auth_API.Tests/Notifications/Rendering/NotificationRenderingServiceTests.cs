@@ -5,6 +5,7 @@ using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Notifications;
+using Auth.Domain.ValueObjects;
 using Auth.Infrastructure.Notifications;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Caching.Memory;
@@ -37,7 +38,7 @@ public class NotificationRenderingServiceTests
     {
         _layoutRepoMock
             .Setup(r => r.GetPublishedAsync(NotificationChannelType.Email, null, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new NotificationLayoutRenderSource(Guid.NewGuid(), null, Layout, LayoutStrings));
+            .ReturnsAsync(new NotificationLayoutRenderSource(Guid.NewGuid(), null, Layout, LayoutStrings, CardColors.Default));
 
         var settings = TestHelpers.CreateOptions(new EmailSettings { SenderName = "Auth System" });
 

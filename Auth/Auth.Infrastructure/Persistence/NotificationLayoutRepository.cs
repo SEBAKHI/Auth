@@ -2,6 +2,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Notifications;
+using Auth.Domain.ValueObjects;
 using Dapper;
 
 namespace Auth.Infrastructure.Persistence;
@@ -14,7 +15,8 @@ public class NotificationLayoutRepository : INotificationLayoutRepository
     private const string SelectColumns = @"
         [Id], [ApplicationId], [Channel], [Name], [DraftContent], [DraftStringsJson],
         [PublishedContent], [PublishedStringsJson], [PublishedAt], [PublishedBy],
-        [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]";
+        [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy],
+        [DraftCardColorLight], [DraftCardColorDark], [PublishedCardColorLight], [PublishedCardColorDark]";
 
     private readonly IDbConnectionFactory _connectionFactory;
 
@@ -77,11 +79,13 @@ public class NotificationLayoutRepository : INotificationLayoutRepository
             INSERT INTO [dbo].[NotificationLayouts]
                 ([Id], [ApplicationId], [Channel], [Name], [DraftContent], [DraftStringsJson],
                  [PublishedContent], [PublishedStringsJson], [PublishedAt], [PublishedBy],
-                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy])
+                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy],
+                 [DraftCardColorLight], [DraftCardColorDark], [PublishedCardColorLight], [PublishedCardColorDark])
             VALUES
                 (@Id, @ApplicationId, @Channel, @Name, @DraftContent, @DraftStringsJson,
                  @PublishedContent, @PublishedStringsJson, @PublishedAt, @PublishedBy,
-                 @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy)",
+                 @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy,
+                 @DraftCardColorLight, @DraftCardColorDark, @PublishedCardColorLight, @PublishedCardColorDark)",
             ToParams(layout));
 
         return layout;
@@ -101,6 +105,10 @@ public class NotificationLayoutRepository : INotificationLayoutRepository
                 [PublishedStringsJson] = @PublishedStringsJson,
                 [PublishedAt] = @PublishedAt,
                 [PublishedBy] = @PublishedBy,
+                [DraftCardColorLight] = @DraftCardColorLight,
+                [DraftCardColorDark] = @DraftCardColorDark,
+                [PublishedCardColorLight] = @PublishedCardColorLight,
+                [PublishedCardColorDark] = @PublishedCardColorDark,
                 [ModifiedAt] = @ModifiedAt,
                 [ModifiedBy] = @ModifiedBy
             WHERE [Id] = @Id",
@@ -124,6 +132,10 @@ public class NotificationLayoutRepository : INotificationLayoutRepository
                 [PublishedStringsJson] = @PublishedStringsJson,
                 [PublishedAt] = @PublishedAt,
                 [PublishedBy] = @PublishedBy,
+                [DraftCardColorLight] = @DraftCardColorLight,
+                [DraftCardColorDark] = @DraftCardColorDark,
+                [PublishedCardColorLight] = @PublishedCardColorLight,
+                [PublishedCardColorDark] = @PublishedCardColorDark,
                 [ModifiedAt] = @ModifiedAt,
                 [ModifiedBy] = @ModifiedBy
             WHERE [Id] = @Id
@@ -139,6 +151,10 @@ public class NotificationLayoutRepository : INotificationLayoutRepository
                 layout.PublishedStringsJson,
                 layout.PublishedAt,
                 layout.PublishedBy,
+                DraftCardColorLight = layout.DraftCardColorLight?.Value,
+                DraftCardColorDark = layout.DraftCardColorDark?.Value,
+                PublishedCardColorLight = layout.PublishedCardColorLight?.Value,
+                PublishedCardColorDark = layout.PublishedCardColorDark?.Value,
                 layout.ModifiedAt,
                 layout.ModifiedBy,
                 ExpectedRevisionAt = expectedRevisionAt
@@ -157,7 +173,8 @@ public class NotificationLayoutRepository : INotificationLayoutRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var row = await connection.QueryFirstOrDefaultAsync<PublishedLayoutRow>(@"
-            SELECT [Id], [ApplicationId], [PublishedContent], [PublishedStringsJson]
+            SELECT [Id], [ApplicationId], [PublishedContent], [PublishedStringsJson],
+                   [PublishedCardColorLight], [PublishedCardColorDark]
             FROM [dbo].[NotificationLayouts]
             WHERE [Channel] = @Channel
               AND ((@ApplicationId IS NULL AND [ApplicationId] IS NULL)
@@ -168,7 +185,13 @@ public class NotificationLayoutRepository : INotificationLayoutRepository
         return row is null
             ? null
             : new NotificationLayoutRenderSource(
-                row.Id, row.ApplicationId, row.PublishedContent!, row.PublishedStringsJson ?? "{}");
+                row.Id,
+                row.ApplicationId,
+                row.PublishedContent!,
+                row.PublishedStringsJson ?? "{}",
+                CardColors.Of(
+                    CardColor.FromNullable(row.PublishedCardColorLight),
+                    CardColor.FromNullable(row.PublishedCardColorDark)));
     }
 
     private static object ToParams(NotificationLayout layout) => new
@@ -186,7 +209,11 @@ public class NotificationLayoutRepository : INotificationLayoutRepository
         layout.CreatedAt,
         layout.CreatedBy,
         layout.ModifiedAt,
-        layout.ModifiedBy
+        layout.ModifiedBy,
+        DraftCardColorLight = layout.DraftCardColorLight?.Value,
+        DraftCardColorDark = layout.DraftCardColorDark?.Value,
+        PublishedCardColorLight = layout.PublishedCardColorLight?.Value,
+        PublishedCardColorDark = layout.PublishedCardColorDark?.Value
     };
 
     private record PublishedLayoutRow
@@ -195,6 +222,8 @@ public class NotificationLayoutRepository : INotificationLayoutRepository
         public Guid? ApplicationId { get; init; }
         public string? PublishedContent { get; init; }
         public string? PublishedStringsJson { get; init; }
+        public string? PublishedCardColorLight { get; init; }
+        public string? PublishedCardColorDark { get; init; }
     }
 
     private record NotificationLayoutDto
@@ -213,6 +242,10 @@ public class NotificationLayoutRepository : INotificationLayoutRepository
         public Guid CreatedBy { get; init; }
         public DateTime? ModifiedAt { get; init; }
         public Guid? ModifiedBy { get; init; }
+        public string? DraftCardColorLight { get; init; }
+        public string? DraftCardColorDark { get; init; }
+        public string? PublishedCardColorLight { get; init; }
+        public string? PublishedCardColorDark { get; init; }
 
         public NotificationLayout ToEntity() => new(
             Id,
@@ -228,6 +261,10 @@ public class NotificationLayoutRepository : INotificationLayoutRepository
             CreatedAt,
             CreatedBy,
             ModifiedAt,
-            ModifiedBy);
+            ModifiedBy,
+            CardColor.FromNullable(DraftCardColorLight),
+            CardColor.FromNullable(DraftCardColorDark),
+            CardColor.FromNullable(PublishedCardColorLight),
+            CardColor.FromNullable(PublishedCardColorDark));
     }
 }

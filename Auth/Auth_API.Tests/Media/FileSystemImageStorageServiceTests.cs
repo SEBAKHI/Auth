@@ -1,5 +1,6 @@
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
+using Auth.Domain.ValueObjects;
 using Auth.Infrastructure.Services;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
@@ -134,7 +135,7 @@ public class FileSystemImageStorageServiceTests : IDisposable
         var sourceKey = await StoreAsync(MakeTransparentPng(400, 100));
 
         var rendition = await service.EnsureEmailLogoRenditionAsync(
-            sourceKey, EmailLogoVariant.Light, CancellationToken.None);
+            sourceKey, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
 
         rendition.Should().NotBeNull();
         rendition!.Key.Should().EndWith(".png", "WebP is undecodable in Outlook for Windows");
@@ -164,9 +165,9 @@ public class FileSystemImageStorageServiceTests : IDisposable
         var sourceKey = await StoreAsync(MakeTransparentPng(400, 100));
 
         var light = await service.EnsureEmailLogoRenditionAsync(
-            sourceKey, EmailLogoVariant.Light, CancellationToken.None);
+            sourceKey, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
         var dark = await service.EnsureEmailLogoRenditionAsync(
-            sourceKey, EmailLogoVariant.Dark, CancellationToken.None);
+            sourceKey, EmailLogoVariant.Dark, CardColor.DefaultDark, CancellationToken.None);
 
         light.Should().NotBeNull();
         dark.Should().NotBeNull();
@@ -191,7 +192,7 @@ public class FileSystemImageStorageServiceTests : IDisposable
         var sourceKey = await StoreAsync(MakeTransparentPng(w, h));
 
         var rendition = await service.EnsureEmailLogoRenditionAsync(
-            sourceKey, EmailLogoVariant.Light, CancellationToken.None);
+            sourceKey, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
 
         rendition.Should().NotBeNull();
         rendition!.Width.Should().Be(200);
@@ -212,8 +213,8 @@ public class FileSystemImageStorageServiceTests : IDisposable
         var second = await StoreAsync(MakeTransparentPng(300, 300));
         first.Should().NotBe(second, "each upload gets its own random key");
 
-        var a = await service.EnsureEmailLogoRenditionAsync(first, EmailLogoVariant.Light, CancellationToken.None);
-        var b = await service.EnsureEmailLogoRenditionAsync(second, EmailLogoVariant.Light, CancellationToken.None);
+        var a = await service.EnsureEmailLogoRenditionAsync(first, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
+        var b = await service.EnsureEmailLogoRenditionAsync(second, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
 
         a!.Key.Should().Be(b!.Key, "the rendition URL must survive a logo replacement");
         a.Key.Should().Be("platform-email-light.png");
@@ -225,13 +226,13 @@ public class FileSystemImageStorageServiceTests : IDisposable
         var service = CreateService();
         var first = await StoreAsync(MakeTransparentPng(400, 100));
         var rendition = await service.EnsureEmailLogoRenditionAsync(
-            first, EmailLogoVariant.Light, CancellationToken.None);
+            first, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
         var path = Path.Combine(_tempRoot, rendition!.Key);
         var before = await File.ReadAllBytesAsync(path);
 
         // A visibly different logo: solid ink over the whole canvas rather than a centre band.
         var second = await StoreAsync(MakePng(400, 100));
-        await service.EnsureEmailLogoRenditionAsync(second, EmailLogoVariant.Light, CancellationToken.None);
+        await service.EnsureEmailLogoRenditionAsync(second, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
 
         Directory.GetFiles(_tempRoot, "platform-email-*.png").Should().HaveCount(1,
             "a replacement must reuse the file, not mint a second one");
@@ -246,7 +247,7 @@ public class FileSystemImageStorageServiceTests : IDisposable
         var sourceKey = await StoreAsync(MakeTransparentPng(400, 100));
 
         var rendition = await service.EnsureEmailLogoRenditionAsync(
-            sourceKey, EmailLogoVariant.Light, CancellationToken.None);
+            sourceKey, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
 
         rendition.Should().NotBeNull();
         rendition!.Width.Should().BeGreaterThan(0).And.BeLessThanOrEqualTo(200);
@@ -269,7 +270,7 @@ public class FileSystemImageStorageServiceTests : IDisposable
         var before = Directory.GetFiles(_tempRoot).Length;
 
         var rendition = await service.GetEmailLogoRenditionAsync(
-            sourceKey, EmailLogoVariant.Light, CancellationToken.None);
+            sourceKey, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
 
         rendition.Should().BeNull();
         Directory.GetFiles(_tempRoot).Length.Should().Be(before, "the read path must not write");
@@ -281,10 +282,10 @@ public class FileSystemImageStorageServiceTests : IDisposable
         var service = CreateService();
         var sourceKey = await StoreAsync(MakeTransparentPng(400, 100));
         var built = await service.EnsureEmailLogoRenditionAsync(
-            sourceKey, EmailLogoVariant.Light, CancellationToken.None);
+            sourceKey, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
 
         var read = await service.GetEmailLogoRenditionAsync(
-            sourceKey, EmailLogoVariant.Light, CancellationToken.None);
+            sourceKey, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
 
         read.Should().BeEquivalentTo(built);
     }
@@ -296,7 +297,7 @@ public class FileSystemImageStorageServiceTests : IDisposable
     public async Task EnsureEmailLogoRendition_NothingToPlate_ReturnsNull(string? sourceKey)
     {
         var rendition = await CreateService().EnsureEmailLogoRenditionAsync(
-            sourceKey, EmailLogoVariant.Light, CancellationToken.None);
+            sourceKey, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
 
         rendition.Should().BeNull("an externally hosted logo is the admin's own escape hatch");
     }
@@ -309,6 +310,7 @@ public class FileSystemImageStorageServiceTests : IDisposable
         var rendition = await CreateService().EnsureEmailLogoRenditionAsync(
             "deadbeefdeadbeefdeadbeefdeadbeef.webp",
             EmailLogoVariant.Light,
+            CardColor.DefaultLight,
             CancellationToken.None);
 
         rendition.Should().BeNull();
@@ -323,9 +325,9 @@ public class FileSystemImageStorageServiceTests : IDisposable
         var service = CreateService();
         var sourceKey = await StoreAsync(MakeTransparentPng(400, 100));
         var light = await service.EnsureEmailLogoRenditionAsync(
-            sourceKey, EmailLogoVariant.Light, CancellationToken.None);
+            sourceKey, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
         var dark = await service.EnsureEmailLogoRenditionAsync(
-            sourceKey, EmailLogoVariant.Dark, CancellationToken.None);
+            sourceKey, EmailLogoVariant.Dark, CardColor.DefaultDark, CancellationToken.None);
 
         await service.DeleteImageAsync(sourceKey, CancellationToken.None);
 
@@ -334,6 +336,84 @@ public class FileSystemImageStorageServiceTests : IDisposable
         File.Exists(Path.Combine(_tempRoot, light!.Key)).Should().BeTrue(
             "delivered mail fetches this URL every time it is opened");
         File.Exists(Path.Combine(_tempRoot, dark!.Key)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task EnsureEmailLogoRendition_DefaultCards_KeepTheNamesSentMailAlreadyPointsAt()
+    {
+        // Every message sent before card colours existed names these two files. A layout on
+        // the shipped cards must keep resolving exactly them, or that mail loses its logo.
+        var service = CreateService();
+        var sourceKey = await StoreAsync(MakeTransparentPng(400, 100));
+
+        var light = await service.EnsureEmailLogoRenditionAsync(
+            sourceKey, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
+        var dark = await service.EnsureEmailLogoRenditionAsync(
+            sourceKey, EmailLogoVariant.Dark, CardColor.DefaultDark, CancellationToken.None);
+
+        light!.Key.Should().Be("platform-email-light.png");
+        dark!.Key.Should().Be("platform-email-dark.png");
+    }
+
+    [Fact]
+    public async Task EnsureEmailLogoRendition_AnotherCard_GetsItsOwnFileInThatColour()
+    {
+        // A layout on a dark card of its own colour. The background is the card's own colour, so the logo
+        // sits on it without a box, and the default file is left as it was: mail sent on the
+        // default card still points at it.
+        var service = CreateService();
+        var sourceKey = await StoreAsync(MakeTransparentPng(400, 100));
+        var customCard = CardColor.Create("#3c6e47").Value;
+        var standard = await service.EnsureEmailLogoRenditionAsync(
+            sourceKey, EmailLogoVariant.Dark, CardColor.DefaultDark, CancellationToken.None);
+        var before = await File.ReadAllBytesAsync(Path.Combine(_tempRoot, standard!.Key));
+
+        var rendition = await service.EnsureEmailLogoRenditionAsync(
+            sourceKey, EmailLogoVariant.Dark, customCard, CancellationToken.None);
+
+        rendition!.Key.Should().Be("platform-email-dark-3c6e47.png");
+        CornerOf(rendition.Key).Should().Be(new SKColor(0x3C, 0x6E, 0x47));
+        (await File.ReadAllBytesAsync(Path.Combine(_tempRoot, standard.Key))).Should().Equal(before,
+            "a new card colour must never repaint the background of mail already sent");
+    }
+
+    [Fact]
+    public async Task GetEmailLogoRendition_ForACardWithNoBackgroundYet_IsNullEvenWhenAnotherCardHasOne()
+    {
+        // The send path must never borrow another card's background: that is the box this
+        // change removes. No rendition means the platform name as text, which is legible.
+        var service = CreateService();
+        var sourceKey = await StoreAsync(MakeTransparentPng(400, 100));
+        await service.EnsureEmailLogoRenditionAsync(
+            sourceKey, EmailLogoVariant.Dark, CardColor.DefaultDark, CancellationToken.None);
+
+        var rendition = await service.GetEmailLogoRenditionAsync(
+            sourceKey, EmailLogoVariant.Dark, CardColor.Create("#3C6E47").Value, CancellationToken.None);
+
+        rendition.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetBuiltEmailLogoBackgrounds_ReadsEachColourBackFromItsFile()
+    {
+        // A logo change rebuilds what this returns, so a colour no layout uses any more is
+        // still found: the mail sent on it still shows it.
+        var service = CreateService();
+        var sourceKey = await StoreAsync(MakeTransparentPng(400, 100));
+        var customCard = CardColor.Create("#3C6E47").Value;
+        await service.EnsureEmailLogoRenditionAsync(
+            sourceKey, EmailLogoVariant.Light, CardColor.DefaultLight, CancellationToken.None);
+        await service.EnsureEmailLogoRenditionAsync(
+            sourceKey, EmailLogoVariant.Dark, customCard, CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(_tempRoot, "platform-email-dark-zzzzzz.png"), "not ours");
+
+        var backgrounds = await service.GetBuiltEmailLogoBackgroundsAsync(CancellationToken.None);
+
+        backgrounds.Should().BeEquivalentTo(new[]
+        {
+            new EmailLogoBackground(EmailLogoVariant.Light, CardColor.DefaultLight),
+            new EmailLogoBackground(EmailLogoVariant.Dark, customCard)
+        });
     }
 
     private SKColor CornerOf(string renditionKey)
