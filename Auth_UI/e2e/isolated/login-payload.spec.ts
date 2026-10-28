@@ -26,6 +26,8 @@ const ROUTE_ONLY = [
   // that belong to them. Reachable only behind a session, so it has no business
   // on this screen.
   { name: "the authenticated shell", pattern: /\/app-shell-/ },
+  // Opened only after someone has chosen an image to upload.
+  { name: "the image frame editor", pattern: /\/image-frame-dialog-/ },
 ]
 
 /**

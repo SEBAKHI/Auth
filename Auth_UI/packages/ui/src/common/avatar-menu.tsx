@@ -11,6 +11,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@authsystem/ui/dropdown-menu"
+import type { FrameMode } from "@authsystem/ui/common/image-frame/frame"
+
+// The frame editor is fetched when a file has been chosen, never before: no
+// page pays for it until someone uploads, and the sign-in pages never do.
+const ImageFrameDialog = React.lazy(
+  () => import("@authsystem/ui/common/image-frame/image-frame-dialog")
+)
 
 /** Mirrors the server's ImageStorage:MaxSizeBytes so oversized files fail fast with a clear message. */
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
@@ -19,12 +26,17 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024
  * Clickable avatar with a View / Change / Remove menu. "Change" opens a file
  * picker and calls `onChange(file)`; "Remove" calls `onRemove`; "View" opens a
  * lightbox. Used where the image is editable (profile page, user/org/app detail).
+ *
+ * A chosen file opens the frame editor first (crop and margin, in `frame`
+ * mode); `onChange` receives what it saves - the original file itself when
+ * the frame was left as it was.
  */
 export function AvatarMenu({
   src,
   name,
   size = "lg",
   fit,
+  frame,
   onChange,
   onRemove,
   pending,
@@ -33,6 +45,8 @@ export function AvatarMenu({
   name?: string | null
   size?: "default" | "sm" | "lg" | "xl"
   fit?: "cover" | "contain"
+  /** How the editor frames the image: a free-aspect logo, a square favicon, a person's photo. */
+  frame: FrameMode
   onChange: (file: File) => void
   onRemove: () => void
   pending?: boolean
@@ -40,6 +54,10 @@ export function AvatarMenu({
   const { t } = useTranslation()
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [viewOpen, setViewOpen] = React.useState(false)
+  // One editor per chosen file: the sequence keys it, so choosing again
+  // mounts a fresh editor seeded from the new file.
+  const [framing, setFraming] = React.useState<{ file: File; seq: number } | null>(null)
+  const framingSeq = React.useRef(0)
 
   return (
     <>
@@ -88,12 +106,28 @@ export function AvatarMenu({
                 })
               )
             } else {
-              onChange(file)
+              framingSeq.current += 1
+              setFraming({ file, seq: framingSeq.current })
             }
           }
           e.target.value = ""
         }}
       />
+
+      {framing ? (
+        <React.Suspense fallback={null}>
+          <ImageFrameDialog
+            key={framing.seq}
+            file={framing.file}
+            mode={frame}
+            onCancel={() => setFraming(null)}
+            onConfirm={(file) => {
+              setFraming(null)
+              onChange(file)
+            }}
+          />
+        </React.Suspense>
+      ) : null}
 
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent size="md" className="p-2">

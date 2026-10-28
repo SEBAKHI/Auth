@@ -15,6 +15,7 @@ export function LogoAvatar({
   invalidate,
   successMessage,
   size = "xl",
+  frame = "logo",
 }: {
   src?: string | null
   name?: string | null
@@ -23,6 +24,8 @@ export function LogoAvatar({
   invalidate: () => void
   successMessage: string
   size?: "default" | "sm" | "lg" | "xl"
+  /** A favicon is framed square; every other logo keeps a free aspect. */
+  frame?: "logo" | "favicon"
 }) {
   const logo = useLogo({ persist, invalidate, successMessage })
 
@@ -36,6 +39,7 @@ export function LogoAvatar({
       name={name}
       size={size}
       fit="contain"
+      frame={frame}
       onChange={logo.onChange}
       onRemove={logo.onRemove}
       pending={logo.pending}

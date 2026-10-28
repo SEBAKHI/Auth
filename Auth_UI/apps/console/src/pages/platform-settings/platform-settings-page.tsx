@@ -185,6 +185,7 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
               name={settings.platformName}
               canEdit
               persist={persistFavicon}
+              frame="favicon"
               invalidate={refreshBranding}
               successMessage={t("platformSettings.updated")}
             />

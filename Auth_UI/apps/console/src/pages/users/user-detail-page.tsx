@@ -907,6 +907,7 @@ export function UserDetailPage() {
             leading={
               canUpdate && allows("profileImage") ? (
                 <AvatarMenu
+                  frame="photo"
                   src={user.profileImageUrl}
                   name={displayName}
                   size="xl"

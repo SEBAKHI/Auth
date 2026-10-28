@@ -2004,6 +2004,34 @@ export const fr: TranslationResources = {
     layoutSlotSenderName:
       "Le nom de l'expéditeur défini dans les paramètres e-mail.",
   },
+  // The frame editor between choosing an image and uploading it (crop + margin).
+  imageFrame: {
+    title: "Cadrer l'image",
+    description: {
+      logo: "Choisissez la partie à garder et l'espace vide autour. Laissée telle quelle, l'image est envoyée exactement comme vous l'avez choisie.",
+      favicon: "Une icône d'onglet est carrée. Choisissez la partie à garder et l'espace vide autour. Laissée telle quelle, l'image est envoyée exactement comme vous l'avez choisie.",
+      photo: "Les photos de profil sont carrées et affichées dans un cercle. Choisissez la partie à garder. Laissée telle quelle, la photo est envoyée exactement comme vous l'avez choisie.",
+    },
+    stageLabel: "Cadre de l'image",
+    hintMove: "Faites glisser l'image, ou utilisez les flèches, pour la déplacer (avec Maj, plus vite).",
+    hintEdges: "Faites glisser un bord du cadre, ou placez-vous dessus et utilisez les flèches, pour rogner un seul côté.",
+    edge: {
+      top: "Bord supérieur du cadre",
+      right: "Bord droit du cadre",
+      bottom: "Bord inférieur du cadre",
+      left: "Bord gauche du cadre",
+    },
+    zoom: "Zoom",
+    margin: "Marge",
+    percent: "{{value}} %",
+    original: "Le fichier d'origine est envoyé sans modification.",
+    outputSize: "Envoyée en {{width}} × {{height}} px ; la marge est transparente.",
+    gifTitle: "L'animation sera perdue",
+    gifBody: "Seule la première image d'un GIF animé est conservée.",
+    decodeFailedTitle: "Cette image ne peut pas être cadrée ici",
+    decodeFailedBody: "Enregistrer l'envoie exactement comme vous l'avez choisie.",
+    exportFailed: "L'image cadrée n'a pas pu être créée. Réessayez, ou appuyez sur Réinitialiser pour envoyer l'original.",
+  },
   platformSettings: {
     title: "Paramètres de la plateforme",
     subtitle:
