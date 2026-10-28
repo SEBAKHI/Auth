@@ -12,6 +12,12 @@ public class NotificationLayoutDto
     public string Name { get; set; } = string.Empty;
     public string DraftContent { get; set; } = string.Empty;
     public string DraftStringsJson { get; set; } = "{}";
+
+    /// <summary>The draft card colour for light mode (#RRGGBB), or null for the default.</summary>
+    public string? DraftCardColorLight { get; set; }
+
+    /// <summary>The draft card colour for dark mode (#RRGGBB), or null for the default.</summary>
+    public string? DraftCardColorDark { get; set; }
     public bool IsPublished { get; set; }
     public bool HasUnpublishedChanges { get; set; }
     public DateTime? PublishedAt { get; set; }

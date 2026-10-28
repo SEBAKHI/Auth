@@ -103,6 +103,16 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
         // without it every page of both apps loses its branding.
         new("PlatformSettings.Theme column",
             "SELECT CASE WHEN COL_LENGTH('dbo.PlatformSettings', 'Theme') IS NOT NULL THEN 1 ELSE 0 END"),
+        // Email layout card colours: every layout read selects all four, so without them
+        // every email send fails at layout resolution and the console's layout pages fail.
+        new("NotificationLayouts.DraftCardColorLight column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.NotificationLayouts', 'DraftCardColorLight') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("NotificationLayouts.DraftCardColorDark column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.NotificationLayouts', 'DraftCardColorDark') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("NotificationLayouts.PublishedCardColorLight column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.NotificationLayouts', 'PublishedCardColorLight') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("NotificationLayouts.PublishedCardColorDark column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.NotificationLayouts', 'PublishedCardColorDark') IS NOT NULL THEN 1 ELSE 0 END"),
         // Machine credentials (OI-128): the console's machine-key section reads
         // the first, the client_credentials grant reads the first and writes the
         // second, and the daily sweep empties the second.

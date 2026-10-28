@@ -71,7 +71,8 @@ public class NotificationLayoutsController : ApiController
     {
         var command = new CreateNotificationLayoutCommand(
             request.ApplicationId, request.Channel, request.Name,
-            request.DraftContent, request.DraftStringsJson)
+            request.DraftContent, request.DraftStringsJson,
+            request.DraftCardColorLight, request.DraftCardColorDark)
         {
             CreatedBy = GetCurrentUserId()
         };
@@ -95,7 +96,8 @@ public class NotificationLayoutsController : ApiController
         CancellationToken cancellationToken)
     {
         var command = new UpdateNotificationLayoutDraftCommand(
-            id, request.Name, request.DraftContent, request.DraftStringsJson, request.ExpectedModifiedAt)
+            id, request.Name, request.DraftContent, request.DraftStringsJson, request.ExpectedModifiedAt,
+            request.DraftCardColorLight, request.DraftCardColorDark)
         {
             ModifiedBy = GetCurrentUserId()
         };
@@ -135,7 +137,8 @@ public class NotificationLayoutsController : ApiController
         CancellationToken cancellationToken)
     {
         var command = new PreviewNotificationLayoutCommand(
-            request.LayoutContent, request.LayoutStringsJson, request.LanguageCode);
+            request.LayoutContent, request.LayoutStringsJson, request.LanguageCode,
+            request.CardColorLight, request.CardColorDark);
 
         var result = await _sender.Send(command, cancellationToken);
         return result.Match(dto => Ok(dto), Problem);

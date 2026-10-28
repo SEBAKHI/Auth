@@ -22,6 +22,8 @@ public class NotificationPublishRepositoryTests
             "Default",
             "<html>{{ content | raw }}</html>",
             "{}",
+            null,
+            null,
             _actorId).Value;
         var revision = layout.ModifiedAt ?? layout.CreatedAt;
         layout.Publish(revision, _actorId).IsError.Should().BeFalse();

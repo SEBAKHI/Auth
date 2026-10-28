@@ -274,6 +274,13 @@ public class EmailLayoutContractTests
 
     private static string SeedLayout() => ExtractLayout(File.ReadAllText(SeedPath(SeedScript)));
 
+    /// <summary>
+    /// The seeded layout exactly as the database stores it (SQL quoting undone, the closing
+    /// tag restored), for tests that render or publish the shipped layout itself.
+    /// </summary>
+    internal static string SeededLayoutDocument() =>
+        SeedLayout().Replace("''", "'", StringComparison.Ordinal) + "</html>";
+
     private static string WithoutCssComments(string layout) =>
         System.Text.RegularExpressions.Regex.Replace(
             layout, @"/\*[\s\S]*?\*/", string.Empty);

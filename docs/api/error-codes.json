@@ -1087,6 +1087,18 @@
       "pointer": "#/languageCode"
     },
     {
+      "code": "Notification.LayoutCardColorInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Notification.LayoutCardColorNotInLayout",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "Notification.LayoutContentRequired",
       "status": 400,
       "source": "catalog",

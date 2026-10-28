@@ -109,10 +109,10 @@ public class GetNotificationsSummaryQueryHandlerTests
     public async Task Handle_CountsLayoutsByPublicationState()
     {
         var published = NotificationLayout.Create(
-            null, NotificationChannelType.Email, "Global", "<html></html>", "{}", Guid.NewGuid()).Value;
+            null, NotificationChannelType.Email, "Global", "<html></html>", "{}", null, null, Guid.NewGuid()).Value;
         published.Publish(published.ModifiedAt ?? published.CreatedAt, Guid.NewGuid());
         var draftOnly = NotificationLayout.Create(
-            Guid.NewGuid(), NotificationChannelType.Email, "App", "<html></html>", "{}", Guid.NewGuid()).Value;
+            Guid.NewGuid(), NotificationChannelType.Email, "App", "<html></html>", "{}", null, null, Guid.NewGuid()).Value;
 
         Setup([], [published, draftOnly]);
         _applicationRepositoryMock

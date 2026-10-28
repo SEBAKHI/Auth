@@ -189,6 +189,8 @@ export const fr: TranslationResources = {
     displayName: "Nom affiché",
     draftContent: "Contenu du brouillon",
     draftStringsJson: "Chaînes du brouillon",
+    draftCardColorLight: "Couleur de carte du brouillon (clair)",
+    draftCardColorDark: "Couleur de carte du brouillon (sombre)",
     draftVersionNumber: "Version brouillon",
     effectiveDateUtc: "Date d'effet",
     email: "E-mail",
@@ -1993,6 +1995,12 @@ export const fr: TranslationResources = {
     layoutSlotLang: "Le code de langue du message (en, ar, ...).",
     layoutSlotFooter:
       "Le texte de pied de page de la langue du message, modifié ci-dessous.",
+    cardColorLight: "Couleur de la carte, mode clair",
+    cardColorDark: "Couleur de la carte, mode sombre",
+    cardColorHint: "La couleur de la carte derrière le logo, au format #RRGGBB. Le logo est envoyé avec un fond de cette couleur : s'il diffère de la carte, le logo apparaît dans un cadre. Laissez vide pour la couleur par défaut ({{color}}). Un logo placé dans le corps d'un modèle, hors de la mise en page, garde le fond par défaut.",
+    cardColorInvalid: "Saisissez # suivi de six chiffres hexadécimaux, par exemple #1A1A1C.",
+    layoutSlotCardColorLight: "La couleur de carte du mode clair définie ci-dessus. Peignez la carte avec elle pour que le fond du logo corresponde toujours.",
+    layoutSlotCardColorDark: "La couleur de carte du mode sombre définie ci-dessus. Peignez la carte avec elle pour que le fond du logo corresponde toujours.",
     layoutSlotSenderName:
       "Le nom de l'expéditeur défini dans les paramètres e-mail.",
   },

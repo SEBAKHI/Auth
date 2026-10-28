@@ -201,6 +201,8 @@ export const PUBLISHED_ERROR_CODES = {
   "Notification.InvalidTemplateSyntax": "catalog",
   "Notification.LanguageCodeNotSupported": "#/languageCode",
   "Notification.LanguageCodeRequired": "#/languageCode",
+  "Notification.LayoutCardColorInvalid": "catalog",
+  "Notification.LayoutCardColorNotInLayout": "catalog",
   "Notification.LayoutContentRequired": "#/draftContent",
   "Notification.LayoutContentSlotMissing": "catalog",
   "Notification.LayoutContentTooLong": "#/draftContent",

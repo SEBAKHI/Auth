@@ -10,4 +10,6 @@ public record CreateNotificationLayoutRequest(
     string Name,
     string DraftContent,
     string DraftStringsJson = "{}",
-    NotificationChannelType Channel = NotificationChannelType.Email);
+    NotificationChannelType Channel = NotificationChannelType.Email,
+    string? DraftCardColorLight = null,
+    string? DraftCardColorDark = null);

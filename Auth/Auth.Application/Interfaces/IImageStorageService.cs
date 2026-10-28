@@ -1,3 +1,4 @@
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 
 namespace Auth.Application.Interfaces;
@@ -11,6 +12,12 @@ public enum EmailLogoVariant
     /// <summary>Plated for the dark email card.</summary>
     Dark = 1
 }
+
+/// <summary>
+/// One email logo background: which logo, built on which card colour. Each one is its own
+/// file at its own stable URL.
+/// </summary>
+public sealed record EmailLogoBackground(EmailLogoVariant Variant, CardColor Colour);
 
 /// <summary>
 /// A logo rendition that is safe to embed in an HTML email: an opaque PNG with the brand
@@ -62,17 +69,25 @@ public interface IImageStorageService
     Task<long?> GetStoredSizeAsync(string key, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Builds (or rebuilds) the email-safe rendition of a stored logo and returns it, or null
-    /// when there is nothing to plate (no key, an externally hosted absolute URL, a missing or
-    /// undecodable source file, or a storage volume that is not writable).
+    /// Builds (or rebuilds) the email-safe rendition of a stored logo on the given card colour
+    /// and returns it, or null when there is nothing to plate (no key, an externally hosted
+    /// absolute URL, a missing or undecodable source file, or a storage volume that is not
+    /// writable).
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Admin- and startup-time only. Never call this on the send path: with
     /// <c>Notifications:UseOutbox</c> enabled the render runs inside the HTTP request that
     /// triggers the mail, and the uploads directory is not reliably writable on shared hosting.
+    /// </para>
+    /// <para>
+    /// Every colour is its own file at its own stable URL, and none is ever removed: mail
+    /// already delivered points at the file of the colour its layout had when it was sent,
+    /// so a new colour must never overwrite or delete an old one.
+    /// </para>
     /// </remarks>
     Task<EmailLogoRendition?> EnsureEmailLogoRenditionAsync(
-        string? sourceKey, EmailLogoVariant variant, CancellationToken cancellationToken);
+        string? sourceKey, EmailLogoVariant variant, CardColor background, CancellationToken cancellationToken);
 
     /// <summary>
     /// Read-only lookup of an already-built rendition. Returns null when it has not been built,
@@ -80,5 +95,12 @@ public interface IImageStorageService
     /// the raw source is the unsafe artifact this rendition exists to replace.
     /// </summary>
     Task<EmailLogoRendition?> GetEmailLogoRenditionAsync(
-        string? sourceKey, EmailLogoVariant variant, CancellationToken cancellationToken);
+        string? sourceKey, EmailLogoVariant variant, CardColor background, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every background a rendition has been built on, read from the storage itself, so a
+    /// colour no layout uses any more is still found and rebuilt when the logo changes: the
+    /// mail sent with it still shows it.
+    /// </summary>
+    Task<IReadOnlyList<EmailLogoBackground>> GetBuiltEmailLogoBackgroundsAsync(CancellationToken cancellationToken);
 }

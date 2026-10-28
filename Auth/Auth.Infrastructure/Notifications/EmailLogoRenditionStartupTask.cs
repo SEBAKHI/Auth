@@ -1,4 +1,4 @@
-using Auth.Application.Interfaces;
+using Auth.Application.Common;
 using Auth.Domain.Interfaces.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -14,8 +14,9 @@ namespace Auth.Infrastructure.Notifications;
 /// introduces them finds every existing install with logos already configured and no rendition
 /// on disk. Without this, those installs stay broken until somebody happens to re-save the
 /// branding form — so the fix would silently not apply to the very environments that reported
-/// the bug. Running here also re-plates after a storage volume is restored or the plate palette
-/// changes. Never blocks startup: on failure the layout falls back to the text wordmark.
+/// the bug. Running here also re-plates after a storage volume is restored, and builds the
+/// background of every card colour an email layout uses. Never blocks startup: on failure
+/// the layout falls back to the text wordmark.
 /// </remarks>
 public class EmailLogoRenditionStartupTask : IHostedService
 {
@@ -37,7 +38,7 @@ public class EmailLogoRenditionStartupTask : IHostedService
             using var scope = _scopeFactory.CreateScope();
             var platformSettingsRepository =
                 scope.ServiceProvider.GetRequiredService<IPlatformSettingsRepository>();
-            var imageStorage = scope.ServiceProvider.GetRequiredService<IImageStorageService>();
+            var renditions = scope.ServiceProvider.GetRequiredService<EmailLogoRenditions>();
 
             var settings = await platformSettingsRepository.GetAsync(cancellationToken);
             if (settings is null)
@@ -45,22 +46,17 @@ public class EmailLogoRenditionStartupTask : IHostedService
                 return;
             }
 
-            var light = await imageStorage.EnsureEmailLogoRenditionAsync(
-                settings.LogoUrl, EmailLogoVariant.Light, cancellationToken);
-            var dark = await imageStorage.EnsureEmailLogoRenditionAsync(
-                settings.LogoUrlDark, EmailLogoVariant.Dark, cancellationToken);
+            var built = await renditions.RebuildAllAsync(settings, cancellationToken);
 
-            if (light is null && !string.IsNullOrWhiteSpace(settings.LogoUrl))
+            if (built is 0 && !string.IsNullOrWhiteSpace(settings.LogoUrl))
             {
                 _logger.LogWarning(
                     "The platform logo has no email rendition, so emails will show the platform " +
                     "name as text instead. Re-upload the logo in Platform settings.");
             }
-            else
+            else if (built is not null)
             {
-                _logger.LogInformation(
-                    "Email logo renditions ready (light: {Light}, dark: {Dark}).",
-                    light?.Key ?? "none", dark?.Key ?? "none");
+                _logger.LogInformation("Email logo renditions ready: {Count} built.", built);
             }
         }
         catch (Exception ex)

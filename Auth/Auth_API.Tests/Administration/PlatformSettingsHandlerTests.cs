@@ -163,6 +163,11 @@ public class UpdatePlatformSettingsCommandHandlerTests
             composer,
             _imageStorageMock.Object,
             new ImageReferenceGuard(_uploadedImagesMock.Object, composer),
+            new EmailLogoRenditions(
+                _settingsRepoMock.Object,
+                new Mock<INotificationLayoutRepository>().Object,
+                _imageStorageMock.Object,
+                new Mock<ILogger<EmailLogoRenditions>>().Object),
             _publisherMock.Object,
             new Mock<ILogger<UpdatePlatformSettingsCommandHandler>>().Object);
     }

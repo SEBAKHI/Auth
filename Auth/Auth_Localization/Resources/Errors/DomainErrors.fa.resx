@@ -777,6 +777,12 @@
   <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
     <value>پیش‌نویس ذخیره‌شده چیدمان که برای انتشار انتخاب شده تغییر کرده است. پیش از انتشار، جدیدترین پیش‌نویس را دوباره بارگذاری و بررسی کنید.</value>
   </data>
+  <data name="Notification.LayoutCardColorInvalid" xml:space="preserve">
+    <value>رنگ کارت باید به‌صورت # و شش رقم شانزده‌شانزدهی نوشته شود، مثلاً #1A1A1C، یا برای رنگ پیش‌فرض خالی بماند.</value>
+  </data>
+  <data name="Notification.LayoutCardColorNotInLayout" xml:space="preserve">
+    <value>قالب لوگو را نشان می‌دهد، اما رنگ کارت آن {0} هیچ‌جای قالب نیامده است، پس لوگو درون یک کادر دیدنی قرار می‌گیرد. رنگ کارت را برابر رنگ پشت لوگو و به‌صورت #RRGGBB تنظیم کنید.</value>
+  </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>قالب دارای نحو نامعتبر است: {0}</value>
   </data>

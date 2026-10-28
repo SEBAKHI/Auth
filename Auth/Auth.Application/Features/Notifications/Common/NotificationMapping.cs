@@ -85,6 +85,8 @@ public static class NotificationMapping
             Name = layout.Name,
             DraftContent = layout.DraftContent,
             DraftStringsJson = layout.DraftStringsJson,
+            DraftCardColorLight = layout.DraftCardColorLight?.Value,
+            DraftCardColorDark = layout.DraftCardColorDark?.Value,
             IsPublished = layout.IsPublished,
             HasUnpublishedChanges = layout.HasUnpublishedChanges,
             PublishedAt = layout.PublishedAt,

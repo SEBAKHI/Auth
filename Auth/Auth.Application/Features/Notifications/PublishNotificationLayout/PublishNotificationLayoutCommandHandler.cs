@@ -1,6 +1,8 @@
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Notifications.Common;
 using Auth.Application.Interfaces;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -13,7 +15,9 @@ namespace Auth.Application.Features.Notifications.PublishNotificationLayout;
 /// probe content first — a broken layout breaks every email, so it can never go
 /// live unchecked. Beyond syntax, the probe asserts the rendered output actually
 /// contains the message body: a layout whose author removed the content slot
-/// would otherwise publish successfully and blank every subsequent message.
+/// would otherwise publish successfully and blank every subsequent message. An email
+/// layout must also write the card colour behind each logo it shows, or the logo's
+/// built-in background would frame it in a box in every message.
 /// </summary>
 public class PublishNotificationLayoutCommandHandler
     : IRequestHandler<PublishNotificationLayoutCommand, ErrorOr<NotificationLayoutDto>>
@@ -25,6 +29,7 @@ public class PublishNotificationLayoutCommandHandler
     private readonly IApplicationRepository _applicationRepository;
     private readonly INotificationRenderer _renderer;
     private readonly ITemplateCacheInvalidator _cacheInvalidator;
+    private readonly EmailLogoRenditions _emailLogoRenditions;
     private readonly ILogger<PublishNotificationLayoutCommandHandler> _logger;
 
     public PublishNotificationLayoutCommandHandler(
@@ -32,12 +37,14 @@ public class PublishNotificationLayoutCommandHandler
         IApplicationRepository applicationRepository,
         INotificationRenderer renderer,
         ITemplateCacheInvalidator cacheInvalidator,
+        EmailLogoRenditions emailLogoRenditions,
         ILogger<PublishNotificationLayoutCommandHandler> logger)
     {
         _layoutRepository = layoutRepository;
         _applicationRepository = applicationRepository;
         _renderer = renderer;
         _cacheInvalidator = cacheInvalidator;
+        _emailLogoRenditions = emailLogoRenditions;
         _logger = logger;
     }
 
@@ -67,7 +74,8 @@ public class PublishNotificationLayoutCommandHandler
                 Subject = "Preview",
                 BodyHtml = $"<p>{ContentProbeMarker}</p>",
                 LayoutContentOverride = layout.DraftContent,
-                LayoutStringsJsonOverride = layout.DraftStringsJson
+                LayoutStringsJsonOverride = layout.DraftStringsJson,
+                LayoutCardColorsOverride = layout.DraftCardColors
             },
             cancellationToken);
         if (probe.IsError)
@@ -80,6 +88,18 @@ public class PublishNotificationLayoutCommandHandler
         if (!probe.Value.BodyHtml.Contains(ContentProbeMarker, StringComparison.Ordinal))
         {
             return NotificationErrors.LayoutContentSlotMissing;
+        }
+
+        if (layout.Channel == NotificationChannelType.Email)
+        {
+            var backgrounds = layout.CheckLogoBackgrounds(probe.Value.BodyHtml);
+            if (backgrounds.IsError)
+            {
+                return backgrounds.Errors;
+            }
+
+            // Before going live, so the first message sent on the new colours finds them.
+            await _emailLogoRenditions.EnsureAsync(layout.DraftCardColors, cancellationToken);
         }
 
         var result = layout.Publish(request.ExpectedRevisionAt, request.PublishedBy);

@@ -777,6 +777,12 @@
   <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
     <value>Yayınlanmak üzere seçilen kayıtlı düzen taslağı değişti. Yayınlamadan önce yeniden yükleyip en son taslağı gözden geçirin.</value>
   </data>
+  <data name="Notification.LayoutCardColorInvalid" xml:space="preserve">
+    <value>Kart rengi # ve ardından altı onaltılık rakamla yazılmalıdır (ör. #1A1A1C) ya da varsayılanı kullanmak için boş bırakılmalıdır.</value>
+  </data>
+  <data name="Notification.LayoutCardColorNotInLayout" xml:space="preserve">
+    <value>Şablon logoyu gösteriyor ancak kart rengi {0} şablonun hiçbir yerinde geçmiyor; logo görünür bir kutunun içinde kalır. Kart rengini logonun arkasındaki renge, #RRGGBB biçiminde ayarlayın.</value>
+  </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>Şablon geçersiz sözdizimi içeriyor: {0}</value>
   </data>

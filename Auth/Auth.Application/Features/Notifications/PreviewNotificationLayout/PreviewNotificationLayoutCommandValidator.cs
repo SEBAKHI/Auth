@@ -22,6 +22,14 @@ public class PreviewNotificationLayoutCommandValidator : AbstractValidator<Previ
             .Must(CreateNotificationLayoutCommandValidator.BeValidJsonObject)
             .WithErrorCode(NotificationErrors.PreviewLayoutStringsInvalidJson.Code);
 
+        RuleFor(x => x.CardColorLight)
+            .Must(CreateNotificationLayoutCommandValidator.BeValidOptionalCardColor)
+            .WithErrorCode(NotificationErrors.LayoutCardColorInvalid.Code);
+
+        RuleFor(x => x.CardColorDark)
+            .Must(CreateNotificationLayoutCommandValidator.BeValidOptionalCardColor)
+            .WithErrorCode(NotificationErrors.LayoutCardColorInvalid.Code);
+
         RuleFor(x => x.LanguageCode)
             .NotEmpty().WithErrorCode(NotificationErrors.LanguageCodeRequired.Code)
             .Must(Languages.IsSupported).WithErrorCode(NotificationErrors.LanguageCodeNotSupported.Code);

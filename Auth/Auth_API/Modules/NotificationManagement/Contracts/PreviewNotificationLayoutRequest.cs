@@ -6,4 +6,6 @@ namespace Auth_API.Modules.NotificationManagement.Contracts;
 public record PreviewNotificationLayoutRequest(
     string LayoutContent,
     string LayoutStringsJson = "{}",
-    string LanguageCode = "en");
+    string LanguageCode = "en",
+    string? CardColorLight = null,
+    string? CardColorDark = null);

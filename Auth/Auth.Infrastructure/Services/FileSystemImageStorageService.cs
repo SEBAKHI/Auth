@@ -1,6 +1,8 @@
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
+using System.Text.RegularExpressions;
 using Auth.Domain.Errors;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -20,7 +22,7 @@ namespace Auth.Infrastructure.Services;
 /// <see cref="EnsureEmailLogoRenditionAsync"/> and <see cref="EmailLogoRendition"/> for why.
 /// </para>
 /// </summary>
-public sealed class FileSystemImageStorageService : IImageStorageService
+public sealed partial class FileSystemImageStorageService : IImageStorageService
 {
     private readonly IOptionsMonitor<ImageStorageSettings> _settings;
     private readonly ILogger<FileSystemImageStorageService> _logger;
@@ -131,12 +133,29 @@ public sealed class FileSystemImageStorageService : IImageStorageService
     }
 
     public Task<EmailLogoRendition?> EnsureEmailLogoRenditionAsync(
-        string? sourceKey, EmailLogoVariant variant, CancellationToken cancellationToken)
-        => Task.FromResult(BuildEmailLogoRendition(sourceKey, variant, write: true));
+        string? sourceKey, EmailLogoVariant variant, CardColor background, CancellationToken cancellationToken)
+        => Task.FromResult(BuildEmailLogoRendition(sourceKey, variant, background, write: true));
 
     public Task<EmailLogoRendition?> GetEmailLogoRenditionAsync(
-        string? sourceKey, EmailLogoVariant variant, CancellationToken cancellationToken)
-        => Task.FromResult(BuildEmailLogoRendition(sourceKey, variant, write: false));
+        string? sourceKey, EmailLogoVariant variant, CardColor background, CancellationToken cancellationToken)
+        => Task.FromResult(BuildEmailLogoRendition(sourceKey, variant, background, write: false));
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<EmailLogoBackground>> GetBuiltEmailLogoBackgroundsAsync(CancellationToken cancellationToken)
+    {
+        var root = ResolvedRoot(_settings.CurrentValue);
+        if (!Directory.Exists(root))
+        {
+            return Task.FromResult<IReadOnlyList<EmailLogoBackground>>([]);
+        }
+
+        var backgrounds = Directory.EnumerateFiles(root, "platform-email-*.png")
+            .Select(path => ParseRenditionKey(Path.GetFileName(path)))
+            .OfType<EmailLogoBackground>()
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<EmailLogoBackground>>(backgrounds);
+    }
 
     /// <inheritdoc />
     public Task<long?> GetStoredSizeAsync(string key, CancellationToken cancellationToken)
@@ -214,18 +233,8 @@ public sealed class FileSystemImageStorageService : IImageStorageService
     private const float MaxUpscale = 2f;
 
     /// <summary>
-    /// Plate colours. These MUST track the email layout's <c>.card</c> background in each
-    /// mode (light <c>#FFFFFF</c>, dark <c>#1A1A1C</c>) so the chip disappears into the card
-    /// instead of framing it. See <c>Auth_DB\dbo\Scripts\SeedData\11_NotificationLayouts.sql</c>.
-    /// </summary>
-    private static SKColor PlateColor(EmailLogoVariant variant) => variant switch
-    {
-        EmailLogoVariant.Dark => new SKColor(0x1A, 0x1A, 0x1C),
-        _ => new SKColor(0xFF, 0xFF, 0xFF)
-    };
-
-    /// <summary>
-    /// STABLE key — deliberately independent of the source file.
+    /// STABLE key — deliberately independent of the source file, and carrying the background
+    /// colour unless it is the shipped default of its variant.
     /// </summary>
     /// <remarks>
     /// An email carries a URL, not the image: the recipient's client fetches it every time the
@@ -235,15 +244,50 @@ public sealed class FileSystemImageStorageService : IImageStorageService
     /// rebrand flows through to mail already sent and nothing accumulates or has to be kept
     /// alive forever. The cost is that propagation is not instant — Gmail's image proxy caches
     /// what it fetched — but a stale logo is a far smaller failure than a missing one.
+    /// <para>
+    /// The background is the colour of the card the layout drew around the logo, and the
+    /// layout owns it. A layout that changes its card gets a NEW key rather than repainting
+    /// the old file, because mail already sent sits on the old card and must keep the old
+    /// background. The shipped defaults keep the name they always had, so every install and
+    /// every message sent before card colours existed resolves exactly as before.
+    /// </para>
     /// </remarks>
-    private static string RenditionKey(EmailLogoVariant variant) =>
-        $"platform-email-{variant.ToString().ToLowerInvariant()}.png";
+    private static string RenditionKey(EmailLogoVariant variant, CardColor background)
+    {
+        var name = variant.ToString().ToLowerInvariant();
+        return background == DefaultBackground(variant)
+            ? $"platform-email-{name}.png"
+            : $"platform-email-{name}-{background.Value[1..].ToLowerInvariant()}.png";
+    }
+
+    private static CardColor DefaultBackground(EmailLogoVariant variant) =>
+        variant == EmailLogoVariant.Dark ? CardColor.DefaultDark : CardColor.DefaultLight;
+
+    /// <summary>The inverse of <see cref="RenditionKey"/>; null for any other file.</summary>
+    private static EmailLogoBackground? ParseRenditionKey(string fileName)
+    {
+        var match = RenditionKeyRegex().Match(fileName);
+        if (!match.Success || !Enum.TryParse<EmailLogoVariant>(match.Groups["variant"].Value, ignoreCase: true, out var variant))
+        {
+            return null;
+        }
+
+        var colour = match.Groups["colour"].Success
+            ? CardColor.Create($"#{match.Groups["colour"].Value}")
+            : DefaultBackground(variant);
+
+        return colour.IsError ? null : new EmailLogoBackground(variant, colour.Value);
+    }
+
+    [GeneratedRegex(@"^platform-email-(?<variant>light|dark)(?:-(?<colour>[0-9a-f]{6}))?\.png$")]
+    private static partial Regex RenditionKeyRegex();
 
     /// <summary>
     /// Shared read/write core. With <paramref name="write"/> false this only reports an
     /// existing rendition, so the send path can never touch the disk for writing.
     /// </summary>
-    private EmailLogoRendition? BuildEmailLogoRendition(string? sourceKey, EmailLogoVariant variant, bool write)
+    private EmailLogoRendition? BuildEmailLogoRendition(
+        string? sourceKey, EmailLogoVariant variant, CardColor background, bool write)
     {
         // An externally hosted logo is an explicit escape hatch: we cannot re-plate a URL we
         // do not own, and the admin has taken responsibility for its email safety.
@@ -255,7 +299,7 @@ public sealed class FileSystemImageStorageService : IImageStorageService
         var root = ResolvedRoot(_settings.CurrentValue);
         // Path.GetFileName collapses any directory traversal in a stored key.
         var sourceName = Path.GetFileName(sourceKey);
-        var renditionKey = RenditionKey(variant);
+        var renditionKey = RenditionKey(variant, background);
         var renditionPath = Path.Combine(root, renditionKey);
 
         if (!write)
@@ -321,7 +365,7 @@ public sealed class FileSystemImageStorageService : IImageStorageService
             return null;
         }
 
-        surface.Canvas.Clear(PlateColor(variant));
+        surface.Canvas.Clear(new SKColor(background.Red, background.Green, background.Blue));
         using (var mark = SKImage.FromBitmap(scaled))
         {
             // The bitmap was already resampled by Resize above, so this draw is 1:1 and the

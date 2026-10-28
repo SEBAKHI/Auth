@@ -14,7 +14,9 @@ public record CreateNotificationLayoutCommand(
     NotificationChannelType Channel,
     string Name,
     string DraftContent,
-    string DraftStringsJson) : IRequest<ErrorOr<NotificationLayoutDto>>
+    string DraftStringsJson,
+    string? DraftCardColorLight = null,
+    string? DraftCardColorDark = null) : IRequest<ErrorOr<NotificationLayoutDto>>
 {
     public Guid CreatedBy { get; init; }
 }

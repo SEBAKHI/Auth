@@ -674,6 +674,7 @@ builder.Services.AddScoped<Auth.Application.Common.PermissionGrantGuard>();
 // The one writer of a user's access grant to an application, shared by the
 // application page's invitation and every grant at an application's scope.
 builder.Services.AddScoped<Auth.Application.Common.ApplicationAccessWriter>();
+builder.Services.AddScoped<Auth.Application.Common.EmailLogoRenditions>();
 // The three rules of every administrative action on an account (system account,
 // covering authority, last full administrator), read live like the guard above.
 builder.Services.AddScoped<Auth.Application.Common.AccountActionPolicy>();

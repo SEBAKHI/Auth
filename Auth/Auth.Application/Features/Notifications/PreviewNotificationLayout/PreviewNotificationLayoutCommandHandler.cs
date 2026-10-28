@@ -1,6 +1,7 @@
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 using MediatR;
 
@@ -34,6 +35,18 @@ public class PreviewNotificationLayoutCommandHandler
         PreviewNotificationLayoutCommand request,
         CancellationToken cancellationToken)
     {
+        var light = CardColor.CreateOptional(request.CardColorLight);
+        if (light.IsError)
+        {
+            return light.Errors;
+        }
+
+        var dark = CardColor.CreateOptional(request.CardColorDark);
+        if (dark.IsError)
+        {
+            return dark.Errors;
+        }
+
         var rendered = await _renderer.RenderContentAsync(
             new NotificationContentRenderRequest
             {
@@ -41,7 +54,8 @@ public class PreviewNotificationLayoutCommandHandler
                 Subject = "Layout preview",
                 BodyHtml = PlaceholderBody,
                 LayoutContentOverride = request.LayoutContent,
-                LayoutStringsJsonOverride = request.LayoutStringsJson
+                LayoutStringsJsonOverride = request.LayoutStringsJson,
+                LayoutCardColorsOverride = CardColors.Of(light.Value, dark.Value)
             },
             cancellationToken);
 

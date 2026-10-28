@@ -17,6 +17,9 @@
 --     colour to convert instead of guessing.
 --   * The logo is the one element no client recolours, which is why the light/dark plates are
 --     baked into the PNG rather than painted with CSS. See EmailLogoRendition in the API.
+--     The plates are built in the layout's own card colours (NotificationLayouts.*CardColor*,
+--     edited with the layout in the console; NULL = #FFFFFF / #1A1A1C, the cards below). A
+--     layout that recolours its card sets those colours too, or publishing it is refused.
 --
 -- BASE DIRECTION (RTL/LTR) - READ BEFORE EDITING ANY dir= OR direction:
 --   Gmail and most webmail do NOT render the email as a document: they strip <html>/<head>,
@@ -93,7 +96,10 @@ body { color:#1B1B1A; direction:{{ dir }}; text-align:{% if dir == "rtl" %}right
 /* The <img> src is an email rendition: an opaque PNG whose plate is part of the raster. Never
    point this at the raw uploaded logo - uploads are alpha-carrying WebP, which Gmail transcodes
    to JPEG (flattening transparency onto BLACK) and Outlook for Windows cannot decode at all.
-   The plate colours are owned by FileSystemImageStorageService and must match .card. */
+   The plate colours are the card colours of this layout, set beside this document in the
+   console and readable here through the Liquid variables Layout.CardColorLight and
+   Layout.CardColorDark. Never print them inside a comment: publishing checks that the
+   card colour is written in the layout, and comments are not counted. */
 .logo { background-color:#FFFFFF; padding:40px 48px 0; text-align:center; }
 .logo img { max-width:100%; height:auto; margin:0 auto; border-radius:14px; }
 .logo-dark { display:none; }

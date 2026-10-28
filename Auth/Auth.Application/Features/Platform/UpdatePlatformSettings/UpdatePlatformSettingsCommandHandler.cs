@@ -19,6 +19,7 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
     private readonly IImageUrlComposer _imageUrlComposer;
     private readonly IImageStorageService _imageStorage;
     private readonly ImageReferenceGuard _imageReferenceGuard;
+    private readonly EmailLogoRenditions _emailLogoRenditions;
     private readonly IPublisher _publisher;
     private readonly ILogger<UpdatePlatformSettingsCommandHandler> _logger;
 
@@ -28,6 +29,7 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
         IImageUrlComposer imageUrlComposer,
         IImageStorageService imageStorage,
         ImageReferenceGuard imageReferenceGuard,
+        EmailLogoRenditions emailLogoRenditions,
         IPublisher publisher,
         ILogger<UpdatePlatformSettingsCommandHandler> logger)
     {
@@ -36,6 +38,7 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
         _imageUrlComposer = imageUrlComposer;
         _imageStorage = imageStorage;
         _imageReferenceGuard = imageReferenceGuard;
+        _emailLogoRenditions = emailLogoRenditions;
         _publisher = publisher;
         _logger = logger;
     }
@@ -96,9 +99,10 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
             newValues: [settings.LogoUrl, settings.LogoUrlDark, settings.FaviconUrl],
             cancellationToken);
 
-        // Email cannot use the stored WebP, so each logo gets an opaque PNG rendition built
-        // here — at admin time, on a thread that can afford it — rather than on the send path.
-        await EnsureEmailLogoRenditionsAsync(settings, cancellationToken);
+        // Email cannot use the stored WebP, so each logo gets an opaque PNG rendition on every
+        // card colour in use, built here — at admin time, on a thread that can afford it —
+        // rather than on the send path. Best-effort: a storage fault does not fail the update.
+        await _emailLogoRenditions.RebuildAllAsync(settings, cancellationToken);
 
         _logger.LogInformation(
             "Platform settings updated by {UpdatedBy}: name '{OldName}' -> '{NewName}'",
@@ -120,29 +124,6 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
                 ? modifierNames.GetValueOrDefault(settings.ModifiedBy.Value)
                 : null
         };
-    }
-
-    /// <summary>
-    /// Rebuilds the email-safe PNG renditions for whichever logo slots are set. Best-effort:
-    /// a storage fault must not fail an otherwise successful settings update — emails fall
-    /// back to the text wordmark, which stays legible on both surfaces.
-    /// </summary>
-    private async Task EnsureEmailLogoRenditionsAsync(
-        PlatformSettings settings, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _imageStorage.EnsureEmailLogoRenditionAsync(
-                settings.LogoUrl, EmailLogoVariant.Light, cancellationToken);
-            await _imageStorage.EnsureEmailLogoRenditionAsync(
-                settings.LogoUrlDark, EmailLogoVariant.Dark, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "Email logo renditions could not be rebuilt after a platform settings update. " +
-                "Emails will show the platform name as a text wordmark until this succeeds.");
-        }
     }
 
     /// <summary>
