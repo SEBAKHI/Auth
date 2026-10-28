@@ -13,6 +13,8 @@ export interface FlowBranding {
     appName: string | null
     appLogoUrl: string | null
     appLogoUrlDark: string | null
+    /** The line under the title naming the application ("Continue to Acme."). */
+    continueTo: string | null
     securedBy: string | null
   }
 }
@@ -46,6 +48,9 @@ export function useFlowBranding(returnTo: string | null): FlowBranding {
       appName: appBranding?.name ?? null,
       appLogoUrl: appBranding?.logoUrl ?? null,
       appLogoUrlDark: appBranding?.logoUrlDark ?? null,
+      continueTo: appBranding
+        ? t("auth.continueToApp", { name: appBranding.name })
+        : null,
       securedBy,
     },
   }

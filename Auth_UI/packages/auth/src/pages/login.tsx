@@ -312,7 +312,8 @@ export function LoginPage({
         passwordToFinish
           ? t("auth.passwordToFinishSubtitle")
           : appBranding
-            ? t("auth.continueToApp", { name: appBranding.name })
+            ? // The layout names the application under the title itself.
+              undefined
             : (subtitle ?? t("auth.signInSubtitle"))
       }
       footer={codeFirst ? undefined : footer}

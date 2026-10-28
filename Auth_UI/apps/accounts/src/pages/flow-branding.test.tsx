@@ -16,7 +16,8 @@ import "@authsystem/i18n"
 
 /**
  * Every screen a pending authorize request passes through shows the requesting
- * application, not the platform (OI-105).
+ * application (OI-105): its logo above the title, its name under it, and the
+ * platform's mark small in the corner (owner, 2026-10-28).
  *
  * The sign-in page was the only one that asked for the application's branding:
  * a visitor sent here by an application saw it on the sign-in page and the
@@ -272,8 +273,12 @@ describe("the application header on every screen of the flow", () => {
 
       const logo = await screen.findByRole("img", { name: "SHOP" })
       expect(logo).toHaveAttribute("src", LOGO_URL)
+      expect(screen.getByRole("main")).toContainElement(logo)
+      expect(screen.getByText("Continue to SHOP.")).toBeInTheDocument()
       expect(screen.getByText("Secured by AuthSystem")).toBeInTheDocument()
-      expect(screen.queryByTestId("platform-mark")).toBeNull()
+      expect(screen.getByRole("banner")).toContainElement(
+        screen.getByTestId("platform-mark")
+      )
       // The screen keeps its own title; only the header changed.
       expect(
         screen.getByRole("heading", { level: 1, name: page.heading })

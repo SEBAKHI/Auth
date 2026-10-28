@@ -357,7 +357,8 @@ export function BrandingLogo({
   fallback,
   className,
 }: {
-  fallback: React.ReactNode
+  /** Shown when no logo is uploaded; a function receives the platform's name. */
+  fallback: React.ReactNode | ((name: string) => React.ReactNode)
   className?: string
 }) {
   const { logoUrl, name, isPending } = useBranding()
@@ -373,7 +374,7 @@ export function BrandingLogo({
       className={className ?? "size-8 rounded-lg object-cover"}
     />
   ) : (
-    <>{fallback}</>
+    <>{typeof fallback === "function" ? fallback(name) : fallback}</>
   )
 }
 
