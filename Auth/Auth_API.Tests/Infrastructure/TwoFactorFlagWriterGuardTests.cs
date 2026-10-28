@@ -76,8 +76,6 @@ public class TwoFactorFlagWriterGuardTests
     [Fact]
     public void TheFlag_IsWrittenOnlyByTheStore()
     {
-        var root = ApiSourceScan.SolutionDirectory();
-
         var codeWriters = ApiSourceScan.ProductionSources()
             .Where(source => FlagWrite.IsMatch(source.Source))
             .Select(source => Path.GetFileName(source.File))
@@ -90,9 +88,7 @@ public class TwoFactorFlagWriterGuardTests
         codeWriters.Should().BeEquivalentTo(["TwoFactorStateStore.cs", "BreakGlassScript.cs"],
             "the flag changes only with the factor row, inside the store's transactions — and the scan must find that one writer");
 
-        var sqlWriters = Directory.EnumerateFiles(Path.Combine(root, "Auth_DB"), "*.sql", SearchOption.AllDirectories)
-            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                           && !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+        var sqlWriters = ApiSourceScan.DatabaseScripts()
             .Where(file => FlagWrite.IsMatch(File.ReadAllText(file)))
             .Select(Path.GetFileName)
             .ToList();

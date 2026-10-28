@@ -90,8 +90,7 @@ public class OrganizationCreationSchemaTests
         var column = DeclaredColumns(TableSource()).Single(c => c.Name == "OrganizationCreatorRoleId");
         column.Definition.Should().MatchRegex(@"^UNIQUEIDENTIFIER\s+NULL$");
 
-        var mentions = Directory.GetFiles(
-                Path.Combine(ApiSourceScan.SolutionDirectory(), "Auth_DB"), "*.sql", SearchOption.AllDirectories)
+        var mentions = ApiSourceScan.DatabaseScripts()
             .Sum(file => Regex.Matches(
                 string.Join('\n', File.ReadAllLines(file).Select(StripLineComment)),
                 @"(?<![\w@])OrganizationCreatorRoleId(?!\w)").Count);

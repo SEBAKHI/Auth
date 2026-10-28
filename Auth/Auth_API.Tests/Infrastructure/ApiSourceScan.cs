@@ -32,6 +32,17 @@ internal static class ApiSourceScan
         }
     }
 
+    /// <summary>Every database script of the <c>Auth_DB</c> project, build output excluded.</summary>
+    /// <remarks>
+    /// Building or publishing the database project writes whole-schema scripts under
+    /// <c>bin</c> (a <c>.publish.sql</c> per publish) that repeat every name in the model.
+    /// A guard that counted those would pass on a fresh clone and fail on any machine that
+    /// had ever published, so the walk leaves build output out here, once, for all of them.
+    /// </remarks>
+    internal static IEnumerable<string> DatabaseScripts() =>
+        Directory.EnumerateFiles(Path.Combine(SolutionDirectory(), "Auth_DB"), "*.sql", SearchOption.AllDirectories)
+            .Where(path => !path.Split(Path.DirectorySeparatorChar).Any(part => part is "bin" or "obj"));
+
     /// <summary>The directory holding <c>Auth.sln</c>.</summary>
     internal static string SolutionDirectory()
     {
