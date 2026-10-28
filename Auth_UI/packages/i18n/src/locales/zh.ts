@@ -1868,6 +1868,9 @@ export const zh: TranslationResources = {
     logoLight: "浅色模式",
     logoDark: "深色模式",
     favicon: "网站图标",
+    logo: "标志",
+    logoDialogTitle: "平台标志",
+    logoDialogDescription: "为每种模式选择一个标志。深色模式开启时显示深色模式标志；如缺少其中一个，则两种模式都显示另一个。",
     updated: "平台设置已更新。",
     appearance: {
       title: "外观",

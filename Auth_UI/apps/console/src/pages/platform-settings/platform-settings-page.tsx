@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
+import { ThemedLogo } from "@authsystem/ui/common/themed-logo"
 import { Spinner } from "@authsystem/ui/spinner"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { Button } from "@authsystem/ui/button"
@@ -156,31 +157,26 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* The light and dark logos are one mark, edited the way an
+            application's is: one circle showing the current mode's logo, with
+            a dialog holding one circle per mode. The favicon stays its own
+            field beside it, since a wordmark is illegible at tab-icon size. */}
         <div className="mb-6 flex items-center gap-6">
           <div className="flex flex-col items-center gap-1.5">
-            <LogoAvatar
-              src={settings.logoUrl}
+            <ThemedLogo
               name={settings.platformName}
+              lightSrc={settings.logoUrl}
+              darkSrc={settings.logoUrlDark}
               canEdit
-              persist={persistLogoLight}
+              persistLight={persistLogoLight}
+              persistDark={persistLogoDark}
               invalidate={refreshBranding}
               successMessage={t("platformSettings.updated")}
+              dialogTitle={t("platformSettings.logoDialogTitle")}
+              dialogDescription={t("platformSettings.logoDialogDescription")}
             />
             <p className="text-xs text-muted-foreground">
-              {t("platformSettings.logoLight")}
-            </p>
-          </div>
-          <div className="flex flex-col items-center gap-1.5">
-            <LogoAvatar
-              src={settings.logoUrlDark}
-              name={settings.platformName}
-              canEdit
-              persist={persistLogoDark}
-              invalidate={refreshBranding}
-              successMessage={t("platformSettings.updated")}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("platformSettings.logoDark")}
+              {t("platformSettings.logo")}
             </p>
           </div>
           <div className="flex flex-col items-center gap-1.5">

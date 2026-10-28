@@ -1955,6 +1955,9 @@ export const fa: TranslationResources = {
     logoLight: "حالت روشن",
     logoDark: "حالت تیره",
     favicon: "آیکون سایت",
+    logo: "لوگو",
+    logoDialogTitle: "لوگوی پلتفرم",
+    logoDialogDescription: "برای هر حالت یک لوگو انتخاب کنید. لوگوی حالت تیره هنگام فعال بودن حالت تیره نمایش داده می‌شود؛ اگر یکی موجود نباشد، دیگری در هر دو حالت نمایش داده می‌شود.",
     updated: "تنظیمات پلتفرم به‌روزرسانی شد.",
     appearance: {
       title: "ظاهر",

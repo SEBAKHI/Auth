@@ -1929,6 +1929,9 @@ export const ar: TranslationResources = {
     logoLight: "الوضع الفاتح",
     logoDark: "الوضع الداكن",
     favicon: "أيقونة الموقع",
+    logo: "الشعار",
+    logoDialogTitle: "شعار المنصة",
+    logoDialogDescription: "اختر شعارًا لكل وضع. يظهر شعار الوضع الداكن ما دام الوضع الداكن مفعّلًا، وإن غاب أحدهما ظهر الآخر في الوضعين.",
     updated: "تم تحديث إعدادات المنصة.",
     appearance: {
       title: "المظهر",

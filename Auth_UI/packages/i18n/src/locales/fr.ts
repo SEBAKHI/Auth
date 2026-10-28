@@ -2015,6 +2015,9 @@ export const fr: TranslationResources = {
     logoLight: "Mode clair",
     logoDark: "Mode sombre",
     favicon: "Favicon",
+    logo: "Logo",
+    logoDialogTitle: "Logo de la plateforme",
+    logoDialogDescription: "Choisissez un logo pour chaque mode. Le logo du mode sombre s'affiche quand le mode sombre est actif ; s'il en manque un, l'autre s'affiche dans les deux modes.",
     updated: "Paramètres de la plateforme mis à jour.",
     appearance: {
       title: "Apparence",

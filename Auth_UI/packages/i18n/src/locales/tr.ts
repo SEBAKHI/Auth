@@ -1975,6 +1975,9 @@ export const tr: TranslationResources = {
     logoLight: "Açık tema",
     logoDark: "Koyu tema",
     favicon: "Site simgesi",
+    logo: "Logo",
+    logoDialogTitle: "Platform logosu",
+    logoDialogDescription: "Her mod için bir logo seçin. Koyu mod logosu koyu mod açıkken gösterilir; biri eksikse diğeri her iki modda gösterilir.",
     updated: "Platform ayarları güncellendi.",
     appearance: {
       title: "Görünüm",

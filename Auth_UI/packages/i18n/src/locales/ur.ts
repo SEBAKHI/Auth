@@ -1960,6 +1960,9 @@ export const ur: TranslationResources = {
     logoLight: "روشن موڈ",
     logoDark: "تاریک موڈ",
     favicon: "ویب سائٹ آئیکن",
+    logo: "لوگو",
+    logoDialogTitle: "پلیٹ فارم کا لوگو",
+    logoDialogDescription: "ہر موڈ کے لیے ایک لوگو منتخب کریں۔ تاریک موڈ فعال ہونے پر تاریک موڈ کا لوگو دکھایا جاتا ہے؛ اگر ایک موجود نہ ہو تو دونوں موڈز میں دوسرا دکھایا جاتا ہے۔",
     updated: "پلیٹ فارم کی ترتیبات اپ ڈیٹ ہو گئیں۔",
     appearance: {
       title: "ظاہری شکل",

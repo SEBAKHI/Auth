@@ -1989,6 +1989,9 @@ export const en = {
     logoLight: "Light mode",
     logoDark: "Dark mode",
     favicon: "Favicon",
+    logo: "Logo",
+    logoDialogTitle: "Platform logo",
+    logoDialogDescription: "Pick a logo for each mode. The dark-mode logo shows while dark mode is on; if one is missing, the other is shown in both modes.",
     updated: "Platform settings updated.",
     appearance: {
       title: "Appearance",
