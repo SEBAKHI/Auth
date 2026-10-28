@@ -22,23 +22,41 @@ const PLATFORM_LOGO = "https://auth.example.com/uploads/images/platform.svg"
 const wordmark = (width: number) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="64"><rect width="${width}" height="64" fill="#777"/></svg>`
 
-async function open(page: Page, path: string, language: "en" | "ar", width: number) {
+async function open(
+  page: Page,
+  path: string,
+  language: "en" | "ar",
+  width: number,
+  names: { platform?: string; platformLogo?: boolean; app?: string } = {}
+) {
+  const platformName = names.platform ?? "AuthSystem"
+  const platformLogo = names.platformLogo ?? true
   await page.addInitScript((lang) => localStorage.setItem("auth.language", lang), language)
   await installAnonymousApi(page, async (route, url) => {
     if (url.pathname.toLowerCase() !== "/api/v1/applications/app/public-branding") return false
-    await fulfillJson(route, { name: "Partner App", logoUrl: APP_LOGO, logoUrlDark: null, homeUrl: null })
+    await fulfillJson(route, {
+      name: names.app ?? "Partner App",
+      logoUrl: APP_LOGO,
+      logoUrlDark: null,
+      homeUrl: null,
+    })
     return true
   })
-  // Registered after the defaults, so it answers first: a platform with a logo.
+  // Registered after the defaults, so it answers first.
   await page.route("**/api/v1/Platform/branding", (route) =>
-    fulfillJson(route, { platformName: "AuthSystem", logoUrl: PLATFORM_LOGO, staySignedInOffered: true })
+    fulfillJson(route, {
+      platformName,
+      logoUrl: platformLogo ? PLATFORM_LOGO : null,
+      staySignedInOffered: true,
+    })
   )
   await page.route("https://auth.example.com/uploads/images/*.svg", (route) =>
     route.fulfill({ contentType: "image/svg+xml", body: wordmark(280) })
   )
   await page.setViewportSize({ width, height: 900 })
   await page.goto(path)
-  await expect(page.getByRole("img", { name: "AuthSystem" })).toBeVisible()
+  if (platformLogo) await expect(page.getByRole("img", { name: platformName })).toBeVisible()
+  else await expect(page.locator("header").getByText(platformName)).toBeVisible()
 }
 
 const box = (page: Page, selector: string) =>
@@ -103,4 +121,49 @@ test("without an application, the platform's mark takes its full corner size and
   expect((await box(page, "header img")).height).toBeGreaterThan(flowCorner)
   await expect(page.getByRole("main").getByRole("img")).toHaveCount(0)
   await expect(page.getByText(/Secured by/)).toHaveCount(0)
+})
+
+test("ar at 320px: a long Latin platform name in the corner keeps its beginning and loses its end", async ({
+  page,
+}) => {
+  const platform = "Platform For Everyone Everywhere"
+  await open(page, "/login", "ar", 320, { platform, platformLogo: false })
+
+  const name = page.locator("header").getByText(platform)
+  const cut = await name.evaluate((el) => el.scrollWidth > el.clientWidth)
+  // A floor: without the cut there is nothing for the assertion below to see.
+  expect(cut).toBe(true)
+
+  const firstLetterInside = await name.evaluate((el) => {
+    const range = document.createRange()
+    range.setStart(el.firstChild!, 0)
+    range.setEnd(el.firstChild!, 1)
+    const letter = range.getBoundingClientRect()
+    const shown = el.getBoundingClientRect()
+    return letter.width > 0 && letter.left >= shown.left - 1 && letter.right <= shown.right + 1
+  })
+  expect(firstLetterInside).toBe(true)
+})
+
+test("at 375px a long application name with no space stays inside the screen", async ({ page }) => {
+  const app = "A".repeat(68)
+  await open(page, FLOW, "en", 375, { app })
+  await expect(page.getByRole("main").getByText(`Continue to ${app}.`)).toBeVisible()
+
+  // The text, not the boxes: an unbreakable word spills out of its paragraph
+  // while the paragraph itself stays on screen.
+  const lines = await page.evaluate(() => {
+    const walker = document.createTreeWalker(document.querySelector("main")!, NodeFilter.SHOW_TEXT)
+    const rects: { left: number; right: number }[] = []
+    while (walker.nextNode()) {
+      if (!walker.currentNode.textContent?.trim()) continue
+      const range = document.createRange()
+      range.selectNodeContents(walker.currentNode)
+      for (const r of range.getClientRects()) if (r.width > 0) rects.push({ left: r.left, right: r.right })
+    }
+    return { measured: rects.length, outside: rects.filter((r) => r.left < -1 || r.right > innerWidth + 1).length }
+  })
+  // A floor, so a walk that finds no text cannot pass.
+  expect(lines.measured).toBeGreaterThan(5)
+  expect(lines.outside).toBe(0)
 })

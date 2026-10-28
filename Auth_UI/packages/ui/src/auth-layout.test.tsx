@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import "@authsystem/i18n"
@@ -146,6 +146,35 @@ describe("AuthLayout — one large logo, each beside its name", () => {
     )
 
     expect(banner().getByTestId("platform-mark")).toBeInTheDocument()
+  })
+
+  it("drops an application logo that fails to load instead of drawing a broken image", () => {
+    theme.resolved = "light"
+    render(
+      <AuthLayout title="Sign in" appName="SHOP" appLogoUrl="gone.webp" continueTo="Continue to SHOP.">
+        <div />
+      </AuthLayout>
+    )
+
+    fireEvent.error(main().getByRole("img", { name: "SHOP" }))
+
+    expect(screen.queryByRole("img", { name: "SHOP" })).toBeNull()
+    // The application is still named, by the line under the title.
+    expect(main().getByText("Continue to SHOP.")).toBeInTheDocument()
+  })
+
+  it("names the application in the corner when its logo there fails to load", () => {
+    theme.resolved = "light"
+    render(
+      <AuthLayout title="Sign in" appName="SHOP" appLogoUrl="gone.webp" showPlatformLogo={false}>
+        <div />
+      </AuthLayout>
+    )
+
+    fireEvent.error(banner().getByRole("img", { name: "SHOP" }))
+
+    expect(screen.queryByRole("img", { name: "SHOP" })).toBeNull()
+    expect(banner().getByText("SHOP")).toBeInTheDocument()
   })
 
   it("keeps the panel out of the accessibility tree while it is a plain surface", () => {

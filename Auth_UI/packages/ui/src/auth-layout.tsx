@@ -1,4 +1,4 @@
-import type * as React from "react"
+import * as React from "react"
 import { ShieldCheck } from "lucide-react"
 
 import { LanguageToggle } from "@authsystem/ui/common/language-toggle"
@@ -74,17 +74,28 @@ export function AuthLayout({
   securedBy?: React.ReactNode
 }) {
   const resolvedTheme = useResolvedTheme()
-  const appLogo = appName
+  // A logo that fails to load is dropped, not drawn as a broken image beside
+  // the application name it would repeat. Kept by address, so another logo
+  // (the other mode, a new upload) is tried afresh.
+  const [failedLogo, setFailedLogo] = React.useState<string | null>(null)
+  const pickedLogo = appName
     ? pickLogo(appLogoUrl ?? null, appLogoUrlDark ?? null, resolvedTheme)
     : null
+  const appLogo = pickedLogo !== failedLogo ? pickedLogo : null
+  const dropLogo = () => setFailedLogo(pickedLogo)
   const appTakesCorner = Boolean(appName) && !showPlatformLogo
 
   let corner: React.ReactNode
   if (appTakesCorner) {
     corner = appLogo ? (
-      <img src={appLogo} alt={appName!} className="h-10 w-auto max-w-40 object-contain" />
+      <img
+        src={appLogo}
+        alt={appName!}
+        onError={dropLogo}
+        className="h-10 w-auto max-w-40 object-contain"
+      />
     ) : (
-      <span className="truncate text-sm font-semibold">{appName}</span>
+      <CornerName name={appName!} />
     )
   } else {
     // Small while the application's logo is the large one, as on every
@@ -103,7 +114,7 @@ export function AuthLayout({
             >
               <ShieldCheck className={compact ? "size-4" : "size-5"} />
             </span>
-            <span className="truncate text-sm font-semibold">{name}</span>
+            <CornerName name={name} />
           </span>
         )}
       />
@@ -128,13 +139,17 @@ export function AuthLayout({
                 <img
                   src={appLogo}
                   alt={appName!}
+                  onError={dropLogo}
                   className="mb-2 h-12 w-auto max-w-60 object-contain"
                 />
               ) : null}
 
               <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
               {appName && continueTo ? (
-                <p className="text-sm text-muted-foreground">{continueTo}</p>
+                // An application's name may run to 200 characters with no space.
+                <p className="max-w-full text-sm wrap-anywhere text-muted-foreground">
+                  {continueTo}
+                </p>
               ) : null}
               {subtitle ? (
                 <p className="text-sm text-muted-foreground">{subtitle}</p>
@@ -169,5 +184,21 @@ export function AuthLayout({
 
       <div aria-hidden data-slot="auth-panel" className="hidden bg-muted lg:block" />
     </div>
+  )
+}
+
+/**
+ * A name in the corner, cut with an ellipsis when it does not fit.
+ *
+ * The ellipsis falls at the end of the cutting box in that box's own direction:
+ * inheriting an RTL page's direction, a Latin name lost its beginning instead of
+ * its end ("… Everyone Everywhere"). Its own direction keeps the start in view
+ * in every language.
+ */
+function CornerName({ name }: { name: string }) {
+  return (
+    <bdi dir="auto" className="min-w-0 truncate text-sm font-semibold">
+      {name}
+    </bdi>
   )
 }
