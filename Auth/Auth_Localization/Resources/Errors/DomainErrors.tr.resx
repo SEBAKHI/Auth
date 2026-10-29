@@ -1661,4 +1661,43 @@
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>'{0}' bu şekilde kaydedilemez: parolasız kayıt için e-posta gönderiminin açık olması gerekir, çünkü bu hesaplar e-postayla gönderilen bir kodla giriş yapar.</value>
   </data>
+  <data name="LoginDesign.ActivationConflict" xml:space="preserve">
+    <value>Aynı anda başka bir tasarım etkinleştirildi. Listeyi yeniden yükleyip tekrar deneyin.</value>
+  </data>
+  <data name="LoginDesign.ConcurrencyConflict" xml:space="preserve">
+    <value>Siz açtıktan sonra bu tasarımı başka biri kaydetti. Yeniden yükleyip tekrar deneyin.</value>
+  </data>
+  <data name="LoginDesign.ContentRequired" xml:space="preserve">
+    <value>Tasarımın içeriği olmalıdır.</value>
+  </data>
+  <data name="LoginDesign.ContentTooLarge" xml:space="preserve">
+    <value>Tasarımın içeriği 64 KB'ı aşmamalıdır.</value>
+  </data>
+  <data name="LoginDesign.DeleteActive" xml:space="preserve">
+    <value>Etkin tasarım silinemez. Önce devre dışı bırakın ya da başka bir tasarımı etkinleştirin.</value>
+  </data>
+  <data name="LoginDesign.NameRequired" xml:space="preserve">
+    <value>Tasarımın bir adı olmalıdır.</value>
+  </data>
+  <data name="LoginDesign.NameTooLong" xml:space="preserve">
+    <value>Tasarımın adı 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="LoginDesign.NoneActive" xml:space="preserve">
+    <value>Etkin bir oturum açma sayfası tasarımı yok.</value>
+  </data>
+  <data name="LoginDesign.NotFound" xml:space="preserve">
+    <value>Bu oturum açma sayfası tasarımı bulunamadı.</value>
+  </data>
+  <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
+    <value>Tasarımın metinleri, her biri metin dizeleri içeren dillerden oluşan bir JSON nesnesi olmalıdır.</value>
+  </data>
+  <data name="LoginDesign.StringsTooLarge" xml:space="preserve">
+    <value>Tasarımın metinleri 64 KB'ı aşmamalıdır.</value>
+  </data>
+  <data name="LoginDesign.UnknownVariables" xml:space="preserve">
+    <value>Tasarım, oturum açma sayfasının sağlamadığı değişkenler kullanıyor: {0}</value>
+  </data>
+  <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
+    <value>Bu dil desteklenmiyor.</value>
+  </data>
 </root>

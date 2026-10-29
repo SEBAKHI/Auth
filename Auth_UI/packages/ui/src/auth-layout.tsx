@@ -4,10 +4,39 @@ import { ShieldCheck } from "lucide-react"
 import { LanguageToggle } from "@authsystem/ui/common/language-toggle"
 import { ThemeToggle } from "@authsystem/ui/common/theme-toggle"
 import { Card, CardContent } from "@authsystem/ui/card"
-import { BrandingLogo } from "@authsystem/ui/branding"
+import { BrandingLogo, useBranding, type LoginDesignRef } from "@authsystem/ui/branding"
+import type { DesignFrameState } from "@authsystem/ui/login-design/design-frame"
 import { pickLogo } from "@authsystem/ui/theme/pick-logo"
 import { useResolvedTheme } from "@authsystem/ui/theme-provider"
 import { cn } from "@authsystem/ui/utils"
+
+// Its own chunk, loaded only where the panel shows and a design is named.
+const LoginDesignPanel = React.lazy(() => import("@authsystem/ui/login-design/login-design-panel"))
+
+/** The panel is shown from the `lg` breakpoint (1024px) up. */
+const PANEL_QUERY = "(min-width: 1024px)"
+
+function subscribePanel(onStoreChange: () => void) {
+  const query = window.matchMedia(PANEL_QUERY)
+  query.addEventListener("change", onStoreChange)
+  return () => query.removeEventListener("change", onStoreChange)
+}
+
+/** Whether the panel is on screen: nothing of a design is fetched where it is not. */
+function usePanelShown() {
+  return React.useSyncExternalStore(
+    subscribePanel,
+    () => window.matchMedia(PANEL_QUERY).matches,
+    () => false
+  )
+}
+
+/**
+ * The design on a page of an application's flow: the application (its client id) and the
+ * design its public branding named — its own active design, else the platform's; null for
+ * the plain panel; undefined while the branding is not known, so the panel shows no guess.
+ */
+export type FlowLoginDesign = { clientId: string; design: LoginDesignRef | null | undefined }
 
 /**
  * The page shared by all unauthenticated auth screens, in two halves.
@@ -34,8 +63,9 @@ export function AuthLayout({
   appLogoUrl,
   appLogoUrlDark,
   continueTo,
-  showPlatformLogo = true,
+  showPlatformLogo,
   securedBy,
+  loginDesign,
 }: {
   title: string
   subtitle?: string
@@ -68,12 +98,32 @@ export function AuthLayout({
    * False when the application's design hides the platform's mark: the
    * application's logo then takes the corner, and the trust marker still names
    * the platform. Ignored without an application, on the platform's own pages.
+   * Left out, the design's own choice decides (shown when there is no design).
    */
   showPlatformLogo?: boolean
   /** Trust marker under the card, e.g. "Secured by Acme". */
   securedBy?: React.ReactNode
+  /**
+   * The design of a page of an application's flow (`useFlowBranding`). Left out, the
+   * page is the platform's own and shows the platform's design.
+   */
+  loginDesign?: FlowLoginDesign
 }) {
   const resolvedTheme = useResolvedTheme()
+  const { loginDesign: platformDesign } = useBranding()
+  // The application's flow names its design (its own, else the platform's, decided by the
+  // server); the platform's own pages show the platform's.
+  const design = loginDesign ? loginDesign.design : platformDesign
+  const designClientId = loginDesign?.clientId ?? null
+  const panelShown = usePanelShown()
+  const panelKey = design && panelShown ? `${designClientId ?? ""}|${design.id}|${design.contentHash}` : null
+  // The state belongs to one design: another design starts again from "pending".
+  const [panel, setPanel] = React.useState<{ key: string | null; state: DesignFrameState }>({
+    key: null,
+    state: "pending",
+  })
+  const panelState = panel.key === panelKey ? panel.state : "pending"
+  const keepsPlatformLogo = showPlatformLogo ?? design?.showPlatformLogo ?? true
   // A logo that fails to load is dropped, not drawn as a broken image beside
   // the application name it would repeat. Kept by address, so another logo
   // (the other mode, a new upload) is tried afresh.
@@ -83,7 +133,10 @@ export function AuthLayout({
     : null
   const appLogo = pickedLogo !== failedLogo ? pickedLogo : null
   const dropLogo = () => setFailedLogo(pickedLogo)
-  const appTakesCorner = Boolean(appName) && !showPlatformLogo
+  const appTakesCorner = Boolean(appName) && !keepsPlatformLogo
+  // The application is named nowhere else on a page that has no "Continue to" line
+  // (logout, signed out): without a usable logo there, its name is written instead.
+  const appNamedAsText = Boolean(appName) && !appTakesCorner && !appLogo && !continueTo
 
   let corner: React.ReactNode
   if (appTakesCorner) {
@@ -143,6 +196,10 @@ export function AuthLayout({
                   className="mb-2 h-12 w-auto max-w-60 object-contain"
                 />
               ) : null}
+              {appNamedAsText ? (
+                // An application's name may run to 200 characters with no space.
+                <p className="mb-2 max-w-full text-sm font-semibold wrap-anywhere">{appName}</p>
+              ) : null}
 
               <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
               {appName && continueTo ? (
@@ -182,7 +239,27 @@ export function AuthLayout({
         ) : null}
       </div>
 
-      <div aria-hidden data-slot="auth-panel" className="hidden bg-muted lg:block" />
+      {/* Plain until a design has rendered in it, which is also when it starts to count for
+          assistive technology: the design may hold links. */}
+      <div
+        aria-hidden={panelState === "rendered" ? undefined : true}
+        data-slot="auth-panel"
+        data-design-state={panelKey ? panelState : undefined}
+        className="relative hidden overflow-hidden bg-muted lg:block"
+      >
+        {design && panelKey ? (
+          <React.Suspense fallback={null}>
+            <div className="absolute inset-0">
+              <LoginDesignPanel
+                key={panelKey}
+                clientId={designClientId}
+                design={design}
+                onStateChange={(state) => setPanel({ key: panelKey, state })}
+              />
+            </div>
+          </React.Suspense>
+        ) : null}
+      </div>
     </div>
   )
 }

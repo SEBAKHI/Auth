@@ -4,13 +4,14 @@ import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
 import { devHttps } from "../../dev-https"
+import { assetsCors, htmlInputs } from "../../login-design-frame"
 import { themeBoot } from "../../theme-boot"
 import { vendorChunk } from "../../vendor-chunks"
 
 // https://vite.dev/config/
 export default defineConfig((config) => ({
   // themeBoot: the colour mode on <html> before the first paint (theme-boot.ts).
-  plugins: [themeBoot({ hints: true }), react(), tailwindcss()],
+  plugins: [themeBoot({ hints: true }), react(), tailwindcss(), assetsCors()],
   server: {
     // The console dev server owns 5173; accounts runs alongside it.
     port: 5174,
@@ -41,6 +42,8 @@ export default defineConfig((config) => ({
   build: {
     chunkSizeWarningLimit: 400,
     rollupOptions: {
+      // The frame of a sign-in page design is a second page (login-design-frame.ts).
+      input: htmlInputs(__dirname),
       output: {
         // The accounts app has no charts or editors; only the framework vendors
         // are worth hoisting out of the per-route chunks.

@@ -75,8 +75,14 @@ describe("web.config model: console", () => {
   it("disables caching for the shell and caches assets for 365 days", () => {
     expect(console_.clientCache).toEqual({ mode: "DisableCache" })
     expect(console_.locations).toEqual([
-      { path: "assets", clientCache: { mode: "UseMaxAge", maxAgeSeconds: 31_536_000 } },
+      {
+        path: "assets",
+        clientCache: { mode: "UseMaxAge", maxAgeSeconds: 31_536_000 },
+        // The sign-in page design frame has an opaque origin: its fonts are cross-origin.
+        headers: [{ op: "add", name: "Access-Control-Allow-Origin", value: "*" }],
+      },
       expect.objectContaining({ path: "email-preview.html", clientCache: undefined }),
+      expect.objectContaining({ path: "login-design-frame.html", clientCache: undefined }),
     ])
   })
 })
@@ -128,7 +134,13 @@ describe("web.config model: accounts", () => {
   it("disables caching for the shell and caches assets for 365 days", () => {
     expect(accounts.clientCache).toEqual({ mode: "DisableCache" })
     expect(accounts.locations).toEqual([
-      { path: "assets", clientCache: { mode: "UseMaxAge", maxAgeSeconds: 31_536_000 } },
+      {
+        path: "assets",
+        clientCache: { mode: "UseMaxAge", maxAgeSeconds: 31_536_000 },
+        // The sign-in page design frame has an opaque origin: its fonts are cross-origin.
+        headers: [{ op: "add", name: "Access-Control-Allow-Origin", value: "*" }],
+      },
+      expect.objectContaining({ path: "login-design-frame.html", clientCache: undefined }),
     ])
   })
 })
@@ -225,9 +237,14 @@ describe("customHeaders inside a <location> (card S02)", () => {
     const values = Object.fromEntries(preview)
     expect(values["X-Frame-Options"]).toBe("SAMEORIGIN")
     expect(values["Content-Security-Policy"]).toMatch(/^default-src 'none'; script-src 'sha256-[^']+'; /)
-    for (const path of ["/index.html", "/email-preview.html.bak", "/assets/email-preview.html"]) {
+    for (const path of ["/index.html", "/email-preview.html.bak"]) {
       expect(headersFor(console_, path), path).toEqual(console_.headers)
     }
+    // Under /assets only the CORS header is added (the design frame's fonts).
+    expect(headersFor(console_, "/assets/email-preview.html")).toEqual([
+      ...console_.headers,
+      ["Access-Control-Allow-Origin", "*"],
+    ])
     expect(headersFor(accounts, "/email-preview.html")).toEqual(accounts.headers)
   })
 

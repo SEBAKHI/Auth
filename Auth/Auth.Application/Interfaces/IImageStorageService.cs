@@ -40,6 +40,16 @@ public sealed record EmailLogoBackground(EmailLogoVariant Variant, CardColor Col
 /// <param name="Height">Intended CSS height in pixels.</param>
 public sealed record EmailLogoRendition(string Key, int Width, int Height);
 
+/// <summary>What an upload is for: it decides how many pixels the stored image keeps.</summary>
+public enum ImageUploadPurpose
+{
+    /// <summary>Logos, profile photos and email images: <c>ImageStorage:MaxEdgePx</c>.</summary>
+    Default = 0,
+
+    /// <summary>An image inserted into a sign-in page design, which fills half a large screen: <c>ImageStorage:PanelMaxEdgePx</c>.</summary>
+    Panel = 1
+}
+
 /// <summary>
 /// Stores and removes image files behind a swappable backend (filesystem today,
 /// object storage later). The caller passes an already size-checked stream; the
@@ -54,6 +64,13 @@ public interface IImageStorageService
     /// validation error when the content type is unsupported or the bytes are not an image.
     /// </summary>
     Task<ErrorOr<string>> SaveImageAsync(Stream content, string contentType, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Processes and stores an uploaded image for a purpose, which decides the largest edge kept
+    /// (<see cref="ImageUploadPurpose.Panel"/>: <c>ImageStorage:PanelMaxEdgePx</c>).
+    /// </summary>
+    Task<ErrorOr<string>> SaveImageAsync(
+        Stream content, string contentType, ImageUploadPurpose purpose, CancellationToken cancellationToken);
 
     /// <summary>Deletes a stored image by key (best-effort; missing files and absolute URLs are ignored).</summary>
     Task DeleteImageAsync(string? key, CancellationToken cancellationToken);

@@ -31,6 +31,9 @@ const BRANDING_CACHE_KEY = "auth.ui.branding"
 
 type BrandingPayload = Schemas["PlatformBrandingDto"]
 
+/** Which design a sign-in page shows in its panel: its id, its version, its logo choice. */
+export type LoginDesignRef = Schemas["LoginDesignRefDto"]
+
 interface BrandingValue {
   /** Platform display name (admin-configured, falls back to the app default). */
   name: string
@@ -72,6 +75,12 @@ interface BrandingValue {
    * code, which is the page every visitor always saw.
    */
   signInOptions: SignInOptions | null
+  /**
+   * The design the platform's own sign-in pages show in their panel: null for the
+   * plain panel (none active, or the request failed), undefined while nothing is
+   * known yet, so the panel never shows a guess.
+   */
+  loginDesign: LoginDesignRef | null | undefined
 }
 
 export type SignInMethod = "password" | "code"
@@ -365,9 +374,20 @@ export function BrandingProvider({
     [signInOptionsKey]
   )
 
+  // A payload without the field (an older API, or a copy cached before it) has no design.
+  const loginDesignKey = query.data
+    ? JSON.stringify(query.data.loginDesign ?? null)
+    : query.isError
+      ? "null"
+      : undefined
+  const loginDesign = React.useMemo<LoginDesignRef | null | undefined>(
+    () => (loginDesignKey === undefined ? undefined : (JSON.parse(loginDesignKey) as LoginDesignRef | null)),
+    [loginDesignKey]
+  )
+
   const value = React.useMemo<BrandingValue>(
-    () => ({ name, logoUrl, isPending, staySignedInOffered, signInOptions }),
-    [name, logoUrl, isPending, staySignedInOffered, signInOptions]
+    () => ({ name, logoUrl, isPending, staySignedInOffered, signInOptions, loginDesign }),
+    [name, logoUrl, isPending, staySignedInOffered, signInOptions, loginDesign]
   )
 
   // Unknown until the branding arrives: applying the default meanwhile would

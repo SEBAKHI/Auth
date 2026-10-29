@@ -36,7 +36,8 @@ public class GetPlatformBrandingQueryHandlerTests
         _imageUrlComposerMock.Object,
         TestHelpers.CreateOptions(idpSettings),
         TestHelpers.CreateOptions(registration ?? new RegistrationSettings()),
-        TestHelpers.CreateOptions(email ?? new EmailSettings()));
+        TestHelpers.CreateOptions(email ?? new EmailSettings()),
+        LoginDesignDoubles.NoneActive());
 
     [Fact]
     public async Task Handle_NoSettingsRow_ReturnsDefaults()

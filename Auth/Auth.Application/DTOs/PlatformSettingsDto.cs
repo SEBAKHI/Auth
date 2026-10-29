@@ -89,6 +89,13 @@ public class PlatformBrandingDto
 
     /// <summary>Whether a sign-up asks for a first and last name (OI-215).</summary>
     public bool NameAtSignUp { get; set; } = true;
+
+    /// <summary>
+    /// The design the platform's own sign-in pages show in their panel, or null for the plain
+    /// panel. The page fetches the rendered design only when this is present, and keys its copy
+    /// on <c>ContentHash</c>.
+    /// </summary>
+    public LoginDesignRefDto? LoginDesign { get; set; }
 }
 
 /// <summary>

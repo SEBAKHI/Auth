@@ -513,3 +513,56 @@ describe("BrandingProvider — an application's own appearance", () => {
     await waitFor(() => expect(sheet()).toContain(PLATFORM_RADIUS))
   })
 })
+
+/**
+ * The platform's sign-in page design (phase 6): which design the platform's own pages
+ * show, unknown while nothing is known, none when the payload says none or the request
+ * failed. Break: answer null while pending (the panel would treat "unknown" as "none").
+ */
+describe("BrandingProvider — the platform's sign-in page design", () => {
+  function DesignProbe() {
+    const { loginDesign } = useBranding()
+    return <span data-testid="design">{loginDesign === undefined ? "unknown" : JSON.stringify(loginDesign)}</span>
+  }
+
+  function renderDesign() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    return render(
+      <QueryClientProvider client={client}>
+        <BrandingProvider>
+          <DesignProbe />
+        </BrandingProvider>
+      </QueryClientProvider>
+    )
+  }
+
+  beforeEach(() => {
+    get.mockReset()
+  })
+
+  it("is unknown while nothing is known yet", () => {
+    stubLocalStorage()
+    get.mockReturnValue(new Promise(() => {}))
+    renderDesign()
+    expect(screen.getByTestId("design")).toHaveTextContent("unknown")
+  })
+
+  it("is the design the payload names", async () => {
+    stubLocalStorage()
+    const design = { id: "d1", contentHash: "h1", showPlatformLogo: false }
+    get.mockResolvedValue({ data: { platformName: "YourBrand", loginDesign: design } })
+    renderDesign()
+    await waitFor(() => expect(screen.getByTestId("design")).toHaveTextContent(JSON.stringify(design)))
+  })
+
+  it.each([
+    ["the payload says none", () => get.mockResolvedValue({ data: { platformName: "YourBrand", loginDesign: null } })],
+    ["the payload has no such field (an older API)", () => get.mockResolvedValue({ data: { platformName: "YourBrand" } })],
+    ["the request failed", () => get.mockRejectedValue(new Error("network"))],
+  ])("is none (the plain panel) when %s", async (_case, arrange) => {
+    stubLocalStorage()
+    arrange()
+    renderDesign()
+    await waitFor(() => expect(screen.getByTestId("design")).toHaveTextContent("null"))
+  })
+})

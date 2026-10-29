@@ -1,5 +1,6 @@
 using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Application.Features.LoginDesigns.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -18,13 +19,16 @@ public class GetPublicBrandingQueryHandler
 {
     private readonly IApplicationRepository _applicationRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
+    private readonly EffectiveLoginDesign _loginDesign;
 
     public GetPublicBrandingQueryHandler(
         IApplicationRepository applicationRepository,
-        IImageUrlComposer imageUrlComposer)
+        IImageUrlComposer imageUrlComposer,
+        EffectiveLoginDesign loginDesign)
     {
         _applicationRepository = applicationRepository;
         _imageUrlComposer = imageUrlComposer;
+        _loginDesign = loginDesign;
     }
 
     public async Task<ErrorOr<PublicBrandingDto>> Handle(
@@ -56,7 +60,10 @@ public class GetPublicBrandingQueryHandler
             HomeUrl = ApplicationLaunchTarget.HomeUrlOf(application),
             // The whole object or nothing: the page applies it in place of the platform's, never
             // merged with it, and an application whose switch is off shows the platform's.
-            Theme = PlatformThemeDto.FromOrNull(application.EffectiveTheme)
+            Theme = PlatformThemeDto.FromOrNull(application.EffectiveTheme),
+            // The application's own design, else the platform's: decided in one place.
+            LoginDesign = LoginDesignRefDto.FromOrNull(
+                await _loginDesign.ForAsync(application.Id, cancellationToken))
         };
     }
 }

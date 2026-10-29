@@ -18,12 +18,14 @@ using Auth.Application.Features.Applications.GetApplicationUsers;
 using Auth.Application.Features.Applications.GetPublicBranding;
 using Auth.Application.Features.Applications.UpdateApplication;
 using Auth.Application.Features.Applications.UpdateApplicationAppearance;
+using Auth.Application.Features.LoginDesigns.GetPublicLoginDesign;
 using Auth.Application.DTOs;
 using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Auth_API.Modules.ApplicationManagement.Controllers;
 
@@ -86,6 +88,34 @@ public class ApplicationsController : ApiController
 
         return result.Match(
             branding => Ok(branding),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// The design an application's sign-in pages show in their panel, rendered for one
+    /// language: its own active design, else the platform's. 404 when there is none (the plain
+    /// panel), and for an unknown or inactive application.
+    /// </summary>
+    /// <remarks>
+    /// Anonymous, like the branding beside it: the sign-in pages call it before anyone signs in,
+    /// and only when the branding names a design. The HTML travels inside JSON, never as a
+    /// document of the API's origin, which must not serve markup an administrator wrote. The
+    /// page shows it in an isolated frame. Rendering is page rendering, so it spends the per-address sign-in-page allowance, never the sign-in one.
+    /// </remarks>
+    [HttpGet("{clientId}/login-design")]
+    [AllowAnonymous]
+    [EnableRateLimiting("sign-in-page")]
+    [ProducesResponseType(typeof(PublicLoginDesignDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPublicLoginDesign(
+        string clientId,
+        [FromQuery] string? lang,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetPublicLoginDesignQuery(clientId, lang), cancellationToken);
+
+        return result.Match(
+            design => Ok(design),
             errors => Problem(errors));
     }
 

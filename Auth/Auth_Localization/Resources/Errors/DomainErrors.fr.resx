@@ -1661,4 +1661,43 @@
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>« {0} » ne peut pas être enregistré ainsi : l’inscription sans mot de passe nécessite l’envoi d’e-mails, car ces comptes se connectent avec un code envoyé par e-mail.</value>
   </data>
+  <data name="LoginDesign.ActivationConflict" xml:space="preserve">
+    <value>Un autre modèle a été activé au même moment. Rechargez la liste et réessayez.</value>
+  </data>
+  <data name="LoginDesign.ConcurrencyConflict" xml:space="preserve">
+    <value>Quelqu’un d’autre a enregistré ce modèle depuis son ouverture. Rechargez-le et réessayez.</value>
+  </data>
+  <data name="LoginDesign.ContentRequired" xml:space="preserve">
+    <value>Le modèle doit avoir un contenu.</value>
+  </data>
+  <data name="LoginDesign.ContentTooLarge" xml:space="preserve">
+    <value>Le contenu du modèle ne doit pas dépasser 64 Ko.</value>
+  </data>
+  <data name="LoginDesign.DeleteActive" xml:space="preserve">
+    <value>Le modèle actif ne peut pas être supprimé. Désactivez-le ou activez-en un autre d’abord.</value>
+  </data>
+  <data name="LoginDesign.NameRequired" xml:space="preserve">
+    <value>Le modèle doit avoir un nom.</value>
+  </data>
+  <data name="LoginDesign.NameTooLong" xml:space="preserve">
+    <value>Le nom du modèle ne doit pas dépasser 200 caractères.</value>
+  </data>
+  <data name="LoginDesign.NoneActive" xml:space="preserve">
+    <value>Aucun modèle de page de connexion n’est actif.</value>
+  </data>
+  <data name="LoginDesign.NotFound" xml:space="preserve">
+    <value>Ce modèle de page de connexion est introuvable.</value>
+  </data>
+  <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
+    <value>Les textes du modèle doivent être un objet JSON de langues contenant chacune des chaînes de texte.</value>
+  </data>
+  <data name="LoginDesign.StringsTooLarge" xml:space="preserve">
+    <value>Les textes du modèle ne doivent pas dépasser 64 Ko.</value>
+  </data>
+  <data name="LoginDesign.UnknownVariables" xml:space="preserve">
+    <value>Le modèle utilise des variables qu’une page de connexion ne fournit pas : {0}</value>
+  </data>
+  <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
+    <value>Cette langue n’est pas prise en charge.</value>
+  </data>
 </root>

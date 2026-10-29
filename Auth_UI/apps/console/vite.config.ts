@@ -4,13 +4,14 @@ import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
 import { devHttps } from "../../dev-https"
+import { assetsCors, htmlInputs } from "../../login-design-frame"
 import { themeBoot } from "../../theme-boot"
 import { vendorChunk } from "../../vendor-chunks"
 
 // https://vite.dev/config/
 export default defineConfig((config) => ({
   // themeBoot: the colour mode on <html> before the first paint (theme-boot.ts).
-  plugins: [themeBoot({ hints: false }), react(), tailwindcss()],
+  plugins: [themeBoot({ hints: false }), react(), tailwindcss(), assetsCors()],
   server: {
     // Pinned rather than left to the default: accounts owns 5174 and the API's
     // CORS allow-list names both ports, so a silent fallback port fails CORS.
@@ -34,6 +35,8 @@ export default defineConfig((config) => ({
     // 2.5 MB chunk before route splitting, so a silent 500 kB warning was useless.
     chunkSizeWarningLimit: 400,
     rollupOptions: {
+      // The frame of a sign-in page design is a second page (login-design-frame.ts).
+      input: htmlInputs(__dirname),
       output: {
         // Split the heavy vendors into their own chunks so a route that does not
         // use them never pays for them: recharts is only the dashboard, CodeMirror

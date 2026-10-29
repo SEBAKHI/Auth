@@ -156,11 +156,16 @@ if (!headers.some((header) => header.name === "Content-Security-Policy" && heade
 
 for (const header of headers) {
   // A site-wide policy needs the API for fetch and images. A <location>'s own
-  // policy (the email preview) fetches nothing, so only img-src names it there.
+  // policy (the email preview, the sign-in page design frame) fetches nothing,
+  // so only img-src names it there - by origin, or, in the design frame, which
+  // shows images from any site (owner decision Q9), by the scheme that covers it.
   const required = header.location === null ? ["connect-src", "img-src"] : ["img-src"]
   for (const directive of required) {
     const sources = sourcesOf(header.policy, directive) ?? []
-    if (!sources.includes(origin)) {
+    const covered =
+      sources.includes(origin) ||
+      (header.location !== null && sources.includes(`${new URL(origin).protocol}`))
+    if (!covered) {
       const where = header.location === null ? "" : ` for ${header.location}`
       refuse(
         `${directive} of ${header.name}${where} does not allow ${origin}`,

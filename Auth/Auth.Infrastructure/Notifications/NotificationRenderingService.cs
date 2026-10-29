@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
@@ -534,8 +535,7 @@ public class NotificationRenderingService : INotificationRenderer
         Dictionary<string, string> raw;
         try
         {
-            using var document = JsonDocument.Parse(stringsJson);
-            raw = ExtractLanguageStrings(document, language);
+            raw = LocalizedStrings.Pick(stringsJson, language);
         }
         catch (JsonException ex)
         {
@@ -555,41 +555,6 @@ public class NotificationRenderingService : INotificationRenderer
         }
 
         return rendered;
-    }
-
-    private static Dictionary<string, string> ExtractLanguageStrings(JsonDocument document, string language)
-    {
-        var root = document.RootElement;
-
-        JsonElement? Pick(string lang) =>
-            root.ValueKind == JsonValueKind.Object && root.TryGetProperty(lang, out var element) &&
-            element.ValueKind == JsonValueKind.Object
-                ? element
-                : null;
-
-        var selected = Pick(language)
-            ?? Pick(Languages.Default)
-            ?? (root.ValueKind == JsonValueKind.Object
-                ? root.EnumerateObject()
-                    .Where(p => p.Value.ValueKind == JsonValueKind.Object)
-                    .OrderBy(p => p.Name, StringComparer.Ordinal)
-                    .Select(p => (JsonElement?)p.Value)
-                    .FirstOrDefault()
-                : null);
-
-        var strings = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (selected is { } element)
-        {
-            foreach (var property in element.EnumerateObject())
-            {
-                if (property.Value.ValueKind == JsonValueKind.String)
-                {
-                    strings[property.Name] = property.Value.GetString() ?? string.Empty;
-                }
-            }
-        }
-
-        return strings;
     }
 
     #endregion

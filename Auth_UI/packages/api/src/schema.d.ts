@@ -7875,7 +7875,9 @@ export interface paths {
         put?: never;
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    purpose?: components["schemas"]["ImageUploadPurpose"];
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -12424,6 +12426,423 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/applications/{applicationId}/login-designs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    applicationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignSummaryDto"][];
+                        "application/json": components["schemas"]["LoginDesignSummaryDto"][];
+                        "text/json": components["schemas"]["LoginDesignSummaryDto"][];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    applicationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateLoginDesignRequest"];
+                    "text/json": components["schemas"]["CreateLoginDesignRequest"];
+                    "application/*+json": components["schemas"]["CreateLoginDesignRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignDto"];
+                        "application/json": components["schemas"]["LoginDesignDto"];
+                        "text/json": components["schemas"]["LoginDesignDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{applicationId}/login-designs/{designId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    applicationId: string;
+                    designId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignDto"];
+                        "application/json": components["schemas"]["LoginDesignDto"];
+                        "text/json": components["schemas"]["LoginDesignDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    applicationId: string;
+                    designId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateLoginDesignRequest"];
+                    "text/json": components["schemas"]["UpdateLoginDesignRequest"];
+                    "application/*+json": components["schemas"]["UpdateLoginDesignRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignDto"];
+                        "application/json": components["schemas"]["LoginDesignDto"];
+                        "text/json": components["schemas"]["LoginDesignDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    applicationId: string;
+                    designId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{applicationId}/login-designs/{designId}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    applicationId: string;
+                    designId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CopyLoginDesignRequest"];
+                    "text/json": components["schemas"]["CopyLoginDesignRequest"];
+                    "application/*+json": components["schemas"]["CopyLoginDesignRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignDto"];
+                        "application/json": components["schemas"]["LoginDesignDto"];
+                        "text/json": components["schemas"]["LoginDesignDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{applicationId}/login-designs/{designId}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    applicationId: string;
+                    designId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignDto"];
+                        "application/json": components["schemas"]["LoginDesignDto"];
+                        "text/json": components["schemas"]["LoginDesignDto"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{applicationId}/login-designs/{designId}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    applicationId: string;
+                    designId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignDto"];
+                        "application/json": components["schemas"]["LoginDesignDto"];
+                        "text/json": components["schemas"]["LoginDesignDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{applicationId}/login-designs/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    applicationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PreviewLoginDesignRequest"];
+                    "text/json": components["schemas"]["PreviewLoginDesignRequest"];
+                    "application/*+json": components["schemas"]["PreviewLoginDesignRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignPreviewDto"];
+                        "application/json": components["schemas"]["LoginDesignPreviewDto"];
+                        "text/json": components["schemas"]["LoginDesignPreviewDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/applications/{applicationId}/machine-keys": {
         parameters: {
             query?: never;
@@ -12969,6 +13388,58 @@ export interface paths {
                         "text/plain": components["schemas"]["PublicBrandingDto"];
                         "application/json": components["schemas"]["PublicBrandingDto"];
                         "text/json": components["schemas"]["PublicBrandingDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Applications/{clientId}/login-design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    lang?: string;
+                };
+                header?: never;
+                path: {
+                    clientId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PublicLoginDesignDto"];
+                        "application/json": components["schemas"]["PublicLoginDesignDto"];
+                        "text/json": components["schemas"]["PublicLoginDesignDto"];
                     };
                 };
                 /** @description Not Found */
@@ -14371,6 +14842,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Platform/login-design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    lang?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PublicLoginDesignDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Platform/password-policy": {
         parameters: {
             query?: never;
@@ -14400,6 +14917,400 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/platform-settings/login-designs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignSummaryDto"][];
+                        "application/json": components["schemas"]["LoginDesignSummaryDto"][];
+                        "text/json": components["schemas"]["LoginDesignSummaryDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateLoginDesignRequest"];
+                    "text/json": components["schemas"]["CreateLoginDesignRequest"];
+                    "application/*+json": components["schemas"]["CreateLoginDesignRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignDto"];
+                        "application/json": components["schemas"]["LoginDesignDto"];
+                        "text/json": components["schemas"]["LoginDesignDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/platform-settings/login-designs/{designId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    designId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignDto"];
+                        "application/json": components["schemas"]["LoginDesignDto"];
+                        "text/json": components["schemas"]["LoginDesignDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    designId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateLoginDesignRequest"];
+                    "text/json": components["schemas"]["UpdateLoginDesignRequest"];
+                    "application/*+json": components["schemas"]["UpdateLoginDesignRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignDto"];
+                        "application/json": components["schemas"]["LoginDesignDto"];
+                        "text/json": components["schemas"]["LoginDesignDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    designId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/platform-settings/login-designs/{designId}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    designId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CopyLoginDesignRequest"];
+                    "text/json": components["schemas"]["CopyLoginDesignRequest"];
+                    "application/*+json": components["schemas"]["CopyLoginDesignRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignDto"];
+                        "application/json": components["schemas"]["LoginDesignDto"];
+                        "text/json": components["schemas"]["LoginDesignDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/platform-settings/login-designs/{designId}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    designId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignDto"];
+                        "application/json": components["schemas"]["LoginDesignDto"];
+                        "text/json": components["schemas"]["LoginDesignDto"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/platform-settings/login-designs/{designId}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    designId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignDto"];
+                        "application/json": components["schemas"]["LoginDesignDto"];
+                        "text/json": components["schemas"]["LoginDesignDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/platform-settings/login-designs/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PreviewLoginDesignRequest"];
+                    "text/json": components["schemas"]["PreviewLoginDesignRequest"];
+                    "application/*+json": components["schemas"]["PreviewLoginDesignRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["LoginDesignPreviewDto"];
+                        "application/json": components["schemas"]["LoginDesignPreviewDto"];
+                        "text/json": components["schemas"]["LoginDesignPreviewDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -16632,6 +17543,9 @@ export interface components {
             email?: string;
             otpCode?: string;
         };
+        CopyLoginDesignRequest: {
+            name: string;
+        };
         CreateApiKeyRequest: {
             /** Format: uuid */
             applicationId: string;
@@ -16691,6 +17605,13 @@ export interface components {
             postLogoutRedirectUris?: null | string[];
             confidentialRedirectUris?: null | string[];
             initiateLoginUri?: null | string;
+        };
+        CreateLoginDesignRequest: {
+            name: string;
+            content: null | string;
+            stringsJson: null | string;
+            /** @default true */
+            showPlatformLogo: boolean;
         };
         CreateMachineKeyRequest: {
             name?: null | string;
@@ -17057,6 +17978,7 @@ export interface components {
         HmacKeyState: number;
         /** Format: binary */
         IFormFile: string;
+        ImageUploadPurpose: number;
         ImportSecretRequest: {
             value?: string;
             /** Format: uuid */
@@ -17201,6 +18123,50 @@ export interface components {
             deviceName?: null | string;
             deviceType?: components["schemas"]["DeviceType"];
         };
+        LoginDesignDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            applicationId?: null | string;
+            name: string;
+            content: string;
+            stringsJson: string;
+            showPlatformLogo: boolean;
+            isActive: boolean;
+            contentHash: string;
+            /** Format: date-time */
+            revision: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            modifiedAt?: null | string;
+            warnings: components["schemas"]["LoginDesignWarning"][];
+        };
+        LoginDesignPreviewDto: {
+            html: string;
+            language: string;
+            dir: string;
+            warnings: components["schemas"]["LoginDesignWarning"][];
+        };
+        LoginDesignRefDto: {
+            /** Format: uuid */
+            id: string;
+            contentHash: string;
+            showPlatformLogo: boolean;
+        };
+        LoginDesignSummaryDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            showPlatformLogo: boolean;
+            isActive: boolean;
+            contentHash: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            modifiedAt?: null | string;
+        };
+        LoginDesignWarning: number;
         LoginRequest: {
             email?: string;
             password?: string;
@@ -17975,6 +18941,7 @@ export interface components {
             selfRegistrationOpen?: boolean;
             passwordAtSignUp?: boolean;
             nameAtSignUp?: boolean;
+            loginDesign?: null | components["schemas"]["LoginDesignRefDto"];
         };
         PlatformSettingsDto: {
             platformName?: string;
@@ -17996,6 +18963,11 @@ export interface components {
             menuAccent?: string;
             controlSize?: components["schemas"]["ThemeSizeChoiceDto"];
             tableRowHeight?: components["schemas"]["ThemeSizeChoiceDto"];
+        };
+        PreviewLoginDesignRequest: {
+            content: string;
+            stringsJson: null | string;
+            language: string;
         };
         PreviewNotificationLayoutRequest: {
             layoutContent: string;
@@ -18085,9 +19057,18 @@ export interface components {
             logoUrlDark?: null | string;
             homeUrl?: null | string;
             theme?: null | components["schemas"]["PlatformThemeDto"];
+            loginDesign?: null | components["schemas"]["LoginDesignRefDto"];
         };
         PublicDeletionRequest: {
             email?: string;
+        };
+        PublicLoginDesignDto: {
+            /** Format: uuid */
+            id: string;
+            contentHash: string;
+            language: string;
+            dir: string;
+            html: string;
         };
         PublishedNotificationLayoutDto: {
             /** Format: uuid */
@@ -18647,6 +19628,14 @@ export interface components {
             postLogoutRedirectUris?: null | string[];
             confidentialRedirectUris?: null | string[];
             initiateLoginUri?: null | string;
+        };
+        UpdateLoginDesignRequest: {
+            name: string;
+            content: string;
+            stringsJson: null | string;
+            showPlatformLogo: boolean;
+            /** Format: date-time */
+            expectedRevision: string;
         };
         UpdateMemberRoleRequest: {
             /** Format: uuid */

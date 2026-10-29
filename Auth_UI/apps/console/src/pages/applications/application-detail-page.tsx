@@ -98,6 +98,7 @@ const APPLICATION_DETAIL_TABS = [
   "roles",
   "permissions",
   "appearance",
+  "templates",
 ] as const
 
 /**
@@ -105,6 +106,12 @@ const APPLICATION_DETAIL_TABS = [
  * it): fetched when the tab is first opened, never with the page.
  */
 const ApplicationAppearanceTab = React.lazy(() => import("./application-appearance-tab"))
+
+/**
+ * The designs of the application's sign-in pages (the "Templates" tab, with the code
+ * editor behind it): fetched when the tab is first opened, never with the page.
+ */
+const ApplicationLoginDesignsTab = React.lazy(() => import("./application-login-designs-tab"))
 
 /** The machine keys tab, offered only to readers of API keys (OI-128). */
 const MACHINE_KEYS_TAB = "machine-keys"
@@ -674,6 +681,9 @@ export function ApplicationDetailPage() {
   // unmounting it would drop an unsaved draft without a word.
   const [appearanceOpened, setAppearanceOpened] = React.useState(activeTab === "appearance")
   if (activeTab === "appearance" && !appearanceOpened) setAppearanceOpened(true)
+  // Kept mounted the same way: a design being edited survives a switch to another tab.
+  const [templatesOpened, setTemplatesOpened] = React.useState(activeTab === "templates")
+  if (activeTab === "templates" && !templatesOpened) setTemplatesOpened(true)
   const [editOpen, setEditOpen] = React.useState(false)
   const [accessOpen, setAccessOpen] = React.useState(false)
   const [deactivateOpen, setDeactivateOpen] = React.useState(false)
@@ -1010,6 +1020,7 @@ export function ApplicationDetailPage() {
           <TabsTrigger value="appearance">
             {t("applications.appearance.tab")}
           </TabsTrigger>
+          <TabsTrigger value="templates">{t("loginDesigns.tab")}</TabsTrigger>
           {canReadMachineKeys ? (
             <TabsTrigger value={MACHINE_KEYS_TAB}>
               {t("machineKeys.title")}
@@ -1052,6 +1063,17 @@ export function ApplicationDetailPage() {
           {app && appearanceOpened ? (
             <React.Suspense fallback={<Skeleton className="h-96 w-full" />}>
               <ApplicationAppearanceTab key={appId} application={app} canUpdate={canUpdate} />
+            </React.Suspense>
+          ) : null}
+        </TabsContent>
+        <TabsContent
+          value="templates"
+          className="mt-4 data-[state=inactive]:hidden"
+          forceMount={templatesOpened ? true : undefined}
+        >
+          {app && templatesOpened ? (
+            <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
+              <ApplicationLoginDesignsTab key={appId} application={app} canUpdate={canUpdate} />
             </React.Suspense>
           ) : null}
         </TabsContent>

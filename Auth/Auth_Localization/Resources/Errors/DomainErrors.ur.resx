@@ -1661,4 +1661,43 @@
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>'{0}' کو اس طرح محفوظ نہیں کیا جا سکتا: پاس ورڈ کے بغیر سائن اپ کے لیے ای میل بھیجنا آن ہونا ضروری ہے، کیونکہ ایسے اکاؤنٹس ای میل کے ذریعے بھیجے گئے کوڈ سے سائن اِن کرتے ہیں۔</value>
   </data>
+  <data name="LoginDesign.ActivationConflict" xml:space="preserve">
+    <value>اسی وقت کوئی اور ڈیزائن فعال کیا گیا۔ فہرست دوبارہ لوڈ کر کے پھر کوشش کریں۔</value>
+  </data>
+  <data name="LoginDesign.ConcurrencyConflict" xml:space="preserve">
+    <value>آپ کے کھولنے کے بعد کسی اور نے یہ ڈیزائن محفوظ کیا۔ اسے دوبارہ لوڈ کر کے پھر کوشش کریں۔</value>
+  </data>
+  <data name="LoginDesign.ContentRequired" xml:space="preserve">
+    <value>ڈیزائن کا مواد ہونا ضروری ہے۔</value>
+  </data>
+  <data name="LoginDesign.ContentTooLarge" xml:space="preserve">
+    <value>ڈیزائن کا مواد 64 KB سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
+  <data name="LoginDesign.DeleteActive" xml:space="preserve">
+    <value>فعال ڈیزائن حذف نہیں کیا جا سکتا۔ پہلے اسے غیر فعال کریں یا کوئی اور ڈیزائن فعال کریں۔</value>
+  </data>
+  <data name="LoginDesign.NameRequired" xml:space="preserve">
+    <value>ڈیزائن کا نام ہونا ضروری ہے۔</value>
+  </data>
+  <data name="LoginDesign.NameTooLong" xml:space="preserve">
+    <value>ڈیزائن کا نام 200 حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
+  <data name="LoginDesign.NoneActive" xml:space="preserve">
+    <value>سائن اِن صفحے کا کوئی ڈیزائن فعال نہیں ہے۔</value>
+  </data>
+  <data name="LoginDesign.NotFound" xml:space="preserve">
+    <value>سائن اِن صفحے کا یہ ڈیزائن نہیں ملا۔</value>
+  </data>
+  <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
+    <value>ڈیزائن کی عبارتیں زبانوں کا JSON آبجیکٹ ہونی چاہئیں، جن میں سے ہر ایک میں عبارتیں ہوں۔</value>
+  </data>
+  <data name="LoginDesign.StringsTooLarge" xml:space="preserve">
+    <value>ڈیزائن کی عبارتیں 64 KB سے زیادہ نہیں ہونی چاہئیں۔</value>
+  </data>
+  <data name="LoginDesign.UnknownVariables" xml:space="preserve">
+    <value>ڈیزائن ایسے متغیرات استعمال کرتا ہے جو سائن اِن صفحہ فراہم نہیں کرتا: {0}</value>
+  </data>
+  <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
+    <value>یہ زبان معاون نہیں ہے۔</value>
+  </data>
 </root>

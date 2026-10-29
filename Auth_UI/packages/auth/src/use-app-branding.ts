@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 
 import { API_BASE_URL } from "@authsystem/api/env"
+import type { LoginDesignRef } from "@authsystem/ui/branding"
 import { toThemeConfig, type ThemeConfig } from "@authsystem/ui/theme/theme-config"
 
 export interface AppBranding {
@@ -18,6 +19,11 @@ export interface AppBranding {
    * of its flow; null while it shows the platform's (switched off, or none).
    */
   theme: ThemeConfig | null
+  /**
+   * The design its sign-in pages show in their panel: its own active design, else the
+   * platform's, as the server decided; null for the plain panel.
+   */
+  loginDesign: LoginDesignRef | null
 }
 
 /**
@@ -54,6 +60,7 @@ async function fetchAppBranding(
     logoUrlDark?: string | null
     homeUrl?: string | null
     theme?: Parameters<typeof toThemeConfig>[0]
+    loginDesign?: LoginDesignRef | null
   }
   return data?.name
     ? {
@@ -64,6 +71,7 @@ async function fetchAppBranding(
         // The whole appearance or none: the server sends it only while it is
         // switched on, and it replaces the platform's, never merged with it.
         theme: data.theme ? toThemeConfig(data.theme) : null,
+        loginDesign: data.loginDesign ?? null,
       }
     : null
 }
@@ -103,6 +111,14 @@ function useAppBrandingQuery(clientId: string | null) {
  * shows, and the application's cached copy is not forgotten for a failure,
  * which says nothing about its appearance.
  */
+export function useAppLoginDesign(clientId: string | null): LoginDesignRef | null | undefined {
+  const query = useAppBrandingQuery(clientId)
+  if (!clientId) return null
+  if (query.isError) return null
+  if (query.data === undefined) return undefined
+  return query.data?.loginDesign ?? null
+}
+
 export function useAppTheme(clientId: string | null): ThemeConfig | null | undefined {
   const query = useAppBrandingQuery(clientId)
   if (!clientId) return null

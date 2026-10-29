@@ -350,7 +350,7 @@ public class ApplicationAppearanceTests
     {
         var repository = new Mock<IApplicationRepository>();
         repository.Setup(r => r.GetByCodeAsync(application.Code, It.IsAny<CancellationToken>())).ReturnsAsync(application);
-        var result = await new GetPublicBrandingQueryHandler(repository.Object, ApplicationTestImages.Composer())
+        var result = await new GetPublicBrandingQueryHandler(repository.Object, ApplicationTestImages.Composer(), LoginDesignDoubles.NoneActive())
             .Handle(new GetPublicBrandingQuery(application.Code), CancellationToken.None);
         return result.Value;
     }

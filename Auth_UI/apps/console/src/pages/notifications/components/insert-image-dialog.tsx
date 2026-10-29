@@ -25,6 +25,7 @@ export function InsertImageDialog({
   onOpenChange,
   onInsert,
   contentDir,
+  purpose,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -35,6 +36,8 @@ export function InsertImageDialog({
    * Undefined on a layout, whose HTML is shared by every locale.
    */
   contentDir?: "ltr" | "rtl"
+  /** Passed to the upload: `Panel` keeps the larger images a sign-in page design shows. */
+  purpose?: "Panel"
 }) {
   const { t } = useTranslation()
   const [url, setUrl] = React.useState<string | null>(null)
@@ -54,7 +57,7 @@ export function InsertImageDialog({
     if (!file) return
     setUploading(true)
     try {
-      const result = await uploadImage(file)
+      const result = await uploadImage(file, { purpose })
       setUrl(result.url)
     } catch (error) {
       toast.error(getErrorMessage(error))

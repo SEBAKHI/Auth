@@ -141,6 +141,7 @@
     <Build Include="dbo\Tables\System\PrivacyPolicyTranslations.sql" />
     <Build Include="dbo\Tables\System\PrivacyPolicyArtifacts.sql" />
     <Build Include="dbo\Tables\System\SystemSettingsOverrides.sql" />
+    <Build Include="dbo\Tables\System\LoginDesigns.sql" />
     <Build Include="dbo\Tables\Notifications\NotificationTypes.sql" />
     <Build Include="dbo\Tables\Notifications\NotificationLayouts.sql" />
     <Build Include="dbo\Tables\Notifications\NotificationTemplates.sql" />

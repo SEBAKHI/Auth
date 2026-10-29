@@ -58,6 +58,13 @@ public class ImageStorageSettings
     /// <summary>Max width/height in pixels; larger images are resized down preserving aspect ratio.</summary>
     public int MaxEdgePx { get; set; } = 1024;
 
+    /// <summary>
+    /// Max width/height in pixels of an image uploaded for a sign-in page design
+    /// (<c>purpose=panel</c>): it fills half a large screen, where <see cref="MaxEdgePx"/> would
+    /// show soft. Every other upload keeps <see cref="MaxEdgePx"/>.
+    /// </summary>
+    public int PanelMaxEdgePx { get; set; } = 2048;
+
     /// <summary>WebP encode quality (0-100) for the re-encoded image.</summary>
     public int WebpQuality { get; set; } = 90;
 

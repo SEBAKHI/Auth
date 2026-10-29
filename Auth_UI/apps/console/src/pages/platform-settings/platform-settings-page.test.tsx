@@ -32,6 +32,8 @@ vi.mock("@authsystem/ui/theme-provider", () => ({
 // The appearance card is its own surface with its own tests; these cases are
 // about the branding card only.
 vi.mock("./appearance-card", () => ({ AppearanceCard: () => null }))
+// The sign-in page designs card has tests of its own (components/login-designs).
+vi.mock("./login-designs-card", () => ({ default: () => null }))
 
 // An upload the test lets finish when it chooses, and a frame editor that keeps
 // the chosen file as it is (its own tests cover it).

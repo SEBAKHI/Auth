@@ -42,6 +42,13 @@ function storageKey(scope: ThemeScope): string {
   return scope === null ? CACHE_KEY : `${APP_CACHE_PREFIX}${encodeURIComponent(scope)}`
 }
 
+/**
+ * Dispatched on the document each time the appearance stylesheet is replaced. A sign-in
+ * page design lives in an isolated frame that sees none of the page's styles, so its
+ * frame listens for this and sends the new values in.
+ */
+export const THEME_APPLIED_EVENT = "authsystem:theme-applied"
+
 /** Replaces the platform stylesheet; null removes it (preset.css shows). */
 export function applyThemeCss(css: string | null): void {
   // One sheet for the document, replaced on every call. Adopted sheets follow
@@ -49,6 +56,7 @@ export function applyThemeCss(css: string | null): void {
   // anyway (build-theme.ts). Where the document cannot adopt a sheet (jsdom),
   // a <style id="platform-theme"> stands in.
   setDocumentStyleSheet(STYLE_ID, css)
+  document.dispatchEvent(new Event(THEME_APPLIED_EVENT))
 }
 
 /**

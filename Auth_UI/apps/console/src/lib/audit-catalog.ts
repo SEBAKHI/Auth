@@ -79,6 +79,11 @@ export const AUDIT_ACTIONS: readonly AuditActionEntry[] = [
   { code: "notification-template.published", actionType: "Administration" },
   { code: "notification-template.unpublished", actionType: "Administration" },
   { code: "notification-template.rolled-back", actionType: "Administration" },
+  { code: "login-design.created", actionType: "Administration" },
+  { code: "login-design.updated", actionType: "Administration" },
+  { code: "login-design.activated", actionType: "Administration" },
+  { code: "login-design.deactivated", actionType: "Administration" },
+  { code: "login-design.deleted", actionType: "Administration" },
   { code: "secrets.value.changed", actionType: "Administration" },
   {
     code: "secrets.operation.confirmation-requested",

@@ -1661,4 +1661,43 @@
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>无法这样保存“{0}”：无密码注册需要开启电子邮件发送，因为此类账户使用电子邮件验证码登录。</value>
   </data>
+  <data name="LoginDesign.ActivationConflict" xml:space="preserve">
+    <value>另一个设计同时被启用。请重新加载列表后重试。</value>
+  </data>
+  <data name="LoginDesign.ConcurrencyConflict" xml:space="preserve">
+    <value>自您打开后，其他人已保存此设计。请重新加载后重试。</value>
+  </data>
+  <data name="LoginDesign.ContentRequired" xml:space="preserve">
+    <value>设计需要内容。</value>
+  </data>
+  <data name="LoginDesign.ContentTooLarge" xml:space="preserve">
+    <value>设计内容不能超过 64 KB。</value>
+  </data>
+  <data name="LoginDesign.DeleteActive" xml:space="preserve">
+    <value>无法删除已启用的设计。请先停用它，或启用另一个设计。</value>
+  </data>
+  <data name="LoginDesign.NameRequired" xml:space="preserve">
+    <value>设计需要名称。</value>
+  </data>
+  <data name="LoginDesign.NameTooLong" xml:space="preserve">
+    <value>设计名称不能超过 200 个字符。</value>
+  </data>
+  <data name="LoginDesign.NoneActive" xml:space="preserve">
+    <value>没有已启用的登录页设计。</value>
+  </data>
+  <data name="LoginDesign.NotFound" xml:space="preserve">
+    <value>未找到此登录页设计。</value>
+  </data>
+  <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
+    <value>设计文本必须是按语言组织的 JSON 对象，每种语言包含文本字符串。</value>
+  </data>
+  <data name="LoginDesign.StringsTooLarge" xml:space="preserve">
+    <value>设计文本不能超过 64 KB。</value>
+  </data>
+  <data name="LoginDesign.UnknownVariables" xml:space="preserve">
+    <value>设计使用了登录页不提供的变量：{0}</value>
+  </data>
+  <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
+    <value>不支持此语言。</value>
+  </data>
 </root>

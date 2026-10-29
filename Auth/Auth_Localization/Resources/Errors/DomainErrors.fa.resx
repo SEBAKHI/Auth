@@ -1661,4 +1661,43 @@
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>'{0}' را نمی‌توان این‌گونه ذخیره کرد: ثبت‌نام بدون رمز عبور نیاز دارد که ارسال ایمیل روشن باشد، زیرا این حساب‌ها با کدی که به ایمیل فرستاده می‌شود وارد می‌شوند.</value>
   </data>
+  <data name="LoginDesign.ActivationConflict" xml:space="preserve">
+    <value>طرح دیگری هم‌زمان فعال شد. فهرست را دوباره بارگذاری کنید و دوباره تلاش کنید.</value>
+  </data>
+  <data name="LoginDesign.ConcurrencyConflict" xml:space="preserve">
+    <value>از زمانی که این طرح را باز کردید، شخص دیگری آن را ذخیره کرده است. آن را دوباره بارگذاری کنید و دوباره تلاش کنید.</value>
+  </data>
+  <data name="LoginDesign.ContentRequired" xml:space="preserve">
+    <value>طرح باید محتوا داشته باشد.</value>
+  </data>
+  <data name="LoginDesign.ContentTooLarge" xml:space="preserve">
+    <value>محتوای طرح نباید از ۶۴ کیلوبایت بیشتر باشد.</value>
+  </data>
+  <data name="LoginDesign.DeleteActive" xml:space="preserve">
+    <value>طرح فعال را نمی‌توان حذف کرد. ابتدا آن را غیرفعال کنید یا طرح دیگری را فعال کنید.</value>
+  </data>
+  <data name="LoginDesign.NameRequired" xml:space="preserve">
+    <value>طرح باید نام داشته باشد.</value>
+  </data>
+  <data name="LoginDesign.NameTooLong" xml:space="preserve">
+    <value>نام طرح نباید از ۲۰۰ نویسه بیشتر باشد.</value>
+  </data>
+  <data name="LoginDesign.NoneActive" xml:space="preserve">
+    <value>هیچ طرح فعالی برای صفحهٔ ورود وجود ندارد.</value>
+  </data>
+  <data name="LoginDesign.NotFound" xml:space="preserve">
+    <value>این طرح صفحهٔ ورود پیدا نشد.</value>
+  </data>
+  <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
+    <value>متن‌های طرح باید یک شیء JSON از زبان‌ها باشد که هر کدام رشته‌های متنی دارد.</value>
+  </data>
+  <data name="LoginDesign.StringsTooLarge" xml:space="preserve">
+    <value>متن‌های طرح نباید از ۶۴ کیلوبایت بیشتر باشد.</value>
+  </data>
+  <data name="LoginDesign.UnknownVariables" xml:space="preserve">
+    <value>طرح از متغیرهایی استفاده می‌کند که صفحهٔ ورود فراهم نمی‌کند: {0}</value>
+  </data>
+  <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
+    <value>این زبان پشتیبانی نمی‌شود.</value>
+  </data>
 </root>

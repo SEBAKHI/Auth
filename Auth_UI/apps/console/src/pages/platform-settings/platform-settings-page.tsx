@@ -38,6 +38,9 @@ import type { Schemas } from "@authsystem/api/types"
 
 import { AppearanceCard } from "./appearance-card"
 
+/** The platform's sign-in page designs, with their code editor: their own chunk. */
+const LoginDesignsCard = React.lazy(() => import("./login-designs-card"))
+
 const SETTINGS_QUERY_KEY = ["platform-settings"] as const
 
 function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }) {
@@ -242,6 +245,9 @@ export function PlatformSettingsPage() {
               if (saved) queryClient.setQueryData(SETTINGS_QUERY_KEY, saved)
             }}
           />
+          <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
+            <LoginDesignsCard />
+          </React.Suspense>
         </>
       )}
     </div>

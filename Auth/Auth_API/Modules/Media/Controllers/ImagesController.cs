@@ -42,6 +42,12 @@ public class ImagesController : ApiController
     }
 
     /// <summary>Uploads and processes an image; returns its storage key and public URL.</summary>
+    /// <param name="file">The image.</param>
+    /// <param name="purpose">
+    /// What it is for: <c>Panel</c> for an image inserted into a sign-in page design, which keeps
+    /// up to <c>ImageStorage:PanelMaxEdgePx</c>; left out, every other upload's limit.
+    /// </param>
+    /// <param name="cancellationToken">The request's cancellation.</param>
     [HttpPost]
     [Consumes("multipart/form-data")]
     // The body limit follows ImageStorage:MaxSizeBytes live; a constant here would
@@ -53,7 +59,10 @@ public class ImagesController : ApiController
     [ProducesResponseType(typeof(UploadImageResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests, "application/problem+json")]
-    public async Task<IActionResult> Upload(IFormFile file, CancellationToken cancellationToken)
+    public async Task<IActionResult> Upload(
+        IFormFile file,
+        [FromQuery] ImageUploadPurpose purpose = ImageUploadPurpose.Default,
+        CancellationToken cancellationToken = default)
     {
         if (file is null || file.Length == 0)
         {
@@ -77,7 +86,7 @@ public class ImagesController : ApiController
         }
 
         await using var stream = file.OpenReadStream();
-        var result = await _storage.SaveImageAsync(stream, file.ContentType, cancellationToken);
+        var result = await _storage.SaveImageAsync(stream, file.ContentType, purpose, cancellationToken);
 
         return await result.Match<Task<IActionResult>>(
             async key =>

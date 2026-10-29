@@ -43,4 +43,11 @@ public record PublicBrandingDto
     /// page never mixes choices of the two.
     /// </summary>
     public PlatformThemeDto? Theme { get; init; }
+
+    /// <summary>
+    /// The design the application's sign-in pages show in their panel: its own active design,
+    /// else the platform's, else null (the plain panel). The page fetches the rendered design
+    /// only when this is present, and keys its copy on <c>ContentHash</c>.
+    /// </summary>
+    public LoginDesignRefDto? LoginDesign { get; init; }
 }

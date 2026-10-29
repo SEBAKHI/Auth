@@ -85,6 +85,29 @@ public class GatewayRouteCoverageTests
             $"{path} must be forwarded by the gateway");
     }
 
+    /// <summary>
+    /// The two anonymous renders of a sign-in page design, by their action routes: the panel of
+    /// an application's pages and of the platform's own. A missing route leaves every visitor
+    /// with the plain panel and nothing in any log of the API.
+    /// </summary>
+    [Theory]
+    [InlineData(typeof(Auth_API.Modules.ApplicationManagement.Controllers.ApplicationsController), nameof(Auth_API.Modules.ApplicationManagement.Controllers.ApplicationsController.GetPublicLoginDesign), "/api/v1/Applications/{clientId}/login-design")]
+    [InlineData(typeof(Auth_API.Modules.Administration.Controllers.PlatformController), nameof(Auth_API.Modules.Administration.Controllers.PlatformController.GetLoginDesign), "/api/v1/Platform/login-design")]
+    public void TheLoginDesignRenders_AreCoveredByAGatewayRoute(Type controller, string action, string expectedPath)
+    {
+        var controllerRoute = controller.GetCustomAttributes(typeof(RouteAttribute), inherit: true)
+            .Cast<RouteAttribute>().Single().Template;
+        var actionRoute = controller.GetMethod(action)!
+            .GetCustomAttributes(typeof(Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute), inherit: true)
+            .Cast<Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute>().Single().Template;
+        var path = NormalizeControllerRoute(controllerRoute, controller.Name) + "/" + actionRoute;
+
+        path.Should().Be(expectedPath, "the route the sign-in pages call");
+        GatewayRoutePrefixes().Should().Contain(
+            prefix => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase),
+            $"{path} must be forwarded by the gateway");
+    }
+
     [Fact]
     public void ImageStorageRequestPath_IsCoveredByAGatewayRoute()
     {

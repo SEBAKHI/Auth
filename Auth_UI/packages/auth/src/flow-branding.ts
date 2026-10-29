@@ -1,9 +1,10 @@
 import { useTranslation } from "react-i18next"
 
+import type { FlowLoginDesign } from "@authsystem/ui/auth-layout"
 import { useApplicationTheme, useBranding } from "@authsystem/ui/branding"
 
 import { getReturnToClientId } from "./return-to"
-import { type AppBranding, useAppBranding, useAppTheme } from "./use-app-branding"
+import { type AppBranding, useAppBranding, useAppLoginDesign, useAppTheme } from "./use-app-branding"
 
 export interface FlowBranding {
   /** The requesting application's public branding, or null for the platform's own. */
@@ -16,6 +17,11 @@ export interface FlowBranding {
     /** The line under the title naming the application ("Continue to Acme."). */
     continueTo: string | null
     securedBy: string | null
+    /**
+     * The panel's design on a page of the request's application: undefined without a
+     * request, and the page then shows the platform's design.
+     */
+    loginDesign: FlowLoginDesign | undefined
   }
 }
 
@@ -41,6 +47,8 @@ export function useFlowBranding(returnTo: string | null): FlowBranding {
   const clientId = getReturnToClientId(returnTo)
   const appBranding = useAppBranding(clientId)
   useApplicationTheme(clientId, useAppTheme(clientId))
+  // The design, like the appearance, belongs to the validated pending request only.
+  const appDesign = useAppLoginDesign(clientId)
   const { name: platformName, isPending: brandingPending } = useBranding()
 
   // A trust marker naming the wrong platform is worse than no marker at all:
@@ -59,6 +67,7 @@ export function useFlowBranding(returnTo: string | null): FlowBranding {
         ? t("auth.continueToApp", { name: appBranding.name })
         : null,
       securedBy,
+      loginDesign: clientId ? { clientId, design: appDesign } : undefined,
     },
   }
 }

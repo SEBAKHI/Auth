@@ -1,6 +1,7 @@
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Common;
+using Auth.Application.Features.LoginDesigns.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
@@ -23,14 +24,17 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
     private readonly IdentityProviderSettings _idpSettings;
     private readonly RegistrationSettings _registrationSettings;
     private readonly EmailSettings _emailSettings;
+    private readonly EffectiveLoginDesign _loginDesign;
 
     public GetPlatformBrandingQueryHandler(
         IPlatformSettingsRepository platformSettingsRepository,
         IImageUrlComposer imageUrlComposer,
         IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         IOptionsSnapshot<RegistrationSettings> registrationSettings,
-        IOptionsSnapshot<EmailSettings> emailSettings)
+        IOptionsSnapshot<EmailSettings> emailSettings,
+        EffectiveLoginDesign loginDesign)
     {
+        _loginDesign = loginDesign;
         _platformSettingsRepository = platformSettingsRepository;
         _imageUrlComposer = imageUrlComposer;
         _idpSettings = idpSettings.Value;
@@ -60,7 +64,8 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
             PrimaryMethod = signUp.PasswordRequired ? SignInMethods.Password : SignInMethods.Code,
             SelfRegistrationOpen = _registrationSettings.AllowSelfRegistration,
             PasswordAtSignUp = signUp.PasswordRequired,
-            NameAtSignUp = signUp.NameRequired
+            NameAtSignUp = signUp.NameRequired,
+            LoginDesign = LoginDesignRefDto.FromOrNull(await _loginDesign.ForAsync(null, cancellationToken))
         };
     }
 }

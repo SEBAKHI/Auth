@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react"
 import type * as React from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { safeHomeUrl, useAppBranding, useAppTheme } from "./use-app-branding"
+import { safeHomeUrl, useAppBranding, useAppLoginDesign, useAppTheme } from "./use-app-branding"
 
 // One client per test: the apps share one across screens, which is the point,
 // but a test that inherited another test's cached answer would prove nothing.
@@ -42,6 +42,7 @@ describe("useAppBranding", () => {
         logoUrlDark: null,
         homeUrl: null,
         theme: null,
+        loginDesign: null,
       })
     )
     expect(String(fetch.mock.calls[0][0])).toMatch(
@@ -99,6 +100,7 @@ describe("useAppBranding", () => {
       logoUrlDark: null,
       homeUrl: null,
       theme: null,
+      loginDesign: null,
     })
     expect(fetch).toHaveBeenCalledTimes(1)
   })
@@ -221,5 +223,42 @@ describe("useAppTheme", () => {
 
     expect(result.current).toBeNull()
     expect(fetch).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * The design of the application's sign-in pages (phase 6), from the same answer: unknown
+ * while it is on its way, none for an answer without one or for a failure, so the panel
+ * never shows a guess. Break: return null while pending.
+ */
+describe("useAppLoginDesign", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it("is unknown while the branding is on its way, then the design it names", async () => {
+    const design = { id: "d1", contentHash: "h1", showPlatformLogo: false }
+    let resolve: ((value: Response) => void) | undefined
+    vi.spyOn(globalThis, "fetch").mockReturnValue(
+      new Promise<Response>((done) => {
+        resolve = done
+      })
+    )
+    const { result } = renderHook(() => useAppLoginDesign("portal"), { wrapper: withClient() })
+    expect(result.current).toBeUndefined()
+
+    resolve?.({ ok: true, json: () => Promise.resolve({ name: "Portal", loginDesign: design }) } as Response)
+
+    await waitFor(() => expect(result.current).toEqual(design))
+  })
+
+  it("is none without a client, without a design, and after a failure", async () => {
+    expect(renderHook(() => useAppLoginDesign(null), { wrapper: withClient() }).result.current).toBeNull()
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(portal())
+    const none = renderHook(() => useAppLoginDesign("portal"), { wrapper: withClient() })
+    await waitFor(() => expect(none.result.current).toBeNull())
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({ ok: false, status: 500 } as Response)
+    const failed = renderHook(() => useAppLoginDesign("broken"), { wrapper: withClient(new QueryClient({ defaultOptions: { queries: { retry: false } } })) })
+    await waitFor(() => expect(failed.result.current).toBeNull())
   })
 })
