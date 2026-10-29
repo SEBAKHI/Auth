@@ -400,8 +400,20 @@ function declarations(vars: ThemeVars): string {
  * from the registry or from formatOklch; the allow-list filter is a second
  * line, so nothing that reaches this function can close the rule early.
  */
-export function themeCss(vars: ThemeVarsByMode): string {
-  return `html:root,html .light{${declarations(vars.light)}}html.dark,html .dark{${declarations(vars.dark)}}`
+export function themeCss(vars: ThemeVarsByMode, scope?: string): string {
+  if (scope === undefined) {
+    return `html:root,html .light{${declarations(vars.light)}}html.dark,html .dark{${declarations(vars.dark)}}`
+  }
+  // Inside `[data-appearance-scope]` only: each `.light` / `.dark` element
+  // there draws that mode whatever the page shows, so the console previews an
+  // application's appearance without recolouring itself. An attribute and a
+  // class outrank `html .light` / `html .dark` (the platform's sheet). Each
+  // element is self-contained: dark is light overlaid by dark, exactly what
+  // `html.dark` inheriting from `html:root` gives a whole page, so the radius
+  // and heights reach the dark one too.
+  if (!SAFE_KEY.test(scope)) throw new Error(`Not a stylesheet scope: ${scope}`)
+  const root = `[data-appearance-scope="${scope}"]`
+  return `${root} .light{${declarations(vars.light)}}${root} .dark{${declarations({ ...vars.light, ...vars.dark })}}`
 }
 
 /** shadcn's display name of a registry entry ("Neutral", "Amber"…). */

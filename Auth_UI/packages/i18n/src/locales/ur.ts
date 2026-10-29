@@ -236,6 +236,7 @@ export const ur: TranslationResources = {
     level: "سطح",
     lockoutEnd: "لاک آؤٹ ختم",
     logoUrlDark: "تاریک موڈ کا لوگو",
+    themeEnabled: "اپنی ظاہری شکل",
     initiateLoginUri: "لاگ اِن شروع کرنے کا URI (Initiate login URI)",
     logoUrl: "لوگو",
     maxConcurrentSessions: "زیادہ سے زیادہ بیک وقت سیشنز",
@@ -940,6 +941,16 @@ export const ur: TranslationResources = {
     logoUrlDarkHint: "جب ملاحظہ کنندہ تاریک موڈ استعمال کرے تو لوگو کی جگہ دکھایا جاتا ہے۔ دونوں موڈز میں ایک ہی لوگو دکھانے کے لیے خالی چھوڑ دیں۔",
     logoDialogTitle: "ایپلیکیشن کا لوگو",
     logoDialogDescription: "ہر موڈ کے لیے ایک لوگو منتخب کریں۔ تاریک موڈ فعال ہونے پر تاریک موڈ کا لوگو دکھایا جاتا ہے؛ اگر ایک موجود نہ ہو تو دونوں موڈز میں دوسرا دکھایا جاتا ہے۔",
+    appearance: {
+      tab: "ظاہری شکل",
+      title: "ظاہری شکل",
+      subtitle: "یہ ایپلیکیشن جن لوگوں کو سائن اِن صفحات پر بھیجتی ہے، ان کے لیے وہ صفحات کیسے دکھتے ہیں۔ جب تک آپ اسے حسبِ منشا نہ بنائیں، وہ باقی پلیٹ فارم جیسے دکھتے ہیں۔",
+      enable: "اس ایپلیکیشن کی ظاہری شکل حسبِ منشا بنائیں",
+      enabledHint: "آن: اس کے سائن اِن صفحات، ہر بھیجے گئے وزیٹر کے لیے، پلیٹ فارم کی بجائے نیچے دی گئی ظاہری شکل استعمال کرتے ہیں۔",
+      disabledHint: "آف: اس کے سائن اِن صفحات پلیٹ فارم کی ظاہری شکل استعمال کرتے ہیں۔ آپ کی محفوظ کی ہوئی ظاہری شکل دوبارہ آن کرنے تک رکھی رہتی ہے۔",
+      copyPlatform: "پلیٹ فارم کی ظاہری شکل سے شروع کریں",
+      saved: "ظاہری شکل محفوظ ہو گئی۔",
+    },
     logoUrlHint:
       "اس ایپلی کیشن کی سائن اِن اسکرین پر دکھایا جانے والا عوامی تصویری پتہ۔",
     contactEmailHint:
@@ -1344,6 +1355,7 @@ export const ur: TranslationResources = {
       applicationDeactivated: "ایپلیکیشن غیر فعال ہوئی",
       applicationRedirectUrisChanged: "ایپلیکیشن کے ری ڈائریکٹ URIs تبدیل ہوئے",
       applicationLaunchAddressesChanged: "ایپلیکیشن کے لانچ پتے تبدیل ہوئے",
+      applicationAppearanceChanged: "ایپلیکیشن کی ظاہری شکل تبدیل ہوئی",
       organizationOwnershipTransferInitiated:
         "تنظیم کی ملکیت کی منتقلی شروع ہوئی",
       organizationOwnershipTransferred: "تنظیم کی ملکیت منتقل ہوئی",

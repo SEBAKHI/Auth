@@ -237,6 +237,7 @@ export const en = {
     level: "Level",
     lockoutEnd: "Locked until",
     logoUrlDark: "Dark-mode logo",
+    themeEnabled: "Own appearance",
     initiateLoginUri: "Initiate login URI",
     logoUrl: "Logo",
     maxConcurrentSessions: "Maximum concurrent sessions",
@@ -946,6 +947,16 @@ export const en = {
     logoUrlDarkHint: "Shown instead of the logo when the visitor uses dark mode. Leave empty to show the same logo in both modes.",
     logoDialogTitle: "Application logo",
     logoDialogDescription: "Pick a logo for each mode. The dark-mode logo shows while dark mode is on; if one is missing, the other is shown in both modes.",
+    appearance: {
+      tab: "Appearance",
+      title: "Appearance",
+      subtitle: "How the sign-in pages look for the people this application sends there. Unless you customize it, they look like the rest of the platform.",
+      enable: "Customize this application's appearance",
+      enabledHint: "On: its sign-in pages use the appearance below in place of the platform's, for every visitor it sends.",
+      disabledHint: "Off: its sign-in pages use the platform's appearance. An appearance you saved is kept for when you switch this on again.",
+      copyPlatform: "Start from the platform's appearance",
+      saved: "Appearance saved.",
+    },
     logoUrlHint: "Public image URL shown on this application's sign-in screen.",
     contactEmailHint:
       "Address users are pointed to for help with this application.",
@@ -1356,6 +1367,7 @@ export const en = {
       applicationDeactivated: "Application deactivated",
       applicationRedirectUrisChanged: "Application redirect URIs changed",
       applicationLaunchAddressesChanged: "Application launch addresses changed",
+      applicationAppearanceChanged: "Application appearance changed",
       organizationOwnershipTransferInitiated:
         "Organization ownership transfer started",
       organizationOwnershipTransferred: "Organization ownership transferred",

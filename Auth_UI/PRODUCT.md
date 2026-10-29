@@ -32,6 +32,7 @@ One self-hosted identity provider whose two web applications are entirely re-bra
 
 - Every console screen is permission-gated; the API is the authority.
 - Appearance (base colour, theme, chart colour, radius, menu accent) is chosen from shadcn/ui's registry, or as one custom colour per mode; the API stores names and `#rrggbb` codes only, never CSS. The height of every control (32/36/40px or 28–56) and of a table row (40/44/48px or 32–72, never below the controls) is part of the same appearance.
+- An application may switch on an appearance of its own (an application › Appearance, the same editor): the accounts pages it sends people to then show it in place of the platform's, whole and from the first frame, and the console itself never takes it. Off, they show the platform's; the saved one is kept.
 - Logos are never cropped by the system; the adopter's image is shown as uploaded.
 
 ## Brand Commitments

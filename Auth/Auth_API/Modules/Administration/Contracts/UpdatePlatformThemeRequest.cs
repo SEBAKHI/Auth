@@ -1,3 +1,6 @@
+using Auth.Application.Features.Applications.UpdateApplicationAppearance;
+using Auth.Domain.ValueObjects;
+
 namespace Auth_API.Modules.Administration.Contracts;
 
 /// <summary>
@@ -34,3 +37,28 @@ public record ThemeColorChoiceRequest(string? Preset, string? Light = null, stri
 /// <param name="Preset">compact, default, comfortable, or "custom".</param>
 /// <param name="Px">For "custom": the height in whole pixels. Ignored otherwise.</param>
 public record ThemeSizeChoiceRequest(string? Preset, int? Px = null);
+
+/// <summary>
+/// The appearance requests as the commands take them: the platform's, and an application's,
+/// which carries the same choices.
+/// </summary>
+public static class ThemeRequestMapping
+{
+    /// <summary>A colour choice, or null when none was sent (the command reports it).</summary>
+    public static ThemeColorChoice? ToChoice(this ThemeColorChoiceRequest? request) =>
+        request?.Preset is null ? null : new ThemeColorChoice(request.Preset, request.Light, request.Dark);
+
+    /// <summary>A size choice, or null when none was sent (the command reports it).</summary>
+    public static ThemeSizeChoice? ToSize(this ThemeSizeChoiceRequest? request) =>
+        request?.Preset is null ? null : new ThemeSizeChoice(request.Preset, request.Px);
+
+    /// <summary>Every choice of an appearance, unvalidated.</summary>
+    public static ThemeChoices ToChoices(this UpdatePlatformThemeRequest request) => new(
+        request.Base.ToChoice(),
+        request.Theme.ToChoice(),
+        request.Chart.ToChoice(),
+        request.Radius,
+        request.MenuAccent,
+        request.ControlSize.ToSize(),
+        request.TableRowHeight.ToSize());
+}

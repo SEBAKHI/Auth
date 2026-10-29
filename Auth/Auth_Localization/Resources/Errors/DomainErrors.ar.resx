@@ -1018,6 +1018,9 @@
   <data name="Application.AllowedScopesInvalid" xml:space="preserve">
     <value>يجب أن يكون كل نطاق مسموح به (scope) واحدًا من: openid، profile، email، phone.</value>
   </data>
+  <data name="Application.AppearanceThemeRequired" xml:space="preserve">
+    <value>لتشغيل المظهر الخاص بهذا التطبيق، أرسل المظهر معه.</value>
+  </data>
   <data name="Application.BaseUrlTooLong" xml:space="preserve">
     <value>يجب ألا يتجاوز الرابط 500 حرفًا.</value>
   </data>

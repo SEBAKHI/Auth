@@ -1,3 +1,4 @@
+using Auth.Application.DTOs;
 using ErrorOr;
 using MediatR;
 
@@ -6,8 +7,8 @@ namespace Auth.Application.Features.Applications.GetPublicBranding;
 /// <summary>
 /// Anonymous query for the minimal public branding of an application, shown on
 /// the hosted login page during an authorize flow. Exposes nothing beyond the
-/// display name, the logos and, for an application a browser can sign in to, its
-/// home address.
+/// display name, the logos, for an application a browser can sign in to its home
+/// address, and its own appearance while that is switched on.
 /// </summary>
 /// <param name="ClientId">The application code acting as the public client id.</param>
 public record GetPublicBrandingQuery(string ClientId) : IRequest<ErrorOr<PublicBrandingDto>>;
@@ -35,4 +36,11 @@ public record PublicBrandingDto
     /// checked for length alone when it is saved, and a page renders it as a link.
     /// </summary>
     public string? HomeUrl { get; init; }
+
+    /// <summary>
+    /// The application's own appearance, present only while it is switched on; null means the
+    /// platform's appearance applies. When present it replaces the platform's as a whole: a
+    /// page never mixes choices of the two.
+    /// </summary>
+    public PlatformThemeDto? Theme { get; init; }
 }

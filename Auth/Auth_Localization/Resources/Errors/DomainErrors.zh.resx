@@ -1016,6 +1016,9 @@
   <data name="Application.AllowedScopesInvalid" xml:space="preserve">
     <value>每个允许的范围（scope）必须是以下之一：openid、profile、email、phone。</value>
   </data>
+  <data name="Application.AppearanceThemeRequired" xml:space="preserve">
+    <value>要启用此应用自己的外观，请同时发送外观设置。</value>
+  </data>
   <data name="Application.BaseUrlTooLong" xml:space="preserve">
     <value>URL长度不能超过500个字符。</value>
   </data>

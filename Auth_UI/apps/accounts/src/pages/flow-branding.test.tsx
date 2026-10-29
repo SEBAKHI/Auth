@@ -61,6 +61,8 @@ vi.mock("@authsystem/ui/branding", () => ({
   BrandingLogo: () => <span data-testid="platform-mark" />,
   // The sign-in options are not yet known: the sign-up page shows its form.
   useSignInOptions: () => null,
+  // The application's appearance has its own tests (branding.provider.test.tsx).
+  useApplicationTheme: () => undefined,
 }))
 // Chrome only: the toggles need the theme and language provider stack.
 vi.mock("@authsystem/ui/common/language-toggle", () => ({

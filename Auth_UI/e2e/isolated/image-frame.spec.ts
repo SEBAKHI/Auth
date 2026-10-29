@@ -263,7 +263,7 @@ test("a logo's aspect is free: one edge trimmed, then a margin added", async ({
 }, testInfo) => {
   const captured = await install(page)
   await page.goto("/admin/platform-settings")
-  await page.getByRole("button", { name: en.common.avatar }).first().click()
+  await page.getByRole("button", { name: en.platformSettings.logo, exact: true }).click()
   await page.getByRole("menuitem", { name: en.common.change, exact: true }).click()
   const logos = page.getByRole("dialog", { name: en.platformSettings.logoDialogTitle })
   await expect(logos).toBeVisible()

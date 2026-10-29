@@ -7,7 +7,6 @@ using Auth.Application.DTOs;
 using Auth.Application.Features.Platform.GetPlatformSettings;
 using Auth.Application.Features.Platform.UpdatePlatformSettings;
 using Auth.Application.Features.Platform.UpdatePlatformTheme;
-using Auth.Domain.ValueObjects;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -104,13 +103,13 @@ public class PlatformSettingsController : ApiController
         CancellationToken cancellationToken)
     {
         var command = new UpdatePlatformThemeCommand(
-            ToChoice(request.Base),
-            ToChoice(request.Theme),
-            ToChoice(request.Chart),
+            request.Base.ToChoice(),
+            request.Theme.ToChoice(),
+            request.Chart.ToChoice(),
             request.Radius,
             request.MenuAccent,
-            ToSize(request.ControlSize),
-            ToSize(request.TableRowHeight),
+            request.ControlSize.ToSize(),
+            request.TableRowHeight.ToSize(),
             GetUserId());
 
         var result = await _sender.Send(command, cancellationToken);
@@ -119,12 +118,6 @@ public class PlatformSettingsController : ApiController
             settings => Ok(settings),
             errors => Problem(errors));
     }
-
-    private static ThemeColorChoice? ToChoice(ThemeColorChoiceRequest? request) =>
-        request?.Preset is null ? null : new ThemeColorChoice(request.Preset, request.Light, request.Dark);
-
-    private static ThemeSizeChoice? ToSize(ThemeSizeChoiceRequest? request) =>
-        request?.Preset is null ? null : new ThemeSizeChoice(request.Preset, request.Px);
 
     private Guid GetUserId()
     {

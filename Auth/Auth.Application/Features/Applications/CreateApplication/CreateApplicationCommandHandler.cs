@@ -197,6 +197,8 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             // application's roles, and none exists before the application does.
             AllowOrganizationCreation = application.AllowOrganizationCreation,
             OrganizationCreatorRoleId = application.OrganizationCreatorRoleId,
+            ThemeEnabled = application.ThemeEnabled,
+            Theme = PlatformThemeDto.FromOrNull(application.Theme),
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,
             ModifiedAt = application.ModifiedAt,

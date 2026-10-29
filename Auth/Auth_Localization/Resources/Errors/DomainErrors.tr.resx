@@ -1016,6 +1016,9 @@
   <data name="Application.AllowedScopesInvalid" xml:space="preserve">
     <value>İzin verilen her kapsam (scope) şunlardan biri olmalıdır: openid, profile, email, phone.</value>
   </data>
+  <data name="Application.AppearanceThemeRequired" xml:space="preserve">
+    <value>Bu uygulamanın kendi görünümünü açmak için görünümü de birlikte gönderin.</value>
+  </data>
   <data name="Application.BaseUrlTooLong" xml:space="preserve">
     <value>URL 500 karakteri aşmamalıdır.</value>
   </data>

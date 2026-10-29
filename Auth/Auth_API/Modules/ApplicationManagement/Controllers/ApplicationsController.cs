@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Common;
+using Auth_API.Modules.Administration.Contracts;
 using Auth_API.Modules.ApplicationManagement.Contracts;
 using Auth.Application.Features.Applications.CreateApplication;
 using Auth.Application.Features.Applications.DeleteApplication;
@@ -16,6 +17,7 @@ using Auth.Application.Features.Applications.GetApplications;
 using Auth.Application.Features.Applications.GetApplicationUsers;
 using Auth.Application.Features.Applications.GetPublicBranding;
 using Auth.Application.Features.Applications.UpdateApplication;
+using Auth.Application.Features.Applications.UpdateApplicationAppearance;
 using Auth.Application.DTOs;
 using Auth.Domain.Constants;
 using Auth.Domain.Enums;
@@ -356,6 +358,37 @@ public class ApplicationsController : ApiController
 
         return result.Match<IActionResult>(
             _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Switch the application's own appearance on or off, and save it. While it is on, the
+    /// accounts pages the application sends people to show it in place of the platform's
+    /// appearance; switching it off keeps it saved. The theme follows the platform's rules.
+    /// </summary>
+    /// <response code="200">Returns the saved switch and appearance</response>
+    /// <response code="400">Switched on without a theme, or a theme the platform's rules refuse</response>
+    [HttpPut("{id:guid}/appearance")]
+    [RequirePermission(PermissionCodes.Applications.Update)]
+    [ProducesResponseType(typeof(ApplicationAppearanceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpdateApplicationAppearance(
+        Guid id,
+        [FromBody] UpdateApplicationAppearanceRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpdateApplicationAppearanceCommand(id, request.Enabled, request.Theme?.ToChoices())
+        {
+            ChangedBy = GetCurrentUserId()
+        };
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match(
+            appearance => Ok(appearance),
             errors => Problem(errors));
     }
 

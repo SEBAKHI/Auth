@@ -2113,12 +2113,12 @@ Retry-After: 43
 
 ‏والتضمينات وصفية لا غير. فهي تُخزَّن وتُعرَض في لوحة التحكم، ولا تمنح شيئاً وقت التشغيل — راجع القسم [4.4](#44-التفويض-المبني-على-الصلاحيات).
 
-#### Applications — 15 نقطة نهاية
+#### Applications — 16 نقطة نهاية
 
 | ‏الصلاحية | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
 | ‏`applications:read` | ‏قائمة مصفَّحة بالتطبيقات المسجَّلة | ‏`/api/v1/Applications` | ‏GET |
-| ‏مجهول | ‏الاسم والشعاران (للوضع الفاتح والداكن) لشاشة دخول، قبل أن يسجّل أحد دخوله. **مجهولة** — فتطبيق الحسابات يناديها | ‏`/api/v1/Applications/{clientId}/public-branding` | ‏GET |
+| ‏مجهول | ‏الاسم والشعاران (للوضع الفاتح والداكن) ومظهر التطبيق الخاص ما دام مفعّلًا، لشاشة دخول قبل أن يسجّل أحد دخوله. **مجهولة** — فتطبيق الحسابات يناديها | ‏`/api/v1/Applications/{clientId}/public-branding` | ‏GET |
 | ‏`applications:read` | ‏تطبيق واحد | ‏`/api/v1/Applications/{id}` | ‏GET |
 | ‏`applications:read` | ‏أدواره | ‏`/api/v1/Applications/{id}/roles` | ‏GET |
 | ‏`applications:read` | ‏صلاحياته | ‏`/api/v1/Applications/{id}/permissions` | ‏GET |
@@ -2129,6 +2129,7 @@ Retry-After: 43
 | ‏`applications:delete` | ‏حذفه | ‏`/api/v1/Applications/{id}` | ‏DELETE |
 | ‏`applications:update` | ‏تشغيله | ‏`/api/v1/Applications/{id}/activate` | ‏POST |
 | ‏`applications:update` | ‏إيقافه وإبطال جلساته ورموزه | ‏`/api/v1/Applications/{id}/deactivate` | ‏POST |
+| ‏`applications:update` | ‏تفعيل مظهره الخاص أو إيقافه، وحفظه | ‏`/api/v1/Applications/{id}/appearance` | ‏PUT |
 | ‏`applications:read` | ‏قائمة وصوله الفردية، المستعملة حين يكون نمط الوصول Restricted | ‏`/api/v1/Applications/{id}/access` | ‏GET |
 | ‏`applications:update` | ‏إضافة مستخدم إلى تلك القائمة | ‏`/api/v1/Applications/{id}/access` | ‏POST |
 | ‏`applications:update` | ‏إزالة مستخدم وإبطال رموز ذلك التطبيق له | ‏`/api/v1/Applications/{id}/access/{userId}` | ‏DELETE |
@@ -4969,6 +4970,36 @@ token=<the token>&token_type_hint=access_token
 
 **‏والكود المجهول والتطبيق المتوقف كلاهما يعيد 404**، ‏بالجسم نفسه، فلا يستطيع منادٍ مجهول أن يستعمل هذه النقطة ليكتشف أي التطبيقات موجود.
 *في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/ApplicationManagement/Controllers/ApplicationsController.cs:68-85`.
+
+**‏والحقل `theme` حاضر ما دام مظهر التطبيق الخاص مفعّلًا فقط**، ‏بشكل الحقل `theme` في مظهر المنصة ([5.21](#521-إعدادات-المنصة)). ‏وهو يحلّ محلّ مظهر المنصة كاملًا على صفحات مسار ذلك التطبيق، فلا يُخلط شيء من الاثنين أبدًا. وإن غاب أو كان null طُبّق مظهر المنصة.
+
+#### PUT `/api/v1/applications/{id}/appearance`
+
+‏تفعيل مظهر التطبيق الخاص أو إيقافه، وحفظه. وما دام مفعّلًا تعرضه صفحات الحسابات التي يرسل التطبيق الناس إليها بدل مظهر المنصة. وهو في لوحة التحكم تبويب **المظهر** في صفحة التطبيق.
+
+**الصلاحية:** ‏`applications:update`
+
+**الطلب:**
+
+```json
+{
+  "enabled": true,
+  "theme": {
+    "base": { "preset": "neutral" },
+    "theme": { "preset": "violet" },
+    "chart": { "preset": "cyan" },
+    "radius": "small",
+    "menuAccent": "subtle",
+    "controlSize": { "preset": "default" },
+    "tableRowHeight": { "preset": "default" }
+  }
+}
+```
+
+**‏والحقل `theme` يأخذ خيارات مظهر المنصة وقواعده** ([5.21](#521-إعدادات-المنصة))، ‏والخيار المرفوض يعود بالأكواد نفسها (`SystemSettings.Theme…`). ‏وهو مطلوب لتفعيل المظهر (وإلا `Application.AppearanceThemeRequired`). ‏ولإيقافه يجوز إغفاله: فيبقى المظهر المحفوظ لحين إعادة تفعيله.
+
+**‏الاستجابة (200):** ‏`{ "enabled": …, "theme": … }` كما خُزّنا. ‏وحفظ ما هو مخزَّن أصلًا لا يغيّر شيئًا. ‏وكل تغيير يُكتب في سجلّ التدقيق بالإجراء `application.appearance.changed`، مع المفتاح والمظهر قبله وبعده. ‏والقراءة `GET /api/v1/applications/{id}` تعيد الاثنين باسمَي `themeEnabled` و`theme`.
+*في الشيفرة:* ‏المجلّد `Auth/Auth.Application/Features/Applications/UpdateApplicationAppearance/`.
 
 #### GET `/api/v1/applications/{id}`
 

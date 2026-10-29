@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 
 import { API_BASE_URL } from "@authsystem/api/env"
+import { toThemeConfig, type ThemeConfig } from "@authsystem/ui/theme/theme-config"
 
 export interface AppBranding {
   name: string
@@ -12,6 +13,11 @@ export interface AppBranding {
    * there (OI-145); null unless it is safe to render as a link.
    */
   homeUrl: string | null
+  /**
+   * The application's own appearance, in place of the platform's on the pages
+   * of its flow; null while it shows the platform's (switched off, or none).
+   */
+  theme: ThemeConfig | null
 }
 
 /**
@@ -47,6 +53,7 @@ async function fetchAppBranding(
     logoUrl?: string | null
     logoUrlDark?: string | null
     homeUrl?: string | null
+    theme?: Parameters<typeof toThemeConfig>[0]
   }
   return data?.name
     ? {
@@ -54,6 +61,9 @@ async function fetchAppBranding(
         logoUrl: data.logoUrl ?? null,
         logoUrlDark: data.logoUrlDark ?? null,
         homeUrl: safeHomeUrl(data.homeUrl),
+        // The whole appearance or none: the server sends it only while it is
+        // switched on, and it replaces the platform's, never merged with it.
+        theme: data.theme ? toThemeConfig(data.theme) : null,
       }
     : null
 }
@@ -68,16 +78,34 @@ async function fetchAppBranding(
  * flashed in the header at every step before the application's came back.
  */
 export function useAppBranding(clientId: string | null): AppBranding | null {
-  const query = useQuery({
+  const query = useAppBrandingQuery(clientId)
+
+  // A response belongs only to the client that requested it: the key carries
+  // the client and no placeholder is kept, so the previous application's
+  // name/logo never flashes into the next authorization prompt.
+  return clientId ? (query.data ?? null) : null
+}
+
+function useAppBrandingQuery(clientId: string | null) {
+  return useQuery({
     queryKey: ["public-branding", clientId],
     queryFn: ({ signal }) => fetchAppBranding(clientId!, signal),
     enabled: Boolean(clientId),
     staleTime: 5 * 60 * 1000,
     retry: false,
   })
+}
 
-  // A response belongs only to the client that requested it: the key carries
-  // the client and no placeholder is kept, so the previous application's
-  // name/logo never flashes into the next authorization prompt.
-  return clientId ? (query.data ?? null) : null
+/**
+ * The application's own appearance, from the same answer as `useAppBranding`:
+ * null when the platform's shows (switched off, or none saved), undefined while
+ * it is not known. A failed request leaves it unknown: the page keeps what it
+ * shows, and the application's cached copy is not forgotten for a failure,
+ * which says nothing about its appearance.
+ */
+export function useAppTheme(clientId: string | null): ThemeConfig | null | undefined {
+  const query = useAppBrandingQuery(clientId)
+  if (!clientId) return null
+  if (query.data === undefined) return undefined
+  return query.data?.theme ?? null
 }

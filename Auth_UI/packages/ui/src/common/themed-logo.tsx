@@ -32,6 +32,7 @@ import { useResolvedTheme } from "@authsystem/ui/theme-provider"
  */
 export function ThemedLogo({
   name,
+  label,
   lightSrc,
   darkSrc,
   canEdit,
@@ -44,6 +45,12 @@ export function ThemedLogo({
   size = "xl",
 }: {
   name?: string | null
+  /**
+   * The circle's name for assistive technology: the visible label beside it,
+   * or what the circle is where none is shown. Each mode's circle in the dialog
+   * is named by its own label ("Light mode", "Dark mode").
+   */
+  label?: string
   lightSrc?: string | null
   darkSrc?: string | null
   canEdit: boolean
@@ -78,7 +85,7 @@ export function ThemedLogo({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label={t("common.avatar")}
+            aria-label={label ?? t("common.avatar")}
             className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <EntityAvatar src={src} name={name} size={size} fit="contain" />
@@ -115,6 +122,7 @@ export function ThemedLogo({
                 <LogoAvatar
                   src={slot.src}
                   name={name}
+                  label={slot.label}
                   canEdit
                   persist={slot.persist}
                   invalidate={invalidate}

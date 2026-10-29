@@ -236,6 +236,7 @@ export const fr: TranslationResources = {
     level: "Niveau",
     lockoutEnd: "Fin du verrouillage",
     logoUrlDark: "Logo du mode sombre",
+    themeEnabled: "Apparence propre",
     initiateLoginUri: "URI d'initiation de connexion (Initiate login URI)",
     logoUrl: "Logo",
     maxConcurrentSessions: "Nombre maximal de sessions simultanées",
@@ -965,6 +966,16 @@ export const fr: TranslationResources = {
     logoUrlDarkHint: "Affiché à la place du logo lorsque le visiteur utilise le mode sombre. Laissez vide pour afficher le même logo dans les deux modes.",
     logoDialogTitle: "Logo de l'application",
     logoDialogDescription: "Choisissez un logo pour chaque mode. Le logo du mode sombre s'affiche quand le mode sombre est actif ; s'il en manque un, l'autre s'affiche dans les deux modes.",
+    appearance: {
+      tab: "Apparence",
+      title: "Apparence",
+      subtitle: "L'aspect des pages de connexion pour les personnes que cette application y envoie. Tant que vous ne la personnalisez pas, elles ressemblent au reste de la plateforme.",
+      enable: "Personnaliser l'apparence de cette application",
+      enabledHint: "Activé : ses pages de connexion utilisent l'apparence ci-dessous à la place de celle de la plateforme, pour chaque visiteur qu'elle envoie.",
+      disabledHint: "Désactivé : ses pages de connexion utilisent l'apparence de la plateforme. Une apparence enregistrée est conservée pour le jour où vous le réactivez.",
+      copyPlatform: "Partir de l'apparence de la plateforme",
+      saved: "Apparence enregistrée.",
+    },
     logoUrlHint:
       "URL d'image publique affichée sur l'écran de connexion de cette application.",
     contactEmailHint:
@@ -1378,6 +1389,7 @@ export const fr: TranslationResources = {
       applicationDeactivated: "Application désactivée",
       applicationRedirectUrisChanged: "URI de redirection d'une application modifiées",
       applicationLaunchAddressesChanged: "Adresses de lancement d'une application modifiées",
+      applicationAppearanceChanged: "Apparence d'une application modifiée",
       organizationOwnershipTransferInitiated:
         "Transfert de propriété d'organisation lancé",
       organizationOwnershipTransferred: "Propriété d'organisation transférée",

@@ -121,24 +121,35 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
         private static readonly ThemeSizeChoice Unreadable = new(string.Empty);
 
         public static string? Write(PlatformTheme theme) =>
-            theme == PlatformTheme.Default
-                ? null
-                : JsonSerializer.Serialize(
-                    new ThemeRow(
-                        Row(theme.Base),
-                        Row(theme.Theme),
-                        Row(theme.Chart),
-                        theme.Radius,
-                        theme.MenuAccent,
-                        Element(theme.ControlSize),
-                        Element(theme.TableRowHeight)),
-                    Options);
+            theme == PlatformTheme.Default ? null : Serialize(theme);
 
-        public static PlatformTheme Read(string? json)
+        /// <summary>
+        /// The stored form of any appearance, the shipped preset included: for an
+        /// application, NULL means "none saved", not "the preset".
+        /// </summary>
+        public static string Serialize(PlatformTheme theme) =>
+            JsonSerializer.Serialize(
+                new ThemeRow(
+                    Row(theme.Base),
+                    Row(theme.Theme),
+                    Row(theme.Chart),
+                    theme.Radius,
+                    theme.MenuAccent,
+                    Element(theme.ControlSize),
+                    Element(theme.TableRowHeight)),
+                Options);
+
+        public static PlatformTheme Read(string? json) => ReadOrNull(json) ?? PlatformTheme.Default;
+
+        /// <summary>
+        /// As <see cref="Read"/>, but null where nothing usable is stored: an
+        /// application whose row holds no readable appearance shows the platform's.
+        /// </summary>
+        public static PlatformTheme? ReadOrNull(string? json)
         {
             if (string.IsNullOrWhiteSpace(json))
             {
-                return PlatformTheme.Default;
+                return null;
             }
 
             try
@@ -146,7 +157,7 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
                 var row = JsonSerializer.Deserialize<ThemeRow>(json, Options);
                 if (row is null)
                 {
-                    return PlatformTheme.Default;
+                    return null;
                 }
 
                 var theme = Create(row, Size(row.ControlSize), Size(row.TableRowHeight));
@@ -156,11 +167,11 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
                 }
 
                 theme = Create(row, ThemeSizeChoice.Default, ThemeSizeChoice.Default);
-                return theme.IsError ? PlatformTheme.Default : theme.Value;
+                return theme.IsError ? null : theme.Value;
             }
             catch (JsonException)
             {
-                return PlatformTheme.Default;
+                return null;
             }
         }
 

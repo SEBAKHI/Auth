@@ -236,6 +236,7 @@ export const tr: TranslationResources = {
     level: "Seviye",
     lockoutEnd: "Kilit bitişi",
     logoUrlDark: "Koyu mod logosu",
+    themeEnabled: "Kendi görünümü",
     initiateLoginUri: "Oturum başlatma URI'si (Initiate login URI)",
     logoUrl: "Logo",
     maxConcurrentSessions: "Azami eşzamanlı oturum",
@@ -949,6 +950,16 @@ export const tr: TranslationResources = {
     logoUrlDarkHint: "Ziyaretçi koyu modu kullandığında logonun yerine gösterilir. Her iki modda aynı logoyu göstermek için boş bırakın.",
     logoDialogTitle: "Uygulama logosu",
     logoDialogDescription: "Her mod için bir logo seçin. Koyu mod logosu koyu mod açıkken gösterilir; biri eksikse diğeri her iki modda gösterilir.",
+    appearance: {
+      tab: "Görünüm",
+      title: "Görünüm",
+      subtitle: "Bu uygulamanın gönderdiği kişiler için oturum açma sayfalarının nasıl göründüğü. Siz özelleştirmedikçe platformun geri kalanı gibi görünürler.",
+      enable: "Bu uygulamanın görünümünü özelleştir",
+      enabledHint: "Açık: oturum açma sayfaları, gönderdiği her ziyaretçi için platformunki yerine aşağıdaki görünümü kullanır.",
+      disabledHint: "Kapalı: oturum açma sayfaları platformun görünümünü kullanır. Kaydettiğiniz görünüm, yeniden açtığınız zaman için saklanır.",
+      copyPlatform: "Platformun görünümünden başla",
+      saved: "Görünüm kaydedildi.",
+    },
     logoUrlHint:
       "Bu uygulamanın oturum açma ekranında gösterilen herkese açık görsel URL'si.",
     contactEmailHint:
@@ -1354,6 +1365,7 @@ export const tr: TranslationResources = {
       applicationDeactivated: "Uygulama devre dışı bırakıldı",
       applicationRedirectUrisChanged: "Uygulama yönlendirme URI'leri değiştirildi",
       applicationLaunchAddressesChanged: "Uygulama başlatma adresleri değiştirildi",
+      applicationAppearanceChanged: "Uygulama görünümü değiştirildi",
       organizationOwnershipTransferInitiated:
         "Organizasyon sahipliği devri başlatıldı",
       organizationOwnershipTransferred: "Organizasyon sahipliği devredildi",

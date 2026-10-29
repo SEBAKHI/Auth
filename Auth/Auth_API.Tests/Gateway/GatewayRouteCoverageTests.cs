@@ -60,6 +60,31 @@ public class GatewayRouteCoverageTests
             "add a matching route to Auth/API_Gateway/appsettings.json (ReverseProxy:Routes)");
     }
 
+    /// <summary>
+    /// The application appearance's two endpoints, by their action routes rather than their
+    /// controller's: the console saves it (PUT …/appearance) and the anonymous sign-in pages read
+    /// it (GET …/public-branding). Both must reach the API, or the console's save fails and
+    /// every visitor silently gets the platform's appearance.
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(Auth_API.Modules.ApplicationManagement.Controllers.ApplicationsController.UpdateApplicationAppearance), "/api/v1/Applications/{id:guid}/appearance")]
+    [InlineData(nameof(Auth_API.Modules.ApplicationManagement.Controllers.ApplicationsController.GetPublicBranding), "/api/v1/Applications/{clientId}/public-branding")]
+    public void TheApplicationAppearanceEndpoints_AreCoveredByAGatewayRoute(string action, string expectedPath)
+    {
+        var controller = typeof(Auth_API.Modules.ApplicationManagement.Controllers.ApplicationsController);
+        var controllerRoute = controller.GetCustomAttributes(typeof(RouteAttribute), inherit: true)
+            .Cast<RouteAttribute>().Single().Template;
+        var actionRoute = controller.GetMethod(action)!
+            .GetCustomAttributes(typeof(Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute), inherit: true)
+            .Cast<Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute>().Single().Template;
+        var path = NormalizeControllerRoute(controllerRoute, controller.Name) + "/" + actionRoute;
+
+        path.Should().Be(expectedPath, "the route the console and the sign-in pages call");
+        GatewayRoutePrefixes().Should().Contain(
+            prefix => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase),
+            $"{path} must be forwarded by the gateway");
+    }
+
     [Fact]
     public void ImageStorageRequestPath_IsCoveredByAGatewayRoute()
     {

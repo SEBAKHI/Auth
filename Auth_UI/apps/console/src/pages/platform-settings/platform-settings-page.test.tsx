@@ -33,6 +33,19 @@ vi.mock("@authsystem/ui/theme-provider", () => ({
 // about the branding card only.
 vi.mock("./appearance-card", () => ({ AppearanceCard: () => null }))
 
+// An upload the test lets finish when it chooses, and a frame editor that keeps
+// the chosen file as it is (its own tests cover it).
+const upload = vi.fn<(file: File) => Promise<{ key: string }>>()
+vi.mock("@authsystem/api/upload", () => ({ uploadImage: (file: File) => upload(file) }))
+vi.mock("@authsystem/ui/common/image-frame/image-frame-dialog", async () => {
+  const React = await import("react")
+  function KeepTheFile({ file, onConfirm }: { file: File; onConfirm: (file: File) => void }) {
+    React.useEffect(() => onConfirm(file), [file, onConfirm])
+    return null
+  }
+  return { default: KeepTheFile }
+})
+
 import { PlatformSettingsPage } from "./platform-settings-page"
 
 // No two fields share a value, so a slot wired to the wrong field shows up.
@@ -61,15 +74,17 @@ function renderPage() {
   )
 }
 
+/** The two circles, each named by the label under it. */
 async function brandingCircles() {
   await screen.findByText("Branding")
-  return screen.getAllByRole("button", { name: "Avatar" })
+  return [screen.getByRole("button", { name: "Logo" }), screen.getByRole("button", { name: "Favicon" })]
 }
 
 beforeEach(async () => {
   await i18n.changeLanguage("en")
   get.mockImplementation(() => ok(settings))
-  put.mockImplementation(() => ok(settings))
+  // The server stores what it is sent, and answers with it.
+  put.mockImplementation((_path: string, init: { body: Record<string, unknown> }) => ok({ ...settings, ...init.body }))
 })
 
 afterEach(() => {
@@ -104,7 +119,7 @@ describe("platform settings branding card", () => {
     expect(within(dialog).getByText("Dark mode")).toBeTruthy()
 
     const darkSlot = dialog.querySelector<HTMLElement>('[data-mode="dark"]')!
-    await user.click(within(darkSlot).getByRole("button", { name: "Avatar" }))
+    await user.click(within(darkSlot).getByRole("button", { name: "Dark mode" }))
     await user.click(await screen.findByRole("menuitem", { name: "Remove" }))
 
     await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(1))
@@ -133,6 +148,57 @@ describe("platform settings branding card", () => {
         logoUrl: settings.logoUrl,
         logoUrlDark: settings.logoUrlDark,
         faviconUrl: null,
+      },
+    })
+  })
+})
+
+describe("platform settings branding card — saves that overlap", () => {
+  it("names each circle by the label under it, not as an avatar", async () => {
+    renderPage()
+
+    await screen.findByText("Branding")
+    expect(screen.queryByRole("button", { name: "Avatar" })).toBeNull()
+    expect(screen.getByRole("button", { name: "Logo" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Favicon" })).toBeTruthy()
+  })
+
+  it("a logo still uploading when the dark logo is removed does not bring the dark logo back", async () => {
+    // Reported by the phase 2 review: the second save sent back the dark logo
+    // its card had rendered before the first save removed it.
+    const user = userEvent.setup()
+    let finishUpload!: (value: { key: string }) => void
+    upload.mockReturnValue(new Promise((resolve) => (finishUpload = resolve)))
+    renderPage()
+
+    const [logo] = await brandingCircles()
+    await user.click(logo!)
+    await user.click(await screen.findByRole("menuitem", { name: "Change" }))
+    const dialog = await screen.findByRole("dialog", { name: "Platform logo" })
+    const lightSlot = dialog.querySelector<HTMLElement>('[data-mode="light"]')!
+    const darkSlot = dialog.querySelector<HTMLElement>('[data-mode="dark"]')!
+
+    // A new light logo starts uploading…
+    await user.upload(
+      lightSlot.querySelector<HTMLInputElement>('input[type="file"]')!,
+      new File(["png"], "light.png", { type: "image/png" })
+    )
+    await vi.waitFor(() => expect(upload).toHaveBeenCalledTimes(1))
+    // …the dark logo is removed meanwhile, and that save lands…
+    await user.click(within(darkSlot).getByRole("button", { name: "Dark mode" }))
+    await user.click(await screen.findByRole("menuitem", { name: "Remove" }))
+    await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(1))
+    expect(put.mock.calls[0]![1].body).toMatchObject({ logoUrl: settings.logoUrl, logoUrlDark: null })
+
+    // …then the upload finishes: its save keeps the dark logo removed.
+    finishUpload({ key: "uploads/new-light.png" })
+    await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(2))
+    expect(put.mock.calls[1]![1]).toEqual({
+      body: {
+        platformName: settings.platformName,
+        logoUrl: "uploads/new-light.png",
+        logoUrlDark: null,
+        faviconUrl: settings.faviconUrl,
       },
     })
   })

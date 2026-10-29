@@ -31,6 +31,7 @@ export const PUBLISHED_ERROR_CODES = {
   "Application.AccessNoteTooLong": "#/note",
   "Application.AllowedScopesInvalid": "#/allowedScopes",
   "Application.AlreadyEnabledForOrganization": "catalog",
+  "Application.AppearanceThemeRequired": "#/theme",
   "Application.BaseUrlTooLong": "#/baseUrl",
   "Application.CannotRestrictWithActiveOrganizations": "catalog",
   "Application.CodeTooLong": "catalog",

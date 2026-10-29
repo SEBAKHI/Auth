@@ -40,6 +40,8 @@ vi.mock("@authsystem/ui/branding", () => ({
   BrandingLogo: () => null,
   // The sign-in options are not yet known: the sign-up page shows its form.
   useSignInOptions: () => null,
+  // The application's appearance has its own tests (branding.provider.test.tsx).
+  useApplicationTheme: () => undefined,
 }))
 vi.mock("@authsystem/ui/common/language-toggle", () => ({
   LanguageToggle: () => null,

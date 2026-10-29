@@ -235,6 +235,7 @@ export const fa: TranslationResources = {
     level: "سطح",
     lockoutEnd: "پایان قفل",
     logoUrlDark: "لوگوی حالت تیره",
+    themeEnabled: "ظاهر اختصاصی",
     initiateLoginUri: "آدرس شروع ورود (Initiate login URI)",
     logoUrl: "لوگو",
     maxConcurrentSessions: "بیشینهٔ نشست‌های هم‌زمان",
@@ -939,6 +940,16 @@ export const fa: TranslationResources = {
     logoUrlDarkHint: "وقتی بازدیدکننده از حالت تیره استفاده می‌کند به جای لوگو نمایش داده می‌شود. برای نمایش همان لوگو در هر دو حالت، خالی بگذارید.",
     logoDialogTitle: "لوگوی برنامه",
     logoDialogDescription: "برای هر حالت یک لوگو انتخاب کنید. لوگوی حالت تیره هنگام فعال بودن حالت تیره نمایش داده می‌شود؛ اگر یکی موجود نباشد، دیگری در هر دو حالت نمایش داده می‌شود.",
+    appearance: {
+      tab: "ظاهر",
+      title: "ظاهر",
+      subtitle: "صفحه‌های ورود برای کسانی که این برنامه به آن‌جا می‌فرستد چگونه دیده می‌شوند. تا آن را سفارشی نکنید، مانند بقیهٔ پلتفرم دیده می‌شوند.",
+      enable: "سفارشی‌سازی ظاهر این برنامه",
+      enabledHint: "روشن: صفحه‌های ورود آن، به‌جای ظاهر پلتفرم، ظاهر زیر را برای هر بازدیدکننده‌ای که می‌فرستد به کار می‌برند.",
+      disabledHint: "خاموش: صفحه‌های ورود آن ظاهر پلتفرم را به کار می‌برند. ظاهری که ذخیره کرده‌اید برای زمانی که دوباره روشنش کنید نگه داشته می‌شود.",
+      copyPlatform: "شروع از ظاهر پلتفرم",
+      saved: "ظاهر ذخیره شد.",
+    },
     logoUrlHint:
       "نشانی تصویر عمومی که در صفحه ورود این برنامه نشان داده می‌شود.",
     contactEmailHint:
@@ -1340,6 +1351,7 @@ export const fa: TranslationResources = {
       applicationDeactivated: "غیرفعال‌سازی برنامه",
       applicationRedirectUrisChanged: "تغییر آدرس‌های بازگشت برنامه",
       applicationLaunchAddressesChanged: "تغییر آدرس‌های راه‌اندازی برنامه",
+      applicationAppearanceChanged: "تغییر ظاهر برنامه",
       organizationOwnershipTransferInitiated: "آغاز انتقال مالکیت سازمان",
       organizationOwnershipTransferred: "انتقال مالکیت سازمان",
       organizationProvisionedForApplication: "راه‌اندازی سازمان از یک برنامه",

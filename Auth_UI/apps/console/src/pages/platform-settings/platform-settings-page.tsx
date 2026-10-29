@@ -68,6 +68,18 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
     void queryClient.invalidateQueries({ queryKey: BRANDING_QUERY_KEY })
   }, [queryClient])
 
+  /**
+   * The settings as stored right now, read when a save is SENT: every save
+   * resends the other fields, and a save that started earlier (a logo still
+   * uploading) would otherwise send back what this card rendered before it,
+   * undoing a change made in the meantime. Each answer is written to the cache
+   * (`applySaved`), so the next save builds on it.
+   */
+  const latest = React.useCallback(
+    () => queryClient.getQueryData<Schemas["PlatformSettingsDto"]>(SETTINGS_QUERY_KEY) ?? settings,
+    [queryClient, settings]
+  )
+
   const schema = z.object({
     platformName: z.string().min(1, t("validation.required")),
   })
@@ -80,12 +92,13 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
 
   const saveName = useMutation({
     mutationFn: async (values: Values) => {
+      const current = latest()
       const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
         body: {
           platformName: values.platformName,
-          logoUrl: settings.logoUrl ?? null,
-          logoUrlDark: settings.logoUrlDark ?? null,
-          faviconUrl: settings.faviconUrl ?? null,
+          logoUrl: current.logoUrl ?? null,
+          logoUrlDark: current.logoUrlDark ?? null,
+          faviconUrl: current.faviconUrl ?? null,
         },
       })
       if (error) throw error
@@ -102,50 +115,53 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
   // Logo changes persist immediately (same flow as organization logos).
   const persistLogoLight = React.useCallback(
     async (logoKey: string | null) => {
+      const current = latest()
       const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
         body: {
-          platformName: settings.platformName ?? "",
+          platformName: current.platformName ?? "",
           logoUrl: logoKey,
-          logoUrlDark: settings.logoUrlDark ?? null,
-          faviconUrl: settings.faviconUrl ?? null,
+          logoUrlDark: current.logoUrlDark ?? null,
+          faviconUrl: current.faviconUrl ?? null,
         },
       })
       if (error) throw error
       applySaved(data)
     },
-    [settings.platformName, settings.logoUrlDark, settings.faviconUrl, applySaved]
+    [latest, applySaved]
   )
 
   const persistLogoDark = React.useCallback(
     async (logoKey: string | null) => {
+      const current = latest()
       const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
         body: {
-          platformName: settings.platformName ?? "",
-          logoUrl: settings.logoUrl ?? null,
+          platformName: current.platformName ?? "",
+          logoUrl: current.logoUrl ?? null,
           logoUrlDark: logoKey,
-          faviconUrl: settings.faviconUrl ?? null,
+          faviconUrl: current.faviconUrl ?? null,
         },
       })
       if (error) throw error
       applySaved(data)
     },
-    [settings.platformName, settings.logoUrl, settings.faviconUrl, applySaved]
+    [latest, applySaved]
   )
 
   const persistFavicon = React.useCallback(
     async (logoKey: string | null) => {
+      const current = latest()
       const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
         body: {
-          platformName: settings.platformName ?? "",
-          logoUrl: settings.logoUrl ?? null,
-          logoUrlDark: settings.logoUrlDark ?? null,
+          platformName: current.platformName ?? "",
+          logoUrl: current.logoUrl ?? null,
+          logoUrlDark: current.logoUrlDark ?? null,
           faviconUrl: logoKey,
         },
       })
       if (error) throw error
       applySaved(data)
     },
-    [settings.platformName, settings.logoUrl, settings.logoUrlDark, applySaved]
+    [latest, applySaved]
   )
 
   return (
@@ -165,6 +181,7 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
           <div className="flex flex-col items-center gap-1.5">
             <ThemedLogo
               name={settings.platformName}
+              label={t("platformSettings.logo")}
               lightSrc={settings.logoUrl}
               darkSrc={settings.logoUrlDark}
               canEdit
@@ -183,6 +200,7 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
             <LogoAvatar
               src={settings.faviconUrl}
               name={settings.platformName}
+              label={t("platformSettings.favicon")}
               canEdit
               persist={persistFavicon}
               frame="favicon"

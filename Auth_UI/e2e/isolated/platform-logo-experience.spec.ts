@@ -83,9 +83,13 @@ for (const language of ["en", "ar"] as const) {
           .filter({ has: page.getByText(t.platformSettings.brandingTitle, { exact: true }) })
         await expect(card).toBeVisible()
 
-        // Two circles: the themed logo and the favicon. Not three.
-        const circles = card.getByRole("button", { name: t.common.avatar })
+        // Two circles: the themed logo and the favicon. Not three. Each is
+        // named by the label under it, not announced as an avatar.
+        const circles = card
+          .getByRole("button", { name: t.platformSettings.logo, exact: true })
+          .or(card.getByRole("button", { name: t.platformSettings.favicon, exact: true }))
         await expect(circles).toHaveCount(2)
+        await expect(card.getByRole("button", { name: t.common.avatar })).toHaveCount(0)
         await expect(card.getByText(t.platformSettings.logo, { exact: true })).toBeVisible()
         await expect(card.getByText(t.platformSettings.favicon, { exact: true })).toBeVisible()
         await expect(card.getByText(t.platformSettings.logoLight, { exact: true })).toHaveCount(0)

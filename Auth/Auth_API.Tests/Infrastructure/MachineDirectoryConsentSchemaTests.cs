@@ -27,8 +27,9 @@ public class MachineDirectoryConsentSchemaTests
     {
         var names = OrganizationCreationSchemaTests.DeclaredColumns(TableSource()).Select(c => c.Name).ToList();
 
-        names.Should().HaveCountGreaterThan(2);
-        names.TakeLast(2).Should().Equal(["InitiateLoginUri", "AllowMachineOrganizationsRead"],
+        // Only a later batch follows it: the application's appearance (ApplicationAppearanceSchemaTests).
+        names.Should().HaveCountGreaterThan(4);
+        names.TakeLast(4).Should().Equal(["InitiateLoginUri", "AllowMachineOrganizationsRead", "Theme", "ThemeEnabled"],
             "it is appended, so the publish does not rebuild the table");
     }
 

@@ -125,6 +125,12 @@
       "source": "catalog"
     },
     {
+      "code": "Application.AppearanceThemeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/theme"
+    },
+    {
       "code": "Application.BaseUrlTooLong",
       "status": 400,
       "source": "catalog",

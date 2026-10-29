@@ -1016,6 +1016,9 @@
   <data name="Application.AllowedScopesInvalid" xml:space="preserve">
     <value>ہر اجازت یافتہ اسکوپ (scope) ان میں سے ایک ہونا چاہیے: openid، profile، email، phone۔</value>
   </data>
+  <data name="Application.AppearanceThemeRequired" xml:space="preserve">
+    <value>اس ایپلیکیشن کی اپنی ظاہری شکل آن کرنے کے لیے، ظاہری شکل بھی ساتھ بھیجیں۔</value>
+  </data>
   <data name="Application.BaseUrlTooLong" xml:space="preserve">
     <value>URL ۵۰۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
   </data>

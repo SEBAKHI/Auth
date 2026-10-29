@@ -10,6 +10,7 @@ import { useLogo } from "@authsystem/api/use-logo"
 export function LogoAvatar({
   src,
   name,
+  label,
   canEdit,
   persist,
   invalidate,
@@ -19,6 +20,8 @@ export function LogoAvatar({
 }: {
   src?: string | null
   name?: string | null
+  /** The visible label beside the circle, as its accessible name (`AvatarMenu`). */
+  label?: string
   canEdit: boolean
   persist: (logoKey: string | null) => Promise<void>
   invalidate: () => void
@@ -37,6 +40,7 @@ export function LogoAvatar({
     <AvatarMenu
       src={src}
       name={name}
+      label={label}
       size={size}
       fit="contain"
       frame={frame}

@@ -34,6 +34,7 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 export function AvatarMenu({
   src,
   name,
+  label,
   size = "lg",
   fit,
   frame,
@@ -43,6 +44,12 @@ export function AvatarMenu({
 }: {
   src?: string | null
   name?: string | null
+  /**
+   * The circle's name for assistive technology: the visible label beside it
+   * ("Logo", "Favicon"). Without one it is announced as an avatar, which on a
+   * page with two circles tells a screen reader user nothing.
+   */
+  label?: string
   size?: "default" | "sm" | "lg" | "xl"
   fit?: "cover" | "contain"
   /** How the editor frames the image: a free-aspect logo, a square favicon, a person's photo. */
@@ -75,7 +82,7 @@ export function AvatarMenu({
           <button
             ref={triggerRef}
             type="button"
-            aria-label={t("common.avatar")}
+            aria-label={label ?? t("common.avatar")}
             aria-disabled={pending || undefined}
             className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:opacity-50"
           >

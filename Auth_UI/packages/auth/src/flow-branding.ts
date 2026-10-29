@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next"
 
-import { useBranding } from "@authsystem/ui/branding"
+import { useApplicationTheme, useBranding } from "@authsystem/ui/branding"
 
 import { getReturnToClientId } from "./return-to"
-import { type AppBranding, useAppBranding } from "./use-app-branding"
+import { type AppBranding, useAppBranding, useAppTheme } from "./use-app-branding"
 
 export interface FlowBranding {
   /** The requesting application's public branding, or null for the platform's own. */
@@ -29,11 +29,18 @@ export interface FlowBranding {
  * next one inherits it instead of re-deriving it.
  *
  * Only the client id is taken from `returnTo`, which must already be validated.
- * The name and the logo come from the public-branding endpoint, never from the URL.
+ * The name, the logo and the appearance come from the public-branding endpoint,
+ * never from the URL.
+ *
+ * The same pages show the application's own appearance, while it has one
+ * switched on, in place of the platform's: every screen of the flow reads its
+ * header here, so none of them can forget it.
  */
 export function useFlowBranding(returnTo: string | null): FlowBranding {
   const { t } = useTranslation()
-  const appBranding = useAppBranding(getReturnToClientId(returnTo))
+  const clientId = getReturnToClientId(returnTo)
+  const appBranding = useAppBranding(clientId)
+  useApplicationTheme(clientId, useAppTheme(clientId))
   const { name: platformName, isPending: brandingPending } = useBranding()
 
   // A trust marker naming the wrong platform is worse than no marker at all:

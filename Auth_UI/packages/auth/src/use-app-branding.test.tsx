@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react"
 import type * as React from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { safeHomeUrl, useAppBranding } from "./use-app-branding"
+import { safeHomeUrl, useAppBranding, useAppTheme } from "./use-app-branding"
 
 // One client per test: the apps share one across screens, which is the point,
 // but a test that inherited another test's cached answer would prove nothing.
@@ -41,6 +41,7 @@ describe("useAppBranding", () => {
         logoUrl: "/logo.svg",
         logoUrlDark: null,
         homeUrl: null,
+        theme: null,
       })
     )
     expect(String(fetch.mock.calls[0][0])).toMatch(
@@ -97,6 +98,7 @@ describe("useAppBranding", () => {
       logoUrl: "/logo.svg",
       logoUrlDark: null,
       homeUrl: null,
+      theme: null,
     })
     expect(fetch).toHaveBeenCalledTimes(1)
   })
@@ -159,5 +161,65 @@ describe("safeHomeUrl (OI-145)", () => {
     undefined,
   ])("withholds %s", (raw) => {
     expect(safeHomeUrl(raw)).toBeNull()
+  })
+})
+
+describe("useAppTheme", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  const answer = (body: object) => ({ ok: true, json: () => Promise.resolve(body) }) as Response
+  const violet = {
+    base: { preset: "neutral" },
+    theme: { preset: "violet" },
+    chart: { preset: "cyan" },
+    radius: "small",
+    menuAccent: "bold",
+    controlSize: { preset: "custom", px: 44 },
+    tableRowHeight: { preset: "comfortable" },
+  }
+
+  it("is unknown while the branding is on its way, then the application's whole appearance", async () => {
+    let resolve!: (value: Response) => void
+    vi.spyOn(globalThis, "fetch").mockReturnValue(new Promise<Response>((r) => (resolve = r)))
+    const { result } = renderHook(() => useAppTheme("crm"), { wrapper: withClient() })
+
+    expect(result.current).toBeUndefined()
+    resolve(answer({ name: "CRM", theme: violet }))
+
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        base: { preset: "neutral", light: null, dark: null },
+        theme: { preset: "violet", light: null, dark: null },
+        chart: { preset: "cyan", light: null, dark: null },
+        radius: "small",
+        menuAccent: "bold",
+        controlSize: { preset: "custom", px: 44 },
+        tableRowHeight: { preset: "comfortable" },
+      })
+    )
+  })
+
+  it("is none when the server sends no appearance (switched off, or none saved)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(answer({ name: "CRM", theme: null }))
+    const { result } = renderHook(() => useAppTheme("crm"), { wrapper: withClient() })
+
+    await waitFor(() => expect(result.current).toBeNull())
+  })
+
+  it("stays unknown when the branding fails: a failure says nothing of the appearance", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status: 503 } as Response)
+    const { result } = renderHook(() => useAppTheme("crm"), { wrapper: withClient() })
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(result.current).toBeUndefined()
+  })
+
+  it("is none without a client, and asks nothing", () => {
+    const fetch = vi.spyOn(globalThis, "fetch")
+    const { result } = renderHook(() => useAppTheme(null), { wrapper: withClient() })
+
+    expect(result.current).toBeNull()
+    expect(fetch).not.toHaveBeenCalled()
   })
 })

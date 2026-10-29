@@ -1016,6 +1016,9 @@
   <data name="Application.AllowedScopesInvalid" xml:space="preserve">
     <value>هر دامنهٔ مجاز (scope) باید یکی از این‌ها باشد: openid، profile، email، phone.</value>
   </data>
+  <data name="Application.AppearanceThemeRequired" xml:space="preserve">
+    <value>برای روشن کردن ظاهر اختصاصی این برنامه، ظاهر را همراه آن بفرستید.</value>
+  </data>
   <data name="Application.BaseUrlTooLong" xml:space="preserve">
     <value>آدرس URL نباید بیش از ۵۰۰ کاراکتر باشد.</value>
   </data>

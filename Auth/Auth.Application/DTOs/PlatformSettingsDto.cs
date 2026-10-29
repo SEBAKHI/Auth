@@ -132,6 +132,9 @@ public class PlatformThemeDto
         ControlSize = ThemeSizeChoiceDto.From(theme.ControlSize),
         TableRowHeight = ThemeSizeChoiceDto.From(theme.TableRowHeight),
     };
+
+    /// <summary>The DTO of an appearance that may be absent (an application's own).</summary>
+    public static PlatformThemeDto? FromOrNull(PlatformTheme? theme) => theme is null ? null : From(theme);
 }
 
 /// <summary>

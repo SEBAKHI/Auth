@@ -2125,12 +2125,12 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 
 Implications are descriptive only. They are stored and shown in the console, and they grant nothing at runtime — see [4.4](#44-permission-based-authorization).
 
-#### Applications — 15 endpoints
+#### Applications — 16 endpoints
 
 | Method | Path | What it does | Permission |
 |---|---|---|---|
 | GET | `/api/v1/Applications` | Paged list of registered applications | `applications:read` |
-| GET | `/api/v1/Applications/{clientId}/public-branding` | Name and logos (light and dark mode) for a sign-in screen, before anyone is signed in. **Anonymous** — the accounts application calls it | Anonymous |
+| GET | `/api/v1/Applications/{clientId}/public-branding` | Name, logos (light and dark mode) and, while it is switched on, the application's own appearance, for a sign-in screen before anyone is signed in. **Anonymous** — the accounts application calls it | Anonymous |
 | GET | `/api/v1/Applications/{id}` | One application | `applications:read` |
 | GET | `/api/v1/Applications/{id}/roles` | Its roles | `applications:read` |
 | GET | `/api/v1/Applications/{id}/permissions` | Its permissions | `applications:read` |
@@ -2141,6 +2141,7 @@ Implications are descriptive only. They are stored and shown in the console, and
 | DELETE | `/api/v1/Applications/{id}` | Delete it | `applications:delete` |
 | POST | `/api/v1/Applications/{id}/activate` | Switch it on | `applications:update` |
 | POST | `/api/v1/Applications/{id}/deactivate` | Switch it off and revoke its sessions and tokens | `applications:update` |
+| PUT | `/api/v1/Applications/{id}/appearance` | Switch its own appearance on or off, and save it | `applications:update` |
 | GET | `/api/v1/Applications/{id}/access` | Its individual access list, used when access mode is Restricted | `applications:read` |
 | POST | `/api/v1/Applications/{id}/access` | Add a user to that list | `applications:update` |
 | DELETE | `/api/v1/Applications/{id}/access/{userId}` | Remove a user and revoke that application's tokens for them | `applications:update` |
@@ -4992,6 +4993,36 @@ The name and logo to show on a sign-in screen, for a person who is not signed in
 
 **An unknown code and a switched-off application both return 404**, with the same body, so an anonymous caller cannot use this endpoint to discover which applications exist.
 *In code:* `Auth/Auth_API/Modules/ApplicationManagement/Controllers/ApplicationsController.cs:68-85`.
+
+**`theme` is present only while the application's own appearance is switched on**, with the shape of the platform's `theme` ([5.21](#521-platform-settings)). It replaces the platform's appearance as a whole on the pages of that application's flow; nothing of the two is ever mixed. Absent or null, the platform's appearance applies.
+
+#### PUT `/api/v1/applications/{id}/appearance`
+
+Switch the application's own appearance on or off, and save it. While it is on, the accounts pages this application sends people to show it in place of the platform's appearance. In the console this is the **Appearance** tab of an application's page.
+
+**Permission:** `applications:update`
+
+**Request:**
+
+```json
+{
+  "enabled": true,
+  "theme": {
+    "base": { "preset": "neutral" },
+    "theme": { "preset": "violet" },
+    "chart": { "preset": "cyan" },
+    "radius": "small",
+    "menuAccent": "subtle",
+    "controlSize": { "preset": "default" },
+    "tableRowHeight": { "preset": "default" }
+  }
+}
+```
+
+**`theme` takes the platform appearance's choices and rules** ([5.21](#521-platform-settings)), and a refused choice answers with the same codes (`SystemSettings.Theme…`). It is required to switch the appearance on (`Application.AppearanceThemeRequired` otherwise). To switch it off, it may be left out: the saved appearance is kept for when it is switched on again.
+
+**Response (200):** `{ "enabled": …, "theme": … }`, as stored. Saving what is already stored changes nothing. A change is written to the audit log as `application.appearance.changed`, with the switch and the appearance before and after. `GET /api/v1/applications/{id}` returns both as `themeEnabled` and `theme`.
+*In code:* `Auth/Auth.Application/Features/Applications/UpdateApplicationAppearance/`.
 
 #### GET `/api/v1/applications/{id}`
 
