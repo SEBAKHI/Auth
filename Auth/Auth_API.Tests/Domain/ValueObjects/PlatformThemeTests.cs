@@ -13,18 +13,26 @@ public class PlatformThemeTests
 
     private static ThemeColorChoice Custom(string? light, string? dark) => new(ThemePresets.Custom, light, dark);
 
+    private static ThemeSizeChoice Size(string step) => new(step);
+
+    private static ThemeSizeChoice CustomSize(int? px) => new(ThemePresets.Custom, px);
+
     private static ErrorOr.ErrorOr<PlatformTheme> Create(
         ThemeColorChoice? baseColor = null,
         ThemeColorChoice? theme = null,
         ThemeColorChoice? chart = null,
         string? radius = "default",
-        string? menuAccent = "subtle") =>
+        string? menuAccent = "subtle",
+        ThemeSizeChoice? controlSize = null,
+        ThemeSizeChoice? tableRowHeight = null) =>
         PlatformTheme.Create(
             baseColor ?? Preset("neutral"),
             theme ?? Preset("neutral"),
             chart ?? Preset("cyan"),
             radius,
-            menuAccent);
+            menuAccent,
+            controlSize ?? ThemeSizeChoice.Default,
+            tableRowHeight ?? ThemeSizeChoice.Default);
 
     [Fact]
     public void Default_IsWhatTheShippedPresetRenders()
@@ -34,6 +42,11 @@ public class PlatformThemeTests
         PlatformTheme.Default.Chart.Preset.Should().Be("cyan");
         PlatformTheme.Default.Radius.Should().Be("default");
         PlatformTheme.Default.MenuAccent.Should().Be("subtle");
+        PlatformTheme.Default.ControlSize.Should().Be(new ThemeSizeChoice("default"));
+        PlatformTheme.Default.TableRowHeight.Should().Be(new ThemeSizeChoice("default"));
+        // The preset draws controls at h-9 and text rows at p-3 around a 20px line.
+        PlatformTheme.Default.ControlHeightPx.Should().Be(36);
+        PlatformTheme.Default.TableRowHeightPx.Should().Be(44);
         Create().Value.Should().Be(PlatformTheme.Default);
     }
 
@@ -118,7 +131,8 @@ public class PlatformThemeTests
     [Fact]
     public void Create_AMissingChoice_IsRefusedByName()
     {
-        var result = PlatformTheme.Create(Preset("neutral"), null, Preset("cyan"), "default", "subtle");
+        var result = PlatformTheme.Create(
+            Preset("neutral"), null, Preset("cyan"), "default", "subtle", ThemeSizeChoice.Default, ThemeSizeChoice.Default);
 
         result.FirstError.Code.Should().Be("SystemSettings.ThemeChoiceRequired");
         result.FirstError.Metadata!["args"].Should().BeEquivalentTo(new object[] { "theme" });
@@ -139,7 +153,8 @@ public class PlatformThemeTests
     [Fact]
     public void Create_ReportsEveryProblemAtOnce()
     {
-        var result = PlatformTheme.Create(null, Custom("#fff", null), Preset("nope"), "huge", "loud");
+        var result = PlatformTheme.Create(
+            null, Custom("#fff", null), Preset("nope"), "huge", "loud", Size("tiny"), CustomSize(500));
 
         result.Errors.Select(e => e.Code).Should().BeEquivalentTo(
         [
@@ -148,7 +163,153 @@ public class PlatformThemeTests
             "SystemSettings.ThemeUnknownColor",
             "SystemSettings.ThemeUnknownRadius",
             "SystemSettings.ThemeUnknownMenuAccent",
+            "SystemSettings.ThemeUnknownSize",
+            "SystemSettings.ThemeCustomSizeOutOfRange",
         ]);
+    }
+
+    [Theory]
+    [InlineData("compact", 32)]
+    [InlineData("default", 36)]
+    [InlineData("comfortable", 40)]
+    public void Create_EveryControlStep_IsAcceptedWithItsHeight(string step, int px)
+    {
+        var result = Create(controlSize: Size(step));
+
+        result.IsError.Should().BeFalse();
+        result.Value.ControlSize.Should().Be(Size(step));
+        result.Value.ControlHeightPx.Should().Be(px);
+    }
+
+    [Theory]
+    [InlineData("compact", 40)]
+    [InlineData("default", 44)]
+    [InlineData("comfortable", 48)]
+    public void Create_EveryRowStep_IsAcceptedWithItsHeight(string step, int px)
+    {
+        var result = Create(tableRowHeight: Size(step));
+
+        result.IsError.Should().BeFalse();
+        result.Value.TableRowHeight.Should().Be(Size(step));
+        result.Value.TableRowHeightPx.Should().Be(px);
+    }
+
+    [Fact]
+    public void Create_EveryPairOfSteps_IsAccepted()
+    {
+        // The smallest row step is no lower than the tallest control step, so
+        // no pair of the two three-step choices can be refused.
+        foreach (var control in ThemePresets.Sizes)
+        {
+            foreach (var row in ThemePresets.Sizes)
+            {
+                Create(controlSize: Size(control), tableRowHeight: Size(row)).IsError
+                    .Should().BeFalse($"{control} controls with {row} rows are valid");
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(28)]
+    [InlineData(30)]
+    [InlineData(56)]
+    public void Create_ACustomControlHeightWithinBounds_IsKept(int px)
+    {
+        var result = Create(controlSize: CustomSize(px), tableRowHeight: CustomSize(72));
+
+        result.IsError.Should().BeFalse();
+        result.Value.ControlSize.Should().Be(CustomSize(px));
+        result.Value.ControlHeightPx.Should().Be(px);
+    }
+
+    [Theory]
+    [InlineData(32)]
+    [InlineData(72)]
+    public void Create_ACustomRowHeightWithinBounds_IsKept(int px)
+    {
+        var result = Create(controlSize: Size("compact"), tableRowHeight: CustomSize(px));
+
+        result.IsError.Should().BeFalse();
+        result.Value.TableRowHeight.Should().Be(CustomSize(px));
+        result.Value.TableRowHeightPx.Should().Be(px);
+    }
+
+    [Theory]
+    [InlineData("controlSize", 27)]
+    [InlineData("controlSize", 57)]
+    [InlineData("controlSize", null)]
+    [InlineData("tableRowHeight", 31)]
+    [InlineData("tableRowHeight", 73)]
+    [InlineData("tableRowHeight", null)]
+    public void Create_ACustomHeightOutOfBounds_IsRefusedWithTheBounds(string slot, int? px)
+    {
+        var result = slot == "controlSize"
+            ? Create(controlSize: CustomSize(px))
+            : Create(tableRowHeight: CustomSize(px));
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("SystemSettings.ThemeCustomSizeOutOfRange");
+        result.FirstError.Metadata!["args"].Should().BeEquivalentTo(
+            slot == "controlSize" ? new object[] { slot, 28, 56 } : new object[] { slot, 32, 72 });
+    }
+
+    [Theory]
+    [InlineData("huge")]
+    [InlineData("Default")]
+    [InlineData("")]
+    public void Create_AnUnknownSizeStep_IsRefused(string step)
+    {
+        var result = Create(controlSize: Size(step));
+
+        result.FirstError.Code.Should().Be("SystemSettings.ThemeUnknownSize");
+    }
+
+    [Fact]
+    public void Create_AMissingSize_IsRefusedByName()
+    {
+        var result = PlatformTheme.Create(
+            Preset("neutral"), Preset("neutral"), Preset("cyan"), "default", "subtle", ThemeSizeChoice.Default, null);
+
+        result.FirstError.Code.Should().Be("SystemSettings.ThemeUnknownSize");
+        result.FirstError.Metadata!["args"].Should().BeEquivalentTo(new object[] { "tableRowHeight", "" });
+    }
+
+    [Fact]
+    public void Create_PixelsSentWithAStep_AreDropped()
+    {
+        var result = Create(controlSize: new ThemeSizeChoice("comfortable", 50));
+
+        result.Value.ControlSize.Should().Be(Size("comfortable"));
+        result.Value.ControlHeightPx.Should().Be(40);
+    }
+
+    [Theory]
+    [InlineData(48, "default", 44)]
+    [InlineData(41, "compact", 40)]
+    public void Create_ARowStepBelowACustomControlHeight_IsRefused(int controlPx, string rowStep, int rowPx)
+    {
+        var result = Create(controlSize: CustomSize(controlPx), tableRowHeight: Size(rowStep));
+
+        result.Errors.Should().ContainSingle();
+        result.FirstError.Code.Should().Be("SystemSettings.ThemeRowHeightBelowControlHeight");
+        result.FirstError.Metadata!["args"].Should().BeEquivalentTo(new object[] { rowPx, controlPx });
+    }
+
+    [Theory]
+    [InlineData("comfortable", 39)]
+    [InlineData("default", 35)]
+    public void Create_ACustomRowBelowAControlStep_IsRefused(string controlStep, int rowPx)
+    {
+        var result = Create(controlSize: Size(controlStep), tableRowHeight: CustomSize(rowPx));
+
+        result.FirstError.Code.Should().Be("SystemSettings.ThemeRowHeightBelowControlHeight");
+    }
+
+    [Fact]
+    public void Create_ARowAsHighAsTheControls_IsAccepted()
+    {
+        Create(controlSize: CustomSize(48), tableRowHeight: CustomSize(48)).IsError.Should().BeFalse();
+        Create(controlSize: CustomSize(40), tableRowHeight: Size("compact")).IsError.Should().BeFalse();
     }
 
     [Fact]

@@ -280,7 +280,10 @@ function SidebarTrigger({
       data-slot="sidebar-trigger"
       variant="ghost"
       size="icon-sm"
-      className={cn(className)}
+      // The sidebar keeps its own heights, not the platform's control height:
+      // this button sits in the collapsed rail and in a band as tall as its
+      // menu rows, and a taller control would spill out of both.
+      className={cn("size-8", className)}
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()

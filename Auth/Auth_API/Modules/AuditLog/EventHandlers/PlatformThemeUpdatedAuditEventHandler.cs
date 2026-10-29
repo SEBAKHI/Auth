@@ -47,8 +47,13 @@ public class PlatformThemeUpdatedAuditEventHandler : INotificationHandler<Platfo
         chart = Describe(theme.Chart),
         radius = theme.Radius,
         menuAccent = theme.MenuAccent,
+        controlSize = Describe(theme.ControlSize),
+        tableRowHeight = Describe(theme.TableRowHeight),
     };
 
     private static object Describe(ThemeColorChoice choice) =>
         new { preset = choice.Preset, light = choice.Light, dark = choice.Dark };
+
+    private static object Describe(ThemeSizeChoice choice) =>
+        new { preset = choice.Preset, px = choice.Px };
 }

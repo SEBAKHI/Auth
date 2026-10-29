@@ -22,13 +22,13 @@ import {
   Field,
   FieldContent,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
   FieldSeparator,
   FieldTitle,
 } from "@authsystem/ui/field"
 import { useUnsavedChangesPrompt } from "@authsystem/ui/hooks/use-unsaved-changes"
-import { Input } from "@authsystem/ui/input"
 import {
   InputGroup,
   InputGroupAddon,
@@ -45,25 +45,33 @@ import {
   SelectValue,
 } from "@authsystem/ui/select"
 import { Spinner } from "@authsystem/ui/spinner"
+import { Table, TableBody, TableCell, TableRow } from "@authsystem/ui/table"
 import { useTheme } from "@authsystem/ui/theme-provider"
 import {
   ACCENT_COLOR_NAMES,
   BASE_COLOR_NAMES,
+  CONTROL_HEIGHT,
   CUSTOM_PRESET,
   DEFAULT_THEME_CONFIG,
   MENU_ACCENT_OPTIONS,
   RADIUS_OPTIONS,
+  SIZE_STEPS,
+  TABLE_ROW_HEIGHT,
   baseReadability,
   currentColorHex,
   registryTitle,
+  sizePx,
   swatchColor,
   type ColorChoice,
   type ColorMode,
   type MenuAccent,
   type RadiusName,
+  type SizeChoice,
+  type SizeScale,
   type ThemeConfig,
 } from "@authsystem/ui/theme/build-theme"
 import {
+  isValidCustomPx,
   themeConfigKey,
   toThemeConfig,
   toThemeRequest,
@@ -247,6 +255,142 @@ function ColorChoiceField({
   )
 }
 
+type SizeSlot = "controlSize" | "tableRowHeight"
+
+const SCALES: Record<SizeSlot, SizeScale> = {
+  controlSize: CONTROL_HEIGHT,
+  tableRowHeight: TABLE_ROW_HEIGHT,
+}
+
+/**
+ * What keeps a size from being saved, the same rules the API applies: a
+ * custom height in whole pixels within its bounds, and rows no lower than
+ * the controls they hold.
+ */
+function sizeProblem(config: ThemeConfig, slot: SizeSlot): "range" | "belowControls" | null {
+  const value = config[slot]
+  if (value.preset === CUSTOM_PRESET && !isValidCustomPx(value.px, SCALES[slot])) return "range"
+  if (
+    slot === "tableRowHeight" &&
+    sizeProblem(config, "controlSize") === null &&
+    sizePx(config.tableRowHeight, TABLE_ROW_HEIGHT) < sizePx(config.controlSize, CONTROL_HEIGHT)
+  ) {
+    return "belowControls"
+  }
+  return null
+}
+
+/**
+ * One of the two heights: three steps and "custom", which opens a number
+ * field. The whole console previews the draft, so the controls on this very
+ * card change height as the administrator picks.
+ */
+function SizeChoiceField({
+  slot,
+  config,
+  onChange,
+}: {
+  slot: SizeSlot
+  config: ThemeConfig
+  onChange: (next: SizeChoice) => void
+}) {
+  const { t } = useTranslation()
+  const id = `appearance-${slot}`
+  const scale = SCALES[slot]
+  const value = config[slot]
+  const custom = value.preset === CUSTOM_PRESET
+  const problem = sizeProblem(config, slot)
+
+  // The text follows the draft, but never overwrites a number being typed
+  // ("3" on the way to "34" is not yet a height).
+  const [text, setText] = React.useState(value.px == null ? "" : String(value.px))
+  const [lastPx, setLastPx] = React.useState(value.px)
+  if (value.px !== lastPx) {
+    setLastPx(value.px)
+    if (Number(text) !== value.px) setText(value.px == null ? "" : String(value.px))
+  }
+
+  const choose = (preset: string) => {
+    // An empty value is the group deselecting itself on a second click.
+    if (!preset) return
+    if (preset !== CUSTOM_PRESET) {
+      onChange({ preset: preset as SizeChoice["preset"] })
+      return
+    }
+    // Start from the height on screen, so switching changes nothing until a
+    // number is typed.
+    onChange({ preset: CUSTOM_PRESET, px: sizePx(value, scale) })
+  }
+
+  return (
+    <Field data-invalid={problem ? true : undefined}>
+      <FieldTitle id={`${id}-label`}>{t(`platformSettings.appearance.${slot}`)}</FieldTitle>
+      <ToggleGroup
+        type="single"
+        spacing={0}
+        variant="outline"
+        className="flex-wrap"
+        value={value.preset}
+        aria-labelledby={`${id}-label`}
+        onValueChange={choose}
+      >
+        {[...SIZE_STEPS, CUSTOM_PRESET].map((step) => (
+          <ToggleGroupItem key={step} value={step}>
+            {t(`platformSettings.appearance.sizes.${step}`)}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+      {custom ? (
+        // A Field stretches its own children; the wrapper takes the row so the
+        // field can stay as wide as a height.
+        <div>
+          <InputGroup className="w-fit">
+            <InputGroupInput
+              id={id}
+              type="number"
+              inputMode="numeric"
+              min={scale.min}
+              max={scale.max}
+              step={1}
+              aria-label={t("platformSettings.appearance.customPx", {
+                name: t(`platformSettings.appearance.${slot}`),
+              })}
+              aria-invalid={problem === "range"}
+              className="w-[6ch] tabular-nums"
+              value={text}
+              onChange={(event) => {
+                setText(event.target.value)
+                const px = event.target.value.trim() === "" ? null : Number(event.target.value)
+                onChange({ preset: CUSTOM_PRESET, px })
+              }}
+            />
+            <InputGroupAddon align="inline-end">
+              <InputGroupText>{t("platformSettings.appearance.pxUnit")}</InputGroupText>
+            </InputGroupAddon>
+          </InputGroup>
+        </div>
+      ) : null}
+      <FieldDescription>
+        {t(`platformSettings.appearance.${slot}Hint`, { px: sizePx(value, scale) })}
+        {custom && problem !== "range"
+          ? ` ${t("platformSettings.appearance.customPxRange", { min: scale.min, max: scale.max })}`
+          : null}
+      </FieldDescription>
+      {problem === "range" ? (
+        <FieldError>
+          {t("platformSettings.appearance.customPxRange", { min: scale.min, max: scale.max })}
+        </FieldError>
+      ) : problem === "belowControls" ? (
+        <FieldError>
+          {t("platformSettings.appearance.rowBelowControls", {
+            px: sizePx(config.controlSize, CONTROL_HEIGHT),
+          })}
+        </FieldError>
+      ) : null}
+    </Field>
+  )
+}
+
 /**
  * Both modes at once, built from the real components and painted by the
  * draft: the page itself shows only the mode it is in, and charts appear
@@ -280,14 +424,30 @@ function AppearancePreview({ name }: { name: string }) {
                 {t("platformSettings.appearance.previewText")}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm">{t("common.save")}</Button>
+            <div className="flex gap-2">
+              <InputGroup>
+                <InputGroupInput placeholder="name@example.com" dir="ltr" />
+              </InputGroup>
+              <Button>{t("common.save")}</Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" variant="outline">
                 {t("common.cancel")}
               </Button>
               <Badge variant="secondary">{t("common.active")}</Badge>
             </div>
-            <Input placeholder="name@example.com" dir="ltr" />
+            <Table>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="w-full max-w-0 truncate">{name}</TableCell>
+                  <TableCell className="text-end">{t("common.active")}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="w-full max-w-0 truncate">name@example.com</TableCell>
+                  <TableCell className="text-end">{t("common.active")}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
             <div className="rounded-lg bg-accent px-3 py-1.5 text-sm text-accent-foreground">
               {t("platformSettings.appearance.previewMenuItem")}
             </div>
@@ -413,6 +573,8 @@ export function AppearanceCard({
     ? [draft.base.preset, ...ACCENT_COLOR_NAMES]
     : ACCENT_COLOR_NAMES
   const isDefault = themeConfigKey(draft) === themeConfigKey(DEFAULT_THEME_CONFIG)
+  const sizesValid =
+    sizeProblem(draft, "controlSize") === null && sizeProblem(draft, "tableRowHeight") === null
 
   return (
     <Card>
@@ -498,13 +660,26 @@ export function AppearanceCard({
                 </FieldDescription>
               </Field>
             </div>
+            <FieldSeparator />
+            <div className="grid gap-7">
+              <SizeChoiceField
+                slot="controlSize"
+                config={draft}
+                onChange={(controlSize) => setDraft((current) => ({ ...current, controlSize }))}
+              />
+              <SizeChoiceField
+                slot="tableRowHeight"
+                config={draft}
+                onChange={(tableRowHeight) => setDraft((current) => ({ ...current, tableRowHeight }))}
+              />
+            </div>
           </FieldGroup>
           <AppearancePreview name={settings.platformName ?? ""} />
         </div>
       </CardContent>
       <CardFooter className="flex-wrap gap-2">
         <Button
-          disabled={!isDirty || save.isPending}
+          disabled={!isDirty || !sizesValid || save.isPending}
           onClick={() => save.mutate(draft)}
         >
           {save.isPending ? <Spinner data-icon="inline-start" /> : null}

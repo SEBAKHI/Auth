@@ -26,9 +26,9 @@ const toggleVariants = cva(
       },
       size: {
         default:
-          "h-9 min-w-9 px-3 has-data-[icon=inline-end]:pe-2.5 has-data-[icon=inline-start]:ps-2.5",
-        sm: "h-8 min-w-8 px-3 has-data-[icon=inline-end]:pe-2 has-data-[icon=inline-start]:ps-2",
-        lg: "h-10 min-w-10 px-4 has-data-[icon=inline-end]:pe-3 has-data-[icon=inline-start]:ps-3",
+          "h-control min-w-control px-3 has-data-[icon=inline-end]:pe-2.5 has-data-[icon=inline-start]:ps-2.5",
+        sm: "h-control-sm min-w-control-sm px-3 has-data-[icon=inline-end]:pe-2 has-data-[icon=inline-start]:ps-2",
+        lg: "h-control-lg min-w-control-lg px-4 has-data-[icon=inline-end]:pe-3 has-data-[icon=inline-start]:ps-3",
       },
     },
     defaultVariants: {

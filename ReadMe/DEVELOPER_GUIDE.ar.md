@@ -2299,7 +2299,7 @@ Retry-After: 43
 |---|---|---|---|
 | ‏`platform-settings:manage` | ‏قيم الهوية البصرية مع حقول تدقيقها | ‏`/api/v1/admin/platform-settings` | ‏GET |
 | ‏`platform-settings:manage` | ‏تحديث `platformName` و`logoUrl` و`logoUrlDark` و`faviconUrl` | ‏`/api/v1/admin/platform-settings` | ‏PUT |
-| ‏`platform-settings:manage` | ‏استبدال المظهر: اللون الأساسي، ولون السمة، ولون الرسوم البيانية، واستدارة الزوايا، وتمييز عناصر القوائم | ‏`/api/v1/admin/platform-settings/theme` | ‏PUT |
+| ‏`platform-settings:manage` | ‏استبدال المظهر: اللون الأساسي، ولون السمة، ولون الرسوم البيانية، واستدارة الزوايا، وتمييز عناصر القوائم، وارتفاع عناصر التحكّم، وارتفاع صفوف الجداول | ‏`/api/v1/admin/platform-settings/theme` | ‏PUT |
 
 #### ‏System Settings — 5 نقاط نهاية
 
@@ -7500,7 +7500,7 @@ Content-Security-Policy: default-src 'none'; style-src 'sha256-…'; base-uri 'n
 |---|---|---|---|
 | ‏`platform-settings:manage` | ‏قيم الهوية البصرية، ومن عدّلها آخر مرة ومتى | ‏`/api/v1/admin/platform-settings` | ‏GET |
 | ‏`platform-settings:manage` | ‏استبدال `platformName` و`logoUrl` و`logoUrlDark` و`faviconUrl` | ‏`/api/v1/admin/platform-settings` | ‏PUT |
-| ‏`platform-settings:manage` | ‏استبدال المظهر (اللون الأساسي، ولون السمة، ولون الرسوم البيانية، واستدارة الزوايا، وتمييز عناصر القوائم). والهوية البصرية تبقى على حالها | ‏`/api/v1/admin/platform-settings/theme` | ‏PUT |
+| ‏`platform-settings:manage` | ‏استبدال المظهر (اللون الأساسي، ولون السمة، ولون الرسوم البيانية، واستدارة الزوايا، وتمييز عناصر القوائم، وارتفاع عناصر التحكّم، وارتفاع صفوف الجداول). والهوية البصرية تبقى على حالها | ‏`/api/v1/admin/platform-settings/theme` | ‏PUT |
 
 **‏ولا توجد صلاحية قراءة منفصلة.** ‏فكلتا النقطتين تطلبان `platform-settings:manage`، ‏فمن يجوز له أن ينظر هنا يجوز له كذلك أن يغيّر ما تعرضه كل شاشة تسجيل دخول. وفي لوحة التحكم هذه هي صفحة **Platform settings**.
 
@@ -7553,7 +7553,9 @@ Content-Security-Policy: default-src 'none'; style-src 'sha256-…'; base-uri 'n
   "theme": { "preset": "blue" },
   "chart": { "preset": "orange" },
   "radius": "large",
-  "menuAccent": "subtle"
+  "menuAccent": "subtle",
+  "controlSize": { "preset": "compact" },
+  "tableRowHeight": { "preset": "custom", "px": 52 }
 }
 ```
 
@@ -7564,12 +7566,16 @@ Content-Security-Policy: default-src 'none'; style-src 'sha256-…'; base-uri 'n
 | ‏الألوان الخمسة لسلاسل كل رسم بياني | ‏خيارات `theme` نفسها | ‏`chart` |
 | ‏استدارة الزوايا | ‏`default` أو `none` أو `small` أو `medium` أو `large` | ‏`radius` |
 | ‏العنصر المحدّد في القوائم: رمادي، أو بلون السمة | ‏`subtle` أو `bold` | ‏`menuAccent` |
+| ‏ارتفاع كل عناصر التحكّم معًا: الأزرار وحقول الإدخال والقوائم المنسدلة ومجموعات الإدخال ومفاتيح التبديل والتبويبات | ‏`compact` (32px) أو `default` (36px) أو `comfortable` (40px)، أو `custom` | ‏`controlSize` |
+| ‏ارتفاع صفّ جدولٍ فيه سطر نصّ واحد؛ والصفّ الذي يحمل صورة رمزية أو زرًّا يزيد بالفرق | ‏`compact` (40px) أو `default` (44px) أو `comfortable` (48px)، أو `custom` | ‏`tableRowHeight` |
 
 **‏والقيمة `custom` تأخذ لونًا واحدًا بصيغة `#rrggbb` لكل وضع، `light` و`dark`، وكلاهما مطلوب.** ‏والتطبيقان يشتقّان الباقي: فالأساسي المخصّص يصير خلفية الصفحة نفسها حرفيًّا، وتبقى البطاقات والتعبئات الخافتة والحدود والقائمة الجانبية على مسافات shadcn نفسها منه، ويصير النص فاتحًا أو داكنًا ليبقى مقروءًا (وتحذّر لوحة التحكم، دون أن تمنع الحفظ، إن قلّ تباين بعض النصوص عن 4.5:1). ولون السمة المخصّص يصير اللون الرئيسي، ونصّه أبيض أو أسود، أيّهما أوضح. ولون الرسوم المخصّص يصير خمس درجات. ومع أي خيار آخر يُهمَل `light` و`dark` ولا يُخزَّنان.
 
+**‏والارتفاع المخصّص يأخذ `px` عددًا صحيحًا: من 28 إلى 56 في `controlSize`، ومن 32 إلى 72 في `tableRowHeight`، ولا يكون الصفّ أقصر من عناصر التحكّم.** ‏ومع أي درجة أخرى يُهمَل `px` ولا يُخزَّن. وكل زوج من الدرجات صالح (أدنى درجة للصفوف تساوي أعلى درجة لعناصر التحكّم). والمظهر المحفوظ قبل وجود هذين الحقلين يُقرأ وكلاهما `default`، والارتفاع المخزَّن غير الصالح يُقرأ `default` دون أن يمسّ الألوان: فكل صفحة دخول تعرض هذه القيمة، فقراءتها لا تفشل أبدًا.
+
 **‏والواجهة تخزّن أسماءً ورموز `#rrggbb`، ولا تخزّن CSS أبدًا.** ‏فالتطبيقان يحسبان كل لون من نسختهما من سجلّ ألوان shadcn، فالقيمة المخزَّنة تختار لوحة ألوان ولا تستطيع أن تكتب تنسيقًا.
 
-**‏الأخطاء (كلها 400):** ‏`SystemSettings.ThemeChoiceRequired`، و`SystemSettings.ThemeUnknownColor`، و`SystemSettings.ThemeColorUnavailableForBase` (لون سمة أحادي لأساسيّ آخر، أو لأساسيّ مخصّص)، و`SystemSettings.ThemeCustomColorInvalid`، و`SystemSettings.ThemeUnknownRadius`، و`SystemSettings.ThemeUnknownMenuAccent`. وتُعاد المشكلات كلها دفعةً واحدة.
+**‏الأخطاء (كلها 400):** ‏`SystemSettings.ThemeChoiceRequired`، و`SystemSettings.ThemeUnknownColor`، و`SystemSettings.ThemeColorUnavailableForBase` (لون سمة أحادي لأساسيّ آخر، أو لأساسيّ مخصّص)، و`SystemSettings.ThemeCustomColorInvalid`، و`SystemSettings.ThemeUnknownRadius`، و`SystemSettings.ThemeUnknownMenuAccent`، و`SystemSettings.ThemeUnknownSize` (درجة غائبة أو مجهولة)، و`SystemSettings.ThemeCustomSizeOutOfRange`، و`SystemSettings.ThemeRowHeightBelowControlHeight`. وتُعاد المشكلات كلها دفعةً واحدة.
 
 **‏الاستجابة (200):** ‏إعدادات المنصة كما تعيدها `GET`. ويُكتب التغيير في سجلّ التدقيق باسم `platform-settings.updated`، ومعه المظهر القديم والجديد.
 *في الشيفرة:* ‏الملفان `Auth/Auth.Domain/ValueObjects/PlatformTheme.cs` و`Auth_UI/packages/ui/src/theme/build-theme.ts`.

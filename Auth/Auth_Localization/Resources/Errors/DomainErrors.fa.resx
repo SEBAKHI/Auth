@@ -956,8 +956,17 @@
   <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
     <value>رنگ سفارشی '{0}' به یک رنگ برای حالت روشن و یک رنگ برای حالت تیره نیاز دارد که هر کدام به شکل #rrggbb نوشته شود.</value>
   </data>
+  <data name="SystemSettings.ThemeCustomSizeOutOfRange" xml:space="preserve">
+    <value>'{0}' سفارشی به ارتفاعی با عدد صحیح پیکسل از {1} تا {2} نیاز دارد.</value>
+  </data>
+  <data name="SystemSettings.ThemeRowHeightBelowControlHeight" xml:space="preserve">
+    <value>ارتفاع ردیف جدول ({0}px) نمی‌تواند کمتر از ارتفاع کنترل‌ها ({1}px) باشد.</value>
+  </data>
   <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
     <value>'{0}' گردی گوشهٔ قابل انتخابی نیست.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownSize" xml:space="preserve">
+    <value>'{1}' اندازه‌ای نیست که بتوان برای '{0}' انتخاب کرد. فشرده، پیش‌فرض، راحت یا سفارشی را انتخاب کنید.</value>
   </data>
   <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
     <value>'{0}' تأکید منوی قابل انتخابی نیست.</value>

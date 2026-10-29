@@ -57,9 +57,9 @@ export function ForcePasswordChangePage() {
         {...appHeader}
       >
         <div className="flex flex-col gap-4">
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-control w-full" />
+          <Skeleton className="h-control w-full" />
+          <Skeleton className="h-control w-full" />
         </div>
       </AuthLayout>
     )

@@ -2323,7 +2323,7 @@ Outside `/api/`, unversioned, and meant to be linked to from an app store listin
 |---|---|---|---|
 | GET | `/api/v1/admin/platform-settings` | The branding values with their audit fields | `platform-settings:manage` |
 | PUT | `/api/v1/admin/platform-settings` | Update `platformName`, `logoUrl`, `logoUrlDark`, `faviconUrl` | `platform-settings:manage` |
-| PUT | `/api/v1/admin/platform-settings/theme` | Replace the appearance: base color, theme, chart color, radius, menu accent | `platform-settings:manage` |
+| PUT | `/api/v1/admin/platform-settings/theme` | Replace the appearance: base color, theme, chart color, radius, menu accent, control height, table row height | `platform-settings:manage` |
 
 #### System Settings — 5 endpoints
 
@@ -7503,7 +7503,7 @@ The administrator's side of the same record: the platform name, the three image 
 |---|---|---|---|
 | GET | `/api/v1/admin/platform-settings` | The branding values, plus who last modified them and when | `platform-settings:manage` |
 | PUT | `/api/v1/admin/platform-settings` | Replace `platformName`, `logoUrl`, `logoUrlDark` and `faviconUrl` | `platform-settings:manage` |
-| PUT | `/api/v1/admin/platform-settings/theme` | Replace the appearance (base color, theme, chart color, radius, menu accent). The branding is left as it is | `platform-settings:manage` |
+| PUT | `/api/v1/admin/platform-settings/theme` | Replace the appearance (base color, theme, chart color, radius, menu accent, control height, table row height). The branding is left as it is | `platform-settings:manage` |
 
 **There is no separate read permission.** Both endpoints require `platform-settings:manage`, so anybody who may look here may also change what every sign-in screen displays. In the console this is the **Platform settings** page.
 
@@ -7556,7 +7556,9 @@ The appearance is what the theme builder at https://ui.shadcn.com/create chooses
   "theme": { "preset": "blue" },
   "chart": { "preset": "orange" },
   "radius": "large",
-  "menuAccent": "subtle"
+  "menuAccent": "subtle",
+  "controlSize": { "preset": "compact" },
+  "tableRowHeight": { "preset": "custom", "px": 52 }
 }
 ```
 
@@ -7567,12 +7569,16 @@ The appearance is what the theme builder at https://ui.shadcn.com/create chooses
 | `chart` | The same choices as `theme` | The five series colours of every chart |
 | `radius` | `default`, `none`, `small`, `medium`, `large` | Corner rounding |
 | `menuAccent` | `subtle`, `bold` | A highlighted menu item: gray, or the theme colour |
+| `controlSize` | `compact` (32px), `default` (36px), `comfortable` (40px), or `custom` | The height of every control together: buttons, inputs, selects, input groups, toggles, tabs |
+| `tableRowHeight` | `compact` (40px), `default` (44px), `comfortable` (48px), or `custom` | The height of a table row holding one line of text; a row holding an avatar or a button grows by the difference |
 
 **`custom` takes one `#rrggbb` colour per mode, `light` and `dark`, and both are required.** The console derives the rest: a custom base becomes the page background exactly, with cards, muted fills, borders and the sidebar kept at shadcn's own distances from it and text turned light or dark to stay readable (the console warns, without refusing, when some text would read below 4.5:1); a custom theme becomes the primary colour, with white or black text, whichever reads better; a custom chart colour becomes five shades. With any other preset, `light` and `dark` are ignored and not stored.
 
+**A custom height takes `px`, a whole number: 28 to 56 for `controlSize`, 32 to 72 for `tableRowHeight`, and a row is never lower than the controls.** With a step, `px` is ignored and not stored. Every pair of steps is valid (the lowest row step is the tallest control step). An appearance saved before these two fields existed reads with both at `default`, and an invalid stored height reads as `default` without touching the colours: every sign-in page renders this value, so reading it never fails.
+
 **The API stores names and `#rrggbb` codes, never CSS.** The applications compute every colour from their own copy of shadcn's registry, so a stored value can choose a palette but cannot write a style.
 
-**Errors (all 400):** `SystemSettings.ThemeChoiceRequired`, `SystemSettings.ThemeUnknownColor`, `SystemSettings.ThemeColorUnavailableForBase` (a monochrome theme of another base, or of a custom base), `SystemSettings.ThemeCustomColorInvalid`, `SystemSettings.ThemeUnknownRadius`, `SystemSettings.ThemeUnknownMenuAccent`. Every problem is reported at once.
+**Errors (all 400):** `SystemSettings.ThemeChoiceRequired`, `SystemSettings.ThemeUnknownColor`, `SystemSettings.ThemeColorUnavailableForBase` (a monochrome theme of another base, or of a custom base), `SystemSettings.ThemeCustomColorInvalid`, `SystemSettings.ThemeUnknownRadius`, `SystemSettings.ThemeUnknownMenuAccent`, `SystemSettings.ThemeUnknownSize` (a missing or unknown step), `SystemSettings.ThemeCustomSizeOutOfRange`, `SystemSettings.ThemeRowHeightBelowControlHeight`. Every problem is reported at once.
 
 **Response (200):** the platform settings, as `GET` returns them. The change is written to the audit log as `platform-settings.updated`, with the old and new appearance.
 *In code:* `Auth/Auth.Domain/ValueObjects/PlatformTheme.cs`, `Auth_UI/packages/ui/src/theme/build-theme.ts`.

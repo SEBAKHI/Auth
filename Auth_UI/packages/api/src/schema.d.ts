@@ -17899,6 +17899,8 @@ export interface components {
             chart?: components["schemas"]["ThemeColorChoiceDto"];
             radius?: string;
             menuAccent?: string;
+            controlSize?: components["schemas"]["ThemeSizeChoiceDto"];
+            tableRowHeight?: components["schemas"]["ThemeSizeChoiceDto"];
         };
         PreviewNotificationLayoutRequest: {
             layoutContent: string;
@@ -18422,6 +18424,16 @@ export interface components {
             light?: null | string;
             dark?: null | string;
         };
+        ThemeSizeChoiceDto: {
+            preset?: string;
+            /** Format: int32 */
+            px?: null | number | string;
+        };
+        ThemeSizeChoiceRequest: {
+            preset: null | string;
+            /** Format: int32 */
+            px?: null | number | string;
+        };
         TokenResponse: {
             accessToken: string;
             refreshToken: string;
@@ -18593,6 +18605,8 @@ export interface components {
             chart: null | components["schemas"]["ThemeColorChoiceRequest"];
             radius: null | string;
             menuAccent: null | string;
+            controlSize: null | components["schemas"]["ThemeSizeChoiceRequest"];
+            tableRowHeight: null | components["schemas"]["ThemeSizeChoiceRequest"];
         };
         UpdatePrivacyPolicyVersionRequest: {
             version?: string;

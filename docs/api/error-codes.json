@@ -2383,6 +2383,18 @@
       "pointer": null
     },
     {
+      "code": "SystemSettings.ThemeCustomSizeOutOfRange",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.ThemeRowHeightBelowControlHeight",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "SystemSettings.ThemeUnknownColor",
       "status": 400,
       "source": "catalog",
@@ -2396,6 +2408,12 @@
     },
     {
       "code": "SystemSettings.ThemeUnknownRadius",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.ThemeUnknownSize",
       "status": 400,
       "source": "catalog",
       "pointer": null

@@ -3,7 +3,8 @@ namespace Auth.Domain.Constants;
 /// <summary>
 /// The closed vocabulary of the platform appearance settings: the names of
 /// shadcn/ui's colour registry (the Base Color, Theme and Chart Color pickers of
-/// https://ui.shadcn.com/create), its radius steps and its menu accents.
+/// https://ui.shadcn.com/create), its radius steps and its menu accents, and
+/// the size steps of the control height and the table row height.
 /// </summary>
 /// <remarks>
 /// The API stores names, never colour values: the console builds the CSS from
@@ -74,6 +75,55 @@ public static class ThemePresets
         "bold",
     ];
 
+    /// <summary>
+    /// The steps of the two size choices (control height and table row
+    /// height), smallest first. <see cref="Custom"/> replaces a step when the
+    /// administrator types a height in pixels instead.
+    /// </summary>
+    public static readonly IReadOnlyList<string> Sizes =
+    [
+        "compact",
+        "default",
+        "comfortable",
+    ];
+
+    /// <summary>
+    /// The height of every control (buttons, inputs, selects, toggles…) at each
+    /// of <see cref="Sizes"/>, in pixels. The middle one is the preset's own
+    /// (Tailwind <c>h-9</c>).
+    /// </summary>
+    public static readonly IReadOnlyList<int> ControlHeightsPx =
+    [
+        32,
+        36,
+        40,
+    ];
+
+    /// <summary>The lowest custom control height, in pixels.</summary>
+    public const int MinControlHeightPx = 28;
+
+    /// <summary>The highest custom control height, in pixels.</summary>
+    public const int MaxControlHeightPx = 56;
+
+    /// <summary>
+    /// The height of a table row holding one line of text at each of
+    /// <see cref="Sizes"/>, in pixels. The middle one is the preset's own
+    /// (<c>p-3</c> around a 20px line). Even the smallest step is no lower than
+    /// the tallest control step, so every pair of steps is valid.
+    /// </summary>
+    public static readonly IReadOnlyList<int> TableRowHeightsPx =
+    [
+        40,
+        44,
+        48,
+    ];
+
+    /// <summary>The lowest custom table row height, in pixels.</summary>
+    public const int MinTableRowHeightPx = 32;
+
+    /// <summary>The highest custom table row height, in pixels.</summary>
+    public const int MaxTableRowHeightPx = 72;
+
     /// <summary>The base colour of an installation nobody has customised.</summary>
     public const string DefaultBaseColor = "neutral";
 
@@ -91,6 +141,29 @@ public static class ThemePresets
 
     /// <summary>The menu accent of an installation nobody has customised.</summary>
     public const string DefaultMenuAccent = "subtle";
+
+    /// <summary>
+    /// The control height and the table row height of an installation nobody
+    /// has customised, and of an appearance saved before either existed.
+    /// </summary>
+    public const string DefaultSize = "default";
+
+    /// <summary>
+    /// The height in pixels of a size step on a scale (<see cref="ControlHeightsPx"/>
+    /// or <see cref="TableRowHeightsPx"/>), or null for a name that is not a step.
+    /// </summary>
+    public static int? HeightOfStepPx(IReadOnlyList<int> scale, string step)
+    {
+        for (var index = 0; index < Sizes.Count; index++)
+        {
+            if (Sizes[index] == step)
+            {
+                return scale[index];
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// Whether a registry theme or chart colour may be combined with a base

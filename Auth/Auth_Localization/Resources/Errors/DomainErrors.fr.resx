@@ -956,8 +956,17 @@
   <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
     <value>Une couleur « {0} » personnalisée nécessite une couleur pour le mode clair et une pour le mode sombre, chacune au format #rrggbb.</value>
   </data>
+  <data name="SystemSettings.ThemeCustomSizeOutOfRange" xml:space="preserve">
+    <value>Une valeur « {0} » personnalisée nécessite une hauteur en pixels entiers, de {1} à {2}.</value>
+  </data>
+  <data name="SystemSettings.ThemeRowHeightBelowControlHeight" xml:space="preserve">
+    <value>La hauteur des lignes de tableau ({0} px) ne peut pas être inférieure à la hauteur des contrôles ({1} px).</value>
+  </data>
   <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
     <value>« {0} » n'est pas un arrondi disponible.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownSize" xml:space="preserve">
+    <value>« {1} » n'est pas une taille disponible pour « {0} ». Choisissez compact, par défaut, confortable ou personnalisé.</value>
   </data>
   <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
     <value>« {0} » n'est pas un accent de menu disponible.</value>

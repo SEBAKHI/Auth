@@ -958,8 +958,17 @@
   <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
     <value>A custom '{0}' colour needs a light-mode and a dark-mode colour, each written as #rrggbb.</value>
   </data>
+  <data name="SystemSettings.ThemeCustomSizeOutOfRange" xml:space="preserve">
+    <value>A custom '{0}' needs a height in whole pixels from {1} to {2}.</value>
+  </data>
+  <data name="SystemSettings.ThemeRowHeightBelowControlHeight" xml:space="preserve">
+    <value>The table row height ({0}px) cannot be lower than the control height ({1}px).</value>
+  </data>
   <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
     <value>'{0}' is not a radius that can be chosen.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownSize" xml:space="preserve">
+    <value>'{1}' is not a size that can be chosen for '{0}'. Choose compact, default, comfortable or custom.</value>
   </data>
   <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
     <value>'{0}' is not a menu accent that can be chosen.</value>

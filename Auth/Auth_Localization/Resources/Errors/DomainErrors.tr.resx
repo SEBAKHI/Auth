@@ -956,8 +956,17 @@
   <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
     <value>Özel bir '{0}' rengi, her biri #rrggbb biçiminde yazılmış bir açık mod ve bir koyu mod rengi gerektirir.</value>
   </data>
+  <data name="SystemSettings.ThemeCustomSizeOutOfRange" xml:space="preserve">
+    <value>Özel bir '{0}', {1} ile {2} arasında tam piksel cinsinden bir yükseklik gerektirir.</value>
+  </data>
+  <data name="SystemSettings.ThemeRowHeightBelowControlHeight" xml:space="preserve">
+    <value>Tablo satırı yüksekliği ({0}px), denetim yüksekliğinden ({1}px) düşük olamaz.</value>
+  </data>
   <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
     <value>'{0}' seçilebilecek bir köşe yuvarlaklığı değil.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownSize" xml:space="preserve">
+    <value>'{1}', '{0}' için seçilebilecek bir boyut değil. Sıkı, varsayılan, rahat veya özel seçin.</value>
   </data>
   <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
     <value>'{0}' seçilebilecek bir menü vurgusu değil.</value>

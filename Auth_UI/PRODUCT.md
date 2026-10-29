@@ -31,7 +31,7 @@ One self-hosted identity provider whose two web applications are entirely re-bra
 ## Capabilities and Constraints
 
 - Every console screen is permission-gated; the API is the authority.
-- Appearance (base colour, theme, chart colour, radius, menu accent) is chosen from shadcn/ui's registry, or as one custom colour per mode; the API stores names and `#rrggbb` codes only, never CSS.
+- Appearance (base colour, theme, chart colour, radius, menu accent) is chosen from shadcn/ui's registry, or as one custom colour per mode; the API stores names and `#rrggbb` codes only, never CSS. The height of every control (32/36/40px or 28–56) and of a table row (40/44/48px or 32–72, never below the controls) is part of the same appearance.
 - Logos are never cropped by the system; the adopter's image is shown as uploaded.
 
 ## Brand Commitments

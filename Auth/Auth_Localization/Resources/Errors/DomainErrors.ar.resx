@@ -958,8 +958,17 @@
   <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
     <value>اللون المخصّص لـ'{0}' يحتاج لونًا للوضع الفاتح ولونًا للوضع الداكن، كلٌّ منهما بصيغة #rrggbb.</value>
   </data>
+  <data name="SystemSettings.ThemeCustomSizeOutOfRange" xml:space="preserve">
+    <value>الارتفاع المخصّص لـ'{0}' يجب أن يكون عددًا صحيحًا من البكسلات بين {1} و{2}.</value>
+  </data>
+  <data name="SystemSettings.ThemeRowHeightBelowControlHeight" xml:space="preserve">
+    <value>لا يمكن أن يكون ارتفاع صفّ الجدول ({0}px) أقل من ارتفاع عناصر التحكّم ({1}px).</value>
+  </data>
   <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
     <value>'{0}' ليست قيمة استدارة متاحة.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownSize" xml:space="preserve">
+    <value>'{1}' ليس حجمًا يمكن اختياره لـ'{0}'. اختر مضغوطًا أو افتراضيًا أو مريحًا أو مخصّصًا.</value>
   </data>
   <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
     <value>'{0}' ليس خيارًا متاحًا لتمييز عناصر القوائم.</value>

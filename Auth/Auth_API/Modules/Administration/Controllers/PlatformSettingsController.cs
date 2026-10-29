@@ -86,10 +86,11 @@ public class PlatformSettingsController : ApiController
 
     /// <summary>
     /// Replaces the platform appearance (base colour, theme, chart colour,
-    /// radius and menu accent). Name, logos and favicon are left as they are.
+    /// radius, menu accent, control height and table row height). Name, logos
+    /// and favicon are left as they are.
     /// </summary>
     /// <response code="200">Returns the updated platform settings</response>
-    /// <response code="400">An unknown name, a theme not available for the base colour, or a malformed custom colour</response>
+    /// <response code="400">An unknown name, a theme not available for the base colour, a malformed custom colour, a custom height out of bounds, or a row lower than the controls</response>
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions</response>
     [HttpPut("theme")]
@@ -108,6 +109,8 @@ public class PlatformSettingsController : ApiController
             ToChoice(request.Chart),
             request.Radius,
             request.MenuAccent,
+            ToSize(request.ControlSize),
+            ToSize(request.TableRowHeight),
             GetUserId());
 
         var result = await _sender.Send(command, cancellationToken);
@@ -119,6 +122,9 @@ public class PlatformSettingsController : ApiController
 
     private static ThemeColorChoice? ToChoice(ThemeColorChoiceRequest? request) =>
         request?.Preset is null ? null : new ThemeColorChoice(request.Preset, request.Light, request.Dark);
+
+    private static ThemeSizeChoice? ToSize(ThemeSizeChoiceRequest? request) =>
+        request?.Preset is null ? null : new ThemeSizeChoice(request.Preset, request.Px);
 
     private Guid GetUserId()
     {

@@ -95,12 +95,18 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
     }
 
     /// <summary>
-    /// The stored form of <see cref="PlatformTheme"/>: registry names and
-    /// <c>#rrggbb</c> colours. Reading goes back through
+    /// The stored form of <see cref="PlatformTheme"/>: registry names,
+    /// <c>#rrggbb</c> colours and size steps. Reading goes back through
     /// <see cref="PlatformTheme.Create"/>, so a row edited by hand into an
     /// invalid appearance (or naming a colour a later registry dropped) renders
     /// as the shipped preset rather than as a half-built palette.
     /// </summary>
+    /// <remarks>
+    /// Reading never fails: every sign-in page renders this value. A row saved
+    /// before the size choices existed has none, and reads with the default
+    /// sizes and its own colours; so does a row whose sizes alone are invalid,
+    /// because a height cannot leave a palette half built.
+    /// </remarks>
     public static class ThemeJson
     {
         private static readonly JsonSerializerOptions Options = new()
@@ -113,7 +119,14 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
             theme == PlatformTheme.Default
                 ? null
                 : JsonSerializer.Serialize(
-                    new ThemeRow(Row(theme.Base), Row(theme.Theme), Row(theme.Chart), theme.Radius, theme.MenuAccent),
+                    new ThemeRow(
+                        Row(theme.Base),
+                        Row(theme.Theme),
+                        Row(theme.Chart),
+                        theme.Radius,
+                        theme.MenuAccent,
+                        Row(theme.ControlSize),
+                        Row(theme.TableRowHeight)),
                     Options);
 
         public static PlatformTheme Read(string? json)
@@ -131,8 +144,13 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
                     return PlatformTheme.Default;
                 }
 
-                var theme = PlatformTheme.Create(
-                    Choice(row.Base), Choice(row.Theme), Choice(row.Chart), row.Radius, row.MenuAccent);
+                var theme = Create(row, Size(row.ControlSize), Size(row.TableRowHeight));
+                if (!theme.IsError)
+                {
+                    return theme.Value;
+                }
+
+                theme = Create(row, ThemeSizeChoice.Default, ThemeSizeChoice.Default);
                 return theme.IsError ? PlatformTheme.Default : theme.Value;
             }
             catch (JsonException)
@@ -141,14 +159,40 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
             }
         }
 
+        private static ErrorOr.ErrorOr<PlatformTheme> Create(
+            ThemeRow row, ThemeSizeChoice controlSize, ThemeSizeChoice tableRowHeight) =>
+            PlatformTheme.Create(
+                Choice(row.Base),
+                Choice(row.Theme),
+                Choice(row.Chart),
+                row.Radius,
+                row.MenuAccent,
+                controlSize,
+                tableRowHeight);
+
         private static ChoiceRow Row(ThemeColorChoice choice) => new(choice.Preset, choice.Light, choice.Dark);
+
+        private static SizeRow Row(ThemeSizeChoice choice) => new(choice.Preset, choice.Px);
 
         private static ThemeColorChoice? Choice(ChoiceRow? row) =>
             row is null ? null : new ThemeColorChoice(row.Preset, row.Light, row.Dark);
 
+        // Absent: saved before the size choices existed.
+        private static ThemeSizeChoice Size(SizeRow? row) =>
+            row is null ? ThemeSizeChoice.Default : new ThemeSizeChoice(row.Preset, row.Px);
+
         private sealed record ChoiceRow(string Preset, string? Light, string? Dark);
 
-        private sealed record ThemeRow(ChoiceRow? Base, ChoiceRow? Theme, ChoiceRow? Chart, string? Radius, string? MenuAccent);
+        private sealed record SizeRow(string Preset, int? Px);
+
+        private sealed record ThemeRow(
+            ChoiceRow? Base,
+            ChoiceRow? Theme,
+            ChoiceRow? Chart,
+            string? Radius,
+            string? MenuAccent,
+            SizeRow? ControlSize,
+            SizeRow? TableRowHeight);
     }
 
     private record PlatformSettingsDto

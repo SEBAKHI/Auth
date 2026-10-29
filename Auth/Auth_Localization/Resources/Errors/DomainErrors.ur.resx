@@ -956,8 +956,17 @@
   <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
     <value>حسب ضرورت '{0}' رنگ کے لیے روشن موڈ اور تاریک موڈ کا ایک ایک رنگ درکار ہے، ہر ایک #rrggbb کی شکل میں۔</value>
   </data>
+  <data name="SystemSettings.ThemeCustomSizeOutOfRange" xml:space="preserve">
+    <value>حسب ضرورت '{0}' کے لیے {1} سے {2} تک پورے پکسلز میں اونچائی درکار ہے۔</value>
+  </data>
+  <data name="SystemSettings.ThemeRowHeightBelowControlHeight" xml:space="preserve">
+    <value>ٹیبل کی قطار کی اونچائی ({0}px) کنٹرولز کی اونچائی ({1}px) سے کم نہیں ہو سکتی۔</value>
+  </data>
   <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
     <value>'{0}' کونوں کی گولائی کا قابلِ انتخاب درجہ نہیں ہے۔</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownSize" xml:space="preserve">
+    <value>'{1}' کوئی ایسا سائز نہیں جو '{0}' کے لیے منتخب کیا جا سکے۔ کمپیکٹ، طے شدہ، آرام دہ یا حسب ضرورت میں سے انتخاب کریں۔</value>
   </data>
   <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
     <value>'{0}' مینو نمایاں کرنے کا قابلِ انتخاب انداز نہیں ہے۔</value>
