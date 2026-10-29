@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router-dom"
 
-import { useAppBranding } from "@authsystem/auth/use-app-branding"
+import { useFlowBranding } from "@authsystem/auth/flow-branding"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Button } from "@authsystem/ui/button"
 
@@ -13,19 +13,17 @@ import { Button } from "@authsystem/ui/button"
  * at all: a second click, a refresh, or a tab left open past the session's
  * lifetime all arrive here, and all of them are already in the state they
  * asked for, so none of them should see an error.
+ *
+ * The application its `client_id` names gives the page its header, its
+ * appearance and its design, from the one hook every such page reads.
  */
 export function SignedOutPage() {
   const { t } = useTranslation()
   const [params] = useSearchParams()
-  const branding = useAppBranding(params.get("client_id"))
+  const { layout } = useFlowBranding({ clientId: params.get("client_id") })
 
   return (
-    <AuthLayout
-      title={t("auth.signedOutTitle")}
-      appName={branding?.name}
-      appLogoUrl={branding?.logoUrl ?? undefined}
-      appLogoUrlDark={branding?.logoUrlDark ?? undefined}
-    >
+    <AuthLayout title={t("auth.signedOutTitle")} {...layout}>
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
           {t("auth.signedOutBody")}

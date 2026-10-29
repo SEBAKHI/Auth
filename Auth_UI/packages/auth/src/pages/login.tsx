@@ -123,7 +123,7 @@ export function LoginPage({
   // the sign-in cookie from the API host. Without saying so, "you were signed
   // out" would repeat on every sign-in with nothing to act on.
   const [cookieBlocked] = React.useState(isCookieBlocked)
-  const { appBranding, layout: appHeader } = useFlowBranding(returnTo)
+  const { appBranding, layout: appHeader } = useFlowBranding({ returnTo })
   // Hidden when the deployment's administrator decides for everyone (OI-165).
   // The server applies that decision whatever this page sends.
   const { staySignedInOffered, signInOptions } = useBranding()

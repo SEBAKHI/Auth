@@ -11,7 +11,8 @@ import { fulfillJson, installAnonymousApi } from "./mock-anonymous-api"
  *
  * Deliberate breaks, each turning cases red: drop target="_blank" from the receiver; drop
  * the base style; send the platform's design on an application's page; render the panel
- * under lg; drop `loginDesign` from the organization step.
+ * under lg; drop `loginDesign` from the organization step; put the signed-out page back on
+ * its own branding call.
  */
 
 const AUTHORIZE = "https://auth.example.com/api/v1/auth/authorize?client_id=app&state=xyz"
@@ -253,6 +254,67 @@ for (const language of ["en", "ar"] as const) {
     await expect(page.locator("main").getByRole("img", { name: "Partner App" })).toHaveCount(0)
   })
 }
+
+// The pages that name an application by the client id of their own address, with no request
+// to resume, take its design and corner from the same hook (owner, 2026-10-29): they used to
+// fetch the name and logo themselves and show the platform's design.
+const NAMED_PAGES = ["/logout", "/signed-out", "/sign-in-expired"] as const
+const SECURED_BY = { en: "Secured by AuthSystem", ar: "محمي بواسطة AuthSystem" }
+
+for (const language of ["en", "ar"] as const) {
+  for (const path of NAMED_PAGES) {
+    test(`${language}: ${path} of an application shows that application's design, corner and trust marker`, async ({
+      page,
+    }) => {
+      const { renders } = await open(page, `${path}?client_id=app`, {
+        language,
+        app: OWN_DESIGN,
+        appHtml: `<p id="who">Own design</p>`,
+      })
+      const frame = await designFrame(page)
+
+      await expect(frame.locator("#who")).toHaveText("Own design")
+      expect(renders).toEqual([`/api/v1/applications/app/login-design?lang=${language}`])
+      await expect(page.locator("header").getByRole("img", { name: "Partner App" })).toBeVisible()
+      await expect(page.locator("main").getByRole("img", { name: "Partner App" })).toHaveCount(0)
+      await expect(page.getByText(SECURED_BY[language])).toBeVisible()
+    })
+  }
+}
+
+for (const language of ["en", "ar"] as const) {
+  for (const width of [375, 1440]) {
+    test(`${language} at ${width}px: the sign-out pages of an application`, async ({ page }) => {
+      for (const path of NAMED_PAGES) {
+        await open(page, `${path}?client_id=app`, { language, width, app: OWN_DESIGN })
+        // Under lg the panel is gone and the logo sits above the title: the form half alone
+        // says which application this is.
+        if (width >= 1024) await designFrame(page)
+        await expect(page.getByRole("img", { name: "Partner App" })).toBeVisible()
+        await page.screenshot({
+          path: test.info().outputPath(`named-${path.slice(1)}-${language}-${width}.png`),
+          fullPage: true,
+        })
+        const spill = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+        expect(spill, path).toBeLessThanOrEqual(0)
+        await page.unrouteAll({ behavior: "wait" })
+      }
+    })
+  }
+}
+
+test("a page naming a client id the server does not know is the platform's own, with the platform's design", async ({
+  page,
+}) => {
+  // The catch-all answers this application's branding 404, as the API does for an unknown or
+  // inactive one.
+  const { renders } = await open(page, "/signed-out?client_id=unknown-app", { app: OWN_DESIGN })
+  await designFrame(page)
+
+  expect(renders).toEqual(["/api/v1/platform/login-design?lang=en"])
+  await expect(page.locator("main").getByRole("img")).toHaveCount(0)
+  await expect(page.getByText(/Secured by/)).toHaveCount(0)
+})
 
 test("a design cannot cover the form: a fixed, full-screen element stays inside the panel", async ({ page }) => {
   await open(page, FLOW, {

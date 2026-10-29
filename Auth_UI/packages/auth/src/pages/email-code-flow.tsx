@@ -102,7 +102,7 @@ export function EmailCodeFlow({
   const { signInWithEmailCode, recoverWithEmailCode, completeRegistration } =
     useAuth()
   const { returnTo, complete, challenge } = useLoginCompletion()
-  const { layout: appHeader } = useFlowBranding(returnTo)
+  const { layout: appHeader } = useFlowBranding({ returnTo })
 
   const [pending, setPending] = React.useState(initialPending)
   const [stage, setStage] = React.useState<

@@ -3,7 +3,13 @@ import { renderHook, waitFor } from "@testing-library/react"
 import type * as React from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { safeHomeUrl, useAppBranding, useAppLoginDesign, useAppTheme } from "./use-app-branding"
+import {
+  safeHomeUrl,
+  useAppBranding,
+  useAppKnown,
+  useAppLoginDesign,
+  useAppTheme,
+} from "./use-app-branding"
 
 // One client per test: the apps share one across screens, which is the point,
 // but a test that inherited another test's cached answer would prove nothing.
@@ -140,6 +146,66 @@ describe("useAppBranding", () => {
     )
     expect(transport.result.current).toBeNull()
   })
+
+  it("keeps an unknown or inactive application's 404 as the answer: no application, not asked again", async () => {
+    const fetch = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue({ ok: false, status: 404 } as Response)
+    const client = new QueryClient()
+    const first = renderHook(() => useAppBranding("gone"), {
+      wrapper: withClient(client),
+    })
+    await waitFor(() =>
+      expect(client.getQueryState(["public-branding", "gone"])?.status).toBe("success")
+    )
+    expect(first.result.current).toBeNull()
+    first.unmount()
+
+    const next = renderHook(() => useAppBranding("gone"), {
+      wrapper: withClient(client),
+    })
+    expect(next.result.current).toBeNull()
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+})
+
+/**
+ * Whether the page's application exists for the sign-in pages: an unknown or
+ * inactive one (404) names nothing, and its page is the platform's own; a
+ * failure says neither. Break: answer false after a failure.
+ */
+describe("useAppKnown", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it("is unknown while asked, then known", async () => {
+    let resolve!: (value: Response) => void
+    vi.spyOn(globalThis, "fetch").mockReturnValue(new Promise<Response>((r) => (resolve = r)))
+    const { result } = renderHook(() => useAppKnown("portal"), { wrapper: withClient() })
+
+    expect(result.current).toBeUndefined()
+    resolve(portal())
+    await waitFor(() => expect(result.current).toBe(true))
+  })
+
+  it("is not known for a 404, and without a client", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status: 404 } as Response)
+    const { result } = renderHook(() => useAppKnown("gone"), { wrapper: withClient() })
+
+    await waitFor(() => expect(result.current).toBe(false))
+    expect(renderHook(() => useAppKnown(null), { wrapper: withClient() }).result.current).toBe(false)
+  })
+
+  it("stays unknown after a failure, which says neither", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status: 503 } as Response)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { result } = renderHook(() => useAppKnown("portal"), { wrapper: withClient(client) })
+
+    await waitFor(() =>
+      expect(client.getQueryState(["public-branding", "portal"])?.status).toBe("error")
+    )
+    expect(fetch).toHaveBeenCalled()
+    expect(result.current).toBeUndefined()
+  })
 })
 
 describe("safeHomeUrl (OI-145)", () => {
@@ -204,6 +270,13 @@ describe("useAppTheme", () => {
   it("is none when the server sends no appearance (switched off, or none saved)", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(answer({ name: "CRM", theme: null }))
     const { result } = renderHook(() => useAppTheme("crm"), { wrapper: withClient() })
+
+    await waitFor(() => expect(result.current).toBeNull())
+  })
+
+  it("is none for an unknown or inactive application: its pages show the platform's", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status: 404 } as Response)
+    const { result } = renderHook(() => useAppTheme("gone"), { wrapper: withClient() })
 
     await waitFor(() => expect(result.current).toBeNull())
   })

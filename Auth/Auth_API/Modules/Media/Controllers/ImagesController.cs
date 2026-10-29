@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using Asp.Versioning;
@@ -46,6 +47,9 @@ public class ImagesController : ApiController
     /// <param name="purpose">
     /// What it is for: <c>Panel</c> for an image inserted into a sign-in page design, which keeps
     /// up to <c>ImageStorage:PanelMaxEdgePx</c>; left out, every other upload's limit.
+    /// <c>Panel</c> is for the people who edit designs: holders of <c>applications:update</c>
+    /// (an application's designs) or <c>platform-settings:manage</c> (the platform's); anyone
+    /// else is refused with 403 <c>Auth.Unauthorized</c>.
     /// </param>
     /// <param name="cancellationToken">The request's cancellation.</param>
     [HttpPost]
@@ -58,12 +62,23 @@ public class ImagesController : ApiController
     [EnableRateLimiting("image-upload")]
     [ProducesResponseType(typeof(UploadImageResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests, "application/problem+json")]
     public async Task<IActionResult> Upload(
         IFormFile file,
         [FromQuery] ImageUploadPurpose purpose = ImageUploadPurpose.Default,
         CancellationToken cancellationToken = default)
     {
+        // Every signed-in person uploads their photo and their organization's logo here, so the
+        // endpoint itself stays open to them. A larger allowance is not theirs: it is for the
+        // design editors, the only place that asks for it. Any purpose but the default is
+        // refused first, before the file or the quota is read; a purpose added later inherits
+        // the refusal until someone decides who it is for.
+        if (purpose != ImageUploadPurpose.Default && !MayEditSignInPageDesigns())
+        {
+            return Problem([AuthErrors.Unauthorized]);
+        }
+
         if (file is null || file.Length == 0)
         {
             return Problem([ImageErrors.FileRequired]);
@@ -102,6 +117,15 @@ public class ImagesController : ApiController
             // file to 400: the status map decides, as for every handler error.
             errors => Task.FromResult(Problem(errors)));
     }
+
+    /// <summary>
+    /// The permissions that save a sign-in page design: an application's
+    /// (<c>applications:update</c>) or the platform's (<c>platform-settings:manage</c>), read
+    /// from the token with the same wildcard rules as <c>[RequirePermission]</c>.
+    /// </summary>
+    private bool MayEditSignInPageDesigns() =>
+        HasPermissionClaim(PermissionCodes.Applications.Update)
+        || HasPermissionClaim(PermissionCodes.PlatformSettings.Manage);
 }
 
 /// <summary>Response for a successful image upload.</summary>

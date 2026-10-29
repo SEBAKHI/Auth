@@ -107,7 +107,7 @@ function OrganizationSetup({
   // A step of the application's flow: its header, appearance, panel design and
   // trust marker come from the one hook every such screen reads. The subtitle
   // below names the application, so the "Continue to" line would repeat it.
-  const { appBranding, layout } = useFlowBranding(returnTo)
+  const { appBranding, layout } = useFlowBranding({ returnTo })
   const app = appBranding?.name ?? t("auth.theApplication")
 
   // A latch, not the pending flag: the flag reaches the button a frame after

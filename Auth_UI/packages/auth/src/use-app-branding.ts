@@ -51,6 +51,9 @@ async function fetchAppBranding(
     `${API_BASE_URL}/api/v1/applications/${encodeURIComponent(clientId)}/public-branding`,
     { signal }
   )
+  // An application the server does not know, or has switched off, is an
+  // answer, kept like any other: its pages are the platform's own.
+  if (res.status === 404) return null
   // Thrown, not answered with null: a failure is not an answer worth keeping
   // for five minutes, and an errored entry is fetched again by the next screen.
   if (!res.ok) throw new Error(`public-branding ${res.status}`)
@@ -77,13 +80,15 @@ async function fetchAppBranding(
 }
 
 /**
- * Fetches the public branding (name + logos) of the application behind a
- * pending authorize request. Anonymous endpoint; any failure — unknown client,
- * network error — resolves to null so the page falls back to platform branding.
+ * Fetches the public branding (name + logos) of the application a page names.
+ * Anonymous endpoint; an unknown or inactive client and any failure resolve to
+ * null, so the page falls back to platform branding.
  *
  * Held in the shared query client, keyed by client, so the screens of one flow
  * share one answer: without it each step refetched, and the platform mark
  * flashed in the header at every step before the application's came back.
+ *
+ * Pages take it from `useFlowBranding`, never from here (a test holds them to it).
  */
 export function useAppBranding(clientId: string | null): AppBranding | null {
   const query = useAppBrandingQuery(clientId)
@@ -105,11 +110,24 @@ function useAppBrandingQuery(clientId: string | null) {
 }
 
 /**
+ * Whether the client id names an application the server serves sign-in pages
+ * for, from the same answer as `useAppBranding`: true once it answered, false
+ * for an unknown or inactive one and without a client, undefined while it is
+ * asked and after a failure, which says neither.
+ */
+export function useAppKnown(clientId: string | null): boolean | undefined {
+  const query = useAppBrandingQuery(clientId)
+  if (!clientId) return false
+  if (query.data === undefined) return undefined
+  return query.data !== null
+}
+
+/**
  * The application's own appearance, from the same answer as `useAppBranding`:
- * null when the platform's shows (switched off, or none saved), undefined while
- * it is not known. A failed request leaves it unknown: the page keeps what it
- * shows, and the application's cached copy is not forgotten for a failure,
- * which says nothing about its appearance.
+ * null when the platform's shows (switched off, or none saved, or an unknown or
+ * inactive application), undefined while it is not known. A failed request
+ * leaves it unknown: the page keeps what it shows, and the application's cached
+ * copy is not forgotten for a failure, which says nothing about its appearance.
  */
 export function useAppTheme(clientId: string | null): ThemeConfig | null | undefined {
   const query = useAppBrandingQuery(clientId)
@@ -121,7 +139,8 @@ export function useAppTheme(clientId: string | null): ThemeConfig | null | undef
 /**
  * The sign-in page design the panel of the application's pages shows, from the
  * same answer as `useAppBranding`: the application's active design, else the
- * platform's, or null for none (and for an unknown or inactive application).
+ * platform's, or null for none (and for an unknown or inactive application,
+ * whose pages `useFlowBranding` gives the platform's design instead).
  * Undefined while it is not known. A failed request is null, not unknown: the
  * panel stays plain rather than waiting on an answer that is not coming.
  */

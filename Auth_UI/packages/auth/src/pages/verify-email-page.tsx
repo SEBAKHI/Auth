@@ -56,7 +56,7 @@ export function VerifyEmailPage() {
   const { returnTo, from, complete, challenge } = useLoginCompletion({
     defaultFrom: "/profile",
   })
-  const { layout: appHeader } = useFlowBranding(returnTo)
+  const { layout: appHeader } = useFlowBranding({ returnTo })
 
   const [otp, setOtp] = React.useState("")
   const [expiresAt, setExpiresAt] = React.useState<Date | null>(() =>

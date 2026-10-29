@@ -2393,7 +2393,7 @@ All nineteen require the permission `secrets.manage` — **note the dot, which i
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
-| POST | `/api/v1/Images` | Upload and process an image, returning `{ key, url }`. Send it as `multipart/form-data` with the form field named `file`. `?purpose=Panel` keeps a larger image, for a sign-in page design | Authenticated, no permission code. Failures are problems with an `Image.*` code; see [5.23](#523-images) |
+| POST | `/api/v1/Images` | Upload and process an image, returning `{ key, url }`. Send it as `multipart/form-data` with the form field named `file`. `?purpose=Panel` keeps a larger image, for a sign-in page design | Authenticated, no permission code; `?purpose=Panel` needs `applications:update` or `platform-settings:manage`. Failures are problems with an `Image.*` code; see [5.23](#523-images) |
 
 #### Internal — gateway settings — 1 endpoint
 
@@ -5021,7 +5021,7 @@ The name and logo to show on a sign-in screen, for a person who is not signed in
 **An unknown code and a switched-off application both return 404**, with the same body, so an anonymous caller cannot use this endpoint to discover which applications exist.
 *In code:* `Auth/Auth_API/Modules/ApplicationManagement/Controllers/ApplicationsController.cs:68-85`.
 
-**`theme` is present only while the application's own appearance is switched on**, with the shape of the platform's `theme` ([5.21](#521-platform-settings)). It replaces the platform's appearance as a whole on the pages of that application's flow; nothing of the two is ever mixed. Absent or null, the platform's appearance applies.
+**`theme` is present only while the application's own appearance is switched on**, with the shape of the platform's `theme` ([5.21](#521-platform-settings)). It replaces the platform's appearance as a whole on every accounts page that names the application: the screens of its sign-in flow and the organization step, by the pending request, and the sign-out confirmation (`/logout`), the signed-out page and the expired-request page (`/sign-in-expired`), by the `client_id` in their address. Nothing of the two is ever mixed. Absent or null, the platform's appearance applies; and for the 404 above, such a page is the platform's own, in its appearance and its design.
 
 **`loginDesign` names the design the panel of this application's sign-in pages shows**: `{ "id": …, "contentHash": …, "showPlatformLogo": … }`, for the application's own active design, else the platform's active design. It is absent when neither is active, and the panel stays plain. `contentHash` changes with every save of the content or the texts, so a page keys its copy of the render on it. `showPlatformLogo: false` gives the page's corner to the application's logo in place of the platform's mark; "Secured by" still names the platform. The design itself is fetched from `GET /api/v1/applications/{clientId}/login-design` ([5.21b](#521b-sign-in-page-designs)).
 
@@ -7861,13 +7861,15 @@ One endpoint, and it is the only way to get a picture into this system. Profile 
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
-| POST | `/api/v1/Images` | Upload and process an image; returns its storage key and public address | **Authenticated, with no permission code** |
+| POST | `/api/v1/Images` | Upload and process an image; returns its storage key and public address | **Authenticated, with no permission code** (`?purpose=Panel`: `applications:update` or `platform-settings:manage`) |
 
 **Any signed-in user may upload an image.** There is no permission attribute on this action, because every account needs to be able to set its own profile picture. What an uploaded image can be *attached* to is gated separately by the endpoint that attaches it.
 
+**The one exception is `?purpose=Panel`, the larger allowance for an image inside a sign-in page design.** It is for the people who edit designs: a token holding `applications:update` (an application's designs) or `platform-settings:manage` (the platform's), with the same wildcard rules as every permission check. Anyone else is refused with `403` and `Auth.Unauthorized` before the file is read. The default purpose stays open to every signed-in user.
+
 #### POST `/api/v1/Images`
 
-**Auth:** Any valid access token.
+**Auth:** Any valid access token; with `?purpose=Panel`, one that holds `applications:update` or `platform-settings:manage`.
 
 **Request:** `multipart/form-data` with **one form field named `file`**. Not JSON, and not a base64 string in a JSON body.
 
@@ -7903,12 +7905,12 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 | `ImageStorage:MaxSizeBytes` | `4194304` — 4 MB | A larger file is refused. The request body limit follows this setting live, so the two can never disagree |
 | `ImageStorage:MaxMegapixels` | `24` | A file within the byte limit but enormous in dimensions is refused, which is what stops a decompression attack. Every admitted megapixel costs 4 MB of memory during the decode, so this is a memory budget, not a compatibility ceiling |
 | `ImageStorage:MaxEdgePx` | `1024` | Not a rejection — anything larger is scaled down |
-| `ImageStorage:PanelMaxEdgePx` | `2048` | The same, for an upload sent with `?purpose=Panel`: an image inside a sign-in page design, which fills half a large screen. The design editor's «Insert image» sends it. Without `purpose`, or with `purpose=Default`, `MaxEdgePx` applies |
+| `ImageStorage:PanelMaxEdgePx` | `2048` | The same, for an upload sent with `?purpose=Panel`: an image inside a sign-in page design, which fills half a large screen. The design editor's «Insert image» sends it, and only holders of `applications:update` or `platform-settings:manage` may. Without `purpose`, or with `purpose=Default`, `MaxEdgePx` applies |
 | `RateLimiting:ImageUploadConcurrencyLimit` | `2` | How many uploads may be decoding at the same moment, process-wide; the next four wait, anything beyond that is refused with `429` |
 
 Both web applications shrink images in the browser before they upload: anything longer than 2048 px on its longest edge is scaled down (aspect ratio kept, never cropped), decoded with its EXIF orientation honoured, and re-encoded as WebP — or JPEG/PNG where the browser cannot encode WebP — so a phone photo arrives as a few hundred kilobytes instead of being refused for exceeding limits the server would have shrunk it past anyway. The original is sent unchanged whenever the result would not be smaller, or the browser cannot decode the file. The limits above still apply to whatever reaches the server, including uploads that bypass the applications. *In code:* `Auth_UI/packages/api/src/image-downscale.ts`, applied inside `uploadImage`, the single upload path.
 
-**Failures on this endpoint are problems like everywhere else in this API, so branch on `code`.** A refused file is `400` with `Image.FileRequired` (no file, or an empty one), `Image.FileTooLarge`, `Image.QuotaExceeded` (the uploader's images would pass `ImageStorage:MaxBytesPerUser`), `Image.UnsupportedType`, `Image.Invalid` (the file is not a valid image) or `Image.DimensionsTooLarge`; the `detail` of the three limit codes names the limit. A fault in the storage itself — for example an uploads directory the application cannot write to — is `500` with `Image.StorageUnavailable`. More uploads decoding than `RateLimiting:ImageUploadConcurrencyLimit` allows, with the short queue behind it full, is `429` with `Http.RateLimited` and `Retry-After: 5`.
+**Failures on this endpoint are problems like everywhere else in this API, so branch on `code`.** A refused file is `400` with `Image.FileRequired` (no file, or an empty one), `Image.FileTooLarge`, `Image.QuotaExceeded` (the uploader's images would pass `ImageStorage:MaxBytesPerUser`), `Image.UnsupportedType`, `Image.Invalid` (the file is not a valid image) or `Image.DimensionsTooLarge`; the `detail` of the three limit codes names the limit. A `?purpose=Panel` upload from a token that holds neither `applications:update` nor `platform-settings:manage` is `403` with `Auth.Unauthorized`, refused before the file or the quota is read. A fault in the storage itself — for example an uploads directory the application cannot write to — is `500` with `Image.StorageUnavailable`. More uploads decoding than `RateLimiting:ImageUploadConcurrencyLimit` allows, with the short queue behind it full, is `429` with `Http.RateLimited` and `Retry-After: 5`.
 *In code:* `Auth/Auth_API/Modules/Media/Controllers/ImagesController.cs`; the processing is `Auth/Auth.Infrastructure/Services/FileSystemImageStorageService.cs`.
 
 **Uploaded files are served back as static files from `/uploads/images/...`, with no token required.** Anyone holding the address can fetch the image, so do not upload anything through this endpoint that should not be public.

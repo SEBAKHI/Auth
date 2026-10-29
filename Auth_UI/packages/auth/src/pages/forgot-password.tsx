@@ -45,7 +45,7 @@ export function ForgotPasswordPage() {
   // with the person. The mail this page sends never carries it: the reset page
   // the link opens shows the platform, whoever asked.
   const { search } = useLocation()
-  const { layout: appHeader } = useFlowBranding(getValidReturnTo(search))
+  const { layout: appHeader } = useFlowBranding({ returnTo: getValidReturnTo(search) })
   const [sent, setSent] = React.useState<SentState | null>(null)
 
   const schema = z.object({

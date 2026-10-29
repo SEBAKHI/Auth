@@ -19,10 +19,10 @@ installChunkLoadRecovery()
 
 // The colours from the last visit, before anything is drawn: the current ones
 // arrive with the branding, and until then the shipped preset would paint a
-// returning visitor's first frames in the wrong colours. On a page of an
-// application's flow, that application's own appearance when this browser has
-// seen it switched on; otherwise, and on every other page, the platform's.
-const themeScope = themeScopeFor(window.location.search)
+// returning visitor's first frames in the wrong colours. On a page that names
+// an application, that application's own appearance when this browser has seen
+// it switched on; otherwise, and on every other page, the platform's.
+const themeScope = themeScopeFor(window.location)
 applyCachedTheme(themeScope)
 
 // Locale bundles load on demand, so the active language must be in place before the

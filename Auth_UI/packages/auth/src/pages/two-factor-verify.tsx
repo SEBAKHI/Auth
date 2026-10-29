@@ -105,7 +105,7 @@ export function TwoFactorVerifyPage({
     state?.methods ??
     (challengeToken ? getPendingTwoFactorMethods(challengeToken) : null)
   const { returnTo, complete } = useLoginCompletion({ resumePending: true })
-  const { layout: appHeader } = useFlowBranding(returnTo)
+  const { layout: appHeader } = useFlowBranding({ returnTo })
   const signInAgain = { pathname: "/login", search: toAccountsSearch(returnTo) }
 
   const offersEmail = methods?.includes("email") === true
