@@ -1703,4 +1703,10 @@
   <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
     <value>Cette langue n’est pas prise en charge.</value>
   </data>
+  <data name="Template.OutputTooLarge" xml:space="preserve">
+    <value>Le message produit dépasse {0:N0} octets, la taille maximale d’un message : au-delà, les applications de messagerie comme Gmail tronquent l’e-mail. Raccourcissez le modèle, ses textes ou ses boucles.</value>
+  </data>
+  <data name="Template.TooComplex" xml:space="preserve">
+    <value>Le modèle est trop complexe à produire : il imbrique ses blocs trop profondément, prend trop de temps ou construit trop de texte pendant le rendu. Simplifiez ses boucles et ses imbrications.</value>
+  </data>
 </root>

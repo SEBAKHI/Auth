@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Auth.Domain.Constants;
 using Auth.Infrastructure.Notifications;
+using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Infrastructure;
 
@@ -101,7 +102,7 @@ public class EmailSignInNotificationSeedContractTests
     public void EveryTranslation_RendersWithTheSeededSampleData_LeavingNothingUnresolved(
         string code, string typeId, string ordinal, string[] catalog)
     {
-        var renderer = new FluidTemplateRenderer();
+        var renderer = new FluidTemplateRenderer(TimeProvider.System);
         var sample = SampleModel(TypeBlock(File.ReadAllText(SeedPath(TypesSeed)), typeId));
 
         foreach (var (language, subject, body) in Translations(ordinal))
@@ -153,7 +154,7 @@ public class EmailSignInNotificationSeedContractTests
         // The owner's own removal and the retirement of an unproven password are two
         // different events for the reader; a template that rendered one text for both
         // would tell the owner of an administrator-created account the wrong story.
-        var renderer = new FluidTemplateRenderer();
+        var renderer = new FluidTemplateRenderer(TimeProvider.System);
         var sample = SampleModel(TypeBlock(File.ReadAllText(SeedPath(TypesSeed)), "40000000-0000-0000-0000-000000000027"));
 
         foreach (var (language, _, body) in Translations("0027"))

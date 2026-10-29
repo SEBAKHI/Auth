@@ -212,6 +212,18 @@ describe("the backend catalog versus local copy", () => {
       }).description
     ).toBe(en.errors.feedback.server)
   })
+
+  it("shows the render limits’ own sentence in the template and design editors", () => {
+    // Every editor reports a failed preview or save through getErrorMessage. A template
+    // refused for its size or its complexity says why, in the reader's language, instead
+    // of the generic "the request was invalid".
+    for (const code of ["Template.OutputTooLarge", "Template.TooComplex"]) {
+      const detail = `The catalog sentence for ${code}.`
+      expect(
+        getErrorMessage({ status: 400, code, detail }, "Preview failed.")
+      ).toBe(detail)
+    }
+  })
 })
 
 describe("getErrorCodes", () => {

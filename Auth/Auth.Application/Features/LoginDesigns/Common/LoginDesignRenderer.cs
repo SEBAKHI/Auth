@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using Auth.Application.Common;
 using Auth.Application.Interfaces;
@@ -37,9 +36,11 @@ public sealed record LoginDesignAudience(string ApplicationName, string Platform
 /// <para>
 /// Every render, the gate's, a preview's and a page's, refuses HTML over
 /// <see cref="LoginDesign.MaxRenderedBytes"/>: the source is at most 64 KB, but a loop renders
-/// far more, and a page serves what it renders to anyone. The check follows the render, so the
-/// one render that finds the excess still runs in full; <see cref="ILoginDesignRenderCache"/>
-/// keeps a page's outcome, refusals included, so a visitor never repeats it.
+/// far more, and a page serves what it renders to anyone. The renderer stops at the cap as it
+/// writes (<see cref="TemplateRenderLimits.LoginDesign"/>), so the excess is never built, and a
+/// design that would need more work or time than a render may spend is refused as
+/// <c>Template.TooComplex</c>; <see cref="ILoginDesignRenderCache"/> keeps a page's outcome,
+/// refusals included, so a visitor never repeats it.
 /// </para>
 /// </remarks>
 public sealed class LoginDesignRenderer
@@ -83,7 +84,8 @@ public sealed class LoginDesignRenderer
 
     /// <summary>Renders a design for one language.</summary>
     public ErrorOr<string> Render(string content, string stringsJson, LoginDesignAudience audience, string language) =>
-        RenderCore(content, stringsJson, audience, language, unknown: null);
+        RenderCore(
+            _renderer.BeginSession(TemplateRenderLimits.LoginDesign), content, stringsJson, audience, language, unknown: null);
 
     /// <summary>
     /// The save gate: the content parses, renders at most <see cref="LoginDesign.MaxRenderedBytes"/>,
@@ -100,7 +102,10 @@ public sealed class LoginDesignRenderer
         var unknown = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var language in Languages.Supported)
         {
-            var rendered = RenderCore(content, stringsJson, audience, language, unknown);
+            // A session per language: each language's page is its own render, and what one
+            // builds is dropped before the next.
+            var session = _renderer.BeginSession(TemplateRenderLimits.LoginDesign);
+            var rendered = RenderCore(session, content, stringsJson, audience, language, unknown);
             if (rendered.IsError)
             {
                 return rendered.Errors;
@@ -112,7 +117,8 @@ public sealed class LoginDesignRenderer
             : LoginDesignErrors.UnknownVariables(string.Join(", ", unknown));
     }
 
-    private ErrorOr<string> RenderCore(
+    private static ErrorOr<string> RenderCore(
+        ITemplateRenderSession session,
         string content,
         string stringsJson,
         LoginDesignAudience audience,
@@ -141,7 +147,7 @@ public sealed class LoginDesignRenderer
         var strings = new Dictionary<string, object?>(StringComparer.Ordinal);
         foreach (var (key, template) in raw)
         {
-            var text = RenderPart(template, model, language, unknown);
+            var text = RenderPart(session, template, model, language, unknown);
             if (text.IsError)
             {
                 return text.Errors;
@@ -151,30 +157,33 @@ public sealed class LoginDesignRenderer
         }
 
         model["strings"] = strings;
-        var html = RenderPart(content, model, language, unknown);
-        if (html.IsError)
-        {
-            return html.Errors;
-        }
-
-        return Encoding.UTF8.GetByteCount(html.Value) > LoginDesign.MaxRenderedBytes
-            ? LoginDesignErrors.RenderedTooLarge
-            : html.Value;
+        return RenderPart(session, content, model, language, unknown);
     }
 
-    private ErrorOr<string> RenderPart(
+    /// <summary>
+    /// Renders one part. Over the design cap is the design's own published error, whichever part
+    /// (a string or the content) crossed it: one code for the one size an administrator is told.
+    /// </summary>
+    private static ErrorOr<string> RenderPart(
+        ITemplateRenderSession session,
         string source,
         IReadOnlyDictionary<string, object?> model,
         string language,
         SortedSet<string>? unknown)
     {
+        ErrorOr<string> result;
         if (unknown is null)
         {
-            return _renderer.Render(source, model, language, encodeHtml: true);
+            result = session.Render(source, model, language, encodeHtml: true);
+        }
+        else
+        {
+            result = session.RenderTracking(source, model, language, encodeHtml: true, out var missing);
+            unknown.UnionWith(missing);
         }
 
-        var result = _renderer.RenderTracking(source, model, language, encodeHtml: true, out var missing);
-        unknown.UnionWith(missing);
-        return result;
+        return result.IsError && result.FirstError.Code == TemplateErrors.OutputTooLargeCode
+            ? LoginDesignErrors.RenderedTooLarge
+            : result;
     }
 }

@@ -69,7 +69,7 @@ public class NotificationTemplateCommandHandlerTests
             new Mock<IUserRepository>().Object,
             new Mock<IApplicationRepository>().Object,
             new Mock<IPlatformSettingsRepository>().Object,
-            new FluidTemplateRenderer(),
+            new FluidTemplateRenderer(TimeProvider.System),
             new Mock<IImageUrlComposer>().Object,
             new Mock<IImageStorageService>().Object,
             TestHelpers.CreateOptions(new EmailSettings()),
@@ -113,7 +113,7 @@ public class NotificationTemplateCommandHandlerTests
 
         var handler = new UpdateNotificationTemplateDraftCommandHandler(
             _templateRepoMock.Object, _typeRepoMock.Object, _appRepoMock.Object,
-            new FluidTemplateRenderer(),
+            new FluidTemplateRenderer(TimeProvider.System),
             new Mock<ILogger<UpdateNotificationTemplateDraftCommandHandler>>().Object);
 
         var result = await handler.Handle(
@@ -131,6 +131,32 @@ public class NotificationTemplateCommandHandlerTests
     }
 
     [Fact]
+    public async Task UpdateDraft_NestedTooDeeplyToRender_IsRejectedAtSaveTime()
+    {
+        // 6,000 nested ifs are 126 KB of source, within the 512,000-character limit, and parsing
+        // them overflowed the stack: the process ended, not the request.
+        var template = CreateAggregate();
+        _templateRepoMock.Setup(r => r.GetByIdAsync(template.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(template);
+        var nested = string.Concat(Enumerable.Repeat("{% if x %}", 6_000)) + string.Concat(Enumerable.Repeat("{% endif %}", 6_000));
+
+        var handler = new UpdateNotificationTemplateDraftCommandHandler(
+            _templateRepoMock.Object, _typeRepoMock.Object, _appRepoMock.Object,
+            new FluidTemplateRenderer(TimeProvider.System),
+            new Mock<ILogger<UpdateNotificationTemplateDraftCommandHandler>>().Object);
+
+        var result = await handler.Handle(
+            new UpdateNotificationTemplateDraftCommand(template.Id, [new DraftTranslationInput("en", "Subject", nested)])
+            { ModifiedBy = _userId },
+            CancellationToken.None);
+
+        result.FirstError.Should().Be(Auth.Domain.Errors.TemplateErrors.TooComplex);
+        _templateRepoMock.Verify(
+            r => r.UpdateAsync(It.IsAny<NotificationTemplate>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task UpdateDraft_StaleExpectedModifiedAt_ReturnsConcurrencyConflict()
     {
         var template = CreateAggregate();
@@ -141,7 +167,7 @@ public class NotificationTemplateCommandHandlerTests
 
         var handler = new UpdateNotificationTemplateDraftCommandHandler(
             _templateRepoMock.Object, _typeRepoMock.Object, _appRepoMock.Object,
-            new FluidTemplateRenderer(),
+            new FluidTemplateRenderer(TimeProvider.System),
             new Mock<ILogger<UpdateNotificationTemplateDraftCommandHandler>>().Object);
 
         var result = await handler.Handle(
@@ -159,6 +185,36 @@ public class NotificationTemplateCommandHandlerTests
     #endregion
 
     #region Publish gate
+
+    [Fact]
+    public async Task Publish_DraftThatRendersPastTheEmailCap_IsBlocked_NamingItsLanguage()
+    {
+        var template = CreateAggregate(published: false);
+        template.UpsertTranslation(
+            "ar", "Subject", "{% for i in (1..2400) %}01234567890123456789012345678901234567890123456789{% endfor %}", null, _userId);
+
+        _templateRepoMock.Setup(r => r.GetByIdAsync(template.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(template);
+        _typeRepoMock.Setup(r => r.GetByIdAsync(_typeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateType(sampleDataJson: "{\"UserName\":\"Jane\"}"));
+
+        var handler = new PublishNotificationTemplateCommandHandler(
+            _templateRepoMock.Object, _typeRepoMock.Object, _appRepoMock.Object,
+            CreateRealRenderer(), _cacheInvalidatorMock.Object, _eventDispatcherMock.Object,
+            new Mock<ILogger<PublishNotificationTemplateCommandHandler>>().Object);
+
+        var result = await handler.Handle(
+            new PublishNotificationTemplateCommand(
+                template.Id,
+                template.DraftVersionId!.Value,
+                template.ModifiedAt ?? template.CreatedAt)
+            { PublishedBy = _userId },
+            CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(Auth.Domain.Errors.TemplateErrors.OutputTooLargeCode);
+        result.FirstError.Description.Should().StartWith("[ar]", "English fits; the Arabic translation does not");
+        template.IsPublished.Should().BeFalse();
+    }
 
     [Fact]
     public async Task Publish_DraftReferencingUnknownVariable_IsBlocked()

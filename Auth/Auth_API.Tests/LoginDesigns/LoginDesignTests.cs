@@ -130,28 +130,40 @@ public class LoginDesignTests
     /// <summary>The sandboxed renderer, counting the renders that reach it.</summary>
     private sealed class CountingTemplateRenderer : ITemplateRenderer
     {
-        private readonly FluidTemplateRenderer _inner = new();
+        private readonly FluidTemplateRenderer _inner = new(TimeProvider.System);
 
         public int Renders { get; private set; }
 
-        public ErrorOr<string> Render(
-            string source, IReadOnlyDictionary<string, object?> model, string languageCode, bool encodeHtml)
-        {
-            Renders++;
-            return _inner.Render(source, model, languageCode, encodeHtml);
-        }
+        public List<TemplateRenderLimits> Sessions { get; } = [];
 
         public ErrorOr<Success> Validate(string source) => _inner.Validate(source);
 
-        public ErrorOr<string> RenderTracking(
-            string source,
-            IReadOnlyDictionary<string, object?> model,
-            string languageCode,
-            bool encodeHtml,
-            out IReadOnlyList<string> unresolvedVariables)
+        public ITemplateRenderSession BeginSession(TemplateRenderLimits limits)
         {
-            Renders++;
-            return _inner.RenderTracking(source, model, languageCode, encodeHtml, out unresolvedVariables);
+            Sessions.Add(limits);
+            return new CountingSession(this, _inner.BeginSession(limits));
+        }
+
+        private sealed class CountingSession(CountingTemplateRenderer owner, ITemplateRenderSession inner)
+            : ITemplateRenderSession
+        {
+            public ErrorOr<string> Render(
+                string source, IReadOnlyDictionary<string, object?> model, string languageCode, bool encodeHtml)
+            {
+                owner.Renders++;
+                return inner.Render(source, model, languageCode, encodeHtml);
+            }
+
+            public ErrorOr<string> RenderTracking(
+                string source,
+                IReadOnlyDictionary<string, object?> model,
+                string languageCode,
+                bool encodeHtml,
+                out IReadOnlyList<string> unresolvedVariables)
+            {
+                owner.Renders++;
+                return inner.RenderTracking(source, model, languageCode, encodeHtml, out unresolvedVariables);
+            }
         }
     }
 
@@ -719,6 +731,108 @@ public class LoginDesignTests
         result.Value.Language.Should().Be("ur");
         result.Value.Warnings.Should().Equal(LoginDesignWarning.Script);
         world.Designs.Invocations.Should().BeEmpty();
+    }
+
+    // --- every entry renders under the design limits ---
+
+    private const string LoopOverAString = "{% for i in (1..2400) %}{{ strings.big | raw }}{% endfor %}";
+
+    private static readonly string BigString = JsonSerializer.Serialize(new { en = new { big = new string('a', 60_000) } });
+
+    /// <summary>What one refused design render may allocate: a few times the 256 KB cap.</summary>
+    private const long AllocationCeiling = 24 * 1024 * 1024;
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Preview_OfALoop_ByAnApplicationOrThePlatform_IsRefusedAtTheCap(bool forAnApplication)
+    {
+        // applications:read previews an application's design; platform-settings:manage the platform's.
+        var world = new World();
+        var handler = new PreviewLoginDesignQueryHandler(world.Renderer());
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var result = await handler.Handle(
+            new PreviewLoginDesignQuery(forAnApplication ? AppId : null, LoopOverAString, BigString, "en"),
+            CancellationToken.None);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        result.FirstError.Should().Be(LoginDesignErrors.RenderedTooLarge);
+        allocated.Should().BeLessThan(AllocationCeiling, "the same preview allocated 577 MB unbounded");
+        world.Templates.Sessions.Should().OnlyContain(limits => limits == TemplateRenderLimits.LoginDesign);
+    }
+
+    [Fact]
+    public async Task Preview_OfADesignNestedTooDeeply_IsRefusedInsteadOfEndingTheProcess()
+    {
+        var world = new World();
+        var nested = string.Concat(Enumerable.Repeat("{% if App.Name %}", 3_000)) + string.Concat(Enumerable.Repeat("{% endif %}", 3_000));
+
+        var result = await new PreviewLoginDesignQueryHandler(world.Renderer()).Handle(
+            new PreviewLoginDesignQuery(AppId, nested, null, "en"), CancellationToken.None);
+
+        result.FirstError.Should().Be(TemplateErrors.TooComplex);
+    }
+
+    [Fact]
+    public async Task Create_SaveGate_RendersEachLanguageInItsOwnSession_UnderTheDesignLimits()
+    {
+        var world = new World();
+
+        var result = await CreateHandler(world).Handle(
+            new CreateLoginDesignCommand(AppId, "Plain", "<p>{{ App.Name }}</p>", null) { CreatedBy = Admin },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        world.Templates.Sessions.Should().HaveCount(Languages.Supported.Count)
+            .And.OnlyContain(limits => limits == TemplateRenderLimits.LoginDesign);
+    }
+
+    [Fact]
+    public async Task Create_OfALoop_IsRefusedWithoutBuildingIt()
+    {
+        var world = new World();
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var result = await CreateHandler(world).Handle(
+            new CreateLoginDesignCommand(AppId, "Loop", LoopOverAString, BigString) { CreatedBy = Admin }, CancellationToken.None);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        result.FirstError.Should().Be(LoginDesignErrors.RenderedTooLarge);
+        allocated.Should().BeLessThan(AllocationCeiling);
+        world.Stored.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Update_ToADesignThatDoublesAString_IsRefused_AndNothingIsSaved()
+    {
+        var world = new World();
+        var design = world.Store(Active(AppId, "<p>old</p>"));
+        const string doubling = "{% assign x = App.Name %}{% for i in (1..40) %}{% assign x = x | append: x %}{% endfor %}";
+
+        var result = await UpdateHandler(world).Handle(
+            new UpdateLoginDesignCommand(AppId, design.Id, "Doubling", doubling, null, false, design.CreatedAt)
+            { ModifiedBy = Admin },
+            CancellationToken.None);
+
+        result.FirstError.Should().Be(TemplateErrors.TooComplex);
+        world.Designs.Verify(r => r.TryUpdateAsync(It.IsAny<LoginDesign>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task APageWhoseDesignLoops_IsRefusedWithoutBuildingIt()
+    {
+        var world = new World();
+        var design = Design(AppId, LoopOverAString, BigString);
+        design.Activate();
+        world.Store(design);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var result = await PublicHandler(world).Handle(new GetPublicLoginDesignQuery("CRM", "en"), CancellationToken.None);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        result.FirstError.Should().Be(LoginDesignErrors.RenderedTooLarge);
+        allocated.Should().BeLessThan(AllocationCeiling, "the first visitor's render was unbounded before");
     }
 
     // --- which design a page shows ---

@@ -1703,4 +1703,10 @@
   <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
     <value>Bu dil desteklenmiyor.</value>
   </data>
+  <data name="Template.OutputTooLarge" xml:space="preserve">
+    <value>Oluşturulan ileti {0:N0} bayttan büyük; bu, bir iletinin olabileceği en büyük boyuttur: Gmail gibi e-posta uygulamaları bunu aşan e-postayı keser. Şablonu, metinlerini veya döngülerini kısaltın.</value>
+  </data>
+  <data name="Template.TooComplex" xml:space="preserve">
+    <value>Şablon oluşturulamayacak kadar karmaşık: blokları çok derin iç içe geçiriyor, çok uzun sürüyor veya oluşturulurken çok fazla metin üretiyor. Döngülerini ve iç içeliğini sadeleştirin.</value>
+  </data>
 </root>

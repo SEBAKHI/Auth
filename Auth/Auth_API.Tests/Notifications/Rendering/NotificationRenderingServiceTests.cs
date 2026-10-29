@@ -49,7 +49,7 @@ public class NotificationRenderingServiceTests
             _userRepoMock.Object,
             _applicationRepoMock.Object,
             _platformRepoMock.Object,
-            new FluidTemplateRenderer(),
+            new FluidTemplateRenderer(TimeProvider.System),
             new Mock<IImageUrlComposer>().Object,
             new Mock<IImageStorageService>().Object,
             settings,

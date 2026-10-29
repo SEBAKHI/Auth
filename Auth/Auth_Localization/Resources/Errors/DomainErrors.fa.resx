@@ -1703,4 +1703,10 @@
   <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
     <value>این زبان پشتیبانی نمی‌شود.</value>
   </data>
+  <data name="Template.OutputTooLarge" xml:space="preserve">
+    <value>پیام تولیدشده بزرگ‌تر از {0:N0} بایت است، یعنی بیشترین اندازه‌ای که یک پیام می‌تواند داشته باشد: برنامه‌های ایمیل مانند Gmail ایمیل بزرگ‌تر از آن را کوتاه می‌کنند. قالب، متن‌ها یا حلقه‌های آن را کوتاه‌تر کنید.</value>
+  </data>
+  <data name="Template.TooComplex" xml:space="preserve">
+    <value>قالب برای نمایش بیش از حد پیچیده است: بلوک‌ها را بیش از حد تودرتو می‌کند، زمان زیادی می‌برد یا هنگام نمایش متن زیادی می‌سازد. حلقه‌ها و تودرتویی آن را ساده‌تر کنید.</value>
+  </data>
 </root>

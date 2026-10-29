@@ -1703,4 +1703,10 @@
   <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
     <value>یہ زبان معاون نہیں ہے۔</value>
   </data>
+  <data name="Template.OutputTooLarge" xml:space="preserve">
+    <value>بنایا گیا پیغام {0:N0} بائٹ سے بڑا ہے، جو ایک پیغام کی زیادہ سے زیادہ حد ہے: اس سے بڑی ای میل کو Gmail جیسی ای میل ایپس کاٹ دیتی ہیں۔ سانچے، اس کی عبارتوں یا اس کے لوپس کو مختصر کریں۔</value>
+  </data>
+  <data name="Template.TooComplex" xml:space="preserve">
+    <value>سانچہ بنانے کے لیے بہت پیچیدہ ہے: یہ بلاکس کو بہت گہرائی تک ایک دوسرے کے اندر رکھتا ہے، بہت وقت لیتا ہے، یا بناتے وقت بہت زیادہ متن بناتا ہے۔ اس کے لوپس اور اندرونی ترتیب کو آسان بنائیں۔</value>
+  </data>
 </root>

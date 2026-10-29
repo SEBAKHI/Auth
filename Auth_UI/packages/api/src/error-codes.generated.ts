@@ -457,6 +457,8 @@ export const PUBLISHED_ERROR_CODES = {
   "SystemSettings.ThemeUnknownRadius": "catalog",
   "SystemSettings.ThemeUnknownSize": "catalog",
   "SystemSettings.UnknownField": "catalog",
+  "Template.OutputTooLarge": "catalog",
+  "Template.TooComplex": "catalog",
   "TwoFactor.ChallengeInvalid": "catalog",
   "TwoFactor.ChallengeTokenRequired": "#/challengeToken",
   "TwoFactor.CodeAlreadyUsed": "catalog",

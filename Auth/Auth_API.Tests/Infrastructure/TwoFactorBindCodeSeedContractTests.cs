@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Auth.Domain.Constants;
 using Auth.Infrastructure.Notifications;
+using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Infrastructure;
 
@@ -35,7 +36,7 @@ public class TwoFactorBindCodeSeedContractTests
         ["IpAddress"] = false,
     };
 
-    private readonly FluidTemplateRenderer _renderer = new();
+    private readonly FluidTemplateRenderer _renderer = new(TimeProvider.System);
 
     [Fact]
     public void TheType_IsASystemType_SeededInsideTheSeedsSingleBatch()

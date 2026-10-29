@@ -1,4 +1,5 @@
 using Auth.Infrastructure.Notifications;
+using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Notifications.Rendering;
 
@@ -8,7 +9,7 @@ namespace Auth_API.Tests.Notifications.Rendering;
 /// </summary>
 public class FluidTemplateRendererTests
 {
-    private readonly FluidTemplateRenderer _renderer = new();
+    private readonly FluidTemplateRenderer _renderer = new(TimeProvider.System);
 
     [Fact]
     public void Render_SimpleVariables_SubstitutesValues()
@@ -148,8 +149,9 @@ public class FluidTemplateRendererTests
     [Fact]
     public void Render_UnboundedLoop_IsStoppedByStepLimit()
     {
-        // 100k iterations exceeds the MaxSteps sandbox bound.
-        var source = "{% for i in (1..100000) %}x{% endfor %}";
+        // 10k iterations exceeds the MaxSteps sandbox bound; the range itself fits the work
+        // budget (a wider one is refused before the loop starts, TemplateRenderBoundsTests).
+        var source = "{% for i in (1..10000) %}x{% endfor %}";
 
         var result = _renderer.Render(source, new Dictionary<string, object?>(), "en", encodeHtml: false);
 
