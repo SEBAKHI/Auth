@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -61,6 +62,9 @@ public sealed class AuthSystemClient : IDisposable
     private readonly TimeProvider _time;
     private readonly MemoryCache _validResults = new(new MemoryCacheOptions { SizeLimit = CacheSizeLimit });
     private readonly MemoryCache _invalidResults = new(new MemoryCacheOptions { SizeLimit = CacheSizeLimit });
+
+    // The credential checks in flight, one per cache key; an entry lives only as long as its request.
+    private readonly ConcurrentDictionary<string, Lazy<Task>> _inFlight = new(StringComparer.Ordinal);
 
     public AuthSystemClient(
         IHttpClientFactory httpClientFactory,
@@ -261,6 +265,69 @@ public sealed class AuthSystemClient : IDisposable
             return CredentialCheck<TResult>.Invalid();
         }
 
+        // Concurrent checks of one credential wait on the request already in flight instead of
+        // each spending this application's budget at the AuthSystem: a burst of one forged key
+        // costs one call, as a single request does. The shared request runs without any caller's
+        // cancellation (the machine client's own timeout bounds it); each caller stops waiting on
+        // its own token.
+        return await Shared(cacheKey, () => AskAsync(cacheKey, path, content, invalidCode, validFor, read))
+            .WaitAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The request in flight for <paramref name="cacheKey"/>, or a new one started by
+    /// <paramref name="ask"/>. The entry is removed when its request ends, after the answer is cached.
+    /// </summary>
+    private Task<CredentialCheck<TResult>> Shared<TResult>(string cacheKey, Func<Task<CredentialCheck<TResult>>> ask)
+        where TResult : class
+    {
+        while (true)
+        {
+            if (_inFlight.TryGetValue(cacheKey, out var running))
+            {
+                // One cache key holds one result type: the key carries the credential kind.
+                return (Task<CredentialCheck<TResult>>)running.Value;
+            }
+
+            Lazy<Task> entry = null!;
+            entry = new Lazy<Task>(() => AskThenReleaseAsync(cacheKey, entry, ask), LazyThreadSafetyMode.ExecutionAndPublication);
+            if (_inFlight.TryAdd(cacheKey, entry))
+            {
+                return (Task<CredentialCheck<TResult>>)entry.Value;
+            }
+        }
+    }
+
+    private async Task<CredentialCheck<TResult>> AskThenReleaseAsync<TResult>(
+        string cacheKey,
+        Lazy<Task> entry,
+        Func<Task<CredentialCheck<TResult>>> ask)
+        where TResult : class
+    {
+        try
+        {
+            return await ask();
+        }
+        finally
+        {
+            _inFlight.TryRemove(new KeyValuePair<string, Lazy<Task>>(cacheKey, entry));
+        }
+    }
+
+    /// <summary>
+    /// The AuthSystem's answer for one credential, cached by its outcome. Runs for every caller
+    /// waiting on it, so it takes no caller's cancellation.
+    /// </summary>
+    private async Task<CredentialCheck<TResult>> AskAsync<TResult>(
+        string cacheKey,
+        string path,
+        Func<HttpContent> content,
+        string invalidCode,
+        TimeSpan validFor,
+        Func<TResult, (bool Active, string ApplicationCode)> read)
+        where TResult : class
+    {
+        var cancellationToken = CancellationToken.None;
         var answer = await SendAsMachineAsync(path, content, cancellationToken);
         using var response = answer.Response;
         if (response is null)

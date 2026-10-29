@@ -426,6 +426,9 @@ public class RotateApiKeyCommandHandlerTests
         _apiKeyGeneratorMock
             .Setup(g => g.Generate(It.IsAny<string>()))
             .Returns(new GeneratedApiKey("ak_prod_newkey456", "ak_prod_", "newselector00000", "new_hashed_key"));
+        _apiKeyRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<ApiKey>(), It.IsAny<ApiKey>(), It.IsAny<IReadOnlyCollection<ApiKeyScope>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
     }
 
     private RotateApiKeyCommand Command(Guid? apiKeyId = null) =>
@@ -435,8 +438,22 @@ public class RotateApiKeyCommandHandlerTests
     {
         _apiKeyGeneratorMock.Verify(g => g.Generate(It.IsAny<string>()), Times.Never);
         _apiKeyRepositoryMock.Verify(
-            r => r.RotateAsync(It.IsAny<ApiKey>(), It.IsAny<ApiKey>(), It.IsAny<IReadOnlyCollection<ApiKeyScope>>(), It.IsAny<CancellationToken>()),
+            r => r.TryRotateAsync(It.IsAny<ApiKey>(), It.IsAny<ApiKey>(), It.IsAny<IReadOnlyCollection<ApiKeyScope>>(), It.IsAny<CancellationToken>()),
             Times.Never);
+        _publisherMock.Verify(p => p.Publish(It.IsAny<ApiKeyRotatedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_KeyRevokedDuringTheRotation_ReturnsAlreadyRevokedError_AndPublishesNothing()
+    {
+        _apiKeyRepositoryMock
+            .Setup(r => r.TryRotateAsync(It.IsAny<ApiKey>(), It.IsAny<ApiKey>(), It.IsAny<IReadOnlyCollection<ApiKeyScope>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _handler.Handle(Command(), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("ApiKey.AlreadyRevoked");
         _publisherMock.Verify(p => p.Publish(It.IsAny<ApiKeyRotatedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -447,9 +464,9 @@ public class RotateApiKeyCommandHandlerTests
         ApiKey? replacement = null;
         IReadOnlyCollection<ApiKeyScope>? scopes = null;
         _apiKeyRepositoryMock
-            .Setup(r => r.RotateAsync(It.IsAny<ApiKey>(), It.IsAny<ApiKey>(), It.IsAny<IReadOnlyCollection<ApiKeyScope>>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.TryRotateAsync(It.IsAny<ApiKey>(), It.IsAny<ApiKey>(), It.IsAny<IReadOnlyCollection<ApiKeyScope>>(), It.IsAny<CancellationToken>()))
             .Callback((ApiKey a, ApiKey b, IReadOnlyCollection<ApiKeyScope> s, CancellationToken _) => { replaced = a; replacement = b; scopes = s; })
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(true);
 
         var result = await _handler.Handle(Command(), CancellationToken.None);
 

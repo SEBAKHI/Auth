@@ -195,9 +195,15 @@ export function ApiKeyCreateDialog({
     },
     onError: (error) => {
       // The server's sentence under the field it concerns, when it names one.
-      const fieldErrors = getFieldErrors(error)
+      // Several refused entries come back one pointer each ("allowedIps.1"):
+      // they all belong under the one field that holds the list.
+      const rejected = Object.keys(getFieldErrors(error))
       for (const field of ["permissionIds", "allowedIps"] as const) {
-        if (fieldErrors[field]) {
+        if (
+          rejected.some(
+            (path) => path === field || path.startsWith(`${field}.`)
+          )
+        ) {
           form.setError(field, { message: getErrorMessage(error) })
         }
       }

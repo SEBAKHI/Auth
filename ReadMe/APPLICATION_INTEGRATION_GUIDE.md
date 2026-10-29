@@ -1507,8 +1507,10 @@ so that the connection address is the caller's. Trusting the header from anywher
 write the address the list is checked against.
 
 **Rate-limit unauthenticated callers yourself, before authentication.** A well-formed forged key still
-costs one validation call before the SDK remembers it as invalid, and the auth server counts your checks
-on your application's budget. Put your own limiter in front of the endpoints that accept `X-Api-Key`.
+costs one validation call before the SDK remembers it as invalid (concurrent requests with the same key
+share that one call), and the auth server counts your checks on your application's budget, so a caller
+sending many different forged keys can spend it. Put your own limiter in front of the endpoints that
+accept `X-Api-Key`.
 
 **A revoked key stops working within `ApiKeyCacheDuration`** (60 seconds by default), the time a valid
 result stays in the SDK's cache.
@@ -1792,12 +1794,14 @@ webhook keys are faster and depend entirely on the secrecy of the HMAC key.
 *In code:* `Auth/Auth.Domain/Services/ApiKeyFormat.cs`; `ApiKeyGenerator.cs`; `WebhookKeyGenerator.cs:7,36`;
 `Auth/Auth.Application/Features/ApiKeys/ValidateApiKey/ValidateApiKeyQueryHandler.cs`.
 
-**A key created before this format no longer validates.** It has no selector. Rotate it if it carries
-scopes; a key with none cannot be rotated (`ApiKey.ScopesRequired`): create a new one instead.
+**A key created before this format no longer validates.** It has no selector. Rotate it if its scopes are
+all permissions of its own application. A key with no scope (`ApiKey.ScopesRequired`), or with a platform
+code or another application's permission (`ApiKey.ScopeNotForApplication`), cannot be rotated: create a
+new key with scopes, hand it over, then revoke the old one.
 
 **The SDK never caches a raw key.** Its cache key is the base64 of the SHA-256 hash of the raw key, so the
 key itself is not sitting in your process's memory cache.
-*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs:229-233`.
+*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs` (`ComputeCacheKey`).
 
 ### Key management endpoints
 
@@ -1929,7 +1933,10 @@ that no revocation reaches — the token itself, its session, the person's sign-
 refresh token of your application that is neither revoked nor expired. Every other token, a platform token
 included, is `{"active": false}`. The answer for an access token carries what the token itself carries
 (`sub`, `scope`, `roles`, `permissions`, `exp`, …), nothing read from the user's record. Use it when
-you must know before the token expires that the person signed out.
+you must know before the token expires that the person signed out. For a refresh token, `active` means
+only "not revoked, not expired": the refresh grant checks more (the person's access to your application,
+and an ended sign-in session where sessions end together), so it can still refuse a token introspection
+called active.
 *In code:* `Auth/Auth.Application/Features/Authentication/IntrospectToken/IntrospectTokenQueryHandler.cs`.
 
 ### The grant, for clients that are not .NET

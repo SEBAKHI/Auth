@@ -5,6 +5,7 @@ using System.Text;
 using Auth.Domain.Services;
 using Auth.Sdk;
 using Auth.Sdk.Extensions;
+using Auth.Sdk.Models;
 using Auth.Sdk.TokenManagement;
 using Auth_API.Tests.Helpers;
 using Microsoft.AspNetCore.Authorization;
@@ -190,6 +191,45 @@ public sealed class CredentialChecksAtAnSdkApplicationTests : IAsyncLifetime
         _time.Advance(TimeSpan.FromSeconds(31));
         (await CallAsync(_key)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         _authSystem.Requests.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task ConcurrentChecksOfOneKey_ShareOneRequest()
+    {
+        // A burst of one forged key, all of it arriving before the first answer: the residual the
+        // guide states is one call per key, not one per request.
+        _authSystem.Answer(HttpStatusCode.BadRequest, InvalidProblem);
+        _authSystem.Hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sdk = _host.Services.GetRequiredService<AuthSystemClient>();
+
+        var checks = Enumerable.Range(0, 20).Select(_ => sdk.ValidateApiKeyAsync(_key)).ToList();
+        _authSystem.Hold.SetResult();
+        var outcomes = await Task.WhenAll(checks);
+
+        outcomes.Should().OnlyContain(o => o.Status == CredentialCheckStatus.Invalid);
+        _authSystem.Requests.Should().HaveCount(1);
+
+        // Done: the next check is answered by the cache, not by a stale shared request.
+        (await sdk.ValidateApiKeyAsync(_key)).Status.Should().Be(CredentialCheckStatus.Invalid);
+        _authSystem.Requests.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task ACallerWhoStopsWaiting_DoesNotCancelTheSharedCheck()
+    {
+        _authSystem.Answer(HttpStatusCode.OK, Valid());
+        _authSystem.Hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sdk = _host.Services.GetRequiredService<AuthSystemClient>();
+        using var leaving = new CancellationTokenSource();
+
+        var cancelled = sdk.ValidateApiKeyAsync(_key, leaving.Token);
+        var waiting = sdk.ValidateApiKeyAsync(_key);
+        await leaving.CancelAsync();
+        _authSystem.Hold.SetResult();
+
+        await FluentActions.Awaiting(() => cancelled).Should().ThrowAsync<OperationCanceledException>();
+        (await waiting).Status.Should().Be(CredentialCheckStatus.Valid);
+        _authSystem.Requests.Should().HaveCount(1);
     }
 
     [Theory]
@@ -394,13 +434,25 @@ public sealed class CredentialChecksAtAnSdkApplicationTests : IAsyncLifetime
 
         public void Fail(Exception failure) => _failure = failure;
 
+        /// <summary>When set, every request waits for it before it is answered.</summary>
+        public TaskCompletionSource? Hold { get; set; }
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Requests.Add((
-                request.RequestUri!.AbsolutePath,
-                request.Headers.Authorization?.ToString(),
-                string.Join("\n", request.Headers.Select(h => $"{h.Key}: {string.Join(",", h.Value)}")),
-                request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken)));
+            var sent = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
+            lock (Requests)
+            {
+                Requests.Add((
+                    request.RequestUri!.AbsolutePath,
+                    request.Headers.Authorization?.ToString(),
+                    string.Join("\n", request.Headers.Select(h => $"{h.Key}: {string.Join(",", h.Value)}")),
+                    sent));
+            }
+
+            if (Hold is { } hold)
+            {
+                await hold.Task.WaitAsync(cancellationToken);
+            }
 
             if (_failure is not null)
             {

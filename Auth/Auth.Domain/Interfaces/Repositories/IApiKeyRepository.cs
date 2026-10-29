@@ -41,9 +41,10 @@ public interface IApiKeyRepository
 
     /// <summary>
     /// Stores a rotation in one transaction (OI-128 PR B): <paramref name="replacement"/> and its
-    /// <paramref name="scopes"/>, and the new expiry of <paramref name="replaced"/>.
+    /// <paramref name="scopes"/>, and the new expiry of <paramref name="replaced"/>. False, and
+    /// nothing written, when <paramref name="replaced"/> was revoked since it was read.
     /// </summary>
-    Task RotateAsync(ApiKey replaced, ApiKey replacement, IReadOnlyCollection<ApiKeyScope> scopes, CancellationToken cancellationToken);
+    Task<bool> TryRotateAsync(ApiKey replaced, ApiKey replacement, IReadOnlyCollection<ApiKeyScope> scopes, CancellationToken cancellationToken);
 
     /// <summary>
     /// Updates an API key.

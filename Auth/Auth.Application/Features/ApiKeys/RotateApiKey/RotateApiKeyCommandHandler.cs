@@ -81,11 +81,16 @@ public class RotateApiKeyCommandHandler : IRequestHandler<RotateApiKeyCommand, E
         var gracePeriodEnd = now.UtcDateTime.AddMinutes(request.GracePeriodMinutes);
         existingKey.ScheduleExpiration(gracePeriodEnd);
 
-        await _apiKeyRepository.RotateAsync(
+        var rotated = await _apiKeyRepository.TryRotateAsync(
             existingKey,
             newApiKey,
             scopes.Value.Select(permissionId => ApiKeyScope.Create(newApiKey.Id, permissionId, request.RotatedBy)).ToList(),
             cancellationToken);
+        if (!rotated)
+        {
+            _logger.LogWarning("API key {ApiKeyId} was revoked during its rotation; nothing was issued", existingKey.Id);
+            return ApiKeyErrors.AlreadyRevoked;
+        }
 
         _logger.LogInformation(
             "Rotated API key {OldKeyId} to {NewKeyId}. Old key valid until {GraceEnd}",

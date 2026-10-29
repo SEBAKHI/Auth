@@ -52,21 +52,41 @@ public class ApiKeyRepositorySqlTests
     }
 
     [Fact]
-    public async Task RotateAsync_WritesTheNewKeyItsScopesAndTheOldKeysEnd_InOneCommittedTransaction()
+    public async Task TryRotateAsync_MovesTheOldKeysEndThenWritesTheNewKeyAndItsScopes_InOneCommittedTransaction()
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
         var replaced = TestHelpers.CreateApiKey();
         replaced.ScheduleExpiration(DateTime.UtcNow.AddHours(1));
         var replacement = Key();
 
-        await new ApiKeyRepository(db).RotateAsync(
+        var rotated = await new ApiKeyRepository(db).TryRotateAsync(
             replaced, replacement, [ApiKeyScope.Create(replacement.Id, Guid.NewGuid(), Guid.NewGuid())], CancellationToken.None);
 
+        rotated.Should().BeTrue();
         db.Commands.Should().HaveCount(3).And.OnlyContain(command => command.InTransaction);
-        db.Commands[2].CommandText.Should().Contain("UPDATE [dbo].[ApiKeys] SET [ExpiresAt] = @ExpiresAt")
+        db.Commands[0].CommandText.Should().Contain("UPDATE [dbo].[ApiKeys] SET [ExpiresAt] = @ExpiresAt")
             .And.Contain("[RevokedAt] IS NULL");
-        db.Commands[2].Parameters["Id"].Should().Be(replaced.Id);
+        db.Commands[0].Parameters["Id"].Should().Be(replaced.Id);
+        db.Commands[1].CommandText.Should().Contain("INSERT INTO [dbo].[ApiKeys]");
+        db.Commands[2].CommandText.Should().Contain("INSERT INTO [dbo].[ApiKeyScopes]");
         db.Transactions.Should().ContainSingle().Which.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TryRotateAsync_WhenTheKeyWasRevokedMeanwhile_WritesNothing()
+    {
+        // The guarded update matches no row: a revocation landed between the read and the write.
+        var db = new RecordingDbConnectionFactory(affectedRows: 0);
+        var replaced = TestHelpers.CreateApiKey();
+        replaced.ScheduleExpiration(DateTime.UtcNow.AddHours(1));
+        var replacement = Key();
+
+        var rotated = await new ApiKeyRepository(db).TryRotateAsync(
+            replaced, replacement, [ApiKeyScope.Create(replacement.Id, Guid.NewGuid(), Guid.NewGuid())], CancellationToken.None);
+
+        rotated.Should().BeFalse();
+        db.Commands.Should().ContainSingle().Which.CommandText.Should().Contain("UPDATE [dbo].[ApiKeys]");
+        db.Transactions.Should().ContainSingle().Which.Committed.Should().BeFalse();
     }
 
     [Fact]

@@ -72,13 +72,17 @@
  * localhost\SQLEXPRESS01, a local server only), PROBE_SQLCMD_DB (default
  * AuthSystem), PROBE_KEYRING_THROWAWAY=yes (required), PROBE_ADMIN_EMAIL and
  * PROBE_ADMIN_PASSWORD (optional: an account with secrets.manage, webhook-key,
- * application, organization and system-settings:manage rights, and no second
- * factor).
+ * apikeys:create (for the machine key), application, organization and
+ * system-settings:manage rights, and no second factor).
+ *
+ * The webhook key is validated as its own application validates it (OI-128 PR B):
+ * the probe gives the client application a machine key, and each use asks
+ * POST api/v1/app/machine/webhookkeys/validate with a fresh machine token.
  *
  * Usage: node Tools/probes/keyring-dual-verify.mjs
  * Exit:  0 PASS · 1 FAIL · 4 INCONCLUSIVE · 3 setup aborted · 2 refused
  */
-import { createHash, createHmac, randomBytes } from "node:crypto";
+import { createHash, createHmac, createPrivateKey, randomBytes, sign } from "node:crypto";
 import { execFile } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -515,8 +519,34 @@ async function present(set, ctx) {
 const LEGACY_FORM = "(legacy form)";
 const prefixOf = (keyId) => (keyId === 1 ? LEGACY_FORM : `hk${keyId}$`);
 
+// A machine token of the client application: one signed assertion (ES256, raw r||s) per call,
+// since an assertion is single use.
+async function machineToken(machine) {
+  const b64url = (value) => Buffer.from(value).toString("base64url");
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "ES256", kid: machine.kid, typ: "client-authentication+jwt" };
+  const payload = {
+    iss: machine.clientId, sub: machine.clientId, aud: machine.issuer,
+    jti: randomBytes(16).toString("hex"), iat: now, exp: now + 60,
+  };
+  const input = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
+  const signature = sign("sha256", Buffer.from(input), { key: machine.privateKey, dsaEncoding: "ieee-p1363" });
+  const r = await paced(machine.tokenPath, {
+    method: "POST",
+    form: {
+      grant_type: "client_credentials",
+      client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      client_assertion: `${input}.${b64url(signature)}`,
+      client_id: machine.clientId,
+    },
+  });
+  return must(r, [200], "machine token for the webhook check").json.access_token;
+}
+
 async function webhookUse(ctx) {
-  const r = await call("/api/v1/WebhookKeys/validate", { method: "POST", token: ctx.admin, body: { webhookKey: ctx.webhookKey } });
+  const r = await call("/api/v1/app/machine/webhookkeys/validate", {
+    method: "POST", token: await machineToken(ctx.machine), body: { webhookKey: ctx.webhookKey },
+  });
   // The re-fingerprint is written by an event handler after the answer; give it a moment.
   let prefix = "";
   for (let attempt = 0; attempt < 20; attempt++) {
@@ -605,13 +635,24 @@ async function main() {
     [201],
     "create the webhook key",
   ).json;
+  const machineKey = must(
+    await call(`/api/v1/applications/${app.id}/machine-keys`, {
+      method: "POST", token: admin, body: { name: "keyring probe" },
+    }),
+    [201],
+    "create the machine key for the webhook check",
+  ).json;
+  const machine = {
+    kid: machineKey.kid, clientId: machineKey.clientId, issuer: machineKey.issuer,
+    tokenPath: new URL(machineKey.tokenEndpoint).pathname, privateKey: createPrivateKey(machineKey.privateKeyPem),
+  };
 
   // A live session of the subject, for resuming parked requests: refreshed after
   // every change, so it is never the credential under test.
   let liveCookie = null;
   const ctx = {
     admin, inviter: admin, subject, resetter, twoFactor, totp, clientId, memberRoleId,
-    organizationId: guid(organization.id), webhookKey: webhook.webhookKey, webhookKeyId: guid(webhook.id),
+    organizationId: guid(organization.id), webhookKey: webhook.webhookKey, webhookKeyId: guid(webhook.id), machine,
     resets: 0, expectedHashKey: 0, liveCookie: () => liveCookie,
   };
   const refreshLiveCookie = async () => {

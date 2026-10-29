@@ -113,13 +113,13 @@ public sealed class IpAllowList : IEquatable<IpAllowList>
 
     /// <summary>
     /// IPAddress.TryParse also accepts forms no administrator means as an address: a bare number
-    /// ("10" is 0.0.0.10), short dotted forms ("10.1"), and an IPv6 zone. Only the dotted quad and
-    /// IPv6 text are taken.
+    /// ("10" is 0.0.0.10), short dotted forms ("10.1"), octal and hex octets ("010" is 8, "0x0A"
+    /// is 10), and an IPv6 zone. Only the canonical dotted quad and IPv6 text are taken.
     /// </summary>
     private static bool IsPlainAddress(string text, IPAddress address) =>
         address.AddressFamily switch
         {
-            AddressFamily.InterNetwork => text.Count(ch => ch == '.') == 3,
+            AddressFamily.InterNetwork => string.Equals(text, address.ToString(), StringComparison.Ordinal),
             AddressFamily.InterNetworkV6 => !text.Contains('%'),
             _ => false
         };

@@ -1117,10 +1117,12 @@ builder.Services.AddRateLimiter(options =>
     // this runs, as it does for "app-read", under a tag of its own ("mchk"). A request without
     // such a token counts on its address's partition and never reaches an application's.
     //
-    // Never on "sub", a user's claim: the old door was a platform user's, and partitioning on
-    // it let ~60 forged keys a minute, sent to an application by anyone, spend the one budget
-    // that application's genuine keys needed. Now a flood of forged keys spends only its own
-    // address's share at the application's server, and no other application's share at all.
+    // Never on "sub", a user's claim: the old door was a platform user's, so every caller that
+    // signed in as the same user shared one budget. Now no other application, and no caller
+    // without this application's machine key, can spend this application's budget. Forged keys
+    // sent to the application itself still can: each well-formed key the application has not
+    // yet seen costs one check here (the SDK coalesces repeats and holds a refusal for 30
+    // seconds), so the application rate-limits unauthenticated callers before authentication.
     //
     // Validation itself is cheap again: one row by the key's selector and at most one Argon2id
     // verify, none for an unknown selector. The limit stays because the verify is still the

@@ -250,6 +250,36 @@ test("an address the server refuses is shown under the address field", async ({
   expect(calls.filter((call) => call.method === "POST")).toHaveLength(1)
 })
 
+test("two refused addresses are shown under the address field too", async ({
+  page,
+}) => {
+  // Two failures come back as one pointer per entry, not as the field itself.
+  await install(page, [], {
+    createAnswer: () => ({
+      status: 400,
+      body: problem(400, "ApiKey.AllowedIpInvalid", {
+        detail:
+          "Each allowed address must be an IPv4 or IPv6 address, or a CIDR range whose host bits are zero.",
+        errors: [
+          { code: "ApiKey.AllowedIpInvalid", pointer: "#/allowedIps/0" },
+          { code: "ApiKey.AllowedIpInvalid", pointer: "#/allowedIps/1" },
+        ],
+      }),
+    }),
+  })
+  const dialog = await openCreateDialog(page)
+
+  await dialog.getByLabel("Name").fill("Orders integration")
+  await dialog.getByRole("checkbox", { name: "shop:orders:write" }).check()
+  await dialog.getByLabel("Allowed addresses").fill("10.0.0.1/24\n010.0.0.1")
+  await dialog.getByRole("button", { name: "Create", exact: true }).click()
+
+  await expect(dialog.getByLabel("Allowed addresses")).toHaveAttribute(
+    "aria-invalid",
+    "true"
+  )
+})
+
 test("an application with nothing this administrator may grant says so, rather than an empty list", async ({
   page,
 }) => {

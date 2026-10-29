@@ -106,7 +106,7 @@ public class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task RotateAsync(
+    public async Task<bool> TryRotateAsync(
         ApiKey replaced,
         ApiKey replacement,
         IReadOnlyCollection<ApiKeyScope> scopes,
@@ -115,18 +115,26 @@ public class ApiKeyRepository : IApiKeyRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         using var transaction = connection.BeginTransaction();
 
-        await InsertKeyAsync(connection, transaction, replacement, cancellationToken);
-        await InsertScopesAsync(connection, transaction, scopes, cancellationToken);
-
-        // Only the rotated key's end moves; a revocation that landed meanwhile stays.
-        await connection.ExecuteAsync(new CommandDefinition(@"
+        // The rotated key's end moves first, and only while the key is live: a revocation that
+        // landed since it was read wins, and no replacement outlives it. The update also holds
+        // the row until the commit, so a revocation arriving now waits for the rotation.
+        var moved = await connection.ExecuteAsync(new CommandDefinition(@"
             UPDATE [dbo].[ApiKeys] SET [ExpiresAt] = @ExpiresAt
             WHERE [Id] = @Id AND [RevokedAt] IS NULL",
             new { replaced.Id, replaced.ExpiresAt },
             transaction,
             cancellationToken: cancellationToken));
+        if (moved != 1)
+        {
+            transaction.Rollback();
+            return false;
+        }
+
+        await InsertKeyAsync(connection, transaction, replacement, cancellationToken);
+        await InsertScopesAsync(connection, transaction, scopes, cancellationToken);
 
         transaction.Commit();
+        return true;
     }
 
     private static Task InsertKeyAsync(
