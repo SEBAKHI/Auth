@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright"
 import { expect, test, type Page } from "@playwright/test"
 
 import { ar } from "../../packages/i18n/src/locales/ar"
@@ -9,6 +10,7 @@ import {
   readPixels,
   type Rgba,
 } from "./image-bytes"
+import { WCAG_TAGS, actionable, describeViolations } from "./axe-known-gaps"
 import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
 
 /**
@@ -61,7 +63,12 @@ interface Captured {
 
 async function install(
   page: Page,
-  options: { language?: keyof typeof catalogs; theme?: "light" | "dark" } = {}
+  options: {
+    language?: keyof typeof catalogs
+    theme?: "light" | "dark"
+    /** Holds every upload's response until it settles: a Save still in flight. */
+    holdUploads?: Promise<void>
+  } = {}
 ): Promise<Captured> {
   const captured: Captured = { uploads: [], settingsWrites: [] }
   if (options.theme) {
@@ -75,6 +82,7 @@ async function install(
       const method = route.request().method()
       if (path === "/api/v1/images" && method === "POST") {
         captured.uploads.push(route.request().postDataBuffer()!)
+        await options.holdUploads
         await fulfillJson(route, {
           key: "images/isolated.png",
           url: "http://localhost:4175/uploads/images/isolated.png",
@@ -269,7 +277,14 @@ test("a logo's aspect is free: one edge trimmed, then a margin added", async ({
   // Shift+Left on the right edge: 10% of the 400 px crop off the right side.
   const right = dialog.locator('[data-edge="right"]')
   await right.focus()
+  // Each grip is a focusable separator whose value is its place in the image.
+  await expect(right).toHaveAttribute("role", "separator")
+  await expect(right).toHaveAttribute("aria-orientation", "vertical")
+  await expect(right).toHaveAttribute("aria-valuemax", "400")
+  await expect(right).toHaveAttribute("aria-valuenow", "400")
   await right.press("Shift+ArrowLeft")
+  await expect(right).toHaveAttribute("aria-valuenow", "360")
+  await expect(right).toHaveAttribute("aria-valuetext", "360 px")
   await expect(
     dialog.getByText(en.imageFrame.outputSize.replace("{{width}}", "360").replace("{{height}}", "200"))
   ).toBeVisible()
@@ -353,5 +368,121 @@ for (const language of ["en", "ar"] as const) {
         })
       })
     }
+  }
+}
+
+/** Opens the editor the way a person does: the avatar's menu, then Change. */
+async function chooseThroughMenu(page: Page, avatar: ReturnType<Page["getByRole"]>) {
+  await avatar.click()
+  const chooser = page.waitForEvent("filechooser")
+  await page.getByRole("menuitem", { name: en.common.change, exact: true }).click()
+  await (await chooser).setFiles(PICKED)
+  const dialog = page.getByRole("dialog", { name: en.imageFrame.title })
+  await expect(dialog.locator('[data-slot="image-frame-stage"]')).toBeVisible()
+  return dialog
+}
+
+for (const close of ["Cancel", "Escape"] as const) {
+  test(`closing the editor with ${close} hands focus back to the avatar`, async ({ page }) => {
+    await install(page)
+    await page.goto(`/users/${USER_ID}`)
+    const avatar = page.getByRole("button", { name: en.common.avatar })
+    const dialog = await chooseThroughMenu(page, avatar)
+
+    if (close === "Cancel") {
+      await dialog.getByRole("button", { name: en.common.cancel, exact: true }).click()
+    } else {
+      await page.keyboard.press("Escape")
+    }
+    await expect(dialog).toBeHidden()
+    await expect(avatar).toBeFocused()
+  })
+}
+
+test("saving hands focus back to the avatar, while the upload runs and after", async ({ page }) => {
+  let release!: () => void
+  const held = new Promise<void>((resolve) => (release = resolve))
+  const captured = await install(page, { holdUploads: held })
+  await page.goto(`/users/${USER_ID}`)
+  const avatar = page.getByRole("button", { name: en.common.avatar })
+  const dialog = await chooseThroughMenu(page, avatar)
+
+  await dialog.getByRole("button", { name: en.common.save, exact: true }).click()
+  await expect(dialog).toBeHidden()
+  await expect.poll(() => captured.uploads.length).toBe(1)
+  // In flight: the avatar keeps focus and says it is unavailable.
+  await expect(avatar).toBeFocused()
+  await expect(avatar).toHaveAttribute("aria-disabled", "true")
+  // ...and its menu does not open meanwhile.
+  await avatar.press("Enter")
+  await expect(page.getByRole("menuitem", { name: en.common.change, exact: true })).toHaveCount(0)
+
+  release()
+  await expect(avatar).not.toHaveAttribute("aria-disabled", "true")
+  await expect(avatar).toBeFocused()
+})
+
+test("inside the platform logo dialog, closing the editor keeps focus in that dialog", async ({
+  page,
+}) => {
+  await install(page)
+  await page.goto("/admin/platform-settings")
+  await page.getByRole("button", { name: en.common.avatar }).first().click()
+  await page.getByRole("menuitem", { name: en.common.change, exact: true }).click()
+  const logos = page.getByRole("dialog", { name: en.platformSettings.logoDialogTitle })
+  await expect(logos).toBeVisible()
+
+  const light = logos.locator('[data-mode="light"]').getByRole("button", { name: en.common.avatar })
+  const dialog = await chooseThroughMenu(page, light)
+  await dialog.getByRole("button", { name: en.common.cancel, exact: true }).click()
+  await expect(dialog).toBeHidden()
+
+  await expect(logos).toBeVisible()
+  await expect(light).toBeFocused()
+  expect(await logos.evaluate((el) => el.contains(document.activeElement))).toBe(true)
+})
+
+test("the edge grips are at least 24 px on their thin side at a 320 px viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 720 })
+  await install(page)
+  await page.goto("/admin/platform-settings")
+  await page.getByRole("button", { name: en.common.avatar }).first().click()
+  await page.getByRole("menuitem", { name: en.common.change, exact: true }).click()
+  const logos = page.getByRole("dialog", { name: en.platformSettings.logoDialogTitle })
+  await logos.locator('[data-mode="light"] input[type="file"]').setInputFiles(PICKED)
+  const dialog = page.getByRole("dialog", { name: en.imageFrame.title })
+  const grips = dialog.locator("[data-edge]")
+  await expect(grips).toHaveCount(4)
+
+  for (const grip of await grips.all()) {
+    const box = (await grip.boundingBox())!
+    expect(Math.min(box.width, box.height), await grip.getAttribute("data-edge") ?? "").toBeGreaterThanOrEqual(24)
+  }
+})
+
+for (const language of ["en", "ar"] as const) {
+  for (const theme of ["light", "dark"] as const) {
+    test(`axe finds nothing in the logo editor (${language}, ${theme})`, async ({ page }) => {
+      const t = catalogs[language]
+      await install(page, { language, theme })
+      await page.goto("/admin/platform-settings")
+      await page.getByRole("button", { name: t.common.avatar }).first().click()
+      await page.getByRole("menuitem", { name: t.common.change, exact: true }).click()
+      const logos = page.getByRole("dialog", { name: t.platformSettings.logoDialogTitle })
+      await logos.locator('[data-mode="light"] input[type="file"]').setInputFiles(PICKED)
+      const dialog = page.getByRole("dialog", { name: t.imageFrame.title })
+      // Logo mode: the four grips are on screen to be judged.
+      await expect(dialog.locator("[data-edge]")).toHaveCount(4)
+
+      const results = await new AxeBuilder({ page })
+        .withTags(WCAG_TAGS)
+        .include('[data-slot="dialog-content"]:has([data-slot="image-frame-stage"])')
+        .analyze()
+      // Floor: the editor was actually scanned.
+      expect(results.passes.length).toBeGreaterThan(0)
+      expect(actionable(results), describeViolations(results)).toEqual([])
+    })
   }
 }

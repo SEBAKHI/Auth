@@ -2010,11 +2010,12 @@ export const fr: TranslationResources = {
     description: {
       logo: "Choisissez la partie à garder et l'espace vide autour. Laissée telle quelle, l'image est envoyée exactement comme vous l'avez choisie.",
       favicon: "Une icône d'onglet est carrée. Choisissez la partie à garder et l'espace vide autour. Laissée telle quelle, l'image est envoyée exactement comme vous l'avez choisie.",
-      photo: "Les photos de profil sont carrées et affichées dans un cercle. Choisissez la partie à garder. Laissée telle quelle, la photo est envoyée exactement comme vous l'avez choisie.",
+      photo: "Les photos de profil sont carrées et affichées dans un cercle. Choisissez la partie à garder et l'espace vide autour. Laissée telle quelle, la photo est envoyée exactement comme vous l'avez choisie.",
     },
     stageLabel: "Cadre de l'image",
     hintMove: "Faites glisser l'image, ou utilisez les flèches, pour la déplacer (avec Maj, plus vite).",
     hintEdges: "Faites glisser un bord du cadre, ou placez-vous dessus et utilisez les flèches, pour rogner un seul côté.",
+    edgeValue: "{{value}} px",
     edge: {
       top: "Bord supérieur du cadre",
       right: "Bord droit du cadre",
@@ -2025,7 +2026,8 @@ export const fr: TranslationResources = {
     margin: "Marge",
     percent: "{{value}} %",
     original: "Le fichier d'origine est envoyé sans modification.",
-    outputSize: "Envoyée en {{width}} × {{height}} px ; la marge est transparente.",
+    outputSize: "Envoyée en {{width}} × {{height}} px.",
+    outputSizeWithMargin: "Envoyée en {{width}} × {{height}} px ; la marge est transparente.",
     gifTitle: "L'animation sera perdue",
     gifBody: "Seule la première image d'un GIF animé est conservée.",
     decodeFailedTitle: "Cette image ne peut pas être cadrée ici",

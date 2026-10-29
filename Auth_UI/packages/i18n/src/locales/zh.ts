@@ -1864,11 +1864,12 @@ export const zh: TranslationResources = {
     description: {
       logo: "选择要保留的部分以及周围的留白。不做改动时，图片将按您选择的原样上传。",
       favicon: "标签页图标是正方形的。选择要保留的部分以及周围的留白。不做改动时，图片将按您选择的原样上传。",
-      photo: "头像为正方形，并以圆形显示。选择要保留的部分。不做改动时，照片将按您选择的原样上传。",
+      photo: "头像为正方形，并以圆形显示。选择要保留的部分以及周围的留白。不做改动时，照片将按您选择的原样上传。",
     },
     stageLabel: "图片取景框",
     hintMove: "拖动图片或使用方向键移动它（按住 Shift 移动更快）。",
     hintEdges: "拖动取景框的一条边，或聚焦到该边后使用方向键，即可只裁剪一侧。",
+    edgeValue: "{{value}} 像素",
     edge: {
       top: "取景框上边",
       right: "取景框右边",
@@ -1879,7 +1880,8 @@ export const zh: TranslationResources = {
     margin: "留白",
     percent: "{{value}}%",
     original: "原始文件将原样上传。",
-    outputSize: "上传尺寸为 {{width}} × {{height}} 像素；留白为透明。",
+    outputSize: "上传尺寸为 {{width}} × {{height}} 像素。",
+    outputSizeWithMargin: "上传尺寸为 {{width}} × {{height}} 像素；留白为透明。",
     gifTitle: "动画将会丢失",
     gifBody: "动态 GIF 只保留第一帧。",
     decodeFailedTitle: "无法在此裁剪这张图片",

@@ -1971,11 +1971,12 @@ export const tr: TranslationResources = {
     description: {
       logo: "Tutulacak bölümü ve çevresindeki boşluğu seçin. Olduğu gibi bırakılırsa görsel seçtiğiniz haliyle yüklenir.",
       favicon: "Sekme simgesi karedir. Tutulacak bölümü ve çevresindeki boşluğu seçin. Olduğu gibi bırakılırsa görsel seçtiğiniz haliyle yüklenir.",
-      photo: "Profil fotoğrafları karedir ve daire içinde gösterilir. Tutulacak bölümü seçin. Olduğu gibi bırakılırsa fotoğraf seçtiğiniz haliyle yüklenir.",
+      photo: "Profil fotoğrafları karedir ve daire içinde gösterilir. Tutulacak bölümü ve çevresindeki boşluğu seçin. Olduğu gibi bırakılırsa fotoğraf seçtiğiniz haliyle yüklenir.",
     },
     stageLabel: "Görsel çerçevesi",
     hintMove: "Görseli taşımak için sürükleyin veya ok tuşlarını kullanın (Shift ile daha hızlı taşınır).",
     hintEdges: "Tek bir kenarı kırpmak için çerçevenin bir kenarını sürükleyin ya da kenara gidip ok tuşlarını kullanın.",
+    edgeValue: "{{value}} piksel",
     edge: {
       top: "Çerçevenin üst kenarı",
       right: "Çerçevenin sağ kenarı",
@@ -1986,7 +1987,8 @@ export const tr: TranslationResources = {
     margin: "Kenar boşluğu",
     percent: "%{{value}}",
     original: "Özgün dosya değiştirilmeden yüklenir.",
-    outputSize: "{{width}} × {{height}} piksel olarak yüklenir; kenar boşluğu saydamdır.",
+    outputSize: "{{width}} × {{height}} piksel olarak yüklenir.",
+    outputSizeWithMargin: "{{width}} × {{height}} piksel olarak yüklenir; kenar boşluğu saydamdır.",
     gifTitle: "Animasyon kaybolacak",
     gifBody: "Hareketli bir GIF'in yalnızca ilk karesi tutulur.",
     decodeFailedTitle: "Bu görsel burada çerçevelenemiyor",

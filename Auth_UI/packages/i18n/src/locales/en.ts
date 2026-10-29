@@ -1985,11 +1985,12 @@ export const en = {
     description: {
       logo: "Choose the part to keep and the empty space around it. Left as it is, the image uploads exactly as you chose it.",
       favicon: "A tab icon is square. Choose the part to keep and the empty space around it. Left as it is, the image uploads exactly as you chose it.",
-      photo: "Profile photos are square and shown in a circle. Choose the part to keep. Left as it is, the photo uploads exactly as you chose it.",
+      photo: "Profile photos are square and shown in a circle. Choose the part to keep and the empty space around it. Left as it is, the photo uploads exactly as you chose it.",
     },
     stageLabel: "Image frame",
     hintMove: "Drag the image, or use the arrow keys, to move it (with Shift it moves faster).",
     hintEdges: "Drag an edge of the frame, or move to it and use the arrow keys, to trim one side.",
+    edgeValue: "{{value}} px",
     edge: {
       top: "Top edge of the frame",
       right: "Right edge of the frame",
@@ -2000,7 +2001,8 @@ export const en = {
     margin: "Margin",
     percent: "{{value}}%",
     original: "The original file uploads unchanged.",
-    outputSize: "Uploads at {{width}} × {{height}} px; the margin is transparent.",
+    outputSize: "Uploads at {{width}} × {{height}} px.",
+    outputSizeWithMargin: "Uploads at {{width}} × {{height}} px; the margin is transparent.",
     gifTitle: "The animation will be lost",
     gifBody: "Only the first frame of an animated GIF is kept.",
     decodeFailedTitle: "This image can't be framed here",

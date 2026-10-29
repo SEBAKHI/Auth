@@ -66,11 +66,18 @@ export default function ImageFrameDialog({
   mode,
   onCancel,
   onConfirm,
+  returnFocus,
 }: {
   file: File
   mode: FrameMode
   onCancel: () => void
   onConfirm: (file: File) => void
+  /**
+   * Where focus goes when the editor closes. It has no DialogTrigger (a file
+   * input opened it), so Radix would otherwise drop focus on <body> - behind
+   * any dialog this one was opened from.
+   */
+  returnFocus?: () => void
 }) {
   const { t } = useTranslation()
   const [decoded, setDecoded] = React.useState<Decoded>({ status: "decoding" })
@@ -143,7 +150,13 @@ export default function ImageFrameDialog({
         if (!open && !savingRef.current) onCancel()
       }}
     >
-      <DialogContent size="md">
+      <DialogContent
+        size="md"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          returnFocus?.()
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{t("imageFrame.title")}</DialogTitle>
           <DialogDescription>{t(`imageFrame.description.${mode}`)}</DialogDescription>
@@ -233,7 +246,9 @@ export default function ImageFrameDialog({
         >
           {untouched || !size
             ? t("imageFrame.original")
-            : t("imageFrame.outputSize", { width: size.width, height: size.height })}
+            : frame && frame.margin > 0
+              ? t("imageFrame.outputSizeWithMargin", { width: size.width, height: size.height })
+              : t("imageFrame.outputSize", { width: size.width, height: size.height })}
         </p>
 
         <DialogFooter>
@@ -491,7 +506,10 @@ function FrameStage({
                   key={edge}
                   edge={edge}
                   crop={crop}
+                  position={edgePosition(frame.crop, edge)}
+                  max={edge === "left" || edge === "right" ? image.width : image.height}
                   label={t(`imageFrame.edge.${edge}`)}
+                  valueText={(value) => t("imageFrame.edgeValue", { value })}
                   onPointerDown={onEdgePointerDown(edge)}
                   onKeyDown={onEdgeKeyDown(edge)}
                 />
@@ -527,18 +545,41 @@ function placeFrozen(frozen: StageLayout, frame: FrameState, image: Size): Stage
 /** Grip length and thickness, in stage units. */
 const GRIP_LENGTH = 12
 const GRIP_THICKNESS = 2.5
-const HIT_THICKNESS = 7
+// At a 320 px viewport the stage is 2.4 px per unit, so 11 units keeps the
+// thin side above the 24 px of WCAG 2.5.8 with room for rounding (26.4 px).
+const HIT_THICKNESS = 11
+
+/** Where an edge sits in the image, in image pixels. */
+function edgePosition(crop: Rect, edge: Edge): number {
+  switch (edge) {
+    case "left":
+      return crop.x
+    case "right":
+      return crop.x + crop.width
+    case "top":
+      return crop.y
+    case "bottom":
+      return crop.y + crop.height
+  }
+}
 
 function EdgeHandle({
   edge,
   crop,
+  position,
+  max,
   label,
+  valueText,
   onPointerDown,
   onKeyDown,
 }: {
   edge: Edge
   crop: Rect
+  /** The edge's place in the image, in image pixels. */
+  position: number
+  max: number
   label: string
+  valueText: (value: number) => string
   onPointerDown: (event: React.PointerEvent) => void
   onKeyDown: (event: React.KeyboardEvent) => void
 }) {
@@ -553,10 +594,20 @@ function EdgeHandle({
       ? { x: cx - thickness / 2, y: cy - length / 2, width: thickness, height: length }
       : { x: cx - length / 2, y: cy - thickness / 2, width: length, height: thickness }
 
+  const value = Math.round(position)
+
+  // A focusable separator (the "window splitter" pattern): a line whose
+  // position is a value, moved with the arrow keys along its own axis.
   return (
     <g
+      role="separator"
       tabIndex={0}
       aria-label={label}
+      aria-orientation={horizontal ? "vertical" : "horizontal"}
+      aria-valuemin={0}
+      aria-valuemax={max}
+      aria-valuenow={value}
+      aria-valuetext={valueText(value)}
       data-edge={edge}
       className={cn(
         "group outline-none",

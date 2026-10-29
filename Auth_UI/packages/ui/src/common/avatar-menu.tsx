@@ -53,6 +53,8 @@ export function AvatarMenu({
 }) {
   const { t } = useTranslation()
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const [menuOpen, setMenuOpen] = React.useState(false)
   const [viewOpen, setViewOpen] = React.useState(false)
   // One editor per chosen file: the sequence keys it, so choosing again
   // mounts a fresh editor seeded from the new file.
@@ -61,13 +63,21 @@ export function AvatarMenu({
 
   return (
     <>
-      <DropdownMenu>
+      {/* The frame editor hands focus back to this button when it closes, so
+          the button stays focusable while the upload runs (aria-disabled, not
+          disabled - a disabled button cannot take focus, which would drop it
+          on <body>), and the menu simply refuses to open meanwhile. */}
+      <DropdownMenu
+        open={menuOpen}
+        onOpenChange={(next) => setMenuOpen(next && !pending)}
+      >
         <DropdownMenuTrigger asChild>
           <button
+            ref={triggerRef}
             type="button"
             aria-label={t("common.avatar")}
-            disabled={pending}
-            className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            aria-disabled={pending || undefined}
+            className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:opacity-50"
           >
             <EntityAvatar src={src} name={name} size={size} fit={fit} />
           </button>
@@ -120,6 +130,7 @@ export function AvatarMenu({
             key={framing.seq}
             file={framing.file}
             mode={frame}
+            returnFocus={() => triggerRef.current?.focus()}
             onCancel={() => setFraming(null)}
             onConfirm={(file) => {
               setFraming(null)
