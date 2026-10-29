@@ -188,16 +188,34 @@ public class ApplicationAppearancePersistenceTests
         PlatformSettingsRepository.ThemeJson.Read(stored).Should().Be(PlatformTheme.Default);
     }
 
-    [Fact]
-    public void ARowWhoseSizesAloneAreInvalid_KeepsItsColours_AsForThePlatform()
+    /// <summary>
+    /// The platform's rule for a bad stored height (PlatformThemeJsonTests, the same nine shapes,
+    /// wrong JSON types included) holds for an application's row too: only the sizes fall back to
+    /// the default; the colours stay, and the application keeps its own appearance rather than
+    /// reading as none (the platform's).
+    /// </summary>
+    [Theory]
+    [InlineData(",\"controlSize\":{\"preset\":\"huge\"},\"tableRowHeight\":{\"preset\":\"default\"}}")]
+    [InlineData(",\"controlSize\":{\"preset\":\"custom\",\"px\":500},\"tableRowHeight\":{\"preset\":\"default\"}}")]
+    [InlineData(",\"controlSize\":{\"preset\":\"custom\",\"px\":56},\"tableRowHeight\":{\"preset\":\"compact\"}}")]
+    [InlineData(",\"controlSize\":{\"preset\":\"custom\"},\"tableRowHeight\":null}")]
+    [InlineData(",\"controlSize\":\"compact\",\"tableRowHeight\":{\"preset\":\"default\"}}")]
+    [InlineData(",\"controlSize\":{\"preset\":\"custom\",\"px\":30.5},\"tableRowHeight\":{\"preset\":\"default\"}}")]
+    [InlineData(",\"controlSize\":{\"preset\":\"custom\",\"px\":\"30\"},\"tableRowHeight\":{\"preset\":\"default\"}}")]
+    [InlineData(",\"controlSize\":{\"preset\":\"custom\",\"px\":99999999999},\"tableRowHeight\":{\"preset\":\"default\"}}")]
+    [InlineData(",\"controlSize\":{\"preset\":7},\"tableRowHeight\":[]}")]
+    public void ARowWhoseSizesAloneAreInvalid_KeepsItsColours_AsForThePlatform(string sizes)
     {
-        var json = PlatformSettingsRepository.ThemeJson.Serialize(Theme())
-            .Replace("\"px\":52", "\"px\":500", StringComparison.Ordinal);
+        var colours = PlatformSettingsRepository.ThemeJson.Serialize(Theme());
+        var json = colours[..colours.IndexOf(",\"controlSize\"", StringComparison.Ordinal)] + sizes;
 
         var read = PlatformSettingsRepository.ThemeJson.ReadOrNull(json);
 
         read.Should().NotBeNull();
         read!.Base.Should().Be(new ThemeColorChoice("custom", "#112233", "#445566"));
+        read.Theme.Should().Be(new ThemeColorChoice("violet"));
+        read.Radius.Should().Be("large");
+        read.ControlSize.Should().Be(ThemeSizeChoice.Default);
         read.TableRowHeight.Should().Be(ThemeSizeChoice.Default);
     }
 }

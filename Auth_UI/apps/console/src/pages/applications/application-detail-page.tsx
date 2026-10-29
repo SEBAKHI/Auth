@@ -50,6 +50,7 @@ import {
   useListUrlState,
   type ListUrlStateOptions,
 } from "@authsystem/ui/hooks/use-search-query"
+import { useSaveQueue } from "@authsystem/ui/hooks/use-save-queue"
 import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import type { Schemas } from "@authsystem/api/types"
 import { ApplicationAccessDialog } from "./application-access-dialog"
@@ -713,11 +714,12 @@ export function ApplicationDetailPage() {
    * null as "leave them alone"). It is built from the application as cached
    * when the save is SENT, not as this page rendered it: a save that started
    * earlier (a logo still uploading) would otherwise send back a logo removed
-   * or replaced in the meantime. The answer goes straight into the cache, so
-   * the next save builds on it.
+   * or replaced in the meantime. The saves run one after another, and each
+   * writes its answer into the cache before the next one reads it.
    */
+  const queueSave = useSaveQueue()
   const persistLogo = React.useCallback(
-    async (slot: { logoUrl: string | null } | { logoUrlDark: string }) => {
+    (slot: { logoUrl: string | null } | { logoUrlDark: string }) => queueSave(async () => {
       const current = queryClient.getQueryData<ApplicationDto>(["applications", appId]) ?? app
       if (!current) return
       const { data, error } = await api.PUT("/api/v1/Applications/{id}", {
@@ -742,8 +744,8 @@ export function ApplicationDetailPage() {
       })
       if (error) throw error
       if (data) queryClient.setQueryData(["applications", appId], data)
-    },
-    [queryClient, appId, app]
+    }),
+    [queueSave, queryClient, appId, app]
   )
 
   const activeMutation = useMutation({

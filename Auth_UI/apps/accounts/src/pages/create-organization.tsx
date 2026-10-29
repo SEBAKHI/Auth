@@ -21,10 +21,10 @@ import {
   getValidReturnTo,
   toAccountsSearch,
 } from "@authsystem/auth/return-to"
-import { useAppBranding } from "@authsystem/auth/use-app-branding"
+import { useAppBranding, useAppTheme } from "@authsystem/auth/use-app-branding"
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
-import { useBranding } from "@authsystem/ui/branding"
+import { useApplicationTheme, useBranding } from "@authsystem/ui/branding"
 import { Button } from "@authsystem/ui/button"
 import { FieldDescription, FieldGroup } from "@authsystem/ui/field"
 import {
@@ -106,6 +106,9 @@ function OrganizationSetup({
   const navigate = useNavigate()
   const authRequest = getReturnToHandle(returnTo)
   const branding = useAppBranding(clientId)
+  // A step of the application's flow with its own header, so it names the
+  // application's appearance itself, as `useFlowBranding` does for the others.
+  useApplicationTheme(clientId, useAppTheme(clientId))
   const { name: platformName, isPending: brandingPending } = useBranding()
   const app = branding?.name ?? t("auth.theApplication")
   const securedBy = brandingPending

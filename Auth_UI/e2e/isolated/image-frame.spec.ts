@@ -427,12 +427,12 @@ test("inside the platform logo dialog, closing the editor keeps focus in that di
 }) => {
   await install(page)
   await page.goto("/admin/platform-settings")
-  await page.getByRole("button", { name: en.common.avatar }).first().click()
+  await page.getByRole("button", { name: en.platformSettings.logo, exact: true }).click()
   await page.getByRole("menuitem", { name: en.common.change, exact: true }).click()
   const logos = page.getByRole("dialog", { name: en.platformSettings.logoDialogTitle })
   await expect(logos).toBeVisible()
 
-  const light = logos.locator('[data-mode="light"]').getByRole("button", { name: en.common.avatar })
+  const light = logos.locator('[data-mode="light"]').getByRole("button", { name: en.platformSettings.logoLight })
   const dialog = await chooseThroughMenu(page, light)
   await dialog.getByRole("button", { name: en.common.cancel, exact: true }).click()
   await expect(dialog).toBeHidden()
@@ -448,7 +448,7 @@ test("the edge grips are at least 24 px on their thin side at a 320 px viewport"
   await page.setViewportSize({ width: 320, height: 720 })
   await install(page)
   await page.goto("/admin/platform-settings")
-  await page.getByRole("button", { name: en.common.avatar }).first().click()
+  await page.getByRole("button", { name: en.platformSettings.logo, exact: true }).click()
   await page.getByRole("menuitem", { name: en.common.change, exact: true }).click()
   const logos = page.getByRole("dialog", { name: en.platformSettings.logoDialogTitle })
   await logos.locator('[data-mode="light"] input[type="file"]').setInputFiles(PICKED)
@@ -468,7 +468,7 @@ for (const language of ["en", "ar"] as const) {
       const t = catalogs[language]
       await install(page, { language, theme })
       await page.goto("/admin/platform-settings")
-      await page.getByRole("button", { name: t.common.avatar }).first().click()
+      await page.getByRole("button", { name: t.platformSettings.logo, exact: true }).click()
       await page.getByRole("menuitem", { name: t.common.change, exact: true }).click()
       const logos = page.getByRole("dialog", { name: t.platformSettings.logoDialogTitle })
       await logos.locator('[data-mode="light"] input[type="file"]').setInputFiles(PICKED)

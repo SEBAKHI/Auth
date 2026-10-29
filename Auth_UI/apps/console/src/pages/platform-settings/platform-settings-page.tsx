@@ -28,6 +28,7 @@ import {
   FormMessage,
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
+import { useSaveQueue } from "@authsystem/ui/hooks/use-save-queue"
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
@@ -69,15 +70,32 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
   }, [queryClient])
 
   /**
-   * The settings as stored right now, read when a save is SENT: every save
-   * resends the other fields, and a save that started earlier (a logo still
-   * uploading) would otherwise send back what this card rendered before it,
-   * undoing a change made in the meantime. Each answer is written to the cache
-   * (`applySaved`), so the next save builds on it.
+   * Saves the branding: `changes` over the settings as stored when the save is
+   * SENT, not as this card rendered them. Every save resends the other fields,
+   * and one that started earlier (a logo still uploading) would otherwise send
+   * back what this card showed before it, undoing a change made meanwhile. The
+   * saves run one after another, and each writes its answer to the cache
+   * (`applySaved`) before the next one reads it.
    */
-  const latest = React.useCallback(
-    () => queryClient.getQueryData<Schemas["PlatformSettingsDto"]>(SETTINGS_QUERY_KEY) ?? settings,
-    [queryClient, settings]
+  const queue = useSaveQueue()
+  const save = React.useCallback(
+    (changes: Partial<Schemas["UpdatePlatformSettingsRequest"]>) =>
+      queue(async () => {
+        const current = queryClient.getQueryData<Schemas["PlatformSettingsDto"]>(SETTINGS_QUERY_KEY) ?? settings
+        const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
+          body: {
+            platformName: current.platformName ?? "",
+            logoUrl: current.logoUrl ?? null,
+            logoUrlDark: current.logoUrlDark ?? null,
+            faviconUrl: current.faviconUrl ?? null,
+            ...changes,
+          },
+        })
+        if (error) throw error
+        applySaved(data)
+        return data
+      }),
+    [queue, queryClient, settings, applySaved]
   )
 
   const schema = z.object({
@@ -91,21 +109,8 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
   })
 
   const saveName = useMutation({
-    mutationFn: async (values: Values) => {
-      const current = latest()
-      const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
-        body: {
-          platformName: values.platformName,
-          logoUrl: current.logoUrl ?? null,
-          logoUrlDark: current.logoUrlDark ?? null,
-          faviconUrl: current.faviconUrl ?? null,
-        },
-      })
-      if (error) throw error
-      return data
-    },
-    onSuccess: (saved) => {
-      applySaved(saved)
+    mutationFn: (values: Values) => save({ platformName: values.platformName }),
+    onSuccess: () => {
       refreshBranding()
       toast.success(t("platformSettings.updated"))
     },
@@ -115,53 +120,21 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
   // Logo changes persist immediately (same flow as organization logos).
   const persistLogoLight = React.useCallback(
     async (logoKey: string | null) => {
-      const current = latest()
-      const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
-        body: {
-          platformName: current.platformName ?? "",
-          logoUrl: logoKey,
-          logoUrlDark: current.logoUrlDark ?? null,
-          faviconUrl: current.faviconUrl ?? null,
-        },
-      })
-      if (error) throw error
-      applySaved(data)
+      await save({ logoUrl: logoKey })
     },
-    [latest, applySaved]
+    [save]
   )
-
   const persistLogoDark = React.useCallback(
     async (logoKey: string | null) => {
-      const current = latest()
-      const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
-        body: {
-          platformName: current.platformName ?? "",
-          logoUrl: current.logoUrl ?? null,
-          logoUrlDark: logoKey,
-          faviconUrl: current.faviconUrl ?? null,
-        },
-      })
-      if (error) throw error
-      applySaved(data)
+      await save({ logoUrlDark: logoKey })
     },
-    [latest, applySaved]
+    [save]
   )
-
   const persistFavicon = React.useCallback(
     async (logoKey: string | null) => {
-      const current = latest()
-      const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
-        body: {
-          platformName: current.platformName ?? "",
-          logoUrl: current.logoUrl ?? null,
-          logoUrlDark: current.logoUrlDark ?? null,
-          faviconUrl: logoKey,
-        },
-      })
-      if (error) throw error
-      applySaved(data)
+      await save({ faviconUrl: logoKey })
     },
-    [latest, applySaved]
+    [save]
   )
 
   return (

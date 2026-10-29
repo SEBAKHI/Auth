@@ -203,3 +203,42 @@ describe("platform settings branding card — saves that overlap", () => {
     })
   })
 })
+
+describe("platform settings branding card — two saves at once", () => {
+  it("sends the second save only once the first has answered, and builds it on that answer", async () => {
+    // Removing the dark logo, then the favicon before the first save answers:
+    // both would read the stored copy at once, and the second would put the
+    // dark logo back (or reach the server first).
+    const user = userEvent.setup()
+    let answerFirst!: () => void
+    put.mockImplementationOnce(
+      (_path: string, init: { body: Record<string, unknown> }) =>
+        new Promise((resolve) => (answerFirst = () => resolve(ok({ ...settings, ...init.body }))))
+    )
+    renderPage()
+
+    const [logo, favicon] = await brandingCircles()
+    await user.click(logo!)
+    await user.click(await screen.findByRole("menuitem", { name: "Change" }))
+    const dialog = await screen.findByRole("dialog", { name: "Platform logo" })
+    const darkSlot = dialog.querySelector<HTMLElement>('[data-mode="dark"]')!
+    await user.click(within(darkSlot).getByRole("button", { name: "Dark mode" }))
+    await user.click(await screen.findByRole("menuitem", { name: "Remove" }))
+    await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(1))
+    await user.keyboard("{Escape}")
+
+    await user.click(favicon!)
+    await user.click(await screen.findByRole("menuitem", { name: "Remove" }))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(put, "the favicon's save waits for the dark logo's answer").toHaveBeenCalledTimes(1)
+
+    answerFirst()
+    await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(2))
+    expect(put.mock.calls[1]![1].body).toEqual({
+      platformName: settings.platformName,
+      logoUrl: settings.logoUrl,
+      logoUrlDark: null,
+      faviconUrl: null,
+    })
+  })
+})
