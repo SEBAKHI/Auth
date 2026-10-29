@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Common;
+using Auth_API.Modules.Administration.Contracts;
 using Auth_API.Modules.ApplicationManagement.Contracts;
 using Auth.Application.Features.Applications.CreateApplication;
 using Auth.Application.Features.Applications.DeleteApplication;
@@ -16,12 +17,15 @@ using Auth.Application.Features.Applications.GetApplications;
 using Auth.Application.Features.Applications.GetApplicationUsers;
 using Auth.Application.Features.Applications.GetPublicBranding;
 using Auth.Application.Features.Applications.UpdateApplication;
+using Auth.Application.Features.Applications.UpdateApplicationAppearance;
+using Auth.Application.Features.LoginDesigns.GetPublicLoginDesign;
 using Auth.Application.DTOs;
 using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Auth_API.Modules.ApplicationManagement.Controllers;
 
@@ -84,6 +88,34 @@ public class ApplicationsController : ApiController
 
         return result.Match(
             branding => Ok(branding),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// The design an application's sign-in pages show in their panel, rendered for one
+    /// language: its own active design, else the platform's. 404 when there is none (the plain
+    /// panel), and for an unknown or inactive application.
+    /// </summary>
+    /// <remarks>
+    /// Anonymous, like the branding beside it: the sign-in pages call it before anyone signs in,
+    /// and only when the branding names a design. The HTML travels inside JSON, never as a
+    /// document of the API's origin, which must not serve markup an administrator wrote. The
+    /// page shows it in an isolated frame. Rendering is page rendering, so it spends the per-address sign-in-page allowance, never the sign-in one.
+    /// </remarks>
+    [HttpGet("{clientId}/login-design")]
+    [AllowAnonymous]
+    [EnableRateLimiting("sign-in-page")]
+    [ProducesResponseType(typeof(PublicLoginDesignDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPublicLoginDesign(
+        string clientId,
+        [FromQuery] string? lang,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetPublicLoginDesignQuery(clientId, lang), cancellationToken);
+
+        return result.Match(
+            design => Ok(design),
             errors => Problem(errors));
     }
 
@@ -356,6 +388,37 @@ public class ApplicationsController : ApiController
 
         return result.Match<IActionResult>(
             _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Switch the application's own appearance on or off, and save it. While it is on, the
+    /// accounts pages the application sends people to show it in place of the platform's
+    /// appearance; switching it off keeps it saved. The theme follows the platform's rules.
+    /// </summary>
+    /// <response code="200">Returns the saved switch and appearance</response>
+    /// <response code="400">Switched on without a theme, or a theme the platform's rules refuse</response>
+    [HttpPut("{id:guid}/appearance")]
+    [RequirePermission(PermissionCodes.Applications.Update)]
+    [ProducesResponseType(typeof(ApplicationAppearanceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpdateApplicationAppearance(
+        Guid id,
+        [FromBody] UpdateApplicationAppearanceRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpdateApplicationAppearanceCommand(id, request.Enabled, request.Theme?.ToChoices())
+        {
+            ChangedBy = GetCurrentUserId()
+        };
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match(
+            appearance => Ok(appearance),
             errors => Problem(errors));
     }
 

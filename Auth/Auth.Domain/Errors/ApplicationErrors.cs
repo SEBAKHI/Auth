@@ -118,6 +118,14 @@ public static class ApplicationErrors
         code: "Application.AllowedScopesInvalid",
         description: $"Each allowed scope must be one of: {string.Join(", ", OAuthScopes.Supported)}.");
 
+    /// <summary>
+    /// An application's own appearance was switched on with none to show: neither sent nor saved
+    /// before. The validator raises it for a request; the entity, for any other caller.
+    /// </summary>
+    public static readonly Error AppearanceThemeRequired = Error.Validation(
+        code: "Application.AppearanceThemeRequired",
+        description: "Switching the application's own appearance on needs an appearance: send the theme with it.");
+
     public static readonly Error BaseUrlTooLong = Error.Validation(
         code: "Application.BaseUrlTooLong",
         description: "URL must not exceed 500 characters.");

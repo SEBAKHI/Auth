@@ -2125,12 +2125,13 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 
 Implications are descriptive only. They are stored and shown in the console, and they grant nothing at runtime — see [4.4](#44-permission-based-authorization).
 
-#### Applications — 15 endpoints
+#### Applications — 17 endpoints
 
 | Method | Path | What it does | Permission |
 |---|---|---|---|
 | GET | `/api/v1/Applications` | Paged list of registered applications | `applications:read` |
-| GET | `/api/v1/Applications/{clientId}/public-branding` | Name and logos (light and dark mode) for a sign-in screen, before anyone is signed in. **Anonymous** — the accounts application calls it | Anonymous |
+| GET | `/api/v1/Applications/{clientId}/public-branding` | Name, logos (light and dark mode), the application's own appearance while it is switched on, and which design the sign-in panel shows, for a sign-in screen before anyone is signed in. **Anonymous** — the accounts application calls it | Anonymous |
+| GET | `/api/v1/Applications/{clientId}/login-design` | The design the panel of this application's sign-in pages shows, rendered for one language, as JSON. Rate limit `sign-in-page`; see [5.21b](#521b-sign-in-page-designs) | Anonymous |
 | GET | `/api/v1/Applications/{id}` | One application | `applications:read` |
 | GET | `/api/v1/Applications/{id}/roles` | Its roles | `applications:read` |
 | GET | `/api/v1/Applications/{id}/permissions` | Its permissions | `applications:read` |
@@ -2141,6 +2142,7 @@ Implications are descriptive only. They are stored and shown in the console, and
 | DELETE | `/api/v1/Applications/{id}` | Delete it | `applications:delete` |
 | POST | `/api/v1/Applications/{id}/activate` | Switch it on | `applications:update` |
 | POST | `/api/v1/Applications/{id}/deactivate` | Switch it off and revoke its sessions and tokens | `applications:update` |
+| PUT | `/api/v1/Applications/{id}/appearance` | Switch its own appearance on or off, and save it | `applications:update` |
 | GET | `/api/v1/Applications/{id}/access` | Its individual access list, used when access mode is Restricted | `applications:read` |
 | POST | `/api/v1/Applications/{id}/access` | Add a user to that list | `applications:update` |
 | DELETE | `/api/v1/Applications/{id}/access/{userId}` | Remove a user and revoke that application's tokens for them | `applications:update` |
@@ -2310,11 +2312,12 @@ Outside `/api/`, unversioned, and meant to be linked to from an app store listin
 | GET | `/privacy/{language}` | The published notice as a complete HTML page | Anonymous |
 | GET | `/privacy/v{version}/{language}` | A superseded revision, at a permanent address | Anonymous |
 
-#### Platform — 2 endpoints
+#### Platform — 3 endpoints
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
 | GET | `/api/v1/Platform/branding` | The platform name and logo addresses that sign-in screens draw before anyone is signed in | Anonymous |
+| GET | `/api/v1/Platform/login-design` | The platform's active sign-in page design, rendered for one language, as JSON. Rate limit `sign-in-page`; see [5.21b](#521b-sign-in-page-designs) | Anonymous |
 | GET | `/api/v1/Platform/password-policy` | The composition rules a new password must satisfy — the minimum length and the four character-class switches — so sign-up, invitation and reset forms can show them live while the person types | Anonymous |
 
 #### Platform Settings — 3 endpoints
@@ -2323,7 +2326,32 @@ Outside `/api/`, unversioned, and meant to be linked to from an app store listin
 |---|---|---|---|
 | GET | `/api/v1/admin/platform-settings` | The branding values with their audit fields | `platform-settings:manage` |
 | PUT | `/api/v1/admin/platform-settings` | Update `platformName`, `logoUrl`, `logoUrlDark`, `faviconUrl` | `platform-settings:manage` |
-| PUT | `/api/v1/admin/platform-settings/theme` | Replace the appearance: base color, theme, chart color, radius, menu accent | `platform-settings:manage` |
+| PUT | `/api/v1/admin/platform-settings/theme` | Replace the appearance: base color, theme, chart color, radius, menu accent, control height, table row height | `platform-settings:manage` |
+
+#### Sign-in Page Designs — 18 endpoints
+
+The same nine actions for one application's designs and for the platform's; [5.21b](#521b-sign-in-page-designs) describes them.
+
+| Method | Path | What it does | Permission |
+|---|---|---|---|
+| GET | `/api/v1/applications/{applicationId}/login-designs` | The application's designs, the active one first | `applications:read` |
+| GET | `/api/v1/applications/{applicationId}/login-designs/{designId}` | One design, with its content, texts, revision and warnings | `applications:read` |
+| POST | `/api/v1/applications/{applicationId}/login-designs` | Create a design. It starts inactive | `applications:update` |
+| PUT | `/api/v1/applications/{applicationId}/login-designs/{designId}` | Save it. On the active design, what visitors see next | `applications:update` |
+| POST | `/api/v1/applications/{applicationId}/login-designs/{designId}/copy` | Copy it into a new, inactive design | `applications:update` |
+| POST | `/api/v1/applications/{applicationId}/login-designs/{designId}/activate` | Make it the one the application's sign-in pages show | `applications:update` |
+| POST | `/api/v1/applications/{applicationId}/login-designs/{designId}/deactivate` | Stop showing it | `applications:update` |
+| DELETE | `/api/v1/applications/{applicationId}/login-designs/{designId}` | Delete an inactive design | `applications:update` |
+| POST | `/api/v1/applications/{applicationId}/login-designs/preview` | Render unsaved content in one language. Stores nothing | `applications:read` |
+| GET | `/api/v1/admin/platform-settings/login-designs` | The platform's designs, the active one first | `platform-settings:manage` |
+| GET | `/api/v1/admin/platform-settings/login-designs/{designId}` | One design | `platform-settings:manage` |
+| POST | `/api/v1/admin/platform-settings/login-designs` | Create a design. It starts inactive | `platform-settings:manage` |
+| PUT | `/api/v1/admin/platform-settings/login-designs/{designId}` | Save it | `platform-settings:manage` |
+| POST | `/api/v1/admin/platform-settings/login-designs/{designId}/copy` | Copy it into a new, inactive design | `platform-settings:manage` |
+| POST | `/api/v1/admin/platform-settings/login-designs/{designId}/activate` | Make it the one the platform's pages, and those of every application without an active design, show | `platform-settings:manage` |
+| POST | `/api/v1/admin/platform-settings/login-designs/{designId}/deactivate` | Stop showing it | `platform-settings:manage` |
+| DELETE | `/api/v1/admin/platform-settings/login-designs/{designId}` | Delete an inactive design | `platform-settings:manage` |
+| POST | `/api/v1/admin/platform-settings/login-designs/preview` | Render unsaved content in one language. Stores nothing | `platform-settings:manage` |
 
 #### System Settings — 5 endpoints
 
@@ -2365,7 +2393,7 @@ All nineteen require the permission `secrets.manage` — **note the dot, which i
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
-| POST | `/api/v1/Images` | Upload and process an image, returning `{ key, url }`. Send it as `multipart/form-data` with the form field named `file` | Authenticated, no permission code. Failures are problems with an `Image.*` code; see [5.23](#523-images) |
+| POST | `/api/v1/Images` | Upload and process an image, returning `{ key, url }`. Send it as `multipart/form-data` with the form field named `file`. `?purpose=Panel` keeps a larger image, for a sign-in page design | Authenticated, no permission code; `?purpose=Panel` needs `applications:update` or `platform-settings:manage`. Failures are problems with an `Image.*` code; see [5.23](#523-images) |
 
 #### Internal — gateway settings — 1 endpoint
 
@@ -4993,6 +5021,38 @@ The name and logo to show on a sign-in screen, for a person who is not signed in
 **An unknown code and a switched-off application both return 404**, with the same body, so an anonymous caller cannot use this endpoint to discover which applications exist.
 *In code:* `Auth/Auth_API/Modules/ApplicationManagement/Controllers/ApplicationsController.cs:68-85`.
 
+**`theme` is present only while the application's own appearance is switched on**, with the shape of the platform's `theme` ([5.21](#521-platform-settings)). It replaces the platform's appearance as a whole on every accounts page that names the application: the screens of its sign-in flow and the organization step, by the pending request, and the sign-out confirmation (`/logout`), the signed-out page and the expired-request page (`/sign-in-expired`), by the `client_id` in their address. Nothing of the two is ever mixed. Absent or null, the platform's appearance applies; and for the 404 above, such a page is the platform's own, in its appearance and its design.
+
+**`loginDesign` names the design the panel of this application's sign-in pages shows**: `{ "id": …, "contentHash": …, "showPlatformLogo": … }`, for the application's own active design, else the platform's active design. It is absent when neither is active, and the panel stays plain. `contentHash` changes with every save of the content or the texts, so a page keys its copy of the render on it. `showPlatformLogo: false` gives the page's corner to the application's logo in place of the platform's mark; "Secured by" still names the platform. The design itself is fetched from `GET /api/v1/applications/{clientId}/login-design` ([5.21b](#521b-sign-in-page-designs)).
+
+#### PUT `/api/v1/applications/{id}/appearance`
+
+Switch the application's own appearance on or off, and save it. While it is on, the accounts pages this application sends people to show it in place of the platform's appearance. In the console this is the **Appearance** tab of an application's page.
+
+**Permission:** `applications:update`
+
+**Request:**
+
+```json
+{
+  "enabled": true,
+  "theme": {
+    "base": { "preset": "neutral" },
+    "theme": { "preset": "violet" },
+    "chart": { "preset": "cyan" },
+    "radius": "small",
+    "menuAccent": "subtle",
+    "controlSize": { "preset": "default" },
+    "tableRowHeight": { "preset": "default" }
+  }
+}
+```
+
+**`theme` takes the platform appearance's choices and rules** ([5.21](#521-platform-settings)), and a refused choice answers with the same codes (`SystemSettings.Theme…`). It is required to switch the appearance on (`Application.AppearanceThemeRequired` otherwise). To switch it off, it may be left out: the saved appearance is kept for when it is switched on again.
+
+**Response (200):** `{ "enabled": …, "theme": … }`, as stored. Saving what is already stored changes nothing. A change is written to the audit log as `application.appearance.changed`, with the switch and the appearance before and after. `GET /api/v1/applications/{id}` returns both as `themeEnabled` and `theme`.
+*In code:* `Auth/Auth.Application/Features/Applications/UpdateApplicationAppearance/`.
+
 #### GET `/api/v1/applications/{id}`
 
 Get one application. This is the read that returns a populated `redirectUris` array.
@@ -7442,6 +7502,7 @@ Two anonymous endpoints that answer questions the screens before sign-in have to
 |---|---|---|---|
 | GET | `/api/v1/Platform/branding` | The platform name, logo addresses and appearance | **Anonymous** |
 | GET | `/api/v1/Platform/password-policy` | The composition rules for a new password | **Anonymous** |
+| GET | `/api/v1/Platform/login-design` | The platform's active sign-in page design, rendered ([5.21b](#521b-sign-in-page-designs)) | **Anonymous** |
 
 #### GET `/api/v1/Platform/branding`
 
@@ -7470,6 +7531,8 @@ Two anonymous endpoints that answer questions the screens before sign-in have to
 **Absolute addresses come from `ImageStorage:PublicBaseUrl`**, which in development is `https://localhost:5101/uploads/images`. The stored value is only a key; the API composes the address when it answers. Changing that setting changes every logo address at once.
 
 **This endpoint reads the same record that [5.21](#521-platform-settings) writes.** It simply returns less of it, and asks for nothing.
+
+**`loginDesign` names the platform's active sign-in page design**, `{ "id": …, "contentHash": …, "showPlatformLogo": … }`, which the platform's own sign-in pages show in their panel. It is absent while none is active. An application's pages read the same field from the application's public branding ([5.7](#57-applications)) instead, which falls back to this design.
 
 #### GET `/api/v1/Platform/password-policy`
 
@@ -7503,7 +7566,7 @@ The administrator's side of the same record: the platform name, the three image 
 |---|---|---|---|
 | GET | `/api/v1/admin/platform-settings` | The branding values, plus who last modified them and when | `platform-settings:manage` |
 | PUT | `/api/v1/admin/platform-settings` | Replace `platformName`, `logoUrl`, `logoUrlDark` and `faviconUrl` | `platform-settings:manage` |
-| PUT | `/api/v1/admin/platform-settings/theme` | Replace the appearance (base color, theme, chart color, radius, menu accent). The branding is left as it is | `platform-settings:manage` |
+| PUT | `/api/v1/admin/platform-settings/theme` | Replace the appearance (base color, theme, chart color, radius, menu accent, control height, table row height). The branding is left as it is | `platform-settings:manage` |
 
 **There is no separate read permission.** Both endpoints require `platform-settings:manage`, so anybody who may look here may also change what every sign-in screen displays. In the console this is the **Platform settings** page.
 
@@ -7556,7 +7619,9 @@ The appearance is what the theme builder at https://ui.shadcn.com/create chooses
   "theme": { "preset": "blue" },
   "chart": { "preset": "orange" },
   "radius": "large",
-  "menuAccent": "subtle"
+  "menuAccent": "subtle",
+  "controlSize": { "preset": "compact" },
+  "tableRowHeight": { "preset": "custom", "px": 52 }
 }
 ```
 
@@ -7567,15 +7632,123 @@ The appearance is what the theme builder at https://ui.shadcn.com/create chooses
 | `chart` | The same choices as `theme` | The five series colours of every chart |
 | `radius` | `default`, `none`, `small`, `medium`, `large` | Corner rounding |
 | `menuAccent` | `subtle`, `bold` | A highlighted menu item: gray, or the theme colour |
+| `controlSize` | `compact` (32px), `default` (36px), `comfortable` (40px), or `custom` | The height of every control together: buttons, inputs, selects, input groups, toggles, tabs |
+| `tableRowHeight` | `compact` (40px), `default` (44px), `comfortable` (48px), or `custom` | The height of a table row holding one line of text; a row holding an avatar or a button grows by the difference |
 
 **`custom` takes one `#rrggbb` colour per mode, `light` and `dark`, and both are required.** The console derives the rest: a custom base becomes the page background exactly, with cards, muted fills, borders and the sidebar kept at shadcn's own distances from it and text turned light or dark to stay readable (the console warns, without refusing, when some text would read below 4.5:1); a custom theme becomes the primary colour, with white or black text, whichever reads better; a custom chart colour becomes five shades. With any other preset, `light` and `dark` are ignored and not stored.
 
+**A custom height takes `px`, a whole number: 28 to 56 for `controlSize`, 32 to 72 for `tableRowHeight`, and a row is never lower than the controls.** With a step, `px` is ignored and not stored. Every pair of steps is valid (the lowest row step is the tallest control step). An appearance saved before these two fields existed reads with both at `default`, and an invalid stored height reads as `default` without touching the colours: every sign-in page renders this value, so reading it never fails.
+
 **The API stores names and `#rrggbb` codes, never CSS.** The applications compute every colour from their own copy of shadcn's registry, so a stored value can choose a palette but cannot write a style.
 
-**Errors (all 400):** `SystemSettings.ThemeChoiceRequired`, `SystemSettings.ThemeUnknownColor`, `SystemSettings.ThemeColorUnavailableForBase` (a monochrome theme of another base, or of a custom base), `SystemSettings.ThemeCustomColorInvalid`, `SystemSettings.ThemeUnknownRadius`, `SystemSettings.ThemeUnknownMenuAccent`. Every problem is reported at once.
+**Errors (all 400):** `SystemSettings.ThemeChoiceRequired`, `SystemSettings.ThemeUnknownColor`, `SystemSettings.ThemeColorUnavailableForBase` (a monochrome theme of another base, or of a custom base), `SystemSettings.ThemeCustomColorInvalid`, `SystemSettings.ThemeUnknownRadius`, `SystemSettings.ThemeUnknownMenuAccent`, `SystemSettings.ThemeUnknownSize` (a missing or unknown step), `SystemSettings.ThemeCustomSizeOutOfRange`, `SystemSettings.ThemeRowHeightBelowControlHeight`. Every problem is reported at once.
 
 **Response (200):** the platform settings, as `GET` returns them. The change is written to the audit log as `platform-settings.updated`, with the old and new appearance.
 *In code:* `Auth/Auth.Domain/ValueObjects/PlatformTheme.cs`, `Auth_UI/packages/ui/src/theme/build-theme.ts`.
+
+### 5.21b Sign-in Page Designs
+
+**Base routes:** `/api/v1/applications/{applicationId}/login-designs` for one application's designs, and `/api/v1/admin/platform-settings/login-designs` for the platform's.
+
+The accounts sign-in pages are two halves: the form, which is always the platform's, and a panel beside it on screens 1024 px wide and wider. The panel can show a **design**: free HTML and CSS with Liquid placeholders and texts per language, written by an administrator. In the console these are the **Templates** tab of an application's page and the **Sign-in page designs** card of **Platform settings**.
+
+**Which design a page shows.** A page of an application's flow shows that application's active design, else the platform's active design, else the plain panel. The platform's own pages show the platform's active design, else the plain panel. One resolver decides it for both branding answers and both renders, so they never disagree.
+
+**There is no draft and no publish.** An application, and the platform, may hold any number of designs, with at most one active. A new design and a copy start inactive. Saving the active design is what visitors see on their next page. Only `activate` makes a design active, and it deactivates the previous one in the same transaction. A filtered unique index (`UX_LoginDesigns_ActivePerScope`) holds "one active" even when two activations race: the second one answers `409 LoginDesign.ActivationConflict`.
+
+| Method | Path, after the base route | What it does | Application's | Platform's |
+|---|---|---|---|---|
+| GET | *(none)* | The designs, the active one first, then by name. No content | `applications:read` | `platform-settings:manage` |
+| GET | `/{designId}` | One design | `applications:read` | `platform-settings:manage` |
+| POST | *(none)* | Create one, inactive. Without `content` it starts from the starter design | `applications:update` | `platform-settings:manage` |
+| PUT | `/{designId}` | Save it | `applications:update` | `platform-settings:manage` |
+| POST | `/{designId}/copy` | Copy its saved content and texts into a new, inactive design | `applications:update` | `platform-settings:manage` |
+| POST | `/{designId}/activate` | Make it the active one | `applications:update` | `platform-settings:manage` |
+| POST | `/{designId}/deactivate` | Make it inactive | `applications:update` | `platform-settings:manage` |
+| DELETE | `/{designId}` | Delete it. Only an inactive design: the active one is `409 LoginDesign.DeleteActive` | `applications:update` | `platform-settings:manage` |
+| POST | `/preview` | Render the editor's unsaved content in one language. Stores nothing | `applications:read` | `platform-settings:manage` |
+
+No new permission exists for designs: an application's are part of the application, and the platform's are part of the platform settings. A design id that belongs to another scope answers `404 LoginDesign.NotFound`, as an unknown one does.
+
+**Requests:**
+
+```json
+// POST (create)
+{ "name": "Autumn", "content": "<main>…</main>", "stringsJson": "{\"en\":{\"headline\":\"Welcome\"}}", "showPlatformLogo": false }
+
+// PUT (save): expectedRevision is the revision the editor loaded
+{ "name": "Autumn", "content": "<main>…</main>", "stringsJson": "{…}", "showPlatformLogo": false, "expectedRevision": "2026-10-29T10:00:00.1234567" }
+
+// POST /{designId}/copy
+{ "name": "Autumn (copy)" }
+
+// POST /preview
+{ "content": "<main>…</main>", "stringsJson": "{…}", "language": "ar" }
+```
+
+**A design (200 or 201):**
+
+```json
+{
+  "id": "6f1c…",
+  "applicationId": "a3d2…",
+  "name": "Autumn",
+  "content": "<main><h2>{{ strings.headline | raw }}</h2></main>",
+  "stringsJson": "{\"en\":{\"headline\":\"Welcome to {{ App.Name }}\"},\"ar\":{\"headline\":\"أهلًا بك في {{ App.Name }}\"}}",
+  "showPlatformLogo": false,
+  "isActive": true,
+  "contentHash": "<64 hexadecimal characters>",
+  "revision": "2026-10-29T10:00:00.1234567",
+  "createdAt": "2026-10-29T09:12:44.5512345",
+  "modifiedAt": "2026-10-29T10:00:00.1234567",
+  "warnings": []
+}
+```
+
+`applicationId` is absent on the platform's designs. `revision` is the value `PUT` sends back as `expectedRevision`: a design saved by someone else since it was loaded answers `409 LoginDesign.ConcurrencyConflict`. `contentHash` is the SHA-256 of the content and the texts, and it changes with every save of either. A preview answers `{ "html": …, "language": …, "dir": …, "warnings": […] }`.
+
+**The Liquid model is the same on every page:** `App.Name` (the application's name; on the platform's own pages, the platform's name), `Platform.Name`, `lang` (the page's language, such as `ar`) and `dir` (`rtl` or `ltr`), and `strings.<key>`, the text of the page's language. A language without its own text falls back to English. Every variable is HTML-encoded. A text is itself Liquid, rendered with the same model, and may carry markup, so a design prints it with `{{ strings.headline | raw }}`. The renderer is the notification layouts' sandbox ([4.10](#410-how-a-notification-becomes-an-email)).
+
+**The save gate.** A create or a save is refused with `400` when:
+
+- the name is empty (`LoginDesign.NameRequired`) or longer than 200 characters (`LoginDesign.NameTooLong`);
+- the content is empty (`LoginDesign.ContentRequired`) or larger than 64 KB of UTF-8 (`LoginDesign.ContentTooLarge`);
+- the texts are not a JSON object of languages, each an object of strings (`LoginDesign.StringsInvalidJson`), or are larger than 64 KB (`LoginDesign.StringsTooLarge`);
+- the Liquid does not parse (`Notification.InvalidTemplateSyntax`);
+- the content or a text uses a variable outside the model, in any of the seven languages, even behind `{% if lang == … %}` (`LoginDesign.UnknownVariables`, which names them);
+- the rendered HTML is larger than 256 KB of UTF-8 in any language (`LoginDesign.RenderedTooLarge`). The 64 KB limit is on the source, and a loop renders far more than it is long.
+
+**Markup that cannot run is reported, never refused.** `<script>`, a `javascript:` address and an `on…` attribute such as `onerror=` do nothing on a sign-in page, because the frame runs none of the design's scripts. A design and a preview list them in `warnings` (`Script`, `EventHandler`), so the editor can say so. Nothing in a design is stripped or rewritten, and no address in it is checked: links open in a new tab, and images may come from any `https:` address. A preview refuses the content and texts the save gate refuses, and a language that is not one of the seven (`LoginDesign.UnsupportedLanguage`); a variable outside the model renders there as a blank.
+
+**The audit log** records `login-design.created`, `login-design.updated`, `login-design.activated`, `login-design.deactivated` and `login-design.deleted`, with the design's name, its logo choice and its `contentHash`. A save carries the values before and after it, and an activation names the design it replaced.
+*In code:* `Auth/Auth.Domain/Entities/LoginDesign.cs`, `Auth/Auth.Application/Features/LoginDesigns/`.
+
+#### GET `/api/v1/Applications/{clientId}/login-design` and GET `/api/v1/Platform/login-design`
+
+What a sign-in page shows in its panel, rendered. The first serves the pages of an application's flow, `clientId` being the application's `code`. The second serves the platform's own pages.
+
+**Auth:** Anonymous. Rate limit `sign-in-page`: 60 requests per 60 seconds per client address (`RateLimiting:SignInPagePermitLimit`, `RateLimiting:SignInPageWindowSeconds`), the page-rendering allowance, never the sign-in one.
+
+**Query parameter:** `lang`, optional. An unsupported or missing language renders English.
+
+**Response (200):**
+
+```json
+{
+  "id": "6f1c…",
+  "contentHash": "<64 hexadecimal characters>",
+  "language": "ar",
+  "dir": "rtl",
+  "html": "<main><h2>أهلًا بك في Customer Relationship Manager</h2></main>"
+}
+```
+
+**The HTML travels inside JSON, never as a document of the API's origin**, which must not serve markup an administrator wrote. The accounts application shows it in a sandboxed frame (`allow-scripts allow-popups allow-popups-to-escape-sandbox`, never `allow-same-origin`), with a content security policy of its own that refuses the design's scripts. The frame puts the live appearance (background, colour and font) under the design and repaints it when the mode changes, so a design that sets no colour follows the page. A page fetches the render only when its branding answer names a design (`loginDesign`), and only at 1024 px and wider.
+
+**Failures:** an unknown or switched-off application is `404 Application.NotFoundByCode`, the same answer for both, so this endpoint cannot be used to probe which applications exist. No active design is `404 LoginDesign.NoneActive`. A design that renders more than 256 KB, for example after the application was renamed to a longer name, is `400 LoginDesign.RenderedTooLarge`. On any failure the panel stays plain.
+
+**Each render runs once.** Its outcome, a refusal included, is kept in memory, keyed by the design, its `contentHash`, the language and both names. A save, an activation or a rename reaches the next request without any eviction, and no visitor repeats a render that already ran. The cache has a size bound of its own.
+*In code:* `Auth/Auth.Application/Features/LoginDesigns/GetPublicLoginDesign/`, `Auth/Auth.Infrastructure/LoginDesigns/LoginDesignRenderCache.cs`, `Auth_UI/packages/ui/src/login-design/`.
 
 ---
 
@@ -7688,13 +7861,15 @@ One endpoint, and it is the only way to get a picture into this system. Profile 
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
-| POST | `/api/v1/Images` | Upload and process an image; returns its storage key and public address | **Authenticated, with no permission code** |
+| POST | `/api/v1/Images` | Upload and process an image; returns its storage key and public address | **Authenticated, with no permission code** (`?purpose=Panel`: `applications:update` or `platform-settings:manage`) |
 
 **Any signed-in user may upload an image.** There is no permission attribute on this action, because every account needs to be able to set its own profile picture. What an uploaded image can be *attached* to is gated separately by the endpoint that attaches it.
 
+**The one exception is `?purpose=Panel`, the larger allowance for an image inside a sign-in page design.** It is for the people who edit designs: a token holding `applications:update` (an application's designs) or `platform-settings:manage` (the platform's), with the same wildcard rules as every permission check. Anyone else is refused with `403` and `Auth.Unauthorized` before the file is read. The default purpose stays open to every signed-in user.
+
 #### POST `/api/v1/Images`
 
-**Auth:** Any valid access token.
+**Auth:** Any valid access token; with `?purpose=Panel`, one that holds `applications:update` or `platform-settings:manage`.
 
 **Request:** `multipart/form-data` with **one form field named `file`**. Not JSON, and not a base64 string in a JSON body.
 
@@ -7730,11 +7905,12 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 | `ImageStorage:MaxSizeBytes` | `4194304` — 4 MB | A larger file is refused. The request body limit follows this setting live, so the two can never disagree |
 | `ImageStorage:MaxMegapixels` | `24` | A file within the byte limit but enormous in dimensions is refused, which is what stops a decompression attack. Every admitted megapixel costs 4 MB of memory during the decode, so this is a memory budget, not a compatibility ceiling |
 | `ImageStorage:MaxEdgePx` | `1024` | Not a rejection — anything larger is scaled down |
+| `ImageStorage:PanelMaxEdgePx` | `2048` | The same, for an upload sent with `?purpose=Panel`: an image inside a sign-in page design, which fills half a large screen. The design editor's «Insert image» sends it, and only holders of `applications:update` or `platform-settings:manage` may. Without `purpose`, or with `purpose=Default`, `MaxEdgePx` applies |
 | `RateLimiting:ImageUploadConcurrencyLimit` | `2` | How many uploads may be decoding at the same moment, process-wide; the next four wait, anything beyond that is refused with `429` |
 
 Both web applications shrink images in the browser before they upload: anything longer than 2048 px on its longest edge is scaled down (aspect ratio kept, never cropped), decoded with its EXIF orientation honoured, and re-encoded as WebP — or JPEG/PNG where the browser cannot encode WebP — so a phone photo arrives as a few hundred kilobytes instead of being refused for exceeding limits the server would have shrunk it past anyway. The original is sent unchanged whenever the result would not be smaller, or the browser cannot decode the file. The limits above still apply to whatever reaches the server, including uploads that bypass the applications. *In code:* `Auth_UI/packages/api/src/image-downscale.ts`, applied inside `uploadImage`, the single upload path.
 
-**Failures on this endpoint are problems like everywhere else in this API, so branch on `code`.** A refused file is `400` with `Image.FileRequired` (no file, or an empty one), `Image.FileTooLarge`, `Image.QuotaExceeded` (the uploader's images would pass `ImageStorage:MaxBytesPerUser`), `Image.UnsupportedType`, `Image.Invalid` (the file is not a valid image) or `Image.DimensionsTooLarge`; the `detail` of the three limit codes names the limit. A fault in the storage itself — for example an uploads directory the application cannot write to — is `500` with `Image.StorageUnavailable`. More uploads decoding than `RateLimiting:ImageUploadConcurrencyLimit` allows, with the short queue behind it full, is `429` with `Http.RateLimited` and `Retry-After: 5`.
+**Failures on this endpoint are problems like everywhere else in this API, so branch on `code`.** A refused file is `400` with `Image.FileRequired` (no file, or an empty one), `Image.FileTooLarge`, `Image.QuotaExceeded` (the uploader's images would pass `ImageStorage:MaxBytesPerUser`), `Image.UnsupportedType`, `Image.Invalid` (the file is not a valid image) or `Image.DimensionsTooLarge`; the `detail` of the three limit codes names the limit. A `?purpose=Panel` upload from a token that holds neither `applications:update` nor `platform-settings:manage` is `403` with `Auth.Unauthorized`, refused before the file or the quota is read. A fault in the storage itself — for example an uploads directory the application cannot write to — is `500` with `Image.StorageUnavailable`. More uploads decoding than `RateLimiting:ImageUploadConcurrencyLimit` allows, with the short queue behind it full, is `429` with `Http.RateLimited` and `Retry-After: 5`.
 *In code:* `Auth/Auth_API/Modules/Media/Controllers/ImagesController.cs`; the processing is `Auth/Auth.Infrastructure/Services/FileSystemImageStorageService.cs`.
 
 **Uploaded files are served back as static files from `/uploads/images/...`, with no token required.** Anyone holding the address can fetch the image, so do not upload anything through this endpoint that should not be public.
@@ -8223,7 +8399,7 @@ dotnet run --launch-profile https
 | `Security/` | 16 | Everything that proves an identity or destroys one: codes, keys, hashes and the audit trail |
 | `Organizations/` | 7 | Tenant organizations, their members and what those members hold inside them |
 | `Notifications/` | 6 | Every message the platform sends, its content, its versions and its delivery log |
-| `System/` | 5 | Platform-wide configuration, branding and the privacy policy |
+| `System/` | 6 | Platform-wide configuration, branding, sign-in page designs and the privacy policy |
 | **Total** | **52** | |
 
 **Everything below is one plain sentence per table.** Where a table is documented in more detail elsewhere in this guide, the section is linked.
@@ -8302,12 +8478,13 @@ dotnet run --launch-profile https
 | `NotificationLayouts` | The shared visual wrapper placed around every message body, held as a draft copy and a published copy |
 | `NotificationOutbox` | The queue and delivery log of rendered messages, with retry state |
 
-### System (5 tables)
+### System (6 tables)
 
 | Table | What it holds |
 |---|---|
 | `SystemSettingsOverrides` | The settings overridden from the console, one row per section, stored as sparse JSON ([6.9](#69-change-a-system-setting-from-the-console-and-know-whether-it-took-effect)) |
 | `PlatformSettings` | The single row of platform branding: name, light and dark logo, favicon |
+| `LoginDesigns` | The sign-in page designs, an application's (`ApplicationId`) or the platform's (null), at most one active per scope ([5.21b](#521b-sign-in-page-designs)) |
 | `PrivacyPolicyVersions` | The register of privacy-policy revisions, each with its effective date and notice status |
 | `PrivacyPolicyTranslations` | The authored policy document, as JSON, per (revision, language) |
 | `PrivacyPolicyArtifacts` | The rendered standalone HTML actually served to the public, frozen at the moment of publication |

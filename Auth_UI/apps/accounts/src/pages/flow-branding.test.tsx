@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import type * as React from "react"
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import {
@@ -16,7 +16,11 @@ import "@authsystem/i18n"
 
 /**
  * Every screen a pending authorize request passes through shows the requesting
- * application, not the platform (OI-105).
+ * application (OI-105): its logo above the title, its name under it, and the
+ * platform's mark small in the corner (owner, 2026-10-28). So does every other
+ * page that names an application, by the client id in its own address: the
+ * sign-out confirmation, the signed-out page and the expired request (owner,
+ * 2026-10-29), with the application's appearance and its design too.
  *
  * The sign-in page was the only one that asked for the application's branding:
  * a visitor sent here by an application saw it on the sign-in page and the
@@ -26,9 +30,15 @@ import "@authsystem/i18n"
  * person sees: the application's name and logo, and the platform's trust marker.
  */
 
-const { get, auth, platform } = vi.hoisted(() => ({
+const { get, auth, platform, applicationTheme } = vi.hoisted(() => ({
   get: vi.fn(),
-  platform: { isPending: false },
+  /** The appearance a page puts on, as the provider would receive it. */
+  applicationTheme: vi.fn(),
+  platform: {
+    isPending: false,
+    /** The platform's own design, which its own pages show. */
+    loginDesign: undefined as { id: string; contentHash: string; showPlatformLogo: boolean } | undefined,
+  },
   auth: {
     status: "unauthenticated" as const,
     login: vi.fn(),
@@ -56,10 +66,20 @@ vi.mock("@authsystem/ui/branding", () => ({
     logoUrl: null,
     isPending: platform.isPending,
     staySignedInOffered: true,
+    loginDesign: platform.loginDesign,
   }),
   BrandingLogo: () => <span data-testid="platform-mark" />,
   // The sign-in options are not yet known: the sign-up page shows its form.
   useSignInOptions: () => null,
+  // What the provider then does with it has its own tests (branding.provider.test.tsx).
+  useApplicationTheme: (...args: unknown[]) => applicationTheme(...args),
+}))
+// The panel as the layout fills it: which design, for which application (the
+// frame itself has its own tests).
+vi.mock("@authsystem/ui/login-design/login-design-panel", () => ({
+  default: ({ clientId, design }: { clientId: string | null; design: { id: string } }) => (
+    <div data-testid="design-panel" data-client-id={clientId ?? ""} data-design-id={design.id} />
+  ),
 }))
 // Chrome only: the toggles need the theme and language provider stack.
 vi.mock("@authsystem/ui/common/language-toggle", () => ({
@@ -71,6 +91,7 @@ vi.mock("@authsystem/ui/common/theme-toggle", () => ({
 
 import { API_BASE_URL } from "@authsystem/api/env"
 import { ForcePasswordChangePage } from "@authsystem/auth/pages/force-password-change"
+import { toThemeConfig } from "@authsystem/ui/theme/theme-config"
 import { ForgotPasswordPage } from "@authsystem/auth/pages/forgot-password"
 import { VerifyEmailPage } from "@authsystem/auth/pages/verify-email-page"
 
@@ -82,6 +103,10 @@ import {
   savePendingRegistration,
 } from "./auth/registration-flow"
 import { AccountsTwoFactorPage } from "./auth/two-factor"
+import { CreateOrganizationPage } from "./create-organization"
+import { LogoutConfirmPage } from "./logout"
+import { SignInExpiredPage } from "./sign-in-expired"
+import { SignedOutPage } from "./signed-out"
 
 const LOGO_URL = `${API_BASE_URL}/uploads/images/shop-logo.webp`
 const AUTHORIZE = `${API_BASE_URL}/api/v1/auth/authorize?client_id=shop&state=xyz`
@@ -95,12 +120,33 @@ const HANDLE = "0123456789abcdef".repeat(4)
 const RESUME = `${API_BASE_URL}/api/v1/auth/authorize/resume?client_id=shop&auth_request=${HANDLE}`
 const HANDLE_QUERY = `?client_id=shop&auth_request=${HANDLE}`
 
+/** The application's own appearance, as its public branding sends it. */
+const APPEARANCE = {
+  base: { preset: "neutral" },
+  theme: { preset: "violet" },
+  chart: { preset: "cyan" },
+  radius: "small",
+  menuAccent: "bold",
+  controlSize: { preset: "custom", px: 44 },
+  tableRowHeight: { preset: "comfortable" },
+}
+const DESIGN = { id: "app-design", contentHash: "a".repeat(64), showPlatformLogo: true }
+const PLATFORM_DESIGN = { id: "platform-design", contentHash: "b".repeat(64), showPlatformLogo: true }
+
 const query = (returnTo: string | null) =>
   !returnTo
     ? ""
     : returnTo === RESUME
       ? HANDLE_QUERY
       : `?returnTo=${encodeURIComponent(returnTo)}`
+
+/**
+ * A page that names its application by client id carries what the link would
+ * have carried on its own address: the client id, and anything a crafted link
+ * adds beside it.
+ */
+const clientIdQuery = (returnTo: string | null) =>
+  returnTo ? `?${new URL(returnTo).searchParams.toString()}` : ""
 const inFuture = () => new Date(Date.now() + 5 * 60_000).toISOString()
 
 interface FlowPage {
@@ -108,12 +154,25 @@ interface FlowPage {
   path: string
   element: React.ReactElement
   heading: string
-  /** Where this screen reads the pending request from, as the flow hands it over. */
-  carries: "query" | "state"
+  /**
+   * Where this screen reads the pending request from, as the flow hands it
+   * over; `client_id`: a page with no request, naming its application by the
+   * client id of its own address.
+   */
+  carries: "query" | "state" | "client_id"
   state?: Record<string, unknown>
   setup?: () => void
   /** What `GET /Users/me` answers; "pending" never answers. */
   me?: Record<string, unknown> | "pending"
+  /** What other `GET`s of the screen answer, by path; anything else never answers. */
+  answers?: Record<string, unknown>
+  /**
+   * The line under the title that names the application: "Continue to SHOP."
+   * unless the screen names it in a subtitle of its own, which that line would
+   * only repeat. Null: a page with no request, where the visitor continues to
+   * nothing, so no such line; its logo names the application.
+   */
+  namesApp?: string | null
 }
 
 /**
@@ -196,7 +255,56 @@ const PAGES: FlowPage[] = [
     carries: "state",
     me: { hasPassword: false, email: "jane@one.example" },
   },
+  {
+    // The last step of the flow, open: a signed-in person who may create one.
+    name: "create organization",
+    path: "/create-organization",
+    element: <CreateOrganizationPage />,
+    heading: "Create your organization",
+    carries: "query",
+    answers: {
+      "/api/v1/Auth/organization-setup": {
+        canCreate: true,
+        limit: 1,
+        ownedOrganizations: [],
+        email: "jane@one.example",
+        emailConfirmed: true,
+      },
+    },
+    namesApp:
+      "SHOP works with organizations. Name the company or institution you use it for.",
+  },
+  {
+    // A relying party's sign-out, before the person confirms it.
+    name: "sign-out confirmation",
+    path: "/logout",
+    element: <LogoutConfirmPage />,
+    heading: "End your sign-in to your account on this browser?",
+    carries: "client_id",
+    namesApp: null,
+  },
+  {
+    name: "signed out",
+    path: "/signed-out",
+    element: <SignedOutPage />,
+    heading: "Your sign-in on this browser has ended",
+    carries: "client_id",
+    namesApp: null,
+  },
+  {
+    // The body names the application; there is nothing to continue to.
+    name: "sign-in expired",
+    path: "/sign-in-expired",
+    element: <SignInExpiredPage />,
+    heading: "Sign-in request expired",
+    carries: "client_id",
+    namesApp:
+      "The sign-in request from SHOP has expired or is no longer valid. Start again from SHOP: if you have already signed in, it will find you signed in.",
+  },
 ]
+
+/** The screens that can carry a pending request, as opposed to naming a client id. */
+const REQUEST_PAGES = PAGES.filter((page) => page.carries !== "client_id")
 
 function Elsewhere() {
   const location = useLocation()
@@ -209,12 +317,16 @@ function renderPage(page: FlowPage, returnTo: string | null) {
   get.mockImplementation((path: string) =>
     path === "/api/v1/Users/me" && me !== "pending"
       ? Promise.resolve({ data: me })
-      : new Promise(() => {})
+      : page.answers && path in page.answers
+        ? Promise.resolve({ data: page.answers[path] })
+        : new Promise(() => {})
   )
   const entry =
-    page.carries === "query"
-      ? { pathname: page.path, search: query(returnTo), state: page.state }
-      : { pathname: page.path, state: { ...page.state, returnTo } }
+    page.carries === "client_id"
+      ? { pathname: page.path, search: clientIdQuery(returnTo) }
+      : page.carries === "query"
+        ? { pathname: page.path, search: query(returnTo), state: page.state }
+        : { pathname: page.path, state: { ...page.state, returnTo } }
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -233,13 +345,40 @@ function renderPage(page: FlowPage, returnTo: string | null) {
 const brandingRequests = (fetch: MockInstance<typeof globalThis.fetch>) =>
   fetch.mock.calls.map(([url]) => String(url))
 
+/** The answer of the application's public branding; null: a 404. */
+const answering = (body: object | null) => () =>
+  Promise.resolve(
+    body
+      ? ({ ok: true, json: () => Promise.resolve(body) } as Response)
+      : ({ ok: false, status: 404 } as Response)
+  )
+
+/** A screen wide enough for the panel (`lg`), which jsdom's own shim never matches. */
+function widePanel() {
+  vi.spyOn(window, "matchMedia").mockImplementation(
+    (media) =>
+      ({
+        media,
+        matches: media === "(min-width: 1024px)",
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }) as MediaQueryList
+  )
+}
+
 describe("the application header on every screen of the flow", () => {
   let fetch: MockInstance<typeof globalThis.fetch>
 
   beforeEach(() => {
     clearRegistrationFlow()
     get.mockReset()
+    applicationTheme.mockReset()
     platform.isPending = false
+    platform.loginDesign = undefined
     fetch = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
       Promise.resolve({
         ok: true,
@@ -262,6 +401,10 @@ describe("the application header on every screen of the flow", () => {
       "/force-password-change",
       "/force-password-change",
       "/force-password-change",
+      "/create-organization",
+      "/logout",
+      "/signed-out",
+      "/sign-in-expired",
     ])
   })
 
@@ -272,8 +415,19 @@ describe("the application header on every screen of the flow", () => {
 
       const logo = await screen.findByRole("img", { name: "SHOP" })
       expect(logo).toHaveAttribute("src", LOGO_URL)
+      expect(screen.getByRole("main")).toContainElement(logo)
+      if (page.namesApp !== null) {
+        expect(
+          screen.getByText(page.namesApp ?? "Continue to SHOP.")
+        ).toBeInTheDocument()
+      }
+      if (page.namesApp !== undefined) {
+        expect(screen.queryByText("Continue to SHOP.")).toBeNull()
+      }
       expect(screen.getByText("Secured by AuthSystem")).toBeInTheDocument()
-      expect(screen.queryByTestId("platform-mark")).toBeNull()
+      expect(screen.getByRole("banner")).toContainElement(
+        screen.getByTestId("platform-mark")
+      )
       // The screen keeps its own title; only the header changed.
       expect(
         screen.getByRole("heading", { level: 1, name: page.heading })
@@ -282,6 +436,31 @@ describe("the application header on every screen of the flow", () => {
       expect(brandingRequests(fetch)).toEqual([
         `${API_BASE_URL}/api/v1/applications/shop/public-branding`,
       ])
+    }
+  )
+
+  it.each(PAGES)(
+    "$name follows the application's design: one that hides the platform's mark gives the corner to the application's logo",
+    async (page) => {
+      // The design reaches a page only through the flow's header: a screen that
+      // builds its header by hand shows the platform's design and corner instead.
+      fetch.mockImplementation(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              name: "SHOP",
+              logoUrl: LOGO_URL,
+              loginDesign: { id: "d1", contentHash: "a".repeat(64), showPlatformLogo: false },
+            }),
+        } as Response)
+      )
+      renderPage(page, AUTHORIZE)
+
+      const logo = await screen.findByRole("img", { name: "SHOP" })
+      expect(screen.getByRole("banner")).toContainElement(logo)
+      expect(screen.queryByTestId("platform-mark")).toBeNull()
+      expect(screen.getByText("Secured by AuthSystem")).toBeInTheDocument()
     }
   )
 
@@ -298,6 +477,59 @@ describe("the application header on every screen of the flow", () => {
       expect(container.querySelectorAll("img")).toHaveLength(1)
       expect(container.textContent).not.toContain("Evil")
       expect(container.textContent).not.toContain("evil.example")
+    }
+  )
+
+  it.each(PAGES)(
+    "$name takes the application's own appearance",
+    async (page) => {
+      fetch.mockImplementation(answering({ name: "SHOP", logoUrl: LOGO_URL, theme: APPEARANCE }))
+      renderPage(page, AUTHORIZE)
+
+      await screen.findByRole("img", { name: "SHOP" })
+      // Registered while the answer is on its way (unknown, so the cached one
+      // stands), then the application's whole appearance in place of the
+      // platform's; never another application's.
+      expect(applicationTheme).toHaveBeenCalledWith("shop", undefined)
+      expect(applicationTheme).toHaveBeenLastCalledWith("shop", toThemeConfig(APPEARANCE))
+      expect(applicationTheme.mock.calls.map(([clientId]) => clientId)).toEqual(
+        applicationTheme.mock.calls.map(() => "shop")
+      )
+    }
+  )
+
+  it.each(PAGES)(
+    "$name shows the application's design in its panel, never the platform's own",
+    async (page) => {
+      widePanel()
+      platform.loginDesign = PLATFORM_DESIGN
+      fetch.mockImplementation(answering({ name: "SHOP", logoUrl: LOGO_URL, loginDesign: DESIGN }))
+      renderPage(page, AUTHORIZE)
+
+      // Rendered for the application, so the server renders it with its name
+      // (its own design, else the platform's, as its branding says).
+      const panel = await screen.findByTestId("design-panel")
+      expect(panel).toHaveAttribute("data-client-id", "shop")
+      expect(panel).toHaveAttribute("data-design-id", DESIGN.id)
+    }
+  )
+
+  it.each(PAGES)(
+    "$name is the platform's own for an application the server does not know or has switched off",
+    async (page) => {
+      widePanel()
+      platform.loginDesign = PLATFORM_DESIGN
+      fetch.mockImplementation(answering(null))
+      const { container } = renderPage(page, AUTHORIZE)
+
+      await waitFor(() => expect(applicationTheme).toHaveBeenLastCalledWith("shop", null))
+      const panel = await screen.findByTestId("design-panel")
+      expect(panel).toHaveAttribute("data-client-id", "")
+      expect(panel).toHaveAttribute("data-design-id", PLATFORM_DESIGN.id)
+      expect(screen.getByTestId("platform-mark")).toBeInTheDocument()
+      expect(container.querySelector("img")).toBeNull()
+      expect(screen.queryByText(/Secured by/)).toBeNull()
+      expect(screen.queryByText(/Continue to/)).toBeNull()
     }
   )
 
@@ -327,7 +559,7 @@ describe("the application header on every screen of the flow", () => {
     expect(screen.queryByText(/Secured by/)).toBeNull()
   })
 
-  it.each(PAGES)(
+  it.each(REQUEST_PAGES)(
     "$name shows the application for a stored request, too (OI-145)",
     async (page) => {
       renderPage(page, RESUME)

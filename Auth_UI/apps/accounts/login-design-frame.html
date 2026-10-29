@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign-in page design</title>
+<link rel="stylesheet" href="./src/login-design-frame.css">
+<script>(function () {
+  "use strict";
+  // The frame of a sign-in page design (DesignFrame, packages/ui). It is framed with
+  // sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox", so this
+  // document's origin is opaque, and web.config gives it its own CSP: this script, by
+  // hash, is the only one that can run, so a design's own scripts and on* handlers do
+  // not. It accepts the design from the page that framed it, writes it into itself,
+  // and repaints when that page's mode or appearance changes.
+  if (window.parent === window) return;
+  var READY = "authsystem.login-design.ready";
+  var RENDER = "authsystem.login-design.render";
+  var THEME = "authsystem.login-design.theme";
+  var RENDERED = "authsystem.login-design.rendered";
+  var FAILED = "authsystem.login-design.failed";
+  // Before the design's own styles: whatever it does not set follows the appearance.
+  var BASE = "html{background:var(--background);color:var(--foreground);font-family:var(--font-sans)}";
+  var tokens = null;
+  var rendered = false;
+  function tell(type) {
+    window.parent.postMessage({ type: type }, location.origin);
+  }
+  function tokenCss(map) {
+    var css = ":root{";
+    for (var name in map) {
+      var value = map[name];
+      // A variable name and a value that cannot close the rule.
+      if (/^--[a-z0-9-]+$/.test(name) && typeof value === "string" && !/[;{}<>]/.test(value)) {
+        css += name + ":" + value + ";";
+      }
+    }
+    return css + "}";
+  }
+  function paint(data) {
+    var dark = data.mode === "dark";
+    tokens.textContent = tokenCss(data.tokens || {});
+    document.documentElement.classList.toggle("dark", dark);
+    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  }
+  function copyAttributes(from, to) {
+    for (var i = 0; i < from.attributes.length; i++) {
+      to.setAttribute(from.attributes[i].name, from.attributes[i].value);
+    }
+  }
+  function render(data) {
+    var design = new DOMParser().parseFromString(data.html, "text/html");
+    var root = document.documentElement;
+    root.lang = data.lang;
+    root.dir = data.dir;
+    // What the design writes on <html> or <body> wins over the page's language.
+    copyAttributes(design.documentElement, root);
+    copyAttributes(design.body, document.body);
+    // A policy of the document's own, before the design: its scripts and handlers stay
+    // refused where this file is served without its web.config header (a dev server, a
+    // proxy). It cannot loosen the header's, and the receiver's listener keeps running.
+    var policy = document.createElement("meta");
+    policy.httpEquiv = "Content-Security-Policy";
+    policy.content = "script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+    tokens = document.createElement("style");
+    var base = document.createElement("style");
+    base.textContent = BASE;
+    document.head.append(policy, tokens, base);
+    document.head.append.apply(document.head, Array.prototype.slice.call(design.head.childNodes));
+    document.body.replaceChildren.apply(document.body, Array.prototype.slice.call(design.body.childNodes));
+    // Links open a new tab, on the author's responsibility, and never this frame:
+    // the visitor's sign-in page stays where it is.
+    var links = document.querySelectorAll("a[href], area[href]");
+    for (var j = 0; j < links.length; j++) {
+      links[j].setAttribute("target", "_blank");
+      var rel = (links[j].getAttribute("rel") || "").split(/\s+/).filter(Boolean);
+      if (rel.indexOf("noopener") < 0) rel.push("noopener");
+      links[j].setAttribute("rel", rel.join(" "));
+    }
+    paint(data);
+    // Shown once the platform's fonts have loaded, so the panel never swaps its type.
+    void document.body.offsetHeight;
+    document.fonts.ready.then(function () { tell(RENDERED); }, function () { tell(RENDERED); });
+  }
+  window.addEventListener("message", function (event) {
+    if (event.source !== window.parent || event.origin !== location.origin) return;
+    var data = event.data;
+    if (!data || typeof data.type !== "string") return;
+    try {
+      if (data.type === RENDER && !rendered && typeof data.html === "string") {
+        rendered = true;
+        render(data);
+      } else if (data.type === THEME && tokens) {
+        paint(data);
+      }
+    } catch (error) {
+      tell(FAILED);
+    }
+  });
+  // location.origin is the URL's origin - the page's - not the opaque one.
+  tell(READY);
+})();</script>
+</head>
+<body></body>
+</html>

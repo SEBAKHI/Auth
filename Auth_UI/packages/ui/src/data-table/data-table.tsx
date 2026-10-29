@@ -239,7 +239,7 @@ function SortableHeader<TData>({ header }: { header: Header<TData, unknown> }) {
     <Button
       variant="ghost"
       size="sm"
-      className="-ms-2.5 h-8"
+      className="-ms-2.5"
       onClick={header.column.getToggleSortingHandler()}
     >
       <span>

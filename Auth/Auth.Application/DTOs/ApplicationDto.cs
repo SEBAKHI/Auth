@@ -98,6 +98,19 @@ public class ApplicationDto
     /// </summary>
     public Guid? OrganizationCreatorRoleId { get; set; }
 
+    /// <summary>
+    /// Whether <see cref="Theme"/> replaces the platform's appearance on the accounts pages this
+    /// application sends people to. Changed through the dedicated appearance endpoint, never
+    /// through an update.
+    /// </summary>
+    public bool ThemeEnabled { get; set; }
+
+    /// <summary>
+    /// The application's own appearance, kept while <see cref="ThemeEnabled"/> is off; null when
+    /// none was ever saved.
+    /// </summary>
+    public PlatformThemeDto? Theme { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public Guid CreatedBy { get; set; }
 
@@ -123,4 +136,16 @@ public class PagedApplicationsDto
     public int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
     public bool HasPreviousPage => PageNumber > 1;
     public bool HasNextPage => PageNumber < TotalPages;
+}
+
+/// <summary>
+/// An application's own appearance as saved: the switch and the choices.
+/// </summary>
+public class ApplicationAppearanceDto
+{
+    /// <summary>Whether <see cref="Theme"/> replaces the platform's appearance on the accounts pages.</summary>
+    public bool Enabled { get; set; }
+
+    /// <summary>The saved appearance, kept while switched off; null when none was ever saved.</summary>
+    public PlatformThemeDto? Theme { get; set; }
 }

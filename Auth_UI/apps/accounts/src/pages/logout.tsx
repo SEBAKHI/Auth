@@ -5,7 +5,7 @@ import { Link, useSearchParams } from "react-router-dom"
 import { api } from "@authsystem/api/client"
 import { API_BASE_URL } from "@authsystem/api/env"
 import { useAuth } from "@authsystem/auth/auth-context"
-import { useAppBranding } from "@authsystem/auth/use-app-branding"
+import { useFlowBranding } from "@authsystem/auth/flow-branding"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Button } from "@authsystem/ui/button"
 import { Spinner } from "@authsystem/ui/spinner"
@@ -21,7 +21,8 @@ import { Spinner } from "@authsystem/ui/spinner"
  * the person holding the browser decides.
  *
  * The application's name and logo come from the public-branding endpoint keyed
- * by client_id — never from the URL, which anyone can write.
+ * by client_id — never from the URL, which anyone can write. With them come its
+ * appearance and its design, from the one hook every such page reads.
  *
  * When the application registered where to come back to after signing out
  * (`post_logout_redirect_uri`), the URL names that address by its hash, in
@@ -43,11 +44,11 @@ export function LogoutConfirmPage() {
   const clientId = params.get("client_id")
   const state = params.get("state")
   const returnHash = readReturnHash(params)
-  const branding = useAppBranding(clientId)
+  const { layout } = useFlowBranding({ clientId })
   const { status, logout } = useAuth()
   const [pending, setPending] = React.useState(false)
 
-  const appName = branding?.name
+  const appName = layout.appName
 
   const signOut = React.useCallback(async () => {
     setPending(true)
@@ -89,9 +90,7 @@ export function LogoutConfirmPage() {
           ? t("auth.signOutTitle", { name: appName })
           : t("auth.signOutTitleNoApp")
       }
-      appName={appName}
-      appLogoUrl={branding?.logoUrl ?? undefined}
-      appLogoUrlDark={branding?.logoUrlDark ?? undefined}
+      {...layout}
     >
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">{t("auth.signOutBody")}</p>

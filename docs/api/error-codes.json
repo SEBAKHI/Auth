@@ -125,6 +125,12 @@
       "source": "catalog"
     },
     {
+      "code": "Application.AppearanceThemeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/theme"
+    },
+    {
       "code": "Application.BaseUrlTooLong",
       "status": 400,
       "source": "catalog",
@@ -939,6 +945,85 @@
       "status": 400,
       "source": "catalog",
       "pointer": "#/gracePeriodMinutes"
+    },
+    {
+      "code": "LoginDesign.ActivationConflict",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "LoginDesign.ConcurrencyConflict",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "LoginDesign.ContentRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/content"
+    },
+    {
+      "code": "LoginDesign.ContentTooLarge",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/content"
+    },
+    {
+      "code": "LoginDesign.DeleteActive",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "LoginDesign.NameRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/name"
+    },
+    {
+      "code": "LoginDesign.NameTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/name"
+    },
+    {
+      "code": "LoginDesign.NoneActive",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "LoginDesign.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "LoginDesign.RenderedTooLarge",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/content"
+    },
+    {
+      "code": "LoginDesign.StringsInvalidJson",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/stringsJson"
+    },
+    {
+      "code": "LoginDesign.StringsTooLarge",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/stringsJson"
+    },
+    {
+      "code": "LoginDesign.UnknownVariables",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "LoginDesign.UnsupportedLanguage",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/language"
     },
     {
       "code": "MachineKey.AlreadyRevoked",
@@ -2383,6 +2468,18 @@
       "pointer": null
     },
     {
+      "code": "SystemSettings.ThemeCustomSizeOutOfRange",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.ThemeRowHeightBelowControlHeight",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "SystemSettings.ThemeUnknownColor",
       "status": 400,
       "source": "catalog",
@@ -2396,6 +2493,12 @@
     },
     {
       "code": "SystemSettings.ThemeUnknownRadius",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.ThemeUnknownSize",
       "status": 400,
       "source": "catalog",
       "pointer": null

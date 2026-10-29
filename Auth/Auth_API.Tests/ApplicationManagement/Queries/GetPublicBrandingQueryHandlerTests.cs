@@ -18,7 +18,8 @@ public class GetPublicBrandingQueryHandlerTests
     {
         _handler = new GetPublicBrandingQueryHandler(
             _applicationRepositoryMock.Object,
-            ApplicationTestImages.Composer());
+            ApplicationTestImages.Composer(),
+            LoginDesignDoubles.NoneActive());
     }
 
     [Fact]

@@ -11,15 +11,19 @@ import App from "./App.tsx"
 import { installChunkLoadRecovery } from "@authsystem/ui/common/chunk-recovery"
 import { applyCachedTheme } from "@authsystem/ui/theme/apply-theme"
 import { ThemeProvider } from "@authsystem/ui/theme-provider.tsx"
+import { themeScopeFor } from "./theme-scope"
 
 // Registered before anything is imported on demand: a chunk removed by a deploy
 // can fail during preload, which never reaches a route error boundary.
 installChunkLoadRecovery()
 
-// The platform's colours from the last visit, before anything is drawn: the
-// current ones arrive with the branding, and until then the shipped preset
-// would paint a returning visitor's first frames in the wrong colours.
-applyCachedTheme()
+// The colours from the last visit, before anything is drawn: the current ones
+// arrive with the branding, and until then the shipped preset would paint a
+// returning visitor's first frames in the wrong colours. On a page that names
+// an application, that application's own appearance when this browser has seen
+// it switched on; otherwise, and on every other page, the platform's.
+const themeScope = themeScopeFor(window.location)
+applyCachedTheme(themeScope)
 
 // Locale bundles load on demand, so the active language must be in place before the
 // first paint — otherwise the app renders a frame of raw translation keys.
@@ -31,7 +35,7 @@ void initI18n().finally(() => {
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <ThemeProvider>
-        <App />
+        <App applicationScope={themeScope} />
       </ThemeProvider>
     </StrictMode>
   )

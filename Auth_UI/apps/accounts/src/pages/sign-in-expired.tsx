@@ -1,9 +1,8 @@
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 
-import { useAppBranding } from "@authsystem/auth/use-app-branding"
+import { useFlowBranding } from "@authsystem/auth/flow-branding"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
-import { useBranding } from "@authsystem/ui/branding"
 import { Button } from "@authsystem/ui/button"
 
 /**
@@ -17,26 +16,20 @@ import { Button } from "@authsystem/ui/button"
  * start again from the application, where a person who already signed in will
  * find themselves signed in, and offers the way back when the application
  * publishes a home address.
+ *
+ * The application its `client_id` names gives the page its header, its
+ * appearance and its design, from the one hook every such page reads.
  */
 export function SignInExpiredPage() {
   const { t } = useTranslation()
   const [params] = useSearchParams()
-  const branding = useAppBranding(params.get("client_id"))
-  const { name: platformName, isPending: brandingPending } = useBranding()
+  const { appBranding: branding, layout } = useFlowBranding({
+    clientId: params.get("client_id"),
+  })
   const app = branding?.name ?? t("auth.theApplication")
-  // A trust marker naming the wrong platform is worse than none at all.
-  const securedBy = brandingPending
-    ? null
-    : t("auth.securedBy", { name: platformName })
 
   return (
-    <AuthLayout
-      title={t("auth.signInExpiredTitle")}
-      appName={branding?.name}
-      appLogoUrl={branding?.logoUrl ?? undefined}
-      appLogoUrlDark={branding?.logoUrlDark ?? undefined}
-      securedBy={branding ? securedBy : null}
-    >
+    <AuthLayout title={t("auth.signInExpiredTitle")} {...layout}>
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
           {t("auth.signInExpiredBody", { app })}

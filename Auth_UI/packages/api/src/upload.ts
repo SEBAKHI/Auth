@@ -16,7 +16,15 @@ import i18n from "@authsystem/i18n"
  * Image.QuotaExceeded) rather than generic copy.
  */
 export async function uploadImage(
-  file: File
+  file: File,
+  options: {
+    /**
+     * What the image is for. `Panel`: an image inserted into a sign-in page design,
+     * which fills half a large screen, so the server keeps up to
+     * ImageStorage:PanelMaxEdgePx instead of the smaller limit of every other upload.
+     */
+    purpose?: "Panel"
+  } = {}
 ): Promise<{ key: string; url: string }> {
   // Shrink in the browser first: the server keeps 1024 px at most and refuses
   // anything over its byte and megapixel limits, so a phone photo sent as-is
@@ -29,7 +37,7 @@ export async function uploadImage(
   body.append("file", prepared, prepared.name)
 
   const send = (token: string | null) =>
-    fetch(`${API_BASE_URL}/api/v1/Images`, {
+    fetch(`${API_BASE_URL}/api/v1/Images${options.purpose ? `?purpose=${options.purpose}` : ""}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token ?? ""}`,

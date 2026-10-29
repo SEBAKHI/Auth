@@ -67,7 +67,7 @@ export function RegisterPage() {
   // A pending authorize request rides in the query string across all three
   // screens; each link and navigation carries it forward unchanged.
   const { search } = useLocation()
-  const { layout: appHeader } = useFlowBranding(getValidReturnTo(search))
+  const { layout: appHeader } = useFlowBranding({ returnTo: getValidReturnTo(search) })
   const signInOptions = useSignInOptions()
   const [noEmail, setNoEmail] = React.useState(false)
   const unavailable =

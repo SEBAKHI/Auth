@@ -52,7 +52,10 @@ describe("ThemedLogo", () => {
     expect(within(dialog).getByText("Pick a logo for each mode.")).toBeTruthy()
     expect(within(dialog).getByText("Light mode")).toBeTruthy()
     expect(within(dialog).getByText("Dark mode")).toBeTruthy()
-    expect(within(dialog).getAllByRole("button", { name: /avatar/i })).toHaveLength(2)
+    // Each mode's circle is named by the label under it, not as an avatar.
+    expect(within(dialog).getByRole("button", { name: "Light mode" })).toBeTruthy()
+    expect(within(dialog).getByRole("button", { name: "Dark mode" })).toBeTruthy()
+    expect(within(dialog).queryByRole("button", { name: /avatar/i })).toBeNull()
     // Each slot is painted in its own mode, whatever mode the page is in: a
     // white wordmark meant for dark pages is invisible on a light tile.
     expect(dialog.querySelector('[data-mode="light"]')?.classList.contains("light")).toBe(true)

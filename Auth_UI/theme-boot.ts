@@ -17,6 +17,7 @@
 import { createHash } from "node:crypto"
 import type { Plugin } from "vite"
 
+import { LOGIN_DESIGN_FRAME_HTML } from "./login-design-frame"
 import { bootThemeScript, type BootOptions } from "./packages/ui/src/theme/boot-theme"
 
 /**
@@ -43,7 +44,12 @@ export function themeBoot(options: BootOptions): Plugin {
       // After Vite's own processing, so the tag stays a classic script: Vite
       // would otherwise warn about, or rewrite, a script without type="module".
       order: "post",
-      handler: () => [{ tag: "script", attrs: { src: `/${fileName}` }, injectTo: "head-prepend" }],
+      // Not into the design frame's page: it has no colour mode of its own (the page
+      // that frames it sends one), and its policy runs no script but its receiver.
+      handler: (_html, context) =>
+        context.filename.endsWith(LOGIN_DESIGN_FRAME_HTML)
+          ? []
+          : [{ tag: "script", attrs: { src: `/${fileName}` }, injectTo: "head-prepend" }],
     },
   }
 }

@@ -41,6 +41,8 @@ export const CodeEditor = React.forwardRef<
      * asks them to discard work they were never allowed to do.
      */
     readOnly?: boolean
+    /** What inserted images are for: `Panel` for a sign-in page design (larger images). */
+    imagePurpose?: "Panel"
   }
 >(function CodeEditor(
   {
@@ -51,6 +53,7 @@ export const CodeEditor = React.forwardRef<
     allowImages = false,
     contentDir,
     readOnly = false,
+    imagePurpose,
   },
   forwardedRef
 ) {
@@ -156,6 +159,7 @@ export const CodeEditor = React.forwardRef<
           open={imageOpen}
           onOpenChange={setImageOpen}
           contentDir={contentDir}
+          purpose={imagePurpose}
           onInsert={(snippet) => insertAtCursor(innerRef, snippet)}
         />
       ) : null}

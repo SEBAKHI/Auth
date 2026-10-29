@@ -70,6 +70,8 @@ public class GetApplicationsQueryHandler : IRequestHandler<GetApplicationsQuery,
             // Same reason: a caller saving a row back must not read "off".
             AllowOrganizationCreation = app.AllowOrganizationCreation,
             OrganizationCreatorRoleId = app.OrganizationCreatorRoleId,
+            ThemeEnabled = app.ThemeEnabled,
+            Theme = PlatformThemeDto.FromOrNull(app.Theme),
             CreatedAt = app.CreatedAt,
             CreatedBy = app.CreatedBy,
             CreatedByName = userNames.GetValueOrDefault(app.CreatedBy),

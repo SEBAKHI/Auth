@@ -161,6 +161,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
       <CardContent>
         <div className="mb-6 flex items-center gap-4">
           <AvatarMenu
+            frame="photo"
             src={me.profileImageUrl}
             name={meName}
             size="xl"

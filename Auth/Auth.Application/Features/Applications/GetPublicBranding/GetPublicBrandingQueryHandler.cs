@@ -1,4 +1,6 @@
 using Auth.Application.Common;
+using Auth.Application.DTOs;
+using Auth.Application.Features.LoginDesigns.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -17,13 +19,16 @@ public class GetPublicBrandingQueryHandler
 {
     private readonly IApplicationRepository _applicationRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
+    private readonly EffectiveLoginDesign _loginDesign;
 
     public GetPublicBrandingQueryHandler(
         IApplicationRepository applicationRepository,
-        IImageUrlComposer imageUrlComposer)
+        IImageUrlComposer imageUrlComposer,
+        EffectiveLoginDesign loginDesign)
     {
         _applicationRepository = applicationRepository;
         _imageUrlComposer = imageUrlComposer;
+        _loginDesign = loginDesign;
     }
 
     public async Task<ErrorOr<PublicBrandingDto>> Handle(
@@ -52,7 +57,13 @@ public class GetPublicBrandingQueryHandler
             // offers the way home. A machine client never exposes its address on this
             // anonymous endpoint. The rule is shared with the launch after an accepted
             // invitation (OI-192), so the two can never disagree about it.
-            HomeUrl = ApplicationLaunchTarget.HomeUrlOf(application)
+            HomeUrl = ApplicationLaunchTarget.HomeUrlOf(application),
+            // The whole object or nothing: the page applies it in place of the platform's, never
+            // merged with it, and an application whose switch is off shows the platform's.
+            Theme = PlatformThemeDto.FromOrNull(application.EffectiveTheme),
+            // The application's own design, else the platform's: decided in one place.
+            LoginDesign = LoginDesignRefDto.FromOrNull(
+                await _loginDesign.ForAsync(application.Id, cancellationToken))
         };
     }
 }

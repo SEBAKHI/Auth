@@ -12,6 +12,7 @@ import {
   applyThemeCss,
   readCachedTheme,
   writeCachedTheme,
+  type ThemeScope,
 } from "@authsystem/ui/theme/apply-theme"
 import {
   DEFAULT_THEME_CONFIG,
@@ -29,6 +30,9 @@ const DEFAULT_FAVICON = "/vite.svg"
 const BRANDING_CACHE_KEY = "auth.ui.branding"
 
 type BrandingPayload = Schemas["PlatformBrandingDto"]
+
+/** Which design a sign-in page shows in its panel: its id, its version, its logo choice. */
+export type LoginDesignRef = Schemas["LoginDesignRefDto"]
 
 interface BrandingValue {
   /** Platform display name (admin-configured, falls back to the app default). */
@@ -71,6 +75,12 @@ interface BrandingValue {
    * code, which is the page every visitor always saw.
    */
   signInOptions: SignInOptions | null
+  /**
+   * The design the platform's own sign-in pages show in their panel: null for the
+   * plain panel (none active, or the request failed), undefined while nothing is
+   * known yet, so the panel never shows a guess.
+   */
+  loginDesign: LoginDesignRef | null | undefined
 }
 
 export type SignInMethod = "password" | "code"
@@ -162,6 +172,67 @@ const ThemePreviewContext = React.createContext<ThemePreviewValue | undefined>(
 )
 
 /**
+ * What the page should look like:
+ * - `keep`: nothing is known yet; what is on the page stays (the first frame's
+ *   cached colours, or the shipped preset).
+ * - `apply`: an appearance, cached under `scope` once computed; `scope`
+ *   undefined caches nothing (an administrator's preview).
+ * - `cached`: an application's own appearance that is not known yet: its
+ *   cached copy if this browser has one, otherwise `fallback`.
+ */
+type ThemePlan =
+  | { kind: "keep" }
+  | { kind: "apply"; config: ThemeConfig; scope?: ThemeScope }
+  | { kind: "cached"; scope: string; fallback: ThemePlan }
+
+function applyPlan(plan: ThemePlan): (() => void) | undefined {
+  if (plan.kind === "keep") return undefined
+  if (plan.kind === "cached") {
+    const cached = readCachedTheme(plan.scope)
+    if (!cached) return applyPlan(plan.fallback)
+    applyThemeCss(cached.css || null)
+    return undefined
+  }
+
+  const { scope } = plan
+  const cache = scope !== undefined
+  const key = themeConfigKey(plan.config)
+  // The cached stylesheet is reusable only if this bundle would compute the
+  // same one: same configuration, same engine.
+  const cacheKey = `${THEME_ENGINE_VERSION}|${key}`
+  if (key === DEFAULT_THEME_KEY) {
+    applyThemeCss(null)
+    // The platform on the preset needs no entry; an application on it does,
+    // or its next first frame would show the platform's colours instead.
+    if (cache) writeCachedTheme(scope === null ? null : { key: cacheKey, css: "" }, scope)
+    return undefined
+  }
+  const cached = cache ? readCachedTheme(scope) : null
+  if (cached?.key === cacheKey) {
+    applyThemeCss(cached.css)
+    // Used again: the last to be forgotten among the applications kept.
+    if (scope) writeCachedTheme(cached, scope)
+    return undefined
+  }
+  let cancelled = false
+  void import("@authsystem/ui/theme/build-theme").then(
+    ({ buildThemeVars, themeCss }) => {
+      if (cancelled) return
+      const css = themeCss(buildThemeVars(plan.config))
+      applyThemeCss(css)
+      if (cache) writeCachedTheme({ key: cacheKey, css }, scope)
+    },
+    () => {
+      // The chunk failed to load (a deploy removed it, or the network
+      // dropped): the cached or shipped colours stay, which is cosmetic.
+    }
+  )
+  return () => {
+    cancelled = true
+  }
+}
+
+/**
  * Computes and applies an appearance.
  *
  * The colour registry (~40 KB) is loaded only when there is something to
@@ -171,44 +242,41 @@ const ThemePreviewContext = React.createContext<ThemePreviewValue | undefined>(
  * once per appearance change, not once per visit, and never on an install
  * that keeps the default (`login-payload.spec.ts` measures that).
  */
-function useAppliedTheme(config: ThemeConfig | null, cache: boolean) {
-  // The key is the configuration itself, so the effect reads it back from the
-  // key rather than from a value captured in render.
-  const key = config ? themeConfigKey(config) : null
+function useAppliedTheme(plan: ThemePlan) {
+  // The key is the plan itself, so the effect reads it back from the key
+  // rather than from a value captured in render.
+  const key = JSON.stringify(plan)
+  React.useEffect(() => applyPlan(JSON.parse(key) as ThemePlan), [key])
+}
 
+/**
+ * An application's own appearance, as a page of its flow knows it: the
+ * appearance (`ThemeConfig`), none (null: the platform's shows), or not known
+ * yet (undefined).
+ */
+export type ApplicationTheme = { clientId: string; theme: ThemeConfig | null | undefined }
+
+type ApplicationThemeRegistry = (value: ApplicationTheme) => () => void
+
+const ApplicationThemeContext = React.createContext<ApplicationThemeRegistry | null>(null)
+
+/**
+ * Puts the application's own appearance on the page in place of the
+ * platform's for as long as the calling component is mounted. A no-op outside
+ * a BrandingProvider that takes applications' appearances (the console's,
+ * which never recolours with an application's).
+ */
+export function useApplicationTheme(clientId: string | null, theme: ThemeConfig | null | undefined) {
+  const register = React.useContext(ApplicationThemeContext)
+  const themeKey = theme === undefined ? "unknown" : JSON.stringify(theme)
   React.useEffect(() => {
-    if (key === null) return
-    if (cache && key === DEFAULT_THEME_KEY) {
-      applyThemeCss(null)
-      writeCachedTheme(null)
-      return
+    if (!register || !clientId) return
+    const value: ApplicationTheme = {
+      clientId,
+      theme: themeKey === "unknown" ? undefined : (JSON.parse(themeKey) as ThemeConfig | null),
     }
-    // The cached stylesheet is reusable only if this bundle would compute the
-    // same one: same configuration, same engine.
-    const cacheKey = `${THEME_ENGINE_VERSION}|${key}`
-    const cached = cache ? readCachedTheme() : null
-    if (cached?.key === cacheKey) {
-      applyThemeCss(cached.css)
-      return
-    }
-    const target = toThemeConfig(JSON.parse(key))
-    let cancelled = false
-    void import("@authsystem/ui/theme/build-theme").then(
-      ({ buildThemeVars, themeCss }) => {
-        if (cancelled) return
-        const css = themeCss(buildThemeVars(target))
-        applyThemeCss(css)
-        if (cache) writeCachedTheme({ key: cacheKey, css })
-      },
-      () => {
-        // The chunk failed to load (a deploy removed it, or the network
-        // dropped): the cached or shipped colours stay, which is cosmetic.
-      }
-    )
-    return () => {
-      cancelled = true
-    }
-  }, [key, cache])
+    return register(value)
+  }, [register, clientId, themeKey])
 }
 
 /** Uploads are served by the API host; resolve relative keys against it. */
@@ -223,8 +291,20 @@ export { pickLogo }
  * Fetches the public platform branding (anonymous endpoint) and applies it to
  * the browser tab (title + favicon). Screens read the name/logo via
  * `useBranding` — the sidebar header and the auth layout both do.
+ *
+ * `applicationScope` turns on applications' own appearances (the accounts
+ * app): a page of an application's flow then shows that application's
+ * appearance in place of the platform's (`useApplicationTheme`). Its value is
+ * the application the first frame was painted for (`applyCachedTheme`), or
+ * null. Left out (the console), applications' appearances never apply.
  */
-export function BrandingProvider({ children }: { children: React.ReactNode }) {
+export function BrandingProvider({
+  children,
+  applicationScope,
+}: {
+  children: React.ReactNode
+  applicationScope?: string | null
+}) {
   const { t } = useTranslation()
   const { resolvedTheme } = useTheme()
 
@@ -294,9 +374,20 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
     [signInOptionsKey]
   )
 
+  // A payload without the field (an older API, or a copy cached before it) has no design.
+  const loginDesignKey = query.data
+    ? JSON.stringify(query.data.loginDesign ?? null)
+    : query.isError
+      ? "null"
+      : undefined
+  const loginDesign = React.useMemo<LoginDesignRef | null | undefined>(
+    () => (loginDesignKey === undefined ? undefined : (JSON.parse(loginDesignKey) as LoginDesignRef | null)),
+    [loginDesignKey]
+  )
+
   const value = React.useMemo<BrandingValue>(
-    () => ({ name, logoUrl, isPending, staySignedInOffered, signInOptions }),
-    [name, logoUrl, isPending, staySignedInOffered, signInOptions]
+    () => ({ name, logoUrl, isPending, staySignedInOffered, signInOptions, loginDesign }),
+    [name, logoUrl, isPending, staySignedInOffered, signInOptions, loginDesign]
   )
 
   // Unknown until the branding arrives: applying the default meanwhile would
@@ -307,10 +398,44 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
     [savedThemeKey]
   )
   const [preview, setThemePreview] = React.useState<ThemeConfig | null>(null)
-  useAppliedTheme(
-    preview ?? (savedThemeKey === null ? null : savedTheme),
-    preview === null
-  )
+
+  // The application of the page's flow, latest registration first. Until a
+  // page registers one, the application the first frame was painted for
+  // (`applicationScope`) stands in, so the platform's colours do not replace
+  // its cached ones before its flow says what it shows.
+  const [registrations, setRegistrations] = React.useState<{ id: number; value: ApplicationTheme }[]>([])
+  const [registered, setRegistered] = React.useState(false)
+  const nextId = React.useRef(0)
+  const registry = React.useMemo<ApplicationThemeRegistry | null>(() => {
+    if (applicationScope === undefined) return null
+    return (value) => {
+      const id = ++nextId.current
+      setRegistered(true)
+      setRegistrations((current) => [...current, { id, value }])
+      return () => setRegistrations((current) => current.filter((entry) => entry.id !== id))
+    }
+  }, [applicationScope])
+  const application: ApplicationTheme | null =
+    registrations.at(-1)?.value ??
+    (!registered && applicationScope ? { clientId: applicationScope, theme: undefined } : null)
+
+  // An application now known to show the platform's appearance: its cached
+  // one must not paint its next first frame.
+  const forgetClientId = application?.theme === null ? application.clientId : null
+  React.useEffect(() => {
+    if (forgetClientId) writeCachedTheme(null, forgetClientId)
+  }, [forgetClientId])
+
+  const platformPlan: ThemePlan =
+    savedThemeKey === null ? { kind: "keep" } : { kind: "apply", config: savedTheme, scope: null }
+  const plan: ThemePlan = preview
+    ? { kind: "apply", config: preview }
+    : application?.theme
+      ? { kind: "apply", config: application.theme, scope: application.clientId }
+      : application && application.theme === undefined
+        ? { kind: "cached", scope: application.clientId, fallback: platformPlan }
+        : platformPlan
+  useAppliedTheme(plan)
 
   const previewValue = React.useMemo<ThemePreviewValue>(
     () => ({ savedTheme, setThemePreview }),
@@ -320,7 +445,9 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   return (
     <BrandingContext.Provider value={value}>
       <ThemePreviewContext.Provider value={previewValue}>
-        {children}
+        <ApplicationThemeContext.Provider value={registry}>
+          {children}
+        </ApplicationThemeContext.Provider>
       </ThemePreviewContext.Provider>
     </BrandingContext.Provider>
   )
@@ -357,7 +484,8 @@ export function BrandingLogo({
   fallback,
   className,
 }: {
-  fallback: React.ReactNode
+  /** Shown when no logo is uploaded; a function receives the platform's name. */
+  fallback: React.ReactNode | ((name: string) => React.ReactNode)
   className?: string
 }) {
   const { logoUrl, name, isPending } = useBranding()
@@ -373,7 +501,7 @@ export function BrandingLogo({
       className={className ?? "size-8 rounded-lg object-cover"}
     />
   ) : (
-    <>{fallback}</>
+    <>{typeof fallback === "function" ? fallback(name) : fallback}</>
   )
 }
 

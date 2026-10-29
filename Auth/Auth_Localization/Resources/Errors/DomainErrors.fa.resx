@@ -956,8 +956,17 @@
   <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
     <value>رنگ سفارشی '{0}' به یک رنگ برای حالت روشن و یک رنگ برای حالت تیره نیاز دارد که هر کدام به شکل #rrggbb نوشته شود.</value>
   </data>
+  <data name="SystemSettings.ThemeCustomSizeOutOfRange" xml:space="preserve">
+    <value>'{0}' سفارشی به ارتفاعی با عدد صحیح پیکسل از {1} تا {2} نیاز دارد.</value>
+  </data>
+  <data name="SystemSettings.ThemeRowHeightBelowControlHeight" xml:space="preserve">
+    <value>ارتفاع ردیف جدول ({0}px) نمی‌تواند کمتر از ارتفاع کنترل‌ها ({1}px) باشد.</value>
+  </data>
   <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
     <value>'{0}' گردی گوشهٔ قابل انتخابی نیست.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownSize" xml:space="preserve">
+    <value>'{1}' اندازه‌ای نیست که بتوان برای '{0}' انتخاب کرد. فشرده، پیش‌فرض، راحت یا سفارشی را انتخاب کنید.</value>
   </data>
   <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
     <value>'{0}' تأکید منوی قابل انتخابی نیست.</value>
@@ -1006,6 +1015,9 @@
   </data>
   <data name="Application.AllowedScopesInvalid" xml:space="preserve">
     <value>هر دامنهٔ مجاز (scope) باید یکی از این‌ها باشد: openid، profile، email، phone.</value>
+  </data>
+  <data name="Application.AppearanceThemeRequired" xml:space="preserve">
+    <value>برای روشن کردن ظاهر اختصاصی این برنامه، ظاهر را همراه آن بفرستید.</value>
   </data>
   <data name="Application.BaseUrlTooLong" xml:space="preserve">
     <value>آدرس URL نباید بیش از ۵۰۰ کاراکتر باشد.</value>
@@ -1648,5 +1660,47 @@
   </data>
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>'{0}' را نمی‌توان این‌گونه ذخیره کرد: ثبت‌نام بدون رمز عبور نیاز دارد که ارسال ایمیل روشن باشد، زیرا این حساب‌ها با کدی که به ایمیل فرستاده می‌شود وارد می‌شوند.</value>
+  </data>
+  <data name="LoginDesign.ActivationConflict" xml:space="preserve">
+    <value>طرح دیگری هم‌زمان فعال شد. فهرست را دوباره بارگذاری کنید و دوباره تلاش کنید.</value>
+  </data>
+  <data name="LoginDesign.ConcurrencyConflict" xml:space="preserve">
+    <value>از زمانی که این طرح را باز کردید، شخص دیگری آن را ذخیره کرده است. آن را دوباره بارگذاری کنید و دوباره تلاش کنید.</value>
+  </data>
+  <data name="LoginDesign.ContentRequired" xml:space="preserve">
+    <value>طرح باید محتوا داشته باشد.</value>
+  </data>
+  <data name="LoginDesign.ContentTooLarge" xml:space="preserve">
+    <value>محتوای طرح نباید از ۶۴ کیلوبایت بیشتر باشد.</value>
+  </data>
+  <data name="LoginDesign.DeleteActive" xml:space="preserve">
+    <value>طرح فعال را نمی‌توان حذف کرد. ابتدا آن را غیرفعال کنید یا طرح دیگری را فعال کنید.</value>
+  </data>
+  <data name="LoginDesign.NameRequired" xml:space="preserve">
+    <value>طرح باید نام داشته باشد.</value>
+  </data>
+  <data name="LoginDesign.NameTooLong" xml:space="preserve">
+    <value>نام طرح نباید از ۲۰۰ نویسه بیشتر باشد.</value>
+  </data>
+  <data name="LoginDesign.NoneActive" xml:space="preserve">
+    <value>هیچ طرح فعالی برای صفحهٔ ورود وجود ندارد.</value>
+  </data>
+  <data name="LoginDesign.NotFound" xml:space="preserve">
+    <value>این طرح صفحهٔ ورود پیدا نشد.</value>
+  </data>
+  <data name="LoginDesign.RenderedTooLarge" xml:space="preserve">
+    <value>طرح دست‌کم در یک زبان بیش از ۲۵۶ کیلوبایت HTML تولید می‌کند.</value>
+  </data>
+  <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
+    <value>متن‌های طرح باید یک شیء JSON از زبان‌ها باشد که هر کدام رشته‌های متنی دارد.</value>
+  </data>
+  <data name="LoginDesign.StringsTooLarge" xml:space="preserve">
+    <value>متن‌های طرح نباید از ۶۴ کیلوبایت بیشتر باشد.</value>
+  </data>
+  <data name="LoginDesign.UnknownVariables" xml:space="preserve">
+    <value>طرح از متغیرهایی استفاده می‌کند که صفحهٔ ورود فراهم نمی‌کند: {0}</value>
+  </data>
+  <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
+    <value>این زبان پشتیبانی نمی‌شود.</value>
   </data>
 </root>

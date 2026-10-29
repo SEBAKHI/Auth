@@ -9,6 +9,9 @@
  *   4. menu accent "bold" copies primary into accent,
  *   5. a non-default radius replaces --radius.
  *
+ * It also writes this platform's two heights, which shadcn's builder does
+ * not have: --control-height and --table-row-height.
+ *
  * Each of the three colours may instead be "custom": one colour per mode,
  * from which this file derives the tokens shadcn would otherwise supply.
  * A custom base is taken literally (it is the page background); a custom
@@ -30,13 +33,20 @@ import {
 import { THEMES } from "./shadcn-themes"
 import {
   BASE_COLOR_NAMES,
+  CONTROL_HEIGHT,
   CUSTOM_PRESET,
   DEFAULT_THEME_CONFIG,
   MENU_ACCENT_OPTIONS,
   RADIUS_OPTIONS,
+  SIZE_STEPS,
+  TABLE_ROW_HEIGHT,
+  sizePx,
   type ColorChoice,
   type MenuAccent,
   type RadiusName,
+  type SizeChoice,
+  type SizeScale,
+  type SizeStep,
   type ThemeConfig,
 } from "./theme-config"
 
@@ -46,13 +56,20 @@ export type ThemeVarsByMode = Record<ColorMode, ThemeVars>
 
 export {
   BASE_COLOR_NAMES,
+  CONTROL_HEIGHT,
   CUSTOM_PRESET,
   DEFAULT_THEME_CONFIG,
   MENU_ACCENT_OPTIONS,
   RADIUS_OPTIONS,
+  SIZE_STEPS,
+  TABLE_ROW_HEIGHT,
+  sizePx,
   type ColorChoice,
   type MenuAccent,
   type RadiusName,
+  type SizeChoice,
+  type SizeScale,
+  type SizeStep,
   type ThemeConfig,
 }
 
@@ -342,6 +359,11 @@ function buildMode(config: ThemeConfig, mode: ColorMode): ThemeVars {
   return vars
 }
 
+/** Pixels as rem, so a height scales with the root font size as `h-9` does. */
+function rem(px: number): string {
+  return `${px / 16}rem`
+}
+
 export function buildThemeVars(config: ThemeConfig): ThemeVarsByMode {
   const light = buildMode(config, "light")
   const dark = buildMode(config, "dark")
@@ -350,6 +372,11 @@ export function buildThemeVars(config: ThemeConfig): ThemeVarsByMode {
   if (radius?.value) light.radius = radius.value
   // shadcn declares --radius once, on :root; dark inherits it.
   delete dark.radius
+
+  // Heights are not colours: one value for both modes, declared beside
+  // --radius. Every control and table cell reads them (preset.css, @theme).
+  light["control-height"] = rem(sizePx(config.controlSize, CONTROL_HEIGHT))
+  light["table-row-height"] = rem(sizePx(config.tableRowHeight, TABLE_ROW_HEIGHT))
 
   return { light, dark }
 }
@@ -373,8 +400,20 @@ function declarations(vars: ThemeVars): string {
  * from the registry or from formatOklch; the allow-list filter is a second
  * line, so nothing that reaches this function can close the rule early.
  */
-export function themeCss(vars: ThemeVarsByMode): string {
-  return `html:root,html .light{${declarations(vars.light)}}html.dark,html .dark{${declarations(vars.dark)}}`
+export function themeCss(vars: ThemeVarsByMode, scope?: string): string {
+  if (scope === undefined) {
+    return `html:root,html .light{${declarations(vars.light)}}html.dark,html .dark{${declarations(vars.dark)}}`
+  }
+  // Inside `[data-appearance-scope]` only: each `.light` / `.dark` element
+  // there draws that mode whatever the page shows, so the console previews an
+  // application's appearance without recolouring itself. An attribute and a
+  // class outrank `html .light` / `html .dark` (the platform's sheet). Each
+  // element is self-contained: dark is light overlaid by dark, exactly what
+  // `html.dark` inheriting from `html:root` gives a whole page, so the radius
+  // and heights reach the dark one too.
+  if (!SAFE_KEY.test(scope)) throw new Error(`Not a stylesheet scope: ${scope}`)
+  const root = `[data-appearance-scope="${scope}"]`
+  return `${root} .light{${declarations(vars.light)}}${root} .dark{${declarations({ ...vars.light, ...vars.dark })}}`
 }
 
 /** shadcn's display name of a registry entry ("Neutral", "Amber"…). */

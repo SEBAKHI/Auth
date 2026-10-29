@@ -33,13 +33,17 @@ public class UpdatePlatformThemeCommandHandlerTests
     private static UpdatePlatformThemeCommand Command(
         ThemeColorChoice? theme = null,
         string radius = "default",
-        Guid? updatedBy = null) =>
+        Guid? updatedBy = null,
+        ThemeSizeChoice? controlSize = null,
+        ThemeSizeChoice? tableRowHeight = null) =>
         new(
             new ThemeColorChoice("stone"),
             theme ?? new ThemeColorChoice("amber"),
             new ThemeColorChoice("custom", "#16A34A", "#22c55e"),
             radius,
             "bold",
+            controlSize ?? new ThemeSizeChoice("compact"),
+            tableRowHeight ?? new ThemeSizeChoice("custom", 60),
             updatedBy ?? Guid.NewGuid());
 
     [Fact]
@@ -57,10 +61,18 @@ public class UpdatePlatformThemeCommandHandlerTests
         result.Value.Theme.Theme.Preset.Should().Be("amber");
         result.Value.Theme.Chart.Light.Should().Be("#16a34a");
         result.Value.Theme.MenuAccent.Should().Be("bold");
+        result.Value.Theme.ControlSize.Preset.Should().Be("compact");
+        result.Value.Theme.ControlSize.Px.Should().BeNull();
+        result.Value.Theme.TableRowHeight.Preset.Should().Be("custom");
+        result.Value.Theme.TableRowHeight.Px.Should().Be(60);
         result.Value.ModifiedBy.Should().Be(actor);
         _settingsRepoMock.Verify(
             r => r.UpdateThemeAsync(
-                It.Is<PlatformSettings>(s => s.Theme.Base.Preset == "stone" && s.ModifiedBy == actor),
+                It.Is<PlatformSettings>(s =>
+                    s.Theme.Base.Preset == "stone" &&
+                    s.Theme.ControlHeightPx == 32 &&
+                    s.Theme.TableRowHeightPx == 60 &&
+                    s.ModifiedBy == actor),
                 It.IsAny<CancellationToken>()),
             Times.Once());
         // The branding write would put back the logos this handler read: a
@@ -99,6 +111,33 @@ public class UpdatePlatformThemeCommandHandlerTests
         _publisherMock.Verify(
             p => p.Publish(It.IsAny<PlatformThemeUpdatedEvent>(), It.IsAny<CancellationToken>()), Times.Never());
     }
+
+    [Fact]
+    public async Task Handle_ARowLowerThanTheControls_WritesAndPublishesNothing()
+    {
+        var result = await _handler.Handle(
+            Command(controlSize: new ThemeSizeChoice("custom", 50), tableRowHeight: new ThemeSizeChoice("default")),
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.Errors.Select(e => e.Code).Should().BeEquivalentTo(["SystemSettings.ThemeRowHeightBelowControlHeight"]);
+        _settingsRepoMock.Verify(
+            r => r.UpdateThemeAsync(It.IsAny<PlatformSettings>(), It.IsAny<CancellationToken>()), Times.Never());
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<PlatformThemeUpdatedEvent>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_AMissingSize_IsRefused()
+    {
+        // The console always sends both; a client that sends neither is told
+        // so rather than having the administrator's heights reset behind them.
+        var command = Command() with { ControlSize = null };
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.Errors.Select(e => e.Code).Should().BeEquivalentTo(["SystemSettings.ThemeUnknownSize"]);
+    }
 }
 
 public class PlatformThemeUpdatedAuditEventHandlerTests
@@ -115,7 +154,9 @@ public class PlatformThemeUpdatedAuditEventHandlerTests
             new ThemeColorChoice("custom", "#112233", "#445566"),
             new ThemeColorChoice("cyan"),
             "default",
-            "subtle").Value;
+            "subtle",
+            new ThemeSizeChoice("custom", 30),
+            ThemeSizeChoice.Default).Value;
 
         await handler.Handle(
             new PlatformThemeUpdatedEvent(Guid.NewGuid(), PlatformTheme.Default, newTheme, updatedBy),
@@ -129,7 +170,10 @@ public class PlatformThemeUpdatedAuditEventHandlerTests
                     log.PerformedBy == updatedBy &&
                     log.UserId == null &&
                     log.OldValues!.Contains("\"theme\":{\"preset\":\"neutral\"") &&
-                    log.NewValues!.Contains("\"theme\":{\"preset\":\"custom\",\"light\":\"#112233\",\"dark\":\"#445566\"}")),
+                    log.NewValues!.Contains("\"theme\":{\"preset\":\"custom\",\"light\":\"#112233\",\"dark\":\"#445566\"}") &&
+                    log.OldValues!.Contains("\"controlSize\":{\"preset\":\"default\",\"px\":null}") &&
+                    log.NewValues!.Contains("\"controlSize\":{\"preset\":\"custom\",\"px\":30}") &&
+                    log.NewValues!.Contains("\"tableRowHeight\":{\"preset\":\"default\",\"px\":null}")),
                 It.IsAny<CancellationToken>()),
             Times.Once());
     }

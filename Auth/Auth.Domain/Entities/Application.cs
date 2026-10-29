@@ -167,6 +167,26 @@ public class Application : AggregateRoot
     public bool AllowMachineOrganizationsRead { get; private set; } = true;
 
     /// <summary>
+    /// Gets the application's own appearance, the same choices as the platform's
+    /// (<see cref="PlatformSettings.Theme"/>), or null when none was ever saved. Kept while
+    /// <see cref="ThemeEnabled"/> is off, so switching it on again brings it back.
+    /// </summary>
+    public PlatformTheme? Theme { get; private set; }
+
+    /// <summary>
+    /// Gets whether <see cref="Theme"/> replaces the platform's appearance on the accounts pages
+    /// this application sends people to. Never true without a <see cref="Theme"/>.
+    /// </summary>
+    public bool ThemeEnabled { get; private set; }
+
+    /// <summary>
+    /// Gets the appearance a visitor sent by this application sees instead of the platform's:
+    /// <see cref="Theme"/> while it is switched on, otherwise null (the platform's shows). It
+    /// replaces the platform's as a whole; nothing of the two is ever mixed.
+    /// </summary>
+    public PlatformTheme? EffectiveTheme => ThemeEnabled ? Theme : null;
+
+    /// <summary>
     /// Gets the machine scopes, of <see cref="Constants.MachineClients.Scopes.ConsentOnly"/>, this
     /// application's administrator consented to: the ones its machine key may be granted when it
     /// asks for them.
@@ -472,6 +492,47 @@ public class Application : AggregateRoot
         }
 
         AllowMachineOrganizationsRead = allow;
+        SetModified(modifiedBy);
+        return true;
+    }
+
+    /// <summary>
+    /// Hydrates the application's own appearance without touching audit fields. A stored switch
+    /// with no readable appearance beside it reads as off: the platform's appearance shows. For
+    /// repository use only.
+    /// </summary>
+    public void LoadAppearance(PlatformTheme? theme, bool enabled)
+    {
+        Theme = theme;
+        ThemeEnabled = enabled && theme is not null;
+    }
+
+    /// <summary>
+    /// Switches the application's own appearance on or off and, when <paramref name="theme"/> is
+    /// given, replaces it; null keeps the one saved, so switching off never loses it. The theme
+    /// arrives validated: <see cref="PlatformTheme"/> exists only through
+    /// <see cref="PlatformTheme.Create"/>.
+    /// </summary>
+    /// <returns>
+    /// True when anything changed; false, and no change, when the switch and the appearance were
+    /// already these. <c>Application.AppearanceThemeRequired</c>, and no change, when it is
+    /// switched on with no appearance sent or saved.
+    /// </returns>
+    public ErrorOr<bool> SetAppearance(bool enabled, PlatformTheme? theme, Guid modifiedBy)
+    {
+        var nextTheme = theme ?? Theme;
+        if (enabled && nextTheme is null)
+        {
+            return ApplicationErrors.AppearanceThemeRequired;
+        }
+
+        if (ThemeEnabled == enabled && Equals(Theme, nextTheme))
+        {
+            return false;
+        }
+
+        Theme = nextTheme;
+        ThemeEnabled = enabled;
         SetModified(modifiedBy);
         return true;
     }

@@ -99,10 +99,21 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
         // sign-in, the code exchange and the console fail with "Invalid column name" without it.
         new("Applications.AllowMachineOrganizationsRead column",
             "SELECT CASE WHEN COL_LENGTH('dbo.Applications', 'AllowMachineOrganizationsRead') IS NOT NULL THEN 1 ELSE 0 END"),
+        // An application's own appearance: every application read selects both columns, the
+        // public branding of the sign-in pages included, so sign-in, the code exchange and the
+        // console fail with "Invalid column name" without either one. Each half is named on its own.
+        new("Applications.Theme column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.Applications', 'Theme') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("Applications.ThemeEnabled column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.Applications', 'ThemeEnabled') IS NOT NULL THEN 1 ELSE 0 END"),
         // The platform appearance: the anonymous branding read selects it, so
         // without it every page of both apps loses its branding.
         new("PlatformSettings.Theme column",
             "SELECT CASE WHEN COL_LENGTH('dbo.PlatformSettings', 'Theme') IS NOT NULL THEN 1 ELSE 0 END"),
+        // Sign-in page designs: both branding reads ask which design a page shows, so without
+        // the table every sign-in page of both apps loses its branding, not only its panel.
+        new("LoginDesigns table",
+            "SELECT CASE WHEN OBJECT_ID('dbo.LoginDesigns', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
         // Email layout card colours: every layout read selects all four, so without them
         // every email send fails at layout resolution and the console's layout pages fail.
         new("NotificationLayouts.DraftCardColorLight column",

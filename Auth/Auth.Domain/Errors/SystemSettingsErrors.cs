@@ -89,6 +89,23 @@ public static class SystemSettingsErrors
         description: $"'{value}' is not a menu accent that can be chosen.",
         metadata: new() { ["args"] = new object[] { value } });
 
+    // The size choices. The slot argument is "controlSize" or "tableRowHeight".
+
+    public static Error ThemeUnknownSize(string slot, string value) => Error.Validation(
+        code: "SystemSettings.ThemeUnknownSize",
+        description: $"'{value}' is not a size that can be chosen for '{slot}'. Choose compact, default, comfortable or custom.",
+        metadata: new() { ["args"] = new object[] { slot, value } });
+
+    public static Error ThemeCustomSizeOutOfRange(string slot, int minPx, int maxPx) => Error.Validation(
+        code: "SystemSettings.ThemeCustomSizeOutOfRange",
+        description: $"A custom '{slot}' needs a height in whole pixels from {minPx} to {maxPx}.",
+        metadata: new() { ["args"] = new object[] { slot, minPx, maxPx } });
+
+    public static Error ThemeRowHeightBelowControlHeight(int rowPx, int controlPx) => Error.Validation(
+        code: "SystemSettings.ThemeRowHeightBelowControlHeight",
+        description: $"The table row height ({rowPx}px) cannot be lower than the control height ({controlPx}px).",
+        metadata: new() { ["args"] = new object[] { rowPx, controlPx } });
+
     // Request-validation rules (ADR 0001): validators declare these with
     // WithErrorCode, and the validation behavior carries the offending property.
 

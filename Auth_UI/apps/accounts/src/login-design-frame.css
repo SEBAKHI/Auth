@@ -1,0 +1,15 @@
+/*
+ * The platform's fonts, for the sign-in page design frame (login-design-frame.html):
+ * the frame sees none of the page's stylesheets, so it loads the same faces itself.
+ * The page sends `--font-sans`, and the frame's base style uses it.
+ *
+ * The frame's origin is opaque (sandboxed without allow-same-origin), so the browser
+ * fetches this stylesheet and the fonts cross-origin: the static host sends
+ * Access-Control-Allow-Origin on /assets (web.config; assets-cors.ts for the preview
+ * server). The console's copy of this file is identical (login-design-frame.test.ts).
+ */
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource/ibm-plex-sans-arabic/400.css";
+@import "@fontsource/ibm-plex-sans-arabic/500.css";
+@import "@fontsource/ibm-plex-sans-arabic/600.css";
+@import "@fontsource/ibm-plex-sans-arabic/700.css";

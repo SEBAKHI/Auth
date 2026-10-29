@@ -35,7 +35,7 @@ export function ForcePasswordChangePage() {
   // A pending authorize request rides in router state across this screen;
   // all three of its states show the requesting application's header.
   const { returnTo } = useLoginCompletion()
-  const { layout: appHeader } = useFlowBranding(returnTo)
+  const { layout: appHeader } = useFlowBranding({ returnTo })
 
   /*
    * The form below demands a current password, so an account that has none - a
@@ -57,9 +57,9 @@ export function ForcePasswordChangePage() {
         {...appHeader}
       >
         <div className="flex flex-col gap-4">
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-control w-full" />
+          <Skeleton className="h-control w-full" />
+          <Skeleton className="h-control w-full" />
         </div>
       </AuthLayout>
     )

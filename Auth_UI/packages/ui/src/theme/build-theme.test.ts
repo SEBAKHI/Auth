@@ -8,9 +8,12 @@ import {
   ACCENT_COLOR_NAMES,
   BASE_COLOR_NAMES,
   CHART_LIGHTNESS,
+  CONTROL_HEIGHT,
   DEFAULT_THEME_CONFIG,
   MENU_ACCENT_OPTIONS,
   RADIUS_OPTIONS,
+  SIZE_STEPS,
+  TABLE_ROW_HEIGHT,
   baseReadability,
   buildThemeVars,
   currentColorHex,
@@ -109,6 +112,45 @@ describe("buildThemeVars — the shadcn merge", () => {
     expect(light.radius).toBe("0.875rem")
     expect(dark.radius).toBeUndefined()
     expect(buildThemeVars({ ...DEFAULT_THEME_CONFIG, radius: "none" }).light.radius).toBe("0")
+  })
+
+  it.each(SIZE_STEPS.map((step) => [step]))(
+    "writes the %s control and row heights once, on the light (root) block",
+    (step) => {
+      const { light, dark } = buildThemeVars({
+        ...DEFAULT_THEME_CONFIG,
+        controlSize: { preset: step },
+        tableRowHeight: { preset: step },
+      })
+      expect(light["control-height"]).toBe(`${CONTROL_HEIGHT.steps[step] / 16}rem`)
+      expect(light["table-row-height"]).toBe(`${TABLE_ROW_HEIGHT.steps[step] / 16}rem`)
+      expect(dark["control-height"]).toBeUndefined()
+      expect(dark["table-row-height"]).toBeUndefined()
+    }
+  )
+
+  it("writes a custom height in rem, exactly", () => {
+    const { light } = buildThemeVars({
+      ...DEFAULT_THEME_CONFIG,
+      controlSize: { preset: "custom", px: 30 },
+      tableRowHeight: { preset: "custom", px: 61 },
+    })
+    expect(light["control-height"]).toBe("1.875rem")
+    expect(light["table-row-height"]).toBe("3.8125rem")
+  })
+
+  it.each([
+    { px: null },
+    { px: 27 },
+    { px: 57 },
+    { px: 33.5 },
+  ])("draws a custom control height it cannot use ($px) as the default", ({ px }) => {
+    // A number field being typed passes through here on its way to valid.
+    const { light } = buildThemeVars({
+      ...DEFAULT_THEME_CONFIG,
+      controlSize: { preset: "custom", px },
+    })
+    expect(light["control-height"]).toBe("2.25rem")
   })
 
   it("falls back to the default base for an unknown name rather than rendering nothing", () => {
@@ -262,8 +304,8 @@ describe("the engine version", () => {
   // computes moved: bump THEME_ENGINE_VERSION (theme-config.ts) and record
   // both new values here, or visitors keep the colours of the old engine.
   const RECORDED = {
-    version: 3,
-    fingerprint: "cc0a9bf2dc12373f",
+    version: 4,
+    fingerprint: "e58354d56adc3926",
   }
 
   it("changes whenever the computed stylesheets change", () => {
@@ -283,7 +325,19 @@ describe("the engine version", () => {
         chart: custom(hex, hex),
         radius: "large" as const,
         menuAccent: "bold" as const,
+        controlSize: { preset: "default" as const },
+        tableRowHeight: { preset: "default" as const },
       })),
+      ...SIZE_STEPS.map((step) => ({
+        ...DEFAULT_THEME_CONFIG,
+        controlSize: { preset: step },
+        tableRowHeight: { preset: step },
+      })),
+      {
+        ...DEFAULT_THEME_CONFIG,
+        controlSize: { preset: "custom" as const, px: 30 },
+        tableRowHeight: { preset: "custom" as const, px: 61 },
+      },
     ]
     const fingerprint = createHash("sha256")
       .update(samples.map((config) => themeCss(buildThemeVars(config))).join("\n"))
@@ -320,9 +374,38 @@ describe("the API's vocabulary", () => {
     expect(csharpList("MenuAccents")).toEqual([...MENU_ACCENT_OPTIONS])
   })
 
+  function csharpNumbers(name: string): number[] {
+    const match = new RegExp(`${name} =\\s*\\[([^\\]]*)\\]`).exec(source)
+    expect(match, `${name} in ThemePresets.cs`).not.toBeNull()
+    return [...match![1].matchAll(/\d+/g)].map((m) => Number(m[0]))
+  }
+
+  function csharpInt(name: string): number | undefined {
+    const value = new RegExp(`const int ${name} = (\\d+);`).exec(source)?.[1]
+    return value === undefined ? undefined : Number(value)
+  }
+
+  it("names the same size steps and heights, in the same order", () => {
+    expect(csharpList("Sizes")).toEqual([...SIZE_STEPS])
+    expect(csharpNumbers("ControlHeightsPx")).toEqual(SIZE_STEPS.map((step) => CONTROL_HEIGHT.steps[step]))
+    expect(csharpNumbers("TableRowHeightsPx")).toEqual(SIZE_STEPS.map((step) => TABLE_ROW_HEIGHT.steps[step]))
+    expect(csharpInt("MinControlHeightPx")).toBe(CONTROL_HEIGHT.min)
+    expect(csharpInt("MaxControlHeightPx")).toBe(CONTROL_HEIGHT.max)
+    expect(csharpInt("MinTableRowHeightPx")).toBe(TABLE_ROW_HEIGHT.min)
+    expect(csharpInt("MaxTableRowHeightPx")).toBe(TABLE_ROW_HEIGHT.max)
+  })
+
+  it("keeps every pair of steps valid: the lowest row is no lower than the tallest control", () => {
+    expect(Math.min(...Object.values(TABLE_ROW_HEIGHT.steps))).toBeGreaterThanOrEqual(
+      Math.max(...Object.values(CONTROL_HEIGHT.steps))
+    )
+  })
+
   it("has the same defaults", () => {
     const constant = (name: string) =>
       new RegExp(`${name} = "([a-z-]+)"`).exec(source)?.[1]
+    expect(constant("DefaultSize")).toBe(DEFAULT_THEME_CONFIG.controlSize.preset)
+    expect(constant("DefaultSize")).toBe(DEFAULT_THEME_CONFIG.tableRowHeight.preset)
     expect(constant("DefaultBaseColor")).toBe(DEFAULT_THEME_CONFIG.base.preset)
     expect(constant("DefaultTheme")).toBe(DEFAULT_THEME_CONFIG.theme.preset)
     expect(constant("DefaultChartColor")).toBe(DEFAULT_THEME_CONFIG.chart.preset)

@@ -35,8 +35,12 @@ public sealed partial class FileSystemImageStorageService : IImageStorageService
         _logger = logger;
     }
 
-    public async Task<ErrorOr<string>> SaveImageAsync(
+    public Task<ErrorOr<string>> SaveImageAsync(
         Stream content, string contentType, CancellationToken cancellationToken)
+        => SaveImageAsync(content, contentType, ImageUploadPurpose.Default, cancellationToken);
+
+    public async Task<ErrorOr<string>> SaveImageAsync(
+        Stream content, string contentType, ImageUploadPurpose purpose, CancellationToken cancellationToken)
     {
         var settings = _settings.CurrentValue;
         if (!settings.AllowedContentTypes.Contains(contentType, StringComparer.OrdinalIgnoreCase))
@@ -75,7 +79,7 @@ public sealed partial class FileSystemImageStorageService : IImageStorageService
             return ImageErrors.Invalid;
         }
 
-        var max = settings.MaxEdgePx;
+        var max = purpose == ImageUploadPurpose.Panel ? settings.PanelMaxEdgePx : settings.MaxEdgePx;
         SKBitmap? scaled = null;
         try
         {

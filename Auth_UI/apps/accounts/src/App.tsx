@@ -13,12 +13,17 @@ import { DirectionProvider } from "@authsystem/i18n/direction"
 import { queryClient } from "@authsystem/api/query"
 import { router } from "./routes"
 
-export function App() {
+/**
+ * `applicationScope`: the application the first frame was painted for, or
+ * null (`theme-scope.ts`). It also turns on applications' own appearances,
+ * which the console never shows.
+ */
+export function App({ applicationScope }: { applicationScope: string | null }) {
   return (
     <DirectionProvider>
       <AppVersionMonitor />
       <QueryClientProvider client={queryClient}>
-        <BrandingProvider>
+        <BrandingProvider applicationScope={applicationScope}>
           <AuthProvider>
             <ThemeSync />
             <TooltipProvider delayDuration={300}>

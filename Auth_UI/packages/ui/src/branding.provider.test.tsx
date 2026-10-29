@@ -2,7 +2,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { BrandingLogo, BrandingProvider, useBranding, useThemePreview } from "./branding"
+import {
+  BrandingLogo,
+  BrandingProvider,
+  useApplicationTheme,
+  useBranding,
+  useThemePreview,
+} from "./branding"
 import {
   DEFAULT_THEME_CONFIG,
   THEME_ENGINE_VERSION,
@@ -394,5 +400,169 @@ describe("BrandingProvider — the platform appearance", () => {
 
     act(() => screen.getByRole("button", { name: "clear" }).click())
     await waitFor(() => expect(sheet()).toContain("--radius:0.875rem;"))
+  })
+})
+
+describe("BrandingProvider — an application's own appearance", () => {
+  const PLATFORM_KEY = "auth.ui.theme-css"
+  const APP_KEY = "auth.ui.theme-css:app:crm"
+  // The platform: Blue, large corners. The application: Violet, small corners.
+  const platform = {
+    base: { preset: "neutral" },
+    theme: { preset: "blue" },
+    chart: { preset: "cyan" },
+    radius: "large",
+    menuAccent: "subtle",
+  }
+  const crm = toThemeConfig({ ...platform, theme: { preset: "violet" }, radius: "small" })
+  const PLATFORM_RADIUS = "--radius:0.875rem;"
+  const APP_RADIUS = "--radius:0.45rem;"
+
+  beforeEach(() => {
+    document.head.innerHTML = '<link rel="icon" type="image/svg+xml" href="/vite.svg" />'
+    get.mockReset()
+    get.mockResolvedValue({ data: { platformName: "Acme", theme: platform } })
+  })
+
+  afterEach(() => {
+    document.head.innerHTML = ""
+  })
+
+  const sheet = () => document.getElementById("platform-theme")?.textContent ?? null
+
+  /** A page of the application's flow, as `useFlowBranding` registers it. */
+  function FlowPage({ theme }: { theme: ReturnType<typeof toThemeConfig> | null | undefined }) {
+    useApplicationTheme("crm", theme)
+    return null
+  }
+
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const tree = (page: React.ReactNode, applicationScope?: string | null) => (
+    <QueryClientProvider client={client}>
+      <BrandingProvider applicationScope={applicationScope}>{page}</BrandingProvider>
+    </QueryClientProvider>
+  )
+
+  function renderWith(page: React.ReactNode, applicationScope?: string | null) {
+    client.clear()
+    return render(tree(page, applicationScope))
+  }
+
+  it("replaces the platform's on a page of the application's flow, and caches it under the application's key", async () => {
+    const storage = stubLocalStorage()
+
+    renderWith(<FlowPage theme={crm} />, null)
+
+    await waitFor(() => expect(sheet()).toContain(APP_RADIUS))
+    expect(sheet()).not.toContain(PLATFORM_RADIUS)
+    expect(JSON.parse(storage.get(APP_KEY)!).css).toBe(sheet())
+    expect(storage.has(PLATFORM_KEY)).toBe(false)
+  })
+
+  it("never applies in the console, which takes no applications' appearances", async () => {
+    const storage = stubLocalStorage()
+
+    renderWith(<FlowPage theme={crm} />)
+
+    await waitFor(() => expect(sheet()).toContain(PLATFORM_RADIUS))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(sheet()).not.toContain(APP_RADIUS)
+    expect(storage.has(APP_KEY)).toBe(false)
+  })
+
+  it("shows the platform's when the application's is off, and forgets the application's cached one", async () => {
+    const storage = stubLocalStorage({ [APP_KEY]: JSON.stringify({ key: "old", css: "html:root{--radius:0.45rem;}" }) })
+
+    renderWith(<FlowPage theme={null} />, "crm")
+
+    await waitFor(() => expect(sheet()).toContain(PLATFORM_RADIUS))
+    expect(storage.has(APP_KEY)).toBe(false)
+  })
+
+  it("keeps the application's cached colours while its branding is unknown, though the platform's has answered", async () => {
+    const cached = "html:root{--radius:0.45rem;--primary:oklch(0.5 0.2 300);}"
+    stubLocalStorage({ [APP_KEY]: JSON.stringify({ key: "cached", css: cached }) })
+    const style = document.createElement("style")
+    style.id = "platform-theme"
+    style.textContent = cached
+    document.head.appendChild(style)
+
+    renderWith(<FlowPage theme={undefined} />, "crm")
+
+    // The platform's branding answers; the application's never does.
+    await waitFor(() => expect(get).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(sheet()).toBe(cached)
+  })
+
+  it("shows the platform's while the application's branding is unknown and nothing of it is cached", async () => {
+    stubLocalStorage()
+
+    renderWith(<FlowPage theme={undefined} />, "crm")
+
+    await waitFor(() => expect(sheet()).toContain(PLATFORM_RADIUS))
+  })
+
+  it("goes back to the platform's when the flow's page is gone", async () => {
+    stubLocalStorage()
+    const view = renderWith(<FlowPage theme={crm} />, null)
+    await waitFor(() => expect(sheet()).toContain(APP_RADIUS))
+
+    view.rerender(tree(null, null))
+
+    await waitFor(() => expect(sheet()).toContain(PLATFORM_RADIUS))
+  })
+})
+
+/**
+ * The platform's sign-in page design (phase 6): which design the platform's own pages
+ * show, unknown while nothing is known, none when the payload says none or the request
+ * failed. Break: answer null while pending (the panel would treat "unknown" as "none").
+ */
+describe("BrandingProvider — the platform's sign-in page design", () => {
+  function DesignProbe() {
+    const { loginDesign } = useBranding()
+    return <span data-testid="design">{loginDesign === undefined ? "unknown" : JSON.stringify(loginDesign)}</span>
+  }
+
+  function renderDesign() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    return render(
+      <QueryClientProvider client={client}>
+        <BrandingProvider>
+          <DesignProbe />
+        </BrandingProvider>
+      </QueryClientProvider>
+    )
+  }
+
+  beforeEach(() => {
+    get.mockReset()
+  })
+
+  it("is unknown while nothing is known yet", () => {
+    stubLocalStorage()
+    get.mockReturnValue(new Promise(() => {}))
+    renderDesign()
+    expect(screen.getByTestId("design")).toHaveTextContent("unknown")
+  })
+
+  it("is the design the payload names", async () => {
+    stubLocalStorage()
+    const design = { id: "d1", contentHash: "h1", showPlatformLogo: false }
+    get.mockResolvedValue({ data: { platformName: "YourBrand", loginDesign: design } })
+    renderDesign()
+    await waitFor(() => expect(screen.getByTestId("design")).toHaveTextContent(JSON.stringify(design)))
+  })
+
+  it.each([
+    ["the payload says none", () => get.mockResolvedValue({ data: { platformName: "YourBrand", loginDesign: null } })],
+    ["the payload has no such field (an older API)", () => get.mockResolvedValue({ data: { platformName: "YourBrand" } })],
+    ["the request failed", () => get.mockRejectedValue(new Error("network"))],
+  ])("is none (the plain panel) when %s", async (_case, arrange) => {
+    stubLocalStorage()
+    arrange()
+    renderDesign()
+    await waitFor(() => expect(screen.getByTestId("design")).toHaveTextContent("null"))
   })
 })

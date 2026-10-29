@@ -71,6 +71,14 @@ public interface IApplicationRepository
     Task<bool> UpdateMachineOrganizationsReadAsync(AppEntity application, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Writes the application's own appearance (<see cref="AppEntity.Theme"/> and
+    /// <see cref="AppEntity.ThemeEnabled"/>) and its modification stamp, and nothing else.
+    /// <see cref="UpdateAsync"/> never writes the appearance.
+    /// </summary>
+    /// <returns>True when the row was written; false when the application no longer exists.</returns>
+    Task<bool> UpdateAppearanceAsync(AppEntity application, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Soft-deletes an application and revokes its API and webhook keys in the
     /// same transaction. <paramref name="deletedBy"/> is the acting user.
     /// </summary>

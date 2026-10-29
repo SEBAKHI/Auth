@@ -956,8 +956,17 @@
   <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
     <value>Özel bir '{0}' rengi, her biri #rrggbb biçiminde yazılmış bir açık mod ve bir koyu mod rengi gerektirir.</value>
   </data>
+  <data name="SystemSettings.ThemeCustomSizeOutOfRange" xml:space="preserve">
+    <value>Özel bir '{0}', {1} ile {2} arasında tam piksel cinsinden bir yükseklik gerektirir.</value>
+  </data>
+  <data name="SystemSettings.ThemeRowHeightBelowControlHeight" xml:space="preserve">
+    <value>Tablo satırı yüksekliği ({0}px), denetim yüksekliğinden ({1}px) düşük olamaz.</value>
+  </data>
   <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
     <value>'{0}' seçilebilecek bir köşe yuvarlaklığı değil.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownSize" xml:space="preserve">
+    <value>'{1}', '{0}' için seçilebilecek bir boyut değil. Sıkı, varsayılan, rahat veya özel seçin.</value>
   </data>
   <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
     <value>'{0}' seçilebilecek bir menü vurgusu değil.</value>
@@ -1006,6 +1015,9 @@
   </data>
   <data name="Application.AllowedScopesInvalid" xml:space="preserve">
     <value>İzin verilen her kapsam (scope) şunlardan biri olmalıdır: openid, profile, email, phone.</value>
+  </data>
+  <data name="Application.AppearanceThemeRequired" xml:space="preserve">
+    <value>Bu uygulamanın kendi görünümünü açmak için görünümü de birlikte gönderin.</value>
   </data>
   <data name="Application.BaseUrlTooLong" xml:space="preserve">
     <value>URL 500 karakteri aşmamalıdır.</value>
@@ -1648,5 +1660,47 @@
   </data>
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>'{0}' bu şekilde kaydedilemez: parolasız kayıt için e-posta gönderiminin açık olması gerekir, çünkü bu hesaplar e-postayla gönderilen bir kodla giriş yapar.</value>
+  </data>
+  <data name="LoginDesign.ActivationConflict" xml:space="preserve">
+    <value>Aynı anda başka bir tasarım etkinleştirildi. Listeyi yeniden yükleyip tekrar deneyin.</value>
+  </data>
+  <data name="LoginDesign.ConcurrencyConflict" xml:space="preserve">
+    <value>Siz açtıktan sonra bu tasarımı başka biri kaydetti. Yeniden yükleyip tekrar deneyin.</value>
+  </data>
+  <data name="LoginDesign.ContentRequired" xml:space="preserve">
+    <value>Tasarımın içeriği olmalıdır.</value>
+  </data>
+  <data name="LoginDesign.ContentTooLarge" xml:space="preserve">
+    <value>Tasarımın içeriği 64 KB'ı aşmamalıdır.</value>
+  </data>
+  <data name="LoginDesign.DeleteActive" xml:space="preserve">
+    <value>Etkin tasarım silinemez. Önce devre dışı bırakın ya da başka bir tasarımı etkinleştirin.</value>
+  </data>
+  <data name="LoginDesign.NameRequired" xml:space="preserve">
+    <value>Tasarımın bir adı olmalıdır.</value>
+  </data>
+  <data name="LoginDesign.NameTooLong" xml:space="preserve">
+    <value>Tasarımın adı 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="LoginDesign.NoneActive" xml:space="preserve">
+    <value>Etkin bir oturum açma sayfası tasarımı yok.</value>
+  </data>
+  <data name="LoginDesign.NotFound" xml:space="preserve">
+    <value>Bu oturum açma sayfası tasarımı bulunamadı.</value>
+  </data>
+  <data name="LoginDesign.RenderedTooLarge" xml:space="preserve">
+    <value>Tasarım en az bir dilde 256 KB'tan fazla HTML üretiyor.</value>
+  </data>
+  <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
+    <value>Tasarımın metinleri, her biri metin dizeleri içeren dillerden oluşan bir JSON nesnesi olmalıdır.</value>
+  </data>
+  <data name="LoginDesign.StringsTooLarge" xml:space="preserve">
+    <value>Tasarımın metinleri 64 KB'ı aşmamalıdır.</value>
+  </data>
+  <data name="LoginDesign.UnknownVariables" xml:space="preserve">
+    <value>Tasarım, oturum açma sayfasının sağlamadığı değişkenler kullanıyor: {0}</value>
+  </data>
+  <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
+    <value>Bu dil desteklenmiyor.</value>
   </data>
 </root>

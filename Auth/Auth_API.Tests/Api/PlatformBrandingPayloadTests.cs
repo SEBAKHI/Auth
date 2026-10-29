@@ -33,9 +33,11 @@ namespace Auth_API.Tests.Api;
 public class PlatformBrandingPayloadTests
 {
     // OI-215 adds the public sign-in options: what the settings say, nothing about an account.
+    // The sign-in page design adds which design the panel shows (null: the plain panel).
     private static readonly string[] PublishedFields =
         ["platformName", "logoUrl", "logoUrlDark", "faviconUrl", "theme", "staySignedInOffered",
-         "codeSignInOffered", "primaryMethod", "selfRegistrationOpen", "passwordAtSignUp", "nameAtSignUp"];
+         "codeSignInOffered", "primaryMethod", "selfRegistrationOpen", "passwordAtSignUp", "nameAtSignUp",
+         "loginDesign"];
 
     private static async Task<HttpResponseMessage> GetBrandingAsync(StaySignedInPolicy mode)
     {
@@ -45,7 +47,8 @@ public class PlatformBrandingPayloadTests
             repository.Object, new Mock<IImageUrlComposer>().Object,
             TestHelpers.CreateOptions(new IdentityProviderSettings { StaySignedInMode = mode.ToString() }),
             TestHelpers.CreateOptions(new RegistrationSettings()),
-            TestHelpers.CreateOptions(new EmailSettings()));
+            TestHelpers.CreateOptions(new EmailSettings()),
+            LoginDesignDoubles.NoneActive());
         var sender = new Mock<ISender>();
         sender.Setup(s => s.Send(It.IsAny<GetPlatformBrandingQuery>(), It.IsAny<CancellationToken>()))
             .Returns((IRequest<ErrorOr<PlatformBrandingDto>> query, CancellationToken cancellationToken) =>

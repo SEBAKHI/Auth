@@ -3,6 +3,7 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
+import { useIsolatedFrame } from "@authsystem/ui/isolated-frame/use-isolated-frame"
 import { ToggleGroup, ToggleGroupItem } from "@authsystem/ui/toggle-group"
 import {
   Tooltip,
@@ -136,34 +137,20 @@ function PreviewDocument({
   const frameRef = React.useRef<HTMLIFrameElement>(null)
   const [unavailable, setUnavailable] = React.useState(false)
 
-  // A layout effect: the listener is in place before the frame's document can
-  // possibly have loaded and said "ready".
-  React.useLayoutEffect(() => {
-    const frame = frameRef.current
-    if (!frame) return
-    const stop = () => {
-      window.removeEventListener("message", receive)
-      window.clearTimeout(timeout)
-    }
-    function receive(event: MessageEvent) {
-      const target = frame?.contentWindow
-      if (!target || event.source !== target || event.origin !== "null") return
-      if ((event.data as { type?: unknown } | null)?.type !== READY_MESSAGE) return
-      stop()
-      // "*" because the frame's origin is opaque, and an opaque origin cannot
-      // be named as a target. What keeps the email where it belongs is that it
-      // is sent once, to the window that has just proved it is this frame, and
-      // never again: a later "ready" - from a page the frame was navigated to -
-      // finds no listener.
-      target.postMessage({ type: HTML_MESSAGE, html }, "*")
-    }
-    const timeout = window.setTimeout(() => {
-      stop()
-      setUnavailable(true)
-    }, PREVIEW_READY_TIMEOUT_MS)
-    window.addEventListener("message", receive)
-    return stop
-  }, [html])
+  // The handshake is the shared isolated-frame protocol. With no `onMessage`
+  // the hook stops listening at "ready": the email is sent once, to the window
+  // that has just proved it is this frame, and a later "ready" - from a page
+  // the frame was navigated to - finds no listener.
+  useIsolatedFrame(
+    frameRef,
+    {
+      ready: READY_MESSAGE,
+      timeoutMs: PREVIEW_READY_TIMEOUT_MS,
+      onTimeout: () => setUnavailable(true),
+      onReady: (target) => target.postMessage({ type: HTML_MESSAGE, html }, "*"),
+    },
+    [html]
+  )
 
   if (unavailable) {
     return (

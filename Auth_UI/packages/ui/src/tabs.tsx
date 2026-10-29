@@ -44,7 +44,7 @@ const tabsListVariants = cva(
   // flex line splits the overflow across both sides, and the leading half can
   // never be scrolled back into view. `safe` falls back to start alignment
   // exactly when the tabs overflow, which is the only time it can matter here.
-  "group/tabs-list inline-flex w-fit items-center justify-center-safe rounded-full px-1 py-[3.6px] text-muted-foreground group-data-horizontal/tabs:h-9 group-data-horizontal/tabs:max-w-full group-data-horizontal/tabs:overflow-x-auto group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col group-data-vertical/tabs:rounded-2xl data-[variant=line]:rounded-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+  "group/tabs-list inline-flex w-fit items-center justify-center-safe rounded-full px-1 py-[3.6px] text-muted-foreground group-data-horizontal/tabs:h-control group-data-horizontal/tabs:max-w-full group-data-horizontal/tabs:overflow-x-auto group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col group-data-vertical/tabs:rounded-2xl data-[variant=line]:rounded-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
   {
     variants: {
       variant: {

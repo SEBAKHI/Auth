@@ -28,7 +28,7 @@ public class InvitationLaunchSchemaTests
     /// </summary>
     private static readonly Dictionary<string, string[]> LaterBatchColumns = new()
     {
-        ["Applications"] = ["AllowMachineOrganizationsRead"],
+        ["Applications"] = ["AllowMachineOrganizationsRead", "Theme", "ThemeEnabled"],
     };
 
     [Theory]

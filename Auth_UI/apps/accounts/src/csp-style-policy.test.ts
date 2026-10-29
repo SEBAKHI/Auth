@@ -85,8 +85,13 @@ describe("accounts CSP: inline styles (card S02)", () => {
     )
   })
 
-  it("has no <location> policy of its own (/privacy stays under the site's)", () => {
-    expect(cspHeaders(webConfig).filter((header) => header.location !== null)).toEqual([])
+  it("has one <location> policy, the sign-in page design frame's; /privacy stays under the site's", () => {
+    // The frame's own policy is pinned in packages/ui login-design-frame-policy.test.ts.
+    expect(
+      cspHeaders(webConfig)
+        .filter((header) => header.location !== null)
+        .map((header) => `${header.location} ${header.name}`)
+    ).toEqual(["login-design-frame.html Content-Security-Policy"])
   })
 
   it("(e) floor: the inventory is not empty (at least three texts reach accounts)", () => {

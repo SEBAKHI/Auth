@@ -79,6 +79,11 @@ export const AUDIT_ACTIONS: readonly AuditActionEntry[] = [
   { code: "notification-template.published", actionType: "Administration" },
   { code: "notification-template.unpublished", actionType: "Administration" },
   { code: "notification-template.rolled-back", actionType: "Administration" },
+  { code: "login-design.created", actionType: "Administration" },
+  { code: "login-design.updated", actionType: "Administration" },
+  { code: "login-design.activated", actionType: "Administration" },
+  { code: "login-design.deactivated", actionType: "Administration" },
+  { code: "login-design.deleted", actionType: "Administration" },
   { code: "secrets.value.changed", actionType: "Administration" },
   {
     code: "secrets.operation.confirmation-requested",
@@ -91,6 +96,7 @@ export const AUDIT_ACTIONS: readonly AuditActionEntry[] = [
   { code: "application.deactivated", actionType: "Application" },
   { code: "application.redirect_uris.changed", actionType: "Application" },
   { code: "application.launch_addresses.changed", actionType: "Application" },
+  { code: "application.appearance.changed", actionType: "Application" },
   {
     code: "organization.ownership_transfer_initiated",
     actionType: "OrganizationManagement",

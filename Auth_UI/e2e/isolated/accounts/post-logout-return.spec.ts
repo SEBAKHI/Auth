@@ -65,6 +65,12 @@ async function installEndSession(
   seen: SeenRequest[],
   options: { confirmation: number } = { confirmation: 204 }
 ) {
+  // Its own route: the logo is not under /api/v1, so the API handler below never
+  // sees it. Served there, it was never served at all, and the check passed only
+  // because a broken image still showed its text alternative.
+  await page.route(`${API}${LOGO_PATH}`, (route) =>
+    route.fulfill({ status: 200, contentType: "image/png", body: PNG })
+  )
   await installAnonymousApi(
     page,
     async (route: Route, url: URL) => {
@@ -74,14 +80,6 @@ async function installEndSession(
           name: "Partner Shop",
           logoUrl: `${API}${LOGO_PATH}`,
           homeUrl: null,
-        })
-        return true
-      }
-      if (path === LOGO_PATH) {
-        await route.fulfill({
-          status: 200,
-          contentType: "image/png",
-          body: PNG,
         })
         return true
       }

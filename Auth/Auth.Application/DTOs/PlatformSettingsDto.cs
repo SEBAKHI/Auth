@@ -89,6 +89,13 @@ public class PlatformBrandingDto
 
     /// <summary>Whether a sign-up asks for a first and last name (OI-215).</summary>
     public bool NameAtSignUp { get; set; } = true;
+
+    /// <summary>
+    /// The design the platform's own sign-in pages show in their panel, or null for the plain
+    /// panel. The page fetches the rendered design only when this is present, and keys its copy
+    /// on <c>ContentHash</c>.
+    /// </summary>
+    public LoginDesignRefDto? LoginDesign { get; set; }
 }
 
 /// <summary>
@@ -116,6 +123,12 @@ public class PlatformThemeDto
     public string Radius { get; set; } = ThemePresets.DefaultRadius;
     public string MenuAccent { get; set; } = ThemePresets.DefaultMenuAccent;
 
+    /// <summary>The height of every control (buttons, inputs, selects, toggles…).</summary>
+    public ThemeSizeChoiceDto ControlSize { get; set; } = ThemeSizeChoiceDto.From(ThemeSizeChoice.Default);
+
+    /// <summary>The height of a table row holding one line of text.</summary>
+    public ThemeSizeChoiceDto TableRowHeight { get; set; } = ThemeSizeChoiceDto.From(ThemeSizeChoice.Default);
+
     public static PlatformThemeDto From(PlatformTheme theme) => new()
     {
         Base = ThemeColorChoiceDto.From(theme.Base),
@@ -123,6 +136,29 @@ public class PlatformThemeDto
         Chart = ThemeColorChoiceDto.From(theme.Chart),
         Radius = theme.Radius,
         MenuAccent = theme.MenuAccent,
+        ControlSize = ThemeSizeChoiceDto.From(theme.ControlSize),
+        TableRowHeight = ThemeSizeChoiceDto.From(theme.TableRowHeight),
+    };
+
+    /// <summary>The DTO of an appearance that may be absent (an application's own).</summary>
+    public static PlatformThemeDto? FromOrNull(PlatformTheme? theme) => theme is null ? null : From(theme);
+}
+
+/// <summary>
+/// One size choice of the platform appearance.
+/// </summary>
+public class ThemeSizeChoiceDto
+{
+    /// <summary>A size step (<c>compact</c>, <c>default</c>, <c>comfortable</c>), or <c>"custom"</c>.</summary>
+    public string Preset { get; set; } = ThemePresets.DefaultSize;
+
+    /// <summary>The height in pixels of a custom choice; otherwise absent.</summary>
+    public int? Px { get; set; }
+
+    public static ThemeSizeChoiceDto From(ThemeSizeChoice choice) => new()
+    {
+        Preset = choice.Preset,
+        Px = choice.Px,
     };
 }
 

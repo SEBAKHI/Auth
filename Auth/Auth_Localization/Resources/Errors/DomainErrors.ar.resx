@@ -958,8 +958,17 @@
   <data name="SystemSettings.ThemeCustomColorInvalid" xml:space="preserve">
     <value>اللون المخصّص لـ'{0}' يحتاج لونًا للوضع الفاتح ولونًا للوضع الداكن، كلٌّ منهما بصيغة #rrggbb.</value>
   </data>
+  <data name="SystemSettings.ThemeCustomSizeOutOfRange" xml:space="preserve">
+    <value>الارتفاع المخصّص لـ'{0}' يجب أن يكون عددًا صحيحًا من البكسلات بين {1} و{2}.</value>
+  </data>
+  <data name="SystemSettings.ThemeRowHeightBelowControlHeight" xml:space="preserve">
+    <value>لا يمكن أن يكون ارتفاع صفّ الجدول ({0}px) أقل من ارتفاع عناصر التحكّم ({1}px).</value>
+  </data>
   <data name="SystemSettings.ThemeUnknownRadius" xml:space="preserve">
     <value>'{0}' ليست قيمة استدارة متاحة.</value>
+  </data>
+  <data name="SystemSettings.ThemeUnknownSize" xml:space="preserve">
+    <value>'{1}' ليس حجمًا يمكن اختياره لـ'{0}'. اختر مضغوطًا أو افتراضيًا أو مريحًا أو مخصّصًا.</value>
   </data>
   <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
     <value>'{0}' ليس خيارًا متاحًا لتمييز عناصر القوائم.</value>
@@ -1008,6 +1017,9 @@
   </data>
   <data name="Application.AllowedScopesInvalid" xml:space="preserve">
     <value>يجب أن يكون كل نطاق مسموح به (scope) واحدًا من: openid، profile، email، phone.</value>
+  </data>
+  <data name="Application.AppearanceThemeRequired" xml:space="preserve">
+    <value>لتشغيل المظهر الخاص بهذا التطبيق، أرسل المظهر معه.</value>
   </data>
   <data name="Application.BaseUrlTooLong" xml:space="preserve">
     <value>يجب ألا يتجاوز الرابط 500 حرفًا.</value>
@@ -1650,5 +1662,47 @@
   </data>
   <data name="SystemSettings.PasswordlessSignUpRequiresEmail" xml:space="preserve">
     <value>لا يمكن حفظ '{0}' بهذه القيمة: التسجيل بلا كلمة مرور يحتاج إلى تفعيل إرسال البريد الإلكتروني، لأن هذه الحسابات تدخل برمز يصل إلى البريد.</value>
+  </data>
+  <data name="LoginDesign.ActivationConflict" xml:space="preserve">
+    <value>فُعِّل قالب آخر في الوقت نفسه. أعد تحميل القائمة وحاول مجددًا.</value>
+  </data>
+  <data name="LoginDesign.ConcurrencyConflict" xml:space="preserve">
+    <value>حفظ شخص آخر هذا القالب منذ فتحته. أعد تحميله وحاول مجددًا.</value>
+  </data>
+  <data name="LoginDesign.ContentRequired" xml:space="preserve">
+    <value>يحتاج القالب إلى محتوى.</value>
+  </data>
+  <data name="LoginDesign.ContentTooLarge" xml:space="preserve">
+    <value>يجب ألا يتجاوز محتوى القالب 64 كيلوبايت.</value>
+  </data>
+  <data name="LoginDesign.DeleteActive" xml:space="preserve">
+    <value>لا يمكن حذف القالب المفعّل. أوقفه أو فعّل قالبًا آخر أولًا.</value>
+  </data>
+  <data name="LoginDesign.NameRequired" xml:space="preserve">
+    <value>يحتاج القالب إلى اسم.</value>
+  </data>
+  <data name="LoginDesign.NameTooLong" xml:space="preserve">
+    <value>يجب ألا يتجاوز اسم القالب 200 حرف.</value>
+  </data>
+  <data name="LoginDesign.NoneActive" xml:space="preserve">
+    <value>لا يوجد قالب مفعّل لصفحات الدخول.</value>
+  </data>
+  <data name="LoginDesign.NotFound" xml:space="preserve">
+    <value>لم يُعثر على قالب صفحة الدخول هذا.</value>
+  </data>
+  <data name="LoginDesign.RenderedTooLarge" xml:space="preserve">
+    <value>يُنتج القالب أكثر من 256 كيلوبايت من HTML في لغة واحدة على الأقل.</value>
+  </data>
+  <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
+    <value>يجب أن تكون نصوص القالب كائن JSON من اللغات، يحمل كلٌّ منها نصوصًا.</value>
+  </data>
+  <data name="LoginDesign.StringsTooLarge" xml:space="preserve">
+    <value>يجب ألا تتجاوز نصوص القالب 64 كيلوبايت.</value>
+  </data>
+  <data name="LoginDesign.UnknownVariables" xml:space="preserve">
+    <value>يستخدم القالب متغيرات لا توفّرها صفحة الدخول: {0}</value>
+  </data>
+  <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
+    <value>هذه اللغة غير مدعومة.</value>
   </data>
 </root>

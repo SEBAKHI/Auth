@@ -494,6 +494,7 @@ builder.Services.AddScoped<ISystemSettingsRepository, SystemSettingsRepository>(
 builder.Services.AddScoped<INotificationTypeRepository, NotificationTypeRepository>();
 builder.Services.AddScoped<INotificationTemplateRepository, NotificationTemplateRepository>();
 builder.Services.AddScoped<INotificationLayoutRepository, NotificationLayoutRepository>();
+builder.Services.AddScoped<ILoginDesignRepository, LoginDesignRepository>();
 builder.Services.AddScoped<INotificationOutboxRepository, NotificationOutboxRepository>();
 
 // Domain Event Dispatcher
@@ -675,6 +676,17 @@ builder.Services.AddScoped<Auth.Application.Common.PermissionGrantGuard>();
 // application page's invitation and every grant at an application's scope.
 builder.Services.AddScoped<Auth.Application.Common.ApplicationAccessWriter>();
 builder.Services.AddScoped<Auth.Application.Common.EmailLogoRenditions>();
+// Sign-in page designs: which design a page shows (the application's active one, else the
+// platform's), the scope check every design endpoint starts with, and the sandboxed renderer
+// with the save gate.
+builder.Services.AddScoped<Auth.Application.Features.LoginDesigns.Common.EffectiveLoginDesign>();
+builder.Services.AddScoped<Auth.Application.Features.LoginDesigns.Common.LoginDesignScope>();
+builder.Services.AddScoped<Auth.Application.Features.LoginDesigns.Common.LoginDesignRenderer>();
+// What the anonymous render endpoints serve, kept per design version, language and names in a
+// size-bounded cache of its own, so a visitor never repeats a render that already ran.
+builder.Services.AddSingleton<
+    Auth.Application.Features.LoginDesigns.Common.ILoginDesignRenderCache,
+    Auth.Infrastructure.LoginDesigns.LoginDesignRenderCache>();
 // The three rules of every administrative action on an account (system account,
 // covering authority, last full administrator), read live like the guard above.
 builder.Services.AddScoped<Auth.Application.Common.AccountActionPolicy>();

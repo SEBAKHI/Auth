@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
+import { ThemedLogo } from "@authsystem/ui/common/themed-logo"
 import { Spinner } from "@authsystem/ui/spinner"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { Button } from "@authsystem/ui/button"
@@ -27,6 +28,7 @@ import {
   FormMessage,
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
+import { useSaveQueue } from "@authsystem/ui/hooks/use-save-queue"
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
@@ -35,6 +37,9 @@ import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 
 import { AppearanceCard } from "./appearance-card"
+
+/** The platform's sign-in page designs, with their code editor: their own chunk. */
+const LoginDesignsCard = React.lazy(() => import("./login-designs-card"))
 
 const SETTINGS_QUERY_KEY = ["platform-settings"] as const
 
@@ -67,6 +72,35 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
     void queryClient.invalidateQueries({ queryKey: BRANDING_QUERY_KEY })
   }, [queryClient])
 
+  /**
+   * Saves the branding: `changes` over the settings as stored when the save is
+   * SENT, not as this card rendered them. Every save resends the other fields,
+   * and one that started earlier (a logo still uploading) would otherwise send
+   * back what this card showed before it, undoing a change made meanwhile. The
+   * saves run one after another, and each writes its answer to the cache
+   * (`applySaved`) before the next one reads it.
+   */
+  const queue = useSaveQueue()
+  const save = React.useCallback(
+    (changes: Partial<Schemas["UpdatePlatformSettingsRequest"]>) =>
+      queue(async () => {
+        const current = queryClient.getQueryData<Schemas["PlatformSettingsDto"]>(SETTINGS_QUERY_KEY) ?? settings
+        const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
+          body: {
+            platformName: current.platformName ?? "",
+            logoUrl: current.logoUrl ?? null,
+            logoUrlDark: current.logoUrlDark ?? null,
+            faviconUrl: current.faviconUrl ?? null,
+            ...changes,
+          },
+        })
+        if (error) throw error
+        applySaved(data)
+        return data
+      }),
+    [queue, queryClient, settings, applySaved]
+  )
+
   const schema = z.object({
     platformName: z.string().min(1, t("validation.required")),
   })
@@ -78,20 +112,8 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
   })
 
   const saveName = useMutation({
-    mutationFn: async (values: Values) => {
-      const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
-        body: {
-          platformName: values.platformName,
-          logoUrl: settings.logoUrl ?? null,
-          logoUrlDark: settings.logoUrlDark ?? null,
-          faviconUrl: settings.faviconUrl ?? null,
-        },
-      })
-      if (error) throw error
-      return data
-    },
-    onSuccess: (saved) => {
-      applySaved(saved)
+    mutationFn: (values: Values) => save({ platformName: values.platformName }),
+    onSuccess: () => {
       refreshBranding()
       toast.success(t("platformSettings.updated"))
     },
@@ -101,50 +123,21 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
   // Logo changes persist immediately (same flow as organization logos).
   const persistLogoLight = React.useCallback(
     async (logoKey: string | null) => {
-      const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
-        body: {
-          platformName: settings.platformName ?? "",
-          logoUrl: logoKey,
-          logoUrlDark: settings.logoUrlDark ?? null,
-          faviconUrl: settings.faviconUrl ?? null,
-        },
-      })
-      if (error) throw error
-      applySaved(data)
+      await save({ logoUrl: logoKey })
     },
-    [settings.platformName, settings.logoUrlDark, settings.faviconUrl, applySaved]
+    [save]
   )
-
   const persistLogoDark = React.useCallback(
     async (logoKey: string | null) => {
-      const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
-        body: {
-          platformName: settings.platformName ?? "",
-          logoUrl: settings.logoUrl ?? null,
-          logoUrlDark: logoKey,
-          faviconUrl: settings.faviconUrl ?? null,
-        },
-      })
-      if (error) throw error
-      applySaved(data)
+      await save({ logoUrlDark: logoKey })
     },
-    [settings.platformName, settings.logoUrl, settings.faviconUrl, applySaved]
+    [save]
   )
-
   const persistFavicon = React.useCallback(
     async (logoKey: string | null) => {
-      const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
-        body: {
-          platformName: settings.platformName ?? "",
-          logoUrl: settings.logoUrl ?? null,
-          logoUrlDark: settings.logoUrlDark ?? null,
-          faviconUrl: logoKey,
-        },
-      })
-      if (error) throw error
-      applySaved(data)
+      await save({ faviconUrl: logoKey })
     },
-    [settings.platformName, settings.logoUrl, settings.logoUrlDark, applySaved]
+    [save]
   )
 
   return (
@@ -156,39 +149,37 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {/* The light and dark logos are one mark, edited the way an
+            application's is: one circle showing the current mode's logo, with
+            a dialog holding one circle per mode. The favicon stays its own
+            field beside it, since a wordmark is illegible at tab-icon size. */}
         <div className="mb-6 flex items-center gap-6">
           <div className="flex flex-col items-center gap-1.5">
-            <LogoAvatar
-              src={settings.logoUrl}
+            <ThemedLogo
               name={settings.platformName}
+              label={t("platformSettings.logo")}
+              lightSrc={settings.logoUrl}
+              darkSrc={settings.logoUrlDark}
               canEdit
-              persist={persistLogoLight}
+              persistLight={persistLogoLight}
+              persistDark={persistLogoDark}
               invalidate={refreshBranding}
               successMessage={t("platformSettings.updated")}
+              dialogTitle={t("platformSettings.logoDialogTitle")}
+              dialogDescription={t("platformSettings.logoDialogDescription")}
             />
             <p className="text-xs text-muted-foreground">
-              {t("platformSettings.logoLight")}
-            </p>
-          </div>
-          <div className="flex flex-col items-center gap-1.5">
-            <LogoAvatar
-              src={settings.logoUrlDark}
-              name={settings.platformName}
-              canEdit
-              persist={persistLogoDark}
-              invalidate={refreshBranding}
-              successMessage={t("platformSettings.updated")}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("platformSettings.logoDark")}
+              {t("platformSettings.logo")}
             </p>
           </div>
           <div className="flex flex-col items-center gap-1.5">
             <LogoAvatar
               src={settings.faviconUrl}
               name={settings.platformName}
+              label={t("platformSettings.favicon")}
               canEdit
               persist={persistFavicon}
+              frame="favicon"
               invalidate={refreshBranding}
               successMessage={t("platformSettings.updated")}
             />
@@ -254,6 +245,9 @@ export function PlatformSettingsPage() {
               if (saved) queryClient.setQueryData(SETTINGS_QUERY_KEY, saved)
             }}
           />
+          <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
+            <LoginDesignsCard />
+          </React.Suspense>
         </>
       )}
     </div>

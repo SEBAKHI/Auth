@@ -190,6 +190,11 @@ public static class AuditActions
     public const string NotificationTemplatePublished = "notification-template.published";
     public const string NotificationTemplateUnpublished = "notification-template.unpublished";
     public const string NotificationTemplateRolledBack = "notification-template.rolled-back";
+    public const string LoginDesignCreated = "login-design.created";
+    public const string LoginDesignUpdated = "login-design.updated";
+    public const string LoginDesignActivated = "login-design.activated";
+    public const string LoginDesignDeactivated = "login-design.deactivated";
+    public const string LoginDesignDeleted = "login-design.deleted";
     public const string SecretsValueChanged = "secrets.value.changed";
     public const string SecretsOperationConfirmationRequested = "secrets.operation.confirmation-requested";
     public const string SecretsOperationExecuted = "secrets.operation.executed";
@@ -201,6 +206,7 @@ public static class AuditActions
     public const string ApplicationDeactivated = "application.deactivated";
     public const string ApplicationRedirectUrisChanged = "application.redirect_uris.changed";
     public const string ApplicationLaunchAddressesChanged = "application.launch_addresses.changed";
+    public const string ApplicationAppearanceChanged = "application.appearance.changed";
 
     // OrganizationManagement
     public const string OrganizationOwnershipTransferInitiated = "organization.ownership_transfer_initiated";
@@ -283,6 +289,11 @@ public static class AuditActions
             [NotificationTemplatePublished] = AuditActionTypes.Administration,
             [NotificationTemplateUnpublished] = AuditActionTypes.Administration,
             [NotificationTemplateRolledBack] = AuditActionTypes.Administration,
+            [LoginDesignCreated] = AuditActionTypes.Administration,
+            [LoginDesignUpdated] = AuditActionTypes.Administration,
+            [LoginDesignActivated] = AuditActionTypes.Administration,
+            [LoginDesignDeactivated] = AuditActionTypes.Administration,
+            [LoginDesignDeleted] = AuditActionTypes.Administration,
             [SecretsValueChanged] = AuditActionTypes.Administration,
             [SecretsOperationConfirmationRequested] = AuditActionTypes.Administration,
             [SecretsOperationExecuted] = AuditActionTypes.Administration,
@@ -293,6 +304,7 @@ public static class AuditActions
             [ApplicationDeactivated] = AuditActionTypes.Application,
             [ApplicationRedirectUrisChanged] = AuditActionTypes.Application,
             [ApplicationLaunchAddressesChanged] = AuditActionTypes.Application,
+            [ApplicationAppearanceChanged] = AuditActionTypes.Application,
 
             [OrganizationOwnershipTransferInitiated] = AuditActionTypes.OrganizationManagement,
             [OrganizationOwnershipTransferred] = AuditActionTypes.OrganizationManagement,

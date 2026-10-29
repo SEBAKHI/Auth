@@ -1,7 +1,7 @@
-import { deflateSync } from "node:zlib"
-
 import { expect, test } from "@playwright/test"
 
+import { en } from "../../packages/i18n/src/locales/en"
+import { firstMultipartPart, solidPng } from "./image-bytes"
 import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
 
 /**
@@ -30,82 +30,6 @@ const USER = {
   preferredLanguage: "en",
   timeZone: "UTC",
   createdAt: "2026-08-01T09:00:00Z",
-}
-
-const PNG_SIGNATURE = Buffer.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-])
-
-const CRC_TABLE = (() => {
-  const table = new Uint32Array(256)
-  for (let n = 0; n < 256; n++) {
-    let c = n
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
-    table[n] = c >>> 0
-  }
-  return table
-})()
-
-function crc32(bytes: Buffer): number {
-  let crc = 0xffffffff
-  for (const byte of bytes) crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8)
-  return (crc ^ 0xffffffff) >>> 0
-}
-
-function pngChunk(type: string, data: Buffer): Buffer {
-  const length = Buffer.alloc(4)
-  length.writeUInt32BE(data.length)
-  const typeBytes = Buffer.from(type, "ascii")
-  const crc = Buffer.alloc(4)
-  crc.writeUInt32BE(crc32(Buffer.concat([typeBytes, data])))
-  return Buffer.concat([length, typeBytes, data, crc])
-}
-
-/**
- * A valid RGBA PNG of one colour: a few dozen kilobytes on disk, tens of
- * megabytes once decoded - exactly the shape the server used to refuse.
- */
-function solidPng(width: number, height: number): Buffer {
-  const header = Buffer.alloc(13)
-  header.writeUInt32BE(width, 0)
-  header.writeUInt32BE(height, 4)
-  header[8] = 8 // bit depth
-  header[9] = 6 // colour type: RGBA
-  const rowLength = 1 + width * 4
-  const raw = Buffer.alloc(rowLength * height)
-  for (let y = 0; y < height; y++) {
-    const row = raw.subarray(y * rowLength, (y + 1) * rowLength)
-    row[0] = 0 // filter: none
-    for (let x = 1; x < rowLength; x += 4) {
-      row[x] = 0x33
-      row[x + 1] = 0x66
-      row[x + 2] = 0x99
-      row[x + 3] = 0xff
-    }
-  }
-  return Buffer.concat([
-    PNG_SIGNATURE,
-    pngChunk("IHDR", header),
-    pngChunk("IDAT", deflateSync(raw, { level: 9 })),
-    pngChunk("IEND", Buffer.alloc(0)),
-  ])
-}
-
-/** The first part of a multipart/form-data body: its header block and its bytes. */
-function firstMultipartPart(body: Buffer): { headers: string; bytes: Buffer } {
-  const headerEnd = body.indexOf("\r\n\r\n")
-  expect(
-    headerEnd,
-    "the body must be multipart with a header block"
-  ).toBeGreaterThan(0)
-  const headers = body.subarray(0, headerEnd).toString("latin1")
-  const boundary = headers.split("\r\n")[0]
-  const start = headerEnd + 4
-  const end = body.indexOf(`\r\n${boundary}`, start)
-  expect(end, "the part must be terminated by the boundary").toBeGreaterThan(
-    start
-  )
-  return { headers, bytes: body.subarray(start, end) }
 }
 
 /** Width and height from a WebP container, whichever of its three bitstreams it uses. */
@@ -189,6 +113,11 @@ test("a photo far larger than the server keeps is shrunk in the browser before u
       mimeType: "image/png",
       buffer: source,
     })
+
+  // The frame editor opens first; left as it is, it hands on the original
+  // file, so the shrink below is still the only change made to it.
+  const frame = page.getByRole("dialog", { name: en.imageFrame.title })
+  await frame.getByRole("button", { name: en.common.save, exact: true }).click()
 
   await expect.poll(() => uploads.length, { timeout: 15_000 }).toBe(1)
 

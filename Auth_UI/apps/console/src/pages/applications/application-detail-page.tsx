@@ -50,11 +50,14 @@ import {
   useListUrlState,
   type ListUrlStateOptions,
 } from "@authsystem/ui/hooks/use-search-query"
+import { useSaveQueue } from "@authsystem/ui/hooks/use-save-queue"
 import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import type { Schemas } from "@authsystem/api/types"
 import { ApplicationAccessDialog } from "./application-access-dialog"
 import { ApplicationEditDialog, OPENID_SCOPE } from "./application-dialogs"
 import { ApplicationMachineKeysTab } from "./application-machine-keys"
+
+type ApplicationDto = Schemas["ApplicationDto"]
 
 type ApplicationUsersUrlFilters = {
   accessSource: Array<"grant" | "direct" | "organization" | "multiple">
@@ -94,7 +97,21 @@ const APPLICATION_DETAIL_TABS = [
   "organizations",
   "roles",
   "permissions",
+  "appearance",
+  "templates",
 ] as const
+
+/**
+ * The application's own appearance (an editor and the colour registry behind
+ * it): fetched when the tab is first opened, never with the page.
+ */
+const ApplicationAppearanceTab = React.lazy(() => import("./application-appearance-tab"))
+
+/**
+ * The designs of the application's sign-in pages (the "Templates" tab, with the code
+ * editor behind it): fetched when the tab is first opened, never with the page.
+ */
+const ApplicationLoginDesignsTab = React.lazy(() => import("./application-login-designs-tab"))
 
 /** The machine keys tab, offered only to readers of API keys (OI-128). */
 const MACHINE_KEYS_TAB = "machine-keys"
@@ -660,6 +677,13 @@ export function ApplicationDetailPage() {
       ? APPLICATION_DETAIL_TABS_WITH_MACHINE_KEYS
       : APPLICATION_DETAIL_TABS
   )
+  // Once opened, the appearance tab stays mounted (hidden) across tab switches:
+  // unmounting it would drop an unsaved draft without a word.
+  const [appearanceOpened, setAppearanceOpened] = React.useState(activeTab === "appearance")
+  if (activeTab === "appearance" && !appearanceOpened) setAppearanceOpened(true)
+  // Kept mounted the same way: a design being edited survives a switch to another tab.
+  const [templatesOpened, setTemplatesOpened] = React.useState(activeTab === "templates")
+  if (activeTab === "templates" && !templatesOpened) setTemplatesOpened(true)
   const [editOpen, setEditOpen] = React.useState(false)
   const [accessOpen, setAccessOpen] = React.useState(false)
   const [deactivateOpen, setDeactivateOpen] = React.useState(false)
@@ -691,6 +715,48 @@ export function ApplicationDetailPage() {
       ),
   })
   const creatorRole = rolesQuery.data?.find((role) => role.id === creatorRoleId)
+
+  /**
+   * Saves one logo slot. The update is a full replace: every setting the
+   * contract accepts has to be resent, or changing the logo quietly resets it
+   * (`redirectUris`, `postLogoutRedirectUris`, `confidentialRedirectUris`,
+   * `allowedScopes` and the dark-mode logo are the exceptions: the API reads
+   * null as "leave them alone"). It is built from the application as cached
+   * when the save is SENT, not as this page rendered it: a save that started
+   * earlier (a logo still uploading) would otherwise send back a logo removed
+   * or replaced in the meantime. The saves run one after another, and each
+   * writes its answer into the cache before the next one reads it.
+   */
+  const queueSave = useSaveQueue()
+  const persistLogo = React.useCallback(
+    (slot: { logoUrl: string | null } | { logoUrlDark: string }) => queueSave(async () => {
+      const current = queryClient.getQueryData<ApplicationDto>(["applications", appId]) ?? app
+      if (!current) return
+      const { data, error } = await api.PUT("/api/v1/Applications/{id}", {
+        params: { path: { id: appId } },
+        body: {
+          name: current.name ?? "",
+          description: current.description ?? null,
+          baseUrl: current.baseUrl ?? null,
+          logoUrl: current.logoUrl ?? null,
+          contactEmail: current.contactEmail ?? null,
+          // Without this, uploading a logo would send the contract's default
+          // and silently close an open application down to its invitation list.
+          accessMode: accessMode(current.accessMode) as unknown as number,
+          allowSelfRegistration: current.allowSelfRegistration ?? false,
+          requireTwoFactor: current.requireTwoFactor ?? false,
+          requireEmailVerification: current.requireEmailVerification ?? false,
+          sessionTimeoutMinutes: current.sessionTimeoutMinutes ?? 60,
+          maxConcurrentSessions: current.maxConcurrentSessions ?? 5,
+          reauthenticationMaxAgeMinutes: current.reauthenticationMaxAgeMinutes ?? null,
+          ...slot,
+        },
+      })
+      if (error) throw error
+      if (data) queryClient.setQueryData(["applications", appId], data)
+    }),
+    [queueSave, queryClient, appId, app]
+  )
 
   const activeMutation = useMutation({
     mutationFn: async (isActive: boolean) => {
@@ -725,6 +791,7 @@ export function ApplicationDetailPage() {
             leading={
               <ThemedLogo
                 name={app.name}
+                label={t("applications.logoDialogTitle")}
                 lightSrc={app.logoUrl}
                 darkSrc={app.logoUrlDark}
                 canEdit={canUpdate}
@@ -739,66 +806,12 @@ export function ApplicationDetailPage() {
                     queryKey: ["applications"],
                   })
                 }}
-                persistDark={async (logoKey) => {
-                  const { error } = await api.PUT("/api/v1/Applications/{id}", {
-                    params: { path: { id: appId } },
-                    // Everything the light-logo upload below resends, and the
-                    // light logo itself. Removing sends "" because the API
-                    // reads null as "leave the dark-mode logo as it is".
-                    body: {
-                      name: app.name ?? "",
-                      description: app.description ?? null,
-                      baseUrl: app.baseUrl ?? null,
-                      logoUrl: app.logoUrl ?? null,
-                      logoUrlDark: logoKey ?? "",
-                      contactEmail: app.contactEmail ?? null,
-                      accessMode: accessMode(
-                        app.accessMode
-                      ) as unknown as number,
-                      allowSelfRegistration: app.allowSelfRegistration ?? false,
-                      requireTwoFactor: app.requireTwoFactor ?? false,
-                      requireEmailVerification:
-                        app.requireEmailVerification ?? false,
-                      sessionTimeoutMinutes: app.sessionTimeoutMinutes ?? 60,
-                      maxConcurrentSessions: app.maxConcurrentSessions ?? 5,
-                      reauthenticationMaxAgeMinutes:
-                        app.reauthenticationMaxAgeMinutes ?? null,
-                    },
-                  })
-                  if (error) throw error
-                }}
-                persistLight={async (logoKey) => {
-                  const { error } = await api.PUT("/api/v1/Applications/{id}", {
-                    params: { path: { id: appId } },
-                    // A full replace: every setting the update contract
-                    // accepts has to be resent, or changing the logo quietly
-                    // resets it. `redirectUris`, `postLogoutRedirectUris`,
-                    // `confidentialRedirectUris` and `allowedScopes` are the
-                    // exceptions — the API reads null as "leave them alone".
-                    body: {
-                      name: app.name ?? "",
-                      description: app.description ?? null,
-                      baseUrl: app.baseUrl ?? null,
-                      logoUrl: logoKey,
-                      contactEmail: app.contactEmail ?? null,
-                      // Without this, uploading a logo would send the
-                      // contract's default and silently close an open
-                      // application down to its invitation list.
-                      accessMode: accessMode(
-                        app.accessMode
-                      ) as unknown as number,
-                      allowSelfRegistration: app.allowSelfRegistration ?? false,
-                      requireTwoFactor: app.requireTwoFactor ?? false,
-                      requireEmailVerification:
-                        app.requireEmailVerification ?? false,
-                      sessionTimeoutMinutes: app.sessionTimeoutMinutes ?? 60,
-                      maxConcurrentSessions: app.maxConcurrentSessions ?? 5,
-                      reauthenticationMaxAgeMinutes:
-                        app.reauthenticationMaxAgeMinutes ?? null,
-                    },
-                  })
-                  if (error) throw error
-                }}
+                persistDark={(logoKey) =>
+                  // Removing sends "" because the API reads null as "leave
+                  // the dark-mode logo as it is".
+                  persistLogo({ logoUrlDark: logoKey ?? "" })
+                }
+                persistLight={(logoKey) => persistLogo({ logoUrl: logoKey })}
               />
             }
             actions={
@@ -1004,6 +1017,10 @@ export function ApplicationDetailPage() {
           </TabsTrigger>
           <TabsTrigger value="roles">{t("nav.roles")}</TabsTrigger>
           <TabsTrigger value="permissions">{t("nav.permissions")}</TabsTrigger>
+          <TabsTrigger value="appearance">
+            {t("applications.appearance.tab")}
+          </TabsTrigger>
+          <TabsTrigger value="templates">{t("loginDesigns.tab")}</TabsTrigger>
           {canReadMachineKeys ? (
             <TabsTrigger value={MACHINE_KEYS_TAB}>
               {t("machineKeys.title")}
@@ -1037,6 +1054,28 @@ export function ApplicationDetailPage() {
         </TabsContent>
         <TabsContent value="permissions" className="mt-4">
           <ApplicationPermissionsTab appId={appId} />
+        </TabsContent>
+        <TabsContent
+          value="appearance"
+          className="mt-4 data-[state=inactive]:hidden"
+          forceMount={appearanceOpened ? true : undefined}
+        >
+          {app && appearanceOpened ? (
+            <React.Suspense fallback={<Skeleton className="h-96 w-full" />}>
+              <ApplicationAppearanceTab key={appId} application={app} canUpdate={canUpdate} />
+            </React.Suspense>
+          ) : null}
+        </TabsContent>
+        <TabsContent
+          value="templates"
+          className="mt-4 data-[state=inactive]:hidden"
+          forceMount={templatesOpened ? true : undefined}
+        >
+          {app && templatesOpened ? (
+            <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
+              <ApplicationLoginDesignsTab key={appId} application={app} canUpdate={canUpdate} />
+            </React.Suspense>
+          ) : null}
         </TabsContent>
         {canReadMachineKeys ? (
           <TabsContent value={MACHINE_KEYS_TAB} className="mt-4">

@@ -85,7 +85,12 @@ export async function installAuthenticatedApi(
   page: Page,
   permissions: string[],
   handle: (route: Route, url: URL) => Promise<boolean>,
-  options?: { preferredLanguage?: string; organizationPermissions?: string[] }
+  options?: {
+    preferredLanguage?: string
+    organizationPermissions?: string[]
+    /** What /platform/branding answers; the default is the shipped preset (no appearance). */
+    branding?: Record<string, unknown>
+  }
 ) {
   await page.addInitScript(() => {
     localStorage.setItem("auth.refreshToken", "isolated-refresh")

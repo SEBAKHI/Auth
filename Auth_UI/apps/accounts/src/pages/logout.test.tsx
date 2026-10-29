@@ -29,11 +29,11 @@ vi.mock("@authsystem/api/client", () => ({
   api: { POST: (...args: unknown[]) => post(...args) },
 }))
 vi.mock("@authsystem/auth/auth-context", () => ({ useAuth: () => auth }))
-vi.mock("@authsystem/auth/use-app-branding", () => ({
-  useAppBranding: () => ({
-    name: "Partner Shop",
-    logoUrl: null,
-    logoUrlDark: null,
+// The header has its own tests (flow-branding.test.tsx).
+vi.mock("@authsystem/auth/flow-branding", () => ({
+  useFlowBranding: () => ({
+    appBranding: { name: "Partner Shop", logoUrl: null, logoUrlDark: null },
+    layout: { appName: "Partner Shop", appLogoUrl: null, appLogoUrlDark: null },
   }),
 }))
 // The layout's chrome (branding, toggles) is not under test here.

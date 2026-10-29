@@ -50,9 +50,18 @@ CREATE TABLE [dbo].[Applications]
     -- a platform administrator switches it off per application. Declared last for the same
     -- reason as LogoUrlDark; the default is named so DacFx can add it to existing rows.
     [AllowMachineOrganizationsRead] BIT NOT NULL CONSTRAINT [DF_Applications_AllowMachineOrganizationsRead] DEFAULT (1),
+    -- The application's own appearance: the same JSON as PlatformSettings.Theme (colours,
+    -- radius, menu accent, control and table row heights). NULL means none was ever saved.
+    -- Declared last for the same reason as LogoUrlDark.
+    [Theme] NVARCHAR(MAX) NULL,
+    -- Whether that appearance replaces the platform's on the accounts pages this application
+    -- sends people to. Off by default, existing rows included; switching it off keeps [Theme].
+    -- Declared last, with a named default, for the same reasons as AllowMachineOrganizationsRead.
+    [ThemeEnabled] BIT NOT NULL CONSTRAINT [DF_Applications_ThemeEnabled] DEFAULT (0),
 
     CONSTRAINT [PK_Applications] PRIMARY KEY CLUSTERED ([Id]),
-    CONSTRAINT [UQ_Applications_Code] UNIQUE ([Code])
+    CONSTRAINT [UQ_Applications_Code] UNIQUE ([Code]),
+    CONSTRAINT [CK_Applications_ThemeIsJson] CHECK ([Theme] IS NULL OR ISJSON([Theme]) = 1)
 );
 GO
 

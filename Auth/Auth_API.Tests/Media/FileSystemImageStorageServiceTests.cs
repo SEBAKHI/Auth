@@ -28,6 +28,7 @@ public class FileSystemImageStorageServiceTests : IDisposable
             MaxSizeBytes = 8 * 1024 * 1024,
             MaxMegapixels = maxMegapixels,
             MaxEdgePx = 512,
+            PanelMaxEdgePx = 900,
             WebpQuality = 80,
             AllowedContentTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"]
         };
@@ -59,6 +60,25 @@ public class FileSystemImageStorageServiceTests : IDisposable
 
         result.IsError.Should().BeFalse();
         result.Value.Should().EndWith(".webp");
+    }
+
+    /// <summary>
+    /// An image for a sign-in page design keeps up to PanelMaxEdgePx (it fills half a large
+    /// screen); every other upload keeps MaxEdgePx. Break: read MaxEdgePx for both purposes.
+    /// </summary>
+    [Theory]
+    [InlineData(ImageUploadPurpose.Default, 512)]
+    [InlineData(ImageUploadPurpose.Panel, 900)]
+    public async Task SaveImageAsync_ThePurposeDecidesTheLongestEdgeKept(ImageUploadPurpose purpose, int expected)
+    {
+        var service = CreateService();
+        using var stream = new MemoryStream(MakePng(1200, 600));
+
+        var key = (await service.SaveImageAsync(stream, "image/png", purpose, CancellationToken.None)).Value;
+
+        using var codec = SKCodec.Create(Path.Combine(_tempRoot, key));
+        codec.Info.Width.Should().Be(expected);
+        codec.Info.Height.Should().Be(expected / 2);
     }
 
     [Fact]

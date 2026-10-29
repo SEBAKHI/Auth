@@ -276,6 +276,8 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             AllowedScopes = [.. application.AllowedScopes.OptionalNames],
             AllowOrganizationCreation = application.AllowOrganizationCreation,
             OrganizationCreatorRoleId = application.OrganizationCreatorRoleId,
+            ThemeEnabled = application.ThemeEnabled,
+            Theme = PlatformThemeDto.FromOrNull(application.Theme),
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,
             ModifiedAt = application.ModifiedAt,

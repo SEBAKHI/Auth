@@ -38,7 +38,13 @@ public class UpdatePlatformThemeCommandHandler : IRequestHandler<UpdatePlatformT
     public async Task<ErrorOr<PlatformSettingsDto>> Handle(UpdatePlatformThemeCommand request, CancellationToken cancellationToken)
     {
         var theme = PlatformTheme.Create(
-            request.BaseColor, request.Theme, request.Chart, request.Radius, request.MenuAccent);
+            request.BaseColor,
+            request.Theme,
+            request.Chart,
+            request.Radius,
+            request.MenuAccent,
+            request.ControlSize,
+            request.TableRowHeight);
         if (theme.IsError)
         {
             return theme.Errors;

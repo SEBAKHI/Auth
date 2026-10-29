@@ -238,6 +238,7 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
         "MaxSizeBytes",
         "MaxMegapixels",
         "MaxEdgePx",
+        "PanelMaxEdgePx",
         "WebpQuality",
         "AllowedContentTypes",
       ],

@@ -14,6 +14,7 @@ import {
   getErrorStatus,
 } from "@authsystem/api/errors"
 import { toNumber, unwrap } from "@authsystem/api/helpers"
+import { useFlowBranding } from "@authsystem/auth/flow-branding"
 import { useReloadOnRestore } from "@authsystem/auth/reload-on-restore"
 import {
   getReturnToClientId,
@@ -21,10 +22,8 @@ import {
   getValidReturnTo,
   toAccountsSearch,
 } from "@authsystem/auth/return-to"
-import { useAppBranding } from "@authsystem/auth/use-app-branding"
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
-import { useBranding } from "@authsystem/ui/branding"
 import { Button } from "@authsystem/ui/button"
 import { FieldDescription, FieldGroup } from "@authsystem/ui/field"
 import {
@@ -105,12 +104,11 @@ function OrganizationSetup({
   const { t } = useTranslation()
   const navigate = useNavigate()
   const authRequest = getReturnToHandle(returnTo)
-  const branding = useAppBranding(clientId)
-  const { name: platformName, isPending: brandingPending } = useBranding()
-  const app = branding?.name ?? t("auth.theApplication")
-  const securedBy = brandingPending
-    ? null
-    : t("auth.securedBy", { name: platformName })
+  // A step of the application's flow: its header, appearance, panel design and
+  // trust marker come from the one hook every such screen reads. The subtitle
+  // below names the application, so the "Continue to" line would repeat it.
+  const { appBranding, layout } = useFlowBranding({ returnTo })
+  const app = appBranding?.name ?? t("auth.theApplication")
 
   // A latch, not the pending flag: the flag reaches the button a frame after
   // the click, and a second click inside that frame would post again. A page
@@ -200,10 +198,8 @@ function OrganizationSetup({
     <AuthLayout
       title={t("auth.createOrganizationTitle")}
       subtitle={t("auth.createOrganizationSubtitle", { app })}
-      appName={branding?.name}
-      appLogoUrl={branding?.logoUrl}
-      appLogoUrlDark={branding?.logoUrlDark}
-      securedBy={securedBy}
+      {...layout}
+      continueTo={null}
     >
       <div className="flex flex-col gap-6">
         {stateQuery.isPending ? (

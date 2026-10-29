@@ -92,12 +92,17 @@ function TableHead({
   )
 }
 
+/**
+ * `py-cell-y` makes a row of one text line exactly `--table-row-height` tall
+ * (the platform's table row height; at the default it is the preset's `p-3`).
+ * A taller cell (an avatar, a button) grows the row by the difference.
+ */
 function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   return (
     <td
       data-slot="table-cell"
       className={cn(
-        "p-3 align-middle whitespace-nowrap [&:has([role=checkbox])]:pe-0",
+        "px-3 py-cell-y align-middle whitespace-nowrap [&:has([role=checkbox])]:pe-0",
         className
       )}
       {...props}

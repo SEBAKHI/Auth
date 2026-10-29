@@ -3,9 +3,11 @@ using Auth_API.Common;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Platform.GetPasswordPolicy;
 using Auth.Application.Features.Platform.GetPlatformBranding;
+using Auth.Application.Features.LoginDesigns.GetPublicLoginDesign;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Auth_API.Modules.Administration.Controllers;
 
@@ -48,6 +50,31 @@ public class PlatformController : ApiController
 
         return result.Match(
             branding => Ok(branding),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// The design the platform's own sign-in pages show in their panel, rendered for one
+    /// language. 404 when none is active (the plain panel).
+    /// </summary>
+    /// <remarks>
+    /// Anonymous, like the branding beside it: the sign-in pages call it before anyone signs in,
+    /// and only when the branding names a design. The HTML travels inside JSON, never as a
+    /// document of the API's origin, which must not serve markup an administrator wrote. The
+    /// page shows it in an isolated frame. Rendering is page rendering: the per-address sign-in-page allowance.
+    /// </remarks>
+    /// <response code="200">Returns the rendered design</response>
+    [HttpGet("login-design")]
+    [AllowAnonymous]
+    [EnableRateLimiting("sign-in-page")]
+    [ProducesResponseType(typeof(PublicLoginDesignDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetLoginDesign([FromQuery] string? lang, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetPublicLoginDesignQuery(null, lang), cancellationToken);
+
+        return result.Match(
+            design => Ok(design),
             errors => Problem(errors));
     }
 

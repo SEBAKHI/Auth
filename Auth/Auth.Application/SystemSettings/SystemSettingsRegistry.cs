@@ -655,6 +655,7 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("MaxSizeBytes", SettingKind.Int, Min: 1024, Max: 104857600, DefaultValue: 4194304),
                 new SettingFieldDefinition("MaxMegapixels", SettingKind.Int, Min: 1, Max: 500, DefaultValue: 24),
                 new SettingFieldDefinition("MaxEdgePx", SettingKind.Int, Min: 64, Max: 8192, DefaultValue: 1024),
+                new SettingFieldDefinition("PanelMaxEdgePx", SettingKind.Int, Min: 64, Max: 8192, DefaultValue: 2048),
                 new SettingFieldDefinition("WebpQuality", SettingKind.Int, Min: 1, Max: 100, DefaultValue: 90),
                 new SettingFieldDefinition(
                     "AllowedContentTypes",
