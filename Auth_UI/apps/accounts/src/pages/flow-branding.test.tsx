@@ -85,6 +85,7 @@ import {
   savePendingRegistration,
 } from "./auth/registration-flow"
 import { AccountsTwoFactorPage } from "./auth/two-factor"
+import { CreateOrganizationPage } from "./create-organization"
 
 const LOGO_URL = `${API_BASE_URL}/uploads/images/shop-logo.webp`
 const AUTHORIZE = `${API_BASE_URL}/api/v1/auth/authorize?client_id=shop&state=xyz`
@@ -117,6 +118,14 @@ interface FlowPage {
   setup?: () => void
   /** What `GET /Users/me` answers; "pending" never answers. */
   me?: Record<string, unknown> | "pending"
+  /** What other `GET`s of the screen answer, by path; anything else never answers. */
+  answers?: Record<string, unknown>
+  /**
+   * The line under the title that names the application: "Continue to SHOP."
+   * unless the screen names it in a subtitle of its own, which that line would
+   * only repeat.
+   */
+  namesApp?: string
 }
 
 /**
@@ -199,6 +208,25 @@ const PAGES: FlowPage[] = [
     carries: "state",
     me: { hasPassword: false, email: "jane@one.example" },
   },
+  {
+    // The last step of the flow, open: a signed-in person who may create one.
+    name: "create organization",
+    path: "/create-organization",
+    element: <CreateOrganizationPage />,
+    heading: "Create your organization",
+    carries: "query",
+    answers: {
+      "/api/v1/Auth/organization-setup": {
+        canCreate: true,
+        limit: 1,
+        ownedOrganizations: [],
+        email: "jane@one.example",
+        emailConfirmed: true,
+      },
+    },
+    namesApp:
+      "SHOP works with organizations. Name the company or institution you use it for.",
+  },
 ]
 
 function Elsewhere() {
@@ -212,7 +240,9 @@ function renderPage(page: FlowPage, returnTo: string | null) {
   get.mockImplementation((path: string) =>
     path === "/api/v1/Users/me" && me !== "pending"
       ? Promise.resolve({ data: me })
-      : new Promise(() => {})
+      : page.answers && path in page.answers
+        ? Promise.resolve({ data: page.answers[path] })
+        : new Promise(() => {})
   )
   const entry =
     page.carries === "query"
@@ -265,6 +295,7 @@ describe("the application header on every screen of the flow", () => {
       "/force-password-change",
       "/force-password-change",
       "/force-password-change",
+      "/create-organization",
     ])
   })
 
@@ -276,7 +307,12 @@ describe("the application header on every screen of the flow", () => {
       const logo = await screen.findByRole("img", { name: "SHOP" })
       expect(logo).toHaveAttribute("src", LOGO_URL)
       expect(screen.getByRole("main")).toContainElement(logo)
-      expect(screen.getByText("Continue to SHOP.")).toBeInTheDocument()
+      expect(
+        screen.getByText(page.namesApp ?? "Continue to SHOP.")
+      ).toBeInTheDocument()
+      if (page.namesApp) {
+        expect(screen.queryByText("Continue to SHOP.")).toBeNull()
+      }
       expect(screen.getByText("Secured by AuthSystem")).toBeInTheDocument()
       expect(screen.getByRole("banner")).toContainElement(
         screen.getByTestId("platform-mark")
@@ -289,6 +325,31 @@ describe("the application header on every screen of the flow", () => {
       expect(brandingRequests(fetch)).toEqual([
         `${API_BASE_URL}/api/v1/applications/shop/public-branding`,
       ])
+    }
+  )
+
+  it.each(PAGES)(
+    "$name follows the application's design: one that hides the platform's mark gives the corner to the application's logo",
+    async (page) => {
+      // The design reaches a page only through the flow's header: a screen that
+      // builds its header by hand shows the platform's design and corner instead.
+      fetch.mockImplementation(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              name: "SHOP",
+              logoUrl: LOGO_URL,
+              loginDesign: { id: "d1", contentHash: "a".repeat(64), showPlatformLogo: false },
+            }),
+        } as Response)
+      )
+      renderPage(page, AUTHORIZE)
+
+      const logo = await screen.findByRole("img", { name: "SHOP" })
+      expect(screen.getByRole("banner")).toContainElement(logo)
+      expect(screen.queryByTestId("platform-mark")).toBeNull()
+      expect(screen.getByText("Secured by AuthSystem")).toBeInTheDocument()
     }
   )
 

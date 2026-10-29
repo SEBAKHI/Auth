@@ -46,7 +46,9 @@ export function useFlowBranding(returnTo: string | null): FlowBranding {
   const { t } = useTranslation()
   const clientId = getReturnToClientId(returnTo)
   const appBranding = useAppBranding(clientId)
-  const loginDesign = useApplicationLook(clientId)
+  useApplicationTheme(clientId, useAppTheme(clientId))
+  // The design, like the appearance, belongs to the validated pending request only.
+  const appDesign = useAppLoginDesign(clientId)
   const { name: platformName, isPending: brandingPending } = useBranding()
 
   // A trust marker naming the wrong platform is worse than no marker at all:
@@ -65,24 +67,7 @@ export function useFlowBranding(returnTo: string | null): FlowBranding {
         ? t("auth.continueToApp", { name: appBranding.name })
         : null,
       securedBy,
-      loginDesign,
+      loginDesign: clientId ? { clientId, design: appDesign } : undefined,
     },
   }
-}
-
-/**
- * What a page of an application's flow takes from the application besides its
- * header: its appearance, registered for the page, and the design its panel
- * shows, ready for `AuthLayout`'s `loginDesign`. A page with a header of its own
- * (the organization step) takes both here, as `useFlowBranding` does, so no page
- * can show the application's colours around the platform's design, or the
- * reverse.
- *
- * Both belong to the validated pending request only: `clientId` comes from
- * `returnTo` or the request handle, never from anything else in the URL.
- */
-export function useApplicationLook(clientId: string | null): FlowLoginDesign | undefined {
-  useApplicationTheme(clientId, useAppTheme(clientId))
-  const design = useAppLoginDesign(clientId)
-  return clientId ? { clientId, design } : undefined
 }
