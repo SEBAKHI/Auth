@@ -13,7 +13,8 @@
  *        --own-key <file> --other-key <file>
  *
  * Prepare, in the console, two applications A and B:
- *   - A's page, tab "Machine keys" («مفاتيح الآلة»): "Generate key", download the private key (--pem, --kid,
+ *   - A's page, tab "Application keys" («مفاتيح التطبيق»): "Generate key" («إنشاء مفتاح»), purpose
+ *     machine, download the private key (--pem, --kid,
  *     and A's code as --client-id).
  *   - An API key of A and an API key of B («مفاتيح API», "Create API key"), each saved to its own
  *     text file (--own-key, --other-key). Files, not arguments: a key on the command line lands in
