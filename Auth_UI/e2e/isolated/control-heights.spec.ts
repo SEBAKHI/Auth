@@ -132,6 +132,14 @@ async function height(locator: Locator) {
   return box!.height
 }
 
+/**
+ * Polled: buttons carry `transition-all`, so for 150ms after the platform's
+ * stylesheet lands a button is between its old height and its new one.
+ */
+async function expectHeight(locator: Locator, px: number, label: string) {
+  await expect.poll(() => height(locator), { message: label }).toBeCloseTo(px, 1)
+}
+
 for (const language of ["en", "ar"] as const) {
   for (const mode of ["light", "dark"] as const) {
     for (const size of CASES) {
@@ -157,32 +165,31 @@ for (const language of ["en", "ar"] as const) {
         await expect(save).toHaveCount(1)
         await expect(group).toHaveCount(1)
 
-        expect(await height(save), "button").toBeCloseTo(size.control, 1)
-        expect(await height(group), "input group").toBeCloseTo(size.control, 1)
+        await expectHeight(save, size.control, "button")
+        await expectHeight(group, size.control, "input group")
         // The input group and the button beside it stay one row.
         expect(Math.abs((await height(group)) - (await height(save))), "group = button").toBeLessThan(0.5)
-        expect(await height(tile.locator('[data-slot="button"][data-size="sm"]')), "small button").toBeCloseTo(
-          size.control - 4,
-          1
-        )
+        await expectHeight(tile.locator('[data-slot="button"][data-size="sm"]'), size.control - 4, "small button")
 
         const select = card.locator('[data-slot="select-trigger"][data-size="default"]').first()
-        expect(await height(select), "select").toBeCloseTo(size.control, 1)
+        await expectHeight(select, size.control, "select")
         const toggle = card.locator('[data-slot="toggle-group-item"]').first()
-        expect(await height(toggle), "toggle").toBeCloseTo(size.control, 1)
+        await expectHeight(toggle, size.control, "toggle")
         const input = page.getByRole("textbox", { name: t.platformSettings.platformName, exact: true })
-        expect(await height(input), "input").toBeCloseTo(size.control, 1)
+        await expectHeight(input, size.control, "input")
         // The sidebar keeps its own heights (its rail would not hold more).
-        expect(await height(page.locator('[data-slot="sidebar-trigger"]').first()), "sidebar trigger").toBeCloseTo(32, 1)
+        await expectHeight(page.locator('[data-slot="sidebar-trigger"]').first(), 32, "sidebar trigger")
 
         // A row of one text line is the row height. Measured inside the
         // cell's border: the 1px line between rows is shared half and half
         // by the rows it separates (collapsed borders), as it always was.
         const previewCells = tile.locator('[data-slot="table-row"] [data-slot="table-cell"]')
         await expect(previewCells).toHaveCount(4)
-        for (const cellHeight of await previewCells.evaluateAll((all) => all.map((cell) => cell.clientHeight))) {
-          expect(cellHeight, "table row").toBe(size.row)
-        }
+        await expect
+          .poll(() => previewCells.evaluateAll((all) => all.map((cell) => cell.clientHeight)), {
+            message: "table row",
+          })
+          .toEqual([size.row, size.row, size.row, size.row])
 
         await card.screenshot({ path: testInfo.outputPath(`card-${size.name}-${language}-${mode}.png`) })
 
@@ -252,7 +259,7 @@ for (const language of ["en", "ar"] as const) {
           .filter((box) => box.width > 0 && (box.left < 0 || box.right > window.innerWidth)).length
       )
       expect(outside, "controls outside the screen").toBe(0)
-      expect(await height(page.locator('[data-slot="sidebar-trigger"]').first()), "sidebar trigger").toBeCloseTo(32, 1)
+      await expectHeight(page.locator('[data-slot="sidebar-trigger"]').first(), 32, "sidebar trigger")
 
       // Viewport shots: the card is taller than the screen, and an element
       // shot of it inside the shell's scroll pane is stitched, not seen.
