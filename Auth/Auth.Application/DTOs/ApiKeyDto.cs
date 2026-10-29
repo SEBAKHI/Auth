@@ -15,8 +15,6 @@ public class ApiKeyDto
     public string? Description { get; set; }
     public string KeyPrefix { get; set; } = string.Empty;
     public string Environment { get; set; } = "production";
-    public int RateLimitPerMinute { get; set; }
-    public int RateLimitPerDay { get; set; }
     public DateTime CreatedAt { get; set; }
     public Guid CreatedBy { get; set; }
 

@@ -109,6 +109,18 @@ public sealed class MachineTokenProvider : IMachineTokenProvider, IDisposable
         return fresh.AccessToken;
     }
 
+    /// <inheritdoc />
+    public void Invalidate(string accessToken)
+    {
+        lock (_sync)
+        {
+            if (_cached is { } cached && string.Equals(cached.AccessToken, accessToken, StringComparison.Ordinal))
+            {
+                _cached = null;
+            }
+        }
+    }
+
     /// <summary>Caches a finished request's token, and frees the slot for the next request.</summary>
     private void Settle(Task<CachedToken> finished)
     {

@@ -45,4 +45,24 @@ public static class ApiKeyErrors
     public static readonly Error Required = Error.Validation(
         code: "ApiKey.Required",
         description: "API key is required.");
+
+    // OI-128 PR B: what a key may carry. A key with no scope authorizes nothing an application
+    // can check, and a scope of another application, or of the platform, would be reported to
+    // the key's application as if it were one of its own permissions.
+
+    public static readonly Error ScopesRequired = Error.Validation(
+        code: "ApiKey.ScopesRequired",
+        description: "An API key must carry at least one scope.");
+
+    public static readonly Error ScopeNotForApplication = Error.Validation(
+        code: "ApiKey.ScopeNotForApplication",
+        description: "Every scope of an API key must be an active permission of the key's own application.");
+
+    public static readonly Error AllowedIpInvalid = Error.Validation(
+        code: "ApiKey.AllowedIpInvalid",
+        description: "Each allowed address must be an IPv4 or IPv6 address, or a CIDR range whose host bits are zero.");
+
+    public static readonly Error AllowedIpsTooMany = Error.Validation(
+        code: "ApiKey.AllowedIpsTooMany",
+        description: "An API key may carry at most 50 allowed addresses.");
 }

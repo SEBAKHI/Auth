@@ -51,8 +51,9 @@ public record DiscoveryDocumentDto
     public string? ServerEndSessionEndpoint { get; init; }
 
     /// <summary>
-    /// Left unset on purpose: introspection needs a platform token, which no application holds.
-    /// Dropped when null whatever the serializer's defaults, because a client library treats a
+    /// Left unset on purpose: introspection answers only an application's own server, which
+    /// authenticates with its machine token (OI-128 PR B), not the client libraries that read this
+    /// document. Dropped when null whatever the serializer's defaults, because a client library treats a
     /// listed endpoint, even a null one, as one it may try.
     /// </summary>
     [JsonPropertyName("introspection_endpoint")]

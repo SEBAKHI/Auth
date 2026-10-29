@@ -111,6 +111,7 @@ export const AUDIT_ACTIONS: readonly AuditActionEntry[] = [
   },
   { code: "apikey.created", actionType: "ApiKeyManagement" },
   { code: "apikey.revoked", actionType: "ApiKeyManagement" },
+  { code: "apikey.rotated", actionType: "ApiKeyManagement" },
   { code: "machinekey.created", actionType: "ApiKeyManagement" },
   { code: "machinekey.revoked", actionType: "ApiKeyManagement" },
   {

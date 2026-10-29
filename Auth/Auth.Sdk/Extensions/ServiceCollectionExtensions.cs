@@ -20,7 +20,15 @@ public static class ServiceCollectionExtensions
     public static readonly TimeSpan MachineTokenRequestTimeout = TimeSpan.FromSeconds(15);
 
     /// <summary>
-    /// Adds AuthSystem authentication with three schemes: Bearer (JWT), ApiKey, and WebhookKey.
+    /// A credential check's whole budget (SDK 2.0): past it the scheme answers 503 with
+    /// <c>Retry-After</c> rather than hold the caller's request.
+    /// </summary>
+    public static readonly TimeSpan CredentialCheckTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Adds AuthSystem authentication with the Bearer (JWT) scheme. Add the key schemes with
+    /// <see cref="AddAuthSystemApiKey"/> and <see cref="AddAuthSystemWebhookKey"/> (SDK 2.0): they
+    /// validate keys with this application's machine key, and refuse to register without it.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configure">Configuration action for AuthSystem options.</param>
@@ -45,8 +53,10 @@ public static class ServiceCollectionExtensions
         }
 
         services.Configure(configure);
+        services.AddSingleton(new AuthSystemRegistration(options));
 
-        // Register the AuthSystemClient
+        // Register the AuthSystemClient. It owns its result caches (SDK 2.0): the host's
+        // IMemoryCache is neither used nor registered here.
         services.AddSingleton<AuthSystemClient>();
 
         // Register permission-based authorization.
@@ -65,9 +75,6 @@ public static class ServiceCollectionExtensions
         // The organization handler resolves the target organization from the
         // route, so it needs the request.
         services.AddHttpContextAccessor();
-
-        // Register memory cache for validation result caching
-        services.AddMemoryCache();
 
         // Register token management (auto-refresh interceptor)
         services.AddSingleton<ITokenStore, InMemoryTokenStore>();
@@ -118,13 +125,33 @@ public static class ServiceCollectionExtensions
         // A 307 or 308 would re-post the assertion and the gateway token to wherever it points.
         .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
 
+        // The credential checks' own named client (SDK 2.0): the same base address and gateway
+        // token, NO TokenRefreshHandler (a user's token must never reach these endpoints; each
+        // request carries the machine token instead), no redirects, and a bounded wait. Exclude
+        // it, like the machine client above, from any application-wide retry handler.
+        services.AddHttpClient(AuthSystemConstants.MachineApiHttpClientName, (sp, client) =>
+        {
+            var current = sp.GetRequiredService<IOptions<AuthSystemOptions>>().Value;
+
+            client.BaseAddress = new Uri(current.BaseUrl);
+            client.Timeout = CredentialCheckTimeout;
+            if (!string.IsNullOrWhiteSpace(current.GatewayToken))
+            {
+                client.DefaultRequestHeaders.Add(
+                    AuthSystemConstants.GatewayTokenHeaderName,
+                    current.GatewayToken);
+            }
+        })
+        // A 307 or 308 would re-post the machine token and the presented key to wherever it points.
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
+
         // One provider per process, so its cached token and its single-flight gate are shared.
         // Registered whether or not the machine options are set: it reports a missing option
         // when it is first asked for a token, not at startup.
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<IMachineTokenProvider, MachineTokenProvider>();
 
-        // Configure authentication with three schemes
+        // Configure authentication; the key schemes are added by their own methods below.
         var authBuilder = services.AddAuthentication(authOptions =>
         {
             authOptions.DefaultAuthenticateScheme = AuthSystemConstants.BearerScheme;
@@ -156,14 +183,55 @@ public static class ServiceCollectionExtensions
             };
         });
 
-        // Scheme 2: API Key via X-Api-Key header
-        authBuilder.AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
-            AuthSystemConstants.ApiKeyScheme, _ => { });
-
-        // Scheme 3: Webhook Key via ?whk= query parameter
-        authBuilder.AddScheme<WebhookKeyAuthenticationOptions, WebhookKeyAuthenticationHandler>(
-            AuthSystemConstants.WebhookKeyScheme, _ => { });
-
         return authBuilder;
+    }
+
+    /// <summary>
+    /// Adds the ApiKey scheme (the <c>X-Api-Key</c> header). The key is validated by the
+    /// AuthSystem as this application, with its machine key, so the machine client must be
+    /// configured: without it this throws now, at startup, not at the first request.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">AddAuthSystemAuthentication was not called, or the machine client is not configured.</exception>
+    public static AuthenticationBuilder AddAuthSystemApiKey(this AuthenticationBuilder builder)
+    {
+        EnsureMachineClient(builder.Services, AuthSystemConstants.ApiKeyScheme);
+        return builder.AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
+            AuthSystemConstants.ApiKeyScheme, _ => { });
+    }
+
+    /// <summary>
+    /// Adds the WebhookKey scheme (the <c>?whk=</c> query parameter). Like
+    /// <see cref="AddAuthSystemApiKey"/>, it needs the machine client configured, and throws at
+    /// startup without it.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">AddAuthSystemAuthentication was not called, or the machine client is not configured.</exception>
+    public static AuthenticationBuilder AddAuthSystemWebhookKey(this AuthenticationBuilder builder)
+    {
+        EnsureMachineClient(builder.Services, AuthSystemConstants.WebhookKeyScheme);
+        return builder.AddScheme<WebhookKeyAuthenticationOptions, WebhookKeyAuthenticationHandler>(
+            AuthSystemConstants.WebhookKeyScheme, _ => { });
+    }
+
+    private static void EnsureMachineClient(IServiceCollection services, string scheme)
+    {
+        var registration = services
+            .LastOrDefault(descriptor => descriptor.ServiceType == typeof(AuthSystemRegistration))
+            ?.ImplementationInstance as AuthSystemRegistration
+            ?? throw new InvalidOperationException(
+                $"Call AddAuthSystemAuthentication before adding the {scheme} scheme.");
+
+        if (!registration.Options.IsMachineClientConfigured)
+        {
+            throw new InvalidOperationException(
+                $"The {scheme} scheme validates keys as this application, with its machine key. Set "
+                + "AuthSystemOptions.ClientId, MachineKeyId and MachinePrivateKeyPem (and BaseUrl and Issuer); "
+                + "create the machine key on the application's page in the AuthSystem console.");
+        }
+    }
+
+    /// <summary>The options AddAuthSystemAuthentication was called with, for the key schemes' startup check.</summary>
+    private sealed class AuthSystemRegistration(AuthSystemOptions options)
+    {
+        public AuthSystemOptions Options { get; } = options;
     }
 }

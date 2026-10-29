@@ -117,11 +117,24 @@ public class PermissionCatalogueCoverageTests
     }
 
     [Fact]
+    public void RetiredCodes_AreStillCatalogued_AndDemandedNowhere()
+    {
+        // The exception above stays exact: a retired code that an endpoint demands again, or that
+        // left the catalogue, is no longer awaiting removal, and its entry must go.
+        var enforced = PermissionEnforcement.All();
+
+        PermissionEnforcement.RetiredAwaitingRemoval.Should().NotBeEmpty()
+            .And.OnlyContain(code => PermissionCodes.All.Contains(code, StringComparer.Ordinal))
+            .And.OnlyContain(code => !enforced.Contains(code, StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void EveryCataloguedPermission_IsEnforced()
     {
         var enforced = PermissionEnforcement.All();
 
         var unenforced = PermissionCodes.All
+            .Where(code => !PermissionEnforcement.RetiredAwaitingRemoval.Contains(code, StringComparer.OrdinalIgnoreCase))
             .Where(code => !enforced.Contains(code, StringComparer.OrdinalIgnoreCase))
             .OrderBy(code => code, StringComparer.Ordinal)
             .ToList();

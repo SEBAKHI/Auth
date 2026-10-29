@@ -3,15 +3,16 @@ using System.Text.RegularExpressions;
 namespace Auth_API.Tests.Authentication.ClientCredentials;
 
 /// <summary>
-/// Where the machine scheme may be named (OI-128). The endpoints it will open (key validation,
-/// webhook-key validation, introspection) move onto it in a change of their own, each one reviewed.
-/// The first action it opens is the machine directory (OI-202), named once on its controller; a
-/// stray <c>[Authorize(AuthenticationSchemes = MachineScheme)]</c> anywhere else would be exactly
-/// the unreviewed widening this guard exists to catch.
+/// Where the machine scheme may be named (OI-128). A closed list of exactly two controller files,
+/// each naming it once at class level: the machine directory (OI-202), and the machine credential
+/// checks (OI-128 PR B: key validation, webhook-key validation, introspection). A stray
+/// <c>[Authorize(AuthenticationSchemes = MachineScheme)]</c> anywhere else would be exactly the
+/// unreviewed widening this guard exists to catch.
 /// </summary>
 public class MachineSchemePlacementGuardTests
 {
     private const string DirectoryControllerFile = "ApplicationMachineOrganizationsController.cs";
+    private const string ChecksControllerFile = "MachineCredentialChecksController.cs";
 
     [Fact]
     public void TheSchemeLiteral_AppearsOnlyInTheBuilder()
@@ -20,10 +21,55 @@ public class MachineSchemePlacementGuardTests
     }
 
     [Fact]
-    public void TheSchemeConstant_IsUsedOnlyByTheBuilderTheRegistrationAndTheMachineDirectory()
+    public void TheSchemeConstant_IsUsedOnlyByTheBuilderTheRegistrationAndTheTwoMachineControllers()
     {
         FilesContaining("MachineScheme").Should().BeEquivalentTo(
-            "AccessTokenValidation.cs", "BearerSchemeRegistration.cs", DirectoryControllerFile);
+            "AccessTokenValidation.cs", "BearerSchemeRegistration.cs", DirectoryControllerFile, ChecksControllerFile);
+    }
+
+    [Fact]
+    public void TheMachineCredentialChecks_NameTheSchemeOnce_AtClassLevel_AndNoOtherGuard()
+    {
+        var controller = Source(ChecksControllerFile);
+
+        Regex.Matches(controller, @"\bMachineScheme\b").Should().ContainSingle(
+            "one [Authorize] on the machine credential checks and nowhere else in it");
+        Regex.IsMatch(
+                controller,
+                @"\[Authorize\(AuthenticationSchemes = AccessTokenValidation\.MachineScheme\)\]\s*\n(\[[^\n]*\]\s*\n)*public sealed class MachineCredentialChecksController\b")
+            .Should().BeTrue("the scheme is named at class level, so every action has it and none names another");
+
+        // A machine token carries no permissions, and no user stands behind it to hold any.
+        foreach (var forbidden in new[]
+                 {
+                     "[RequirePermission", "RequirePermission(", "PermissionRequirement", "[AllowAnonymous",
+                     "PlatformScope", "UserInfoScheme", "JwtBearerDefaults", "HasPermissionClaim",
+                     "JwtClaimNames.Permissions", "JwtClaimNames.OrgPermissions", "GetCurrentUserId",
+                 })
+        {
+            controller.Should().NotContain(forbidden);
+        }
+
+        var type = typeof(Auth_API.Modules.MachineCredentialChecks.Controllers.MachineCredentialChecksController);
+        type.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute), inherit: true)
+            .Cast<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>()
+            .Should().ContainSingle()
+            .Which.AuthenticationSchemes.Should().Be(Auth_API.Common.Authentication.AccessTokenValidation.MachineScheme);
+        type.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.IAllowAnonymous), inherit: true)
+            .Should().BeEmpty();
+
+        // Each check requires its own machine scope, and that scope is what its budget is read by.
+        var actions = type.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly);
+        actions.Should().HaveCount(3, "the three checks, and nothing else is exposed")
+            .And.OnlyContain(method =>
+                !method.GetCustomAttributes(inherit: true).Any(attribute =>
+                    attribute is Microsoft.AspNetCore.Authorization.IAuthorizeData
+                    || attribute is Microsoft.AspNetCore.Authorization.IAllowAnonymous));
+        var scopes = actions
+            .Select(method => method.GetCustomAttributes(typeof(Auth_API.Common.Middleware.MachineCredentialCheckAttribute), inherit: false)
+                .Cast<Auth_API.Common.Middleware.MachineCredentialCheckAttribute>()
+                .Single().Profile.RequiredScope);
+        scopes.Should().BeEquivalentTo(Auth.Domain.Constants.MachineClients.Scopes.All);
     }
 
     [Fact]

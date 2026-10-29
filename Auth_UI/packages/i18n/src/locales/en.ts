@@ -286,8 +286,6 @@ export const en = {
     publishedAt: "Published at",
     publishedVersionNumber: "Published version",
     purpose: "Purpose",
-    rateLimitPerDay: "Rate limit per day",
-    rateLimitPerMinute: "Rate limit per minute",
     reauthenticationMaxAgeMinutes: "Re-authentication window (minutes)",
     recipient: "Recipient",
     recipientName: "Recipient name",
@@ -1122,7 +1120,6 @@ export const en = {
     title: "API Keys",
     subtitle: "Issue and manage application API keys.",
     newKey: "New API key",
-    keyLabel: "API key",
     namePlaceholder: "Billing service",
     descriptionPlaceholder: "Where this key is used",
     createTitle: "Create API key",
@@ -1130,16 +1127,17 @@ export const en = {
     environment: "Environment",
     environmentHint:
       "Which deployment this key belongs to, so keys are easy to tell apart.",
-    rateLimitPerMinute: "Rate limit / minute",
-    rateLimitPerDay: "Rate limit / day",
-    rateLimitPerMinuteHint:
-      "Requests this key may make in any one minute. Advisory: the number is stored and handed to whichever service validates the key — nothing here counts requests or rejects them.",
-    rateLimitPerDayHint:
-      "Requests this key may make in a single day. Advisory, like the limit above: enforced by the service that validates the key, not by this system.",
     scopes: "Scopes",
+    scopesHint:
+      "What the key may do: the application's own permissions that you hold. The application reads them when it checks the key.",
+    scopesRequired: "Choose at least one scope.",
+    noGrantableScopes:
+      "This application has no active permission that you may grant. Add permissions to the application first, or ask an administrator who holds them.",
+    allowedIps: "Allowed addresses",
+    allowedIpsHint:
+      "Optional. One IPv4 or IPv6 address or CIDR range per line; the application refuses the key from any other address. Leave empty to allow any address.",
     revoke: "Revoke",
     rotate: "Rotate",
-    validate: "Validate",
     revokeReason: "Reason",
     revokeReasonPlaceholder: "Leaked in a public repository",
     revokeTitle: "Revoke API key",
@@ -1153,8 +1151,6 @@ export const en = {
     secretOnceTitle: "Copy your API key now",
     secretOnceBody:
       "This is the only time the full key is shown. Store it securely.",
-    validateTitle: "Validate API key",
-    validatePlaceholder: "Paste an API key to validate…",
     expiringSoon: "Expiring soon",
     expired: "Expired",
     expiresLater: "Expires later",
@@ -1296,7 +1292,6 @@ export const en = {
     title: "Webhook Keys",
     subtitle: "Manage signing keys for outbound webhooks.",
     newKey: "New webhook key",
-    keyLabel: "Webhook key",
     namePlaceholder: "Order events",
     descriptionPlaceholder: "Where this key is used",
     createTitle: "Create webhook key",
@@ -1307,8 +1302,6 @@ export const en = {
       "Which deployment this key belongs to, so keys are easy to tell apart.",
     revoke: "Revoke",
     rotate: "Rotate",
-    validate: "Validate",
-    validatePlaceholder: "Paste a webhook key to validate…",
     expiringSoon: "Expiring soon",
     expired: "Expired",
     expiresLater: "Expires later",
@@ -1456,6 +1449,7 @@ export const en = {
         "Organization set up from an application",
       apikeyCreated: "API key created",
       apikeyRevoked: "API key revoked",
+      apikeyRotated: "API key rotated",
       machinekeyCreated: "Application key created",
       machinekeyRevoked: "Application key revoked",
       machineaccessOrganizationsReadAllAllowed:
@@ -2447,10 +2441,10 @@ export const en = {
       passwordResetWindowSeconds: "Reset counting window (seconds)",
       passwordResetWindowSecondsHint:
         "The span the redemption count above is measured over, on the same fixed-window mechanic.",
-      apiKeyValidatePermitLimit: "API key validations per window",
+      apiKeyValidatePermitLimit: "Key and token checks per window",
       apiKeyValidatePermitLimitHint:
-        "How many times one client IP may ask this API to check an API key before it is refused with 429. This limit guards work, not a secret: every validation hashes the presented key with Argon2id, which is deliberately slow and memory-hungry, so an unthrottled caller can spend this server's CPU and memory at will without ever holding a valid key. Set it above what a legitimate integration needs and no higher.",
-      apiKeyValidateWindowSeconds: "API key validation window (seconds)",
+        "How many API key, webhook key and token checks one application's server may make from one address in a window before it is refused with 429; a caller whose machine token does not validate counts on its address's own allowance of the same size. This limit guards work, not a secret: an API key check runs one Argon2id hash, which is deliberately slow and memory-hungry. Set it above what one application's traffic needs and no higher.",
+      apiKeyValidateWindowSeconds: "Key and token check window (seconds)",
       apiKeyValidateWindowSecondsHint:
         "The span the validation count above is measured over. The window is fixed, not rolling: the counter returns to zero when it ends, and a caller that has spent its allowance waits until then.",
       imageUploadConcurrencyLimit: "Uploads decoding at once",

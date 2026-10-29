@@ -1,9 +1,10 @@
-using Auth.Application.Common;
+using Auth.Application.Features.ApiKeys.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Auth.Application.DTOs;
 using ErrorOr;
 using MediatR;
@@ -17,26 +18,23 @@ public class CreateApiKeyCommandHandler : IRequestHandler<CreateApiKeyCommand, E
 {
     private readonly IApiKeyRepository _apiKeyRepository;
     private readonly IApplicationRepository _applicationRepository;
-    private readonly IPermissionRepository _permissionRepository;
     private readonly IApiKeyGenerator _apiKeyGenerator;
-    private readonly PermissionGrantGuard _grantGuard;
+    private readonly ApiKeyScopePolicy _scopePolicy;
     private readonly IPublisher _publisher;
     private readonly ILogger<CreateApiKeyCommandHandler> _logger;
 
     public CreateApiKeyCommandHandler(
         IApiKeyRepository apiKeyRepository,
         IApplicationRepository applicationRepository,
-        IPermissionRepository permissionRepository,
         IApiKeyGenerator apiKeyGenerator,
-        PermissionGrantGuard grantGuard,
+        ApiKeyScopePolicy scopePolicy,
         IPublisher publisher,
         ILogger<CreateApiKeyCommandHandler> logger)
     {
         _apiKeyRepository = apiKeyRepository;
         _applicationRepository = applicationRepository;
-        _permissionRepository = permissionRepository;
         _apiKeyGenerator = apiKeyGenerator;
-        _grantGuard = grantGuard;
+        _scopePolicy = scopePolicy;
         _publisher = publisher;
         _logger = logger;
     }
@@ -52,61 +50,43 @@ public class CreateApiKeyCommandHandler : IRequestHandler<CreateApiKeyCommand, E
             return ApplicationErrors.NotFound(request.ApplicationId);
         }
 
-        // Resolve every requested scope before anything is written, and refuse an id that does not
-        // resolve rather than dropping it: silently skipping a mistyped id used to mint a key with
-        // fewer scopes than the caller asked for, with nothing in the response to say so.
-        var requestedScopes = new Dictionary<Guid, string>();
-        foreach (var permissionId in request.PermissionIds ?? [])
+        var allowedIps = IpAllowList.Create(request.AllowedIps);
+        if (allowedIps.IsError)
         {
-            var permission = await _permissionRepository.GetByIdAsync(permissionId, cancellationToken);
-            if (permission is null)
-            {
-                return PermissionErrors.NotFound(permissionId);
-            }
-
-            requestedScopes[permissionId] = permission.Code.Value;
+            return allowedIps.Errors;
         }
 
-        // No amplification. An API key is a credential in its own right, carried by relying parties
-        // through the SDK, so scoping one past what its creator holds hands out authority that
-        // creator could not have granted directly - and it leaves this system's trust boundary. The
-        // user and role grant paths already ask this question; the key path did not.
-        if (requestedScopes.Count > 0)
+        // At least one scope, each the application's own active permission, and each held by the
+        // creator (OI-128 PR B).
+        var scopes = await _scopePolicy.ResolveAsync(
+            request.ApplicationId, request.PermissionIds ?? [], request.CreatedBy, cancellationToken);
+        if (scopes.IsError)
         {
-            var canGrant = await _grantGuard.EnsureCanGrantAsync(
-                request.CreatedBy, requestedScopes.Values, cancellationToken);
-            if (canGrant.IsError)
-            {
-                _logger.LogWarning(
-                    "Blocked API key creation for application {ApplicationId}: actor {CreatedBy} does not hold every requested scope",
-                    request.ApplicationId, request.CreatedBy);
-                return canGrant.Errors;
-            }
+            _logger.LogWarning(
+                "Blocked API key creation for application {ApplicationId} by {CreatedBy}: {Code}",
+                request.ApplicationId, request.CreatedBy, scopes.FirstError.Code);
+            return scopes.Errors;
         }
 
-        // Generate the API key using Argon2id
-        var (apiKeyValue, keyPrefix, keyHash) = _apiKeyGenerator.Generate(request.Environment);
+        var generated = _apiKeyGenerator.Generate(request.Environment);
 
-        // Create the API key entity
         var apiKey = ApiKey.Create(
             applicationId: request.ApplicationId,
             name: request.Name,
-            keyPrefix: keyPrefix,
-            keyHash: keyHash,
+            keyPrefix: generated.KeyPrefix,
+            keySelector: generated.KeySelector,
+            keyHash: generated.KeyHash,
             createdBy: request.CreatedBy,
             description: request.Description,
             environment: request.Environment,
-            rateLimitPerMinute: request.RateLimitPerMinute,
-            rateLimitPerDay: request.RateLimitPerDay,
+            allowedIps: allowedIps.Value,
             expiresAt: request.ExpiresAt);
 
-        await _apiKeyRepository.CreateAsync(apiKey, cancellationToken);
-
-        foreach (var permissionId in requestedScopes.Keys)
-        {
-            var scope = ApiKeyScope.Create(apiKey.Id, permissionId, request.CreatedBy);
-            await _apiKeyRepository.AddScopeAsync(scope, cancellationToken);
-        }
+        // The key and its scopes in one transaction: a failing scope leaves no key behind.
+        await _apiKeyRepository.CreateAsync(
+            apiKey,
+            scopes.Value.Select(permissionId => ApiKeyScope.Create(apiKey.Id, permissionId, request.CreatedBy)).ToList(),
+            cancellationToken);
 
         _logger.LogInformation(
             "API key created: {ApiKeyId} for application {ApplicationId} by {CreatedBy}",
@@ -119,8 +99,8 @@ public class CreateApiKeyCommandHandler : IRequestHandler<CreateApiKeyCommand, E
         return new CreateApiKeyResponse
         {
             Id = apiKey.Id,
-            ApiKey = apiKeyValue,  // Return the actual key - only time it's visible
-            KeyPrefix = keyPrefix,
+            ApiKey = generated.PlainKey,  // Return the actual key - only time it's visible
+            KeyPrefix = generated.KeyPrefix,
             CreatedAt = apiKey.CreatedAt,
             ExpiresAt = apiKey.ExpiresAt
         };

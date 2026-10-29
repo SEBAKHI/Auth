@@ -230,24 +230,48 @@ describe("nothing routes around the map", () => {
     ).toEqual([])
   })
 
+  /**
+   * Codes the API no longer demands, kept in `PermissionCodes.cs` (and so in
+   * this mirror) until a change of their own removes them: OI-128 PR B moved
+   * key validation onto the application's own machine key, and the console's
+   * validate dialogs went with it. The backend keeps the same list
+   * (PermissionEnforcement.RetiredAwaitingRemoval). It only shrinks.
+   */
+  const RETIRED_AWAITING_REMOVAL = ["apiKeys.validate", "webhookKeys.validate"]
+
+  const gatesNothing = (path: string) =>
+    !GATE_SOURCE_ENTRIES.some(([, source]) =>
+      new RegExp(`PERMISSIONS\\.${path.replace(".", "\\.")}\\b`).test(source)
+    )
+
   it("defines no code that gates nothing", () => {
     // The other direction. A mirrored code no control uses is either a feature
     // that was never wired up or a constant left behind by one that was
     // removed, and both read as deliberate.
     const unused = mirrorPairs()
-      .filter(
-        ([path]) =>
-          !GATE_SOURCE_ENTRIES.some(([, source]) =>
-            new RegExp(`PERMISSIONS\\.${path.replace(".", "\\.")}\\b`).test(
-              source
-            )
-          )
-      )
+      .filter(([path]) => gatesNothing(path))
       .map(([path]) => path)
+      .filter((path) => !RETIRED_AWAITING_REMOVAL.includes(path))
 
     expect(
       unused,
       "these codes are mirrored but gate nothing — wire them up or drop them"
     ).toEqual([])
+  })
+
+  it("keeps its retired codes exact: mirrored, and gating nothing", () => {
+    const mirrored = mirrorPairs().map(([path]) => path)
+
+    expect(RETIRED_AWAITING_REMOVAL.length).toBeGreaterThan(0)
+    for (const path of RETIRED_AWAITING_REMOVAL) {
+      expect(
+        mirrored,
+        `${path} left the mirror: drop it from the list`
+      ).toContain(path)
+      expect(
+        gatesNothing(path),
+        `${path} gates a control again: drop it from the list`
+      ).toBe(true)
+    }
   })
 })

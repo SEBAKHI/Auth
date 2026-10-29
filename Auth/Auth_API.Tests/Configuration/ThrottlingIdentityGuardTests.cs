@@ -76,8 +76,17 @@ public class ThrottlingIdentityGuardTests
             "the subject claim is \"sub\"");
     }
 
+    /// <summary>
+    /// OI-128 PR B, deliberately replacing the test that pinned the old partition on <c>sub</c>:
+    /// that claim was the platform user's, and the user path is gone. The callers are now
+    /// applications with machine tokens, which UseAuthentication (the platform scheme) never
+    /// validates, so a partition read from the principal would see an anonymous one; and keyed on
+    /// a user, forged keys sent to an application by anyone spent the one budget its genuine keys
+    /// needed. The partition is decided before the limiter, per validated client_id and address,
+    /// by the classification step.
+    /// </summary>
     [Fact]
-    public void ApiKeyValidatePolicy_PartitionsOnTheSubjectClaim()
+    public void ApiKeyValidatePolicy_PartitionsPerValidatedApplicationAndAddress_NeverOnAUsersSubject()
     {
         var program = ApiProgram();
 
@@ -87,9 +96,12 @@ public class ThrottlingIdentityGuardTests
         // The partition key is built in the few lines directly after the registration.
         var body = program[policy..Math.Min(program.Length, policy + 600)];
 
-        body.Should().Contain("JwtClaimNames.Subject",
-            "the endpoint is authenticated and the comment above it promises a per-caller budget; " +
-            "an IP partition lets one busy integration throttle every other one behind the same NAT");
+        body.Should().Contain("ApplicationReadClassificationMiddleware.Partition(",
+            "the classification step validates the machine token with the endpoint's own scheme before the limiter");
+        body.Should().NotContain("JwtClaimNames.Subject",
+            "a machine token's subject is never read by the platform scheme; a user's subject is not the caller here");
+        body.Should().NotContain("httpContext.User",
+            "the principal the limiter sees is the platform scheme's, anonymous for a machine token");
     }
 
     [Fact]

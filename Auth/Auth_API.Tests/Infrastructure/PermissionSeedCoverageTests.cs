@@ -60,6 +60,7 @@ public class PermissionSeedCoverageTests
 
         var unenforced = SeededCodes()
             .Where(code => !IsGrantOnly(code))
+            .Where(code => !PermissionEnforcement.RetiredAwaitingRemoval.Contains(code, StringComparer.OrdinalIgnoreCase))
             .Where(code => !enforced.Contains(code, StringComparer.OrdinalIgnoreCase))
             .OrderBy(code => code, StringComparer.Ordinal)
             .ToList();

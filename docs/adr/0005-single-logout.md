@@ -4,6 +4,8 @@
 
 Accepted — 2026-10-19 (OI-155, PR A). Builds on OI-154 (each refresh token records the IdP session it was born from, `RefreshTokens.IdpSessionId`) and [ADR 0004](0004-server-side-sign-out.md) (a server-side application ends the SSO session it holds). No schema change, no contract change. Behind `IdentityProvider:SingleLogoutEnabled`, on by default.
 
+Amended — 2026-10-29 (OI-128, PR B): §3 and the application consequence. Introspection moved onto the application's machine identity and now answers an application about its own tokens, the session blacklist included; see [ADR 0002](0002-machine-clients.md) §7.
+
 Amended — 2026-10-19 (OI-155, PR B1): §7, §8 and §9. One index change (`IX_IdpSessions_TokenHash` loses its filter), no contract change.
 
 Amended — 2026-10-20 (OI-155, PR C): §10, the tree model (owner decision D-155-9, which supersedes D-155-1 (a)). It supersedes §2's third bullet and its "even from a session that went idle" clause, two consequences in Consequences, and moves one alternative to chosen. Behind `IdentityProvider:ApplicationSessionsEndWithSsoSession`, on by default. No schema change, no contract change.
@@ -29,7 +31,7 @@ When the SSO session of a browser is ended on purpose, every session of that per
 
 ### 3. Introspection reads the session blacklist
 
-`POST auth/introspect` answers `active: false` for an access token whose session id is blacklisted, as the platform's own API already rejected it. Independent of the switch: it was a defect on every terminated session. It hardens a platform endpoint for platform callers and does nothing for applications: introspection validates the platform audience only, so an application's access token (its audience is the application's code) is inactive there whether its session lives or not. An application learns of a sign-out at its next refresh.
+Introspection answers `active: false` for an access token whose session id is blacklisted, as the platform's own API already rejected it. Independent of the switch: it was a defect on every terminated session. *Amended 2026-10-29 (OI-128 PR B):* introspection is now `POST app/machine/tokens/introspect`, asked by an application's own server with its machine token, and answers only about that application's tokens; so an application can learn of a sign-out before its access token expires, by asking. Platform tokens are inactive there.
 
 ### 4. Best effort, never cancelled, race-safe
 
@@ -73,7 +75,7 @@ What the person sees: without "Stay signed in", an application's sign-in ends af
 ## Consequences
 
 - **The platform's own apps** (console, accounts) see the sign-out at once: their API reads the session blacklist.
-- **An application** validates its access tokens itself (the SDK does) and learns at its next refresh, which is refused, at most one access-token lifetime later (`Jwt:AccessTokenLifetimeMinutes`, 15 by default). Introspection does not shorten that window (§3); Back-Channel Logout will, for an application that registers an address.
+- **An application** validates its access tokens itself (the SDK does) and learns at its next refresh, which is refused, at most one access-token lifetime later (`Jwt:AccessTokenLifetimeMinutes`, 15 by default). Introspection shortens that window for an application that asks (§3, as amended); Back-Channel Logout will, for an application that registers an address.
 - **A server-side application's sign-out can answer `sso_session_ended: true` where it answered `false` before** (ADR 0004 §4): when the same person signed in again in that browser after their SSO session went idle, the application's chain moved to the new session, so the sign-out ends the browser's current session. The answer is right: that session did end. *With §10's switch on this case no longer arises:* nothing moves from a session that went idle.
 - **Residual risk.**
   - That window, until an application can be notified at the sign-out (Back-Channel Logout, below).

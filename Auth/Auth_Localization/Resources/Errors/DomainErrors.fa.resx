@@ -1007,6 +1007,18 @@
   <data name="ApiKey.Required" xml:space="preserve">
     <value>کلید API الزامی است.</value>
   </data>
+  <data name="ApiKey.ScopesRequired" xml:space="preserve">
+    <value>کلید API باید دست‌کم یک دامنه (scope) داشته باشد.</value>
+  </data>
+  <data name="ApiKey.ScopeNotForApplication" xml:space="preserve">
+    <value>هر دامنهٔ (scope) کلید API باید مجوزی فعال از برنامهٔ خودِ کلید باشد.</value>
+  </data>
+  <data name="ApiKey.AllowedIpInvalid" xml:space="preserve">
+    <value>هر نشانی مجاز باید نشانی IPv4 یا IPv6، یا بازهٔ CIDR با بیت‌های میزبانِ صفر باشد.</value>
+  </data>
+  <data name="ApiKey.AllowedIpsTooMany" xml:space="preserve">
+    <value>یک کلید API حداکثر ۵۰ نشانی مجاز می‌تواند داشته باشد.</value>
+  </data>
   <data name="Application.AccessModeInvalid" xml:space="preserve">
     <value>حالت دسترسی شناخته‌شده نیست.</value>
   </data>

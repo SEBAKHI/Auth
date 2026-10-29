@@ -35,9 +35,15 @@ public interface IApiKeyRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Creates a new API key.
+    /// Creates a new API key and its scopes in one transaction: a failing scope leaves no key.
     /// </summary>
-    Task<ApiKey> CreateAsync(ApiKey apiKey, CancellationToken cancellationToken);
+    Task<ApiKey> CreateAsync(ApiKey apiKey, IReadOnlyCollection<ApiKeyScope> scopes, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Stores a rotation in one transaction (OI-128 PR B): <paramref name="replacement"/> and its
+    /// <paramref name="scopes"/>, and the new expiry of <paramref name="replaced"/>.
+    /// </summary>
+    Task RotateAsync(ApiKey replaced, ApiKey replacement, IReadOnlyCollection<ApiKeyScope> scopes, CancellationToken cancellationToken);
 
     /// <summary>
     /// Updates an API key.
@@ -50,11 +56,6 @@ public interface IApiKeyRepository
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Adds a scope to an API key.
-    /// </summary>
-    Task AddScopeAsync(ApiKeyScope scope, CancellationToken cancellationToken);
-
-    /// <summary>
     /// Removes a scope from an API key.
     /// </summary>
     Task RemoveScopeAsync(Guid apiKeyId, Guid permissionId, CancellationToken cancellationToken);
@@ -63,6 +64,12 @@ public interface IApiKeyRepository
     /// Gets the permission codes for an API key.
     /// </summary>
     Task<IReadOnlyList<string>> GetScopesAsync(Guid apiKeyId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the ids of every permission an API key was granted, active or not: what a rotation
+    /// copies, after checking each again.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> GetScopePermissionIdsAsync(Guid apiKeyId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets the permission codes for many API keys in one round trip. Keys with no
@@ -82,7 +89,8 @@ public interface IApiKeyRepository
     Task RecordUsageAsync(Guid apiKeyId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets all active (not revoked, not expired) API keys matching the given prefix.
+    /// Gets the active (not revoked, not expired) API key that carries <paramref name="selector"/>,
+    /// when its application is alive (active, not deleted); otherwise null.
     /// </summary>
-    Task<IReadOnlyList<ApiKey>> GetActiveByPrefixAsync(string prefix, CancellationToken cancellationToken);
+    Task<ApiKey?> GetActiveBySelectorAsync(string selector, CancellationToken cancellationToken);
 }

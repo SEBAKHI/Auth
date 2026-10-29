@@ -1009,6 +1009,18 @@
   <data name="ApiKey.Required" xml:space="preserve">
     <value>API key is required.</value>
   </data>
+  <data name="ApiKey.ScopesRequired" xml:space="preserve">
+    <value>An API key must carry at least one scope.</value>
+  </data>
+  <data name="ApiKey.ScopeNotForApplication" xml:space="preserve">
+    <value>Every scope of an API key must be an active permission of the key's own application.</value>
+  </data>
+  <data name="ApiKey.AllowedIpInvalid" xml:space="preserve">
+    <value>Each allowed address must be an IPv4 or IPv6 address, or a CIDR range whose host bits are zero.</value>
+  </data>
+  <data name="ApiKey.AllowedIpsTooMany" xml:space="preserve">
+    <value>An API key may carry at most 50 allowed addresses.</value>
+  </data>
   <data name="Application.AccessModeInvalid" xml:space="preserve">
     <value>The access mode is not recognized.</value>
   </data>

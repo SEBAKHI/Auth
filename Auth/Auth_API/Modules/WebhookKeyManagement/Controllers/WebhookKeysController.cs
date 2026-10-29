@@ -7,7 +7,6 @@ using Auth.Application.Features.WebhookKeys.CreateWebhookKey;
 using Auth.Application.Features.WebhookKeys.GetWebhookKeys;
 using Auth.Application.Features.WebhookKeys.RevokeWebhookKey;
 using Auth.Application.Features.WebhookKeys.RotateWebhookKey;
-using Auth.Application.Features.WebhookKeys.ValidateWebhookKey;
 using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using MediatR;
@@ -84,27 +83,11 @@ public class WebhookKeysController : ApiController
 
         var result = await _sender.Send(command, cancellationToken);
 
+        // The answer holds the plain key: no cache may keep it (OI-128 PR B, OI-129).
+        Response.Headers.CacheControl = "no-store";
+
         return result.Match(
             webhookKey => CreatedAtAction(nameof(GetWebhookKeys), new { applicationId = request.ApplicationId }, webhookKey),
-            errors => Problem(errors));
-    }
-
-    /// <summary>
-    /// Validate a webhook key and return its metadata.
-    /// </summary>
-    [HttpPost("validate")]
-    [RequirePermission(PermissionCodes.WebhookKeys.Validate)]
-    [ProducesResponseType(typeof(ValidateWebhookKeyResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> ValidateWebhookKey([FromBody] ValidateWebhookKeyRequest request, CancellationToken cancellationToken)
-    {
-        var query = new ValidateWebhookKeyQuery(request.WebhookKey);
-        var result = await _sender.Send(query, cancellationToken);
-
-        return result.Match(
-            response => Ok(response),
             errors => Problem(errors));
     }
 
@@ -152,6 +135,9 @@ public class WebhookKeysController : ApiController
             userId);
 
         var result = await _sender.Send(command, cancellationToken);
+
+        // The answer holds the new plain key: no cache may keep it (OI-128 PR B, OI-129).
+        Response.Headers.CacheControl = "no-store";
 
         return result.Match(
             response => Ok(response),

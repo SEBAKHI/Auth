@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using Auth.Sdk.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -42,8 +43,16 @@ public class WebhookKeyAuthenticationHandler : AuthenticationHandler<WebhookKeyA
             Logger.LogWarning("Webhook key transmitted over non-HTTPS connection. This is a security risk.");
         }
 
-        var result = await _authSystemClient.ValidateWebhookKeyAsync(webhookKey, Context.RequestAborted);
-        if (result is null || !result.Active)
+        var check = await _authSystemClient.ValidateWebhookKeyAsync(webhookKey, Context.RequestAborted);
+        if (check.Status == CredentialCheckStatus.Unavailable)
+        {
+            // SDK 2.0: could not be checked is not invalid: 503 with Retry-After.
+            UnavailableAnswer.Arrange(Context, check.RetryAfter ?? AuthSystemClient.DefaultRetryAfter);
+            return AuthenticateResult.Fail("The webhook key could not be checked; try again later.");
+        }
+
+        var result = check.Result;
+        if (check.Status != CredentialCheckStatus.Valid || result is null)
         {
             return AuthenticateResult.Fail("Invalid webhook key.");
         }

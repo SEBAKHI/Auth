@@ -283,8 +283,6 @@ export const ar: TranslationResources = {
     publishedAt: "تاريخ النشر",
     publishedVersionNumber: "الإصدار المنشور",
     purpose: "الغرض",
-    rateLimitPerDay: "حد المعدل / يوم",
-    rateLimitPerMinute: "حد المعدل / دقيقة",
     reauthenticationMaxAgeMinutes: "الحد الأقصى لعمر إعادة المصادقة (بالدقائق)",
     recipient: "المستلم",
     recipientName: "اسم المستلم",
@@ -1108,7 +1106,6 @@ export const ar: TranslationResources = {
     title: "مفاتيح API",
     subtitle: "إصدار وإدارة مفاتيح API للتطبيقات.",
     newKey: "مفتاح API جديد",
-    keyLabel: "مفتاح API",
     namePlaceholder: "خدمة الفواتير",
     descriptionPlaceholder: "أين يُستخدم هذا المفتاح",
     createTitle: "إنشاء مفتاح API",
@@ -1116,16 +1113,17 @@ export const ar: TranslationResources = {
     environment: "البيئة",
     environmentHint:
       "البيئة التي ينتمي إليها هذا المفتاح، ليسهل التمييز بين المفاتيح.",
-    rateLimitPerMinute: "حد المعدل / دقيقة",
-    rateLimitPerDay: "حد المعدل / يوم",
-    rateLimitPerMinuteHint:
-      "عدد الطلبات المسموح بها لهذا المفتاح في الدقيقة الواحدة. قيمة إرشادية: يُخزَّن الرقم ويُسلَّم إلى الخدمة التي تتحقق من المفتاح — ولا شيء هنا يعدّ الطلبات أو يرفضها.",
-    rateLimitPerDayHint:
-      "عدد الطلبات المسموح بها لهذا المفتاح في اليوم. إرشادية كسابقتها: تفرضها الخدمة التي تتحقق من المفتاح، لا هذا النظام.",
     scopes: "النطاقات",
+    scopesHint:
+      "ما يجوز للمفتاح فعله: صلاحياتُ التطبيق نفسه التي تملكها أنت. يقرؤها التطبيق حين يتحقّق من المفتاح.",
+    scopesRequired: "اختر نطاقًا واحدًا على الأقل.",
+    noGrantableScopes:
+      "لا صلاحية فعّالة في هذا التطبيق يجوز لك منحها. أضف صلاحياتٍ إلى التطبيق أولًا، أو اطلب ذلك من مسؤولٍ يملكها.",
+    allowedIps: "العناوين المسموحة",
+    allowedIpsHint:
+      "اختياري. عنوان IPv4 أو IPv6 أو نطاق CIDR في كل سطر؛ ويرفض التطبيقُ المفتاحَ من أي عنوانٍ آخر. اتركه فارغًا للسماح بأي عنوان.",
     revoke: "إلغاء",
     rotate: "تدوير",
-    validate: "تحقق",
     revokeReason: "السبب",
     revokeReasonPlaceholder: "تسرّب في مستودع عام",
     revokeTitle: "إلغاء مفتاح API",
@@ -1138,8 +1136,6 @@ export const ar: TranslationResources = {
     secretOnceTitle: "انسخ مفتاح API الآن",
     secretOnceBody:
       "هذه هي المرة الوحيدة التي يظهر فيها المفتاح كاملاً. خزّنه بأمان.",
-    validateTitle: "التحقق من مفتاح API",
-    validatePlaceholder: "الصق مفتاح API للتحقق منه…",
     expiringSoon: "توشك على الانتهاء",
     expired: "منتهية الصلاحية",
     expiresLater: "تنتهي لاحقًا",
@@ -1279,7 +1275,6 @@ export const ar: TranslationResources = {
     title: "مفاتيح Webhook",
     subtitle: "إدارة مفاتيح توقيع الـ webhooks الصادرة.",
     newKey: "مفتاح Webhook جديد",
-    keyLabel: "مفتاح Webhook",
     namePlaceholder: "أحداث الطلبات",
     descriptionPlaceholder: "أين يُستخدم هذا المفتاح",
     createTitle: "إنشاء مفتاح Webhook",
@@ -1290,8 +1285,6 @@ export const ar: TranslationResources = {
       "البيئة التي ينتمي إليها هذا المفتاح، ليسهل التمييز بين المفاتيح.",
     revoke: "إلغاء",
     rotate: "تدوير",
-    validate: "تحقق",
-    validatePlaceholder: "الصق مفتاح webhook للتحقق منه…",
     expiringSoon: "توشك على الانتهاء",
     expired: "منتهية الصلاحية",
     expiresLater: "تنتهي لاحقًا",
@@ -1429,6 +1422,7 @@ export const ar: TranslationResources = {
       organizationProvisionedForApplication: "إعداد مؤسسة من تطبيق",
       apikeyCreated: "إنشاء مفتاح API",
       apikeyRevoked: "إبطال مفتاح API",
+      apikeyRotated: "تدوير مفتاح API",
       machinekeyCreated: "إنشاء مفتاح تطبيق",
       machinekeyRevoked: "إبطال مفتاح تطبيق",
       machineaccessOrganizationsReadAllAllowed:
@@ -2386,10 +2380,10 @@ export const ar: TranslationResources = {
       passwordResetWindowSeconds: "نافذة عدّ إعادة التعيين (ثوانٍ)",
       passwordResetWindowSecondsHint:
         "المدة التي يُحسب خلالها العدد أعلاه، بآلية النافذة الثابتة نفسها.",
-      apiKeyValidatePermitLimit: "عمليات التحقق من مفاتيح API لكل نافذة",
+      apiKeyValidatePermitLimit: "فحوص المفاتيح والرموز في النافذة",
       apiKeyValidatePermitLimitHint:
-        "كم مرة يجوز لعنوان IP واحد أن يطلب من هذه الواجهة فحص مفتاح API قبل أن يُرفض برمز 429. هذا الحدّ يحمي الجهد لا السرّ: كل عملية تحقق تُجزّئ المفتاح المقدَّم بخوارزمية Argon2id البطيئة عمداً والنهمة للذاكرة، فمتصلٌ بلا سقف يستنزف معالج الخادم وذاكرته دون أن يملك مفتاحاً صحيحاً أصلاً. اضبطه فوق ما يحتاجه التكامل المشروع، ولا تزد.",
-      apiKeyValidateWindowSeconds: "نافذة عدّ التحقق من مفاتيح API (بالثواني)",
+        "كم فحصًا لمفاتيح API ومفاتيح webhook والرموز يجوز لخادم تطبيقٍ واحد أن يطلبه من عنوانٍ واحد في النافذة قبل أن يُرفض برمز 429؛ والمتصل الذي لا يصحّ رمز الآلة (machine token) عنده يُعَدّ على حصّة عنوانه الخاصّة بالحجم نفسه. هذا الحدّ يحمي الجهد لا السرّ: فحص مفتاح API يُجري تجزئة Argon2id واحدة، البطيئة عمدًا والنهمة للذاكرة. اضبطه فوق ما تحتاجه حركة تطبيقٍ واحد، ولا تزد.",
+      apiKeyValidateWindowSeconds: "نافذة عدّ فحوص المفاتيح والرموز (بالثواني)",
       apiKeyValidateWindowSecondsHint:
         "المدة التي يُقاس عليها العدّ أعلاه. النافذة ثابتة لا منزلقة: يعود العدّاد إلى الصفر عند انتهائها، والمتصل الذي استنفد حصّته ينتظر حتى ذلك الحين.",
       imageUploadConcurrencyLimit: "عمليات الرفع الجارية معًا",

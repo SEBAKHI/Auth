@@ -21,7 +21,6 @@ using Auth.Application.Features.Authentication.ForgotPassword;
 using Auth.Application.Features.Authentication.GetKnownDevices;
 using Auth.Application.Features.Authentication.GetLoginHistory;
 using Auth.Application.Features.Authentication.GetOidcUserInfo;
-using Auth.Application.Features.Authentication.IntrospectToken;
 using Auth.Application.Features.Authentication.Login;
 using Auth.Application.Features.Authentication.Logout;
 using Auth.Application.Features.Authentication.LogoutWithIdpSessionCookie;
@@ -1393,30 +1392,6 @@ public class AuthController : ApiController
 
         return result.Match<IActionResult>(
             _ => Ok(),
-            errors => Problem(errors));
-    }
-
-    /// <summary>
-    /// Introspects a token and returns its metadata (RFC 7662).
-    /// </summary>
-    /// <param name="request">The token to introspect.</param>
-    /// <returns>Token metadata including active status</returns>
-    [HttpPost("introspect")]
-    [Authorize]
-    // The media type RFC 7662 mandates; see the note on revoke above.
-    [Consumes("application/x-www-form-urlencoded")]
-    [ProducesResponseType(typeof(IntrospectTokenResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> IntrospectToken([FromForm] IntrospectTokenRequest request, CancellationToken cancellationToken)
-    {
-        var query = new IntrospectTokenQuery(
-            request.Token,
-            request.ParsedTokenTypeHint);
-
-        var result = await _sender.Send(query, cancellationToken);
-
-        return result.Match<IActionResult>(
-            response => Ok(response),
             errors => Problem(errors));
     }
 

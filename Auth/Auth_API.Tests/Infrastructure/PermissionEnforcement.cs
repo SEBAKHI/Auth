@@ -85,6 +85,20 @@ internal static class PermissionEnforcement
                 ?.GetField(match.Groups["member"].Value, BindingFlags.Public | BindingFlags.Static)
                 ?.GetRawConstantValue() as string;
 
+    /// <summary>
+    /// Codes no endpoint demands any more, kept in the catalogue, the seed and the console's
+    /// mirror on purpose until a change of their own removes them (OI-128 PR B: key validation
+    /// moved onto the application's machine identity, and the platform user who held these is no
+    /// longer asked). Each is a promise the system no longer keeps, so the list only shrinks:
+    /// <see cref="PermissionCatalogueCoverageTests"/> fails when one is demanded again or leaves
+    /// the catalogue, and the entry then goes.
+    /// </summary>
+    internal static readonly IReadOnlyList<string> RetiredAwaitingRemoval =
+    [
+        PermissionCodes.ApiKeys.Validate,
+        PermissionCodes.WebhookKeys.Validate,
+    ];
+
     /// <summary>Every code the API demands, by either surface.</summary>
     internal static IReadOnlyCollection<string> All() =>
         FromAttributes()

@@ -108,6 +108,43 @@ public class GatewayRouteCoverageTests
             $"{path} must be forwarded by the gateway");
     }
 
+    /// <summary>
+    /// The three machine credential checks (OI-128 PR B), by their action routes: forwarded by the
+    /// existing <c>app-route</c> and its per-address <c>app-read</c> policy, so no deployment edits
+    /// its gateway routes, and never by the sign-in bucket or the shared <c>api</c> bucket.
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(Auth_API.Modules.MachineCredentialChecks.Controllers.MachineCredentialChecksController.ValidateApiKey), "/api/v1/app/machine/apikeys/validate")]
+    [InlineData(nameof(Auth_API.Modules.MachineCredentialChecks.Controllers.MachineCredentialChecksController.ValidateWebhookKey), "/api/v1/app/machine/webhookkeys/validate")]
+    [InlineData(nameof(Auth_API.Modules.MachineCredentialChecks.Controllers.MachineCredentialChecksController.IntrospectToken), "/api/v1/app/machine/tokens/introspect")]
+    public void TheMachineCredentialChecks_AreForwardedByTheApplicationRoute(string action, string expectedPath)
+    {
+        var controller = typeof(Auth_API.Modules.MachineCredentialChecks.Controllers.MachineCredentialChecksController);
+        var controllerRoute = controller.GetCustomAttributes(typeof(RouteAttribute), inherit: true)
+            .Cast<RouteAttribute>().Single().Template;
+        var actionRoute = controller.GetMethod(action)!
+            .GetCustomAttributes(typeof(Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute), inherit: true)
+            .Cast<Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute>().Single().Template;
+        var path = NormalizeControllerRoute(controllerRoute, controller.Name) + "/" + actionRoute;
+
+        path.Should().Be(expectedPath);
+
+        using var gatewaySettings = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(SolutionDirectory(), "API_Gateway", "appsettings.json")));
+        var routes = gatewaySettings.RootElement.GetProperty("ReverseProxy").GetProperty("Routes");
+        var matching = routes.EnumerateObject()
+            .Where(route => path.StartsWith(
+                route.Value.GetProperty("Match").GetProperty("Path").GetString()!
+                    .Replace("{**catch-all}", string.Empty, StringComparison.OrdinalIgnoreCase)
+                    .Replace("{version:int}", "1", StringComparison.OrdinalIgnoreCase),
+                StringComparison.OrdinalIgnoreCase))
+            .Select(route => route.Name)
+            .ToList();
+
+        matching.Should().Equal(["app-route"], "one route forwards the check, and it is the application route");
+        routes.GetProperty("app-route").GetProperty("RateLimiterPolicy").GetString().Should().Be("app-read");
+    }
+
     [Fact]
     public void ImageStorageRequestPath_IsCoveredByAGatewayRoute()
     {

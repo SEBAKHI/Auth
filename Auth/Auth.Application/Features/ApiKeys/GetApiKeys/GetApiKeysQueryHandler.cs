@@ -61,8 +61,6 @@ public class GetApiKeysQueryHandler : IRequestHandler<GetApiKeysQuery, ErrorOr<I
                 Description = apiKey.Description,
                 KeyPrefix = apiKey.KeyPrefix,
                 Environment = apiKey.Environment,
-                RateLimitPerMinute = apiKey.RateLimitPerMinute,
-                RateLimitPerDay = apiKey.RateLimitPerDay,
                 CreatedAt = apiKey.CreatedAt,
                 CreatedBy = apiKey.CreatedBy,
                 CreatedByName = userNames.GetValueOrDefault(apiKey.CreatedBy),

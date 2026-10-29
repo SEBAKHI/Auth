@@ -19,6 +19,8 @@ namespace Auth_API.Tests.WebhookKeyManagement;
 /// </summary>
 public class WebhookKeyHashUpgradedEventHandlerTests
 {
+    private const string Code = "CRM-WEB";
+
     private static readonly Guid KeyId = Guid.NewGuid();
 
     [Fact]
@@ -94,7 +96,7 @@ public class WebhookKeyHashUpgradedEventHandlerTests
     {
         var (handler, publisher) = ValidateHandler(storedHash: "legacy-form");
 
-        var result = await handler.Handle(new ValidateWebhookKeyQuery("wk_prod_raw"), CancellationToken.None);
+        var result = await handler.Handle(new ValidateWebhookKeyQuery(new Auth.Application.Features.MachineCredentialChecks.MachineCredentialCaller(Code, Auth.Domain.Constants.MachineClients.Scopes.WebhookKeysValidate), "wk_prod_raw"), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         publisher.Verify(
@@ -109,7 +111,7 @@ public class WebhookKeyHashUpgradedEventHandlerTests
     {
         var (handler, publisher) = ValidateHandler(storedHash: "issuing-form");
 
-        var result = await handler.Handle(new ValidateWebhookKeyQuery("wk_prod_raw"), CancellationToken.None);
+        var result = await handler.Handle(new ValidateWebhookKeyQuery(new Auth.Application.Features.MachineCredentialChecks.MachineCredentialCaller(Code, Auth.Domain.Constants.MachineClients.Scopes.WebhookKeysValidate), "wk_prod_raw"), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         publisher.Verify(p => p.Publish(It.IsAny<WebhookKeyHashUpgradedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -122,14 +124,18 @@ public class WebhookKeyHashUpgradedEventHandlerTests
     private static (ValidateWebhookKeyQueryHandler Handler, Mock<IPublisher> Publisher) ValidateHandler(string storedHash)
     {
         var hasher = new FakeCredentialHasher().Map("wk_prod_raw", "issuing-form");
+        var application = TestHelpers.CreateApplication(code: Code);
+        var applications = new Mock<IApplicationRepository>();
+        applications.Setup(r => r.GetByCodeAsync(Code, It.IsAny<CancellationToken>())).ReturnsAsync(application);
         var repository = new Mock<IWebhookKeyRepository>();
         repository
             .Setup(r => r.GetByHashAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestHelpers.CreateWebhookKey(keyHash: storedHash));
+            .ReturnsAsync(TestHelpers.CreateWebhookKey(applicationId: application.Id, keyHash: storedHash));
         var publisher = new Mock<IPublisher>();
 
         return (new ValidateWebhookKeyQueryHandler(
             repository.Object,
+            applications.Object,
             hasher,
             publisher.Object,
             new Mock<ILogger<ValidateWebhookKeyQueryHandler>>().Object), publisher);

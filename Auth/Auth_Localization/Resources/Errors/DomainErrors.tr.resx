@@ -1007,6 +1007,18 @@
   <data name="ApiKey.Required" xml:space="preserve">
     <value>API anahtarı gereklidir.</value>
   </data>
+  <data name="ApiKey.ScopesRequired" xml:space="preserve">
+    <value>Bir API anahtarı en az bir kapsam (scope) taşımalıdır.</value>
+  </data>
+  <data name="ApiKey.ScopeNotForApplication" xml:space="preserve">
+    <value>Bir API anahtarının her kapsamı (scope), anahtarın kendi uygulamasının etkin bir izni olmalıdır.</value>
+  </data>
+  <data name="ApiKey.AllowedIpInvalid" xml:space="preserve">
+    <value>İzin verilen her adres bir IPv4 veya IPv6 adresi ya da ana bilgisayar bitleri sıfır olan bir CIDR aralığı olmalıdır.</value>
+  </data>
+  <data name="ApiKey.AllowedIpsTooMany" xml:space="preserve">
+    <value>Bir API anahtarı en fazla 50 izinli adres taşıyabilir.</value>
+  </data>
   <data name="Application.AccessModeInvalid" xml:space="preserve">
     <value>Erişim modu tanınmıyor.</value>
   </data>

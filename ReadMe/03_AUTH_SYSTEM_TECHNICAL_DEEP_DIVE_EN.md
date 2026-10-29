@@ -856,7 +856,7 @@ renews all of its users' tokens from one address, and nothing at any of them can
 a budget of their own apart from the sign-in one.
 
 **Not rate-limited at the API layer at all:** `POST /auth/refresh`,
-`GET /auth/authorize`, `POST /auth/introspect`, and the two-factor setup, enable and disable endpoints —
+`GET /auth/authorize`, and the two-factor setup, enable and disable endpoints —
 except the ones that email a code: `email-code`, `email/enable` and `email/disable` take the
 `two-factor-email-code` policy.
 
@@ -2235,7 +2235,7 @@ row below was verified in source. **None of these is a feature.**
 
 | Item | Reality |
 |---|---|
-| `ApiKeys.RateLimitPerMinute`, `.RateLimitPerDay` | Stored, validated, returned by the validation endpoint, sortable — **no limiter in this repository reads them.** Whether a downstream consumer enforces them is outside this tree |
+| `ApiKeys.RateLimitPerMinute`, `.RateLimitPerDay` | Columns only since OI-128 PR B: no longer accepted, returned or read (still sortable). Per-key throttling belongs to the application that receives the key |
 
 ### Dead SQL and dead schema flags
 

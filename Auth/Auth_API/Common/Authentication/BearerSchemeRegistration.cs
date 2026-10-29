@@ -36,6 +36,11 @@ public static class BearerSchemeRegistration
             AccessTokenValidation.Platform(settings, signingKey),
             AccessTokenValidation.UserInfo(settings, signingKey)));
 
+        // Introspection's test of "an access token issued to one application" (OI-128 PR B): the
+        // userinfo scheme's profile, from the same arguments.
+        services.AddSingleton<IApplicationAccessTokenValidator>(new ApplicationAccessTokenValidator(
+            AccessTokenValidation.UserInfo(settings, signingKey)));
+
         return services
             .AddAuthentication(options =>
             {

@@ -1007,6 +1007,18 @@
   <data name="ApiKey.Required" xml:space="preserve">
     <value>API کلید لازمی ہے۔</value>
   </data>
+  <data name="ApiKey.ScopesRequired" xml:space="preserve">
+    <value>API کلید کے ساتھ کم از کم ایک دائرۂ کار (scope) ہونا ضروری ہے۔</value>
+  </data>
+  <data name="ApiKey.ScopeNotForApplication" xml:space="preserve">
+    <value>API کلید کا ہر دائرۂ کار (scope) اسی کلید کی ایپلیکیشن کی ایک فعال اجازت ہونا چاہیے۔</value>
+  </data>
+  <data name="ApiKey.AllowedIpInvalid" xml:space="preserve">
+    <value>ہر اجازت یافتہ پتہ IPv4 یا IPv6 پتہ، یا ایسی CIDR رینج ہونا چاہیے جس کے ہوسٹ بِٹس صفر ہوں۔</value>
+  </data>
+  <data name="ApiKey.AllowedIpsTooMany" xml:space="preserve">
+    <value>ایک API کلید زیادہ سے زیادہ 50 اجازت یافتہ پتے رکھ سکتی ہے۔</value>
+  </data>
   <data name="Application.AccessModeInvalid" xml:space="preserve">
     <value>رسائی کا موڈ پہچانا نہیں گیا۔</value>
   </data>

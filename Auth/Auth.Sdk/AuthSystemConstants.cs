@@ -46,8 +46,24 @@ public static class AuthSystemConstants
     /// </summary>
     public const string MachineHttpClientName = "AuthSystem.Machine";
 
+    /// <summary>
+    /// Named HTTP client for the credential checks (SDK 2.0): API key and webhook key validation
+    /// and token introspection. It carries the gateway token, and each request the machine access
+    /// token; never a user's token from the token store.
+    /// </summary>
+    public const string MachineApiHttpClientName = "AuthSystem.MachineApi";
+
     /// <summary>The token endpoint, relative to <see cref="AuthSystemOptions.BaseUrl"/>.</summary>
     public const string TokenEndpointPath = "/api/v1/auth/token";
+
+    /// <summary>API key validation, asked by this application with its machine token.</summary>
+    public const string ApiKeyValidationPath = "/api/v1/app/machine/apikeys/validate";
+
+    /// <summary>Webhook key validation, asked by this application with its machine token.</summary>
+    public const string WebhookKeyValidationPath = "/api/v1/app/machine/webhookkeys/validate";
+
+    /// <summary>Token introspection (RFC 7662), asked by this application with its machine token.</summary>
+    public const string TokenIntrospectionPath = "/api/v1/app/machine/tokens/introspect";
 
     /// <summary>
     /// The audience of every machine token the server issues, whichever application asked for it.

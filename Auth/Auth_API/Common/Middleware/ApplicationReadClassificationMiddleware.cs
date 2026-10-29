@@ -9,11 +9,12 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace Auth_API.Common.Middleware;
 
 /// <summary>
-/// Decides, before the rate limiter, which budget an application-directory request counts in
-/// (OI-194): its application's at its address, when it carries an application access token that
-/// validates; its address's otherwise. Runs only on endpoints that opt into the
-/// <see cref="PolicyName"/> policy. On those endpoints it also marks every answer
-/// <c>Cache-Control: no-store</c>.
+/// Decides, before the rate limiter, which budget an application's request counts in: its
+/// application's at its address, when it carries a token of that application that validates; its
+/// address's otherwise. Runs only on endpoints that opt into one of the two policies it
+/// classifies: the application directory's <see cref="PolicyName"/> (OI-194, OI-202), and the
+/// machine credential checks' <see cref="CredentialCheckPolicyName"/> (OI-128 PR B). On those
+/// endpoints it also marks every answer <c>Cache-Control: no-store</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -44,8 +45,18 @@ namespace Auth_API.Common.Middleware;
 /// </remarks>
 public sealed class ApplicationReadClassificationMiddleware
 {
-    /// <summary>The rate-limit policy this step classifies for; Program.cs registers it under this name.</summary>
+    /// <summary>The application directory's rate-limit policy; Program.cs registers it under this name.</summary>
     public const string PolicyName = "app-read";
+
+    /// <summary>
+    /// The machine credential checks' rate-limit policy (OI-128 PR B): API key and webhook key
+    /// validation and token introspection, counted per application and address. Program.cs
+    /// registers it under this name.
+    /// </summary>
+    public const string CredentialCheckPolicyName = "apikey-validate";
+
+    /// <summary>The closed set of policies this step classifies for; no other path is authenticated by it.</summary>
+    private static readonly string[] ClassifiedPolicies = [PolicyName, CredentialCheckPolicyName];
 
     private const string ItemKey = "Auth_API.ApplicationReadCaller";
 
@@ -59,12 +70,14 @@ public sealed class ApplicationReadClassificationMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         var endpoint = context.GetEndpoint();
-        if (endpoint?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName == PolicyName)
+        var policy = endpoint?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName;
+        if (endpoint is not null && policy is not null && ClassifiedPolicies.Contains(policy, StringComparer.Ordinal))
         {
-            // Every answer of the directory's endpoints is personal data or a refusal of it, so
-            // none is stored by a cache: the 200, every problem, the limiter's 429, and the 401s
-            // written by the challenge, by the blacklist and by the action alike. Set here, the one
-            // step all of them pass, so the action's own 401 and the blacklist's stay identical.
+            // Every answer of these endpoints is personal data, a credential's metadata, or a
+            // refusal of either, so none is stored by a cache: the 200, every problem, the
+            // limiter's 429, and the 401s written by the challenge, by the blacklist and by the
+            // action alike. Set here, the one step all of them pass, so the action's own 401 and
+            // the blacklist's stay identical.
             var response = context.Response;
             response.OnStarting(() =>
             {
@@ -72,10 +85,12 @@ public sealed class ApplicationReadClassificationMiddleware
                 return Task.CompletedTask;
             });
 
+            // A credential check names its profile on each action (each requires its own scope);
+            // one that names none counts per address, never on a user read's profile.
             var profile = endpoint.Metadata.GetMetadata<IApplicationReadProfileMetadata>()?.Profile
-                ?? ApplicationReadProfile.UserThroughApplication;
-            var application = await ValidatedApplicationAsync(context, endpoint, profile);
-            if (application is not null)
+                ?? (policy == PolicyName ? ApplicationReadProfile.UserThroughApplication : null);
+            var application = profile is null ? null : await ValidatedApplicationAsync(context, endpoint, profile);
+            if (profile is not null && application is not null)
             {
                 context.Items[ItemKey] = new ApplicationReadBudget(profile.PartitionTag, application);
             }
@@ -105,7 +120,7 @@ public sealed class ApplicationReadClassificationMiddleware
             // reaches here, and the issuer mints client_id from an application code, which the
             // code rule keeps free of "|". So no pair of application and address can spell
             // another pair's key, and a machine read ("mach") never shares a user read's ("app")
-            // partition.
+            // partition, nor a credential check ("mchk") either.
             ? RateLimitPartition.GetFixedWindowLimiter(
                 $"v{settingsVersion}|{budget.Tag}|{budget.Application}|{address}", _ => perApplication().Options())
             : RateLimitPartition.GetFixedWindowLimiter($"v{settingsVersion}:{address}", _ => perAddress().Options());
@@ -164,6 +179,14 @@ public sealed record ApplicationReadProfile(string ApplicationClaim, string Requ
     /// </summary>
     public static readonly ApplicationReadProfile Machine =
         new(JwtClaimNames.ClientId, MachineClients.Scopes.OrganizationsReadAll, "mach");
+
+    /// <summary>
+    /// A machine access token checking a credential (OI-128 PR B): <c>client_id</c> names the
+    /// application, as for <see cref="Machine"/>, and the scope is the check's own. One tag for the
+    /// three checks: they share one budget per application and address.
+    /// </summary>
+    public static ApplicationReadProfile MachineCredentialCheck(string requiredScope) =>
+        new(JwtClaimNames.ClientId, requiredScope, "mchk");
 }
 
 /// <summary>Endpoint metadata naming the <see cref="ApplicationReadProfile"/> its tokens are read by.</summary>
@@ -181,4 +204,21 @@ public sealed class MachineApplicationReadAttribute : Attribute, IApplicationRea
 {
     /// <inheritdoc />
     public ApplicationReadProfile Profile => ApplicationReadProfile.Machine;
+}
+
+/// <summary>
+/// Marks a machine credential check (OI-128 PR B): its budget is read by
+/// <see cref="ApplicationReadProfile.MachineCredentialCheck"/> with the scope the action requires,
+/// so only a machine token that carries that scope counts on its application's budget.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
+public sealed class MachineCredentialCheckAttribute : Attribute, IApplicationReadProfileMetadata
+{
+    public MachineCredentialCheckAttribute(string requiredScope)
+    {
+        Profile = ApplicationReadProfile.MachineCredentialCheck(requiredScope);
+    }
+
+    /// <inheritdoc />
+    public ApplicationReadProfile Profile { get; }
 }

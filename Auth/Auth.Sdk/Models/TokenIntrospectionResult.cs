@@ -13,6 +13,13 @@ public class TokenIntrospectionResult
     [JsonPropertyName("token_type")]
     public string? TokenType { get; set; }
 
+    [JsonPropertyName("scope")]
+    public string? Scope { get; set; }
+
+    /// <summary>The application the token was issued to: always this one when <see cref="Active"/>.</summary>
+    [JsonPropertyName("client_id")]
+    public string? ClientId { get; set; }
+
     [JsonPropertyName("sub")]
     public string? Sub { get; set; }
 

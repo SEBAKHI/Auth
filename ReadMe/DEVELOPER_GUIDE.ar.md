@@ -2299,7 +2299,6 @@ Retry-After: 43
 | ‏مصادَق عليه | ‏ترديد مطالبات رمز المنادي. لا يقرأ أي صف من قاعدة البيانات | ‏`/api/v1/Auth/me` | ‏GET |
 | ‏رمز وصول تطبيقٍ وحده | ‏نقطة UserInfo في OpenID Connect، للتطبيقات: ملف المستخدم الشخصي، يُقرأ عند النداء ويُقصَر على نطاقات الرمز | ‏`/api/v1/Auth/userinfo` | ‏GET، POST |
 | ‏مجهول · `token` | ‏إبطال رمز (RFC 7009). مجهولة بالتصميم: فالرمز هو بيان الاعتماد | ‏`/api/v1/Auth/revoke` | ‏POST |
-| ‏مصادَق عليه | ‏السؤال عن صلاحية رمز وما يحمله (RFC 7662) | ‏`/api/v1/Auth/introspect` | ‏POST |
 | ‏مصادَق عليه · `login` | ‏إرسال رمز تحقق جديد بالبريد إلى المنادي المسجَّل دخوله | ‏`/api/v1/Auth/send-verification-email` | ‏POST |
 | ‏مجهول · `login` | ‏تأكيد عنوان بريد بالرمز. لها سلوكان — راجع القسم [5.2](#52-المصادقة) | ‏`/api/v1/Auth/verify-email` | ‏POST |
 | ‏مجهول · `login` | ‏إعادة إرسال رمز التحقق إلى عنوان، دون حاجة إلى تسجيل دخول | ‏`/api/v1/Auth/resend-verification-email` | ‏POST |
@@ -2455,22 +2454,30 @@ Retry-After: 43
 | ‏`apikeys:read` | ‏سرد المفاتيح. وإغفال `applicationId` يعيد مفاتيح كل التطبيقات | ‏`/api/v1/ApiKeys` | ‏GET |
 | ‏`apikeys:create` | ‏إنشاء مفتاح. والسر يُعرَض مرة واحدة، في هذه الاستجابة | ‏`/api/v1/ApiKeys` | ‏POST |
 | ‏`apikeys:revoke` | ‏إبطال مفتاح | ‏`/api/v1/ApiKeys/{id}/revoke` | ‏POST |
-| ‏`apikeys:validate` | ‏فحص مفتاح مُرسَل في الجسم وإعادة بياناته الوصفية | ‏`/api/v1/ApiKeys/validate` | ‏POST |
 | ‏`apikeys:rotate` | ‏إصدار بديل، مع مهلة سماح للقديم | ‏`/api/v1/ApiKeys/{id}/rotate` | ‏POST |
 
-‏والرمز `apikeys:validate` مُدرَج بالبذور تحت حرف البدل `apikeys:*`، الذي يحمله الدور المُدرَج `admin`. راجع [القسم 11](#11-مصفوفة-الصلاحيات).
+‏والرمز `apikeys:validate` ما زال مُدرَجاً بالبذور تحت حرف البدل `apikeys:*`، الذي يحمله الدور المُدرَج `admin`، لكن لا نقطة نهاية تطلبه منذ OI-128 PR B: فخادم التطبيق يتحقق من المفاتيح بمفتاح الآلة الخاص به (انظر «فحوص اعتمادات الآلة» أدناه). راجع [القسم 11](#11-مصفوفة-الصلاحيات).
 
-#### ‏Webhook Keys — 5 نقاط نهاية
+#### ‏Webhook Keys — 4 نقاط نهاية
 
 | ‏الصلاحية | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
 | ‏`webhookkeys:read` | ‏سرد مفاتيح توقيع الويب-هوك | ‏`/api/v1/WebhookKeys` | ‏GET |
 | ‏`webhookkeys:create` | ‏إنشاء مفتاح لعنوان هدف | ‏`/api/v1/WebhookKeys` | ‏POST |
-| ‏`webhookkeys:validate` | ‏فحص مفتاح مُرسَل في الجسم | ‏`/api/v1/WebhookKeys/validate` | ‏POST |
 | ‏`webhookkeys:revoke` | ‏إبطال مفتاح | ‏`/api/v1/WebhookKeys/{id}/revoke` | ‏POST |
 | ‏`webhookkeys:rotate` | ‏تدوير مفتاح، مع مهلة سماح | ‏`/api/v1/WebhookKeys/{id}/rotate` | ‏POST |
 
-**‏ورموز `webhookkeys:` الخمسة كلها مُدرَجة بالبذور تحت حرف البدل `webhookkeys:*`، الذي يحمله الدور المُدرَج `admin`.**
+**‏ورموز `webhookkeys:` الخمسة كلها مُدرَجة بالبذور تحت حرف البدل `webhookkeys:*`، الذي يحمله الدور المُدرَج `admin`.** ‏ولا نقطة تطلب منها `webhookkeys:validate` منذ OI-128 PR B.
+
+#### ‏فحوص اعتمادات الآلة — 3 نقاط نهاية
+
+‏يسأل خادم التطبيق نفسه عن اعتمادٍ قُدِّم إليه، برمز الآلة (machine token) الخاص به (OI-128 PR B). ‏وكل نقطة لا تجيب إلا عن اعتمادات ذلك التطبيق نفسه. ‏ولا صلاحية هنا: كل نقطة تطلب نطاق الآلة الخاص بها.
+
+| ‏نطاق الآلة | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
+|---|---|---|---|
+| ‏`apikeys.validate` | ‏فحص مفتاح API قُدِّم إلى التطبيق | ‏`/api/v1/app/machine/apikeys/validate` | ‏POST |
+| ‏`webhookkeys.validate` | ‏فحص مفتاح Webhook قُدِّم إلى التطبيق | ‏`/api/v1/app/machine/webhookkeys/validate` | ‏POST |
+| ‏`tokens.introspect` | ‏السؤال هل رمزٌ من رموز التطبيق ما زال فعّالاً (RFC 7662) | ‏`/api/v1/app/machine/tokens/introspect` | ‏POST |
 
 #### ‏Audit Logs — 5 نقاط نهاية
 
@@ -2713,7 +2720,7 @@ Retry-After: 43
 **‏وأسماء الخصائص هنا بصيغة snake_case، وذلك مقصود.** ‏فكل استجابة أخرى في هذه الواجهة البرمجية تستعمل camelCase؛ أما هذا العقد وحده فمثبَّت على الأسماء التي يعرّفها المعياران RFC 8414 واكتشاف OpenID Connect بالضبط، لأن العملاء القياسيين لا يعرفون سواها.
 *‏في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQuery.cs:19-68`.
 
-**‏والوثيقة تعلن القدرات المنفَّذة ولا شيء غيرها، فما ينقصها معلومة أيضاً.** ‏فالحقل `scopes_supported` يسرد النطاقات الخمسة التي يمنحها `/auth/authorize` (ويفتح `organizations.read` دليل التطبيقات)، ولا يُمنح كل تطبيق منها إلا ما سمح له به المدير، ومعه `openid` الذي يملكه كل تطبيق. وحقلٌ واحد قد يتوقعه القارئ غائب، وغيابه تقرير واقع لا سهو: لا يوجد `id_token_signing_alg_values_supported` لأن النظام لا يصدر رمز هوية OpenID Connect. وهو معلَن في العقد على أنه قابل للفراغ ومتروك بلا ضبط، والخصائص الفارغة تُحذف من كل استجابة في هذه الواجهة البرمجية، فلا يظهر ببساطة. ويغيب `introspection_endpoint` بالطريقة نفسها لسببٍ آخر: فالنقطة `/auth/introspect` موجودة، لكنها تشترط رمز منصّة، فلا يستطيع تطبيقٌ (عميل عام بلا سرّ) أن يناديها أبدًا، وكان إدراجها وعدًا لكل تطبيق بالفشل. ويسمّي `userinfo_endpoint` النقطة `/auth/userinfo` التي تقبل رمز التطبيق، لا `/auth/me` التي ترفضه؛ ويسرد `claims_supported` مطالبات رمز الوصول ثم ما يضيفه UserInfo للنطاقات الممنوحة.
+**‏والوثيقة تعلن القدرات المنفَّذة ولا شيء غيرها، فما ينقصها معلومة أيضاً.** ‏فالحقل `scopes_supported` يسرد النطاقات الخمسة التي يمنحها `/auth/authorize` (ويفتح `organizations.read` دليل التطبيقات)، ولا يُمنح كل تطبيق منها إلا ما سمح له به المدير، ومعه `openid` الذي يملكه كل تطبيق. وحقلٌ واحد قد يتوقعه القارئ غائب، وغيابه تقرير واقع لا سهو: لا يوجد `id_token_signing_alg_values_supported` لأن النظام لا يصدر رمز هوية OpenID Connect. وهو معلَن في العقد على أنه قابل للفراغ ومتروك بلا ضبط، والخصائص الفارغة تُحذف من كل استجابة في هذه الواجهة البرمجية، فلا يظهر ببساطة. ويغيب `introspection_endpoint` بالطريقة نفسها لسببٍ آخر: فالفحص (`/app/machine/tokens/introspect`) يجيب خادم التطبيق نفسه عن رموز تطبيقه، برمز الآلة الخاص به، فلا يستطيع عميلٌ عام بلا سرّ أن يناديه أبدًا، وكان إدراجها وعدًا لكل تطبيق بالفشل. ويسمّي `userinfo_endpoint` النقطة `/auth/userinfo` التي تقبل رمز التطبيق، لا `/auth/me` التي ترفضه؛ ويسرد `claims_supported` مطالبات رمز الوصول ثم ما يضيفه UserInfo للنطاقات الممنوحة.
 *‏في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,40-51,57-65`؛ وأسماء النطاقات في الملف `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
 
 **‏والقيمة `["none", "private_key_jwt"]` في `token_endpoint_auth_methods_supported` مقصودة.** ‏فتطبيق المتصفّح أو الهاتف عميلٌ عامّ (public client) وPKCE إلزامي (`none`)، فلا يصادق نفسه عند نقطة الرموز، ولا يرسل أيّ عميلٍ سرًّا أبدًا. ‏أمّا `private_key_jwt` فتأكيدٌ موقَّع بمفتاح: مفتاح الآلة يصادق منحة `client_credentials` (القسم 5.10c)، ومفتاح تسجيل الدخول يصادق منحتَي `authorization_code` و`refresh_token` لتطبيق ويب من جهة الخادم، فتُربط رموز تحديثه بذلك المفتاح (OI-171، `docs/adr/0003-confidential-server-side-clients.md`)، وقيمة `token_endpoint_auth_signing_alg_values_supported` هي `["ES256"]`. ‏وترك الحقل كان سيكون أسوأ من قول `none`: فالمعيار RFC 8414 يقول إن القيمة المحذوفة تعني ضمناً `client_secret_basic`، وذلك يخبر كل عميل بأن يرسل بيانات اعتماد لا يقبلها هذا النظام.
@@ -3762,25 +3769,13 @@ token=<the token>&token_type_hint=access_token
 **‏حدّ المعدّل:** ‏لا حدّ في الواجهة البرمجية؛ وفي البوابة سياسة `auth` لكل عنوان (`auth-route`).
 *‏في الشيفرة:* ‏الإجراء في `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:1013-1034`؛ والمعالج في `Auth/Auth.Application/Features/Authentication/RevokeToken/RevokeTokenCommandHandler.cs`؛ وفحص الرمز في `Auth/Auth_API/Common/Authentication/IssuedAccessTokenValidator.cs`، ويُسجَّل بجانب المخطَّطين في `BearerSchemeRegistration.cs`؛ وإنهاء الجلسة في `CredentialRevocationService.TerminateSessionAsync` داخل `Auth/Auth.Infrastructure/Authentication/`.
 
-#### POST `/api/v1/auth/introspect`
+#### POST `/api/v1/app/machine/tokens/introspect`
 
-‏فحص صلاحية رمز ومطالباته (متوافق مع RFC 7662).
+‏السؤال هل رمزٌ ما زال فعّالاً (RFC 7662)، يسأله خادم التطبيق نفسه عن رموز تطبيقه هو (OI-128 PR B؛ وقد أُزيلت النقطة السابقة `/api/v1/auth/introspect` التي كانت تطلب رمز منصّة).
 
-**‏المصادقة:** ‏مصادَق عليه، بالمخطط الافتراضي (مخطط المنصّة) كسائر النقاط عدا `/auth/userinfo`. ‏وهي غير مدرجة في وثيقة الاكتشاف: فالتطبيق الذي أدخل مستخدمه بتدفّق رمز التفويض لا يحمل رمزًا تقبله هذه النقطة.
+**‏المصادقة:** ‏رمز آلة للتطبيق يحمل النطاق `tokens.introspect`. ‏وهي غير مدرجة في وثيقة الاكتشاف: فمكتبات العملاء التي تقرؤها لا تحمل رمز آلة.
 
-**‏الطلب:**
-
-<div dir="ltr">
-
-```json
-{
-  "token": "token-to-inspect",
-  "tokenTypeHint": "access_token"
-}
-```
-
-</div>
-
+**‏الطلب:** ‏بالصيغة `application/x-www-form-urlencoded` كما يثبّتها المعيار: `token=<الرمز>`، ومعه اختيارياً `token_type_hint=access_token` أو `refresh_token`.
 
 **‏الاستجابة (200):**
 
@@ -3789,28 +3784,31 @@ token=<the token>&token_type_hint=access_token
 ```json
 {
   "active": true,
+  "scope": "openid profile",
+  "client_id": "CRM-WEB",
   "sub": "3fa85f64-...",
   "username": "user@example.com",
   "email": "user@example.com",
   "exp": 1710244200,
   "iat": 1710243300,
   "iss": "https://localhost:5101",
-  "aud": "https://localhost:5101",
+  "aud": "CRM-WEB",
   "token_type": "bearer",
-  "roles": ["admin"],
-  "permissions": ["users:read"]
+  "roles": ["customer"],
+  "permissions": ["crm:leads:read"]
 }
 ```
 
 </div>
 
 
-‏والقيمة `token_type` تكون `bearer` حين يكون الرمز رمز وصول، و`refresh_token` حين يكون رمز تحديث. وحين يكون الرمز مجهولاً أو منتهياً أو مُبطَلاً، يكون الجسم ببساطة `{ "active": false }` — وكل حقل آخر محذوف.
+‏والحقل `active` لا يكون `true` إلا لرمز وصولٍ جمهوره الوحيد رمزُ التطبيق السائل ولم يبلغه إبطال (الرمز نفسه، أو جلسته، أو خروج صاحبه من كل مكان)، أو لرمز تحديثٍ للتطبيق نفسه غير مُبطَل وغير منتهٍ. ‏وكل رمز آخر، ومنه رمز المنصّة، جوابه `{ "active": false }` بلا أي حقل آخر. ‏والحقول هي ما يحمله الرمز نفسه؛ فلا شيء يُقرأ من سجلّ المستخدم.
 
 **‏وهذه هي الاستجابة الوحيدة في الواجهة البرمجية كلها التي تستعمل snake_case.** ‏فالمعيار RFC 7662 يثبّت أسماء الحقول، فيُكتب هنا `token_type` و`client_id` بتلك الصيغة، بينما تسمّيهما كل نقطة أخرى `tokenType` و`clientId`. فلا تفترض camelCase عند تحليل هذه الاستجابة.
 *‏في الشيفرة:* ‏الملف `Auth/Auth.Application/DTOs/IntrospectTokenResponse.cs`.
 
-‏والحقلان `iss` و`aud` هما ما يُضبَط عليه `Jwt:Issuer` و`Jwt:Audience`. وفي بيئة التطوير كلاهما `https://localhost:5101`.
+‏والحقل `iss` هو `Jwt:Issuer`، والحقلان `aud` و`client_id` هما رمز التطبيق.
+*‏في الشيفرة:* ‏الملفان `Auth/Auth_API/Modules/MachineCredentialChecks/Controllers/MachineCredentialChecksController.cs` و`Auth/Auth.Application/Features/Authentication/IntrospectToken/IntrospectTokenQueryHandler.cs`.
 
 #### POST `/api/v1/auth/send-verification-email`
 
@@ -6784,11 +6782,10 @@ token=<the token>&token_type_hint=access_token
 
 ‏مفتاح API نصٌّ سرّي طويل العمر تستعمله خدمةٌ لتعرّف بنفسها، بدل أن يسجّل إنسان دخوله. وكل مفتاح يخصّ تطبيقاً واحداً.
 
-**‏اقرأ هذا قبل أن تبني تصميماً على حقلَي تحديد المعدل.** ‏فالحقلان `rateLimitPerMinute` و`rateLimitPerDay` يُقبَلان ويُتحقَّق منهما ويُخزَّنان ويُعادان في كل استجابة ويصلحان مفاتيح فرز — **‏ولا شيء في هذا النظام يفرضهما.** ‏فلا مُحدِّد معدل يقرأ أياً منهما. والمفتاح الذي تنشئه بـ`rateLimitPerMinute: 100` غير مقيَّد بمئة طلب في الدقيقة ولا بأي عدد آخر. فإن احتجت إلى تقييد لكل مفتاح، فنفّذه في الخدمة التي تستهلك المفتاح.
-*‏في الشيفرة:* ‏كل ورود للاسمين هو كائن نقل بيانات أو أمر أو مُتحقِّق أو إسقاط أو ثابت حقل فرز؛ وحدود المعدل الوحيدة في الواجهة البرمجية هما السياستان المسمّاتان الموصوفتان في صدر [القسم 5](#5-مرجع-api).
+**‏لا حدود معدل لكل مفتاح.** ‏فالحقلان `rateLimitPerMinute` و`rateLimitPerDay` كانا يُخزَّنان ولا يفرضهما شيء، وقد خرجا منذ OI-128 PR B من الطلب والقائمة وجواب التحقق (وبقي عموداهما بلا قارئ). ‏فقيِّد المنادين في الخدمة التي تستهلك المفتاح. ‏وما زال مفتاحا الفرز `rateLimitPerMinute` و`rateLimitPerDay` مقبولين.
 
-**‏والمفتاح الصريح يبدو هكذا: `ak_prod_` يتلوه 32 محرفاً عشوائياً.** ‏والبادئة تتبع قيمة `environment` التي طلبتها: `production` تعطي `ak_prod_`، و`staging` تعطي `ak_stag_`، و`development` تعطي `ak_dev_`، وأي كلمة أخرى تعطي `ak_` مجردة. أما الجزء العشوائي فهو 32 بايتاً من العشوائية المعمّاة، مكتوبة بترميز base64 بعد حذف `+` و`/` و`=`، ثم مقصوصة إلى 32 محرفاً. ولا يُخزَّن من المفتاح كله إلا تجزئته — بخوارزمية Argon2id، وهي نفسها المستعملة لكلمات المرور — فالمفتاح الصريح بعد الإنشاء لا يوجد إلا في موضع واحد: حيث وضعتَه أنت.
-*‏في الشيفرة:* ‏الملف `Auth/Auth.Infrastructure/Security/ApiKeyGenerator.cs`.
+**‏والمفتاح الصريح يبدو هكذا: `ak_prod_<selector>_<secret><check>`.** ‏والبادئة تتبع قيمة `environment` التي طلبتها: `production` تعطي `ak_prod_`، و`staging` تعطي `ak_stag_`، و`development` تعطي `ak_dev_`، وأي كلمة أخرى تعطي `ak_othr_`. ‏والمُحدِّد (selector) ستة عشر محرفاً عشوائياً من أبجدية base62، يُخزَّن صريحاً، وبه يجد التحقق صفّ المفتاح الوحيد؛ والسرّ اثنان وثلاثون محرفاً عشوائياً؛ ورمز التحقق (checksum) ستة محارف من CRC32 لكل ما قبله، فيُرفض المفتاح المكتوب خطأً قبل أي بحث. ‏ولا يُخزَّن إلا تجزئة Argon2id للمفتاح كله، فالمفتاح الصريح بعد الإنشاء لا يوجد إلا حيث وضعتَه أنت. ‏والمفتاح الذي أُنشئ قبل هذه الصيغة لا مُحدِّد له، فلم يعد يجتاز التحقق.
+*‏في الشيفرة:* ‏الملفان `Auth/Auth.Domain/Services/ApiKeyFormat.cs` و`Auth/Auth.Infrastructure/Security/ApiKeyGenerator.cs`.
 
 ‏ورموز الصلاحيات الخمسة التي يفرضها هذا المجال مُدرَجة بالبذور، ويحملها الدور المُدرَج `admin` عبر `apikeys:*`. راجع [القسم 11](#11-مصفوفة-الصلاحيات).
 
@@ -6820,8 +6817,6 @@ token=<the token>&token_type_hint=access_token
     "description": "Main production key",
     "keyPrefix": "ak_prod_",
     "environment": "production",
-    "rateLimitPerMinute": 60,
-    "rateLimitPerDay": 10000,
     "createdAt": "2026-01-01T00:00:00Z",
     "createdBy": "00000000-0000-0000-0000-000000000001",
     "createdByName": "Platform Admin",
@@ -6855,10 +6850,9 @@ token=<the token>&token_type_hint=access_token
   "name": "Production API Key",
   "description": "Main production key for the CRM integration",
   "environment": "production",
-  "rateLimitPerMinute": 60,
-  "rateLimitPerDay": 10000,
   "expiresAt": "2027-01-01T00:00:00Z",
-  "permissionIds": ["a1b2c3d4-0000-0000-0000-000000000001"]
+  "permissionIds": ["a1b2c3d4-0000-0000-0000-000000000001"],
+  "allowedIps": ["203.0.113.0/24"]
 }
 ```
 
@@ -6870,11 +6864,10 @@ token=<the token>&token_type_hint=access_token
 | ‏يجب أن يكون موجوداً، وإلا أعادت المناداة `Application.NotFound` | ‏— | ‏نعم | ‏`applicationId` |
 | ‏الاسم المعروض | ‏— | ‏نعم | ‏`name` |
 | ‏نص حر | ‏null | ‏لا | ‏`description` |
-| ‏يُقبَل أي نص حتى 50 محرفاً. ولا تنتج بادئةً مميَّزة إلا `production` و`staging` و`development`؛ وما عداها ينال `ak_` | ‏`"production"` | ‏لا | ‏`environment` |
-| ‏يجب أن يكون أكبر من 0. **‏ولا يفرضه شيء** | ‏`60` | ‏لا | ‏`rateLimitPerMinute` |
-| ‏يجب أن يكون أكبر من 0. **‏ولا يفرضه شيء** | ‏`10000` | ‏لا | ‏`rateLimitPerDay` |
+| ‏حتى 20 محرفاً، وهو حجم العمود. ولكلٍّ من `production` و`staging` و`development` مقطعه؛ وما عداها ينال `ak_othr_` | ‏`"production"` | ‏لا | ‏`environment` |
 | ‏يجب أن يكون في المستقبل | ‏null (بلا انتهاء) | ‏لا | ‏`expiresAt` |
-| ‏نطاقات الصلاحيات للمفتاح. والمعرّف الذي لا يطابق أي صلاحية يُتخطّى بصمت | ‏لا شيء | ‏لا | ‏`permissionIds` |
+| ‏نطاقات المفتاح: كلٌّ منها صلاحية فعّالة لتطبيق المفتاح نفسه وتحملها أنت. فغيابها `ApiKey.ScopesRequired`؛ ورمز المنصّة أو صلاحية تطبيقٍ آخر أو صلاحية غير فعّالة `ApiKey.ScopeNotForApplication`؛ والمعرّف المجهول `Permission.NotFound`؛ وما لا تحمله `Permission.CannotGrantHigher`. ويُكتب المفتاح ونطاقاته في معاملةٍ واحدة | ‏— | ‏**‏نعم، واحد على الأقل** | ‏`permissionIds` |
+| ‏حتى 50 عنوان IPv4 أو IPv6 أو نطاق CIDR بِتّاتُ المضيف فيه أصفار، بعد تطبيعها. وما عدا ذلك `ApiKey.AllowedIpInvalid`، والحادي والخمسون `ApiKey.AllowedIpsTooMany`. وتجهيزة SDK في التطبيق ترفض المفتاح من أي عنوانٍ آخر | ‏لا شيء (أي عنوان) | ‏لا | ‏`allowedIps` |
 
 **‏الاستجابة (201).** ‏وهذه هي اللحظة الوحيدة التي يوجد فيها المفتاح الصريح في استجابة. ولا يوجد حقل اسمه `message` — ‏فالحقول الأربعة أدناه هي الجسم كله:
 
@@ -6883,7 +6876,7 @@ token=<the token>&token_type_hint=access_token
 ```json
 {
   "id": "b2c3d4e5-0000-0000-0000-000000000001",
-  "apiKey": "ak_prod_9fK2mQx7Ld3PvR8sT1uW4yZ6aB0cE5gH",
+  "apiKey": "ak_prod_7Hq2mXc9LpA4vB1d_9fK2mQx7Ld3PvR8sT1uW4yZ6aB0cE5gHk3Zt9Q",
   "keyPrefix": "ak_prod_",
   "createdAt": "2026-03-12T10:00:00Z",
   "expiresAt": "2027-01-01T00:00:00Z"
@@ -6893,7 +6886,7 @@ token=<the token>&token_type_hint=access_token
 </div>
 
 
-**‏احفظه الآن.** ‏فلا سبيل إلى استرجاعه بعد ذلك، لا لأحد، ولا لمسؤول منصة يحمل الصلاحية الشاملة `*`. وإن ضاع، فدوّر المفتاح.
+**‏احفظه الآن.** ‏فلا سبيل إلى استرجاعه بعد ذلك، لا لأحد، ولا لمسؤول منصة يحمل الصلاحية الشاملة `*`. وإن ضاع، فدوّر المفتاح. ‏والجواب يحمل `Cache-Control: no-store`.
 
 #### POST `/api/v1/apikeys/{id}/revoke`
 
@@ -6916,11 +6909,11 @@ token=<the token>&token_type_hint=access_token
 
 **‏الاستجابة:** ‏204 بلا محتوى. وإبطال مفتاح مُبطَل سلفاً يعيد 409 برمز الخطأ `ApiKey.AlreadyRevoked`.
 
-#### POST `/api/v1/apikeys/validate`
+#### POST `/api/v1/app/machine/apikeys/validate`
 
-‏فحص مفتاح واسترجاع بياناته الوصفية. وهذه هي النقطة التي تناديها خدمة تابعة لتعرف هل المفتاح الذي سُلّم إليها حقيقي.
+‏فحص مفتاح واسترجاع بياناته الوصفية: النداء الذي يجريه خادم التطبيق عن مفتاحٍ سُلِّم إليه (OI-128 PR B؛ وقد أُزيلت النقطة السابقة `/api/v1/apikeys/validate` التي كانت تطلب مستخدم منصّة يحمل `apikeys:validate`).
 
-**‏الصلاحية:** ‏`apikeys:validate` — مُدرَج بالبذور، ويغطّيه حرف البدل `apikeys:*` الذي يحمله الدور المُدرَج `admin`. والخدمة التي تنادي هذه النقطة تحتاج دوراً يمنحها أحد الرمزين.
+**‏المصادقة:** ‏رمز آلة للتطبيق يحمل النطاق `apikeys.validate`. ‏ولا يُجاب إلا عن مفاتيح التطبيق نفسه.
 
 **‏الطلب:**
 
@@ -6928,7 +6921,7 @@ token=<the token>&token_type_hint=access_token
 
 ```json
 {
-  "apiKey": "ak_prod_9fK2mQx7Ld3PvR8sT1uW4yZ6aB0cE5gH"
+  "apiKey": "ak_prod_7Hq2mXc9LpA4vB1d_9fK2mQx7Ld3PvR8sT1uW4yZ6aB0cE5gHk3Zt9Q"
 }
 ```
 
@@ -6944,20 +6937,22 @@ token=<the token>&token_type_hint=access_token
   "active": true,
   "apiKeyId": "b2c3d4e5-0000-0000-0000-000000000001",
   "applicationId": "8b1d9f20-1111-2222-3333-444455556666",
+  "applicationCode": "CRM-WEB",
   "name": "Production API Key",
   "environment": "production",
   "scopes": ["crm:leads:read"],
-  "rateLimitPerMinute": 60,
-  "rateLimitPerDay": 10000
+  "allowedIps": ["203.0.113.0/24"]
 }
 ```
 
 </div>
 
 
-**‏والمفتاح الذي لا يجتاز الفحص خطأٌ لا `active: false`.** ‏فالمفتاح المجهول أو المُبطَل أو المنتهي يعيد **400** برمز الخطأ `ApiKey.Invalid`، ففرّع على رمز الحالة لا على الحقل `active`، فهو `true` في كل استجابة ناجحة.
+**‏والمفتاح الذي لا يجتاز الفحص خطأٌ لا `active: false`.** ‏فالمفتاح المجهول أو المشوَّه أو المُبطَل أو المنتهي، **‏ومفتاح تطبيقٍ آخر**، يعيد **400** برمز الخطأ `ApiKey.Invalid`، بالجواب نفسه حرفاً بحرف. ‏ومفتاح التطبيق الآخر يُرفض قبل أي تجزئة، ولا يمسّ شيئاً.
 
-**‏وللتحقق الناجح أثر جانبي:** ‏يُحدَّث الحقل `lastUsedAt` للمفتاح.
+**‏والتحقق يكلّف صفاً واحداً وتجزئة Argon2id واحدة على الأكثر.** ‏فمُحدِّد المفتاح يسمّي صفّه، والمُحدِّد المجهول لا يكلّف تجزئة.
+
+**‏وللتحقق الناجح أثر جانبي:** ‏يُحدَّث الحقل `lastUsedAt` للمفتاح. ‏وكل جوابٍ يحمل `Cache-Control: no-store`.
 
 #### POST `/api/v1/apikeys/{id}/rotate`
 
@@ -7019,7 +7014,7 @@ token=<the token>&token_type_hint=access_token
 
 **‏وقبل أن تخطط لأي شيء في هذا المجال، تحذيران صريحان.**
 
-**‏ورموز الصلاحيات الخمسة التي تطلبها هذه النقاط — `webhookkeys:read` و`webhookkeys:create` و`webhookkeys:validate` و`webhookkeys:revoke` و`webhookkeys:rotate` — مُدرَجة كلها بالبذور**، ‏ويحملها الدور المُدرَج `admin` عبر `webhookkeys:*`. ‏والقسم [11](#11-مصفوفة-الصلاحيات) فيه الصورة كاملة.
+**‏ورموز الصلاحيات الأربعة التي تطلبها هذه النقاط — `webhookkeys:read` و`webhookkeys:create` و`webhookkeys:revoke` و`webhookkeys:rotate` — مُدرَجة كلها بالبذور** (‏ومعها `webhookkeys:validate` الذي لا تطلبه نقطةٌ منذ OI-128 PR B)، ‏ويحملها الدور المُدرَج `admin` عبر `webhookkeys:*`. ‏والقسم [11](#11-مصفوفة-الصلاحيات) فيه الصورة كاملة.
 
 **‏وإنشاء مفتاح ويب-هوك أو إبطاله لا يكتب أي صف في سجل التدقيق.** ‏فالنظام ينشر الحدث `WebhookKeyCreatedEvent` والحدث `WebhookKeyRevokedEvent` عند وقوع ذلك، **‏ولا يشترك في أي منهما أي معالِج في أي موضع**، فلا يسجّلهما شيء. ومفتاح API يختلف — فله معالِج تدقيق. فإن كنت تعوّل على أثر التدقيق في دورة حياة المفاتيح، فهذه ثغرة عليك أن تسدّها في مكان آخر.
 *‏في الشيفرة:* ‏يُنشَر الحدثان في `Auth/Auth.Application/Features/WebhookKeys/CreateWebhookKey/CreateWebhookKeyCommandHandler.cs:69` و`.../RevokeWebhookKey/RevokeWebhookKeyCommandHandler.cs:51`؛ ولا يوجد في `Auth/Auth_API` أي تنفيذ لـ`INotificationHandler` لأي من النوعين.
@@ -7119,11 +7114,11 @@ token=<the token>&token_type_hint=access_token
 </div>
 
 
-#### POST `/api/v1/webhookkeys/validate`
+#### POST `/api/v1/app/machine/webhookkeys/validate`
 
-‏فحص مفتاح ويب-هوك واسترجاع بياناته الوصفية.
+‏فحص مفتاح ويب-هوك واسترجاع بياناته الوصفية، يجريه خادم التطبيق نفسه (OI-128 PR B؛ وقد أُزيلت النقطة السابقة `/api/v1/webhookkeys/validate`).
 
-**‏الصلاحية:** ‏`webhookkeys:validate`
+**‏المصادقة:** ‏رمز آلة للتطبيق يحمل النطاق `webhookkeys.validate`.
 
 **‏الطلب:**
 
@@ -7147,6 +7142,7 @@ token=<the token>&token_type_hint=access_token
   "active": true,
   "webhookKeyId": "a7b8c9d0-0000-0000-0000-000000000001",
   "applicationId": "8b1d9f20-1111-2222-3333-444455556666",
+  "applicationCode": "CRM-WEB",
   "name": "Order events",
   "targetUrl": "https://crm.example.com/hooks/orders",
   "environment": "production"
@@ -7156,7 +7152,7 @@ token=<the token>&token_type_hint=access_token
 </div>
 
 
-**‏والمفتاح المجهول يعيد 400 برمز الخطأ `WebhookKey.Invalid`**، ‏لا جسماً يقول `active: false`. والتحقق الناجح يحدّث الحقل `lastUsedAt` للمفتاح.
+**‏والمفتاح المجهول، ومفتاح تطبيقٍ آخر، يعيدان 400 برمز الخطأ `WebhookKey.Invalid`**، ‏لا جسماً يقول `active: false`. والتحقق الناجح يحدّث الحقل `lastUsedAt` للمفتاح؛ ومفتاح التطبيق الآخر لا يمسّ شيئاً.
 
 #### POST `/api/v1/webhookkeys/{id}/revoke`
 
@@ -7224,7 +7220,7 @@ token=<the token>&token_type_hint=access_token
 
 ### ‏5.10c مفاتيح الآلة ومنحة `client_credentials`
 
-‏يستطيع خادم التطبيق نفسه أن يُثبت هويّته دون مستخدمٍ خلف النداء: يوقّع بـ**مفتاح الآلة** (machine key) تأكيدًا قصيرًا (client assertion)، ويستبدله عند نقطة إصدار الرموز بـ**رمز آلة** (machine token) يعيش خمس دقائق. ‏وهذه منحة OAuth 2.0 client credentials (RFC 6749 §4.4) مع مصادقة العميل `private_key_jwt` (RFC 7523). ‏والتصميم وأسبابه في `docs/adr/0002-machine-clients.md`. ‏وفي هذا الإصدار لا تقبل أيُّ نقطة نهاية رمزَ الآلة بعد؛ فنقل التحقّق من المفاتيح والاستبطان (introspection) إليه تغييرٌ لاحق.
+‏يستطيع خادم التطبيق نفسه أن يُثبت هويّته دون مستخدمٍ خلف النداء: يوقّع بـ**مفتاح الآلة** (machine key) تأكيدًا قصيرًا (client assertion)، ويستبدله عند نقطة إصدار الرموز بـ**رمز آلة** (machine token) يعيش خمس دقائق. ‏وهذه منحة OAuth 2.0 client credentials (RFC 6749 §4.4) مع مصادقة العميل `private_key_jwt` (RFC 7523). ‏والتصميم وأسبابه في `docs/adr/0002-machine-clients.md`. ‏ويفتح رمزُ الآلة دليلَ الآلة، ومنذ OI-128 PR B فحوصَ اعتمادات الآلة الثلاثة: التحقق من مفاتيح API، والتحقق من مفاتيح Webhook، والاستبطان (introspection).
 
 **‏المسار الأساسي:** `/api/v1/applications/{applicationId}/machine-keys`. ‏والنقاط الثلاث تطلب صلاحيات مفاتيح API نفسها، لأن مفتاح الآلة اعتمادٌ من الصنف نفسه.
 
@@ -9419,14 +9415,12 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 
 **‏الخطوة 2 — ‏انقل كل مستهلك إلى `newApiKey` ‏قبل `oldKeyExpiresAt`.** ‏فلا شيء يفعل ذلك عنك، ولا شيء ينبّهك مع اقتراب الموعد.
 
-**‏الخطوة 3 — ‏المفتاح القديم يتوقف عن العمل من تلقاء نفسه.** ‏فالتدوير **لا** ‏يُبطله؛ بل يضع عليه موعد انتهاء بعد `gracePeriodMinutes` ‏من الآن. والمفتاح الجديد يرث تطبيق القديم وبيئته وقيم حدّ معدله وموعد انتهائه، ويُسمّى `<old name> (rotated)`.
+**‏الخطوة 3 — ‏المفتاح القديم يتوقف عن العمل من تلقاء نفسه.** ‏فالتدوير **لا** ‏يُبطله؛ بل يضع عليه موعد انتهاء بعد `gracePeriodMinutes` ‏من الآن. والمفتاح الجديد يرث تطبيق القديم وبيئته ونطاقاته وقائمة عناوينه وموعد انتهائه، ويُسمّى `<old name> (rotated)`.
 
-**‏وقائمة النطاقات هي الشيء الوحيد الذي لا ينقله التدوير، ولا شيء ينبّهك إلى ذلك.** ‏فنطاقات مفتاح API صفوفٌ في الجدول `ApiKeyScopes` مفتاحها معرّف ذلك المفتاح، والتدوير لا ينسخها، فيعود المفتاح الجديد بقائمة `scopes` فارغة. ولا توجد كذلك أي نقطة نهاية تضيف نطاقاً إلى مفتاح قائم — فالحقل `permissionIds` لا يُقبل إلا عند إنشاء مفتاح. **‏ومن ثمّ فالمفتاح ذو النطاقات لا يمكن تدويره.** ‏أنشئ بديلاً بمناداة `POST /api/v1/apikeys` ممرِّراً الـ`permissionIds` نفسها، ثم أبطِل المفتاح القديم بنفسك بعد أن ينتقل إليه كل مستهلك.
-*‏في الشيفرة:* ‏الملف `Auth/Auth.Application/Features/ApiKeys/RotateApiKey/RotateApiKeyCommandHandler.cs`.
+**‏والتدوير ينسخ النطاقات، ويسأل عنها كما يسأل الإنشاء (OI-128 PR B).** ‏فيجب أن تحمل أنت كل نطاقٍ يحمله المفتاح (وإلا `Permission.CannotGrantHigher`)، وأن يبقى كلٌّ منها صلاحية فعّالة للتطبيق (`ApiKey.ScopeNotForApplication`)، والمفتاح الذي لا نطاق له لا يُدوَّر (`ApiKey.ScopesRequired`: أنشئ مفتاحاً جديداً). ‏ويُكتب المفتاح الجديد ونطاقاته وموعد انتهاء القديم في معاملةٍ واحدة، ويُسجَّل التدوير في التدقيق باسم `apikey.rotated`. ‏والجواب يحمل `Cache-Control: no-store`.
+*‏في الشيفرة:* ‏الملفان `Auth/Auth.Application/Features/ApiKeys/RotateApiKey/RotateApiKeyCommandHandler.cs` و`Auth/Auth.Application/Features/ApiKeys/Common/ApiKeyScopePolicy.cs`.
 
 **‏وتدوير مفتاح مُبطَل سلفاً يعيد 409** ‏برمز الخطأ `ApiKey.AlreadyRevoked`.
-
-**‏والتدوير ليس طريقاً لتغيير الخنق.** ‏فقيمتا `rateLimitPerMinute` ‏و`rateLimitPerDay` ‏لمفتاحٍ ما مخزَّنتان ومتحقَّق منهما ومُعادتان، لكن **‏لا شيء في هذا المستودع يفرضهما** ‏(القسم [5.10](#510-مفاتيح-api)).
 
 ### ‏6.8 تحرير قالب إشعار ونشره
 
@@ -10149,10 +10143,10 @@ netstat -ano | findstr :5173
 | ‏`admin` | ‏إنشاء مفتاح API | ‏`apikeys:create` |
 | ‏`admin` | ‏إبطال مفتاح API | ‏`apikeys:revoke` |
 | ‏`admin` | ‏تدوير مفتاح API | ‏`apikeys:rotate` |
-| ‏`admin` | ‏التحقق من مفتاح API | ‏`apikeys:validate` |
+| ‏`admin` | ‏لا نقطة تطلبه منذ OI-128 PR B (انتقل التحقق إلى مفتاح آلة التطبيق)؛ باقٍ حتى إزالته | ‏`apikeys:validate` |
 | ‏`admin` | ‏سرد مفاتيح Webhook | ‏`webhookkeys:read` |
 | ‏`admin` | ‏إنشاء مفتاح Webhook | ‏`webhookkeys:create` |
-| ‏`admin` | ‏التحقق من مفتاح Webhook | ‏`webhookkeys:validate` |
+| ‏`admin` | ‏لا نقطة تطلبه منذ OI-128 PR B؛ باقٍ حتى إزالته | ‏`webhookkeys:validate` |
 | ‏`admin` | ‏إبطال مفتاح Webhook | ‏`webhookkeys:revoke` |
 | ‏`admin` | ‏تدوير مفتاح Webhook | ‏`webhookkeys:rotate` |
 | ‏`admin` | ‏سبع نقاط قراءة للتطبيقات، إضافةً إلى أرقام نشاط التطبيقات في لوحة المعلومات | ‏`applications:read` |

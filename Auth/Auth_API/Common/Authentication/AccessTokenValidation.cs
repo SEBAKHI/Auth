@@ -25,8 +25,8 @@ public static class AccessTokenValidation
 
     /// <summary>
     /// The scheme that accepts a machine access token (OI-128): one issued to an application's own
-    /// server by the client_credentials grant. It runs only where an action names it; in this
-    /// version no action does yet.
+    /// server by the client_credentials grant. It runs only where a controller names it: the
+    /// machine directory (OI-202) and the machine credential checks (OI-128 PR B).
     /// </summary>
     public const string MachineScheme = "MachineClient";
 

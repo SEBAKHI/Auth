@@ -11,7 +11,8 @@ namespace Auth_API.Tests.Configuration;
 /// There is no default bucket in this process, deliberately: a shared limiter on
 /// an auth surface lets one caller lock everyone out. The cost of that choice is
 /// that an endpoint with no <c>[EnableRateLimiting]</c> is simply unlimited, and
-/// nothing says so — which is how <c>POST /apikeys/validate</c> came to run a full
+/// nothing says so — which is how <c>POST /apikeys/validate</c> (since OI-128 PR B,
+/// <c>POST /app/machine/apikeys/validate</c>) came to run a full
 /// Argon2id verify per candidate key, at nineteen megabytes each, as many times a
 /// second as a caller cared to ask.
 ///
@@ -28,7 +29,10 @@ public class RateLimitPolicyCoverageTests
     /// </summary>
     public static readonly TheoryData<string, string> MustBeThrottled = new()
     {
-        { "ApiKeyManagement/Controllers/ApiKeysController.cs", "ValidateApiKey" },
+        // OI-128 PR B: the three machine credential checks; one Argon2id verify at most per call.
+        { "MachineCredentialChecks/Controllers/MachineCredentialChecksController.cs", "ValidateApiKey" },
+        { "MachineCredentialChecks/Controllers/MachineCredentialChecksController.cs", "ValidateWebhookKey" },
+        { "MachineCredentialChecks/Controllers/MachineCredentialChecksController.cs", "IntrospectToken" },
         { "Media/Controllers/ImagesController.cs", "Upload" },
         // Every call sends an email (the code before a first second factor).
         { "Authentication/Controllers/TwoFactorController.cs", "SendEmailCode" },

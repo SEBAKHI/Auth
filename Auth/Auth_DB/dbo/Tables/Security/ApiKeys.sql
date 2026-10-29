@@ -18,6 +18,10 @@ CREATE TABLE [dbo].[ApiKeys]
     [RevokedAt] DATETIME2 NULL,
     [RevokedBy] UNIQUEIDENTIFIER NULL,
     [RevokeReason] NVARCHAR(200) NULL,
+    -- OI-128 PR B: the random selector inside every key minted since, stored in clear for the
+    -- one-row lookup before the one hash verify. NULL for an older key, which no longer
+    -- validates. Last, so a deploy only adds it.
+    [KeySelector] NVARCHAR(32) NULL,
 
     CONSTRAINT [PK_ApiKeys] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_ApiKeys_Applications] FOREIGN KEY ([ApplicationId]) REFERENCES [dbo].[Applications]([Id])
@@ -32,4 +36,7 @@ CREATE NONCLUSTERED INDEX [IX_ApiKeys_ApplicationId] ON [dbo].[ApiKeys] ([Applic
 GO
 
 CREATE NONCLUSTERED INDEX [IX_ApiKeys_KeyPrefix] ON [dbo].[ApiKeys] ([KeyPrefix]);
+GO
+
+CREATE UNIQUE NONCLUSTERED INDEX [UX_ApiKeys_KeySelector] ON [dbo].[ApiKeys] ([KeySelector]) WHERE [KeySelector] IS NOT NULL;
 GO

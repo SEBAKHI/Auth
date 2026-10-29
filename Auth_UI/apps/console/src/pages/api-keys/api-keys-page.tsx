@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
-import { MoreHorizontal, Plus, ShieldCheck } from "lucide-react"
+import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -13,13 +13,6 @@ import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@authsystem/ui/dialog"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -28,12 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@authsystem/ui/dropdown-menu"
 import { PresetField } from "@authsystem/ui/common/preset-field"
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@authsystem/ui/field"
+import { Field, FieldDescription, FieldLabel } from "@authsystem/ui/field"
 import { Input } from "@authsystem/ui/input"
 import {
   DEFAULT_GRACE_PERIOD_MINUTES,
@@ -54,7 +42,6 @@ import {
 } from "@authsystem/ui/hooks/use-search-query"
 import type { Schemas } from "@authsystem/api/types"
 import { ApiKeyCreateDialog } from "./api-key-create-dialog"
-import { Spinner } from "@authsystem/ui/spinner"
 import {
   CREDENTIAL_KEY_URL_FILTERS,
   credentialColumnFilters,
@@ -93,76 +80,6 @@ function expiryState(iso: string | null | undefined): ExpiryState {
   return remaining <= EXPIRY_SOON_DAYS ? "soon" : "later"
 }
 
-function ValidateApiKeyDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  const { t } = useTranslation()
-  const [value, setValue] = React.useState("")
-
-  const mutation = useMutation({
-    mutationFn: (apiKey: string) =>
-      unwrap(api.POST("/api/v1/ApiKeys/validate", { body: { apiKey } })),
-    onError: (error) => toast.error(getErrorMessage(error)),
-  })
-
-  const result = mutation.data
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("apiKeys.validateTitle")}</DialogTitle>
-        </DialogHeader>
-        <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="validate-api-key">
-              {t("apiKeys.keyLabel")}
-            </FieldLabel>
-            {/* Pasted key material — pinned LTR to match the dialog that issues
-                it, so the same string is not read two different ways. */}
-            <Input
-              id="validate-api-key"
-              dir="ltr"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder={t("apiKeys.validatePlaceholder")}
-              className="font-mono text-xs"
-            />
-          </Field>
-          {result ? (
-            <div className="rounded-lg border p-3 text-sm">
-              <Badge variant={result.active ? "default" : "destructive"}>
-                {result.active ? t("common.active") : t("common.inactive")}
-              </Badge>
-              {result.active ? (
-                <p className="mt-2 text-muted-foreground">
-                  {result.name} · {result.environment}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-        </FieldGroup>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t("common.close")}
-          </Button>
-          <Button
-            onClick={() => value && mutation.mutate(value)}
-            disabled={!value || mutation.isPending}
-          >
-            {mutation.isPending ? <Spinner /> : null}
-            {t("apiKeys.validate")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 export function ApiKeysPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
@@ -185,7 +102,8 @@ export function ApiKeysPage() {
   const onColumnFiltersChange = (next: ColumnFiltersState) =>
     setFilters(credentialFiltersFromColumns(next))
   const [createOpen, setCreateOpen] = React.useState(false)
-  const [validateOpen, setValidateOpen] = React.useState(false)
+  // Each opening of the create dialog mounts a fresh form: its key carries this count.
+  const [createSeq, setCreateSeq] = React.useState(0)
   const [revealValue, setRevealValue] = React.useState<string>()
   const [revokeKey, setRevokeKey] = React.useState<ApiKeyDto | undefined>()
   const [revokeReason, setRevokeReason] = React.useState("")
@@ -196,7 +114,6 @@ export function ApiKeysPage() {
   const canCreate = hasPermission(PERMISSIONS.apiKeys.create)
   const canRevoke = hasPermission(PERMISSIONS.apiKeys.revoke)
   const canRotate = hasPermission(PERMISSIONS.apiKeys.rotate)
-  const canValidate = hasPermission(PERMISSIONS.apiKeys.validate)
   const hasRowActions = canRevoke || canRotate
 
   const query = useQuery({
@@ -401,15 +318,12 @@ export function ApiKeysPage() {
         description={t("apiKeys.subtitle")}
         actions={
           <div className="flex items-center gap-2">
-            {canValidate ? (
-              <Button variant="outline" onClick={() => setValidateOpen(true)}>
-                <ShieldCheck data-icon="inline-start" />
-                {t("apiKeys.validate")}
-              </Button>
-            ) : null}
             {canCreate ? (
               <Button
-                onClick={() => setCreateOpen(true)}
+                onClick={() => {
+                  setCreateSeq((seq) => seq + 1)
+                  setCreateOpen(true)
+                }}
                 disabled={!applicationId}
               >
                 <Plus data-icon="inline-start" />
@@ -451,15 +365,12 @@ export function ApiKeysPage() {
 
       {applicationId ? (
         <ApiKeyCreateDialog
+          key={`api-key-create-${applicationId}-${createSeq}`}
           open={createOpen}
           onOpenChange={setCreateOpen}
           applicationId={applicationId}
           onCreated={setRevealValue}
         />
-      ) : null}
-
-      {validateOpen ? (
-        <ValidateApiKeyDialog open onOpenChange={setValidateOpen} />
       ) : null}
 
       <SecretRevealDialog

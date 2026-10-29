@@ -285,8 +285,6 @@ export const tr: TranslationResources = {
     publishedAt: "Yayımlanma",
     publishedVersionNumber: "Yayımlanan sürüm",
     purpose: "Amaç",
-    rateLimitPerDay: "Hız sınırı / gün",
-    rateLimitPerMinute: "Hız sınırı / dakika",
     reauthenticationMaxAgeMinutes: "Yeniden kimlik doğrulama azami süresi (dakika)",
     recipient: "Alıcı",
     recipientName: "Alıcı adı",
@@ -1129,7 +1127,6 @@ export const tr: TranslationResources = {
     title: "API Anahtarları",
     subtitle: "Uygulama API anahtarları düzenleyin ve yönetin.",
     newKey: "Yeni API anahtarı",
-    keyLabel: "API anahtarı",
     namePlaceholder: "Faturalama servisi",
     descriptionPlaceholder: "Bu anahtarın kullanıldığı yer",
     createTitle: "API anahtarı oluştur",
@@ -1137,16 +1134,17 @@ export const tr: TranslationResources = {
     environment: "Ortam",
     environmentHint:
       "Bu anahtarın hangi ortama ait olduğu; anahtarları ayırt etmeyi kolaylaştırır.",
-    rateLimitPerMinute: "Hız sınırı / dakika",
-    rateLimitPerDay: "Hız sınırı / gün",
-    rateLimitPerMinuteHint:
-      "Bu anahtarın bir dakika içinde yapabileceği istek sayısı. Yol gösterici bir değerdir: sayı saklanır ve anahtarı doğrulayan hizmete verilir — burada hiçbir şey istekleri saymaz ya da reddetmez.",
-    rateLimitPerDayHint:
-      "Bu anahtarın bir günde yapabileceği istek sayısı. Yukarıdaki gibi yol gösterici: bu sistem değil, anahtarı doğrulayan hizmet uygular.",
     scopes: "Kapsamlar",
+    scopesHint:
+      "Anahtarın neler yapabileceği: uygulamanın sizin sahip olduğunuz kendi izinleri. Uygulama, anahtarı denetlediğinde bunları okur.",
+    scopesRequired: "En az bir kapsam seçin.",
+    noGrantableScopes:
+      "Bu uygulamada verebileceğiniz etkin bir izin yok. Önce uygulamaya izin ekleyin veya bu izinlere sahip bir yöneticiden isteyin.",
+    allowedIps: "İzin verilen adresler",
+    allowedIpsHint:
+      "İsteğe bağlı. Her satıra bir IPv4 veya IPv6 adresi ya da CIDR aralığı; uygulama anahtarı başka herhangi bir adresten reddeder. Her adrese izin vermek için boş bırakın.",
     revoke: "İptal et",
     rotate: "Yenile",
-    validate: "Doğrula",
     revokeReason: "Neden",
     revokeReasonPlaceholder: "Herkese açık bir depoda sızdırıldı",
     revokeTitle: "API anahtarını iptal et",
@@ -1160,8 +1158,6 @@ export const tr: TranslationResources = {
     secretOnceTitle: "API anahtarınızı şimdi kopyalayın",
     secretOnceBody:
       "Anahtarın tamamı yalnızca bu kez gösterilir. Güvenle saklayın.",
-    validateTitle: "API anahtarını doğrula",
-    validatePlaceholder: "Doğrulamak için bir API anahtarı yapıştırın…",
     expiringSoon: "Süresi yakında doluyor",
     expired: "Süresi doldu",
     expiresLater: "Daha sonra doluyor",
@@ -1301,7 +1297,6 @@ export const tr: TranslationResources = {
     title: "Webhook Anahtarları",
     subtitle: "Giden webhook'lar için imzalama anahtarlarını yönetin.",
     newKey: "Yeni webhook anahtarı",
-    keyLabel: "Webhook anahtarı",
     namePlaceholder: "Sipariş olayları",
     descriptionPlaceholder: "Bu anahtarın kullanıldığı yer",
     createTitle: "Webhook anahtarı oluştur",
@@ -1312,8 +1307,6 @@ export const tr: TranslationResources = {
       "Bu anahtarın hangi ortama ait olduğu; anahtarları ayırt etmeyi kolaylaştırır.",
     revoke: "İptal et",
     rotate: "Yenile",
-    validate: "Doğrula",
-    validatePlaceholder: "Doğrulamak için bir webhook anahtarı yapıştırın…",
     expiringSoon: "Süresi yakında doluyor",
     expired: "Süresi doldu",
     expiresLater: "Daha sonra doluyor",
@@ -1453,6 +1446,7 @@ export const tr: TranslationResources = {
       organizationProvisionedForApplication: "Uygulamadan organizasyon kuruldu",
       apikeyCreated: "API anahtarı oluşturuldu",
       apikeyRevoked: "API anahtarı iptal edildi",
+      apikeyRotated: "API anahtarı yenilendi",
       machinekeyCreated: "Uygulama anahtarı oluşturuldu",
       machinekeyRevoked: "Uygulama anahtarı iptal edildi",
       machineaccessOrganizationsReadAllAllowed:
@@ -2434,10 +2428,11 @@ export const tr: TranslationResources = {
       passwordResetWindowSeconds: "Sıfırlama sayım penceresi (saniye)",
       passwordResetWindowSecondsHint:
         "Yukarıdaki kullanım sayısının ölçüldüğü süre; aynı sabit pencere mekaniğiyle.",
-      apiKeyValidatePermitLimit: "Pencere başına API anahtarı doğrulaması",
+      apiKeyValidatePermitLimit: "Pencere başına anahtar ve belirteç denetimi",
       apiKeyValidatePermitLimitHint:
-        "Tek bir istemci IP'sinin bu API'den bir API anahtarını kontrol etmesini kaç kez isteyebileceği; sonrasında 429 ile reddedilir. Bu sınır bir sırrı değil, işi korur: her doğrulama, sunulan anahtarı kasıtlı olarak yavaş ve bellek yoğun Argon2id ile özetler; dolayısıyla sınırsız bir çağıran, geçerli bir anahtara hiç sahip olmadan bu sunucunun işlemcisini ve belleğini tüketebilir. Meşru bir entegrasyonun ihtiyacının biraz üzerine ayarlayın, daha fazlasına değil.",
-      apiKeyValidateWindowSeconds: "API anahtarı doğrulama penceresi (saniye)",
+        "Tek bir uygulamanın sunucusunun tek bir adresten bir pencerede yapabileceği API anahtarı, webhook anahtarı ve belirteç denetimi sayısı; aşıldığında 429 ile reddedilir. Makine belirteci (machine token) doğrulanmayan bir çağıran, adresinin aynı büyüklükteki kendi payından sayılır. Bu sınır bir sırrı değil, işi korur: bir API anahtarı denetimi, kasıtlı olarak yavaş ve bellek yoğun bir Argon2id özeti çalıştırır. Bir uygulamanın trafiğinin ihtiyacının biraz üzerine ayarlayın, daha fazlasına değil.",
+      apiKeyValidateWindowSeconds:
+        "Anahtar ve belirteç denetimi penceresi (saniye)",
       apiKeyValidateWindowSecondsHint:
         "Yukarıdaki sayımın ölçüldüğü süre. Pencere kayan değil sabittir: süre bittiğinde sayaç sıfırlanır ve hakkını tüketen çağıran o ana kadar bekler.",
       imageUploadConcurrencyLimit: "Aynı anda çözülen yüklemeler",

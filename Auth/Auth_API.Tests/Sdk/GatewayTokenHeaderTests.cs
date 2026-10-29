@@ -70,11 +70,11 @@ public class GatewayTokenHeaderTests
     }
 
     [Fact]
-    public async Task ValidateApiKey_SendsGatewayTokenExactlyOnce()
+    public async Task MainClient_SendsGatewayTokenExactlyOnce()
     {
         var (client, handler) = Build(Token);
 
-        await client.ValidateApiKeyAsync("raw-key-1");
+        await client.LoginAsync("user1@example.com", "password", "app");
 
         var values = handler.Requests.Single()
             .Headers.GetValues(AuthSystemConstants.GatewayTokenHeaderName)
@@ -89,8 +89,8 @@ public class GatewayTokenHeaderTests
         // The defect's actual mechanism: one add per CreateClient, forever.
         var (client, handler) = Build(Token);
 
-        await client.ValidateApiKeyAsync("raw-key-1");
-        await client.ValidateApiKeyAsync("raw-key-2");
+        await client.LoginAsync("user1@example.com", "password", "app");
+        await client.LoginAsync("user2@example.com", "password", "app");
 
         handler.Requests.Should().HaveCount(2);
         foreach (var request in handler.Requests)
@@ -107,7 +107,7 @@ public class GatewayTokenHeaderTests
         // it fails the comparison instead of skipping it.
         var (client, handler) = Build(string.Empty);
 
-        await client.ValidateApiKeyAsync("raw-key-1");
+        await client.LoginAsync("user1@example.com", "password", "app");
 
         handler.Requests.Single()
             .Headers.Contains(AuthSystemConstants.GatewayTokenHeaderName)
