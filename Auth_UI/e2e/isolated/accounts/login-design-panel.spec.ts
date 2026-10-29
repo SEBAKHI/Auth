@@ -11,11 +11,13 @@ import { fulfillJson, installAnonymousApi } from "./mock-anonymous-api"
  *
  * Deliberate breaks, each turning cases red: drop target="_blank" from the receiver; drop
  * the base style; send the platform's design on an application's page; render the panel
- * under lg.
+ * under lg; drop `loginDesign` from the organization step.
  */
 
 const AUTHORIZE = "https://auth.example.com/api/v1/auth/authorize?client_id=app&state=xyz"
 const FLOW = `/login?returnTo=${encodeURIComponent(AUTHORIZE)}`
+/** The organization step of the same application's flow, named by its stored request. */
+const SETUP = `/create-organization?client_id=app&auth_request=${"0123456789abcdef".repeat(4)}`
 const APP_LOGO = "https://auth.example.com/uploads/images/partner.svg"
 
 const PLATFORM_DESIGN = { id: "p1", contentHash: "a".repeat(64), showPlatformLogo: true }
@@ -69,6 +71,17 @@ async function open(page: Page, path: string, setup: Setup = {}) {
         language,
         dir: language === "ar" ? "rtl" : "ltr",
         html,
+      })
+      return true
+    }
+    // The organization step, open: a signed-in person who may create one.
+    if (path === "/api/v1/auth/organization-setup") {
+      await fulfillJson(route, {
+        canCreate: true,
+        limit: 1,
+        ownedOrganizations: [],
+        email: "customer@example.test",
+        emailConfirmed: true,
       })
       return true
     }
@@ -220,6 +233,26 @@ test("a design that hides the platform's mark gives the corner to the applicatio
   // "Secured by" still names the platform.
   await expect(page.getByText("Secured by AuthSystem")).toBeVisible()
 })
+
+// The organization step has a header of its own rather than the flow's: it must still take the
+// application's design and corner, or the panel and the corner change on the flow's last step.
+for (const language of ["en", "ar"] as const) {
+  test(`${language}: the organization step of an application's flow shows that application's design and corner`, async ({
+    page,
+  }) => {
+    const { renders } = await open(page, SETUP, {
+      language,
+      app: OWN_DESIGN,
+      appHtml: `<p id="who">Own design</p>`,
+    })
+    const frame = await designFrame(page)
+
+    await expect(frame.locator("#who")).toHaveText("Own design")
+    expect(renders).toEqual([`/api/v1/applications/app/login-design?lang=${language}`])
+    await expect(page.locator("header").getByRole("img", { name: "Partner App" })).toBeVisible()
+    await expect(page.locator("main").getByRole("img", { name: "Partner App" })).toHaveCount(0)
+  })
+}
 
 test("a design cannot cover the form: a fixed, full-screen element stays inside the panel", async ({ page }) => {
   await open(page, FLOW, {
