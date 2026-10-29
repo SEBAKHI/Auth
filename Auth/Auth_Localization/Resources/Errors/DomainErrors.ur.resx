@@ -1688,6 +1688,9 @@
   <data name="LoginDesign.NotFound" xml:space="preserve">
     <value>سائن اِن صفحے کا یہ ڈیزائن نہیں ملا۔</value>
   </data>
+  <data name="LoginDesign.RenderedTooLarge" xml:space="preserve">
+    <value>ڈیزائن کم از کم ایک زبان میں 256 KB سے زیادہ HTML بناتا ہے۔</value>
+  </data>
   <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
     <value>ڈیزائن کی عبارتیں زبانوں کا JSON آبجیکٹ ہونی چاہئیں، جن میں سے ہر ایک میں عبارتیں ہوں۔</value>
   </data>

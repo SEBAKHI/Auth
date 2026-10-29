@@ -185,6 +185,7 @@ export const PUBLISHED_ERROR_CODES = {
   "LoginDesign.NameTooLong": "#/name",
   "LoginDesign.NoneActive": "catalog",
   "LoginDesign.NotFound": "catalog",
+  "LoginDesign.RenderedTooLarge": "#/content",
   "LoginDesign.StringsInvalidJson": "#/stringsJson",
   "LoginDesign.StringsTooLarge": "#/stringsJson",
   "LoginDesign.UnknownVariables": "catalog",

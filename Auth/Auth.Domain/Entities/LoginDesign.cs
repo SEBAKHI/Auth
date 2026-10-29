@@ -40,6 +40,12 @@ public sealed partial class LoginDesign : AggregateRoot
     /// <summary>Largest strings document, in UTF-8 bytes (64 KB).</summary>
     public const int MaxStringsBytes = 64 * 1024;
 
+    /// <summary>
+    /// Largest rendered HTML, in UTF-8 bytes, in any language (256 KB). The content's limit is
+    /// on its source; a Liquid loop renders far more than it is long.
+    /// </summary>
+    public const int MaxRenderedBytes = 256 * 1024;
+
     /// <summary>Gets the owning application, or null for one of the platform's designs.</summary>
     public Guid? ApplicationId { get; private set; }
 
@@ -322,7 +328,11 @@ public sealed partial class LoginDesign : AggregateRoot
     [GeneratedRegex(@"<script\b|javascript\s*:", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ScriptRegex();
 
-    // An attribute whose name starts with "on", inside a tag: <img src=x onerror=…>.
-    [GeneratedRegex(@"<[a-z][^>]*?\son[a-z]+\s*=", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    // An attribute whose name starts with "on", inside a tag: <img src=x onerror=…>. The scan from
+    // a tag's start stops at the next "<" as well as at ">", so every character is scanned from
+    // one start at most: with [^>] alone, "<a" repeated 32,768 times rescans to the end from each
+    // start (27 s). A "<" inside an attribute value before the handler hides that handler; it is
+    // a warning, and nothing in the design runs either way.
+    [GeneratedRegex(@"<[a-z][^<>]*?\son[a-z]+\s*=", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex EventHandlerRegex();
 }

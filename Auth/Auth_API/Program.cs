@@ -682,6 +682,11 @@ builder.Services.AddScoped<Auth.Application.Common.EmailLogoRenditions>();
 builder.Services.AddScoped<Auth.Application.Features.LoginDesigns.Common.EffectiveLoginDesign>();
 builder.Services.AddScoped<Auth.Application.Features.LoginDesigns.Common.LoginDesignScope>();
 builder.Services.AddScoped<Auth.Application.Features.LoginDesigns.Common.LoginDesignRenderer>();
+// What the anonymous render endpoints serve, kept per design version, language and names in a
+// size-bounded cache of its own, so a visitor never repeats a render that already ran.
+builder.Services.AddSingleton<
+    Auth.Application.Features.LoginDesigns.Common.ILoginDesignRenderCache,
+    Auth.Infrastructure.LoginDesigns.LoginDesignRenderCache>();
 // The three rules of every administrative action on an account (system account,
 // covering authority, last full administrator), read live like the guard above.
 builder.Services.AddScoped<Auth.Application.Common.AccountActionPolicy>();

@@ -56,17 +56,60 @@ function parseStrings(json: string): DesignStrings {
   }
 }
 
-/** Every key any language has, in the order first met. */
-function stringKeys(strings: DesignStrings): string[] {
-  const keys: string[] = []
-  for (const texts of Object.values(strings)) {
-    for (const key of Object.keys(texts ?? {})) if (!keys.includes(key)) keys.push(key)
+/**
+ * One text of the design: its key and its value in each language. The row's id holds the
+ * texts, never the key: a key being typed passes through other keys' names, and a duplicate
+ * left in place still keeps both rows' texts.
+ */
+type TextRow = { id: number; key: string; values: Record<string, string> }
+
+/** The rows of a stored document, one per key any language has, in the order first met. */
+function rowsOf(strings: DesignStrings): TextRow[] {
+  const rows: TextRow[] = []
+  for (const [language, texts] of Object.entries(strings)) {
+    for (const [key, value] of Object.entries(texts ?? {})) {
+      let row = rows.find((candidate) => candidate.key === key)
+      if (!row) {
+        row = { id: rows.length, key, values: {} }
+        rows.push(row)
+      }
+      row.values[language] = value
+    }
   }
-  return keys
+  return rows
 }
 
 /** A key a design can print as `strings.<key>`: a Liquid identifier. */
 const STRING_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/
+
+/**
+ * The document the API takes, built from the rows when a preview or a save sends it. A row
+ * whose key is not an identifier yet, or repeats an earlier row's, is left out until it is
+ * fixed (Save waits for that).
+ */
+function stringsOf(rows: TextRow[]): DesignStrings {
+  const strings: DesignStrings = {}
+  const used = new Set<string>()
+  for (const row of rows) {
+    if (!STRING_KEY.test(row.key) || used.has(row.key)) continue
+    used.add(row.key)
+    for (const [language, value] of Object.entries(row.values)) {
+      const texts = (strings[language] ??= {})
+      texts[row.key] = value
+    }
+  }
+  return strings
+}
+
+/** A document compared by what it says, not by the order its keys come in. */
+function canonical(strings: DesignStrings): string {
+  return JSON.stringify(
+    Object.keys(strings)
+      .filter((language) => Object.keys(strings[language] ?? {}).length > 0)
+      .sort()
+      .map((language) => [language, Object.entries(strings[language] ?? {}).sort(([a], [b]) => (a < b ? -1 : 1))])
+  )
+}
 
 /**
  * One design: its name, whether the platform's mark keeps the corner, its HTML and CSS,
@@ -133,17 +176,19 @@ function EditorForm({
   const [name, setName] = React.useState(design.name)
   const [showPlatformLogo, setShowPlatformLogo] = React.useState(design.showPlatformLogo)
   const [content, setContent] = React.useState(design.content)
-  const [strings, setStrings] = React.useState(() => parseStrings(design.stringsJson))
-  const [keys, setKeys] = React.useState(() => stringKeys(parseStrings(design.stringsJson)))
+  const [rows, setRows] = React.useState(() => rowsOf(parseStrings(design.stringsJson)))
+  const nextRowId = React.useRef(rows.length)
   const [language, setLanguage] = React.useState("en")
   const [discardOpen, setDiscardOpen] = React.useState(false)
 
+  const keys = rows.map((row) => row.key)
+  const strings = React.useMemo(() => stringsOf(rows), [rows])
   const stringsJson = React.useMemo(() => JSON.stringify(strings), [strings])
   const isDirty =
     name !== saved.name ||
     showPlatformLogo !== saved.showPlatformLogo ||
     content !== saved.content ||
-    stringsJson !== JSON.stringify(parseStrings(saved.stringsJson))
+    canonical(strings) !== canonical(parseStrings(saved.stringsJson))
   const keysValid = keys.every((key) => STRING_KEY.test(key)) && new Set(keys).size === keys.length
 
   const debounced = useDebouncedValue(
@@ -193,39 +238,21 @@ function EditorForm({
     if (!insertAtCursor(editorRef, snippet)) setContent((current) => current + snippet)
   }
 
-  const setText = (key: string, value: string) =>
-    setStrings((current) => ({ ...current, [language]: { ...(current[language] ?? {}), [key]: value } }))
+  const updateRow = (id: number, change: (row: TextRow) => TextRow) =>
+    setRows((current) => current.map((row) => (row.id === id ? change(row) : row)))
 
-  const renameKey = (index: number, next: string) => {
-    const previous = keys[index]
-    setKeys((current) => current.map((key, position) => (position === index ? next : key)))
-    setStrings((current) =>
-      Object.fromEntries(
-        Object.entries(current).map(([lang, texts]) => [
-          lang,
-          Object.fromEntries(Object.entries(texts ?? {}).map(([key, value]) => [key === previous ? next : key, value])),
-        ])
-      )
-    )
-  }
+  const setText = (id: number, value: string) =>
+    updateRow(id, (row) => ({ ...row, values: { ...row.values, [language]: value } }))
 
-  const removeKey = (index: number) => {
-    const removed = keys[index]
-    setKeys((current) => current.filter((_, position) => position !== index))
-    setStrings((current) =>
-      Object.fromEntries(
-        Object.entries(current).map(([lang, texts]) => [
-          lang,
-          Object.fromEntries(Object.entries(texts ?? {}).filter(([key]) => key !== removed)),
-        ])
-      )
-    )
-  }
+  const renameKey = (id: number, key: string) => updateRow(id, (row) => ({ ...row, key }))
+
+  const removeKey = (id: number) => setRows((current) => current.filter((row) => row.id !== id))
 
   const addKey = () => {
     let index = keys.length + 1
     while (keys.includes(`text${index}`)) index++
-    setKeys((current) => [...current, `text${index}`])
+    const id = nextRowId.current++
+    setRows((current) => [...current, { id, key: `text${index}`, values: {} }])
   }
 
   const contentDir = directionForLanguage(language)
@@ -327,15 +354,15 @@ function EditorForm({
             <FieldDescription>
               {t("loginDesigns.textsHint", { example: "{{ strings.headline | raw }}" })}
             </FieldDescription>
-            {keys.map((key, index) => {
+            {rows.map(({ id, key, values }, index) => {
               const invalid = !STRING_KEY.test(key) || keys.indexOf(key) !== index
               return (
-                <Field key={index} orientation="horizontal" data-invalid={invalid || undefined}>
+                <Field key={id} orientation="horizontal" data-invalid={invalid || undefined}>
                   <Input
                     aria-label={t("loginDesigns.textKey")}
                     className="w-40 shrink-0 font-mono"
                     value={key}
-                    onChange={(event) => renameKey(index, event.target.value.trim())}
+                    onChange={(event) => renameKey(id, event.target.value.trim())}
                     aria-invalid={invalid}
                     disabled={!canManage}
                     spellCheck={false}
@@ -343,8 +370,8 @@ function EditorForm({
                   <Input
                     aria-label={t("loginDesigns.textValue", { key })}
                     dir={contentDir}
-                    value={strings[language]?.[key] ?? ""}
-                    onChange={(event) => setText(key, event.target.value)}
+                    value={values[language] ?? ""}
+                    onChange={(event) => setText(id, event.target.value)}
                     disabled={!canManage}
                   />
                   {canManage ? (
@@ -352,7 +379,7 @@ function EditorForm({
                       variant="ghost"
                       size="icon-sm"
                       aria-label={t("loginDesigns.removeText", { key })}
-                      onClick={() => removeKey(index)}
+                      onClick={() => removeKey(id)}
                     >
                       <Trash2 />
                     </Button>

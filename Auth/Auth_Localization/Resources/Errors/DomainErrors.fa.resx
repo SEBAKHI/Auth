@@ -1688,6 +1688,9 @@
   <data name="LoginDesign.NotFound" xml:space="preserve">
     <value>این طرح صفحهٔ ورود پیدا نشد.</value>
   </data>
+  <data name="LoginDesign.RenderedTooLarge" xml:space="preserve">
+    <value>طرح دست‌کم در یک زبان بیش از ۲۵۶ کیلوبایت HTML تولید می‌کند.</value>
+  </data>
   <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
     <value>متن‌های طرح باید یک شیء JSON از زبان‌ها باشد که هر کدام رشته‌های متنی دارد.</value>
   </data>

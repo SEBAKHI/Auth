@@ -1690,6 +1690,9 @@
   <data name="LoginDesign.NotFound" xml:space="preserve">
     <value>This sign-in page design was not found.</value>
   </data>
+  <data name="LoginDesign.RenderedTooLarge" xml:space="preserve">
+    <value>The design renders more than 256 KB of HTML in at least one language.</value>
+  </data>
   <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
     <value>The design's texts must be a JSON object of languages, each holding text strings.</value>
   </data>

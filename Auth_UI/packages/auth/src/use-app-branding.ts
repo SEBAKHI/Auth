@@ -111,17 +111,24 @@ function useAppBrandingQuery(clientId: string | null) {
  * shows, and the application's cached copy is not forgotten for a failure,
  * which says nothing about its appearance.
  */
+export function useAppTheme(clientId: string | null): ThemeConfig | null | undefined {
+  const query = useAppBrandingQuery(clientId)
+  if (!clientId) return null
+  if (query.data === undefined) return undefined
+  return query.data?.theme ?? null
+}
+
+/**
+ * The sign-in page design the panel of the application's pages shows, from the
+ * same answer as `useAppBranding`: the application's active design, else the
+ * platform's, or null for none (and for an unknown or inactive application).
+ * Undefined while it is not known. A failed request is null, not unknown: the
+ * panel stays plain rather than waiting on an answer that is not coming.
+ */
 export function useAppLoginDesign(clientId: string | null): LoginDesignRef | null | undefined {
   const query = useAppBrandingQuery(clientId)
   if (!clientId) return null
   if (query.isError) return null
   if (query.data === undefined) return undefined
   return query.data?.loginDesign ?? null
-}
-
-export function useAppTheme(clientId: string | null): ThemeConfig | null | undefined {
-  const query = useAppBrandingQuery(clientId)
-  if (!clientId) return null
-  if (query.data === undefined) return undefined
-  return query.data?.theme ?? null
 }

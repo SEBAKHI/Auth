@@ -996,6 +996,12 @@
       "source": "catalog"
     },
     {
+      "code": "LoginDesign.RenderedTooLarge",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/content"
+    },
+    {
       "code": "LoginDesign.StringsInvalidJson",
       "status": 400,
       "source": "catalog",

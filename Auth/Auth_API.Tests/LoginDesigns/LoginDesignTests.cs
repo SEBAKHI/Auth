@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Auth.Application.DTOs;
@@ -12,12 +13,14 @@ using Auth.Application.Features.LoginDesigns.GetLoginDesignById;
 using Auth.Application.Features.LoginDesigns.GetPublicLoginDesign;
 using Auth.Application.Features.LoginDesigns.PreviewLoginDesign;
 using Auth.Application.Features.LoginDesigns.UpdateLoginDesign;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Infrastructure.LoginDesigns;
 using Auth.Infrastructure.Notifications;
 using Auth_API.Modules.AuditLog.EventHandlers;
 using Auth_API.Tests.ApplicationManagement.Commands;
@@ -106,7 +109,9 @@ public class LoginDesignTests
             Designs.Setup(r => r.DeleteInactiveAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
         }
 
-        public LoginDesignRenderer Renderer() => new(new FluidTemplateRenderer(), Platform.Object, Applications.Object);
+        public CountingTemplateRenderer Templates { get; } = new();
+        public LoginDesignRenderCache Rendered { get; } = new();
+        public LoginDesignRenderer Renderer() => new(Templates, Platform.Object, Applications.Object);
         public LoginDesignScope Scope() => new(Designs.Object, Applications.Object);
         public TimeProvider Time { get; } = new FixedTimeProvider(Now);
 
@@ -120,6 +125,34 @@ public class LoginDesignTests
             (T)Publisher.Invocations.Single(i => i.Arguments[0] is T).Arguments[0];
 
         public void NothingPublished() => Publisher.Invocations.Should().BeEmpty();
+    }
+
+    /// <summary>The sandboxed renderer, counting the renders that reach it.</summary>
+    private sealed class CountingTemplateRenderer : ITemplateRenderer
+    {
+        private readonly FluidTemplateRenderer _inner = new();
+
+        public int Renders { get; private set; }
+
+        public ErrorOr<string> Render(
+            string source, IReadOnlyDictionary<string, object?> model, string languageCode, bool encodeHtml)
+        {
+            Renders++;
+            return _inner.Render(source, model, languageCode, encodeHtml);
+        }
+
+        public ErrorOr<Success> Validate(string source) => _inner.Validate(source);
+
+        public ErrorOr<string> RenderTracking(
+            string source,
+            IReadOnlyDictionary<string, object?> model,
+            string languageCode,
+            bool encodeHtml,
+            out IReadOnlyList<string> unresolvedVariables)
+        {
+            Renders++;
+            return _inner.RenderTracking(source, model, languageCode, encodeHtml, out unresolvedVariables);
+        }
     }
 
     // --- the entity ---
@@ -234,6 +267,24 @@ public class LoginDesignTests
         LoginDesign.WarningsOf("<p class=\"one\">Turn on the lights; online = true</p>").Should().BeEmpty();
     }
 
+    [Fact]
+    public void TheWarningScan_IsLinear_AndStillFindsAHandlerAfterManyOpenTags()
+    {
+        // Every GET, save and preview of a design computes its warnings; a scan that rescans from
+        // each "<" took 27 s on this 64 KB content.
+        var openTags = string.Concat(Enumerable.Repeat("<a", 32_768));
+        LoginDesign.WarningsOf("<a").Should().BeEmpty();
+
+        var stopwatch = Stopwatch.StartNew();
+        var warnings = LoginDesign.WarningsOf(openTags);
+        stopwatch.Stop();
+
+        warnings.Should().BeEmpty();
+        stopwatch.Elapsed.Should().BeLessThan(TimeSpan.FromMilliseconds(250));
+        LoginDesign.WarningsOf(openTags + "<img src=x onerror=alert(1)>")
+            .Should().Equal(LoginDesignWarning.EventHandler);
+    }
+
     // --- the renderer and the save gate ---
 
     [Fact]
@@ -297,6 +348,23 @@ public class LoginDesignTests
             "{% if App.Name %}<p>open", "{}", new LoginDesignAudience(AppName, PlatformName));
 
         result.FirstError.Code.Should().Be("Notification.InvalidTemplateSyntax");
+    }
+
+    [Fact]
+    public void Render_RefusesHtmlOver256KB_CountedInUtf8Bytes()
+    {
+        var world = new World();
+        var audience = new LoginDesignAudience(AppName, PlatformName);
+        const string loop = "{% for i in (1..16) %}{{ strings.big | raw }}{% endfor %}";
+        var latin = JsonSerializer.Serialize(new { en = new { big = new string('a', 16_384) } });
+        var arabic = JsonSerializer.Serialize(new { en = new { big = new string('ع', 8_192) } });
+
+        world.Renderer().Render(loop, latin, audience, "en").Value.Length.Should().Be(LoginDesign.MaxRenderedBytes);
+        world.Renderer().Render(loop + "b", latin, audience, "en")
+            .FirstError.Should().Be(LoginDesignErrors.RenderedTooLarge);
+        world.Renderer().Render(loop, arabic, audience, "en").IsError.Should().BeFalse();
+        world.Renderer().Render(loop + "b", arabic, audience, "en").FirstError
+            .Should().Be(LoginDesignErrors.RenderedTooLarge, "131,073 characters of Arabic are 262,145 bytes");
     }
 
     [Fact]
@@ -375,6 +443,23 @@ public class LoginDesignTests
             new CreateLoginDesignCommand(AppId, "Broken", content, null) { CreatedBy = Admin }, CancellationToken.None);
 
         result.FirstError.Code.Should().Be(code);
+        world.Stored.Should().BeEmpty();
+        world.NothingPublished();
+    }
+
+    [Fact]
+    public async Task Create_OfALoopThatRendersFarMoreThanItsSource_IsRefused()
+    {
+        // 59 bytes of content and one 60 KB string render 144,000,000 characters: within the
+        // renderer's step limit, and what every visitor would be served.
+        var world = new World();
+        const string content = "{% for i in (1..2400) %}{{ strings.big | raw }}{% endfor %}";
+        var strings = JsonSerializer.Serialize(new { en = new { big = new string('a', 60_000) } });
+
+        var result = await CreateHandler(world).Handle(
+            new CreateLoginDesignCommand(AppId, "Loop", content, strings) { CreatedBy = Admin }, CancellationToken.None);
+
+        result.FirstError.Should().Be(LoginDesignErrors.RenderedTooLarge);
         world.Stored.Should().BeEmpty();
         world.NothingPublished();
     }
@@ -639,7 +724,50 @@ public class LoginDesignTests
     // --- which design a page shows ---
 
     private static GetPublicLoginDesignQueryHandler PublicHandler(World world) => new(
-        world.Applications.Object, new EffectiveLoginDesign(world.Designs.Object), world.Renderer());
+        world.Applications.Object, new EffectiveLoginDesign(world.Designs.Object), world.Renderer(), world.Rendered);
+
+    [Fact]
+    public async Task APageRendersADesignOnce_PerVersionLanguageAndNames_AndServesItFromMemoryAfter()
+    {
+        var world = new World();
+        var design = world.Store(Active(AppId, "<p>{{ App.Name }} · {{ Platform.Name }}</p>"));
+        async Task<string> Page(string language) =>
+            (await PublicHandler(world).Handle(new GetPublicLoginDesignQuery("CRM", language), CancellationToken.None))
+            .Value.Html;
+
+        var first = await Page("ar");
+        (await Page("ar")).Should().Be(first);
+        world.Templates.Renders.Should().Be(1, "the second visitor is served the first render");
+
+        await Page("fr");
+        world.Templates.Renders.Should().Be(2, "each language renders once");
+
+        design.Update("Design", "<p>{{ Platform.Name }}</p>", "{}", true, Admin);
+        (await Page("ar")).Should().Be($"<p>{PlatformName}</p>", "a save changes the fingerprint");
+        var renamed = PlatformSettings.CreateDefault();
+        renamed.Update("Renamed", null, null, null, Admin);
+        world.Platform.Setup(r => r.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(renamed);
+        (await Page("ar")).Should().Be("<p>Renamed</p>", "a rename changes what the design reads");
+        world.Templates.Renders.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task APageWhoseDesignRendersTooMuch_IsRefused_AndTheRefusalIsKept()
+    {
+        var world = new World();
+        var big = JsonSerializer.Serialize(new { en = new { big = new string('a', 60_000) } });
+        var design = Design(AppId, "{% for i in (1..5) %}{{ strings.big | raw }}{% endfor %}", big);
+        design.Activate();
+        world.Store(design);
+
+        for (var visitor = 0; visitor < 3; visitor++)
+        {
+            (await PublicHandler(world).Handle(new GetPublicLoginDesignQuery("CRM", "en"), CancellationToken.None))
+                .FirstError.Should().Be(LoginDesignErrors.RenderedTooLarge);
+        }
+
+        world.Templates.Renders.Should().Be(2, "one string and the content, once");
+    }
 
     [Fact]
     public async Task APageOfAnApplication_ShowsItsOwnActiveDesign_RenderedPerLanguage()

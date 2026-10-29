@@ -15,15 +15,18 @@ public sealed class GetPublicLoginDesignQueryHandler
     private readonly IApplicationRepository _applications;
     private readonly EffectiveLoginDesign _effective;
     private readonly LoginDesignRenderer _renderer;
+    private readonly ILoginDesignRenderCache _rendered;
 
     public GetPublicLoginDesignQueryHandler(
         IApplicationRepository applications,
         EffectiveLoginDesign effective,
-        LoginDesignRenderer renderer)
+        LoginDesignRenderer renderer,
+        ILoginDesignRenderCache rendered)
     {
         _applications = applications;
         _effective = effective;
         _renderer = renderer;
+        _rendered = rendered;
     }
 
     public async Task<ErrorOr<PublicLoginDesignDto>> Handle(
@@ -59,7 +62,10 @@ public sealed class GetPublicLoginDesignQueryHandler
         }
 
         var language = Languages.Normalize(request.Language) ?? Languages.Default;
-        var html = _renderer.Render(design.Content, design.StringsJson, audience, language);
+        var key = new LoginDesignRenderKey(
+            design.Id, design.ContentHash, language, audience.ApplicationName, audience.PlatformName);
+        var html = _rendered.GetOrRender(
+            key, () => _renderer.Render(design.Content, design.StringsJson, audience, language));
         if (html.IsError)
         {
             return html.Errors;

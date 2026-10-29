@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using Auth.Application.Common;
 using Auth.Application.Interfaces;
@@ -32,6 +33,13 @@ public sealed record LoginDesignAudience(string ApplicationName, string Platform
 /// <see cref="CheckForSave"/> is the save gate: the design is rendered in every supported
 /// language with the lookups tracked, so a variable outside the model, even one behind a
 /// <c>{% if lang == … %}</c>, is refused before any visitor could meet the blank it would leave.
+/// </para>
+/// <para>
+/// Every render, the gate's, a preview's and a page's, refuses HTML over
+/// <see cref="LoginDesign.MaxRenderedBytes"/>: the source is at most 64 KB, but a loop renders
+/// far more, and a page serves what it renders to anyone. The check follows the render, so the
+/// one render that finds the excess still runs in full; <see cref="ILoginDesignRenderCache"/>
+/// keeps a page's outcome, refusals included, so a visitor never repeats it.
 /// </para>
 /// </remarks>
 public sealed class LoginDesignRenderer
@@ -78,8 +86,8 @@ public sealed class LoginDesignRenderer
         RenderCore(content, stringsJson, audience, language, unknown: null);
 
     /// <summary>
-    /// The save gate: the content parses, and neither it nor its strings use a variable outside
-    /// the model, in any supported language.
+    /// The save gate: the content parses, renders at most <see cref="LoginDesign.MaxRenderedBytes"/>,
+    /// and neither it nor its strings use a variable outside the model, in any supported language.
     /// </summary>
     public ErrorOr<Success> CheckForSave(string content, string stringsJson, LoginDesignAudience audience)
     {
@@ -143,7 +151,15 @@ public sealed class LoginDesignRenderer
         }
 
         model["strings"] = strings;
-        return RenderPart(content, model, language, unknown);
+        var html = RenderPart(content, model, language, unknown);
+        if (html.IsError)
+        {
+            return html.Errors;
+        }
+
+        return Encoding.UTF8.GetByteCount(html.Value) > LoginDesign.MaxRenderedBytes
+            ? LoginDesignErrors.RenderedTooLarge
+            : html.Value;
     }
 
     private ErrorOr<string> RenderPart(

@@ -1688,6 +1688,9 @@
   <data name="LoginDesign.NotFound" xml:space="preserve">
     <value>Ce modèle de page de connexion est introuvable.</value>
   </data>
+  <data name="LoginDesign.RenderedTooLarge" xml:space="preserve">
+    <value>Le modèle produit plus de 256 Ko de HTML dans au moins une langue.</value>
+  </data>
   <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
     <value>Les textes du modèle doivent être un objet JSON de langues contenant chacune des chaînes de texte.</value>
   </data>

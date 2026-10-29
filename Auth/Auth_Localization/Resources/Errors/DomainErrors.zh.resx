@@ -1688,6 +1688,9 @@
   <data name="LoginDesign.NotFound" xml:space="preserve">
     <value>未找到此登录页设计。</value>
   </data>
+  <data name="LoginDesign.RenderedTooLarge" xml:space="preserve">
+    <value>设计在至少一种语言中渲染出的 HTML 超过 256 KB。</value>
+  </data>
   <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
     <value>设计文本必须是按语言组织的 JSON 对象，每种语言包含文本字符串。</value>
   </data>

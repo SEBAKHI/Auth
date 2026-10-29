@@ -1690,6 +1690,9 @@
   <data name="LoginDesign.NotFound" xml:space="preserve">
     <value>لم يُعثر على قالب صفحة الدخول هذا.</value>
   </data>
+  <data name="LoginDesign.RenderedTooLarge" xml:space="preserve">
+    <value>يُنتج القالب أكثر من 256 كيلوبايت من HTML في لغة واحدة على الأقل.</value>
+  </data>
   <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
     <value>يجب أن تكون نصوص القالب كائن JSON من اللغات، يحمل كلٌّ منها نصوصًا.</value>
   </data>

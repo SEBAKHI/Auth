@@ -1688,6 +1688,9 @@
   <data name="LoginDesign.NotFound" xml:space="preserve">
     <value>Bu oturum açma sayfası tasarımı bulunamadı.</value>
   </data>
+  <data name="LoginDesign.RenderedTooLarge" xml:space="preserve">
+    <value>Tasarım en az bir dilde 256 KB'tan fazla HTML üretiyor.</value>
+  </data>
   <data name="LoginDesign.StringsInvalidJson" xml:space="preserve">
     <value>Tasarımın metinleri, her biri metin dizeleri içeren dillerden oluşan bir JSON nesnesi olmalıdır.</value>
   </data>

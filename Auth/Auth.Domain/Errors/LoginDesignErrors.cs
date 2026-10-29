@@ -52,6 +52,15 @@ public static class LoginDesignErrors
         description: $"The design uses variables a sign-in page does not supply: {variableNames}",
         metadata: new() { ["args"] = new object[] { variableNames } });
 
+    /// <summary>
+    /// The design renders over <see cref="Entities.LoginDesign.MaxRenderedBytes"/> of UTF-8 HTML
+    /// (256 KB) in at least one language. Refused when it is saved or previewed; a page asking
+    /// for a design that outgrew it (a longer application name) keeps the plain panel.
+    /// </summary>
+    public static readonly Error RenderedTooLarge = Error.Validation(
+        code: "LoginDesign.RenderedTooLarge",
+        description: "The design renders more than 256 KB of HTML in at least one language.");
+
     public static readonly Error UnsupportedLanguage = Error.Validation(
         code: "LoginDesign.UnsupportedLanguage",
         description: "This language is not supported.");
