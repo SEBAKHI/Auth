@@ -1997,7 +1997,7 @@ export const ar: TranslationResources = {
       controlSize: "ارتفاع عناصر التحكّم",
       controlSizeHint: "الأزرار وحقول الإدخال والقوائم المنسدلة ومفاتيح التبديل معًا: {{px}} بكسل الآن.",
       tableRowHeight: "ارتفاع صفوف الجداول",
-      tableRowHeightHint: "صفّ فيه سطر نصّ واحد: {{px}} بكسل الآن. والصفّ الذي يحمل صورة أو زرًّا يتّسع لها.",
+      tableRowHeightHint: "صفّ فيه سطر نصّ واحد: {{px}} بكسل الآن. والصفّ الذي يحمل صورة أو زرًّا يزيد بقدر ارتفاعهما الزائد.",
       sizes: {
         compact: "مضغوط",
         default: "افتراضي",

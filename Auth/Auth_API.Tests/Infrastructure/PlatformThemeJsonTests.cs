@@ -71,6 +71,13 @@ public class PlatformThemeJsonTests
     [InlineData(",\"controlSize\":{\"preset\":\"custom\",\"px\":500},\"tableRowHeight\":{\"preset\":\"default\"}}")]
     [InlineData(",\"controlSize\":{\"preset\":\"custom\",\"px\":56},\"tableRowHeight\":{\"preset\":\"compact\"}}")]
     [InlineData(",\"controlSize\":{\"preset\":\"custom\"},\"tableRowHeight\":null}")]
+    // The wrong JSON type: before the sizes were read field by field, each of
+    // these failed the whole row and cost the colours too.
+    [InlineData(",\"controlSize\":\"compact\",\"tableRowHeight\":{\"preset\":\"default\"}}")]
+    [InlineData(",\"controlSize\":{\"preset\":\"custom\",\"px\":30.5},\"tableRowHeight\":{\"preset\":\"default\"}}")]
+    [InlineData(",\"controlSize\":{\"preset\":\"custom\",\"px\":\"30\"},\"tableRowHeight\":{\"preset\":\"default\"}}")]
+    [InlineData(",\"controlSize\":{\"preset\":\"custom\",\"px\":99999999999},\"tableRowHeight\":{\"preset\":\"default\"}}")]
+    [InlineData(",\"controlSize\":{\"preset\":7},\"tableRowHeight\":[]}")]
     public void ARowWhoseSizesAloneAreInvalid_KeepsItsColours(string sizes)
     {
         // A height cannot leave a palette half built, so a bad height costs

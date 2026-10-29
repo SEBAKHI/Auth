@@ -104,8 +104,10 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
     /// <remarks>
     /// Reading never fails: every sign-in page renders this value. A row saved
     /// before the size choices existed has none, and reads with the default
-    /// sizes and its own colours; so does a row whose sizes alone are invalid,
-    /// because a height cannot leave a palette half built.
+    /// sizes and its own colours; so does a row whose sizes alone are invalid
+    /// (an unknown step, a height out of bounds, or a value of the wrong JSON
+    /// type), because a height cannot leave a palette half built. The sizes
+    /// are therefore read field by field, never as part of the row's type.
     /// </remarks>
     public static class ThemeJson
     {
@@ -114,6 +116,9 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         };
+
+        /// <summary>A stored size that cannot be read; <see cref="PlatformTheme.Create"/> refuses it.</summary>
+        private static readonly ThemeSizeChoice Unreadable = new(string.Empty);
 
         public static string? Write(PlatformTheme theme) =>
             theme == PlatformTheme.Default
@@ -125,8 +130,8 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
                         Row(theme.Chart),
                         theme.Radius,
                         theme.MenuAccent,
-                        Row(theme.ControlSize),
-                        Row(theme.TableRowHeight)),
+                        Element(theme.ControlSize),
+                        Element(theme.TableRowHeight)),
                     Options);
 
         public static PlatformTheme Read(string? json)
@@ -172,14 +177,42 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
 
         private static ChoiceRow Row(ThemeColorChoice choice) => new(choice.Preset, choice.Light, choice.Dark);
 
-        private static SizeRow Row(ThemeSizeChoice choice) => new(choice.Preset, choice.Px);
+        private static JsonElement Element(ThemeSizeChoice choice) =>
+            JsonSerializer.SerializeToElement(new SizeRow(choice.Preset, choice.Px), Options);
 
         private static ThemeColorChoice? Choice(ChoiceRow? row) =>
             row is null ? null : new ThemeColorChoice(row.Preset, row.Light, row.Dark);
 
-        // Absent: saved before the size choices existed.
-        private static ThemeSizeChoice Size(SizeRow? row) =>
-            row is null ? ThemeSizeChoice.Default : new ThemeSizeChoice(row.Preset, row.Px);
+        /// <summary>
+        /// A stored size: absent or null (saved before the size choices
+        /// existed) reads as the default; anything but
+        /// <c>{"preset": text, "px": whole number}</c> is unreadable and reads
+        /// as a choice <see cref="PlatformTheme.Create"/> refuses, so only the
+        /// sizes fall back.
+        /// </summary>
+        private static ThemeSizeChoice Size(JsonElement? stored)
+        {
+            if (stored is not { } element || element.ValueKind == JsonValueKind.Null)
+            {
+                return ThemeSizeChoice.Default;
+            }
+
+            if (element.ValueKind != JsonValueKind.Object
+                || !element.TryGetProperty("preset", out var preset)
+                || preset.ValueKind != JsonValueKind.String)
+            {
+                return Unreadable;
+            }
+
+            if (!element.TryGetProperty("px", out var px) || px.ValueKind == JsonValueKind.Null)
+            {
+                return new ThemeSizeChoice(preset.GetString()!);
+            }
+
+            return px.ValueKind == JsonValueKind.Number && px.TryGetInt32(out var value)
+                ? new ThemeSizeChoice(preset.GetString()!, value)
+                : Unreadable;
+        }
 
         private sealed record ChoiceRow(string Preset, string? Light, string? Dark);
 
@@ -191,8 +224,8 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
             ChoiceRow? Chart,
             string? Radius,
             string? MenuAccent,
-            SizeRow? ControlSize,
-            SizeRow? TableRowHeight);
+            JsonElement? ControlSize,
+            JsonElement? TableRowHeight);
     }
 
     private record PlatformSettingsDto

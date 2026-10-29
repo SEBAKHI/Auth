@@ -183,13 +183,18 @@ for (const language of ["en", "ar"] as const) {
         // A row of one text line is the row height. Measured inside the
         // cell's border: the 1px line between rows is shared half and half
         // by the rows it separates (collapsed borders), as it always was.
+        // The second row is drawn as the list pages draw theirs: an avatar
+        // (32px) and an icon-sm actions button (control − 4px). It is taller
+        // than the setting by exactly the taller of the two, less a text line.
         const previewCells = tile.locator('[data-slot="table-row"] [data-slot="table-cell"]')
         await expect(previewCells).toHaveCount(4)
+        await expect(tile.locator('[data-slot="table-row"]').nth(1).locator('[data-slot="avatar"]')).toHaveCount(1)
+        const richRow = Math.max(32, size.control - 4) + size.row - 20
         await expect
           .poll(() => previewCells.evaluateAll((all) => all.map((cell) => cell.clientHeight)), {
-            message: "table row",
+            message: "table rows",
           })
-          .toEqual([size.row, size.row, size.row, size.row])
+          .toEqual([size.row, size.row, richRow, richRow])
 
         await card.screenshot({ path: testInfo.outputPath(`card-${size.name}-${language}-${mode}.png`) })
 
@@ -269,6 +274,78 @@ for (const language of ["en", "ar"] as const) {
     })
   }
 }
+
+for (const language of ["en", "ar"] as const) {
+  test(`the header holds everything in it at the tallest control height (${language}, 1440px)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await install(page, {
+      mode: "light",
+      language,
+      theme: themeWith({ preset: "custom", px: 56 }, { preset: "custom", px: 72 }),
+    })
+    await page.goto("/admin/platform-settings")
+    await expectTokens(page, 56, 72)
+
+    const header = page.locator("header").first()
+    // The home link is navigation and keeps its 40px; the controls beside it
+    // follow the setting (a floor: taller than any step would make them).
+    const home = header.locator("a[href]").first()
+    await expectHeight(home, 40, "home link")
+    await expect
+      .poll(
+        () =>
+          header
+            .locator('[data-slot="button"]')
+            .evaluateAll((all) => Math.max(0, ...all.map((el) => el.getBoundingClientRect().height))),
+        { message: "tallest header control" }
+      )
+      .toBeGreaterThan(44)
+
+    const boxes = await header.evaluate((root) => {
+      const frame = root.getBoundingClientRect()
+      const inside = [...root.querySelectorAll("*")]
+        .map((el) => el.getBoundingClientRect())
+        .filter((box) => box.width > 0 && box.height > 0)
+      return {
+        measured: inside.length,
+        // Half a pixel: a 56px control is centred in the 55px left above
+        // the header's bottom border.
+        outside: inside.filter((box) => box.top < frame.top - 0.75 || box.bottom > frame.bottom + 0.75).length,
+      }
+    })
+    // A floor: a header with nothing measured would hold everything.
+    expect(boxes.measured, "elements measured").toBeGreaterThan(5)
+    expect(boxes.outside, "elements taller than the header").toBe(0)
+  })
+}
+
+test("in Arabic the preview cuts the end of a Latin name, never its start", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await install(page, { mode: "light", language: "ar", theme: themeWith({ preset: "default" }, { preset: "default" }) })
+  await page.goto("/admin/platform-settings")
+  const tile = page.locator('[data-mode="light"]')
+  const names = tile.locator('[data-slot="table-cell"] .truncate')
+  await expect(names).toHaveCount(2)
+
+  const measured = await names.evaluateAll((all) =>
+    all.map((el) => {
+      const range = document.createRange()
+      range.setStart(el.firstChild!, 0)
+      range.setEnd(el.firstChild!, 1)
+      const letter = range.getBoundingClientRect()
+      const shown = el.getBoundingClientRect()
+      return {
+        cut: el.scrollWidth > el.clientWidth,
+        firstLetterShown: letter.width > 0 && letter.left >= shown.left - 1 && letter.right <= shown.right + 1,
+      }
+    })
+  )
+  // A floor: with nothing cut there is nothing for the check to see.
+  expect(measured.filter((name) => name.cut).length, "names cut").toBeGreaterThan(0)
+  expect(measured.map((name) => name.firstLetterShown)).toEqual([true, true])
+})
 
 for (const [label, theme, fetched] of [
   ["the shipped heights download no theme registry", themeWith({ preset: "default" }, { preset: "default" }), false],

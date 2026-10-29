@@ -2083,7 +2083,7 @@ export const fr: TranslationResources = {
       controlSize: "Hauteur des contrôles",
       controlSizeHint: "Boutons, champs, listes et bascules, tous ensemble : {{px}} px actuellement.",
       tableRowHeight: "Hauteur des lignes de tableau",
-      tableRowHeightHint: "Une ligne contenant un seul texte : {{px}} px actuellement. Une ligne qui contient une image ou un bouton s'agrandit pour l'accueillir.",
+      tableRowHeightHint: "Une ligne contenant un seul texte : {{px}} px actuellement. Une ligne qui contient une image ou un bouton est plus haute de leur hauteur supplémentaire.",
       sizes: {
         compact: "Compacte",
         default: "Par défaut",

@@ -2043,7 +2043,7 @@ export const tr: TranslationResources = {
       controlSize: "Denetim yüksekliği",
       controlSizeHint: "Düğmeler, alanlar, seçim listeleri ve geçişler hep birlikte: şu an {{px}} px.",
       tableRowHeight: "Tablo satırı yüksekliği",
-      tableRowHeightHint: "Tek satır metin içeren bir satır: şu an {{px}} px. Resim veya düğme içeren bir satır, ona sığacak kadar büyür.",
+      tableRowHeightHint: "Tek satır metin içeren bir satır: şu an {{px}} px. Resim veya düğme içeren bir satır, onların fazladan yüksekliği kadar daha yüksektir.",
       sizes: {
         compact: "Sıkı",
         default: "Varsayılan",

@@ -241,10 +241,13 @@ export function AppShell({
             <NavLink
               to={homeHref ?? "/"}
               // `px-2` inside the header's `px-4` starts the mark on the same
-              // 24px gutter the page content below it uses.
+              // 24px gutter the page content below it uses. `h-10`: this is
+              // navigation, not a control, so it keeps the 40px it has at the
+              // default control height; `lg` follows the platform's control
+              // height and from 52px up would stand taller than the header.
               className={cn(
                 buttonVariants({ variant: "ghost", size: "lg" }),
-                "shrink-0 gap-2 px-2"
+                "h-10 shrink-0 gap-2 px-2"
               )}
             >
               <BrandMark />

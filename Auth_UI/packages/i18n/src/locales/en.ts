@@ -2057,7 +2057,7 @@ export const en = {
       controlSize: "Control height",
       controlSizeHint: "Buttons, inputs, selects and toggles, all together: {{px}} px now.",
       tableRowHeight: "Table row height",
-      tableRowHeightHint: "A row with one line of text: {{px}} px now. A row holding a picture or a button grows to fit it.",
+      tableRowHeightHint: "A row with one line of text: {{px}} px now. A row holding a picture or a button is taller by their extra height.",
       sizes: {
         compact: "Compact",
         default: "Default",

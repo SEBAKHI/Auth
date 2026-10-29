@@ -168,8 +168,9 @@ public sealed partial record PlatformTheme
 
         if (normalizedControl is not null && normalizedRow is not null)
         {
-            // A row lower than the controls it holds would be pushed open by
-            // them anyway; the setting would promise a height no row shows.
+            // The owner's rule: a table row is never lower than a control. (A
+            // row holding a control is always taller than the setting anyway:
+            // the cell pads the control as it pads a line of text.)
             var controlPx = HeightPx(normalizedControl, ThemePresets.ControlHeightsPx);
             var rowPx = HeightPx(normalizedRow, ThemePresets.TableRowHeightsPx);
             if (rowPx < controlPx)

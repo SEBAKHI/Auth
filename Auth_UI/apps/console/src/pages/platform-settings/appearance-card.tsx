@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { MoreHorizontalIcon } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -18,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@authsystem/ui/card"
+import { EntityAvatar } from "@authsystem/ui/common/entity-avatar"
 import {
   Field,
   FieldContent,
@@ -438,13 +440,33 @@ function AppearancePreview({ name }: { name: string }) {
             </div>
             <Table>
               <TableBody>
+                {/* A row of text, then a row as the list pages draw theirs (an
+                    avatar and an actions button), which the setting leaves
+                    taller by their extra height. The names truncate inside
+                    their own direction, so a Latin name in Arabic keeps its start. */}
                 <TableRow>
-                  <TableCell className="w-full max-w-0 truncate">{name}</TableCell>
+                  <TableCell className="w-full max-w-0">
+                    <bdi dir="auto" className="block truncate">
+                      {name}
+                    </bdi>
+                  </TableCell>
                   <TableCell className="text-end">{t("common.active")}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="w-full max-w-0 truncate">name@example.com</TableCell>
-                  <TableCell className="text-end">{t("common.active")}</TableCell>
+                  <TableCell className="w-full max-w-0">
+                    <div className="flex items-center gap-2">
+                      <EntityAvatar name={name} />
+                      <bdi dir="auto" className="min-w-0 truncate">
+                        name@example.com
+                      </bdi>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-end">
+                    <Button variant="ghost" size="icon-sm">
+                      <MoreHorizontalIcon />
+                      <span className="sr-only">{t("common.actions")}</span>
+                    </Button>
+                  </TableCell>
                 </TableRow>
               </TableBody>
             </Table>

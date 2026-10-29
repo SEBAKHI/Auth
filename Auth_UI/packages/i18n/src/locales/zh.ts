@@ -1936,7 +1936,7 @@ export const zh: TranslationResources = {
       controlSize: "控件高度",
       controlSizeHint: "按钮、输入框、下拉框和切换按钮一起调整：当前 {{px}} 像素。",
       tableRowHeight: "表格行高",
-      tableRowHeightHint: "只有一行文字的行：当前 {{px}} 像素。含有图片或按钮的行会随之增高。",
+      tableRowHeightHint: "只有一行文字的行：当前 {{px}} 像素。含有图片或按钮的行会高出它们多出的高度。",
       sizes: {
         compact: "紧凑",
         default: "默认",
