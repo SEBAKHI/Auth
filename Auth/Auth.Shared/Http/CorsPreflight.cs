@@ -11,8 +11,12 @@ namespace Auth.Shared.Http;
 /// round trip of 150–570 ms in front of every request a sign-in page makes
 /// (measured 2026-10-30). Two hours is Chromium's own ceiling; Firefox allows a
 /// day. A reused answer only spares the <c>OPTIONS</c> request: the real
-/// response must still carry <c>Access-Control-Allow-Origin</c>, so an origin
-/// taken off the list is refused from its next request.
+/// response must still carry <c>Access-Control-Allow-Origin</c>, so the page of an
+/// origin taken off the list cannot read a response from its next request. The
+/// request itself is another matter: for up to two hours, a browser that kept an
+/// answer for that address still sends that origin's requests without asking
+/// again, and the server runs them. Taking an origin off the list therefore stops
+/// its requests completely only after two hours.
 /// </remarks>
 public static class CorsPreflight
 {
