@@ -1,3 +1,4 @@
+using Auth.Shared.Http;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 
 namespace API_Gateway.Configuration;
@@ -94,7 +95,8 @@ public sealed class DynamicCorsPolicyProvider : ICorsPolicyProvider
 
             builder.AllowAnyMethod()
                    .AllowAnyHeader()
-                   .WithExposedHeaders(ExposedHeaders);
+                   .WithExposedHeaders(ExposedHeaders)
+                   .SetPreflightMaxAge(CorsPreflight.MaxAge);
 
             var policy = builder.Build();
             _cache = (fingerprint, policy);

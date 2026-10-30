@@ -3,6 +3,7 @@ import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
+import { apiPreconnect } from "../../api-preconnect"
 import { devHttps } from "../../dev-https"
 import { assetsCors, htmlInputs } from "../../login-design-frame"
 import { themeBoot } from "../../theme-boot"
@@ -11,7 +12,8 @@ import { vendorChunk } from "../../vendor-chunks"
 // https://vite.dev/config/
 export default defineConfig((config) => ({
   // themeBoot: the colour mode on <html> before the first paint (theme-boot.ts).
-  plugins: [themeBoot({ hints: true }), react(), tailwindcss(), assetsCors()],
+  // apiPreconnect: the connection to the API opens while the scripts download.
+  plugins: [themeBoot({ hints: true }), react(), tailwindcss(), assetsCors(), apiPreconnect()],
   server: {
     // The console dev server owns 5173; accounts runs alongside it.
     port: 5174,

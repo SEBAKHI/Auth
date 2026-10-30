@@ -1,3 +1,4 @@
+using Auth.Shared.Http;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 
 namespace Auth_API.Common;
@@ -65,6 +66,7 @@ public sealed class DynamicCorsPolicyProvider : ICorsPolicyProvider
         // "audit-logs.csv". Harmless on a deny-all policy, which has no origins
         // to expose it to.
         builder.WithExposedHeaders("Content-Disposition");
+        builder.SetPreflightMaxAge(CorsPreflight.MaxAge);
 
         // No origins outside development: the policy stays empty (deny-all)
         // instead of throwing on a live request path.

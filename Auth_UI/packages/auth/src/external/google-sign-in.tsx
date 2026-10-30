@@ -153,7 +153,9 @@ export function GoogleSignIn({
   // local seed only covers the window before that resolves, when no sign-in can
   // have happened yet.
   const nonceRef = React.useRef<string>(crypto.randomUUID())
-  const { googleEnabled, googleClientId } = useExternalProviders()
+  // The server's nonce, asked for before the providers' answer is in (see below).
+  const earlyNonce = React.useRef<Promise<string> | null>(null)
+  const { googleEnabled, googleClientId, googleExpected } = useExternalProviders()
   const { complete, challenge } = useLoginCompletion()
   const readStaySignedIn = useStaySignedIn()
 
@@ -215,15 +217,31 @@ export function GoogleSignIn({
     ]
   )
 
+  // Google's script and the server's nonce start loading while the providers'
+  // answer is still on its way, when this browser saw Google offered last time:
+  // they used to wait for it, a round trip they did not depend on. The button
+  // itself still waits for the live answer below.
+  React.useEffect(() => {
+    if (!googleExpected) return
+    void loadGsiScript(i18n.language).catch(() => {
+      /* The effect that draws the button meets the same failure and handles it. */
+    })
+    earlyNonce.current ??= requestExternalNonce()
+  }, [googleExpected, i18n.language])
+
   React.useEffect(() => {
     if (!googleEnabled) return
     let cancelled = false
+
+    // Taken once: a later run (a new language or mode) asks for a fresh one.
+    const nonce = earlyNonce.current ?? requestExternalNonce()
+    earlyNonce.current = null
 
     // The nonce has to be in hand BEFORE initialize(), because Google seals
     // whatever it is given into the token it mints — there is no adding it
     // afterwards. Fetched alongside the script rather than before it, so the
     // round trip costs nothing the script load was not already spending.
-    void Promise.all([loadGsiScript(i18n.language), requestExternalNonce()])
+    void Promise.all([loadGsiScript(i18n.language), nonce])
       .then(([, nonce]) => {
         if (cancelled || !containerRef.current || !window.google) return
         nonceRef.current = nonce

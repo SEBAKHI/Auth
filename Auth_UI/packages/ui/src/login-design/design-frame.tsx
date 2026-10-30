@@ -33,8 +33,13 @@ export type DesignFrameState = "pending" | "rendered" | "failed"
 export type DesignMode = "light" | "dark"
 
 export interface DesignFrameProps {
-  /** The rendered design, as the server returned it. */
-  html: string
+  /**
+   * The rendered design, as the server returned it; null while it is on its way. The
+   * frame is mounted meanwhile and loads its own page, and the design goes to it as
+   * soon as both are there: one after the other, they cost a sign-in page two waits.
+   */
+  html: string | null
+  /** The design's language and direction; read with the design, not before it. */
   lang: string
   dir: "ltr" | "rtl"
   /** The mode the design is shown in; it sets the frame's colour scheme. */
@@ -64,15 +69,20 @@ export interface DesignFrameProps {
  * is sent to the same frame, which repaints in place.
  */
 export function DesignFrame(props: DesignFrameProps) {
-  // A new design (or language) is a new frame, sent that design once.
-  return <DesignDocument key={useGeneration(`${props.lang}|${props.dir}|${props.html}`)} {...props} />
+  // A new design (or language) is a new frame, sent that design once. The first design
+  // into a frame that was waiting for one is not new: that frame was mounted for it.
+  const identity = props.html === null ? null : `${props.lang}|${props.dir}|${props.html}`
+  return <DesignDocument key={useGeneration(identity)} {...props} />
 }
 
-/** A number that grows each time `value` changes (state derived during render). */
-function useGeneration(value: string) {
+/**
+ * A number that grows each time `value` changes (state derived during render), except
+ * from null: a frame waiting for its first value keeps its number when the value comes.
+ */
+function useGeneration(value: string | null) {
   const [state, setState] = React.useState({ value, generation: 0 })
   if (state.value !== value) {
-    const next = { value, generation: state.generation + 1 }
+    const next = { value, generation: state.value === null ? state.generation : state.generation + 1 }
     setState(next)
     return next.generation
   }
@@ -112,6 +122,9 @@ function DesignDocument({
   const frameRef = React.useRef<HTMLIFrameElement>(null)
   const windowRef = React.useRef<Window | null>(null)
   const [state, setState] = React.useState<DesignFrameState>("pending")
+  // Whether the design has gone to the frame: the render's own wait starts there.
+  const sentRef = React.useRef(false)
+  const [sent, setSent] = React.useState(false)
   const pageVersion = usePageAppearanceVersion()
 
   const report = React.useRef(onStateChange)
@@ -127,6 +140,31 @@ function DesignDocument({
     [tokensFrom]
   )
 
+  // Read when the design is sent: the frame may say "ready" before the design arrives,
+  // or after, and either way it gets the latest mode and appearance with it.
+  const latest = React.useRef({ html, lang, dir, mode, tokens })
+  React.useLayoutEffect(() => {
+    latest.current = { html, lang, dir, mode, tokens }
+  })
+  const send = React.useCallback(() => {
+    const frame = windowRef.current
+    const design = latest.current
+    if (!frame || design.html === null || sentRef.current) return
+    sentRef.current = true
+    frame.postMessage(
+      {
+        type: DESIGN_MESSAGES.render,
+        html: design.html,
+        lang: design.lang,
+        dir: design.dir,
+        mode: design.mode,
+        tokens: design.tokens(),
+      },
+      "*"
+    )
+    setSent(true)
+  }, [])
+
   useIsolatedFrame(
     frameRef,
     {
@@ -135,7 +173,7 @@ function DesignDocument({
       onTimeout: () => setState("failed"),
       onReady: (frame) => {
         windowRef.current = frame
-        frame.postMessage({ type: DESIGN_MESSAGES.render, html, lang, dir, mode, tokens: tokens() }, "*")
+        send()
       },
       onMessage: (data) => {
         if (data.type === DESIGN_MESSAGES.rendered) setState((current) => (current === "pending" ? "rendered" : current))
@@ -145,22 +183,31 @@ function DesignDocument({
     []
   )
 
-  // Ready but never rendered (the receiver threw before it could say so) is a failure too.
+  // Sent but never rendered (the receiver threw before it could say so) is a failure too.
+  // Counted from the send, not the mount: the frame may wait on the server's render.
   React.useEffect(() => {
-    if (state !== "pending") return
+    if (state !== "pending" || !sent) return
     const timer = window.setTimeout(() => setState("failed"), DESIGN_RENDER_TIMEOUT_MS)
     return () => window.clearTimeout(timer)
-  }, [state])
+  }, [state, sent])
 
   // A new mode or appearance repaints the same document: the design is not sent again.
+  // Before the design has gone, there is nothing to repaint: it goes with the latest.
   const firstPaint = React.useRef(true)
   React.useEffect(() => {
     if (firstPaint.current) {
       firstPaint.current = false
       return
     }
+    if (!sentRef.current) return
     windowRef.current?.postMessage({ type: DESIGN_MESSAGES.theme, mode, tokens: tokens() }, "*")
   }, [mode, pageVersion, appearanceKey, tokens])
+
+  // The design that arrives after the frame said "ready". After the repaint above, so a
+  // design and a new mode in the same render go as the design alone, in that mode.
+  React.useEffect(() => {
+    send()
+  }, [html, send])
 
   if (state === "failed") return null
 

@@ -464,8 +464,14 @@ const authMiddleware: Middleware = {
     // the auth-flow early return, no endpoint can omit it and none has to know
     // about it. The IP and user agent already worked this way; this was the one
     // client fact that did not.
+    //
+    // On commands only: every endpoint that reads it is a POST, and a custom
+    // header turns a cross-origin request into one the browser must clear with
+    // an OPTIONS preflight first. On a GET it bought nothing and cost every
+    // anonymous read of a sign-in page (branding, sign-in providers) one more
+    // round trip before it could start.
     const deviceId = getDeviceId()
-    if (deviceId) {
+    if (deviceId && request.method !== "GET" && request.method !== "HEAD") {
       request.headers.set(DEVICE_ID_HEADER, deviceId)
     }
 

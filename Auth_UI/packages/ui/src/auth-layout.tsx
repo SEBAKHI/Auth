@@ -6,12 +6,16 @@ import { ThemeToggle } from "@authsystem/ui/common/theme-toggle"
 import { Card, CardContent } from "@authsystem/ui/card"
 import { BrandingLogo, useBranding, type LoginDesignRef } from "@authsystem/ui/branding"
 import type { DesignFrameState } from "@authsystem/ui/login-design/design-frame"
+import LoginDesignPanel from "@authsystem/ui/login-design/login-design-panel"
 import { pickLogo } from "@authsystem/ui/theme/pick-logo"
 import { useResolvedTheme } from "@authsystem/ui/theme-provider"
 import { cn } from "@authsystem/ui/utils"
 
-// Its own chunk, loaded only where the panel shows and a design is named.
-const LoginDesignPanel = React.lazy(() => import("@authsystem/ui/login-design/login-design-panel"))
+// Imported with the page, not as a chunk of its own: it is 2 KB, and a lazy component put
+// a round trip in front of the design on a first visit and, on every visit, React's hold
+// of up to 300 ms before revealing what a Suspense boundary was waiting for (measured on
+// a deployed instance, 2026-10-30). It is still mounted only where the panel shows and a design
+// is named, so nothing of a design is fetched elsewhere.
 
 /** The panel is shown from the `lg` breakpoint (1024px) up. */
 const PANEL_QUERY = "(min-width: 1024px)"
@@ -248,16 +252,14 @@ export function AuthLayout({
         className="relative hidden overflow-hidden bg-muted lg:block"
       >
         {design && panelKey ? (
-          <React.Suspense fallback={null}>
-            <div className="absolute inset-0">
-              <LoginDesignPanel
-                key={panelKey}
-                clientId={designClientId}
-                design={design}
-                onStateChange={(state) => setPanel({ key: panelKey, state })}
-              />
-            </div>
-          </React.Suspense>
+          <div className="absolute inset-0">
+            <LoginDesignPanel
+              key={panelKey}
+              clientId={designClientId}
+              design={design}
+              onStateChange={(state) => setPanel({ key: panelKey, state })}
+            />
+          </div>
         ) : null}
       </div>
     </div>
