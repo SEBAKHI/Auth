@@ -188,35 +188,49 @@ public class RotateWebhookKeyCommandHandlerTests
     }
 }
 
+/// <summary>
+/// Unit tests for ValidateWebhookKeyQueryHandler (OI-128 PR B): a webhook key is reported only
+/// to its own application; another application's key is an unknown key and touches nothing.
+/// </summary>
 public class ValidateWebhookKeyQueryHandlerTests
 {
+    private const string Code = "CRM-WEB";
+
     private readonly Mock<IWebhookKeyRepository> _repoMock = new();
+    private readonly Mock<IApplicationRepository> _applicationsMock = new();
     private readonly FakeCredentialHasher _hasherMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
     private readonly ValidateWebhookKeyQueryHandler _handler;
+    private readonly Auth.Domain.Entities.Application _application = TestHelpers.CreateApplication(code: Code);
 
     public ValidateWebhookKeyQueryHandlerTests()
     {
         _handler = new ValidateWebhookKeyQueryHandler(
             _repoMock.Object,
+            _applicationsMock.Object,
             _hasherMock,
             _publisherMock.Object,
             new Mock<ILogger<ValidateWebhookKeyQueryHandler>>().Object);
+
+        _applicationsMock.Setup(r => r.GetByCodeAsync(Code, It.IsAny<CancellationToken>())).ReturnsAsync(_application);
     }
+
+    private static ValidateWebhookKeyQuery Query(string raw, string scope = Auth.Domain.Constants.MachineClients.Scopes.WebhookKeysValidate) =>
+        new(new Auth.Application.Features.MachineCredentialChecks.MachineCredentialCaller(Code, scope), raw);
 
     [Fact]
     public async Task Handle_ValidKey_ReturnsValidResponse()
     {
-        var key = TestHelpers.CreateWebhookKey(keyHash: "computed_hash");
-        var query = new ValidateWebhookKeyQuery("wk_prod_rawkeyvalue");
+        var key = TestHelpers.CreateWebhookKey(applicationId: _application.Id, keyHash: "computed_hash");
 
         _hasherMock.Map("wk_prod_rawkeyvalue", "computed_hash");
         _repoMock.Setup(r => r.GetByHashAsync(FakeCredentialHasher.CandidatesOf("computed_hash"), It.IsAny<CancellationToken>())).ReturnsAsync(key);
 
-        var result = await _handler.Handle(query, CancellationToken.None);
+        var result = await _handler.Handle(Query("wk_prod_rawkeyvalue"), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         result.Value.Active.Should().BeTrue();
+        result.Value.ApplicationCode.Should().Be(Code);
         _repoMock.Verify(r => r.RecordUsageAsync(key.Id, It.IsAny<CancellationToken>()), Times.Once());
     }
 
@@ -226,9 +240,47 @@ public class ValidateWebhookKeyQueryHandlerTests
         _hasherMock.MapAll(_ => "unknown_hash");
         _repoMock.Setup(r => r.GetByHashAsync(FakeCredentialHasher.CandidatesOf("unknown_hash"), It.IsAny<CancellationToken>())).ReturnsAsync((WebhookKey?)null);
 
-        var result = await _handler.Handle(new ValidateWebhookKeyQuery("invalid_key"), CancellationToken.None);
+        var result = await _handler.Handle(Query("wk_prod_unknown"), CancellationToken.None);
 
         result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("WebhookKey.Invalid");
+    }
+
+    [Fact]
+    public async Task Handle_AnotherApplicationsKey_ReturnsInvalidError_NoUsageStamp_NoRefingerprint()
+    {
+        // Stored under an old fingerprint, so a successful validation would ask for a rewrite.
+        var key = TestHelpers.CreateWebhookKey(applicationId: Guid.NewGuid(), keyHash: "legacy-form");
+        _hasherMock.Map("wk_prod_rawkeyvalue", "issuing-form");
+        _repoMock.Setup(r => r.GetByHashAsync(It.IsAny<Auth.Domain.ValueObjects.CredentialHashCandidates>(), It.IsAny<CancellationToken>())).ReturnsAsync(key);
+
+        var result = await _handler.Handle(Query("wk_prod_rawkeyvalue"), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Should().Be(Auth.Domain.Errors.WebhookKeyErrors.Invalid);
+        _repoMock.Verify(r => r.RecordUsageAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
+        _publisherMock.Verify(p => p.Publish(It.IsAny<Auth.Domain.Events.WebhookKeyHashUpgradedEvent>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Theory]
+    [InlineData("", "WebhookKey.Required")]
+    [InlineData("ak_prod_x", "WebhookKey.InvalidPrefix")]
+    public async Task Handle_EmptyOrForeignPrefix_KeepsTodaysAnswers(string raw, string code)
+    {
+        var result = await _handler.Handle(Query(raw), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(code);
+        _repoMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Handle_CallerWithoutTheScope_ReturnsInsufficientScope_BeforeTheKeyIsRead()
+    {
+        var result = await _handler.Handle(
+            Query("wk_prod_rawkeyvalue", Auth.Domain.Constants.MachineClients.Scopes.ApiKeysValidate), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Http.Forbidden");
+        _repoMock.VerifyNoOtherCalls();
     }
 }
 

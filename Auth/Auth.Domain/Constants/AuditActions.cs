@@ -216,6 +216,7 @@ public static class AuditActions
     // ApiKeyManagement
     public const string ApiKeyCreated = "apikey.created";
     public const string ApiKeyRevoked = "apikey.revoked";
+    public const string ApiKeyRotated = "apikey.rotated";
     public const string MachineKeyCreated = "machinekey.created";
     public const string MachineKeyRevoked = "machinekey.revoked";
     public const string MachineOrganizationsReadAllowed = "machineaccess.organizations_read_all.allowed";
@@ -312,6 +313,7 @@ public static class AuditActions
 
             [ApiKeyCreated] = AuditActionTypes.ApiKeyManagement,
             [ApiKeyRevoked] = AuditActionTypes.ApiKeyManagement,
+            [ApiKeyRotated] = AuditActionTypes.ApiKeyManagement,
             [MachineKeyCreated] = AuditActionTypes.ApiKeyManagement,
             [MachineKeyRevoked] = AuditActionTypes.ApiKeyManagement,
             [MachineOrganizationsReadAllowed] = AuditActionTypes.ApiKeyManagement,

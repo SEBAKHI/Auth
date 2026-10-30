@@ -550,7 +550,7 @@ The discovery document advertises exactly what is true and nothing more: `respon
 ### Two Standard Token Endpoints
 
 - `POST /api/v1/auth/revoke` — RFC 7009 token revocation. Anonymous.
-- `POST /api/v1/auth/introspect` — RFC 7662 token introspection: hand it a token, learn whether it is still active. This endpoint **requires an authenticated caller**.
+- `POST /api/v1/app/machine/tokens/introspect` — RFC 7662 token introspection, for an application's own server: hand it one of your application's tokens, learn whether it is still active. It **requires the application's machine token**, and answers `active: false` for every token not issued to that application.
 
 A server-side application also has `POST /api/v1/auth/end-session/server`, this server's own (not a standard endpoint, advertised as `server_end_session_endpoint`). It takes no user token: the application proves itself with its client assertion and with the person's refresh token bound to its key, and the call ends that person's session at the application and the single sign-on session the token was issued from. It counts on the `token` limit.
 
@@ -1066,7 +1066,7 @@ Most panels cover a trailing 30-day window by default, adjustable up to 90 days,
 
 **API keys** let another program call the API without a human signing in. A key is issued with a visible prefix identifying its environment, and only its hash is stored — the full value is shown once, at creation, and never again. Keys carry scopes, an optional expiry, rotation with a grace period during which both old and new work, and revocation.
 
-One honest limitation: an API key carries `RateLimitPerMinute` and `RateLimitPerDay` fields. They are stored, validated, returned when the key is validated, and sortable in the console — and **nothing in this system enforces them**. They are metadata for a consuming application to act on, not a throttle.
+A key carries at least one scope, each a permission of its own application, and may carry a list of the addresses it may be presented from. The application that receives a key checks it with its own machine key and hears only about its own keys: another application's key is answered as an unknown one. There are no per-key rate limits: the fields that once suggested them were enforced by nothing and are gone; an application throttles its callers itself.
 
 **Webhook keys** are signing keys, so a system receiving a callback can verify it genuinely came from you. They are created, listed, rotated, revoked and validated the same way.
 

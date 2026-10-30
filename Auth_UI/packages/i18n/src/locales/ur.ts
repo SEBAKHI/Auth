@@ -285,8 +285,6 @@ export const ur: TranslationResources = {
     publishedAt: "تاریخِ اشاعت",
     publishedVersionNumber: "شائع شدہ ورژن",
     purpose: "مقصد",
-    rateLimitPerDay: "شرح کی حد / دن",
-    rateLimitPerMinute: "شرح کی حد / منٹ",
     reauthenticationMaxAgeMinutes: "دوبارہ توثیق کی زیادہ سے زیادہ مدت (منٹ)",
     recipient: "وصول کنندہ",
     recipientName: "وصول کنندہ کا نام",
@@ -1117,7 +1115,6 @@ export const ur: TranslationResources = {
     title: "API کلیدیں",
     subtitle: "ایپلیکیشن API کلیدیں جاری اور منظم کریں۔",
     newKey: "نئی API کلید",
-    keyLabel: "API کلید",
     namePlaceholder: "بلنگ سروس",
     descriptionPlaceholder: "یہ کلید کہاں استعمال ہوتی ہے",
     createTitle: "API کلید بنائیں",
@@ -1125,16 +1122,19 @@ export const ur: TranslationResources = {
     environment: "ماحول",
     environmentHint:
       "یہ کلید کس تعیناتی سے تعلق رکھتی ہے، تاکہ کلیدوں میں فرق آسان ہو۔",
-    rateLimitPerMinute: "شرح کی حد / منٹ",
-    rateLimitPerDay: "شرح کی حد / دن",
-    rateLimitPerMinuteHint:
-      "یہ کلید ایک منٹ میں کتنی درخواستیں کر سکتی ہے۔ یہ محض رہنما قدر ہے: عدد محفوظ ہو کر اُس سروس کو دیا جاتا ہے جو کلید کی تصدیق کرتی ہے — یہاں کوئی چیز درخواستیں گنتی یا مسترد نہیں کرتی۔",
-    rateLimitPerDayHint:
-      "یہ کلید ایک دن میں کتنی درخواستیں کر سکتی ہے۔ اوپر والی کی طرح رہنما قدر: اسے کلید کی تصدیق کرنے والی سروس نافذ کرتی ہے، یہ نظام نہیں۔",
     scopes: "دائرہ کار",
+    scopesHint:
+      "کلید کیا کر سکتی ہے: ایپلیکیشن کی اپنی وہ اجازتیں جو آپ کے پاس ہیں۔ ایپلیکیشن کلید کی جانچ کرتے وقت انہیں پڑھتی ہے۔",
+    scopesRequired: "کم از کم ایک دائرہ کار منتخب کریں۔",
+    noGrantableScopes:
+      "اس ایپلیکیشن میں کوئی فعال اجازت نہیں جو آپ دے سکیں: کوئی اجازت دینے کے لیے وہ اجازت خود اور applications:update دونوں درکار ہیں۔ پہلے ایپلیکیشن میں اجازتیں شامل کریں، یا کسی ایسے منتظم سے کہیں جس کے پاس وہ ہوں۔",
+    scopesUnreadable:
+      "آپ کا اکاؤنٹ اجازتوں کی فہرست نہیں پڑھ سکتا (permissions:read)، اس لیے یہاں نہ کوئی دائرہ کار چنا جا سکتا ہے نہ کلید بنائی جا سکتی ہے۔ یہ اجازت کسی منتظم سے مانگیں۔",
+    allowedIps: "اجازت یافتہ پتے",
+    allowedIpsHint:
+      "اختیاری۔ ہر سطر میں ایک IPv4 یا IPv6 پتہ یا CIDR رینج؛ ایپلیکیشن کسی اور پتے سے آنے والی کلید کو رد کرتی ہے۔ ہر پتے کی اجازت کے لیے خالی چھوڑیں۔",
     revoke: "منسوخ کریں",
     rotate: "گھمائیں",
-    validate: "توثیق کریں",
     revokeReason: "وجہ",
     revokeReasonPlaceholder: "عوامی ریپازٹری میں افشا ہو گئی",
     revokeTitle: "API کلید منسوخ کریں",
@@ -1149,8 +1149,6 @@ export const ur: TranslationResources = {
     secretOnceTitle: "اپنی API کلید ابھی کاپی کریں",
     secretOnceBody:
       "مکمل کلید صرف اسی بار دکھائی جاتی ہے۔ اسے محفوظ طریقے سے رکھیں۔",
-    validateTitle: "API کلید کی توثیق کریں",
-    validatePlaceholder: "توثیق کے لیے API کلید یہاں چسپاں کریں…",
     expiringSoon: "جلد ختم ہو رہی ہے",
     expired: "ختم شدہ",
     expiresLater: "بعد میں ختم ہوگی",
@@ -1290,7 +1288,6 @@ export const ur: TranslationResources = {
     title: "Webhook کلیدیں",
     subtitle: "جانے والے webhooks کی دستخطی کلیدوں کا انتظام کریں۔",
     newKey: "نئی webhook کلید",
-    keyLabel: "Webhook کلید",
     namePlaceholder: "آرڈر ایونٹس",
     descriptionPlaceholder: "یہ کلید کہاں استعمال ہوتی ہے",
     createTitle: "Webhook کلید بنائیں",
@@ -1301,8 +1298,6 @@ export const ur: TranslationResources = {
       "یہ کلید کس تعیناتی سے تعلق رکھتی ہے، تاکہ کلیدوں میں فرق آسان ہو۔",
     revoke: "منسوخ کریں",
     rotate: "گھمائیں",
-    validate: "توثیق کریں",
-    validatePlaceholder: "توثیق کے لیے webhook کلید یہاں چسپاں کریں…",
     expiringSoon: "جلد ختم ہو رہی ہے",
     expired: "ختم شدہ",
     expiresLater: "بعد میں ختم ہوگی",
@@ -1443,6 +1438,7 @@ export const ur: TranslationResources = {
       organizationProvisionedForApplication: "ایپلیکیشن سے تنظیم کی ترتیب",
       apikeyCreated: "API کلید بنی",
       apikeyRevoked: "API کلید منسوخ ہوئی",
+      apikeyRotated: "API کلید گھمائی گئی",
       machinekeyCreated: "ایپلیکیشن کلید بنی",
       machinekeyRevoked: "ایپلیکیشن کلید منسوخ ہوئی",
       machineaccessOrganizationsReadAllAllowed:
@@ -2417,10 +2413,10 @@ export const ur: TranslationResources = {
       passwordResetWindowSeconds: "ری سیٹ گنتی کی ونڈو (سیکنڈ)",
       passwordResetWindowSecondsHint:
         "وہ مدت جس پر اوپر کے استعمال کی گنتی ماپی جاتی ہے، اُسی مقررہ ونڈو کے اصول پر۔",
-      apiKeyValidatePermitLimit: "فی ونڈو API کلید کی توثیقات",
+      apiKeyValidatePermitLimit: "فی ونڈو کلید اور ٹوکن کی جانچ",
       apiKeyValidatePermitLimitHint:
-        "ایک کلائنٹ IP کتنی بار اس API سے کسی API کلید کی جانچ کا کہہ سکتا ہے، اس کے بعد 429 کے ساتھ انکار ہوتا ہے۔ یہ حد کسی راز کی نہیں بلکہ محنت کی حفاظت کرتی ہے: ہر توثیق پیش کردہ کلید کو Argon2id سے ہیش کرتی ہے جو جان بوجھ کر سست اور یادداشت خور ہے، چنانچہ بغیر حد والا کالر درست کلید رکھے بغیر ہی اس سرور کا پروسیسر اور یادداشت خرچ کر سکتا ہے۔ اسے جائز انضمام کی ضرورت سے کچھ اوپر رکھیں، اس سے زیادہ نہیں۔",
-      apiKeyValidateWindowSeconds: "API کلید توثیق کی ونڈو (سیکنڈ)",
+        "ایک ایپلیکیشن کا سرور ایک پتے سے ایک ونڈو میں کتنی بار API کلید، webhook کلید اور ٹوکن کی جانچ کر سکتا ہے، اس کے بعد 429 کے ساتھ انکار ہوتا ہے؛ جس کالر کا مشین ٹوکن (machine token) درست نہ ہو وہ اپنے پتے کے اسی سائز کے الگ حصے پر گنا جاتا ہے۔ یہ حد کسی راز کی نہیں بلکہ محنت کی حفاظت کرتی ہے: API کلید کی ہر جانچ ایک Argon2id ہیش چلاتی ہے جو جان بوجھ کر سست اور یادداشت خور ہے۔ اسے ایک ایپلیکیشن کی ٹریفک کی ضرورت سے کچھ اوپر رکھیں، اس سے زیادہ نہیں۔",
+      apiKeyValidateWindowSeconds: "کلید اور ٹوکن جانچ کی ونڈو (سیکنڈ)",
       apiKeyValidateWindowSecondsHint:
         "وہ دورانیہ جس پر اوپر کی گنتی ناپی جاتی ہے۔ ونڈو ثابت ہے، رواں نہیں: اس کے ختم ہونے پر شمار کنندہ صفر پر لوٹ آتا ہے، اور جو کالر اپنا حصہ خرچ کر چکا ہو وہ تب تک انتظار کرتا ہے۔",
       imageUploadConcurrencyLimit: "بیک وقت ڈی کوڈ ہونے والے اپ لوڈ",

@@ -1,7 +1,10 @@
+using System.Data;
+using System.Text.Json;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Dapper;
 
 namespace Auth.Infrastructure.Persistence;
@@ -87,19 +90,67 @@ public class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task<ApiKey> CreateAsync(ApiKey apiKey, CancellationToken cancellationToken)
+    public async Task<ApiKey> CreateAsync(
+        ApiKey apiKey,
+        IReadOnlyCollection<ApiKeyScope> scopes,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
 
-        await connection.ExecuteAsync(@"
+        await InsertKeyAsync(connection, transaction, apiKey, cancellationToken);
+        await InsertScopesAsync(connection, transaction, scopes, cancellationToken);
+
+        transaction.Commit();
+        return apiKey;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> TryRotateAsync(
+        ApiKey replaced,
+        ApiKey replacement,
+        IReadOnlyCollection<ApiKeyScope> scopes,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        // The rotated key's end moves first, and only while the key is live: a revocation that
+        // landed since it was read wins, and no replacement outlives it. The update also holds
+        // the row until the commit, so a revocation arriving now waits for the rotation.
+        var moved = await connection.ExecuteAsync(new CommandDefinition(@"
+            UPDATE [dbo].[ApiKeys] SET [ExpiresAt] = @ExpiresAt
+            WHERE [Id] = @Id AND [RevokedAt] IS NULL",
+            new { replaced.Id, replaced.ExpiresAt },
+            transaction,
+            cancellationToken: cancellationToken));
+        if (moved != 1)
+        {
+            transaction.Rollback();
+            return false;
+        }
+
+        await InsertKeyAsync(connection, transaction, replacement, cancellationToken);
+        await InsertScopesAsync(connection, transaction, scopes, cancellationToken);
+
+        transaction.Commit();
+        return true;
+    }
+
+    private static Task InsertKeyAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        ApiKey apiKey,
+        CancellationToken cancellationToken) =>
+        // RateLimitPerMinute, RateLimitPerDay and AllowedOrigins are left to their column
+        // defaults: nothing enforced them (owner decision D-128-3).
+        connection.ExecuteAsync(new CommandDefinition(@"
             INSERT INTO [dbo].[ApiKeys] (
                 [Id], [ApplicationId], [Name], [Description], [KeyPrefix], [KeyHash],
-                [Environment], [RateLimitPerMinute], [RateLimitPerDay],
-                [AllowedIps], [AllowedOrigins], [CreatedAt], [CreatedBy], [ExpiresAt]
+                [Environment], [AllowedIps], [CreatedAt], [CreatedBy], [ExpiresAt], [KeySelector]
             ) VALUES (
                 @Id, @ApplicationId, @Name, @Description, @KeyPrefix, @KeyHash,
-                @Environment, @RateLimitPerMinute, @RateLimitPerDay,
-                @AllowedIps, @AllowedOrigins, @CreatedAt, @CreatedBy, @ExpiresAt
+                @Environment, @AllowedIps, @CreatedAt, @CreatedBy, @ExpiresAt, @KeySelector
             )",
             new
             {
@@ -110,16 +161,63 @@ public class ApiKeyRepository : IApiKeyRepository
                 apiKey.KeyPrefix,
                 apiKey.KeyHash,
                 apiKey.Environment,
-                apiKey.RateLimitPerMinute,
-                apiKey.RateLimitPerDay,
-                apiKey.AllowedIps,
-                apiKey.AllowedOrigins,
+                AllowedIps = SerializeAllowedIps(apiKey.AllowedIps),
                 apiKey.CreatedAt,
                 apiKey.CreatedBy,
-                apiKey.ExpiresAt
-            });
+                apiKey.ExpiresAt,
+                apiKey.KeySelector
+            },
+            transaction,
+            cancellationToken: cancellationToken));
 
-        return apiKey;
+    private static async Task InsertScopesAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        IReadOnlyCollection<ApiKeyScope> scopes,
+        CancellationToken cancellationToken)
+    {
+        foreach (var scope in scopes)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(@"
+                INSERT INTO [dbo].[ApiKeyScopes] (
+                    [Id], [ApiKeyId], [PermissionId], [GrantedAt], [GrantedBy]
+                ) VALUES (
+                    @Id, @ApiKeyId, @PermissionId, @GrantedAt, @GrantedBy
+                )",
+                new
+                {
+                    scope.Id,
+                    scope.ApiKeyId,
+                    scope.PermissionId,
+                    scope.GrantedAt,
+                    scope.GrantedBy
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+        }
+    }
+
+    /// <summary>The address list as the column holds it: a JSON array, or NULL for any address.</summary>
+    internal static string? SerializeAllowedIps(IpAllowList allowedIps) =>
+        allowedIps.Entries.Count == 0 ? null : JsonSerializer.Serialize(allowedIps.Entries);
+
+    internal static IpAllowList DeserializeAllowedIps(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return IpAllowList.Any;
+        }
+
+        try
+        {
+            return IpAllowList.FromStored(JsonSerializer.Deserialize<string[]>(json));
+        }
+        catch (JsonException)
+        {
+            // A value this code never wrote: matching nothing is the safe reading of a list
+            // that cannot be read, never "any address".
+            return IpAllowList.FromStored([json]);
+        }
     }
 
     /// <inheritdoc />
@@ -163,27 +261,6 @@ public class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task AddScopeAsync(ApiKeyScope scope, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        await connection.ExecuteAsync(@"
-            INSERT INTO [dbo].[ApiKeyScopes] (
-                [Id], [ApiKeyId], [PermissionId], [GrantedAt], [GrantedBy]
-            ) VALUES (
-                @Id, @ApiKeyId, @PermissionId, @GrantedAt, @GrantedBy
-            )",
-            new
-            {
-                scope.Id,
-                scope.ApiKeyId,
-                scope.PermissionId,
-                scope.GrantedAt,
-                scope.GrantedBy
-            });
-    }
-
-    /// <inheritdoc />
     public async Task RemoveScopeAsync(Guid apiKeyId, Guid permissionId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -207,6 +284,19 @@ public class ApiKeyRepository : IApiKeyRepository
             new { ApiKeyId = apiKeyId });
 
         return permissions.ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> GetScopePermissionIdsAsync(Guid apiKeyId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var ids = await connection.QueryAsync<Guid>(new CommandDefinition(@"
+            SELECT [PermissionId] FROM [dbo].[ApiKeyScopes] WHERE [ApiKeyId] = @ApiKeyId",
+            new { ApiKeyId = apiKeyId },
+            cancellationToken: cancellationToken));
+
+        return ids.ToList();
     }
 
     /// <summary>
@@ -259,24 +349,23 @@ public class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ApiKey>> GetActiveByPrefixAsync(
-        string prefix,
-        CancellationToken cancellationToken)
+    public async Task<ApiKey?> GetActiveBySelectorAsync(string selector, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // Validation candidates: only keys of live (active, not soft-deleted)
-        // applications may authenticate.
-        var dtos = await connection.QueryAsync<ApiKeyDto>(@"
+        // One row at most (UX_ApiKeys_KeySelector), and only a key of a live (active, not
+        // soft-deleted) application may authenticate.
+        var dto = await connection.QueryFirstOrDefaultAsync<ApiKeyDto>(new CommandDefinition(@"
             SELECT k.* FROM [dbo].[ApiKeys] k
             INNER JOIN [dbo].[Applications] a ON a.[Id] = k.[ApplicationId]
-            WHERE k.[KeyPrefix] = @Prefix
+            WHERE k.[KeySelector] = @Selector
               AND k.[RevokedAt] IS NULL
               AND (k.[ExpiresAt] IS NULL OR k.[ExpiresAt] > GETUTCDATE())
               AND a.[IsActive] = 1 AND a.[IsDeleted] = 0",
-            new { Prefix = prefix });
+            new { Selector = selector },
+            cancellationToken: cancellationToken));
 
-        return dtos.Select(dto => dto.ToEntity()).ToList();
+        return dto?.ToEntity();
     }
 
     private record ScopeRow
@@ -293,11 +382,9 @@ public class ApiKeyRepository : IApiKeyRepository
         public string? Description { get; init; }
         public string KeyPrefix { get; init; } = string.Empty;
         public string KeyHash { get; init; } = string.Empty;
+        public string? KeySelector { get; init; }
         public string Environment { get; init; } = "production";
-        public int RateLimitPerMinute { get; init; }
-        public int RateLimitPerDay { get; init; }
         public string? AllowedIps { get; init; }
-        public string? AllowedOrigins { get; init; }
         public DateTime CreatedAt { get; init; }
         public Guid CreatedBy { get; init; }
         public DateTime? ExpiresAt { get; init; }
@@ -313,11 +400,9 @@ public class ApiKeyRepository : IApiKeyRepository
             Description,
             KeyPrefix,
             KeyHash,
+            KeySelector,
             Environment,
-            RateLimitPerMinute,
-            RateLimitPerDay,
-            AllowedIps,
-            AllowedOrigins,
+            DeserializeAllowedIps(AllowedIps),
             CreatedAt,
             CreatedBy,
             ExpiresAt,

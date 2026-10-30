@@ -46,7 +46,7 @@ rather than described.
 
     <!-- Package Identity -->
     <PackageId>AuthSystem.Sdk</PackageId>
-    <Version>1.0.2</Version>
+    <Version>2.0.0</Version>
     <Authors>AuthSystem Contributors</Authors>
     <Company>AuthSystem</Company>
     <Description>SDK for integrating external .NET applications with the AuthSystem. Provides JWT, API Key, and Webhook Key authentication handlers with permission-based authorization.</Description>
@@ -80,7 +80,7 @@ rather than described.
 </Project>
 ```
 
-**Package metadata that is present today.** `PackageId` is `AuthSystem.Sdk`, `Version` is `1.0.2`,
+**Package metadata that is present today.** `PackageId` is `AuthSystem.Sdk`, `Version` is `2.0.0`,
 `Authors` is `AuthSystem Contributors`, `Company` is `AuthSystem`, and there is a `Description`,
 `PackageTags`, and `RepositoryType`. The license is `MIT` (`PackageLicenseExpression`), and both
 `RepositoryUrl` and `PackageProjectUrl` point at `https://github.com/SEBAKHI/Auth`.
@@ -530,7 +530,7 @@ it from documentation.
 The version is one line in `Auth/Auth.Sdk/Auth.Sdk.csproj`:
 
 ```xml
-<Version>1.0.2</Version>
+<Version>2.0.0</Version>
 ```
 
 Changing that single value changes the package version, the assembly version, and the file version
@@ -556,6 +556,24 @@ consumer is known.
 1.0.2 (2026-10, OI-225): both authorization handlers match permissions with one internal matcher,
 the API's rule: a held code outside the permission-code format (`*:*`, `users*`) now matches only
 itself, so a held `*:*` no longer satisfies a requirement of `*`. Well-formed codes match as before.
+
+2.0.0 (2026-10, OI-128 PR B), breaking. An application that validates keys must move to it together
+with the AuthSystem release that carries the new endpoints:
+- The API-key and webhook-key schemes validate as the application, with its machine key, on
+  `/api/v1/app/machine/…`; they are added by `AddAuthSystemApiKey()` and `AddAuthSystemWebhookKey()`
+  after `AddAuthSystemAuthentication`, which registers only the Bearer scheme now, and they throw at
+  startup without `ClientId`, `MachineKeyId` and `MachinePrivateKeyPem`.
+- `ValidateApiKeyAsync` and `ValidateWebhookKeyAsync` return a `CredentialCheck<T>` (valid, invalid,
+  or unavailable with `RetryAfter`) instead of a nullable result; a check that could not be made is a 503
+  with `Retry-After` from the schemes, never "invalid".
+- `IntrospectTokenAsync` asks as the application and answers only about its own tokens; identical
+  concurrent introspections share one request, and an inactive answer is held for 30 seconds.
+- One check, the machine token, the request and one renewal together, has 10 seconds
+  (`CredentialCheckTimeout`); past them the schemes answer 503 with `Retry-After`.
+- `ApiKeyValidationResult` loses `RateLimitPerMinute` and `RateLimitPerDay` and gains
+  `ApplicationCode` and `AllowedIps`; `WebhookKeyValidationResult` gains `ApplicationCode`.
+- `AuthSystemClient` is sealed, owns its result caches (the host's `IMemoryCache` is neither used nor
+  registered), and its constructor changed; `IMachineTokenProvider` gains `Invalidate`.
 
 **Once published, the SDK follows Semantic Versioning 2.0.0 — "SemVer" for short.** The scheme is three
 numbers and an optional label:

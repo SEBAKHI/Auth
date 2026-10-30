@@ -1007,6 +1007,18 @@
   <data name="ApiKey.Required" xml:space="preserve">
     <value>API密钥为必填项。</value>
   </data>
+  <data name="ApiKey.ScopesRequired" xml:space="preserve">
+    <value>API 密钥必须至少带有一个范围（scope）。</value>
+  </data>
+  <data name="ApiKey.ScopeNotForApplication" xml:space="preserve">
+    <value>API 密钥的每个范围（scope）都必须是该密钥所属应用的有效权限。</value>
+  </data>
+  <data name="ApiKey.AllowedIpInvalid" xml:space="preserve">
+    <value>每个允许的地址必须是 IPv4 或 IPv6 地址，或主机位为零的 CIDR 网段。</value>
+  </data>
+  <data name="ApiKey.AllowedIpsTooMany" xml:space="preserve">
+    <value>一个 API 密钥最多可带 50 个允许的地址。</value>
+  </data>
   <data name="Application.AccessModeInvalid" xml:space="preserve">
     <value>无法识别访问模式。</value>
   </data>

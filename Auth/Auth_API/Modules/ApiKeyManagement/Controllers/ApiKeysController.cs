@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.RateLimiting;
 using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Common;
@@ -7,7 +6,6 @@ using Auth.Application.Features.ApiKeys.CreateApiKey;
 using Auth.Application.Features.ApiKeys.GetApiKeys;
 using Auth.Application.Features.ApiKeys.RevokeApiKey;
 using Auth.Application.Features.ApiKeys.RotateApiKey;
-using Auth.Application.Features.ApiKeys.ValidateApiKey;
 using Auth.Application.DTOs;
 using Auth.Domain.Constants;
 using Auth.Domain.Enums;
@@ -78,15 +76,17 @@ public class ApiKeysController : ApiController
             request.Name,
             request.Description,
             request.Environment ?? "production",
-            request.RateLimitPerMinute ?? 60,
-            request.RateLimitPerDay ?? 10000,
             request.ExpiresAt,
-            request.PermissionIds)
+            request.PermissionIds,
+            request.AllowedIps)
         {
             CreatedBy = userId
         };
 
         var result = await _sender.Send(command, cancellationToken);
+
+        // The answer holds the plain key: no cache may keep it (OI-128 PR B, OI-129).
+        Response.Headers.CacheControl = "no-store";
 
         return result.Match(
             apiKey => CreatedAtAction(nameof(GetApiKeys), new { applicationId = request.ApplicationId }, apiKey),
@@ -119,26 +119,6 @@ public class ApiKeysController : ApiController
     }
 
     /// <summary>
-    /// Validate an API key and return its metadata.
-    /// </summary>
-    [HttpPost("validate")]
-    [RequirePermission(PermissionCodes.ApiKeys.Validate)]
-    [EnableRateLimiting("apikey-validate")]
-    [ProducesResponseType(typeof(ValidateApiKeyResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> ValidateApiKey([FromBody] ValidateApiKeyRequest request, CancellationToken cancellationToken)
-    {
-        var query = new ValidateApiKeyQuery(request.ApiKey);
-        var result = await _sender.Send(query, cancellationToken);
-
-        return result.Match(
-            response => Ok(response),
-            errors => Problem(errors));
-    }
-
-    /// <summary>
     /// Rotate an API key, generating a new key while optionally keeping the old key valid for a grace period.
     /// </summary>
     [HttpPost("{id:guid}/rotate")]
@@ -157,6 +137,9 @@ public class ApiKeysController : ApiController
             userId);
 
         var result = await _sender.Send(command, cancellationToken);
+
+        // The answer holds the new plain key: no cache may keep it (OI-128 PR B, OI-129).
+        Response.Headers.CacheControl = "no-store";
 
         return result.Match(
             response => Ok(response with

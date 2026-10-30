@@ -18,4 +18,11 @@ public interface IMachineTokenProvider
     /// <exception cref="InvalidOperationException">The three machine options are not all set, or the private key is not a P-256 PKCS#8 PEM.</exception>
     /// <exception cref="MachineTokenException">The AuthSystem refused the request or could not be reached.</exception>
     Task<string> GetAccessTokenAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Forgets <paramref name="accessToken"/> when it is the cached token, so the next call asks for
+    /// a new one (SDK 2.0): the AuthSystem refused it, because its machine key was revoked or
+    /// replaced inside the token's five minutes. A token already replaced is left alone.
+    /// </summary>
+    void Invalidate(string accessToken);
 }

@@ -10,8 +10,9 @@
  * Usage:
  *   node Tools/probes/machine-token.mjs --pem <private-key.pem> --kid <kid> --client-id <application code> [--burst]
  *
- * Get the PEM and the kid from the console: the application's page, tab "Machine keys"
- * («مفاتيح الآلة»), "Generate key", then download the private key. Revoke the key afterwards.
+ * Get the PEM and the kid from the console: the application's page, tab "Application keys"
+ * («مفاتيح التطبيق»), "Generate key" («إنشاء مفتاح»), purpose machine, then download the private
+ * key. Revoke the key afterwards.
  *
  * Environment:
  *   PROBE_API_URL         default https://localhost:5101 (must be localhost: the probe refuses

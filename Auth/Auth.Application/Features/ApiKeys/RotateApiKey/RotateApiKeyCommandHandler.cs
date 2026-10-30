@@ -1,6 +1,8 @@
+using Auth.Application.Features.ApiKeys.Common;
 using Auth.Domain.Errors;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
@@ -10,19 +12,34 @@ namespace Auth.Application.Features.ApiKeys.RotateApiKey;
 /// <summary>
 /// Handler for the rotate API key command.
 /// </summary>
+/// <remarks>
+/// The new key carries the old key's scopes and addresses (OI-128 PR B), asked again as at
+/// creation: a key with no scope cannot be rotated (create a new one instead), and the rotating
+/// administrator must hold every scope it hands over. The new key, its scopes and the old key's
+/// new end are written in one transaction.
+/// </remarks>
 public class RotateApiKeyCommandHandler : IRequestHandler<RotateApiKeyCommand, ErrorOr<RotateApiKeyResponse>>
 {
     private readonly IApiKeyRepository _apiKeyRepository;
     private readonly IApiKeyGenerator _apiKeyGenerator;
+    private readonly ApiKeyScopePolicy _scopePolicy;
+    private readonly IPublisher _publisher;
+    private readonly TimeProvider _time;
     private readonly ILogger<RotateApiKeyCommandHandler> _logger;
 
     public RotateApiKeyCommandHandler(
         IApiKeyRepository apiKeyRepository,
         IApiKeyGenerator apiKeyGenerator,
+        ApiKeyScopePolicy scopePolicy,
+        IPublisher publisher,
+        TimeProvider time,
         ILogger<RotateApiKeyCommandHandler> logger)
     {
         _apiKeyRepository = apiKeyRepository;
         _apiKeyGenerator = apiKeyGenerator;
+        _scopePolicy = scopePolicy;
+        _publisher = publisher;
+        _time = time;
         _logger = logger;
     }
 
@@ -43,28 +60,37 @@ public class RotateApiKeyCommandHandler : IRequestHandler<RotateApiKeyCommand, E
             return ApiKeyErrors.AlreadyRevoked;
         }
 
-        // Generate new API key
-        var (newPlainKey, newKeyPrefix, newKeyHash) = _apiKeyGenerator.Generate(existingKey.Environment);
+        var permissionIds = await _apiKeyRepository.GetScopePermissionIdsAsync(existingKey.Id, cancellationToken);
+        var scopes = await _scopePolicy.ResolveAsync(
+            existingKey.ApplicationId, permissionIds, request.RotatedBy, cancellationToken);
+        if (scopes.IsError)
+        {
+            _logger.LogWarning(
+                "Blocked rotation of API key {ApiKeyId} by {RotatedBy}: {Code}",
+                existingKey.Id, request.RotatedBy, scopes.FirstError.Code);
+            return scopes.Errors;
+        }
 
-        // Create the new API key with the same settings
-        var newApiKey = ApiKey.Create(
-            applicationId: existingKey.ApplicationId,
-            name: $"{existingKey.Name} (rotated)",
-            keyPrefix: newKeyPrefix,
-            keyHash: newKeyHash,
-            createdBy: request.RotatedBy,
-            description: $"Rotated from key {existingKey.KeyPrefix}... on {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC",
-            environment: existingKey.Environment,
-            rateLimitPerMinute: existingKey.RateLimitPerMinute,
-            rateLimitPerDay: existingKey.RateLimitPerDay,
-            expiresAt: existingKey.ExpiresAt);
+        var generated = _apiKeyGenerator.Generate(existingKey.Environment);
+        var now = _time.GetUtcNow();
 
-        await _apiKeyRepository.CreateAsync(newApiKey, cancellationToken);
+        var newApiKey = existingKey.CreateReplacement(
+            generated.KeyPrefix, generated.KeySelector, generated.KeyHash, request.RotatedBy, now.UtcDateTime);
 
         // Schedule the old key to expire after the grace period
-        var gracePeriodEnd = DateTime.UtcNow.AddMinutes(request.GracePeriodMinutes);
+        var gracePeriodEnd = now.UtcDateTime.AddMinutes(request.GracePeriodMinutes);
         existingKey.ScheduleExpiration(gracePeriodEnd);
-        await _apiKeyRepository.UpdateAsync(existingKey, cancellationToken);
+
+        var rotated = await _apiKeyRepository.TryRotateAsync(
+            existingKey,
+            newApiKey,
+            scopes.Value.Select(permissionId => ApiKeyScope.Create(newApiKey.Id, permissionId, request.RotatedBy)).ToList(),
+            cancellationToken);
+        if (!rotated)
+        {
+            _logger.LogWarning("API key {ApiKeyId} was revoked during its rotation; nothing was issued", existingKey.Id);
+            return ApiKeyErrors.AlreadyRevoked;
+        }
 
         _logger.LogInformation(
             "Rotated API key {OldKeyId} to {NewKeyId}. Old key valid until {GraceEnd}",
@@ -72,11 +98,22 @@ public class RotateApiKeyCommandHandler : IRequestHandler<RotateApiKeyCommand, E
             newApiKey.Id,
             gracePeriodEnd);
 
+        await _publisher.Publish(
+            new ApiKeyRotatedEvent(
+                Guid.NewGuid(),
+                newApiKey.Id,
+                newApiKey.ApplicationId,
+                existingKey.Id,
+                gracePeriodEnd,
+                request.RotatedBy,
+                now),
+            CancellationToken.None);
+
         return new RotateApiKeyResponse
         {
-            NewApiKey = newPlainKey,
+            NewApiKey = generated.PlainKey,
             NewApiKeyId = newApiKey.Id,
-            NewKeyPrefix = newKeyPrefix,
+            NewKeyPrefix = generated.KeyPrefix,
             OldKeyExpiresAt = gracePeriodEnd,
             OldApiKeyId = existingKey.Id,
             Message = $"New API key generated successfully. Old key will remain valid until {gracePeriodEnd:yyyy-MM-dd HH:mm:ss} UTC. " +

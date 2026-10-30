@@ -42,8 +42,8 @@ around it.
 |---|---|---|---|---|
 | A person signing in through a browser | — (produces a JWT) | the browser, via OAuth authorization-code + PKCE | your human users | **Works** |
 | JWT Bearer | `Bearer` | `Authorization: Bearer <token>` header | any caller holding a token AuthSystem issued | **Works** |
-| API key | `ApiKey` | `X-Api-Key: <key>` header | another server calling yours | **Broken as shipped** — see limitations 1 and 3 |
-| Webhook key | `WebhookKey` | `?whk=<key>` in the URL query string | a system posting webhook callbacks to you | **Broken as shipped** — see limitations 1, 3 and 4 |
+| API key | `ApiKey` | `X-Api-Key: <key>` header | another server calling yours | **Works** with SDK 2.0 and a machine key — see [6D](#6d-endpoints-another-system-reaches-with-an-api-key) |
+| Webhook key | `WebhookKey` | `?whk=<key>` in the URL query string | a system posting webhook callbacks to you | **Works** with SDK 2.0 and a machine key — see limitation 4 |
 
 The first two rows are the same scheme seen from two ends. The browser flow is how a token comes into
 existence; the `Bearer` scheme is how your application checks one.
@@ -56,61 +56,32 @@ existence; the `Bearer` scheme is how your application checks one.
 These are shipped defects, not warnings about misuse. Each one is stated plainly, with the file and line
 that proves it, and with what you should do about it today.
 
-**1. The SDK sends its gateway token twice, and every call it makes is therefore rejected with HTTP 403.**
-AuthSystem's API can be configured to accept requests only from its own gateway, by requiring a shared
-secret in an `X-Gateway-Token` header. The SDK adds that header twice: once when it registers its named
-HTTP client, and again every time it hands that client to a caller. HTTP joins repeated header values with
-a comma, so the API receives `secret, secret` where it expects `secret`. The API compares the header's
-whole string value against the expected token, first by byte length and then in constant time, so a
-two-value header can never match, and the request comes back as HTTP 403 with an
-`application/problem+json` body whose `code` is `Auth.InvalidGatewayToken`.
-*In code:* the first addition is in the named-client registration at
-`Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:50-52`; the second is inside
-`AuthSystemClient.CreateClient()` at `Auth/Auth.Sdk/AuthSystemClient.cs:221`; the comparison is
-`Auth/Auth_API/Common/Middleware/GatewayTokenValidationMiddleware.cs:61-66` and the 403 is recorded at
-`:75`.
-**Which calls this breaks:** all four network methods on `AuthSystemClient` — `ValidateApiKeyAsync`,
-`ValidateWebhookKeyAsync`, `IntrospectTokenAsync` and `LoginAsync`. Automatic token refresh is *not*
-affected, because it builds its own HTTP client and adds the header once
-(`Auth/Auth.Sdk/TokenManagement/TokenRefreshHandler.cs:111-112`). Validating a JWT is also not affected,
-because that never goes through this client and the `/.well-known/` paths are exempt from gateway-token
-checking anyway (`Auth/Auth_API/appsettings.json:96-102`).
-**What to do today:** treat the JWT Bearer scheme as the only working scheme. Gateway validation is on by
-default (`Auth/Auth_API/appsettings.json:95`) and off in the Development environment
-(`Auth/Auth_API/appsettings.Development.json:28`), so these calls will appear to work against a local dev
-server and fail against a real one. If you need them for real, take the SDK as source, delete one of the
-two header additions, and build it yourself.
+**1. Resolved: the SDK sent its gateway token twice.** Each of its named HTTP clients attaches the
+`X-Gateway-Token` header once, in its registration, and nothing adds it again per call.
+*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs`; `Auth/Auth.Sdk/AuthSystemClient.cs`
+(`CreateClient`).
 
-**2. The API-key and webhook-key validation endpoints need a permission, not just a valid key.**
-Both `POST /api/v1/apikeys/validate` and `POST /api/v1/webhookkeys/validate` require a signed-in caller
-holding `apikeys:validate` and `webhookkeys:validate` respectively. A clean database publish seeds both
-codes, the other API-key and webhook-key codes, and the `apikeys:*` and `webhookkeys:*` wildcards that
-cover them by prefix. Of the seeded roles, `admin` holds both wildcards and `super-admin` holds the global
-`*`; a narrower service account needs a role you create and grant the validate code to.
-*In code:* the gates are `Auth/Auth_API/Modules/ApiKeyManagement/Controllers/ApiKeysController.cs:24,123`
-and `Auth/Auth_API/Modules/WebhookKeyManagement/Controllers/WebhookKeysController.cs:24,95`; the codes and
-the `admin` grants are in `Auth/Auth_DB/dbo/Scripts/SeedData/18_PlatformPermissions.sql`; the wildcard rule
-is `Auth/Auth_API/Authorization/PermissionRequirementHandler.cs:138-163`.
+**2. Resolved in SDK 2.0: key validation no longer needs a platform user.** Your server validates an API
+key or a webhook key as itself, with its [machine key](#machine-credentials), on
+`POST /api/v1/app/machine/apikeys/validate` and `POST /api/v1/app/machine/webhookkeys/validate`. The
+old paths, `POST /api/v1/apikeys/validate` and `POST /api/v1/webhookkeys/validate`, wanted a signed-in
+user holding `apikeys:validate` or `webhookkeys:validate`, so your server had to store a platform
+password; they are gone, and answer like any unknown route. The auth server now answers only about your
+own application's keys: another application's key gets exactly the answer of an unknown key.
+*In code:* `Auth/Auth_API/Modules/MachineCredentialChecks/Controllers/MachineCredentialChecksController.cs`.
 
-**3. The SDK sends no `Authorization` header on the validate calls unless its token store was filled
-first.**
-Even with the header problem in limitation 1 fixed and the permission in limitation 2 granted, the SDK
-would still fail out of the box: the client attaches only the gateway token. A bearer token is added only
-when the SDK's token store already holds one, and the store starts empty — it is filled solely by a
-successful `LoginAsync` or by `SetTokensAsync`. With an empty store the API answers 401. The
-SDK turns any non-success response into `null`, and the authentication handler turns `null` into the
-message "Invalid API key." — so an unauthenticated SDK is indistinguishable from a genuinely bad key.
-*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs:60-64,217-223`;
-`Auth/Auth.Sdk/Handlers/ApiKeyAuthenticationHandler.cs:41-44`.
-**What to do today:** if you must make these calls, call `AuthSystemClient.LoginAsync` or
-`SetTokensAsync` first so the SDK's token store is populated — the refresh handler will then attach an
-`Authorization` header to outgoing calls on the named client. Read limitation 5 before you do.
+**3. Resolved in SDK 2.0: "invalid" and "could not check" are different answers.** The validate calls
+carry your machine token on their own HTTP client, `AuthSystem.MachineApi`, which never reads the token
+store. A key the auth server calls invalid is a 401 for your caller. A check that could not be made (the
+auth server throttling, failing, unreachable or slower than 10 seconds for the whole check, or your
+machine key refused) is a 503 with `Retry-After`, never "invalid key", and nothing is cached for it.
+*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs`; `Auth/Auth.Sdk/Handlers/UnavailableAnswer.cs`.
 
 **4. A webhook-key caller can never satisfy `[RequirePermission]`.**
 The webhook-key handler creates a caller identity carrying an identifier, an application id, a name, a
 target URL and an environment — and no permission claim of any kind. The SDK's permission check looks only
 at the `permissions` and `permission` claims, so it always denies.
-*In code:* `Auth/Auth.Sdk/Handlers/WebhookKeyAuthenticationHandler.cs:51-59`;
+*In code:* `Auth/Auth.Sdk/Handlers/WebhookKeyAuthenticationHandler.cs:60-68`;
 `Auth/Auth.Sdk/Authorization/PermissionRequirementHandler.cs:40`.
 **What to do today:** protect webhook endpoints with a bare
 `[Authorize(AuthenticationSchemes = AuthSystemConstants.WebhookKeyScheme)]` and enforce anything finer in
@@ -121,7 +92,7 @@ your own code.
 refreshing is `static`. In a multi-user web application, one user calling `LoginAsync` overwrites the
 tokens for everybody, and every outbound call the SDK makes then carries that one user's token. This is a
 design for a service identity, not for end users.
-*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:43`;
+*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:82`;
 `Auth/Auth.Sdk/TokenManagement/InMemoryTokenStore.cs`; `Auth/Auth.Sdk/TokenManagement/TokenRefreshHandler.cs:16`.
 **What to do today:** never sign your end users in with `LoginAsync`. Send them through the browser flow
 in [Step 2](#step-2-how-a-person-actually-signs-in). Use `LoginAsync` only for a single machine identity,
@@ -132,7 +103,7 @@ When a user has two-factor authentication switched on, the server answers the lo
 token, `requiresTwoFactor: true`, and a challenge token to present next. The SDK sees a missing token and
 returns `false` with no explanation, and its internal model does not even carry the challenge field, so
 there is nothing to continue with.
-*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs:179-182`; `Auth/Auth.Sdk/Models/LoginResult.cs`;
+*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs:227-231`; `Auth/Auth.Sdk/Models/LoginResult.cs`;
 the real shape is `Auth/Auth.Application/DTOs/LoginResponse.cs:15,30,36`.
 **What to do today:** same answer as limitation 5 — send people through the browser flow, which handles
 two-factor properly in the accounts application.
@@ -548,8 +519,8 @@ and AuthSystem's own API refuses the access tokens of that session.
   your own session and send the person to sign in.
 - An access token your application already holds stays valid until it expires, at most one access token
   lifetime later (`Jwt:AccessTokenLifetimeMinutes`, 15 by default): your application validates it itself
-  (the SDK does). Introspection does not shorten this: it is for platform callers and answers
-  `active: false` for any application's token. A notification sent to your server at the sign-out
+  (the SDK does). Your server can shorten this by asking: [introspection](#introspection-is-this-token-still-active)
+  answers `active: false` for your own token from the sign-out on. A notification sent to your server at the sign-out
   (OpenID Connect Back-Channel Logout), which closes that window for an application that registers an
   address, is not offered yet.
 
@@ -986,13 +957,20 @@ application's upper-case Code for `Audience`.
 | `GatewayToken` | string | empty | Only when the server requires it | The shared secret sent in the `X-Gateway-Token` header. See the gateway-token paragraph below. |
 | `ApiKeyCacheDuration` | TimeSpan | 60 seconds | No | How long a **valid** API key's metadata is kept in memory. |
 | `WebhookKeyCacheDuration` | TimeSpan | 5 minutes | No | How long a **valid** webhook key's metadata is kept in memory. |
+| `ClientId` | string | null | For the key schemes and introspection | Your application's code, its `client_id` as a machine client. |
+| `MachineKeyId` | string | null | For the key schemes and introspection | The `kid` of your machine key, as the console showed it. |
+| `MachinePrivateKeyPem` | string | null | For the key schemes and introspection | The machine key's private key, PKCS#8 PEM, P-256. A secret: load it from your secret store. |
 | `EnableAutoRefresh` | bool | `true` | No | Whether outgoing calls on the SDK's named HTTP client refresh a stored access token automatically. |
 | `RefreshBufferSeconds` | int | `120` | No | How many seconds before expiry to refresh proactively. `0` switches the early refresh off: the SDK then refreshes only once the token has actually expired, or after a 401 response. |
 
-**Neither cache duration caches a failure.** Only a result whose `active` field is `true` is stored. A
-stream of requests carrying an invalid key therefore hits the auth server once per request, with no
-throttle in front of it.
-*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs:68-71,111-114`.
+**A key the auth server called invalid is remembered for 30 seconds**
+(`AuthSystemClient.InvalidResultCacheDuration`), so a repeated bad key is refused locally. Both result
+caches belong to the SDK, are bounded to 10,000 entries each (`AuthSystemClient.CacheSizeLimit`), and are
+never your application's `IMemoryCache` (a host cache with a `SizeLimit` would throw on an entry with no
+size, and an unbounded one would grow with every forged key). A check that could not be made is never
+cached, and a valid result is never kept past its time because the auth server is unreachable: that would
+keep a revoked key alive.
+*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs`.
 
 ### The audience rule, read this twice
 
@@ -1012,7 +990,7 @@ Step 5 explains.
 *In code:* the per-application audience is set at
 `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:144`
 and applied at `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:139`; the SDK's single
-`ValidAudience` is `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:74-75`.
+`ValidAudience` is `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:175`.
 
 ### Where the gateway token comes from
 
@@ -1048,8 +1026,12 @@ header is added at `Auth/API_Gateway/Program.cs:114-121`.
 
 ## Step 5: Register authentication in your application's startup
 
-The SDK gives you exactly one registration method, `AddAuthSystemAuthentication`, and it takes a
-configuration action — there is no overload that takes an `IConfiguration`. Everything below goes in your
+The SDK's registration method is `AddAuthSystemAuthentication`, and it takes a configuration action —
+there is no overload that takes an `IConfiguration`. It registers the `Bearer` scheme. The two key
+schemes are added after it, each by its own method, `AddAuthSystemApiKey()` and
+`AddAuthSystemWebhookKey()` (SDK 2.0): they validate keys as your application, with its machine key, and
+throw at startup, with a message naming the missing options, when `ClientId`, `MachineKeyId` or
+`MachinePrivateKeyPem` is not set. Everything below goes in your
 application's `Program.cs`, which sits at the root of your project.
 
 1. Add the `using` line for the SDK's extensions namespace.
@@ -1066,7 +1048,7 @@ using Auth.Sdk.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Step 2 — register the three schemes: Bearer, ApiKey, WebhookKey.
+// Step 2 — register the Bearer scheme, then the key schemes you accept.
 builder.Services.AddAuthSystemAuthentication(options =>
 {
     var section = builder.Configuration.GetSection("AuthSystem");
@@ -1075,10 +1057,17 @@ builder.Services.AddAuthSystemAuthentication(options =>
     options.Audience     = section["Audience"]!;
     options.GatewayToken = section["GatewayToken"] ?? string.Empty;
 
+    // The machine client: needed by the key schemes and by introspection.
+    options.ClientId             = section["ClientId"];
+    options.MachineKeyId         = section["MachineKeyId"];
+    options.MachinePrivateKeyPem = section["MachinePrivateKeyPem"]; // from your secret store
+
     // Optional — these are already the defaults.
     options.ApiKeyCacheDuration     = TimeSpan.FromSeconds(60);
     options.WebhookKeyCacheDuration = TimeSpan.FromMinutes(5);
-});
+})
+.AddAuthSystemApiKey()       // only if you accept X-Api-Key
+.AddAuthSystemWebhookKey();  // only if you accept ?whk=
 
 // Step 3 — the SDK never calls this. Without it, UseAuthorization() throws.
 builder.Services.AddAuthorization();
@@ -1115,21 +1104,28 @@ not, token validation will fail with an issuer mismatch and no amount of correct
 | `AuthSystemClient` | Singleton | Inject it to call AuthSystem from your own code. |
 | `IAuthorizationPolicyProvider` → `PermissionPolicyProvider` | Singleton | Turns `[RequirePermission("x")]` into a policy named `Permission:x`. |
 | `IAuthorizationHandler` → `PermissionRequirementHandler` | Scoped | Decides whether the caller holds the permission. |
-| `AddMemoryCache()` | — | Backs the key-validation cache. |
 | `ITokenStore` → `InMemoryTokenStore` | Singleton | Process-wide token storage — see limitation 5. |
 | `TokenRefreshHandler` | Transient | The automatic-refresh message handler. |
-| Named `HttpClient` `"AuthSystem"` with the refresh handler attached | — | Every SDK call to the auth server goes through it. |
+| Named `HttpClient` `"AuthSystem"` with the refresh handler attached | — | Sign-in and your own calls with a stored user token. |
+| Named `HttpClient` `"AuthSystem.Machine"` | — | The machine token request only: no refresh handler, no redirects. |
+| Named `HttpClient` `"AuthSystem.MachineApi"` | — | The key checks and introspection, each request carrying the machine token: no refresh handler, no redirects. One check, the machine token, the request and one renewal together, has 10 seconds (`CredentialCheckTimeout`); past them your caller gets 503 with `Retry-After`. |
 | `AddAuthentication` with `Bearer` as the default authenticate and challenge scheme | — | A bare `[Authorize]` means JWT Bearer. |
 | `AddJwtBearer("Bearer", …)` | — | The JWT scheme, configured as in the next table. |
-| `AddScheme<…, ApiKeyAuthenticationHandler>("ApiKey", …)` | — | The `X-Api-Key` scheme. |
-| `AddScheme<…, WebhookKeyAuthenticationHandler>("WebhookKey", …)` | — | The `?whk=` scheme. |
+| `AddAuthSystemApiKey()` → `AddScheme<…, ApiKeyAuthenticationHandler>("ApiKey", …)` | — | The `X-Api-Key` scheme, added only when you call it. |
+| `AddAuthSystemWebhookKey()` → `AddScheme<…, WebhookKeyAuthenticationHandler>("WebhookKey", …)` | — | The `?whk=` scheme, added only when you call it. |
 
-*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:33-94`.
+*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:38-215`.
 
 **These are unconditional registrations, not "add if missing".** The SDK uses `AddSingleton` and
-`AddScoped`, never `TryAdd`. If you want your own `ITokenStore`, register it **after** this call or it
-will be overwritten.
-*In code:* `ServiceCollectionExtensions.cs:33,36,37,43,44`.
+`AddScoped`, and `TryAdd` only for `TimeProvider` (yours wins). If you want your own `ITokenStore`,
+register it **after** this call or it will be overwritten.
+*In code:* `ServiceCollectionExtensions.cs:62,73,74,82,83,153`.
+
+**Exclude the two machine clients from any application-wide retry handler.** A
+`ConfigureHttpClientDefaults` resilience handler reaches every named client, these included. A retried
+token request resends the same signed assertion, which the auth server refuses as a replay; a retried check
+holds your caller's request while the auth server is already struggling. The SDK answers a check it could
+not make with 503 and `Retry-After` instead, and the caller retries.
 
 **Call `AddAuthSystemAuthentication` exactly once.** A second call does not quietly duplicate the
 registrations — it registers the `Bearer` scheme again, and the application throws
@@ -1151,7 +1147,7 @@ signatures in your own process. After the first fetch there is no call to the au
 **One thing to watch behind a reverse proxy.** The `jwks_uri` is built from the server's configured
 `IdentityProvider:PublicBaseUrl`, so it can point at a different origin than your `BaseUrl`. Your
 application host must be able to reach whatever that document advertises.
-*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:66-67`;
+*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:166-167`;
 `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:34`;
 `Auth/Auth.Application/Configuration/IdentityProviderSettings.cs:36-37`.
 
@@ -1165,7 +1161,7 @@ application host must be able to reach whatever that document advertises.
 | Role claim type | `roles` |
 | Name claim type | `sub` |
 
-*In code:* `ServiceCollectionExtensions.cs:64-86`. The server signs with RS256 and publishes a key whose
+*In code:* `ServiceCollectionExtensions.cs:170-185`. The server signs with RS256 and publishes a key whose
 identifier defaults to `auth-key-1`.
 *In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:47`;
 `Auth/Auth.Application/Configuration/JwtSettings.cs:51`.
@@ -1173,7 +1169,7 @@ identifier defaults to `auth-key-1`.
 **The HTTPS check is a substring test on the whole `BaseUrl`, not a hostname comparison.** A production
 host named `https://auth.localhost.example.com` silently disables HTTPS metadata enforcement. Do not name
 a real host anything containing `localhost`.
-*In code:* `ServiceCollectionExtensions.cs:68`.
+*In code:* `ServiceCollectionExtensions.cs:168`.
 
 **The SDK does not turn off inbound claim-type mapping, and the AuthSystem API does.** The API sets
 `MapInboundClaims = false` with the comment "Disable claim type mapping to preserve original JWT claim
@@ -1181,7 +1177,7 @@ names"; the SDK never sets it at all. If mapping is on in your host, the standar
 `name`, `given_name` and `family_name` are rewritten to long WS-\* URIs before your code sees them, and
 `User.FindFirst("sub")` returns `null`. The custom claims — `permissions`, `roles`, `org_perm`, `sid`,
 `locale`, `timezone`, `theme` — are not in the standard map and survive either way.
-*In code:* `Auth/Auth_API/Program.cs:725-726`; the SDK's options block is `ServiceCollectionExtensions.cs:70-85`.
+*In code:* `Auth/Auth_API/Program.cs:725-726`; the SDK's options block is `ServiceCollectionExtensions.cs:164-186`.
 
 **What to do:** set the option yourself, on the same named options the SDK already configured, in a
 separate call placed **after** `AddAuthSystemAuthentication`. Configuration callbacks for one named
@@ -1249,7 +1245,7 @@ application token carries one (`openid` at the least), so reading it would let `
 pass for any token of any application. SDK versions before `1.0.1` did read it — upgrade. An API key's
 scopes still count, through the `permission` claim the SDK writes for each one.
 *In code:* `Auth/Auth.Sdk/Authorization/PermissionRequirementHandler.cs:40`;
-`Auth/Auth.Sdk/Handlers/ApiKeyAuthenticationHandler.cs:55-59`.
+`Auth/Auth.Sdk/Handlers/ApiKeyAuthenticationHandler.cs:79-83`.
 
 `[RequireOrganizationPermission]` takes the target organization from the route — name the parameter
 `orgId` or `organizationId`, or pass your own name as the second argument. If the route names no
@@ -1278,7 +1274,7 @@ direction for this class of change.
 `Auth/Auth.Sdk/Authorization/OrganizationPermissionRequirementHandler.cs` (organization-scoped).
 
 **From the `ApiKey` scheme.** Minted locally by the SDK from the validation response.
-*In code:* `Auth/Auth.Sdk/Handlers/ApiKeyAuthenticationHandler.cs:46-59`.
+*In code:* `Auth/Auth.Sdk/Handlers/ApiKeyAuthenticationHandler.cs:70-83`.
 
 | Claim | Value |
 |---|---|
@@ -1290,7 +1286,7 @@ direction for this class of change.
 | `scope` **and** `permission` | One of each, per scope the key holds |
 
 **From the `WebhookKey` scheme.**
-*In code:* `Auth/Auth.Sdk/Handlers/WebhookKeyAuthenticationHandler.cs:51-59`.
+*In code:* `Auth/Auth.Sdk/Handlers/WebhookKeyAuthenticationHandler.cs:60-68`.
 
 | Claim | Value |
 |---|---|
@@ -1448,8 +1444,8 @@ log line is the fastest way to find a typo in a permission code.
 
 ### 6D. Endpoints another system reaches with an API key
 
-Remember limitations 1, 2 and 3 before you build on this: as shipped, these calls fail against a
-default-configured server.
+This needs SDK 2.0 and a [machine key](#machine-credentials): register the scheme with
+`AddAuthSystemApiKey()` ([Step 5](#step-5-register-authentication-in-your-applications-startup)).
 
 ```csharp
 using Auth.Sdk;
@@ -1483,17 +1479,41 @@ public class ContentApiController : ControllerBase
 }
 ```
 
-**What happens on each request:** the caller sends `X-Api-Key: ak_prod_…`; the SDK looks in its memory
-cache; on a miss it POSTs the raw key to `/api/v1/apikeys/validate` on the auth server; a successful
-response becomes the claims above and is cached for `ApiKeyCacheDuration`.
-*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs:43-80`.
+**What happens on each request:**
 
-**If the auth server is unreachable, your application reports the key as invalid.** Network failure,
-timeout, 401, 403 and a genuinely revoked key all collapse into the same
-`AuthenticateResult.Fail("Invalid API key.")`. You cannot tell them apart from the HTTP response — check
-your logs, where `AuthSystemClient` writes a warning carrying the actual status code.
-*In code:* `Auth/Auth.Sdk/Handlers/ApiKeyAuthenticationHandler.cs:41-44`;
-`Auth/Auth.Sdk/AuthSystemClient.cs:60-64,75-79`.
+1. The caller sends `X-Api-Key: ak_prod_…`. The SDK checks the key's shape first, with no network call:
+   `ak_<env>_<selector>_<secret><check>`, where the last six characters are a checksum. A mistyped or
+   random value is a 401 here.
+2. The SDK looks in its own caches: a valid result for `ApiKeyCacheDuration`, an invalid one for 30
+   seconds.
+3. On a miss it POSTs the key to `/api/v1/app/machine/apikeys/validate` with your machine token. If the
+   auth server refuses the machine token (your machine key was revoked or replaced inside the token's five
+   minutes), the SDK drops it and asks once more with a new one.
+4. The answer must name your application (`applicationCode` equal to `ClientId`, compared in upper case
+   as the auth server compares codes). It becomes the claims above.
+5. If the key carries an address list, the request's connection address
+   (`HttpContext.Connection.RemoteIpAddress`, with an IPv4-mapped IPv6 address unmapped) must be one of
+   its addresses or fall in one of its ranges. Otherwise the request is a 401, with no hint why.
+
+**Three outcomes, three answers.** An invalid key is a 401. A key the SDK could not check (the auth server
+answered 429 or 5xx, timed out, could not be reached, or refused your machine key twice) is a **503 with
+`Retry-After`**, so an honest caller retries rather than concluding its key was revoked; nothing is
+cached for it. Your logs carry the status the SDK met.
+*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs`; `Auth/Auth.Sdk/Handlers/ApiKeyAuthenticationHandler.cs`.
+
+**The SDK never reads `X-Forwarded-For`.** Behind a reverse proxy, configure ASP.NET Core's forwarded
+headers for **your own trusted proxy only** (`ForwardedHeadersOptions.KnownProxies` or `KnownNetworks`),
+so that the connection address is the caller's. Trusting the header from anywhere would let any caller
+write the address the list is checked against.
+
+**Rate-limit unauthenticated callers yourself, before authentication.** A well-formed forged key still
+costs one validation call before the SDK remembers it as invalid (concurrent requests with the same key
+share that one call), and the auth server counts your checks on your application's budget, so a caller
+sending many different forged keys can spend it. Put your own limiter in front of the endpoints that
+accept `X-Api-Key`.
+
+**A revoked key stops working within `ApiKeyCacheDuration`** (60 seconds by default), the time a valid
+result stays in the SDK's cache.
 
 ### 6E. Endpoints that receive webhook callbacks
 
@@ -1527,7 +1547,7 @@ public class WebhooksController : ControllerBase
 refuse it. Because the key travels in the query string it also lands in web-server access logs, proxy logs
 and any `Referer` header the receiving page emits. Terminate webhook endpoints on HTTPS only, at your
 reverse proxy, and do not rely on the SDK to enforce that.
-*In code:* `Auth/Auth.Sdk/Handlers/WebhookKeyAuthenticationHandler.cs:40-43`;
+*In code:* `Auth/Auth.Sdk/Handlers/WebhookKeyAuthenticationHandler.cs:41-44`;
 `Auth/Auth.Sdk/AuthSystemConstants.cs:31`.
 
 ### 6F. Endpoints that accept more than one scheme
@@ -1538,7 +1558,11 @@ never sets that value for the JWT scheme, so it is whatever the framework defaul
 `"Bearer"` comparison silently falls through to your rejection branch. The two key handlers *do* set it
 explicitly, but the JWT one does not, which is enough to make the whole comparison unsafe.
 *In code:* the SDK sets no `AuthenticationType` for JWT anywhere in `Auth/Auth.Sdk/`; the key handlers set
-theirs at `ApiKeyAuthenticationHandler.cs:61-63` and `WebhookKeyAuthenticationHandler.cs:61-63`.
+theirs at `ApiKeyAuthenticationHandler.cs:85` and `WebhookKeyAuthenticationHandler.cs:70`.
+
+**A key that could not be checked is still a 503 here.** With two schemes named, both challenge when
+neither authenticates. The SDK turns the 401 into 503 with `Retry-After` as the response starts, so the
+Bearer challenge cannot overwrite it; a request the other scheme authenticated keeps its own answer.
 
 ```csharp
 using Auth.Sdk;
@@ -1571,31 +1595,32 @@ public class DataController : ControllerBase
 
 ## Calling the auth server from your own code
 
-Inject `AuthSystemClient` wherever you need it. It has six public methods.
+Inject `AuthSystemClient` wherever you need it. It has seven public methods.
 
 | Method | What it does | What it returns on failure |
 |---|---|---|
-| `ValidateApiKeyAsync(string rawApiKey, CancellationToken)` | POSTs to `/api/v1/apikeys/validate` | `null` |
-| `ValidateWebhookKeyAsync(string rawWebhookKey, CancellationToken)` | POSTs to `/api/v1/webhookkeys/validate` | `null` |
-| `IntrospectTokenAsync(string token, CancellationToken)` | POSTs to `/api/v1/auth/introspect` (RFC 7662 token introspection) | `null` |
+| `GetMachineAccessTokenAsync(CancellationToken)` | Your machine token, cached until a minute before it expires | throws `MachineTokenException` |
+| `ValidateApiKeyAsync(string rawApiKey, CancellationToken)` | POSTs to `/api/v1/app/machine/apikeys/validate` with your machine token | a `CredentialCheck`: `Invalid`, or `Unavailable` with `RetryAfter` |
+| `ValidateWebhookKeyAsync(string rawWebhookKey, CancellationToken)` | POSTs to `/api/v1/app/machine/webhookkeys/validate` with your machine token | a `CredentialCheck`: `Invalid`, or `Unavailable` with `RetryAfter` |
+| `IntrospectTokenAsync(string token, CancellationToken)` | POSTs to `/api/v1/app/machine/tokens/introspect` with your machine token (RFC 7662) | `null` when no answer could be had |
 | `LoginAsync(string email, string password, string applicationId, CancellationToken)` | POSTs to `/api/v1/auth/login` and stores the tokens | `false` |
 | `SetTokensAsync(string accessToken, string refreshToken, int expiresInSeconds, CancellationToken)` | Puts tokens you obtained elsewhere into the SDK's store | — |
 | `LogoutAsync(CancellationToken)` | Clears the store | — |
 
-*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs:43,86,128,162,204,212`.
+*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs`.
 
-**Every one of these swallows every exception.** A network failure, a timeout, malformed JSON and a
-rejected credential all produce the same `null` or `false`, after a log entry. If you need to distinguish
-them, your only source is the log.
-*In code:* `AuthSystemClient.cs:75-79,118-122,146-150,193-197`.
+**The two validate methods tell "invalid" from "could not check".** `CredentialCheck<T>.Status` is
+`Valid` (with `Result`), `Invalid`, or `Unavailable` (with `RetryAfter`). `IntrospectTokenAsync`
+returns `null` when it had no answer, and `LoginAsync` returns `false` for any failure, after a log entry.
 
 **`IntrospectTokenAsync` is opt-in.** No SDK handler calls it — validating a JWT locally is the normal
-path, and introspection exists for the case where you want the server's live opinion about a token.
+path, and introspection exists for the case where you want the server's live opinion about one of your
+own tokens. See [introspection](#introspection-is-this-token-still-active).
 
 **`LoginAsync`'s `applicationId` argument goes nowhere.** The SDK sends it, but the server's login request
 contract declares only `Email`, `Password` and `DeviceId`, so the value is discarded. Conversely the SDK
 never sends `deviceId`.
-*In code:* `AuthSystemClient.cs:169`;
+*In code:* `AuthSystemClient.cs:216-219`;
 `Auth/Auth_API/Modules/Authentication/Contracts/LoginRequest.cs`.
 
 ### Automatic token refresh
@@ -1622,8 +1647,9 @@ socket-exhaustion and stale-DNS pattern.
 
 ## Step 7: Create API keys and webhook keys
 
-Read limitations 1, 2 and 3 first. The seeded `admin` role holds every permission this step needs,
-through the `apikeys:*` and `webhookkeys:*` wildcards.
+The seeded `admin` role holds every permission this step needs, through the `apikeys:*` and
+`webhookkeys:*` wildcards. Validating the keys you create here needs SDK 2.0 and a
+[machine key](#machine-credentials).
 
 **The easy path is the admin console.** Sign in at the console, open **API Keys** at `/api-keys` or
 **Webhook Keys** at `/webhook-keys`, and use the create button. The console shows the new key exactly
@@ -1664,30 +1690,38 @@ Content-Type: application/json
   "name": "Content Sync",
   "description": "Key for syncing content to your application",
   "environment": "production",
-  "rateLimitPerMinute": 60,
-  "rateLimitPerDay": 10000,
-  "permissionIds": ["<guid of content:read>", "<guid of content:publish>"]
+  "permissionIds": ["<guid of content:read>", "<guid of content:publish>"],
+  "allowedIps": ["203.0.113.0/24", "2001:db8::10"]
 }
 ```
 
-`environment` defaults to `production`, `rateLimitPerMinute` to `60` and `rateLimitPerDay` to `10000` when
-you omit them.
-*In code:* `Auth/Auth_API/Modules/ApiKeyManagement/Controllers/ApiKeysController.cs:78-80`.
+`environment` defaults to `production` when you omit it, and `allowedIps` to any address.
+*In code:* `Auth/Auth_API/Modules/ApiKeyManagement/Controllers/ApiKeysController.cs` (`CreateApiKey`).
 
-**Those two rate-limit numbers are stored and returned, and nothing in AuthSystem enforces them.** No
-limiter reads them. If you need throttling on an API key, implement it in your own application.
+**A key carries at least one scope, and every scope is one of your application's own active
+permissions.** No scope is `ApiKey.ScopesRequired`; a platform code, another application's permission or
+an inactive one is `ApiKey.ScopeNotForApplication`; an id that does not resolve is
+`Permission.NotFound`; and a scope you do not hold yourself is `Permission.CannotGrantHigher`. Your
+application reads the scopes when it checks the key, as its own permissions. The key and its scopes are
+written together, so a refused scope leaves no key behind.
+*In code:* `Auth/Auth.Application/Features/ApiKeys/Common/ApiKeyScopePolicy.cs`;
+`Auth/Auth.Domain/Entities/ApiKey.cs` (`EnsureCanCarry`).
 
-**An unknown `permissionIds` entry is silently skipped.** The handler looks each id up and quietly ignores
-any that does not resolve — no error comes back. A key can therefore be created with fewer scopes than you
-asked for. Check the created key's scopes afterwards.
-*In code:* `Auth/Auth.Application/Features/ApiKeys/CreateApiKey/CreateApiKeyCommandHandler.cs:70-82`.
+**`allowedIps` is optional: at most 50 entries,** each an IPv4 or IPv6 address or a CIDR range whose host
+bits are zero (`10.0.0.0/8`, not `10.0.0.1/8`); anything else is `ApiKey.AllowedIpInvalid`, and a 51st
+entry `ApiKey.AllowedIpsTooMany`. The SDK refuses the key from any other address (see
+[6D](#6d-endpoints-another-system-reaches-with-an-api-key)). Empty means any address. The list protects
+little when the caller's outbound addresses are shared by everyone on its provider.
+
+**There are no per-key rate limits.** The fields `rateLimitPerMinute` and `rateLimitPerDay` were stored
+and enforced by nothing, and are gone from the contract. Throttle callers in your own application.
 
 **Response — HTTP 201, and the key is shown exactly once:**
 
 ```json
 {
   "id": "generated-guid",
-  "apiKey": "ak_prod_aBcDeFgHiJkLmNoPqRsTuVwXyZ012345",
+  "apiKey": "ak_prod_7Hq2mXc9LpA4vB1d_aBcDeFgHiJkLmNoPqRsTuVwXyZ012345k3Zt9Q",
   "keyPrefix": "ak_prod_",
   "createdAt": "2026-03-22T10:15:00Z",
   "expiresAt": null
@@ -1732,32 +1766,42 @@ Content-Type: application/json
 and a hash, and nobody — not an administrator, not the database — can recover the original. If you lose
 it, rotate it.
 
-**The prefix tells you the environment**, and it is what AuthSystem uses to narrow the search when
-validating.
+**The prefix tells you the environment.**
 
 | Environment you asked for | API key prefix | Webhook key prefix |
 |---|---|---|
 | `production` | `ak_prod_` | `wk_prod_` |
 | `staging` | `ak_stag_` | `wk_stag_` |
 | `development` | `ak_dev_` | `wk_dev_` |
-| anything else | `ak_` | `wk_` |
+| anything else | `ak_othr_` | `wk_` |
+
+**An API key has four parts:** `ak_<env>_<selector>_<secret><check>`. The selector (16 random
+characters) is stored in clear and names the key's one row; the secret (32) is only ever in the key; the
+check (6) is a CRC32 of everything before it, so the SDK and the auth server refuse a mistyped key without
+a lookup, and a secret scanner can tell a real key from look-alike text. The checksum stops no deliberate
+forger: the algorithm is public.
 
 *In code:* `Auth/Auth.Infrastructure/Security/ApiKeyGenerator.cs:27-33`;
 `Auth/Auth.Infrastructure/Security/WebhookKeyGenerator.cs:27-33`.
 
 **The two key types are hashed differently, and the difference matters.** An API key is hashed with
 Argon2id, a deliberately slow password hash — expensive to attack offline even if the database leaks, but
-also expensive to check, so AuthSystem fetches every active key sharing the presented prefix and verifies
-them one at a time. A webhook key is hashed with HMAC-SHA256, which is fast and deterministic, so it can
+also expensive to check, so AuthSystem finds the one row the key's selector names and runs a single verify;
+an unknown selector costs no hash at all. A webhook key is hashed with HMAC-SHA256, which is fast and deterministic, so it can
 be looked up directly — but an HMAC hash offers no offline-cracking resistance if the HMAC key leaks
 alongside the database. That is the trade-off, stated plainly: API keys are slower and safer at rest;
 webhook keys are faster and depend entirely on the secrecy of the HMAC key.
-*In code:* `ApiKeyGenerator.cs:7,36`; `WebhookKeyGenerator.cs:7,36`;
-`Auth/Auth.Application/Features/ApiKeys/ValidateApiKey/ValidateApiKeyQueryHandler.cs:38-47,74-88`.
+*In code:* `Auth/Auth.Domain/Services/ApiKeyFormat.cs`; `ApiKeyGenerator.cs`; `WebhookKeyGenerator.cs:7,36`;
+`Auth/Auth.Application/Features/ApiKeys/ValidateApiKey/ValidateApiKeyQueryHandler.cs`.
+
+**A key created before this format no longer validates.** It has no selector. Rotate it if its scopes are
+all permissions of its own application. A key with no scope (`ApiKey.ScopesRequired`), or with a platform
+code or another application's permission (`ApiKey.ScopeNotForApplication`), cannot be rotated: create a
+new key with scopes, hand it over, then revoke the old one.
 
 **The SDK never caches a raw key.** Its cache key is the base64 of the SHA-256 hash of the raw key, so the
 key itself is not sitting in your process's memory cache.
-*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs:229-233`.
+*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs` (`ComputeCacheKey`).
 
 ### Key management endpoints
 
@@ -1770,33 +1814,35 @@ seeds every code below, and the seeded `admin` role holds them through the `apik
 | `GET /api/v1/apikeys` | `apikeys:read` | 200 | `applicationId` is an **optional** query filter. Omit it and you get every application's keys. |
 | `POST /api/v1/apikeys` | `apikeys:create` | 201 | Returns the raw key once. |
 | `POST /api/v1/apikeys/{id}/revoke` | `apikeys:revoke` | 204 | Optional `reason` in the body. |
-| `POST /api/v1/apikeys/{id}/rotate` | `apikeys:rotate` | 200 | Optional `gracePeriodMinutes`, default 60. |
-| `POST /api/v1/apikeys/validate` | `apikeys:validate` | 200 | The endpoint the SDK's `ApiKey` scheme calls. |
+| `POST /api/v1/apikeys/{id}/rotate` | `apikeys:rotate` | 200 | Optional `gracePeriodMinutes`, default 60. The new key carries the old key's scopes and addresses; you must hold every scope; a key with no scope is refused (`ApiKey.ScopesRequired`). Audited as `apikey.rotated`. |
 | `GET /api/v1/webhookkeys` | `webhookkeys:read` | 200 | `applicationId` optional, same as above. |
 | `POST /api/v1/webhookkeys` | `webhookkeys:create` | 201 | Returns the raw key once. |
-| `POST /api/v1/webhookkeys/validate` | `webhookkeys:validate` | 200 | The endpoint the SDK's `WebhookKey` scheme calls. |
 | `POST /api/v1/webhookkeys/{id}/revoke` | `webhookkeys:revoke` | 204 | Optional `reason` in the body. |
 | `POST /api/v1/webhookkeys/{id}/rotate` | `webhookkeys:rotate` | 200 | Optional `gracePeriodMinutes`, default 60. |
 
-*In code:* `Auth/Auth_API/Modules/ApiKeyManagement/Controllers/ApiKeysController.cs:42-43,65-66,97-98,122-123,141-142`;
-`Auth/Auth_API/Modules/WebhookKeyManagement/Controllers/WebhookKeysController.cs:41-42,64-65,94-95,113-114,138-139`.
+*In code:* `Auth/Auth_API/Modules/ApiKeyManagement/Controllers/ApiKeysController.cs`;
+`Auth/Auth_API/Modules/WebhookKeyManagement/Controllers/WebhookKeysController.cs`.
 
-A successful `POST /api/v1/apikeys/validate` returns:
+The create and rotate answers carry the raw key, so they are sent with `Cache-Control: no-store`.
+
+The two checks your server makes with its machine token are under
+[Machine credentials](#what-a-machine-token-opens). A successful
+`POST /api/v1/app/machine/apikeys/validate` returns:
 
 ```json
 {
   "active": true,
   "apiKeyId": "guid",
   "applicationId": "guid",
+  "applicationCode": "CRM-WEB",
   "name": "Content Sync",
   "environment": "production",
   "scopes": ["content:read", "content:publish"],
-  "rateLimitPerMinute": 60,
-  "rateLimitPerDay": 10000
+  "allowedIps": ["203.0.113.0/24", "2001:db8::10"]
 }
 ```
 
-*In code:* `Auth/Auth.Application/Features/ApiKeys/ValidateApiKey/ValidateApiKeyResponse.cs:6-16`.
+*In code:* `Auth/Auth.Application/Features/ApiKeys/ValidateApiKey/ValidateApiKeyResponse.cs`.
 
 ---
 
@@ -1809,10 +1855,8 @@ keeps, and whose private half signs a short statement (a *client assertion*) tha
 client authentication (RFC 7523). It replaces storing a platform user's password on your server.
 Design and reasoning: `docs/adr/0002-machine-clients.md`.
 
-**What a machine token opens today: one thing, the [machine directory](#reading-organizations-as-your-server-the-machine-directory).**
-The other endpoints that will accept it (API-key validation, webhook-key validation, token
-introspection) move onto it in a later change. Until then the SDK's validate and introspect calls work
-as before.
+**What a machine token opens:** the [machine directory](#reading-organizations-as-your-server-the-machine-directory),
+and the three checks in [What a machine token opens](#what-a-machine-token-opens) below.
 
 ### Create a machine key
 
@@ -1860,6 +1904,50 @@ concurrent callers share one request. The request goes out on its own HTTP clien
 user's bearer token. A refusal throws `MachineTokenException`: `IsTransient` is false for a 400 (a wrong or
 revoked key; retrying will not help) and true for no answer, 408, 429 or 5xx.
 *In code:* `Auth/Auth.Sdk/TokenManagement/MachineTokenProvider.cs`.
+
+### What a machine token opens
+
+Three checks your server makes about a credential presented to it. Each answers only about your own
+application: the caller is your token's `client_id`, never its audience. Every answer, refusals included,
+carries `Cache-Control: no-store`.
+
+| Method and path | Machine scope | Body | Answer |
+|---|---|---|---|
+| `POST /api/v1/app/machine/apikeys/validate` | `apikeys.validate` | JSON `{ "apiKey": "…" }` | 200 with the key's metadata, or 400 `ApiKey.Invalid` for an unknown, revoked, expired or malformed key **and for another application's key** |
+| `POST /api/v1/app/machine/webhookkeys/validate` | `webhookkeys.validate` | JSON `{ "webhookKey": "…" }` | 200 with the key's metadata (`applicationCode` included), or 400 `WebhookKey.Invalid` |
+| `POST /api/v1/app/machine/tokens/introspect` | `tokens.introspect` | form `token=…` (and `token_type_hint`) | 200, RFC 7662 |
+
+A token without the check's scope is a 403 with `WWW-Authenticate: Bearer error="insufficient_scope",
+scope="…"`. An application that is inactive or deleted is answered exactly as a revoked token (401,
+`Http.TokenRevoked`). The three scopes are default machine scopes: a token request that names no scope
+receives them.
+*In code:* `Auth/Auth_API/Modules/MachineCredentialChecks/Controllers/MachineCredentialChecksController.cs`.
+
+**The three share one budget per application and address**, 60 checks per 60 seconds by default (see
+[rate limits](#rate-limits-on-the-endpoints-you-will-call)).
+
+### Introspection: is this token still active?
+
+`active: true` only for an access token issued to your application (its single audience is your code)
+that no revocation reaches — the token itself, its session, the person's sign-out of everything — or for a
+refresh token of your application that is neither revoked nor expired. Every other token, a platform token
+included, is `{"active": false}`. The answer for an access token carries what the token itself carries
+(`sub`, `scope`, `roles`, `permissions`, `exp`, …), nothing read from the user's record. Use it when
+you must know before the token expires that the person signed out. For a refresh token, `active` means
+only "not revoked, not expired": the refresh grant checks more (the person's access to your application,
+and an ended sign-in session where sessions end together), so it can still refuse a token introspection
+called active.
+
+**Introspection spends the same budget as your key checks.** The auth server counts your API-key checks,
+webhook-key checks and introspections together, per application and address (60 a minute by default). Do
+not introspect every request: a caller repeating one token, genuine or forged, would spend the budget
+your key checks need. Introspect where a sign-out must be heard before the token expires, and rate-limit
+unauthenticated callers first. The SDK sends identical concurrent introspections as one request and holds
+an `active: false` answer for 30 seconds (an inactive token never becomes active again); it never holds an
+active one.
+*In code:* `Auth/Auth.Sdk/AuthSystemClient.cs` (`IntrospectTokenAsync`);
+`Auth/Auth_API/Common/Middleware/ApplicationReadClassificationMiddleware.cs` (one tag, `mchk`, for the three checks).
+*In code:* `Auth/Auth.Application/Features/Authentication/IntrospectToken/IntrospectTokenQueryHandler.cs`.
 
 ### The grant, for clients that are not .NET
 
@@ -2224,8 +2312,9 @@ this server builds them:
 The `v1` in those paths is a hard-coded literal, not derived from your request. There is no
 `id_token_signing_alg_values_supported`: this server does not issue OIDC id_tokens, and the document
 deliberately omits what it does not implement. There is no `introspection_endpoint` either:
-`/api/v1/auth/introspect` serves the platform's own callers and needs a platform token, so an
-application, which holds no platform token, could never call it.
+introspection answers your own server about your own tokens, with its machine token
+([Machine credentials](#introspection-is-this-token-still-active)), not the client libraries that read
+this document.
 
 **Revoking tokens (`revocation_endpoint`).** When a user signs out of your application, or you no longer
 need a token, post it to `/api/v1/auth/revoke` as `application/x-www-form-urlencoded`:
@@ -2440,7 +2529,7 @@ missing or does not match — which is exactly what limitation 1 produces:
   "title": "Forbidden",
   "status": 403,
   "detail": "Invalid or missing gateway token. Direct API access is not allowed.",
-  "instance": "/api/v1/apikeys/validate",
+  "instance": "/api/v1/app/machine/apikeys/validate",
   "code": "Auth.InvalidGatewayToken",
   "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
 }
@@ -2501,6 +2590,17 @@ address, while nothing at these endpoints can be guessed. A server-side applicat
 policy are throttled there, and no global limiter is configured. If you go through the gateway, its
 global limit and its route policies apply as well.
 *In code:* the `AddRateLimiter` block in `Auth/Auth_API/Program.cs`.
+
+**The machine credential checks count per application and per address: 60 per 60 seconds by default.**
+That applies to the three paths under `/api/v1/app/machine/` that check an API key, a webhook key or a
+token, together: each application's server has its own budget at each address, decided by its validated
+machine token's `client_id`. A request whose token does not validate, or lacks the check's scope, counts
+on a separate budget of the same size for its address. The numbers are `ApiKeyValidatePermitLimit` and
+`ApiKeyValidateWindowSeconds`. At the gateway these paths ride `app-route` and its per-address
+`app-read` policy (600 a minute): keep that at or above this limit times the applications behind one
+address.
+*In code:* the `apikey-validate` policy in `Auth/Auth_API/Program.cs`;
+`Auth/Auth_API/Common/Middleware/ApplicationReadClassificationMiddleware.cs`.
 
 **UserInfo has its own gateway route on the `api` policy**, so profile reads never spend the sign-in
 budget of 20 a minute that sign-in shares with the rest of `/api/v1/auth/` at the gateway. The `api` limit is per
@@ -2569,11 +2669,12 @@ does over the wire is standard.
    and the expiry. Read authorization out of the `permissions` and `roles` claims as described in the
    [claims reference](#claims-reference).
 3. **Read the user's profile** from `GET /api/v1/auth/userinfo` with the user's access token in the
-   `Authorization` header: see [UserInfo](#reading-the-users-profile-userinfo). Introspection
-   (`/api/v1/auth/introspect`) is not for applications: it requires a platform bearer token of its own,
-   which is why the discovery document no longer lists it.
-4. **API-key and webhook-key validation need a signed-in caller** holding `apikeys:validate` or
-   `webhookkeys:validate`, not just the key. See limitation 2.
+   `Authorization` header: see [UserInfo](#reading-the-users-profile-userinfo).
+4. **Validate API keys and webhook keys, and introspect your own tokens, as your server:** get a machine
+   token with [the grant](#the-grant-for-clients-that-are-not-net), then call the three checks in
+   [What a machine token opens](#what-a-machine-token-opens). Check a key's shape first (the last six
+   characters are a CRC32 checksum, in base62, of everything before them), cache an invalid answer
+   briefly, and answer your caller 503 with `Retry-After` when the check could not be made.
 
 ---
 

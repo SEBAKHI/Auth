@@ -1007,6 +1007,18 @@
   <data name="ApiKey.Required" xml:space="preserve">
     <value>La clé API est requise.</value>
   </data>
+  <data name="ApiKey.ScopesRequired" xml:space="preserve">
+    <value>Une clé d'API doit porter au moins une portée (scope).</value>
+  </data>
+  <data name="ApiKey.ScopeNotForApplication" xml:space="preserve">
+    <value>Chaque portée (scope) d'une clé d'API doit être une permission active de l'application de la clé.</value>
+  </data>
+  <data name="ApiKey.AllowedIpInvalid" xml:space="preserve">
+    <value>Chaque adresse autorisée doit être une adresse IPv4 ou IPv6, ou une plage CIDR dont les bits d'hôte sont à zéro.</value>
+  </data>
+  <data name="ApiKey.AllowedIpsTooMany" xml:space="preserve">
+    <value>Une clé d'API peut porter au plus 50 adresses autorisées.</value>
+  </data>
   <data name="Application.AccessModeInvalid" xml:space="preserve">
     <value>Le mode d'accès n'est pas reconnu.</value>
   </data>

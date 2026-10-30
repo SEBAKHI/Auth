@@ -46,6 +46,18 @@
       "pointer": null
     },
     {
+      "code": "ApiKey.AllowedIpInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/allowedIps"
+    },
+    {
+      "code": "ApiKey.AllowedIpsTooMany",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/allowedIps"
+    },
+    {
       "code": "ApiKey.AlreadyRevoked",
       "status": 409,
       "source": "catalog"
@@ -95,6 +107,18 @@
       "code": "ApiKey.Revoked",
       "status": 403,
       "source": "catalog"
+    },
+    {
+      "code": "ApiKey.ScopeNotForApplication",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "ApiKey.ScopesRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/permissionIds"
     },
     {
       "code": "Application.AccessDenied",

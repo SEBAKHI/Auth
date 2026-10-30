@@ -29,26 +29,8 @@ export const ENVIRONMENTS: Preset[] = [
  * and the `FieldConstraints` line the user reads. A limit written out three
  * times is a limit that will eventually be displayed wrong.
  */
-export const MIN_RATE_LIMIT = 1
-export const DEFAULT_RATE_PER_MINUTE = 60
-export const DEFAULT_RATE_PER_DAY = 10000
 export const MIN_GRACE_PERIOD_MINUTES = 0
 export const DEFAULT_GRACE_PERIOD_MINUTES = 60
-
-/** Server: non-nullable `int`, `GreaterThan(0)`; its own default is 60. */
-export const RATE_PER_MINUTE: Preset[] = [
-  { value: "60", label: "60" },
-  { value: "300", label: "300" },
-  { value: "1000", label: "1000" },
-  { value: "6000", label: "6000" },
-]
-
-/** Server: non-nullable `int`, `GreaterThan(0)`; its own default is 10000. */
-export const RATE_PER_DAY: Preset[] = [
-  { value: "10000", label: "10000" },
-  { value: "100000", label: "100000" },
-  { value: "1000000", label: "1000000" },
-]
 
 /**
  * Coerce the grace-period field to minutes.

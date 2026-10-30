@@ -153,10 +153,15 @@ public class LivePlatformAuthorityGuardTests
         }
     }
 
-    /// <summary>The eight callers of PermissionGrantGuard and the platform code that gates each endpoint.</summary>
+    /// <summary>
+    /// The handlers that run PermissionGrantGuard, directly or through a policy below, and the
+    /// platform code that gates each endpoint.
+    /// </summary>
     private static readonly Dictionary<string, (string Controller, string Command, string Gate)> PermissionGrantGuardCallers = new()
     {
         ["CreateApiKeyCommandHandler.cs"] = ("ApiKeysController.cs", "CreateApiKeyCommand", "PermissionCodes.ApiKeys.Create"),
+        // OI-128 PR B: rotation hands the old key's scopes to a fresh plain key.
+        ["RotateApiKeyCommandHandler.cs"] = ("ApiKeysController.cs", "RotateApiKeyCommand", "PermissionCodes.ApiKeys.Rotate"),
         ["UpdateApplicationCommandHandler.cs"] = ("ApplicationsController.cs", "UpdateApplicationCommand", "PermissionCodes.Applications.Update"),
         ["CreateRoleCommandHandler.cs"] = ("RolesController.cs", "CreateRoleCommand", "PermissionCodes.Roles.Create"),
         ["GrantRolePermissionCommandHandler.cs"] = ("RolesController.cs", "GrantRolePermissionCommand", "PermissionCodes.Roles.Update"),
@@ -165,6 +170,16 @@ public class LivePlatformAuthorityGuardTests
         ["ResetUserTwoFactorCommandHandler.cs"] = ("UsersController.cs", "ResetUserTwoFactorCommand", "PermissionCodes.Users.ResetTwoFactor"),
         // OI-224 T6: granting application access with a role hands the role over.
         ["GrantApplicationAccessCommandHandler.cs"] = ("ApplicationsController.cs", "GrantApplicationAccessCommand", "PermissionCodes.Applications.Update"),
+    };
+
+    /// <summary>
+    /// Callers of PermissionGrantGuard that other handlers share, each with the handlers that
+    /// inject it: the guard runs behind each of those handlers' gates. OI-128 PR B: what an API key
+    /// may carry is asked the same way at creation and at rotation.
+    /// </summary>
+    private static readonly Dictionary<string, string[]> PermissionGrantGuardPolicies = new()
+    {
+        ["ApiKeyScopePolicy.cs"] = ["CreateApiKeyCommandHandler.cs", "RotateApiKeyCommandHandler.cs"],
     };
 
     /// <summary>
@@ -186,7 +201,20 @@ public class LivePlatformAuthorityGuardTests
             .Where(s => Regex.IsMatch(s.Source, @"\bPermissionGrantGuard\s+\w+\s*[,)]"))
             .Select(s => s.Name);
 
-        callers.Should().BeEquivalentTo(PermissionGrantGuardCallers.Keys.Concat(PermissionGrantGuardReadOnlyCallers.Keys));
+        var throughPolicies = PermissionGrantGuardPolicies.Values.SelectMany(handlers => handlers).ToHashSet();
+        callers.Should().BeEquivalentTo(PermissionGrantGuardCallers.Keys
+            .Where(handler => !throughPolicies.Contains(handler))
+            .Concat(PermissionGrantGuardPolicies.Keys)
+            .Concat(PermissionGrantGuardReadOnlyCallers.Keys));
+
+        foreach (var (policy, handlers) in PermissionGrantGuardPolicies)
+        {
+            var type = Path.GetFileNameWithoutExtension(policy);
+            Sources
+                .Where(s => Regex.IsMatch(s.Source, $@"\b{type}\s+\w+\s*[,)]"))
+                .Select(s => s.Name)
+                .Should().BeEquivalentTo(handlers, $"{policy} runs the guard only behind these handlers' gates");
+        }
 
         foreach (var (caller, consumer) in PermissionGrantGuardReadOnlyCallers)
         {

@@ -284,8 +284,6 @@ export const fa: TranslationResources = {
     publishedAt: "تاریخ انتشار",
     publishedVersionNumber: "نسخه منتشرشده",
     purpose: "هدف",
-    rateLimitPerDay: "محدودیت نرخ / روز",
-    rateLimitPerMinute: "محدودیت نرخ / دقیقه",
     reauthenticationMaxAgeMinutes: "حداکثر مدت احراز هویت مجدد (دقیقه)",
     recipient: "گیرنده",
     recipientName: "نام گیرنده",
@@ -1114,7 +1112,6 @@ export const fa: TranslationResources = {
     title: "کلیدهای API",
     subtitle: "صدور و مدیریت کلیدهای API برنامه‌ها.",
     newKey: "کلید API جدید",
-    keyLabel: "کلید API",
     namePlaceholder: "سرویس صورت‌حساب",
     descriptionPlaceholder: "این کلید کجا استفاده می‌شود",
     createTitle: "ایجاد کلید API",
@@ -1122,16 +1119,19 @@ export const fa: TranslationResources = {
     environment: "محیط",
     environmentHint:
       "این کلید به کدام استقرار تعلق دارد، تا تشخیص کلیدها ساده باشد.",
-    rateLimitPerMinute: "محدودیت نرخ / دقیقه",
-    rateLimitPerDay: "محدودیت نرخ / روز",
-    rateLimitPerMinuteHint:
-      "تعداد درخواست‌های این کلید در هر یک دقیقه. مقداری راهنماست: عدد ذخیره و به سرویسی که کلید را اعتبارسنجی می‌کند سپرده می‌شود — اینجا چیزی درخواست‌ها را نمی‌شمارد و رد نمی‌کند.",
-    rateLimitPerDayHint:
-      "تعداد درخواست‌های این کلید در یک روز. مانند مورد بالا راهنماست: سرویسی که کلید را اعتبارسنجی می‌کند آن را اعمال می‌کند، نه این سامانه.",
     scopes: "دامنه‌ها",
+    scopesHint:
+      "آنچه کلید می‌تواند انجام دهد: مجوزهای خودِ برنامه که شما دارید. برنامه هنگام بررسی کلید آن‌ها را می‌خواند.",
+    scopesRequired: "دست‌کم یک دامنه انتخاب کنید.",
+    noGrantableScopes:
+      "این برنامه هیچ مجوز فعالی ندارد که شما بتوانید اعطا کنید: اعطای یک مجوز به خودِ آن مجوز و applications:update نیاز دارد. ابتدا مجوزهایی به برنامه بیفزایید یا از مدیری که آن‌ها را دارد بخواهید.",
+    scopesUnreadable:
+      "حساب شما نمی‌تواند فهرست مجوزها را بخواند (permissions:read)، پس اینجا نه دامنه‌ای انتخاب می‌شود و نه کلیدی ساخته می‌شود. این مجوز را از یک مدیر بخواهید.",
+    allowedIps: "نشانی‌های مجاز",
+    allowedIpsHint:
+      "اختیاری. در هر خط یک نشانی IPv4 یا IPv6 یا یک بازهٔ CIDR؛ برنامه کلید را از هر نشانی دیگری رد می‌کند. برای مجاز کردن همهٔ نشانی‌ها خالی بگذارید.",
     revoke: "ابطال",
     rotate: "چرخش",
-    validate: "اعتبارسنجی",
     revokeReason: "دلیل",
     revokeReasonPlaceholder: "در یک مخزن عمومی افشا شد",
     revokeTitle: "ابطال کلید API",
@@ -1146,8 +1146,6 @@ export const fa: TranslationResources = {
     secretOnceTitle: "کلید API خود را همین حالا کپی کنید",
     secretOnceBody:
       "کلید کامل فقط همین یک بار نمایش داده می‌شود. آن را در جای امن نگه دارید.",
-    validateTitle: "اعتبارسنجی کلید API",
-    validatePlaceholder: "برای اعتبارسنجی، کلید API را اینجا بچسبانید…",
     expiringSoon: "به‌زودی منقضی می‌شود",
     expired: "منقضی‌شده",
     expiresLater: "دیرتر منقضی می‌شود",
@@ -1287,7 +1285,6 @@ export const fa: TranslationResources = {
     title: "کلیدهای Webhook",
     subtitle: "مدیریت کلیدهای امضای وب‌هوک‌های خروجی.",
     newKey: "کلید webhook جدید",
-    keyLabel: "کلید Webhook",
     namePlaceholder: "رویدادهای سفارش",
     descriptionPlaceholder: "این کلید کجا استفاده می‌شود",
     createTitle: "ایجاد کلید webhook",
@@ -1298,8 +1295,6 @@ export const fa: TranslationResources = {
       "این کلید به کدام استقرار تعلق دارد، تا تشخیص کلیدها ساده باشد.",
     revoke: "ابطال",
     rotate: "چرخش",
-    validate: "اعتبارسنجی",
-    validatePlaceholder: "برای اعتبارسنجی، کلید webhook را اینجا بچسبانید…",
     expiringSoon: "به‌زودی منقضی می‌شود",
     expired: "منقضی‌شده",
     expiresLater: "دیرتر منقضی می‌شود",
@@ -1438,6 +1433,7 @@ export const fa: TranslationResources = {
       organizationProvisionedForApplication: "راه‌اندازی سازمان از یک برنامه",
       apikeyCreated: "ایجاد کلید API",
       apikeyRevoked: "ابطال کلید API",
+      apikeyRotated: "چرخش کلید API",
       machinekeyCreated: "ساخت کلید برنامه",
       machinekeyRevoked: "ابطال کلید برنامه",
       machineaccessOrganizationsReadAllAllowed:
@@ -2412,10 +2408,10 @@ export const fa: TranslationResources = {
       passwordResetWindowSeconds: "پنجره شمارش بازنشانی (ثانیه)",
       passwordResetWindowSecondsHint:
         "بازه‌ای که شمارش بالا در آن سنجیده می‌شود، با همان سازوکار پنجره ثابت.",
-      apiKeyValidatePermitLimit: "اعتبارسنجی کلید API در هر پنجره",
+      apiKeyValidatePermitLimit: "بررسی کلید و توکن در هر پنجره",
       apiKeyValidatePermitLimitHint:
-        "یک نشانی IP چند بار می‌تواند از این API بخواهد کلید API را بررسی کند، پیش از آنکه با کد 429 رد شود. این حد از کار محافظت می‌کند نه از یک راز: هر اعتبارسنجی کلید ارائه‌شده را با Argon2id درهم‌سازی می‌کند که عمداً کند و پرمصرف حافظه است، پس فراخواننده‌ای بدون سقف می‌تواند پردازنده و حافظهٔ این سرور را مصرف کند بی‌آنکه هرگز کلید معتبری داشته باشد. آن را کمی بالاتر از نیاز یک یکپارچه‌سازی مشروع تنظیم کنید، نه بیشتر.",
-      apiKeyValidateWindowSeconds: "پنجرهٔ شمارش اعتبارسنجی کلید API (ثانیه)",
+        "سرور یک برنامه از یک نشانی در هر پنجره چند بار می‌تواند کلید API، کلید webhook و توکن را بررسی کند، پیش از آنکه با کد 429 رد شود؛ فراخواننده‌ای که توکن ماشین (machine token) او معتبر نیست، از سهم جداگانهٔ هم‌اندازهٔ نشانی خودش شمرده می‌شود. این حد از کار محافظت می‌کند نه از یک راز: هر بررسی کلید API یک درهم‌سازی Argon2id اجرا می‌کند که عمداً کند و پرمصرف حافظه است. آن را کمی بالاتر از نیاز ترافیک یک برنامه تنظیم کنید، نه بیشتر.",
+      apiKeyValidateWindowSeconds: "پنجرهٔ شمارش بررسی کلید و توکن (ثانیه)",
       apiKeyValidateWindowSecondsHint:
         "بازه‌ای که شمارش بالا بر آن سنجیده می‌شود. پنجره ثابت است نه لغزان: با پایان آن شمارنده به صفر بازمی‌گردد و فراخواننده‌ای که سهمش را خرج کرده تا آن زمان منتظر می‌ماند.",
       imageUploadConcurrencyLimit: "بارگذاری‌های هم‌زمان در حال رمزگشایی",

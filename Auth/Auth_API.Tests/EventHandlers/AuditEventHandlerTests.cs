@@ -490,6 +490,56 @@ public class ApiKeyRevokedAuditEventHandlerTests
     }
 }
 
+public class ApiKeyRotatedAuditEventHandlerTests
+{
+    private readonly Mock<IAuditLogRepository> _repoMock = new();
+    private readonly ApiKeyRotatedAuditEventHandler _handler;
+
+    public ApiKeyRotatedAuditEventHandlerTests()
+    {
+        _handler = new ApiKeyRotatedAuditEventHandler(
+            _repoMock.Object,
+            new Mock<ILogger<ApiKeyRotatedAuditEventHandler>>().Object);
+    }
+
+    [Fact]
+    public async Task Handle_WritesARowNamingTheNewKeyAndTheOneItReplaces()
+    {
+        var evt = new ApiKeyRotatedEvent(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            new DateTime(2026, 10, 29, 12, 0, 0, DateTimeKind.Utc), Guid.NewGuid(), DateTimeOffset.UtcNow);
+        AuditLog? written = null;
+        _repoMock
+            .Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditLog, CancellationToken>((log, _) => written = log);
+
+        await _handler.Handle(evt, CancellationToken.None);
+
+        written.Should().NotBeNull();
+        written!.Action.Should().Be(AuditActions.ApiKeyRotated);
+        written.EntityType.Should().Be("ApiKey");
+        written.EntityId.Should().Be(evt.ApiKeyId);
+        written.ApplicationId.Should().Be(evt.ApplicationId);
+        written.PerformedBy.Should().Be(evt.TriggeredBy);
+        written.AdditionalData.Should().Contain(evt.ReplacedApiKeyId.ToString());
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheRowCannotBeWritten_DoesNotThrow()
+    {
+        _repoMock
+            .Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database unavailable"));
+        var evt = new ApiKeyRotatedEvent(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+            DateTime.UtcNow, null, DateTimeOffset.UtcNow);
+
+        var act = () => _handler.Handle(evt, CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
+    }
+}
+
 public class PlatformSettingsUpdatedAuditEventHandlerTests
 {
     private readonly Mock<IAuditLogRepository> _repoMock = new();

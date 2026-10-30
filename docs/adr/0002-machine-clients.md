@@ -6,6 +6,8 @@ Accepted — 2026-10-11 (OI-128, PR A). Adds the `client_credentials` grant; cha
 
 Amended — 2026-10-20 (OI-202): §6, a consent-only machine scope, `organizations.read.all`, and the first action the machine scheme opens (the machine directory). §3's "absent `scope` grants all three" stays true: the new scope is never in a request that names none. One column on `Applications`, no change to an existing grant's answer.
 
+Amended — 2026-10-29 (OI-128, PR B): §7, the three endpoints the default scopes were made for move onto the machine scheme, and their user-token doors are removed. §4's "in this version none does" no longer holds: the scheme runs on exactly two controllers, each naming it once at class level. One column on `ApiKeys`; the SDK goes to 2.0.
+
 ## Context
 
 An application's own server sometimes has to call this system as itself, with no user behind the call: to validate an API key one of its callers presented, to validate a webhook key, to introspect a token. Until this decision the only way the SDK could get a token for that was `LoginAsync(email, password, applicationId)`: a platform sign-in by a robot user whose password sits on the application's server. That design has four faults:
@@ -76,12 +78,24 @@ The machine scopes are two groups. The **default** group is §3's three: every m
 - The machine scheme now runs on exactly one controller, the machine directory, named once at class level; a guard keeps every other action off it. It is still "a new scope, not a new mechanism": the grant, the token and the scheme are §2 to §4 unchanged.
 - The machine directory's budget reads the application from `client_id`, never from `aud`, which is the one machine audience of every application.
 
+### 7. The credential checks move onto the machine scheme (amended 2026-10-29, OI-128 PR B)
+
+The three default scopes (§3) now open the endpoints they were named for, on one controller under the application prefix the gateway already forwards (`app-route`): `POST api/v1/app/machine/apikeys/validate` (`apikeys.validate`), `POST api/v1/app/machine/webhookkeys/validate` (`webhookkeys.validate`) and `POST api/v1/app/machine/tokens/introspect` (`tokens.introspect`, RFC 7662).
+
+- **The caller is the token's `client_id`, never `aud`,** resolved to the live application. An inactive or deleted application is answered as a revoked token; a token without the action's scope is a 403 with `error="insufficient_scope"`. The scopes are default scopes: no consent is read.
+- **A credential is reported only to its own application** (RFC 7662 §2.1 and §4: the resource server authenticates, and learns only about its own credentials). Another application's API key or webhook key gets exactly the answer of an unknown key, decided before the hash and recording no use. Introspection is `active: true` only for an access token whose single audience is the caller's code, validated with the userinfo scheme's own parameters and followed by the token, session and user-wide revocation checks, or for the caller's own refresh token; every other token, a platform token included, is `active: false`.
+- **The user-token doors are removed** (owner decision D-128-2 (a)): `api/v1/apikeys/validate`, `api/v1/webhookkeys/validate` and `api/v1/auth/introspect` answer as unknown routes. The codes `apikeys:validate` and `webhookkeys:validate` stay in the catalogue, unasked, until their removal.
+- **One budget per application and address** (`apikey-validate`, never a user's `sub`), decided before the limiter by the step that already classifies the directory, under a tag of its own; a request whose token does not validate, or lacks the scope, counts on its address.
+- **API keys are found in one step:** `ak_<env>_<selector>_<secret><check>`. The selector is stored in clear (`ApiKeys.KeySelector`, unique), so validation runs one Argon2id verify of the whole key, and none for an unknown selector; the six-character CRC32 check (owner decision D-128-5 (a)) refuses a mistyped key before any lookup, in the SDK and here. The stored prefix stays the text up to the second underscore and the hash covers the whole key, so the validation before this change still accepts every key it mints. A key without a selector no longer validates.
+- **The SDK (2.0)** asks with the machine token on its own HTTP client, never a stored user token; drops and renews a refused machine token once; refuses a result naming another application; checks a key's shape offline; keeps a 30-second negative cache in caches of its own; and answers a check it could not make with 503 and `Retry-After`, never "invalid key". The key schemes are added by their own registration methods, which fail at startup without the machine client.
+- **Residual.** A well-formed forged key still costs one check until the SDK caches it as invalid: an application rate-limits unauthenticated callers itself. A revoked API key works until the SDK's positive cache expires (60 seconds by default).
+
 ## Consequences
 
 ### Positive
 - No stored password, no robot user, no platform authority: an application proves who it is with a key whose private half never reaches this system (or reaches it once, on generation).
 - A stolen assertion is worth one token at most, and only here.
-- S08's second-factor rule for platform administrators no longer stands in the way of server integrations, once PR B moves the machine endpoints onto this scheme.
+- S08's second-factor rule for platform administrators no longer stands in the way of server integrations: since PR B (§7) no robot user is needed.
 - The same grant serves an application's scheduled data pull: a new scope, not a new mechanism.
 
 ### Negative

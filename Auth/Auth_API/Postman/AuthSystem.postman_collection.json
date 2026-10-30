@@ -708,8 +708,9 @@
 					}
 				},
 				{
-					"name": "Introspect Token",
+					"name": "Introspect Token (machine)",
 					"request": {
+						"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{machineAccessToken}}", "type": "string" }] },
 						"method": "POST",
 						"header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
 						"body": {
@@ -720,11 +721,11 @@
 							]
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/auth/introspect",
+							"raw": "{{baseUrl}}/api/v1/app/machine/tokens/introspect",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "auth", "introspect"]
+							"path": ["api", "v1", "app", "machine", "tokens", "introspect"]
 						},
-						"description": "Returns metadata about the provided token (active, expiry, scopes, etc.)."
+						"description": "RFC 7662, asked by an application's own server with its machine token (scope tokens.introspect; run 'Token - client_credentials' first). active is true only for an access or refresh token issued to that application and still valid; every other token, a platform token included, is {\"active\": false}."
 					}
 				},
 				{
@@ -1821,19 +1822,20 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"name\": \"My API Key\",\n    \"description\": \"API key for testing\",\n    \"environment\": \"Development\",\n    \"rateLimitPerMinute\": 60,\n    \"rateLimitPerDay\": 10000,\n    \"expiresAt\": null,\n    \"permissionIds\": []\n}"
+							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"name\": \"My API Key\",\n    \"description\": \"API key for testing\",\n    \"environment\": \"Development\",\n    \"expiresAt\": null,\n    \"permissionIds\": [\"{{testPermissionId}}\"],\n    \"allowedIps\": []\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/apikeys",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "apikeys"]
 						},
-						"description": "Creates a new API key. The raw key value is only returned once at creation. Requires `apikeys:create` permission."
+						"description": "Creates a new API key. The raw key value is only returned once at creation. permissionIds needs at least one active permission of the key's own application that you hold; allowedIps is optional (IPv4/IPv6 addresses or CIDR ranges, at most 50). Requires `apikeys:create` permission."
 					}
 				},
 				{
-					"name": "Validate API Key",
+					"name": "Validate API Key (machine)",
 					"request": {
+						"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{machineAccessToken}}", "type": "string" }] },
 						"method": "POST",
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
@@ -1841,11 +1843,11 @@
 							"raw": "{\n    \"apiKey\": \"{{apiKeyValue}}\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/apikeys/validate",
+							"raw": "{{baseUrl}}/api/v1/app/machine/apikeys/validate",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "apikeys", "validate"]
+							"path": ["api", "v1", "app", "machine", "apikeys", "validate"]
 						},
-						"description": "Validates an API key and returns its metadata (active status, application, scopes, rate limits). Requires `apikeys:validate` permission."
+						"description": "Validates an API key presented to the calling application, with its machine token (scope apikeys.validate; run 'Token - client_credentials' first). Returns the key's metadata, applicationCode and allowedIps included, or 400 ApiKey.Invalid for an unknown key and for another application's key."
 					}
 				},
 				{
@@ -2061,8 +2063,9 @@
 					}
 				},
 				{
-					"name": "Validate Webhook Key",
+					"name": "Validate Webhook Key (machine)",
 					"request": {
+						"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{machineAccessToken}}", "type": "string" }] },
 						"method": "POST",
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
@@ -2070,11 +2073,11 @@
 							"raw": "{\n    \"webhookKey\": \"{{webhookKeyValue}}\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/webhookkeys/validate",
+							"raw": "{{baseUrl}}/api/v1/app/machine/webhookkeys/validate",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "webhookkeys", "validate"]
+							"path": ["api", "v1", "app", "machine", "webhookkeys", "validate"]
 						},
-						"description": "Validates a webhook key and returns its metadata (active status, application, target URL, environment). Requires `webhookkeys:validate` permission."
+						"description": "Validates a webhook key presented to the calling application, with its machine token (scope webhookkeys.validate; run 'Token - client_credentials' first). Returns the key's metadata, applicationCode included, or 400 WebhookKey.Invalid for an unknown key and for another application's key."
 					}
 				},
 				{

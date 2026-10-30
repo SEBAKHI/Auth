@@ -672,6 +672,8 @@ builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.Acco
 // it reads the actor's live permissions per request rather than trusting the
 // token's claims, which outlive a revocation.
 builder.Services.AddScoped<Auth.Application.Common.PermissionGrantGuard>();
+// What an API key may carry, asked the same way at creation and at rotation (OI-128 PR B).
+builder.Services.AddScoped<Auth.Application.Features.ApiKeys.Common.ApiKeyScopePolicy>();
 // The one writer of a user's access grant to an application, shared by the
 // application page's invitation and every grant at an application's scope.
 builder.Services.AddScoped<Auth.Application.Common.ApplicationAccessWriter>();
@@ -1108,40 +1110,37 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
-    // Validating an API key is the most expensive thing an authenticated caller
-    // can ask this process to do. The lookup narrows candidates by key prefix and
-    // then runs a full Argon2id verify against each surviving row — 19 MiB and
-    // two passes per verify, by design, because that cost is what makes a stolen
-    // hash useless. Nothing bounded how many times it could be asked for, so a
-    // caller holding apikeys:validate could turn a cheap request into hundreds of
-    // megabytes of hashing work per second.
+    // The machine credential checks (OI-128 PR B): an application's own server validating an API
+    // key or a webhook key presented to it, or introspecting a token, with its machine token.
+    // Counted per application AND per address once the token validates under the machine scheme
+    // and carries the check's scope: ApplicationReadClassificationMiddleware decides that before
+    // this runs, as it does for "app-read", under a tag of its own ("mchk"). A request without
+    // such a token counts on its address's partition and never reaches an application's.
     //
-    // Partitioned on the caller, not the client IP: the endpoint is authenticated,
-    // relying parties legitimately call it from a small pool of server addresses,
-    // and an IP bucket would let one busy integration throttle every other one
-    // sharing a NAT. Falls back to IP only when the principal has no id to key on,
-    // which should not happen behind [RequirePermission] but must not open the
-    // bucket if it ever does.
+    // Never on "sub", a user's claim: the old door was a platform user's, so every caller that
+    // signed in as the same user shared one budget. Now no other application, and no caller
+    // without this application's machine key, can spend this application's budget. Forged keys
+    // sent to the application itself still can: each well-formed key the application has not
+    // yet seen costs one check here (the SDK coalesces repeats and holds a refusal for 30
+    // seconds), so the application rate-limits unauthenticated callers before authentication.
     //
-    // The claim is "sub", NOT ClaimTypes.NameIdentifier. This process clears
-    // DefaultInboundClaimTypeMap and sets MapInboundClaims = false (see the top of
-    // this file and the bearer registration below), precisely so claims keep their
-    // JWT names — which means the SOAP-era ClaimTypes.NameIdentifier URI is never
-    // present on any principal here. Reading it returned null on every request, so
-    // this policy silently fell through to the IP fallback for its whole life: the
-    // exact collapse the paragraph above says it exists to prevent. That the
-    // limiter also has to run AFTER UseAuthentication for the principal to be
-    // populated at all is the other half of the same defect; see the pipeline.
+    // Validation itself is cheap again: one row by the key's selector and at most one Argon2id
+    // verify, none for an unknown selector. The limit stays because the verify is still the
+    // most expensive thing a caller can ask for. Both partitions read the same two settings,
+    // whose names and defaults are unchanged. The gateway's per-address "app-read" policy sits
+    // in front of these paths (app-route); keep it at or above this limit times the
+    // applications behind one address. The name is
+    // ApplicationReadClassificationMiddleware.CredentialCheckPolicyName.
     options.AddPolicy("apikey-validate", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: $"v{settingsVersion()}:{httpContext.User.FindFirst(Auth.Domain.Constants.JwtClaimNames.Subject)?.Value
-                ?? ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = builder.Configuration.GetValue("RateLimiting:ApiKeyValidatePermitLimit", 60),
-                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:ApiKeyValidateWindowSeconds", 60)),
-                QueueLimit = 0
-            }));
+        ApplicationReadClassificationMiddleware.Partition(
+            httpContext,
+            settingsVersion(),
+            perApplication: () => new FixedWindowBudget(
+                builder.Configuration.GetValue("RateLimiting:ApiKeyValidatePermitLimit", 60),
+                builder.Configuration.GetValue("RateLimiting:ApiKeyValidateWindowSeconds", 60)),
+            perAddress: () => new FixedWindowBudget(
+                builder.Configuration.GetValue("RateLimiting:ApiKeyValidatePermitLimit", 60),
+                builder.Configuration.GetValue("RateLimiting:ApiKeyValidateWindowSeconds", 60))));
 
     // Image upload is the one path that allocates in proportion to the request
     // rather than the response: every in-flight decode holds width*height*4
@@ -1454,11 +1453,12 @@ app.UseAuthentication();
 // Immediately before it, the token endpoint's classification (OI-178): which
 // budget a token request counts in is decided by verifying its client assertion,
 // which a synchronous partitioner cannot do.
-// The application directory's classification (OI-194): which application's budget a request
-// counts in is decided by validating its token with the endpoint's own scheme, which
-// UseAuthentication (the platform scheme alone) does not do. Only on the endpoints of the
-// "app-read" policy, so it never touches a token request, and the token classification below
-// stays immediately before the limiter.
+// The application directory's and the machine credential checks' classification (OI-194,
+// OI-128 PR B): which application's budget a request counts in is decided by validating its
+// token with the endpoint's own scheme, which UseAuthentication (the platform scheme alone)
+// does not do. Only on the endpoints of the "app-read" and "apikey-validate" policies, so it
+// never touches a token request, and the token classification below stays immediately before
+// the limiter.
 app.UseMiddleware<ApplicationReadClassificationMiddleware>();
 app.UseMiddleware<TokenClientClassificationMiddleware>();
 app.UseRateLimiter();

@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using Auth.Sdk.Models;
+using Auth.Sdk.Validation;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -10,8 +12,15 @@ namespace Auth.Sdk.Handlers;
 /// Authentication handler that validates API keys via the AuthSystem.
 /// Extracts the key from the X-Api-Key header.
 /// </summary>
+/// <remarks>
+/// SDK 2.0: a key the AuthSystem calls invalid, a malformed one, or one presented from an address
+/// outside its list is a 401, with the same message for each. A key that could not be checked is
+/// a 503 with <c>Retry-After</c> (<see cref="UnavailableAnswer"/>).
+/// </remarks>
 public class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAuthenticationOptions>
 {
+    private const string InvalidKey = "Invalid API key.";
+
     private readonly AuthSystemClient _authSystemClient;
 
     public ApiKeyAuthenticationHandler(
@@ -37,10 +46,25 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAuthentic
             return AuthenticateResult.Fail("API key is empty.");
         }
 
-        var result = await _authSystemClient.ValidateApiKeyAsync(apiKey, Context.RequestAborted);
-        if (result is null || !result.Active)
+        var check = await _authSystemClient.ValidateApiKeyAsync(apiKey, Context.RequestAborted);
+        if (check.Status == CredentialCheckStatus.Unavailable)
         {
-            return AuthenticateResult.Fail("Invalid API key.");
+            UnavailableAnswer.Arrange(Context, check.RetryAfter ?? AuthSystemClient.DefaultRetryAfter);
+            return AuthenticateResult.Fail("The API key could not be checked; try again later.");
+        }
+
+        var result = check.Result;
+        if (check.Status != CredentialCheckStatus.Valid || result is null)
+        {
+            return AuthenticateResult.Fail(InvalidKey);
+        }
+
+        // The connection's address, never a forwarding header: behind a proxy, the application
+        // configures forwarded headers for its own trusted proxy. No hint in the answer.
+        if (!AllowedIpMatcher.IsAllowed(result.AllowedIps, Context.Connection.RemoteIpAddress))
+        {
+            Logger.LogWarning("API key {ApiKeyId} presented from an address outside its list", result.ApiKeyId);
+            return AuthenticateResult.Fail(InvalidKey);
         }
 
         var claims = new List<Claim>

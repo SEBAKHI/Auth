@@ -49,9 +49,9 @@ public class GetDiscoveryDocumentQueryHandler
             // the browser's single sign-on session with no confirmation page, which the browser
             // endpoint above must show, since it cannot tell who asks.
             ServerEndSessionEndpoint = DiscoveryEndpoints.ServerEndSession(baseUrl),
-            // No introspection_endpoint: /auth/introspect serves the platform's own callers
-            // (it needs a platform token), and an application, a public client with no
-            // secret, could never call it. Listing it promised every application a failure.
+            // No introspection_endpoint: introspection answers an application's own server about
+            // its own tokens, with its machine token (OI-128 PR B); a public client with no
+            // secret could never call it. Listing it promised every such client a failure.
             ResponseTypesSupported = ["code"],
             SubjectTypesSupported = ["public"],
             // Public clients with mandatory PKCE authenticate with nothing ("none"),

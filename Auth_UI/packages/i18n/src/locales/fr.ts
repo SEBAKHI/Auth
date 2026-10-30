@@ -285,8 +285,6 @@ export const fr: TranslationResources = {
     publishedAt: "Publié le",
     publishedVersionNumber: "Version publiée",
     purpose: "Usage",
-    rateLimitPerDay: "Limite de débit / jour",
-    rateLimitPerMinute: "Limite de débit / minute",
     reauthenticationMaxAgeMinutes: "Âge maximal de réauthentification (minutes)",
     recipient: "Destinataire",
     recipientName: "Nom du destinataire",
@@ -1148,7 +1146,6 @@ export const fr: TranslationResources = {
     title: "Clés API",
     subtitle: "Émettez et gérez les clés API des applications.",
     newKey: "Nouvelle clé API",
-    keyLabel: "Clé API",
     namePlaceholder: "Service de facturation",
     descriptionPlaceholder: "Où cette clé est utilisée",
     createTitle: "Créer une clé API",
@@ -1156,16 +1153,19 @@ export const fr: TranslationResources = {
     environment: "Environnement",
     environmentHint:
       "Le déploiement auquel appartient cette clé, pour les distinguer facilement.",
-    rateLimitPerMinute: "Limite de débit / minute",
-    rateLimitPerDay: "Limite de débit / jour",
-    rateLimitPerMinuteHint:
-      "Requêtes que cette clé peut effectuer en une minute. Valeur indicative : le nombre est enregistré et transmis au service qui valide la clé — rien ici ne compte ni ne rejette les requêtes.",
-    rateLimitPerDayHint:
-      "Requêtes que cette clé peut effectuer en une journée. Indicative comme la précédente : appliquée par le service qui valide la clé, pas par ce système.",
     scopes: "Portées",
+    scopesHint:
+      "Ce que la clé peut faire : les permissions de l'application elle-même que vous détenez. L'application les lit quand elle vérifie la clé.",
+    scopesRequired: "Choisissez au moins une portée.",
+    noGrantableScopes:
+      "Cette application n'a aucune permission active que vous puissiez accorder : en accorder une demande la permission elle-même et applications:update. Ajoutez d'abord des permissions à l'application, ou demandez-le à un administrateur qui les détient.",
+    scopesUnreadable:
+      "Votre compte ne peut pas lire la liste des permissions (permissions:read) : aucune portée ne peut être choisie, ni aucune clé créée ici. Demandez cette permission à un administrateur.",
+    allowedIps: "Adresses autorisées",
+    allowedIpsHint:
+      "Facultatif. Une adresse IPv4 ou IPv6, ou une plage CIDR, par ligne ; l'application refuse la clé depuis toute autre adresse. Laissez vide pour autoriser toutes les adresses.",
     revoke: "Révoquer",
     rotate: "Renouveler",
-    validate: "Valider",
     revokeReason: "Motif",
     revokeReasonPlaceholder: "Divulguée dans un dépôt public",
     revokeTitle: "Révoquer la clé API",
@@ -1180,8 +1180,6 @@ export const fr: TranslationResources = {
     secretOnceTitle: "Copiez votre clé API maintenant",
     secretOnceBody:
       "C'est la seule fois où la clé complète est affichée. Conservez-la en lieu sûr.",
-    validateTitle: "Valider une clé API",
-    validatePlaceholder: "Collez une clé API à valider…",
     expiringSoon: "Bientôt expirée",
     expired: "Expirée",
     expiresLater: "Expire plus tard",
@@ -1324,7 +1322,6 @@ export const fr: TranslationResources = {
     title: "Clés Webhook",
     subtitle: "Gérez les clés de signature des webhooks sortants.",
     newKey: "Nouvelle clé webhook",
-    keyLabel: "Clé webhook",
     namePlaceholder: "Événements de commande",
     descriptionPlaceholder: "Où cette clé est utilisée",
     createTitle: "Créer une clé webhook",
@@ -1335,8 +1332,6 @@ export const fr: TranslationResources = {
       "Le déploiement auquel appartient cette clé, pour les distinguer facilement.",
     revoke: "Révoquer",
     rotate: "Renouveler",
-    validate: "Valider",
-    validatePlaceholder: "Collez une clé webhook à valider…",
     expiringSoon: "Bientôt expirée",
     expired: "Expirée",
     expiresLater: "Expire plus tard",
@@ -1478,6 +1473,7 @@ export const fr: TranslationResources = {
         "Organisation configurée depuis une application",
       apikeyCreated: "Clé d'API créée",
       apikeyRevoked: "Clé d'API révoquée",
+      apikeyRotated: "Clé d'API renouvelée",
       machinekeyCreated: "Clé d'application créée",
       machinekeyRevoked: "Clé d'application révoquée",
       machineaccessOrganizationsReadAllAllowed:
@@ -2483,11 +2479,12 @@ export const fr: TranslationResources = {
         "Fenêtre de comptage de réinitialisation (secondes)",
       passwordResetWindowSecondsHint:
         "Durée sur laquelle le nombre d'utilisations ci-dessus est mesuré, selon la même mécanique de fenêtre fixe.",
-      apiKeyValidatePermitLimit: "Validations de clé d'API par fenêtre",
+      apiKeyValidatePermitLimit:
+        "Vérifications de clés et de jetons par fenêtre",
       apiKeyValidatePermitLimitHint:
-        "Combien de fois une même adresse IP cliente peut demander à cette API de vérifier une clé d'API avant d'être refusée avec un 429. Cette limite protège un travail, pas un secret : chaque validation hache la clé présentée avec Argon2id, volontairement lent et gourmand en mémoire, de sorte qu'un appelant sans limite peut consommer le processeur et la mémoire de ce serveur sans jamais détenir de clé valide. Réglez-la juste au-dessus de ce dont une intégration légitime a besoin, et pas plus haut.",
+        "Combien de vérifications de clés d'API, de clés de webhook et de jetons le serveur d'une application peut demander depuis une même adresse dans une fenêtre avant d'être refusé avec un 429 ; un appelant dont le jeton machine (machine token) n'est pas validé est compté sur la part propre de son adresse, de même taille. Cette limite protège un travail, pas un secret : vérifier une clé d'API exécute un hachage Argon2id, volontairement lent et gourmand en mémoire. Réglez-la juste au-dessus de ce dont le trafic d'une application a besoin, et pas plus haut.",
       apiKeyValidateWindowSeconds:
-        "Fenêtre de comptage des validations (secondes)",
+        "Fenêtre des vérifications de clés et de jetons (secondes)",
       apiKeyValidateWindowSecondsHint:
         "La durée sur laquelle le comptage ci-dessus est mesuré. La fenêtre est fixe et non glissante : le compteur revient à zéro à sa fin, et un appelant qui a épuisé son quota attend jusque-là.",
       imageUploadConcurrencyLimit: "Envois décodés simultanément",

@@ -1009,6 +1009,18 @@
   <data name="ApiKey.Required" xml:space="preserve">
     <value>مفتاح API مطلوب.</value>
   </data>
+  <data name="ApiKey.ScopesRequired" xml:space="preserve">
+    <value>يجب أن يحمل مفتاح API نطاقًا (scope) واحدًا على الأقل.</value>
+  </data>
+  <data name="ApiKey.ScopeNotForApplication" xml:space="preserve">
+    <value>يجب أن يكون كل نطاق (scope) في مفتاح API صلاحيةً فعّالة لتطبيق المفتاح نفسه.</value>
+  </data>
+  <data name="ApiKey.AllowedIpInvalid" xml:space="preserve">
+    <value>يجب أن يكون كل عنوان مسموح عنوانَ IPv4 أو IPv6، أو نطاقَ CIDR بِتّاتُ المضيف فيه أصفار.</value>
+  </data>
+  <data name="ApiKey.AllowedIpsTooMany" xml:space="preserve">
+    <value>يحمل مفتاح API خمسين عنوانًا مسموحًا على الأكثر.</value>
+  </data>
   <data name="Application.AccessModeInvalid" xml:space="preserve">
     <value>وضع الوصول غير معروف.</value>
   </data>

@@ -2034,7 +2034,6 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | GET | `/api/v1/Auth/me` | Echo the caller's own token claims. Reads no database row | Authenticated |
 | GET, POST | `/api/v1/Auth/userinfo` | The OpenID Connect UserInfo endpoint, for applications: the user's profile, read at the call and limited to the token's scopes | An application's access token only |
 | POST | `/api/v1/Auth/revoke` | Revoke a token (RFC 7009). Anonymous by design: the token is the credential | Anonymous · `token` |
-| POST | `/api/v1/Auth/introspect` | Ask whether a token is still valid and what it carries (RFC 7662) | Authenticated |
 | POST | `/api/v1/Auth/send-verification-email` | Email a fresh verification code to the signed-in caller | Authenticated · `login` |
 | POST | `/api/v1/Auth/verify-email` | Confirm an email address with the code. Two behaviours — see [5.2](#52-authentication) | Anonymous · `login` |
 | POST | `/api/v1/Auth/resend-verification-email` | Re-send the verification code to an address, no sign-in needed | Anonymous · `login` |
@@ -2202,20 +2201,28 @@ All three are on the `app-read` rate-limit policy: per application and per addre
 | GET | `/api/v1/ApiKeys` | List keys. Omitting `applicationId` returns every application's keys | `apikeys:read` |
 | POST | `/api/v1/ApiKeys` | Create a key. The secret is shown once, in this response | `apikeys:create` |
 | POST | `/api/v1/ApiKeys/{id}/revoke` | Revoke a key | `apikeys:revoke` |
-| POST | `/api/v1/ApiKeys/validate` | Check a key supplied in the body and return its metadata | `apikeys:validate` |
 | POST | `/api/v1/ApiKeys/{id}/rotate` | Issue a replacement, with a grace period for the old one | `apikeys:rotate` |
 
-`apikeys:validate` is seeded under the `apikeys:*` wildcard, which the seeded `admin` role holds. See [Section 11](#11-permission-matrix).
+`apikeys:validate` is still seeded under the `apikeys:*` wildcard, but no endpoint asks for it since OI-128 PR B: an application's server validates keys with its own machine key ([Machine credential checks](#machine-credential-checks--3-endpoints)). See [Section 11](#11-permission-matrix).
 
-#### Webhook Keys — 5 endpoints
+#### Webhook Keys — 4 endpoints
 
 | Method | Path | What it does | Permission |
 |---|---|---|---|
 | GET | `/api/v1/WebhookKeys` | List webhook signing keys | `webhookkeys:read` |
 | POST | `/api/v1/WebhookKeys` | Create one for a target URL | `webhookkeys:create` |
-| POST | `/api/v1/WebhookKeys/validate` | Check a key supplied in the body | `webhookkeys:validate` |
 | POST | `/api/v1/WebhookKeys/{id}/revoke` | Revoke one | `webhookkeys:revoke` |
 | POST | `/api/v1/WebhookKeys/{id}/rotate` | Rotate one, with a grace period | `webhookkeys:rotate` |
+
+#### Machine credential checks — 3 endpoints
+
+An application's own server asks about a credential presented to it, with its machine token (OI-128 PR B). Each answers only about that application's own credentials. No permission: each needs its machine scope.
+
+| Method | Path | What it does | Machine scope |
+|---|---|---|---|
+| POST | `/api/v1/app/machine/apikeys/validate` | Check an API key presented to the application | `apikeys.validate` |
+| POST | `/api/v1/app/machine/webhookkeys/validate` | Check a webhook key presented to the application | `webhookkeys.validate` |
+| POST | `/api/v1/app/machine/tokens/introspect` | Ask whether one of the application's tokens is still active (RFC 7662) | `tokens.introspect` |
 
 **All five `webhookkeys:` codes are seeded under the `webhookkeys:*` wildcard, which the seeded `admin` role holds.**
 
@@ -2455,7 +2462,7 @@ Returns the OpenID Connect discovery document — the single address another sys
 **The property names here are snake_case, and that is deliberate.** Every other response in this API uses camelCase; this one contract is pinned to the exact names RFC 8414 and OpenID Connect Discovery define, because standards-based clients recognise nothing else.
 *In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQuery.cs:19-68`.
 
-**The document advertises implemented capabilities and nothing else, so what is missing from it is information too.** `scopes_supported` lists the five scopes `/auth/authorize` grants (`organizations.read` opens the application directory); each application is granted only those of them an administrator allowed it, plus `openid`, which every application has. One field a reader may expect is absent, and its absence is a statement of fact rather than an oversight: there is no `id_token_signing_alg_values_supported`, because this system issues no OpenID Connect identity token. It is declared in the contract as nullable and left unset, and null properties are omitted from every response in this API, so it simply does not appear. `introspection_endpoint` is absent the same way, for a different reason: `/auth/introspect` exists, but it needs a platform token, so an application (a public client with no secret) could never call it, and listing it promised every application a failure. `userinfo_endpoint` names `/auth/userinfo`, which takes an application's token, not `/auth/me`, which refuses one; `claims_supported` lists the access token's claims and then what UserInfo adds for the granted scopes.
+**The document advertises implemented capabilities and nothing else, so what is missing from it is information too.** `scopes_supported` lists the five scopes `/auth/authorize` grants (`organizations.read` opens the application directory); each application is granted only those of them an administrator allowed it, plus `openid`, which every application has. One field a reader may expect is absent, and its absence is a statement of fact rather than an oversight: there is no `id_token_signing_alg_values_supported`, because this system issues no OpenID Connect identity token. It is declared in the contract as nullable and left unset, and null properties are omitted from every response in this API, so it simply does not appear. `introspection_endpoint` is absent the same way, for a different reason: introspection (`/app/machine/tokens/introspect`) answers an application's own server about its own tokens, with its machine token, so a public client with no secret could never call it, and listing it promised every such client a failure. `userinfo_endpoint` names `/auth/userinfo`, which takes an application's token, not `/auth/me`, which refuses one; `claims_supported` lists the access token's claims and then what UserInfo adds for the granted scopes.
 *In code:* `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:29-33,40-51,57-65`; the scope names are `Auth/Auth.Domain/Constants/OAuthScopes.cs`.
 
 **`token_endpoint_auth_methods_supported` is `["none", "private_key_jwt"]` on purpose.** A browser or mobile application is a public client and PKCE is mandatory (`none`), so it does not authenticate itself at the token endpoint, and no client ever sends a secret. `private_key_jwt` is a key-signed assertion: a machine key authenticates the `client_credentials` grant (§5.10c), and a sign-in key authenticates a server-side web application's `authorization_code` and `refresh_token` grants, whose refresh tokens are then bound to that key (OI-171, `docs/adr/0003-confidential-server-side-clients.md`); `token_endpoint_auth_signing_alg_values_supported` is `["ES256"]`. Leaving the field out would have been worse than saying `none`: RFC 8414 says an omitted value implies `client_secret_basic`, which would tell every client to send credentials this system does not accept.
@@ -3343,45 +3350,41 @@ token=<the token>&token_type_hint=access_token
 **Rate limit:** none in the API; at the gateway, the `auth` policy per address (`auth-route`).
 *In code:* the action is `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:1013-1034`; the handler `Auth/Auth.Application/Features/Authentication/RevokeToken/RevokeTokenCommandHandler.cs`; the token check `Auth/Auth_API/Common/Authentication/IssuedAccessTokenValidator.cs`, registered beside the schemes in `BearerSchemeRegistration.cs`; the session kill `CredentialRevocationService.TerminateSessionAsync` in `Auth/Auth.Infrastructure/Authentication/`.
 
-#### POST `/api/v1/auth/introspect`
+#### POST `/api/v1/app/machine/tokens/introspect`
 
-Inspect a token's validity and claims (RFC 7662 compliant).
+Ask whether a token is still active (RFC 7662), as an application's own server, about that application's own tokens (OI-128 PR B; the former `/api/v1/auth/introspect`, which wanted a platform token, is gone).
 
-**Auth:** Authenticated, by the default (platform) scheme like every endpoint but `/auth/userinfo`. It is not listed in the discovery document: an application signed in through the authorization-code flow holds no token this endpoint accepts.
+**Auth:** an application's machine token carrying `tokens.introspect`. Not listed in the discovery document: client libraries that read it hold no machine token.
 
-**Request:**
-
-```json
-{
-  "token": "token-to-inspect",
-  "tokenTypeHint": "access_token"
-}
-```
+**Request:** `application/x-www-form-urlencoded`, as RFC 7662 fixes it: `token=<the token>`, and optionally `token_type_hint=access_token` or `refresh_token`.
 
 **Response (200):**
 
 ```json
 {
   "active": true,
+  "scope": "openid profile",
+  "client_id": "CRM-WEB",
   "sub": "3fa85f64-...",
   "username": "user@example.com",
   "email": "user@example.com",
   "exp": 1710244200,
   "iat": 1710243300,
   "iss": "https://localhost:5101",
-  "aud": "https://localhost:5101",
+  "aud": "CRM-WEB",
   "token_type": "bearer",
-  "roles": ["admin"],
-  "permissions": ["users:read"]
+  "roles": ["customer"],
+  "permissions": ["crm:leads:read"]
 }
 ```
 
-`token_type` is `bearer` when the token was an access token and `refresh_token` when it was a refresh token. When a token is unknown, expired or revoked the body is simply `{ "active": false }` — every other field is omitted.
+`active` is `true` only for an access token whose single audience is the calling application's code and that no revocation reaches (the token, its session, the person's sign-out of everything), or for the application's own refresh token that is neither revoked nor expired. Every other token, a platform token included, is `{ "active": false }`, with every other field omitted. The fields are what the token itself carries; nothing is read from the user's record.
 
 **This is the one response in the whole API that uses snake_case.** RFC 7662 fixes the field names, so `token_type` and `client_id` are spelled that way here while every other endpoint would call them `tokenType` and `clientId`. Do not assume camelCase when parsing this one.
 *In code:* `Auth/Auth.Application/DTOs/IntrospectTokenResponse.cs`.
 
-`iss` and `aud` are whatever `Jwt:Issuer` and `Jwt:Audience` are set to. In development both are `https://localhost:5101`.
+`iss` is `Jwt:Issuer`; `aud` and `client_id` are the application's code.
+*In code:* `Auth/Auth_API/Modules/MachineCredentialChecks/Controllers/MachineCredentialChecksController.cs`; `Auth/Auth.Application/Features/Authentication/IntrospectToken/IntrospectTokenQueryHandler.cs`.
 
 #### POST `/api/v1/auth/send-verification-email`
 
@@ -5975,11 +5978,10 @@ There is no `role` field; the field is `roleName`.
 
 An API key is a long-lived secret string that a service uses to identify itself, instead of a person signing in. Each key belongs to one application.
 
-**Read this before you design around the two rate-limit fields.** `rateLimitPerMinute` and `rateLimitPerDay` are accepted, validated, stored, returned in every response and available as sort keys — and **nothing in this system enforces them.** No limiter reads either value. A key you create with `rateLimitPerMinute: 100` is not throttled at 100 requests a minute, or at any other number. If you need per-key throttling, implement it in the service that consumes the key.
-*In code:* every occurrence of the two names is a data-transfer object, a command, a validator, a projection or a sort-field constant; the API's only rate limits are the two named policies described at the top of [Section 5](#5-api-reference).
+**There are no per-key rate limits.** The fields `rateLimitPerMinute` and `rateLimitPerDay` were stored and enforced by nothing; since OI-128 PR B they are gone from the request, the list and the validation answer (their columns stay, unread). Throttle callers in the service that consumes the key. The sort keys `rateLimitPerMinute` and `rateLimitPerDay` are still accepted.
 
-**A plain key looks like `ak_prod_` followed by 32 random characters.** The prefix depends on the `environment` you asked for: `production` gives `ak_prod_`, `staging` gives `ak_stag_`, `development` gives `ak_dev_`, and any other word gives the bare `ak_`. The random part is 32 bytes of cryptographic randomness rendered as base64 with `+`, `/` and `=` stripped, then cut to 32 characters. Only a hash of the whole key is stored — Argon2id, the same algorithm used for passwords — so the plain key exists in exactly one place after creation: wherever you put it.
-*In code:* `Auth/Auth.Infrastructure/Security/ApiKeyGenerator.cs`.
+**A plain key looks like `ak_prod_<selector>_<secret><check>`.** The prefix depends on the `environment` you asked for: `production` gives `ak_prod_`, `staging` gives `ak_stag_`, `development` gives `ak_dev_`, and any other word gives `ak_othr_`. The selector is 16 random base62 characters, stored in clear, by which validation finds the key's one row; the secret is 32 random base62 characters; the check is 6 base62 characters of CRC32 over everything before it, so a mistyped key is refused before any lookup. Only an Argon2id hash of the whole key is stored, so the plain key exists in exactly one place after creation: wherever you put it. A key created before this format has no selector and no longer validates.
+*In code:* `Auth/Auth.Domain/Services/ApiKeyFormat.cs`; `Auth/Auth.Infrastructure/Security/ApiKeyGenerator.cs`.
 
 All five codes this area enforces are seeded, and the seeded `admin` role holds them through `apikeys:*`. See [Section 11](#11-permission-matrix).
 
@@ -6009,8 +6011,6 @@ List API keys. **Not paged** — the response is a plain array.
     "description": "Main production key",
     "keyPrefix": "ak_prod_",
     "environment": "production",
-    "rateLimitPerMinute": 60,
-    "rateLimitPerDay": 10000,
     "createdAt": "2026-01-01T00:00:00Z",
     "createdBy": "00000000-0000-0000-0000-000000000001",
     "createdByName": "Platform Admin",
@@ -6039,10 +6039,9 @@ Create a key.
   "name": "Production API Key",
   "description": "Main production key for the CRM integration",
   "environment": "production",
-  "rateLimitPerMinute": 60,
-  "rateLimitPerDay": 10000,
   "expiresAt": "2027-01-01T00:00:00Z",
-  "permissionIds": ["a1b2c3d4-0000-0000-0000-000000000001"]
+  "permissionIds": ["a1b2c3d4-0000-0000-0000-000000000001"],
+  "allowedIps": ["203.0.113.0/24"]
 }
 ```
 
@@ -6051,25 +6050,24 @@ Create a key.
 | `applicationId` | yes | — | Must exist, or the call returns `Application.NotFound` |
 | `name` | yes | — | Display name |
 | `description` | no | null | Free text |
-| `environment` | no | `"production"` | Any string up to 50 characters is accepted. Only `production`, `staging` and `development` produce a recognisable prefix; anything else gets `ak_` |
-| `rateLimitPerMinute` | no | `60` | Must be greater than 0. **Enforced by nothing** |
-| `rateLimitPerDay` | no | `10000` | Must be greater than 0. **Enforced by nothing** |
+| `environment` | no | `"production"` | Up to 20 characters, the column's size. `production`, `staging` and `development` get their own segment; anything else gets `ak_othr_` |
 | `expiresAt` | no | null (never expires) | Must be in the future |
-| `permissionIds` | no | none | Permission scopes for the key. An identifier matching no permission is silently skipped |
+| `permissionIds` | **yes, at least one** | — | The key's scopes: each an active permission of the key's own application, held by you. None is `ApiKey.ScopesRequired`; a platform code, another application's or an inactive permission is `ApiKey.ScopeNotForApplication`; an unknown id is `Permission.NotFound`; one you do not hold is `Permission.CannotGrantHigher`. The key and its scopes are written in one transaction |
+| `allowedIps` | no | none (any address) | Up to 50 IPv4 or IPv6 addresses or CIDR ranges whose host bits are zero, normalized. Anything else is `ApiKey.AllowedIpInvalid`; a 51st is `ApiKey.AllowedIpsTooMany`. The application's SDK refuses the key from any other address |
 
 **Response (201).** This is the only moment the plain key exists in a response. There is no `message` field — the four fields below are the whole body:
 
 ```json
 {
   "id": "b2c3d4e5-0000-0000-0000-000000000001",
-  "apiKey": "ak_prod_9fK2mQx7Ld3PvR8sT1uW4yZ6aB0cE5gH",
+  "apiKey": "ak_prod_7Hq2mXc9LpA4vB1d_9fK2mQx7Ld3PvR8sT1uW4yZ6aB0cE5gHk3Zt9Q",
   "keyPrefix": "ak_prod_",
   "createdAt": "2026-03-12T10:00:00Z",
   "expiresAt": "2027-01-01T00:00:00Z"
 }
 ```
 
-**Store it now.** It cannot be recovered later, by anyone, including a platform administrator with the global `*` permission. If it is lost, rotate the key.
+**Store it now.** It cannot be recovered later, by anyone, including a platform administrator with the global `*` permission. If it is lost, rotate the key. The answer carries `Cache-Control: no-store`.
 
 #### POST `/api/v1/apikeys/{id}/revoke`
 
@@ -6087,17 +6085,17 @@ Revoke a key immediately.
 
 **Response:** 204 No Content. Revoking a key that is already revoked returns 409 with the error code `ApiKey.AlreadyRevoked`.
 
-#### POST `/api/v1/apikeys/validate`
+#### POST `/api/v1/app/machine/apikeys/validate`
 
-Check a key and get its metadata back. This is the endpoint a downstream service calls to find out whether a key it was handed is real.
+Check a key and get its metadata back: the call an application's server makes about a key it was handed (OI-128 PR B; the former `/api/v1/apikeys/validate`, which wanted a platform user holding `apikeys:validate`, is gone).
 
-**Permission:** `apikeys:validate` — seeded, and covered by the `apikeys:*` wildcard that the seeded `admin` role holds. A service that calls this endpoint needs a role granting one of the two.
+**Auth:** the application's machine token carrying `apikeys.validate`. Only the application's own keys are reported.
 
 **Request:**
 
 ```json
 {
-  "apiKey": "ak_prod_9fK2mQx7Ld3PvR8sT1uW4yZ6aB0cE5gH"
+  "apiKey": "ak_prod_7Hq2mXc9LpA4vB1d_9fK2mQx7Ld3PvR8sT1uW4yZ6aB0cE5gHk3Zt9Q"
 }
 ```
 
@@ -6108,17 +6106,19 @@ Check a key and get its metadata back. This is the endpoint a downstream service
   "active": true,
   "apiKeyId": "b2c3d4e5-0000-0000-0000-000000000001",
   "applicationId": "8b1d9f20-1111-2222-3333-444455556666",
+  "applicationCode": "CRM-WEB",
   "name": "Production API Key",
   "environment": "production",
   "scopes": ["crm:leads:read"],
-  "rateLimitPerMinute": 60,
-  "rateLimitPerDay": 10000
+  "allowedIps": ["203.0.113.0/24"]
 }
 ```
 
-**A key that does not validate is an error, not `active: false`.** An unknown, revoked or expired key returns **400** with the error code `ApiKey.Invalid`, so branch on the status code rather than on the `active` field, which is `true` in every successful response.
+**A key that does not validate is an error, not `active: false`.** An unknown, malformed, revoked or expired key, **and another application's key**, returns **400** with the error code `ApiKey.Invalid`, byte for byte the same answer. Another application's key is refused before any hash is computed and touches nothing.
 
-**A successful validation has a side effect:** the key's `lastUsedAt` is updated.
+**Validation costs one row and at most one Argon2id verify.** The key's selector names its row; an unknown selector costs no hash.
+
+**A successful validation has a side effect:** the key's `lastUsedAt` is updated. Every answer carries `Cache-Control: no-store`.
 
 #### POST `/api/v1/apikeys/{id}/rotate`
 
@@ -6170,7 +6170,7 @@ A webhook key is a secret shared with one destination URL, so that the receiver 
 
 **Before you plan anything around this area, two honest warnings.**
 
-**All five permission codes these endpoints require — `webhookkeys:read`, `webhookkeys:create`, `webhookkeys:validate`, `webhookkeys:revoke`, `webhookkeys:rotate` — are seeded**, and the seeded `admin` role holds them through `webhookkeys:*`. [Section 11](#11-permission-matrix) has the full picture.
+**All four permission codes these endpoints require — `webhookkeys:read`, `webhookkeys:create`, `webhookkeys:revoke`, `webhookkeys:rotate` — are seeded** (and `webhookkeys:validate`, which no endpoint asks for since OI-128 PR B), and the seeded `admin` role holds them through `webhookkeys:*`. [Section 11](#11-permission-matrix) has the full picture.
 
 **Creating or revoking a webhook key writes no audit-log entry.** The system publishes a `WebhookKeyCreatedEvent` and a `WebhookKeyRevokedEvent` when those things happen, and **no handler anywhere subscribes to either**, so nothing records them. An API key is different — it has an audit handler. If you rely on the audit trail for key lifecycle, this is a gap you must cover elsewhere.
 *In code:* the events are published at `Auth/Auth.Application/Features/WebhookKeys/CreateWebhookKey/CreateWebhookKeyCommandHandler.cs:69` and `.../RevokeWebhookKey/RevokeWebhookKeyCommandHandler.cs:51`; no `INotificationHandler` implementation for either type exists in `Auth/Auth_API`.
@@ -6255,11 +6255,11 @@ Create a webhook key.
 }
 ```
 
-#### POST `/api/v1/webhookkeys/validate`
+#### POST `/api/v1/app/machine/webhookkeys/validate`
 
-Check a webhook key and get its metadata back.
+Check a webhook key and get its metadata back, as the application's own server (OI-128 PR B; the former `/api/v1/webhookkeys/validate` is gone).
 
-**Permission:** `webhookkeys:validate`
+**Auth:** the application's machine token carrying `webhookkeys.validate`.
 
 **Request:**
 
@@ -6276,13 +6276,14 @@ Check a webhook key and get its metadata back.
   "active": true,
   "webhookKeyId": "a7b8c9d0-0000-0000-0000-000000000001",
   "applicationId": "8b1d9f20-1111-2222-3333-444455556666",
+  "applicationCode": "CRM-WEB",
   "name": "Order events",
   "targetUrl": "https://crm.example.com/hooks/orders",
   "environment": "production"
 }
 ```
 
-**An unknown key returns 400 with the error code `WebhookKey.Invalid`**, not a body saying `active: false`. A successful validation updates the key's `lastUsedAt`.
+**An unknown key, and another application's key, return 400 with the error code `WebhookKey.Invalid`**, not a body saying `active: false`. A successful validation updates the key's `lastUsedAt`; another application's key touches nothing.
 
 #### POST `/api/v1/webhookkeys/{id}/revoke`
 
@@ -6335,7 +6336,7 @@ Unlike the API-key rotation response, this `message` is **not** translated and t
 
 ### 5.10c Machine Keys and the `client_credentials` Grant
 
-An application's own server can authenticate as itself, with no user behind the call: it signs a short assertion with its **machine key** and exchanges it at the token endpoint for a five-minute **machine token** (OAuth 2.0 client credentials, RFC 6749 §4.4, with `private_key_jwt` client authentication, RFC 7523). Design: `docs/adr/0002-machine-clients.md`. In this version no endpoint accepts the machine token yet; key validation and introspection move onto it in a later change.
+An application's own server can authenticate as itself, with no user behind the call: it signs a short assertion with its **machine key** and exchanges it at the token endpoint for a five-minute **machine token** (OAuth 2.0 client credentials, RFC 6749 §4.4, with `private_key_jwt` client authentication, RFC 7523). Design: `docs/adr/0002-machine-clients.md`. The machine token opens the machine directory and, since OI-128 PR B, the three [machine credential checks](#machine-credential-checks--3-endpoints): API-key validation, webhook-key validation and introspection.
 
 **Base route:** `/api/v1/applications/{applicationId}/machine-keys`. The three endpoints use the API-key permissions: a machine key is a credential of the same class.
 
@@ -8245,14 +8246,13 @@ Success is 200:
 
 **Step 2 — Move every consumer onto `newApiKey` before `oldKeyExpiresAt`.** Nothing does this for you, and nothing warns you as the deadline approaches.
 
-**Step 3 — The old key stops working by itself.** Rotation does **not** revoke it; it sets an expiry on it `gracePeriodMinutes` from now. The new key inherits the old one's application, environment, rate-limit values and expiry date, and is named `<old name> (rotated)`.
+**Step 3 — The old key stops working by itself.** Rotation does **not** revoke it; it sets an expiry on it `gracePeriodMinutes` from now. The new key inherits the old one's application, environment, scopes, address list and expiry date, and is named `<old name> (rotated)`.
 
-**The scope list is the one thing rotation does not carry over, and nothing warns you.** An API key's scopes are rows in `ApiKeyScopes` keyed by that key's identifier, and rotation does not copy them, so the new key comes back with an empty `scopes` list. There is also no endpoint that adds a scope to a key that already exists — `permissionIds` is accepted only when a key is created. **So a scoped key cannot be rotated.** Create a replacement with `POST /api/v1/apikeys`, passing the same `permissionIds`, and revoke the old key yourself once every consumer has moved.
-*In code:* `Auth/Auth.Application/Features/ApiKeys/RotateApiKey/RotateApiKeyCommandHandler.cs`.
+**Rotation copies the scopes, and asks about them as creation does (OI-128 PR B).** You must hold every scope the key carries (`Permission.CannotGrantHigher` otherwise), each must still be an active permission of the application (`ApiKey.ScopeNotForApplication`), and a key with no scope cannot be rotated (`ApiKey.ScopesRequired`: create a new key). The new key, its scopes and the old key's end are written in one transaction, and the rotation is audited as `apikey.rotated`. The answer carries `Cache-Control: no-store`.
+*In code:* `Auth/Auth.Application/Features/ApiKeys/RotateApiKey/RotateApiKeyCommandHandler.cs`; `Auth/Auth.Application/Features/ApiKeys/Common/ApiKeyScopePolicy.cs`.
 
 **Rotating a key that is already revoked returns 409** with the error code `ApiKey.AlreadyRevoked`.
 
-**Rotation is not a way to change throttling.** A key's `rateLimitPerMinute` and `rateLimitPerDay` values are stored, validated and returned, but **nothing in this repository enforces them** ([5.10](#510-api-keys)).
 
 ### 6.8 Edit and Publish a Notification Template
 
@@ -8913,10 +8913,10 @@ A permission code is enforced when an endpoint is marked with it; a code is *see
 | `apikeys:create` | Create an API key | `admin` |
 | `apikeys:revoke` | Revoke an API key | `admin` |
 | `apikeys:rotate` | Rotate an API key | `admin` |
-| `apikeys:validate` | Validate an API key | `admin` |
+| `apikeys:validate` | No endpoint since OI-128 PR B (validation moved to the application's machine key); kept until its removal | `admin` |
 | `webhookkeys:read` | List webhook keys | `admin` |
 | `webhookkeys:create` | Create a webhook key | `admin` |
-| `webhookkeys:validate` | Validate a webhook key | `admin` |
+| `webhookkeys:validate` | No endpoint since OI-128 PR B; kept until its removal | `admin` |
 | `webhookkeys:revoke` | Revoke a webhook key | `admin` |
 | `webhookkeys:rotate` | Rotate a webhook key | `admin` |
 | `applications:read` | Seven application read endpoints, plus the dashboard's application-activity figures | `admin` |
