@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Auth.Sdk.Extensions;
 using Auth.Sdk.Models;
 using Auth.Sdk.TokenManagement;
 using Auth.Sdk.Validation;
@@ -65,6 +66,12 @@ public sealed class AuthSystemClient : IDisposable
 
     // The credential checks in flight, one per cache key; an entry lives only as long as its request.
     private readonly ConcurrentDictionary<string, Lazy<Task>> _inFlight = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The whole budget of one check: <see cref="ServiceCollectionExtensions.CredentialCheckTimeout"/>.
+    /// Settable for the tests, which cannot wait ten seconds.
+    /// </summary>
+    internal TimeSpan CheckBudget { get; set; } = ServiceCollectionExtensions.CredentialCheckTimeout;
 
     public AuthSystemClient(
         IHttpClientFactory httpClientFactory,
@@ -141,16 +148,30 @@ public sealed class AuthSystemClient : IDisposable
     /// Introspects a token (RFC 7662), as this application: <c>active</c> only for an access or
     /// refresh token issued to this application and still valid. Null when no answer could be had
     /// (the AuthSystem was throttling, failing or unreachable, or refused this application's
-    /// machine credential). Not cached: the point of asking is to hear a sign-out at once.
+    /// machine credential). An inactive answer is held for <see cref="InvalidResultCacheDuration"/>,
+    /// since an inactive token never becomes active again; an active one is never held, because the
+    /// point of asking is to hear a sign-out at once. Introspection counts on the same budget at
+    /// the AuthSystem as the key checks.
     /// </summary>
     public async Task<TokenIntrospectionResult?> IntrospectTokenAsync(string token, CancellationToken cancellationToken = default)
+    {
+        var cacheKey = $"introspect:{ComputeCacheKey(token)}";
+        if (TryCached(_invalidResults, cacheKey, out bool _))
+        {
+            return new TokenIntrospectionResult { Active = false };
+        }
+
+        // Concurrent introspections of one token share one request, as the key checks do.
+        return await Shared(cacheKey, () => AskIntrospectionAsync(cacheKey, token)).WaitAsync(cancellationToken);
+    }
+
+    private async Task<TokenIntrospectionResult?> AskIntrospectionAsync(string cacheKey, string token)
     {
         // Form-encoded, not JSON: RFC 7662 defines the introspection request as
         // application/x-www-form-urlencoded, and the endpoint enforces it.
         var answer = await SendAsMachineAsync(
             AuthSystemConstants.TokenIntrospectionPath,
-            () => new FormUrlEncodedContent(new Dictionary<string, string> { ["token"] = token }),
-            cancellationToken);
+            () => new FormUrlEncodedContent(new Dictionary<string, string> { ["token"] = token }));
         using var response = answer.Response;
 
         if (response is not { IsSuccessStatusCode: true })
@@ -159,15 +180,23 @@ public sealed class AuthSystemClient : IDisposable
             return null;
         }
 
+        TokenIntrospectionResult? result;
         try
         {
-            return await response.Content.ReadFromJsonAsync<TokenIntrospectionResult>(cancellationToken);
+            result = await response.Content.ReadFromJsonAsync<TokenIntrospectionResult>(CancellationToken.None);
         }
         catch (JsonException ex)
         {
             _logger.LogError(ex, "Token introspection answered with an unreadable body");
             return null;
         }
+
+        if (result is { Active: false })
+        {
+            Remember(_invalidResults, cacheKey, true, InvalidResultCacheDuration);
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -268,8 +297,7 @@ public sealed class AuthSystemClient : IDisposable
         // Concurrent checks of one credential wait on the request already in flight instead of
         // each spending this application's budget at the AuthSystem: a burst of one forged key
         // costs one call, as a single request does. The shared request runs without any caller's
-        // cancellation (the machine client's own timeout bounds it); each caller stops waiting on
-        // its own token.
+        // cancellation (its own deadline bounds it); each caller stops waiting on its own token.
         return await Shared(cacheKey, () => AskAsync(cacheKey, path, content, invalidCode, validFor, read))
             .WaitAsync(cancellationToken);
     }
@@ -278,31 +306,26 @@ public sealed class AuthSystemClient : IDisposable
     /// The request in flight for <paramref name="cacheKey"/>, or a new one started by
     /// <paramref name="ask"/>. The entry is removed when its request ends, after the answer is cached.
     /// </summary>
-    private Task<CredentialCheck<TResult>> Shared<TResult>(string cacheKey, Func<Task<CredentialCheck<TResult>>> ask)
-        where TResult : class
+    private Task<T> Shared<T>(string cacheKey, Func<Task<T>> ask)
     {
         while (true)
         {
             if (_inFlight.TryGetValue(cacheKey, out var running))
             {
                 // One cache key holds one result type: the key carries the credential kind.
-                return (Task<CredentialCheck<TResult>>)running.Value;
+                return (Task<T>)running.Value;
             }
 
             Lazy<Task> entry = null!;
             entry = new Lazy<Task>(() => AskThenReleaseAsync(cacheKey, entry, ask), LazyThreadSafetyMode.ExecutionAndPublication);
             if (_inFlight.TryAdd(cacheKey, entry))
             {
-                return (Task<CredentialCheck<TResult>>)entry.Value;
+                return (Task<T>)entry.Value;
             }
         }
     }
 
-    private async Task<CredentialCheck<TResult>> AskThenReleaseAsync<TResult>(
-        string cacheKey,
-        Lazy<Task> entry,
-        Func<Task<CredentialCheck<TResult>>> ask)
-        where TResult : class
+    private async Task<T> AskThenReleaseAsync<T>(string cacheKey, Lazy<Task> entry, Func<Task<T>> ask)
     {
         try
         {
@@ -316,7 +339,7 @@ public sealed class AuthSystemClient : IDisposable
 
     /// <summary>
     /// The AuthSystem's answer for one credential, cached by its outcome. Runs for every caller
-    /// waiting on it, so it takes no caller's cancellation.
+    /// waiting on it, so it takes no caller's cancellation; the body it reads is already buffered.
     /// </summary>
     private async Task<CredentialCheck<TResult>> AskAsync<TResult>(
         string cacheKey,
@@ -328,7 +351,7 @@ public sealed class AuthSystemClient : IDisposable
         where TResult : class
     {
         var cancellationToken = CancellationToken.None;
-        var answer = await SendAsMachineAsync(path, content, cancellationToken);
+        var answer = await SendAsMachineAsync(path, content);
         using var response = answer.Response;
         if (response is null)
         {
@@ -385,12 +408,33 @@ public sealed class AuthSystemClient : IDisposable
     }
 
     /// <summary>
-    /// Posts to <paramref name="path"/> with this application's machine token. A 401 means the
-    /// token itself was refused (its machine key revoked or replaced inside its five minutes): the
-    /// cached token is dropped and the request is sent once more with a new one. Null response:
-    /// no answer could be had (no token, a timeout, a network failure, a second 401).
+    /// Posts to <paramref name="path"/> with this application's machine token, within one deadline,
+    /// <see cref="CheckBudget"/>, for the whole check: the machine token, the send and the one
+    /// renewal. Null response: no answer could be had (no token, the deadline, a network failure,
+    /// a second 401), and the scheme answers 503 rather than hold the caller's request.
     /// </summary>
     private async Task<(HttpResponseMessage? Response, TimeSpan RetryAfter)> SendAsMachineAsync(
+        string path,
+        Func<HttpContent> content)
+    {
+        using var deadline = new CancellationTokenSource(CheckBudget, _time);
+        try
+        {
+            return await SendWithinAsync(path, content, deadline.Token);
+        }
+        catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+        {
+            _logger.LogWarning("A credential check passed its budget of {Budget}", CheckBudget);
+            return (null, DefaultRetryAfter);
+        }
+    }
+
+    /// <summary>
+    /// <see cref="SendAsMachineAsync"/> until <paramref name="cancellationToken"/>, its deadline. A
+    /// 401 means the token itself was refused (its machine key revoked or replaced inside its five
+    /// minutes): the cached token is dropped and the request is sent once more with a new one.
+    /// </summary>
+    private async Task<(HttpResponseMessage? Response, TimeSpan RetryAfter)> SendWithinAsync(
         string path,
         Func<HttpContent> content,
         CancellationToken cancellationToken)
@@ -422,7 +466,7 @@ public sealed class AuthSystemClient : IDisposable
             catch (Exception ex) when (ex is HttpRequestException
                                        || (ex is OperationCanceledException && !cancellationToken.IsCancellationRequested))
             {
-                // A network failure, or the client's own timeout; the caller's cancellation is not caught.
+                // A network failure, or the client's own timeout; the deadline is caught by the caller.
                 _logger.LogWarning(ex, "A credential check could not reach the AuthSystem");
                 return (null, DefaultRetryAfter);
             }

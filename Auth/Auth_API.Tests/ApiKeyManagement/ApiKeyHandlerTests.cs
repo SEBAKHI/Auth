@@ -192,11 +192,27 @@ public class CreateApiKeyCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_CreatorWhoHoldsTheScopeButNotApplicationsUpdate_IsRefusedBeforeAnythingIsWritten()
+    {
+        // D-124-1 (a): granting an application's permission to a key asks what granting it to a
+        // role asks, the code and applications:update.
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(_createdBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string> { "apikeys:create", "orders:*" });
+
+        var result = await _handler.Handle(Command(), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Permission.CannotGrantHigher");
+        NothingWasWritten();
+    }
+
+    [Fact]
     public async Task Handle_ScopeTheCreatorHoldsByWildcard_IsAllowed()
     {
         _permissionRepositoryMock
             .Setup(r => r.GetUserEffectivePermissionsAsync(_createdBy, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string> { "orders:*" });
+            .ReturnsAsync(new List<string> { "orders:*", "applications:update" });
 
         var result = await _handler.Handle(Command(), CancellationToken.None);
 
@@ -422,7 +438,7 @@ public class RotateApiKeyCommandHandlerTests
             .ReturnsAsync((Guid id, CancellationToken _) => id == _read.Id ? _read : id == _write.Id ? _write : null);
         _permissionRepositoryMock
             .Setup(r => r.GetUserEffectivePermissionsAsync(_rotatedBy, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string> { "orders:*" });
+            .ReturnsAsync(new List<string> { "orders:*", "applications:update" });
         _apiKeyGeneratorMock
             .Setup(g => g.Generate(It.IsAny<string>()))
             .Returns(new GeneratedApiKey("ak_prod_newkey456", "ak_prod_", "newselector00000", "new_hashed_key"));
@@ -515,10 +531,26 @@ public class RotateApiKeyCommandHandlerTests
     [Fact]
     public async Task Handle_RotatorWhoLacksAScope_ReturnsCannotGrantHigherError()
     {
-        // Holds apikeys:rotate (the endpoint's gate) and orders:read, but not orders:write.
+        // Holds apikeys:rotate (the endpoint's gate), applications:update and orders:read, but
+        // not orders:write.
         _permissionRepositoryMock
             .Setup(r => r.GetUserEffectivePermissionsAsync(_rotatedBy, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string> { "apikeys:rotate", "orders:read" });
+            .ReturnsAsync(new List<string> { "apikeys:rotate", "applications:update", "orders:read" });
+
+        var result = await _handler.Handle(Command(), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Permission.CannotGrantHigher");
+        NoKeyWasMinted();
+    }
+
+    [Fact]
+    public async Task Handle_RotatorWhoHoldsTheScopesButNotApplicationsUpdate_ReturnsCannotGrantHigherError()
+    {
+        // D-124-1 (a): rotation re-grants the scopes, so it asks what creation asks.
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(_rotatedBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string> { "apikeys:rotate", "orders:*" });
 
         var result = await _handler.Handle(Command(), CancellationToken.None);
 

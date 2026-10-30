@@ -566,7 +566,10 @@ with the AuthSystem release that carries the new endpoints:
 - `ValidateApiKeyAsync` and `ValidateWebhookKeyAsync` return a `CredentialCheck<T>` (valid, invalid,
   or unavailable with `RetryAfter`) instead of a nullable result; a check that could not be made is a 503
   with `Retry-After` from the schemes, never "invalid".
-- `IntrospectTokenAsync` asks as the application and answers only about its own tokens.
+- `IntrospectTokenAsync` asks as the application and answers only about its own tokens; identical
+  concurrent introspections share one request, and an inactive answer is held for 30 seconds.
+- One check, the machine token, the request and one renewal together, has 10 seconds
+  (`CredentialCheckTimeout`); past them the schemes answer 503 with `Retry-After`.
 - `ApiKeyValidationResult` loses `RateLimitPerMinute` and `RateLimitPerDay` and gains
   `ApplicationCode` and `AllowedIps`; `WebhookKeyValidationResult` gains `ApplicationCode`.
 - `AuthSystemClient` is sealed, owns its result caches (the host's `IMemoryCache` is neither used nor

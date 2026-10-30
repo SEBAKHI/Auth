@@ -1088,7 +1088,9 @@ export const zh: TranslationResources = {
     scopes: "作用域",
     scopesHint: "该密钥可执行的操作：您所持有的、属于该应用自身的权限。应用在校验密钥时读取它们。",
     scopesRequired: "请至少选择一个作用域。",
-    noGrantableScopes: "此应用没有您可授予的有效权限。请先为该应用添加权限，或请持有这些权限的管理员操作。",
+    noGrantableScopes: "此应用没有您可授予的有效权限：授予一项权限需要持有该权限本身以及 applications:update。请先为该应用添加权限，或请持有这些权限的管理员操作。",
+    scopesUnreadable:
+      "您的账户无法读取权限列表（permissions:read），因此无法在此选择作用域或创建密钥。请向管理员申请该权限。",
     allowedIps: "允许的地址",
     allowedIpsHint:
       "可选。每行一个 IPv4 或 IPv6 地址或 CIDR 网段；应用会拒绝来自其他任何地址的该密钥。留空则允许任何地址。",

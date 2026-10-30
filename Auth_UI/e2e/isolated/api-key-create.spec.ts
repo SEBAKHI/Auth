@@ -81,7 +81,10 @@ type Call = { method: string; path: string; body?: Record<string, unknown> }
 async function install(
   page: Page,
   calls: Call[],
-  options: { createAnswer?: () => { status: number; body: unknown } } = {}
+  options: {
+    createAnswer?: () => { status: number; body: unknown }
+    permissionsAnswer?: { status: number; body: unknown }
+  } = {}
 ) {
   await installAuthenticatedApi(page, KEY_PERMISSIONS, async (route, url) => {
     const path = url.pathname.toLowerCase()
@@ -97,7 +100,11 @@ async function install(
     }
 
     if (path === "/api/v1/permissions") {
-      await fulfillJson(route, CATALOGUE)
+      const answer = options.permissionsAnswer ?? {
+        status: 200,
+        body: CATALOGUE,
+      }
+      await fulfillJson(route, answer.body, answer.status)
       return true
     }
     if (path === "/api/v1/apikeys" && method === "POST") {
@@ -280,6 +287,48 @@ test("two refused addresses are shown under the address field too", async ({
   )
 })
 
+test("an administrator without applications:update is told why no scope is offered", async ({
+  page,
+}) => {
+  // D-124-1: the server answers canGrant false for every permission an
+  // application owns when the caller lacks applications:update, though the
+  // caller holds the codes themselves.
+  await install(page, [], {
+    permissionsAnswer: {
+      status: 200,
+      body: CATALOGUE.map((entry) =>
+        entry.applicationId ? { ...entry, canGrant: false } : entry
+      ),
+    },
+  })
+  const dialog = await openCreateDialog(page)
+
+  await expect(
+    dialog.getByText(
+      "granting one takes the permission itself and applications:update",
+      { exact: false }
+    )
+  ).toBeVisible()
+  await expect(dialog.getByRole("checkbox")).toHaveCount(0)
+})
+
+test("a refused permission list is explained, not shown as an empty choice", async ({
+  page,
+}) => {
+  await install(page, [], {
+    permissionsAnswer: { status: 403, body: problem(403, "Http.Forbidden") },
+  })
+  const dialog = await openCreateDialog(page)
+
+  await expect(
+    dialog.getByText(
+      "Your account cannot read the list of permissions (permissions:read)",
+      { exact: false }
+    )
+  ).toBeVisible()
+  await expect(dialog.getByRole("checkbox")).toHaveCount(0)
+})
+
 test("an application with nothing this administrator may grant says so, rather than an empty list", async ({
   page,
 }) => {
@@ -289,7 +338,7 @@ test("an application with nothing this administrator may grant says so, rather t
 
   await expect(
     dialog.getByText(
-      "This application has no active permission that you may grant.",
+      "This application has no active permission that you may grant",
       { exact: false }
     )
   ).toBeVisible()

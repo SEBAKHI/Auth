@@ -1158,7 +1158,9 @@ export const fr: TranslationResources = {
       "Ce que la clé peut faire : les permissions de l'application elle-même que vous détenez. L'application les lit quand elle vérifie la clé.",
     scopesRequired: "Choisissez au moins une portée.",
     noGrantableScopes:
-      "Cette application n'a aucune permission active que vous puissiez accorder. Ajoutez d'abord des permissions à l'application, ou demandez-le à un administrateur qui les détient.",
+      "Cette application n'a aucune permission active que vous puissiez accorder : en accorder une demande la permission elle-même et applications:update. Ajoutez d'abord des permissions à l'application, ou demandez-le à un administrateur qui les détient.",
+    scopesUnreadable:
+      "Votre compte ne peut pas lire la liste des permissions (permissions:read) : aucune portée ne peut être choisie, ni aucune clé créée ici. Demandez cette permission à un administrateur.",
     allowedIps: "Adresses autorisées",
     allowedIpsHint:
       "Facultatif. Une adresse IPv4 ou IPv6, ou une plage CIDR, par ligne ; l'application refuse la clé depuis toute autre adresse. Laissez vide pour autoriser toutes les adresses.",

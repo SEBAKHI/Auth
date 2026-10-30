@@ -1132,7 +1132,9 @@ export const en = {
       "What the key may do: the application's own permissions that you hold. The application reads them when it checks the key.",
     scopesRequired: "Choose at least one scope.",
     noGrantableScopes:
-      "This application has no active permission that you may grant. Add permissions to the application first, or ask an administrator who holds them.",
+      "This application has no active permission that you may grant: granting one takes the permission itself and applications:update. Add permissions to the application first, or ask an administrator who holds them.",
+    scopesUnreadable:
+      "Your account cannot read the list of permissions (permissions:read), so no scope can be chosen and no key created here. Ask an administrator for that permission.",
     allowedIps: "Allowed addresses",
     allowedIpsHint:
       "Optional. One IPv4 or IPv6 address or CIDR range per line; the application refuses the key from any other address. Leave empty to allow any address.",

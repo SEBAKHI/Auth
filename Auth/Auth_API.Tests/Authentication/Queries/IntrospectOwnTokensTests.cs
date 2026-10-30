@@ -155,6 +155,33 @@ public sealed class IntrospectOwnTokensTests : IDisposable
     }
 
     [Fact]
+    public async Task Handle_OwnAccessToken_PastItsExpiry_IsInactive()
+    {
+        string Own(DateTime expires) => _tokens.Custom(_user.Id, descriptor =>
+        {
+            descriptor.TokenType = "at+jwt";
+            descriptor.IssuedAt = expires.AddMinutes(-15);
+            descriptor.NotBefore = expires.AddMinutes(-15);
+            descriptor.Expires = expires;
+        });
+
+        // The same token, still alive, is active: only its lifetime differs.
+        (await Introspect(Own(DateTime.UtcNow.AddMinutes(10)))).Value.Active.Should().BeTrue();
+        (await Introspect(Own(DateTime.UtcNow.AddMinutes(-10)))).Value.Active.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("not-a-token")]
+    [InlineData("a.b.c")]
+    [InlineData("eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4In0.")]
+    public async Task Handle_MalformedToken_IsInactive_WhateverTheHint(string token)
+    {
+        (await Introspect(token)).Value.Active.Should().BeFalse();
+        (await Introspect(token, hint: null)).Value.Active.Should().BeFalse();
+        (await Introspect(token, TokenTypeHint.RefreshToken)).Value.Active.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Handle_CallerWithoutTheScope_IsRefused_BeforeTheTokenIsRead()
     {
         var result = await Introspect(_tokens.ForApplication(_user, "openid"), scope: MachineClients.Scopes.ApiKeysValidate);

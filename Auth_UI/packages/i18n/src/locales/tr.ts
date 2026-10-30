@@ -1139,7 +1139,9 @@ export const tr: TranslationResources = {
       "Anahtarın neler yapabileceği: uygulamanın sizin sahip olduğunuz kendi izinleri. Uygulama, anahtarı denetlediğinde bunları okur.",
     scopesRequired: "En az bir kapsam seçin.",
     noGrantableScopes:
-      "Bu uygulamada verebileceğiniz etkin bir izin yok. Önce uygulamaya izin ekleyin veya bu izinlere sahip bir yöneticiden isteyin.",
+      "Bu uygulamada verebileceğiniz etkin bir izin yok: bir izni vermek, iznin kendisini ve applications:update iznini gerektirir. Önce uygulamaya izin ekleyin veya bu izinlere sahip bir yöneticiden isteyin.",
+    scopesUnreadable:
+      "Hesabınız izin listesini okuyamıyor (permissions:read); bu yüzden burada kapsam seçilemez ve anahtar oluşturulamaz. Bu izni bir yöneticiden isteyin.",
     allowedIps: "İzin verilen adresler",
     allowedIpsHint:
       "İsteğe bağlı. Her satıra bir IPv4 veya IPv6 adresi ya da CIDR aralığı; uygulama anahtarı başka herhangi bir adresten reddeder. Her adrese izin vermek için boş bırakın.",

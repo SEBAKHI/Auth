@@ -30,7 +30,11 @@ import {
 import { Input } from "@authsystem/ui/input"
 import { Textarea } from "@authsystem/ui/textarea"
 import { api } from "@authsystem/api/client"
-import { getErrorMessage, getFieldErrors } from "@authsystem/api/errors"
+import {
+  getErrorMessage,
+  getErrorStatus,
+  getFieldErrors,
+} from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
 
@@ -54,9 +58,11 @@ function toAddressList(value: string | undefined): string[] | null {
 /**
  * The scopes a new key may carry, one checkbox each: the application's own
  * active permissions that this administrator may grant (OI-128 PR B). The
- * filter is the role dialog's, which is the rule the server applies here as
- * well: a platform code, another application's, an inactive one, or one the
- * creator does not hold is refused after the choice, so it is not offered.
+ * filter is the role dialog's, and the server applies the same rule to a key
+ * (ApiKeyScopePolicy, D-124-1): granting an application's permission takes the
+ * permission itself and applications:update, which is what `canGrant` reports.
+ * A platform code, another application's, an inactive one, or one the creator
+ * may not grant is refused after the choice, so it is not offered.
  */
 function ApiKeyScopesChoice({
   permissions,
@@ -287,7 +293,18 @@ export function ApiKeyCreateDialog({
             <FormLabel id={`${DIALOG_ID}-scope-label`}>
               {t("apiKeys.scopes")}
             </FormLabel>
-            {permissionsQuery.isSuccess && grantable.length === 0 ? (
+            {permissionsQuery.isError ? (
+              // A key needs a scope, and the scopes come from this list: when
+              // it is refused (no permissions:read), say why instead of
+              // showing an empty choice that can never be met.
+              <Alert>
+                <AlertDescription>
+                  {getErrorStatus(permissionsQuery.error) === 403
+                    ? t("apiKeys.scopesUnreadable")
+                    : getErrorMessage(permissionsQuery.error)}
+                </AlertDescription>
+              </Alert>
+            ) : permissionsQuery.isSuccess && grantable.length === 0 ? (
               <Alert>
                 <AlertDescription>
                   {t("apiKeys.noGrantableScopes")}

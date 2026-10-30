@@ -12,7 +12,7 @@ namespace Auth_API.Tests.Infrastructure;
 public class ApiKeySelectorSchemaTests
 {
     [Fact]
-    public void KeySelector_IsTheLastColumn_NullableWithoutADefault()
+    public void KeySelector_IsTheLastColumn_NullableWithoutADefault_InABinaryCollation()
     {
         var sql = Table();
         var body = sql[(sql.IndexOf('(') + 1)..sql.IndexOf("CONSTRAINT [PK_ApiKeys]", StringComparison.Ordinal)];
@@ -20,8 +20,11 @@ public class ApiKeySelectorSchemaTests
 
         columns.Should().HaveCountGreaterThan(15, "the scan must see the whole table");
         columns.Last().Should().Be("KeySelector");
-        Regex.IsMatch(body, @"\[KeySelector\]\s+NVARCHAR\(32\)\s+NULL,\s*$", RegexOptions.Multiline)
-            .Should().BeTrue("NVARCHAR(32) NULL, and no DEFAULT: an unnamed default is drift on every compare");
+        // The model's collation is case-insensitive (Auth_DB.sqlproj). The selector is base62, so a
+        // case variant is another selector: it must find no row and must not collide in the index,
+        // as Kid and Jti are compared (ApplicationMachineKeys.sql, ClientAssertionJtis.sql).
+        Regex.IsMatch(body, @"\[KeySelector\]\s+NVARCHAR\(32\)\s+COLLATE\s+Latin1_General_100_BIN2\s+NULL,\s*$", RegexOptions.Multiline)
+            .Should().BeTrue("NVARCHAR(32) in Latin1_General_100_BIN2, NULL, and no DEFAULT: an unnamed default is drift on every compare");
     }
 
     [Fact]

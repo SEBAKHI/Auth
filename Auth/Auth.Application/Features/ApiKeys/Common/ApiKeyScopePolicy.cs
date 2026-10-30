@@ -1,4 +1,5 @@
 using Auth.Application.Common;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -10,6 +11,7 @@ namespace Auth.Application.Features.ApiKeys.Common;
 /// What a key being minted may carry (OI-128 PR B), asked the same way at creation and at
 /// rotation: every scope resolves, the key's application may carry them all
 /// (<see cref="ApiKey.EnsureCanCarry"/>), and the administrator minting the key holds each one
+/// and <c>applications:update</c>, as granting the same permission to a role asks
 /// (<see cref="PermissionGrantGuard"/>).
 /// </summary>
 /// <remarks>
@@ -61,9 +63,17 @@ public sealed class ApiKeyScopePolicy
 
         // No amplification. An API key is a credential in its own right, carried by relying
         // parties through the SDK, so scoping one past what its minter holds hands out authority
-        // that minter could not have granted directly.
-        var canGrant = await _grantGuard.EnsureCanGrantAsync(
-            actorId, permissions.Select(permission => permission.Code.Value), cancellationToken);
+        // that minter could not have granted directly. And one rule for granting an application's
+        // permission, to a role, a user or a key (D-124-1 (a); GrantRolePermissionCommandHandler):
+        // its code, and applications:update when an application owns it, which every scope a key
+        // may carry is. The console's scope picker offers exactly this (PermissionDto.CanGrant).
+        var requestedCodes = permissions.Select(permission => permission.Code.Value).ToList();
+        if (permissions.Any(permission => permission.ApplicationId is not null))
+        {
+            requestedCodes.Add(PermissionCodes.Applications.Update);
+        }
+
+        var canGrant = await _grantGuard.EnsureCanGrantAsync(actorId, requestedCodes, cancellationToken);
         if (canGrant.IsError)
         {
             return canGrant.Errors;

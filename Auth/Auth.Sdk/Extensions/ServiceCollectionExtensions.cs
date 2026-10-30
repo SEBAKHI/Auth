@@ -20,8 +20,10 @@ public static class ServiceCollectionExtensions
     public static readonly TimeSpan MachineTokenRequestTimeout = TimeSpan.FromSeconds(15);
 
     /// <summary>
-    /// A credential check's whole budget (SDK 2.0): past it the scheme answers 503 with
-    /// <c>Retry-After</c> rather than hold the caller's request.
+    /// A credential check's whole budget (SDK 2.0): the machine token, the request and the one
+    /// renewal together, under one deadline. Past it the scheme answers 503 with
+    /// <c>Retry-After</c> rather than hold the caller's request. Also each request's timeout on
+    /// the check client.
     /// </summary>
     public static readonly TimeSpan CredentialCheckTimeout = TimeSpan.FromSeconds(10);
 

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Reflection;
@@ -214,6 +215,40 @@ public sealed class CredentialChecksAtAnSdkApplicationTests : IAsyncLifetime
         _authSystem.Requests.Should().HaveCount(1);
     }
 
+    // --- introspection: the checks' budget, so the checks' protections ---
+
+    [Fact]
+    public async Task IdenticalInactiveIntrospections_ShareOneCall_AndTheAnswerIsHeld30Seconds()
+    {
+        _authSystem.Answer(HttpStatusCode.OK, """{"active":false}""");
+        _authSystem.Hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sdk = _host.Services.GetRequiredService<AuthSystemClient>();
+
+        var burst = Enumerable.Range(0, 20).Select(_ => sdk.IntrospectTokenAsync("a.forged.token")).ToList();
+        _authSystem.Hold.SetResult();
+        var answers = (await Task.WhenAll(burst)).Append(await sdk.IntrospectTokenAsync("a.forged.token")).ToList();
+
+        answers.Should().HaveCount(21).And.OnlyContain(a => a != null && !a.Active);
+        _authSystem.Requests.Should().ContainSingle().Which.Path.Should().EndWith("tokens/introspect");
+
+        // An inactive token never becomes active again; the answer is held like an invalid key's.
+        _time.Advance(TimeSpan.FromSeconds(31));
+        await sdk.IntrospectTokenAsync("a.forged.token");
+        _authSystem.Requests.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task AnActiveIntrospection_IsNeverHeld()
+    {
+        _authSystem.Answer(HttpStatusCode.OK, """{"active":true,"client_id":"crm-web"}""");
+        var sdk = _host.Services.GetRequiredService<AuthSystemClient>();
+
+        (await sdk.IntrospectTokenAsync("own.access.token"))!.Active.Should().BeTrue();
+        (await sdk.IntrospectTokenAsync("own.access.token"))!.Active.Should().BeTrue();
+
+        _authSystem.Requests.Should().HaveCount(2, "a sign-out must be heard at the next call");
+    }
+
     [Fact]
     public async Task ACallerWhoStopsWaiting_DoesNotCancelTheSharedCheck()
     {
@@ -291,6 +326,33 @@ public sealed class CredentialChecksAtAnSdkApplicationTests : IAsyncLifetime
         {
             _authSystem.Requests.Should().HaveCount(2, "nothing was cached: the second request asked again");
         }
+    }
+
+    [Theory]
+    [InlineData("a slow token endpoint")]
+    [InlineData("a slow check endpoint")]
+    public async Task ACheckThatOutlastsItsBudget_Is503WithRetryAfter_WithinTheBudget(string slow)
+    {
+        // One deadline for the whole check, whichever step it is on: the token endpoint would
+        // answer after twelve seconds, or the check endpoint not at all.
+        if (slow == "a slow token endpoint")
+        {
+            _machineTokens.Delay = TimeSpan.FromSeconds(12);
+        }
+        else
+        {
+            _authSystem.Answer(HttpStatusCode.OK, Valid());
+            _authSystem.Hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        _host.Services.GetRequiredService<AuthSystemClient>().CheckBudget = TimeSpan.FromMilliseconds(300);
+        var clock = Stopwatch.StartNew();
+
+        var response = await CallAsync(_key).WaitAsync(TimeSpan.FromSeconds(5));
+
+        response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        response.Headers.RetryAfter!.Delta.Should().Be(AuthSystemClient.DefaultRetryAfter);
+        clock.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -480,10 +542,20 @@ public sealed class CredentialChecksAtAnSdkApplicationTests : IAsyncLifetime
 
         public Exception? Throw { get; set; }
 
+        /// <summary>When set, a token is issued only after this long: a slow token endpoint.</summary>
+        public TimeSpan? Delay { get; set; }
+
         public List<string> Invalidated { get; } = [];
 
-        public Task<string> GetAccessTokenAsync(CancellationToken cancellationToken = default) =>
-            Throw is not null ? Task.FromException<string>(Throw) : Task.FromResult($"machine-{_generation}");
+        public async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken = default)
+        {
+            if (Delay is { } delay)
+            {
+                await Task.Delay(delay, cancellationToken);
+            }
+
+            return Throw is not null ? throw Throw : $"machine-{_generation}";
+        }
 
         public void Invalidate(string accessToken)
         {
