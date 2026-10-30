@@ -1145,7 +1145,7 @@ export const fr: TranslationResources = {
   apiKeys: {
     title: "Clés API",
     subtitle:
-      "Vous remettez une clé API à un autre système ; il l'envoie dans l'en-tête X-Api-Key quand il appelle votre application, et votre application la vérifie auprès de cette plateforme. La clé n'ouvre que les points de terminaison de cette application, dans la limite de ses portées.",
+      "Vous remettez une clé API à un autre système ; il l'envoie dans l'en-tête X-Api-Key quand il appelle votre application, et votre application la vérifie auprès de cette plateforme. La clé n'ouvre que les points de terminaison de son application, dans la limite de ses portées.",
     newKey: "Nouvelle clé API",
     namePlaceholder: "Service de facturation",
     descriptionPlaceholder: "Où cette clé est utilisée",

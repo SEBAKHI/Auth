@@ -133,8 +133,10 @@ function LocationProbe() {
   return <output aria-label="location">{location.search}</output>
 }
 
+let client: QueryClient
+
 function renderAt(path: string, route: string, element: ReactNode) {
-  const client = new QueryClient({
+  client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   return render(
@@ -153,7 +155,8 @@ type CapturedColumn = {
   id?: string
   accessorKey?: string
   enableSorting?: boolean
-  meta?: { defaultHidden?: boolean; covers?: string[] }
+  enableHiding?: boolean
+  meta?: { defaultHidden?: boolean; covers?: string[]; label?: string }
 }
 
 async function tableOf(tableId: string) {
@@ -163,6 +166,16 @@ async function tableOf(tableId: string) {
 
 const idsOf = (columns: CapturedColumn[]) =>
   columns.map((column) => column.id ?? column.accessorKey)
+
+/** What a reader sees of each column, apart from whether it starts hidden. */
+const shapeOf = (columns: CapturedColumn[]) =>
+  columns.map((column) => ({
+    id: column.id ?? column.accessorKey,
+    label: column.meta?.label,
+    covers: column.meta?.covers,
+    enableSorting: column.enableSorting,
+    enableHiding: column.enableHiding,
+  }))
 
 const columnOf = (columns: CapturedColumn[], id: string) => {
   const found = columns.find((column) => column.id === id)
@@ -184,6 +197,7 @@ const SURFACES = [
   {
     kind: "API keys",
     path: "/api/v1/ApiKeys",
+    queryKey: "api-keys",
     global: { tableId: "api-keys", path: "/api-keys", page: <ApiKeysPage /> },
     tab: {
       tableId: "app-api-keys",
@@ -194,6 +208,7 @@ const SURFACES = [
   {
     kind: "webhook keys",
     path: "/api/v1/WebhookKeys",
+    queryKey: "webhook-keys",
     global: {
       tableId: "webhook-keys",
       path: "/webhook-keys",
@@ -217,6 +232,41 @@ describe.each(SURFACES)("$kind: one table on two surfaces", (surface) => {
 
     expect(idsOf(global.columns).length).toBeGreaterThan(0)
     expect(idsOf(tab.columns)).toEqual(idsOf(global.columns))
+    expect(shapeOf(tab.columns)).toEqual(shapeOf(global.columns))
+    // The row actions are part of the definition too: both surfaces offer them.
+    expect(idsOf(global.columns)).toContain("actions")
+  })
+
+  it("files both surfaces under one query key per application, so a change on either refreshes both", async () => {
+    renderAt("/tab", "/tab", surface.tab.element)
+    await tableOf(surface.tab.tableId)
+    await waitFor(() =>
+      expect(
+        client
+          .getQueryCache()
+          .find({
+            queryKey: [surface.queryKey, { applicationId: APP_ID }],
+            exact: true,
+          })
+      ).toBeDefined()
+    )
+    cleanup()
+    renderAt(
+      `${surface.global.path}?applicationId=${APP_ID}`,
+      surface.global.path,
+      surface.global.page
+    )
+    await tableOf(surface.global.tableId)
+    await waitFor(() =>
+      expect(
+        client
+          .getQueryCache()
+          .find({
+            queryKey: [surface.queryKey, { applicationId: APP_ID }],
+            exact: true,
+          })
+      ).toBeDefined()
+    )
   })
 
   it("shows the application column on the main-menu page and hides it on the tab", async () => {

@@ -1119,7 +1119,7 @@ export const en = {
   apiKeys: {
     title: "API Keys",
     subtitle:
-      "You give an API key to another system; it sends the key in the X-Api-Key header when it calls your application, and your application checks it with this platform. The key opens only this application's endpoints, within its scopes.",
+      "You give an API key to another system; it sends the key in the X-Api-Key header when it calls your application, and your application checks it with this platform. The key opens only its own application's endpoints, within its scopes.",
     newKey: "New API key",
     namePlaceholder: "Billing service",
     descriptionPlaceholder: "Where this key is used",

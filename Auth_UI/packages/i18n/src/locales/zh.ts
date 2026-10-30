@@ -1078,7 +1078,7 @@ export const zh: TranslationResources = {
   apiKeys: {
     title: "API 密钥",
     subtitle:
-      "您把 API 密钥交给另一个系统；它调用您的应用时在 X-Api-Key 请求头中发送该密钥，您的应用再向本平台核验。该密钥只能访问此应用的端点，且限于其作用域。",
+      "您把 API 密钥交给另一个系统；它调用您的应用时在 X-Api-Key 请求头中发送该密钥，您的应用再向本平台核验。该密钥只能访问其所属应用的端点，且限于其作用域。",
     newKey: "新建 API 密钥",
     namePlaceholder: "计费服务",
     descriptionPlaceholder: "该密钥的使用位置",

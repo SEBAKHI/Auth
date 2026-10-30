@@ -1126,7 +1126,7 @@ export const tr: TranslationResources = {
   apiKeys: {
     title: "API Anahtarları",
     subtitle:
-      "Bir API anahtarını başka bir sisteme verirsiniz; o sistem uygulamanızı çağırırken anahtarı X-Api-Key başlığında gönderir ve uygulamanız onu bu platformda doğrular. Anahtar yalnızca bu uygulamanın uç noktalarını, kapsamları dahilinde açar.",
+      "Bir API anahtarını başka bir sisteme verirsiniz; o sistem uygulamanızı çağırırken anahtarı X-Api-Key başlığında gönderir ve uygulamanız onu bu platformda doğrular. Anahtar yalnızca kendi uygulamasının uç noktalarını, kapsamları dahilinde açar.",
     newKey: "Yeni API anahtarı",
     namePlaceholder: "Faturalama servisi",
     descriptionPlaceholder: "Bu anahtarın kullanıldığı yer",
