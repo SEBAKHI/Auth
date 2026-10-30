@@ -161,6 +161,60 @@ describe("DesignFrame", () => {
     expect(document.querySelector("iframe")).toBeNull()
     expect(silent.states.at(-1)).toBe("failed")
   })
+
+  it("loads while the design is on its way, and gets it in the same frame on arrival", () => {
+    const { rerender } = renderFrame({ html: null })
+    const frame = frameOf()
+    const target = stubFrameWindow(frame)
+    say(READY, target)
+    expect(target.postMessage).not.toHaveBeenCalled()
+
+    rerender(<DesignFrame html="<p>design</p>" lang="ar" dir="rtl" mode="dark" title="t" />)
+
+    expect(frameOf()).toBe(frame)
+    expect(target.postMessage).toHaveBeenCalledTimes(1)
+    expect(target.postMessage.mock.calls[0][0]).toMatchObject({
+      type: DESIGN_MESSAGES.render,
+      html: "<p>design</p>",
+      lang: "ar",
+      dir: "rtl",
+      mode: "dark",
+    })
+  })
+
+  it("gives the render its five seconds from the send, not from the mount", () => {
+    vi.useFakeTimers()
+    const { rerender, states } = renderFrame({ html: null })
+    const target = stubFrameWindow(frameOf())
+    say(READY, target)
+
+    // A slow server: the design is still being rendered long after the frame was ready.
+    act(() => {
+      vi.advanceTimersByTime(DESIGN_RENDER_TIMEOUT_MS * 2)
+    })
+    expect(document.querySelector("iframe")).not.toBeNull()
+    expect(states.at(-1)).toBe("pending")
+
+    rerender(
+      <DesignFrame
+        html="<p>design</p>"
+        lang="ar"
+        dir="rtl"
+        mode="light"
+        title="t"
+        onStateChange={(state) => states.push(state)}
+      />
+    )
+    act(() => {
+      vi.advanceTimersByTime(DESIGN_RENDER_TIMEOUT_MS - 1)
+    })
+    expect(document.querySelector("iframe")).not.toBeNull()
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+    expect(document.querySelector("iframe")).toBeNull()
+    expect(states.at(-1)).toBe("failed")
+  })
 })
 
 describe("DESIGN_TOKENS", () => {

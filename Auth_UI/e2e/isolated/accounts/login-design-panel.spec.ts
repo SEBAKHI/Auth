@@ -37,6 +37,8 @@ interface Setup {
   appHtml?: string
   platformHtml?: string
   renderStatus?: number
+  /** Holds the server's render of a design until it settles; the request is recorded first. */
+  holdRender?: Promise<void>
 }
 
 async function open(page: Page, path: string, setup: Setup = {}) {
@@ -59,6 +61,7 @@ async function open(page: Page, path: string, setup: Setup = {}) {
     }
     if (path === "/api/v1/applications/app/login-design" || path === "/api/v1/platform/login-design") {
       renders.push(`${path}?${url.searchParams.toString()}`)
+      if (setup.holdRender) await setup.holdRender
       if (setup.renderStatus) {
         await fulfillJson(route, { title: "broken" }, setup.renderStatus)
         return true
@@ -150,6 +153,52 @@ test("the platform's own pages show the platform's design", async ({ page }) => 
   const frame = await designFrame(page)
   await expect(frame.locator("#who")).toHaveText("Platform design")
   expect(renders).toEqual(["/api/v1/platform/login-design?lang=en"])
+})
+
+test("the frame loads while the server is still rendering the design, and shows it on arrival", async ({ page }) => {
+  // One after the other, the render and the frame's own page cost the panel two waits
+  // (measured on a deployed instance, 2026-10-30). The render is held until the frame has loaded.
+  let release!: () => void
+  const holdRender = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const frameLoaded = page.waitForResponse((response) => new URL(response.url()).pathname === "/login-design-frame.html")
+  const { renders } = await open(page, "/login", { holdRender, platformHtml: `<p id="who">Platform design</p>` })
+
+  // The frame's page has loaded while the render is still held: before, the frame waited
+  // for the design, and this never resolved. Which of the two requests left first is the
+  // browser's choice; both are out.
+  await frameLoaded
+  await expect.poll(() => renders).toEqual(["/api/v1/platform/login-design?lang=en"])
+  await expect(panel(page)).toHaveAttribute("data-design-state", "pending")
+
+  release()
+  const frame = await designFrame(page)
+  await expect(frame.locator("#who")).toHaveText("Platform design")
+})
+
+test("the page opens its connection to the API before its scripts", async ({ page }) => {
+  await open(page, "/login")
+  const head = await page.evaluate(() =>
+    [...document.head.children].map((element) => ({
+      tag: element.tagName.toLowerCase(),
+      rel: element.getAttribute("rel"),
+      href: element.getAttribute("href"),
+      crossorigin: element.hasAttribute("crossorigin"),
+    }))
+  )
+  const hints = head.filter((element) => element.rel === "preconnect")
+  // Both connection pools: the typed client's credentialed calls, and the plain
+  // anonymous fetches of an application's branding and a design.
+  expect(hints.map(({ href, crossorigin }) => ({ href, crossorigin }))).toEqual(
+    expect.arrayContaining([
+      { href: "https://auth.example.com", crossorigin: false },
+      { href: "https://auth.example.com", crossorigin: true },
+    ])
+  )
+  expect(hints).toHaveLength(2)
+  const firstScript = head.findIndex((element) => element.tag === "script")
+  expect(head.findIndex((element) => element.rel === "preconnect")).toBeLessThan(firstScript)
 })
 
 test("with no design anywhere the panel stays plain, and nothing is fetched", async ({ page }) => {

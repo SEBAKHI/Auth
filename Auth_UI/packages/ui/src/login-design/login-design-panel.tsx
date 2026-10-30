@@ -31,8 +31,10 @@ async function fetchLoginDesign(
  * The panel half of a sign-in page when a design is active: the design, rendered by the
  * server, in its isolated frame, following the page's appearance and mode.
  *
- * Its own chunk: `AuthLayout` loads it only on a screen wide enough to show the panel and
- * only when the branding names a design, so the form's path never carries it.
+ * `AuthLayout` mounts it only on a screen wide enough to show the panel and only when the
+ * branding names a design. The request for the design and the frame's own page start
+ * together, at the page's first render: the frame used to wait for the design, and the
+ * design for this component's own chunk.
  */
 export default function LoginDesignPanel({
   clientId,
@@ -57,13 +59,14 @@ export default function LoginDesignPanel({
     retry: false,
   })
 
-  if (!query.data) return null
+  // A failed render leaves the plain panel; the frame waiting for it goes too.
+  if (query.isError) return null
 
   return (
     <DesignFrame
-      html={query.data.html}
-      lang={query.data.language}
-      dir={query.data.dir === "rtl" ? "rtl" : "ltr"}
+      html={query.data?.html ?? null}
+      lang={query.data?.language ?? language}
+      dir={query.data?.dir === "rtl" ? "rtl" : "ltr"}
       mode={mode === "dark" ? "dark" : "light"}
       title={t("auth.loginDesignTitle")}
       onStateChange={onStateChange}

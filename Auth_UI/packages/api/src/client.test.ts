@@ -692,13 +692,27 @@ describe("identifying the browser", () => {
     await tab.client.api.POST("/api/v1/Auth/login", {
       body: { email: "user@example.com", password: "x" },
     })
-    await tab.client.api.GET("/api/v1/Auth/login-history" as never, {} as never)
+    await tab.client.api.POST("/api/v1/Auth/change-password" as never, {} as never)
 
     const onLogin = sentHeaders("/api/v1/Auth/login")?.get("X-Device-Id")
-    const onHistory = sentHeaders("/api/v1/Auth/login-history")?.get("X-Device-Id")
+    const onCommand = sentHeaders("/api/v1/Auth/change-password")?.get("X-Device-Id")
 
     expect(onLogin).toBeTruthy()
-    expect(onHistory).toBe(onLogin)
+    expect(onCommand).toBe(onLogin)
+  })
+
+  it("leaves it off a read, which the browser then sends without a preflight", async () => {
+    // Every endpoint that reads the header is a POST. On a GET from another
+    // origin, a custom header made the browser send an OPTIONS round trip
+    // first: the sign-in page's branding and providers each waited for one.
+    installServer()
+    const tab = await openTab()
+
+    await tab.client.api.GET("/api/v1/Platform/branding")
+
+    const headers = sentHeaders("/api/v1/Platform/branding")
+    expect(headers).toBeDefined()
+    expect(headers?.get("X-Device-Id")).toBeNull()
   })
 })
 
