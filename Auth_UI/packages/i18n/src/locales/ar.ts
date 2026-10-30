@@ -1104,7 +1104,8 @@ export const ar: TranslationResources = {
   },
   apiKeys: {
     title: "مفاتيح API",
-    subtitle: "إصدار وإدارة مفاتيح API للتطبيقات.",
+    subtitle:
+      "تعطي مفتاح API لنظام آخر؛ يرسله في الترويسة X-Api-Key حين يستدعي تطبيقك، ويتحقّق تطبيقك منه لدى هذه المنصة. لا يفتح المفتاح إلا نقاط تطبيقه، ويحمل نطاقاته، وتطبيقك هو الذي يفرضها.",
     newKey: "مفتاح API جديد",
     namePlaceholder: "خدمة الفواتير",
     descriptionPlaceholder: "أين يُستخدم هذا المفتاح",
@@ -1129,7 +1130,8 @@ export const ar: TranslationResources = {
     revokeReason: "السبب",
     revokeReasonPlaceholder: "تسرّب في مستودع عام",
     revokeTitle: "إلغاء مفتاح API",
-    revokeBody: "ستفقد التطبيقات التي تستخدم هذا المفتاح الوصول فورًا.",
+    revokeBody:
+      "يُرفض النظام الذي يستعمل هذا المفتاح حين تنتهي نتيجة التحقق المخزّنة مؤقتًا في تطبيقك: خلال دقيقة واحدة افتراضيًّا.",
     rotateTitle: "تدوير مفتاح API",
     rotateBody: "يُصدر مفتاح جديد؛ وينتهي المفتاح القديم بعد فترة السماح.",
     gracePeriod: "فترة السماح (دقائق)",
@@ -1227,9 +1229,9 @@ export const ar: TranslationResources = {
       "organizations.read.all: يقرأ خادمُ التطبيق، بمفتاحه الآلي ودون مستخدمٍ مسجَّل الدخول، المنظمةَ والأعضاءَ الذين يحملون أدوار هذا التطبيق ودعواتِ هذا التطبيق، في كل منظمةٍ فعّلت هذا التطبيق، ولا يقرأ غيرها.",
     directoryAccessOn: "صار خادم التطبيق يقرأ دليل المنظمات",
     directoryAccessOff: "لم يعد خادم التطبيق يقرأ دليل المنظمات",
-    title: "مفاتيح التطبيق",
+    title: "مفاتيح هوية التطبيق",
     subtitle:
-      "أزواج مفاتيح تُثبت بها خوادم هذا التطبيق هويتها عند نقطة الرمز (تصريح موقَّع، private_key_jwt). مفتاح الآلة يحصل على رمز آلة قصير العمر (client credentials) لا يقف خلفه مستخدم مسجِّل الدخول. ومفتاح تسجيل الدخول يتيح لتطبيق ويب من جهة الخادم (Backend-for-Frontend، BFF) أن يُتمّ تسجيل دخول الأشخاص ويجدّد رموزهم، فلا تعمل تلك الرموز إلا مع ذلك المفتاح.",
+      "تحتفظ بهذه المفاتيح خوادمُ تطبيقك نفسها، وتقدّمها إلى نقطة الرمز في هذه المنصة لتُثبت أنها هذا التطبيق (تصريح موقَّع، private_key_jwt). لا تعطِ أيًّا منها لنظام آخر. مفتاح الآلة يحصل على رمز آلة قصير العمر (client credentials) لا يقف خلفه مستخدم مسجِّل الدخول. ومفتاح تسجيل الدخول يتيح لتطبيق ويب من جهة الخادم (Backend-for-Frontend، BFF) أن يُتمّ تسجيل دخول الأشخاص ويجدّد رموزهم، فلا تعمل تلك الرموز إلا مع ذلك المفتاح.",
     purpose: "الغرض",
     purposeMachine: "آلة",
     purposeSignIn: "تسجيل الدخول",
@@ -1275,12 +1277,15 @@ export const ar: TranslationResources = {
   },
   webhookKeys: {
     title: "مفاتيح Webhook",
-    subtitle: "إدارة مفاتيح توقيع الـ webhooks الصادرة.",
+    subtitle:
+      "تعطي مفتاح Webhook لنظام خارجي يرسل إشعاراته إلى تطبيقك؛ يصل المفتاح في العنوان (\u2066?whk=\u2069) ويتحقّق تطبيقك منه لدى هذه المنصة. ولا ترسل هذه المنصة أي webhook بنفسها.",
     newKey: "مفتاح Webhook جديد",
     namePlaceholder: "أحداث الطلبات",
     descriptionPlaceholder: "أين يُستخدم هذا المفتاح",
     createTitle: "إنشاء مفتاح Webhook",
     targetUrl: "الرابط المستهدف",
+    targetUrlHint:
+      "العنوان في تطبيقك الذي يرسل إليه النظام الخارجي. تحفظه هذه المنصة وتعيده حين يُتحقَّق من المفتاح، ولا تقارنه بشيء.",
     keyPrefix: "بادئة المفتاح",
     environment: "البيئة",
     environmentHint:
@@ -1293,7 +1298,7 @@ export const ar: TranslationResources = {
     noExpiry: "بلا انتهاء",
     revokeTitle: "إلغاء مفتاح Webhook",
     revokeBody:
-      "ستفشل نقاط النهاية التي تستخدم هذا المفتاح في التحقق من التوقيع.",
+      "يُرفض أي نظام خارجي ما زال يرسل هذا المفتاح حين تنتهي نتيجة التحقق المخزّنة مؤقتًا في تطبيقك: خلال 5 دقائق افتراضيًّا.",
     rotateTitle: "تدوير مفتاح Webhook",
     rotateBody: "يُصدر مفتاح جديد؛ وينتهي المفتاح القديم بعد فترة السماح.",
     gracePeriod: "فترة السماح (دقائق)",
@@ -1390,8 +1395,8 @@ export const ar: TranslationResources = {
       userHardLocked: "قفل الحساب بعد بلوغ حدّ المحاولات الفاشلة المتتالية",
       externalLoginLinked: "ربط مزوّد تسجيل دخول خارجي",
       sessionEnded: "إنهاء جلسة",
-      webhookkeyCreated: "إنشاء مفتاح توقيع Webhook",
-      webhookkeyRevoked: "إبطال مفتاح توقيع Webhook",
+      webhookkeyCreated: "إنشاء مفتاح Webhook",
+      webhookkeyRevoked: "إبطال مفتاح Webhook",
       userCreated: "إنشاء مستخدم",
       userDeleted: "حذف مستخدم",
       userHarddeleted: "إتلاف المستخدم نهائياً",

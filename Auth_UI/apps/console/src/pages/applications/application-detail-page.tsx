@@ -115,10 +115,28 @@ const ApplicationLoginDesignsTab = React.lazy(() => import("./application-login-
 
 /** The machine keys tab, offered only to readers of API keys (OI-128). */
 const MACHINE_KEYS_TAB = "machine-keys"
-const APPLICATION_DETAIL_TABS_WITH_MACHINE_KEYS = [
-  ...APPLICATION_DETAIL_TABS,
-  MACHINE_KEYS_TAB,
-] as const
+/**
+ * The application's own API keys and webhook keys (OI-264), each offered only to
+ * readers of that key type, beside the identity keys: the same tables as the
+ * main-menu pages, fixed to this application.
+ */
+const API_KEYS_TAB = "api-keys"
+const WEBHOOK_KEYS_TAB = "webhook-keys"
+
+/**
+ * The key tabs' tables and create dialogs (the scopes picker among them): fetched
+ * when a key tab is first opened, never with the page.
+ */
+const ApplicationApiKeysTab = React.lazy(() =>
+  import("./application-key-tabs").then((module) => ({
+    default: module.ApplicationApiKeysTab,
+  }))
+)
+const ApplicationWebhookKeysTab = React.lazy(() =>
+  import("./application-key-tabs").then((module) => ({
+    default: module.ApplicationWebhookKeysTab,
+  }))
+)
 
 function ApplicationUsersTab({ appId }: { appId: string }) {
   const { t } = useTranslation()
@@ -670,13 +688,16 @@ export function ApplicationDetailPage() {
   const { hasPermission } = useAuth()
   const canUpdate = hasPermission(PERMISSIONS.applications.update)
   // A machine key is an API-key-class credential, guarded by the same permissions.
-  const canReadMachineKeys = hasPermission(PERMISSIONS.apiKeys.read)
+  const canReadApiKeys = hasPermission(PERMISSIONS.apiKeys.read)
+  const canReadWebhookKeys = hasPermission(PERMISSIONS.webhookKeys.read)
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useTabParam(
-    canReadMachineKeys
-      ? APPLICATION_DETAIL_TABS_WITH_MACHINE_KEYS
-      : APPLICATION_DETAIL_TABS
-  )
+  // A key tab the reader may not see is not in the allow-list, so a link to it
+  // opens the default tab instead.
+  const [activeTab, setActiveTab] = useTabParam([
+    ...APPLICATION_DETAIL_TABS,
+    ...(canReadApiKeys ? [MACHINE_KEYS_TAB, API_KEYS_TAB] : []),
+    ...(canReadWebhookKeys ? [WEBHOOK_KEYS_TAB] : []),
+  ])
   // Once opened, the appearance tab stays mounted (hidden) across tab switches:
   // unmounting it would drop an unsaved draft without a word.
   const [appearanceOpened, setAppearanceOpened] = React.useState(activeTab === "appearance")
@@ -1021,9 +1042,19 @@ export function ApplicationDetailPage() {
             {t("applications.appearance.tab")}
           </TabsTrigger>
           <TabsTrigger value="templates">{t("loginDesigns.tab")}</TabsTrigger>
-          {canReadMachineKeys ? (
-            <TabsTrigger value={MACHINE_KEYS_TAB}>
-              {t("machineKeys.title")}
+          {canReadApiKeys ? (
+            <>
+              <TabsTrigger value={MACHINE_KEYS_TAB}>
+                {t("machineKeys.title")}
+              </TabsTrigger>
+              <TabsTrigger value={API_KEYS_TAB}>
+                {t("apiKeys.title")}
+              </TabsTrigger>
+            </>
+          ) : null}
+          {canReadWebhookKeys ? (
+            <TabsTrigger value={WEBHOOK_KEYS_TAB}>
+              {t("webhookKeys.title")}
             </TabsTrigger>
           ) : null}
         </TabsList>
@@ -1077,9 +1108,23 @@ export function ApplicationDetailPage() {
             </React.Suspense>
           ) : null}
         </TabsContent>
-        {canReadMachineKeys ? (
-          <TabsContent value={MACHINE_KEYS_TAB} className="mt-4">
-            <ApplicationMachineKeysTab appId={appId} />
+        {canReadApiKeys ? (
+          <>
+            <TabsContent value={MACHINE_KEYS_TAB} className="mt-4">
+              <ApplicationMachineKeysTab appId={appId} />
+            </TabsContent>
+            <TabsContent value={API_KEYS_TAB} className="mt-4">
+              <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
+                <ApplicationApiKeysTab appId={appId} />
+              </React.Suspense>
+            </TabsContent>
+          </>
+        ) : null}
+        {canReadWebhookKeys ? (
+          <TabsContent value={WEBHOOK_KEYS_TAB} className="mt-4">
+            <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
+              <ApplicationWebhookKeysTab appId={appId} />
+            </React.Suspense>
           </TabsContent>
         ) : null}
       </Tabs>

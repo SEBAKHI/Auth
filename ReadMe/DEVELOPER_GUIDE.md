@@ -2211,7 +2211,7 @@ All three are on the `app-read` rate-limit policy: per application and per addre
 
 | Method | Path | What it does | Permission |
 |---|---|---|---|
-| GET | `/api/v1/WebhookKeys` | List webhook signing keys | `webhookkeys:read` |
+| GET | `/api/v1/WebhookKeys` | List webhook keys | `webhookkeys:read` |
 | POST | `/api/v1/WebhookKeys` | Create one for a target URL | `webhookkeys:create` |
 | POST | `/api/v1/WebhookKeys/{id}/revoke` | Revoke one | `webhookkeys:revoke` |
 | POST | `/api/v1/WebhookKeys/{id}/rotate` | Rotate one, with a grace period | `webhookkeys:rotate` |
@@ -8451,7 +8451,7 @@ dotnet run --launch-profile https
 | `TwoFactorBindCodes` | The six-digit codes emailed to an account before it binds its first second factor: a keyed hash of each, its expiry and its attempt counter ([5.3](#53-two-factor-authentication)) |
 | `ApiKeys` | Application API keys: the Argon2id hash, the stored rate-limit values, the address allowlists and the revocation state |
 | `ApiKeyScopes` | The permissions each API key is scoped to |
-| `WebhookKeys` | Per-application webhook signing keys, stored as keyed HMAC-SHA256 hashes rather than Argon2id, with the address they sign for |
+| `WebhookKeys` | Per-application webhook keys, which an external system presents when it posts to the application, stored as keyed HMAC-SHA256 hashes rather than Argon2id, with the target address returned when a key is checked |
 | `AccountDeletionRequests` | Deletion requests as they move through their grace window to a final state |
 | `AccountDeletionVerifications` | Argon2id-hashed one-time codes proving a deletion request, including the path that needs no sign-in |
 | `AccountDeletionTombstones` | Keyed hashes of deleted email addresses, which is what reserves an address after the account is gone |

@@ -3806,12 +3806,12 @@ on:** until an application has a sign-in key and a server-side redirect URI, eve
   "ApplicationConfidentialRedirectUris table" or "RefreshTokens.RequiresClientAuthentication column").
 * **Checks after the deploy:** `/ready` reads **Healthy**; an application's page shows the
   **Server-side redirect URIs** list and the keys' **Purpose** column (the section is now called
-  **Application keys**); a public sign-in of an existing application works as before; a code exchange sent
+  **Application identity keys**); a public sign-in of an existing application works as before; a code exchange sent
   with a junk `client_assertion` answers `Auth.InvalidClient`.
 
 **Rollback:** the database needs nothing: an older API ignores the new table and columns, and never reads
 the server-side list, so it refuses those addresses at authorize. **Before deploying an older API, revoke
-every sign-in key** (console, Application keys): an older API does not read `Purpose`, so it would accept a
+every sign-in key** (console, Application identity keys): an older API does not read `Purpose`, so it would accept a
 sign-in key at `client_credentials` as a machine key. When the console cannot do it (or to be sure), revoke
 them in SQL, then start the older API only once the check reads 0:
 
@@ -3880,7 +3880,7 @@ organizations as your server: the machine directory".
   restart is needed.
 * **After the deploy:** review the applications that hold a machine key of purpose Machine, and switch
   the consent off for any that should not read organizations (the application's page, tab **Application
-  keys**, switch **Organization directory for the application's server**; Arabic «مفاتيح التطبيق» and
+  identity keys**, switch **Organization directory for the application's server**; Arabic «مفاتيح هوية التطبيق» and
   «دليل المنظمات لخادم التطبيق»). An application's server that should read them needs a machine key of
   purpose Machine and asks for `scope=organizations.read.all` explicitly at the token endpoint.
 * **Checks:** with a test organization that enabled a test application and a test member holding one of

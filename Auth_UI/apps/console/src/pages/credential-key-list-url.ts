@@ -1,5 +1,6 @@
 import type { ColumnFiltersState } from "@tanstack/react-table"
 
+import { daysUntil } from "@authsystem/ui/format"
 import {
   enumArrayUrlFilter,
   stringArrayUrlFilter,
@@ -8,6 +9,21 @@ import {
 } from "@authsystem/ui/hooks/use-search-query"
 
 export type CredentialExpiryState = "expired" | "soon" | "later" | "none"
+
+/**
+ * Matches the server's default credential-expiry horizon, so the rows a key
+ * list shows are the rows the dashboard counted.
+ */
+const EXPIRY_SOON_DAYS = 14
+
+export function credentialExpiryState(
+  iso: string | null | undefined
+): CredentialExpiryState {
+  const remaining = daysUntil(iso)
+  if (remaining === null) return "none"
+  if (remaining < 0) return "expired"
+  return remaining <= EXPIRY_SOON_DAYS ? "soon" : "later"
+}
 
 export type CredentialKeyListFilters = {
   applicationId: string
@@ -29,8 +45,17 @@ const expiryUrlFilter: ListUrlFilter<CredentialExpiryState[]> = {
     raw === "soon" ? ["soon", "expired"] : expiryCodec.parse(raw),
 }
 
-export const CREDENTIAL_KEY_URL_FILTERS = {
-  applicationId: stringUrlFilter({ maxLength: 128 }),
+/** The filters a key table owns: the in-table chips, on every surface. */
+export type CredentialKeyColumnFilters = Pick<
+  CredentialKeyListFilters,
+  "environments" | "statuses" | "expiry"
+>
+
+/**
+ * The chips' URL filters alone, for an application's tab: the application is
+ * fixed there, so it has no picker and no parameter.
+ */
+export const CREDENTIAL_KEY_COLUMN_URL_FILTERS = {
   environments: stringArrayUrlFilter({
     param: "environment",
     maxItems: 10,
@@ -40,8 +65,13 @@ export const CREDENTIAL_KEY_URL_FILTERS = {
   expiry: expiryUrlFilter,
 }
 
+export const CREDENTIAL_KEY_URL_FILTERS = {
+  applicationId: stringUrlFilter({ maxLength: 128 }),
+  ...CREDENTIAL_KEY_COLUMN_URL_FILTERS,
+}
+
 export function credentialColumnFilters(
-  filters: CredentialKeyListFilters
+  filters: CredentialKeyColumnFilters
 ): ColumnFiltersState {
   return [
     ...(filters.environments.length
@@ -58,7 +88,7 @@ export function credentialColumnFilters(
 
 export function credentialFiltersFromColumns(
   next: ColumnFiltersState
-): Pick<CredentialKeyListFilters, "environments" | "statuses" | "expiry"> {
+): CredentialKeyColumnFilters {
   return {
     environments:
       (next.find((filter) => filter.id === "environment")?.value as

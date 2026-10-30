@@ -1125,7 +1125,8 @@ export const tr: TranslationResources = {
   },
   apiKeys: {
     title: "API Anahtarları",
-    subtitle: "Uygulama API anahtarları düzenleyin ve yönetin.",
+    subtitle:
+      "Bir API anahtarını başka bir sisteme verirsiniz; o sistem uygulamanızı çağırırken anahtarı X-Api-Key başlığında gönderir ve uygulamanız onu bu platformda doğrular. Anahtar yalnızca kendi uygulamasının uç noktalarını açar ve kapsamlarını taşır; bu kapsamları uygulamanız uygular.",
     newKey: "Yeni API anahtarı",
     namePlaceholder: "Faturalama servisi",
     descriptionPlaceholder: "Bu anahtarın kullanıldığı yer",
@@ -1150,7 +1151,8 @@ export const tr: TranslationResources = {
     revokeReason: "Neden",
     revokeReasonPlaceholder: "Herkese açık bir depoda sızdırıldı",
     revokeTitle: "API anahtarını iptal et",
-    revokeBody: "Bu anahtarı kullanan uygulamalar erişimi hemen kaybedecek.",
+    revokeBody:
+      "Bu anahtarı kullanan sistem, uygulamanızın önbelleğe aldığı doğrulama sonucu sona erdiğinde reddedilir: varsayılan olarak 1 dakika içinde.",
     rotateTitle: "API anahtarını yenile",
     rotateBody:
       "Yeni bir anahtar düzenlenir; eski anahtar ek süre sonunda sona erer.",
@@ -1249,9 +1251,9 @@ export const tr: TranslationResources = {
       "organizations.read.all: uygulamanın sunucusu, makine anahtarıyla ve oturum açmış bir kullanıcı olmadan, bu uygulamayı etkinleştiren her kuruluşta kuruluşu, bu uygulamanın rollerine sahip üyeleri ve bu uygulamanın davetlerini okuyabilir; başka hiçbir kuruluşu okuyamaz.",
     directoryAccessOn: "Uygulama sunucusu artık kuruluş dizinini okuyabilir",
     directoryAccessOff: "Uygulama sunucusu artık kuruluş dizinini okuyamaz",
-    title: "Uygulama anahtarları",
+    title: "Uygulama kimlik anahtarları",
     subtitle:
-      "Bu uygulamanın sunucularının belirteç uç noktasında kimliklerini kanıtladığı anahtar çiftleri (imzalı onay, private_key_jwt). Makine anahtarı, arkasında oturum açmış bir kullanıcı olmayan kısa ömürlü bir makine belirteci alır (client credentials). Oturum açma anahtarı, sunucu tarafı bir web uygulamasının (Backend-for-Frontend, BFF) kişilerin oturum açmalarını tamamlamasını ve belirteçlerini yenilemesini sağlar; bu belirteçler yalnızca o anahtarla çalışır.",
+      "Bu anahtarları uygulamanızın kendi sunucuları saklar ve bu uygulama olduklarını kanıtlamak için bu platformun belirteç uç noktasına sunar (imzalı onay, private_key_jwt). Hiçbirini başka bir sisteme vermeyin. Makine anahtarı, arkasında oturum açmış bir kullanıcı olmayan kısa ömürlü bir makine belirteci alır (client credentials). Oturum açma anahtarı, sunucu tarafı bir web uygulamasının (Backend-for-Frontend, BFF) kişilerin oturum açmalarını tamamlamasını ve belirteçlerini yenilemesini sağlar; bu belirteçler yalnızca o anahtarla çalışır.",
     purpose: "Amaç",
     purposeMachine: "Makine",
     purposeSignIn: "Oturum açma",
@@ -1297,12 +1299,15 @@ export const tr: TranslationResources = {
   },
   webhookKeys: {
     title: "Webhook Anahtarları",
-    subtitle: "Giden webhook'lar için imzalama anahtarlarını yönetin.",
+    subtitle:
+      "Bir webhook anahtarını uygulamanıza bildirim gönderen harici bir sisteme verirsiniz; anahtar adreste (?whk=) gelir ve uygulamanız onu bu platformda doğrular. Bu platformun kendisi hiçbir webhook göndermez.",
     newKey: "Yeni webhook anahtarı",
     namePlaceholder: "Sipariş olayları",
     descriptionPlaceholder: "Bu anahtarın kullanıldığı yer",
     createTitle: "Webhook anahtarı oluştur",
     targetUrl: "Hedef URL",
+    targetUrlHint:
+      "Harici sistemin bildirim gönderdiği, uygulamanızdaki adres. Bu platform onu saklar ve anahtar doğrulanırken geri döndürür; karşılaştırmaz.",
     keyPrefix: "Anahtar öneki",
     environment: "Ortam",
     environmentHint:
@@ -1315,7 +1320,7 @@ export const tr: TranslationResources = {
     noExpiry: "Süresiz",
     revokeTitle: "Webhook anahtarını iptal et",
     revokeBody:
-      "Bu anahtarı kullanan uç noktalar imza doğrulamasında başarısız olacak.",
+      "Bu anahtarı hâlâ gönderen harici bir sistem, uygulamanızın önbelleğe aldığı doğrulama sonucu sona erdiğinde reddedilir: varsayılan olarak 5 dakika içinde.",
     rotateTitle: "Webhook anahtarını yenile",
     rotateBody:
       "Yeni bir anahtar düzenlenir; eski anahtar ek süre sonunda sona erer.",
@@ -1413,8 +1418,8 @@ export const tr: TranslationResources = {
       userHardLocked: "Çok sayıda başarısız girişten sonra hesap kilitlendi",
       externalLoginLinked: "Dış oturum açma sağlayıcısı bağlandı",
       sessionEnded: "Oturum sonlandırıldı",
-      webhookkeyCreated: "Webhook imzalama anahtarı oluşturuldu",
-      webhookkeyRevoked: "Webhook imzalama anahtarı iptal edildi",
+      webhookkeyCreated: "Webhook anahtarı oluşturuldu",
+      webhookkeyRevoked: "Webhook anahtarı iptal edildi",
       userCreated: "Kullanıcı oluşturuldu",
       userDeleted: "Kullanıcı silindi",
       userHarddeleted: "Kullanıcı kalıcı olarak yok edildi",
