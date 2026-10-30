@@ -763,6 +763,8 @@ Templates are written in Liquid, a small and widely-used templating language, re
 
 - **No reflection.** A template can only see the variables handed to it, never the objects behind them.
 - **A step limit.** Execution stops after 5,000 steps, so a runaway loop cannot hang the process.
+- **A size limit that holds while it renders.** A notification renders at most 100,000 bytes (100 KB), the size past which Gmail cuts an email off; a sign-in design at most 256 KB. The engine stops the moment a render reaches that size, so a loop that would produce hundreds of megabytes never builds them. A template over it is refused with `Template.OutputTooLarge` (for a sign-in design, `LoginDesign.RenderedTooLarge`).
+- **A budget for everything else.** What a template builds along the way (copies of text, lists, a layout's strings) is charged to one budget per message, and rendering one message may take at most one second. Blocks may nest 24 deep and a filter chain may be 31 filters long: deeper templates are refused when they are saved or previewed, before they could exhaust the server's stack and stop it for everyone. A template over any of these is refused with `Template.TooComplex`.
 - **HTML encoding by default** in every HTML context. Hostile input is escaped. The `raw` filter is the deliberate opt-out, used by the layout to place the body inside itself.
 - **No custom filters, no file access.** Nothing beyond the engine's own built-ins is registered.
 

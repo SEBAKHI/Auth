@@ -7,38 +7,22 @@ namespace Auth.Application.Interfaces;
 /// sandboxed: model-dictionary member access only, bounded execution, and
 /// HTML-encoding of variables in HTML contexts.
 /// </summary>
+/// <remarks>
+/// Rendering happens only inside a session started with <see cref="BeginSession"/>, so every
+/// render runs under the limits of its purpose: a render cannot be asked for without them.
+/// </remarks>
 public interface ITemplateRenderer
 {
     /// <summary>
-    /// Renders a template source with the given model.
-    /// </summary>
-    /// <param name="source">The Liquid template source.</param>
-    /// <param name="model">Variable values keyed by name.</param>
-    /// <param name="languageCode">Culture used by culture-aware filters (e.g. date).</param>
-    /// <param name="encodeHtml">
-    /// When true, variable output is HTML-encoded (bodies); when false it is
-    /// emitted raw (subjects, plain-text bodies).
-    /// </param>
-    ErrorOr<string> Render(
-        string source,
-        IReadOnlyDictionary<string, object?> model,
-        string languageCode,
-        bool encodeHtml);
-
-    /// <summary>
-    /// Parses the source and reports syntax errors without rendering.
+    /// Parses the source and reports syntax errors, or nesting too deep to render
+    /// (<c>Template.TooComplex</c>), without rendering.
     /// </summary>
     ErrorOr<Success> Validate(string source);
 
     /// <summary>
-    /// Renders the source against the model and additionally reports every
-    /// variable the template references that the model does not supply
-    /// (publish-time validation against the type's sample data).
+    /// Starts one render operation (one email, one sign-in page in one language): every render
+    /// made through the session shares one budget of work and time, and each one's output is
+    /// capped at <see cref="TemplateRenderLimits.MaxOutputBytes"/>.
     /// </summary>
-    ErrorOr<string> RenderTracking(
-        string source,
-        IReadOnlyDictionary<string, object?> model,
-        string languageCode,
-        bool encodeHtml,
-        out IReadOnlyList<string> unresolvedVariables);
+    ITemplateRenderSession BeginSession(TemplateRenderLimits limits);
 }

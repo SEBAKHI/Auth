@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Auth.Domain.Constants;
 using Auth.Infrastructure.Notifications;
+using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Infrastructure;
 
@@ -163,7 +164,7 @@ public class RegistrationNotificationSeedContractTests
         // Fluid renderer, the seeded sample data, the renderer's Platform
         // context. Liquid that parses but references a name the model lacks
         // renders blank; this is where that shows.
-        var renderer = new FluidTemplateRenderer();
+        var renderer = new FluidTemplateRenderer(TimeProvider.System);
         var model = SampleModel(TypeBlock(File.ReadAllText(SeedPath(TypesSeed)), typeId));
         var seed = File.ReadAllText(SeedPath(TemplatesSeed));
         var versionId = $"43000000-0000-0000-0000-0000000000{ordinal[2..]}";

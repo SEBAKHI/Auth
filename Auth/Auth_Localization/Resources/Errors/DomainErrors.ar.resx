@@ -1717,4 +1717,10 @@
   <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
     <value>هذه اللغة غير مدعومة.</value>
   </data>
+  <data name="Template.OutputTooLarge" xml:space="preserve">
+    <value>الرسالة الناتجة أكبر من {0:N0} بايت، وهو أقصى ما تبلغه رسالة واحدة: وما تجاوزه تقتطعه تطبيقات البريد مثل Gmail. اختصر القالب أو نصوصه أو حلقاته.</value>
+  </data>
+  <data name="Template.TooComplex" xml:space="preserve">
+    <value>القالب أعقد من أن يُعرض: فهو يُدخل الكتل بعضها في بعض بعمق كبير، أو يستغرق وقتًا طويلًا، أو يبني نصًّا كثيرًا أثناء عرضه. بسّط حلقاته وتداخله.</value>
+  </data>
 </root>

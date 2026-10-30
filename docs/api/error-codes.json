@@ -2534,6 +2534,18 @@
       "pointer": null
     },
     {
+      "code": "Template.OutputTooLarge",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Template.TooComplex",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "TwoFactor.ChallengeInvalid",
       "status": 401,
       "source": "catalog"

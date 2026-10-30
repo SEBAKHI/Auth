@@ -1,10 +1,12 @@
 using Auth.Application.Common;
 using Auth.Application.Configuration;
+using Auth.Application.Features.Notifications.CreateNotificationLayout;
 using Auth.Application.Features.Notifications.PublishNotificationLayout;
 using Auth.Application.Features.Notifications.UpdateNotificationLayoutDraft;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
+using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
 using Auth.Infrastructure.Notifications;
@@ -48,7 +50,7 @@ public class NotificationLayoutCommandHandlerTests
             new Mock<IUserRepository>().Object,
             _appRepoMock.Object,
             _platformRepoMock.Object,
-            new FluidTemplateRenderer(),
+            new FluidTemplateRenderer(TimeProvider.System),
             new Mock<IImageUrlComposer>().Object,
             _imageStorageMock.Object,
             TestHelpers.CreateOptions(new EmailSettings { SenderName = "Auth System" }),
@@ -271,7 +273,7 @@ public class NotificationLayoutCommandHandlerTests
         new(
             _layoutRepoMock.Object,
             _appRepoMock.Object,
-            new FluidTemplateRenderer(),
+            new FluidTemplateRenderer(TimeProvider.System),
             new EmailLogoRenditions(
                 _platformRepoMock.Object,
                 _layoutRepoMock.Object,
@@ -282,6 +284,58 @@ public class NotificationLayoutCommandHandlerTests
     private static UpdateNotificationLayoutDraftCommand DraftSave(
         NotificationLayout layout, string? light, string? dark) =>
         new(layout.Id, layout.Name, layout.DraftContent, layout.DraftStringsJson, null, light, dark);
+
+    private static readonly string NestedTooDeeply =
+        string.Concat(Enumerable.Repeat("{% if x %}", 6_000)) + "{{ content | raw }}"
+        + string.Concat(Enumerable.Repeat("{% endif %}", 6_000));
+
+    [Fact]
+    public async Task SaveDraft_NestedTooDeeplyToRender_IsRefused_AndNothingIsSaved()
+    {
+        var layout = CreateLayout("<html>{{ content | raw }}</html>");
+
+        var result = await CreateDraftHandler().Handle(
+            new UpdateNotificationLayoutDraftCommand(layout.Id, layout.Name, NestedTooDeeply, "{}", null, null, null),
+            CancellationToken.None);
+
+        result.FirstError.Should().Be(TemplateErrors.TooComplex);
+        _layoutRepoMock.Verify(r => r.UpdateAsync(It.IsAny<NotificationLayout>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Create_NestedTooDeeplyToRender_IsRefused_AndNothingIsCreated()
+    {
+        var handler = new CreateNotificationLayoutCommandHandler(
+            _layoutRepoMock.Object,
+            _appRepoMock.Object,
+            new FluidTemplateRenderer(TimeProvider.System),
+            new EmailLogoRenditions(
+                _platformRepoMock.Object,
+                _layoutRepoMock.Object,
+                _imageStorageMock.Object,
+                new Mock<ILogger<EmailLogoRenditions>>().Object),
+            new Mock<ILogger<CreateNotificationLayoutCommandHandler>>().Object);
+
+        var result = await handler.Handle(
+            new CreateNotificationLayoutCommand(null, NotificationChannelType.Email, "Deep", NestedTooDeeply, "{}")
+            { CreatedBy = _userId },
+            CancellationToken.None);
+
+        result.FirstError.Should().Be(TemplateErrors.TooComplex);
+        _layoutRepoMock.Verify(r => r.CreateAsync(It.IsAny<NotificationLayout>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Publish_LayoutThatRendersPastTheEmailCap_IsBlocked()
+    {
+        var layout = CreateLayout("<html>{% for i in (1..3000) %}0123456789012345678901234567890123456789{% endfor %}{{ content | raw }}</html>");
+
+        var result = await CreateHandler().Handle(
+            new PublishNotificationLayoutCommand(layout.Id, layout.ModifiedAt ?? layout.CreatedAt) { PublishedBy = _userId },
+            CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(TemplateErrors.OutputTooLargeCode);
+    }
 
     [Fact]
     public async Task SaveDraft_WithoutTheColourFields_KeepsTheSavedColours()

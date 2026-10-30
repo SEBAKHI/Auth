@@ -379,15 +379,19 @@ public class NotificationRenderingService : INotificationRenderer
     {
         var unknown = new HashSet<string>(StringComparer.Ordinal);
 
+        // One session for the whole notification: its parts (subject, body, chrome strings,
+        // layout, text) share one budget, and each one's output stops at the notification cap.
+        var session = _renderer.BeginSession(TemplateRenderLimits.Notification);
+
         // Subject: no HTML context, variables emitted raw.
-        var subjectResult = RenderPart(subjectSource, model, language, encodeHtml: false, failOnUnknownVariables, unknown);
+        var subjectResult = RenderPart(session, subjectSource, model, language, encodeHtml: false, failOnUnknownVariables, unknown);
         if (subjectResult.IsError)
         {
             return subjectResult.Errors;
         }
 
         // HTML body: every variable HTML-encoded.
-        var bodyResult = RenderPart(bodyHtmlSource, model, language, encodeHtml: true, failOnUnknownVariables, unknown);
+        var bodyResult = RenderPart(session, bodyHtmlSource, model, language, encodeHtml: true, failOnUnknownVariables, unknown);
         if (bodyResult.IsError)
         {
             return bodyResult.Errors;
@@ -419,7 +423,7 @@ public class NotificationRenderingService : INotificationRenderer
             cardColors = layout.CardColors;
         }
 
-        var stringsResult = RenderChromeStrings(layoutStringsJson, language, model);
+        var stringsResult = RenderChromeStrings(session, layoutStringsJson, language, model);
         if (stringsResult.IsError)
         {
             return stringsResult.Errors;
@@ -447,7 +451,7 @@ public class NotificationRenderingService : INotificationRenderer
             layoutModel["Platform"] = await BuildPlatformModelAsync(platform, cardColors, cancellationToken);
         }
 
-        var htmlResult = RenderPart(layoutContent, layoutModel, language, encodeHtml: true, failOnUnknownVariables: false, unknown);
+        var htmlResult = RenderPart(session, layoutContent, layoutModel, language, encodeHtml: true, failOnUnknownVariables: false, unknown);
         if (htmlResult.IsError)
         {
             return htmlResult.Errors;
@@ -457,7 +461,7 @@ public class NotificationRenderingService : INotificationRenderer
         string bodyText;
         if (!string.IsNullOrWhiteSpace(bodyTextSource))
         {
-            var textResult = RenderPart(bodyTextSource, model, language, encodeHtml: false, failOnUnknownVariables, unknown);
+            var textResult = RenderPart(session, bodyTextSource, model, language, encodeHtml: false, failOnUnknownVariables, unknown);
             if (textResult.IsError)
             {
                 return textResult.Errors;
@@ -479,7 +483,8 @@ public class NotificationRenderingService : INotificationRenderer
         return (subjectResult.Value, htmlResult.Value, bodyText);
     }
 
-    private ErrorOr<string> RenderPart(
+    private static ErrorOr<string> RenderPart(
+        ITemplateRenderSession session,
         string source,
         IReadOnlyDictionary<string, object?> model,
         string language,
@@ -489,10 +494,10 @@ public class NotificationRenderingService : INotificationRenderer
     {
         if (!failOnUnknownVariables)
         {
-            return _renderer.Render(source, model, language, encodeHtml);
+            return session.Render(source, model, language, encodeHtml);
         }
 
-        var result = _renderer.RenderTracking(source, model, language, encodeHtml, out var unresolved);
+        var result = session.RenderTracking(source, model, language, encodeHtml, out var unresolved);
         foreach (var name in unresolved)
         {
             unknownAccumulator.Add(name);
@@ -527,7 +532,8 @@ public class NotificationRenderingService : INotificationRenderer
     /// chain) and renders each string as a Liquid template against the model so
     /// placeholders like SenderName resolve.
     /// </summary>
-    private ErrorOr<Dictionary<string, object?>> RenderChromeStrings(
+    private static ErrorOr<Dictionary<string, object?>> RenderChromeStrings(
+        ITemplateRenderSession session,
         string stringsJson,
         string language,
         IReadOnlyDictionary<string, object?> model)
@@ -545,7 +551,7 @@ public class NotificationRenderingService : INotificationRenderer
         var rendered = new Dictionary<string, object?>(StringComparer.Ordinal);
         foreach (var (key, template) in raw)
         {
-            var result = _renderer.Render(template, model, language, encodeHtml: true);
+            var result = session.Render(template, model, language, encodeHtml: true);
             if (result.IsError)
             {
                 return result.Errors;

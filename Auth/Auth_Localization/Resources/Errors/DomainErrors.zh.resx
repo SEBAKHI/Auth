@@ -1715,4 +1715,10 @@
   <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
     <value>不支持此语言。</value>
   </data>
+  <data name="Template.OutputTooLarge" xml:space="preserve">
+    <value>生成的消息超过 {0:N0} 字节，即一条消息的上限：超过此大小的邮件会被 Gmail 等邮件应用截断。请缩短模板、其文本或循环。</value>
+  </data>
+  <data name="Template.TooComplex" xml:space="preserve">
+    <value>模板过于复杂，无法渲染：区块嵌套过深、耗时过长，或在渲染时生成了过多文本。请简化其循环和嵌套。</value>
+  </data>
 </root>

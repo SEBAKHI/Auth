@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Auth.Domain.Constants;
 using Auth.Domain.ValueObjects;
 using Auth.Infrastructure.Notifications;
+using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Infrastructure;
 
@@ -29,7 +30,7 @@ public class TwoFactorEmailCodeSeedContractTests
     /// <summary>Every seeded version: version 2 is published over version 1, and both must render.</summary>
     public static TheoryData<string> Versions => new() { Version1, Version2 };
 
-    private readonly FluidTemplateRenderer _renderer = new();
+    private readonly FluidTemplateRenderer _renderer = new(TimeProvider.System);
 
     [Fact]
     public void TheType_IsTheNextFreeId_ASystemType_InsideTheSeedsSingleBatch()

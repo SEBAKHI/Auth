@@ -1717,4 +1717,10 @@
   <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
     <value>This language is not supported.</value>
   </data>
+  <data name="Template.OutputTooLarge" xml:space="preserve">
+    <value>The rendered message is larger than {0:N0} bytes, the most one message may be: past it, mail apps such as Gmail cut an email off. Shorten the template, its strings or its loops.</value>
+  </data>
+  <data name="Template.TooComplex" xml:space="preserve">
+    <value>The template is too complex to render: it nests blocks too deeply, takes too long, or builds too much text while it renders. Simplify its loops and its nesting.</value>
+  </data>
 </root>

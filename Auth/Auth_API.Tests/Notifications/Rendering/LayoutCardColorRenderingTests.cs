@@ -70,7 +70,7 @@ public class LayoutCardColorRenderingTests
             new Mock<IUserRepository>().Object,
             new Mock<IApplicationRepository>().Object,
             platformRepo.Object,
-            new FluidTemplateRenderer(),
+            new FluidTemplateRenderer(TimeProvider.System),
             composer.Object,
             _imageStorageMock.Object,
             TestHelpers.CreateOptions(new EmailSettings { SenderName = "Auth System" }),
