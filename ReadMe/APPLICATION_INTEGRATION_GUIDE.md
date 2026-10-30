@@ -1860,7 +1860,7 @@ and the three checks in [What a machine token opens](#what-a-machine-token-opens
 
 ### Create a machine key
 
-In the console: the application's page, tab **Application keys** (Arabic: «مفاتيح التطبيق»), **Generate key**,
+In the console: the application's page, tab **Application identity keys** (Arabic: «مفاتيح هوية التطبيق»), **Generate key**,
 **Purpose: Machine**. (A key of purpose **Sign-in** is for a server-side web application's sign-ins;
 see [confidential mode](#confidential-mode-bind-the-tokens-to-your-servers-key).) Two choices for the pair:
 
@@ -2014,7 +2014,7 @@ the organizations they look after.
 enabled your application**, and no other: it never reaches an organization that did not.
 
 - A platform administrator decides it per application: the console, the application's page, tab
-  **Application keys** (Arabic: «مفاتيح التطبيق»), switch **Organization directory for the application's
+  **Application identity keys** (Arabic: «مفاتيح هوية التطبيق»), switch **Organization directory for the application's
   server** (Arabic: «دليل المنظمات لخادم التطبيق»). Changing it needs `apikeys:create`, the permission
   that creates machine keys. **It is on by default**, for existing applications too; switch it off for an
   application that should not read organizations. An organization that enabled your application is not
@@ -2214,7 +2214,7 @@ it can still revoke it at `POST /api/v1/auth/revoke`, which ends that person's s
 Revocation below). It is the same
 application, the same `client_id`, the same roles and the same access-token audience.
 
-1. **Create a sign-in key.** In the console: Applications › your application › Application keys ›
+1. **Create a sign-in key.** In the console: Applications › your application › Application identity keys ›
    Generate key › Purpose: **Sign-in**. A sign-in key cannot obtain machine tokens, and a machine key
    cannot complete a sign-in: one purpose per key, at most three active keys of each purpose. The key
    is ES256 (P-256), as for [machine credentials](#machine-credentials).

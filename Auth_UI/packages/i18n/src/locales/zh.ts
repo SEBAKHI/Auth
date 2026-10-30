@@ -1077,7 +1077,8 @@ export const zh: TranslationResources = {
   },
   apiKeys: {
     title: "API 密钥",
-    subtitle: "签发并管理应用 API 密钥。",
+    subtitle:
+      "您把 API 密钥交给另一个系统；它调用您的应用时在 X-Api-Key 请求头中发送该密钥，您的应用再向本平台核验。该密钥只能访问此应用的端点，且限于其作用域。",
     newKey: "新建 API 密钥",
     namePlaceholder: "计费服务",
     descriptionPlaceholder: "该密钥的使用位置",
@@ -1195,9 +1196,9 @@ export const zh: TranslationResources = {
       "organizations.read.all：应用的服务器凭其机器密钥、在没有登录用户的情况下，可以在每个启用了本应用的组织中读取该组织、持有本应用角色的成员以及本应用的邀请，不能读取其他组织。",
     directoryAccessOn: "应用服务器现在可以读取组织目录",
     directoryAccessOff: "应用服务器已不能读取组织目录",
-    title: "应用密钥",
+    title: "应用身份密钥",
     subtitle:
-      "本应用的服务器在令牌端点证明身份所用的密钥对（签名断言，private_key_jwt）。机器密钥获取短时效的机器令牌（client credentials），其背后没有已登录用户。登录密钥让服务器端 Web 应用（Backend-for-Frontend，BFF）完成用户登录并续期其令牌，这些令牌只能配合该密钥使用。",
+      "这些密钥由您应用自己的服务器保管，并出示给本平台的令牌端点，以证明它们就是此应用（签名断言，private_key_jwt）。切勿将其交给其他系统。机器密钥获取短时效的机器令牌（client credentials），其背后没有已登录用户。登录密钥让服务器端 Web 应用（Backend-for-Frontend，BFF）完成用户登录并续期其令牌，这些令牌只能配合该密钥使用。",
     purpose: "用途",
     purposeMachine: "机器",
     purposeSignIn: "登录",
@@ -1241,12 +1242,15 @@ export const zh: TranslationResources = {
   },
   webhookKeys: {
     title: "Webhook 密钥",
-    subtitle: "管理出站 Webhook 的签名密钥。",
+    subtitle:
+      "您把 Webhook 密钥交给向您的应用发送通知的外部系统；密钥随地址（?whk=）传递，您的应用再向本平台核验。本平台自身不发送任何 Webhook。",
     newKey: "新建 Webhook 密钥",
     namePlaceholder: "订单事件",
     descriptionPlaceholder: "该密钥的使用位置",
     createTitle: "创建 Webhook 密钥",
     targetUrl: "目标 URL",
+    targetUrlHint:
+      "外部系统向其发送通知的、您应用中的地址。本平台保存该地址，并在核验密钥时返回它，但不做比对。",
     keyPrefix: "密钥前缀",
     environment: "环境",
     environmentHint: "该密钥所属的部署环境，便于区分各个密钥。",
@@ -1257,7 +1261,7 @@ export const zh: TranslationResources = {
     expiresLater: "稍后过期",
     noExpiry: "永不过期",
     revokeTitle: "吊销 Webhook 密钥",
-    revokeBody: "使用此密钥的端点将无法通过签名验证。",
+    revokeBody: "仍发送此密钥的外部系统将被拒绝。",
     rotateTitle: "轮换 Webhook 密钥",
     rotateBody: "签发新密钥；旧密钥在宽限期后过期。",
     gracePeriod: "宽限期（分钟）",
@@ -1352,8 +1356,8 @@ export const zh: TranslationResources = {
       userHardLocked: "登录失败次数过多，账户已锁定",
       externalLoginLinked: "关联外部登录提供方",
       sessionEnded: "结束会话",
-      webhookkeyCreated: "创建 Webhook 签名密钥",
-      webhookkeyRevoked: "吊销 Webhook 签名密钥",
+      webhookkeyCreated: "创建 Webhook 密钥",
+      webhookkeyRevoked: "吊销 Webhook 密钥",
       userCreated: "创建用户",
       userDeleted: "删除用户",
       userHarddeleted: "永久销毁用户",

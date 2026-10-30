@@ -141,6 +141,9 @@ export function WebhookKeyCreateDialog({
                         {...field}
                       />
                     </FormControl>
+                    <FormDescription>
+                      {t("webhookKeys.targetUrlHint")}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

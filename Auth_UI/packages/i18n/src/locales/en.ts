@@ -1118,7 +1118,8 @@ export const en = {
   },
   apiKeys: {
     title: "API Keys",
-    subtitle: "Issue and manage application API keys.",
+    subtitle:
+      "You give an API key to another system; it sends the key in the X-Api-Key header when it calls your application, and your application checks it with this platform. The key opens only this application's endpoints, within its scopes.",
     newKey: "New API key",
     namePlaceholder: "Billing service",
     descriptionPlaceholder: "Where this key is used",
@@ -1244,9 +1245,9 @@ export const en = {
       "The application's server may now read the organization directory",
     directoryAccessOff:
       "The application's server can no longer read the organization directory",
-    title: "Application keys",
+    title: "Application identity keys",
     subtitle:
-      "Key pairs this application's own servers use to prove who they are at the token endpoint (a signed assertion, private_key_jwt). A machine key obtains a short-lived machine token (client credentials), with no signed-in user behind it. A sign-in key lets a server-side web application (a Backend-for-Frontend, BFF) complete people's sign-ins and renew their tokens, which then work only with that key.",
+      "Your application's own servers keep these keys and present them to this platform's token endpoint to prove they are this application (a signed assertion, private_key_jwt). Never give one to another system. A machine key obtains a short-lived machine token (client credentials), with no signed-in user behind it. A sign-in key lets a server-side web application (a Backend-for-Frontend, BFF) complete people's sign-ins and renew their tokens, which then work only with that key.",
     purpose: "Purpose",
     purposeMachine: "Machine",
     purposeSignIn: "Sign-in",
@@ -1292,12 +1293,15 @@ export const en = {
   },
   webhookKeys: {
     title: "Webhook Keys",
-    subtitle: "Manage signing keys for outbound webhooks.",
+    subtitle:
+      "You give a webhook key to an external system that posts notifications to your application; the key travels in the address (?whk=) and your application checks it with this platform. This platform sends no webhooks itself.",
     newKey: "New webhook key",
     namePlaceholder: "Order events",
     descriptionPlaceholder: "Where this key is used",
     createTitle: "Create webhook key",
     targetUrl: "Target URL",
+    targetUrlHint:
+      "The address in your application that the external system posts to. This platform stores it and returns it when the key is checked; it does not compare it.",
     keyPrefix: "Key prefix",
     environment: "Environment",
     environmentHint:
@@ -1309,7 +1313,7 @@ export const en = {
     expiresLater: "Expires later",
     noExpiry: "No expiry",
     revokeTitle: "Revoke webhook key",
-    revokeBody: "Endpoints using this key will fail signature validation.",
+    revokeBody: "An external system that still sends this key will be refused.",
     rotateTitle: "Rotate webhook key",
     rotateBody:
       "A new key is issued; the old key expires after the grace period.",
@@ -1414,8 +1418,8 @@ export const en = {
       userHardLocked: "Account locked after too many failed sign-ins",
       externalLoginLinked: "External sign-in provider linked",
       sessionEnded: "Session ended",
-      webhookkeyCreated: "Webhook signing key created",
-      webhookkeyRevoked: "Webhook signing key revoked",
+      webhookkeyCreated: "Webhook key created",
+      webhookkeyRevoked: "Webhook key revoked",
       userCreated: "User created",
       userDeleted: "User deleted",
       userHarddeleted: "User permanently destroyed",

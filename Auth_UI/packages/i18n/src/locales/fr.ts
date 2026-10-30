@@ -1144,7 +1144,8 @@ export const fr: TranslationResources = {
   },
   apiKeys: {
     title: "Clés API",
-    subtitle: "Émettez et gérez les clés API des applications.",
+    subtitle:
+      "Vous remettez une clé API à un autre système ; il l'envoie dans l'en-tête X-Api-Key quand il appelle votre application, et votre application la vérifie auprès de cette plateforme. La clé n'ouvre que les points de terminaison de cette application, dans la limite de ses portées.",
     newKey: "Nouvelle clé API",
     namePlaceholder: "Service de facturation",
     descriptionPlaceholder: "Où cette clé est utilisée",
@@ -1272,9 +1273,9 @@ export const fr: TranslationResources = {
       "Le serveur de l'application peut désormais lire l'annuaire des organisations",
     directoryAccessOff:
       "Le serveur de l'application ne peut plus lire l'annuaire des organisations",
-    title: "Clés de l'application",
+    title: "Clés d'identité de l'application",
     subtitle:
-      "Paires de clés avec lesquelles les serveurs de cette application prouvent leur identité au point de terminaison des jetons (assertion signée, private_key_jwt). Une clé machine obtient un jeton machine de courte durée (client credentials), sans utilisateur connecté derrière. Une clé de connexion permet à une application web côté serveur (Backend-for-Frontend, BFF) de finaliser les connexions des personnes et de renouveler leurs jetons, qui ne fonctionnent alors qu'avec cette clé.",
+      "Les serveurs de votre application conservent ces clés et les présentent au point de terminaison des jetons de cette plateforme pour prouver qu'ils sont cette application (assertion signée, private_key_jwt). N'en donnez jamais une à un autre système. Une clé machine obtient un jeton machine de courte durée (client credentials), sans utilisateur connecté derrière. Une clé de connexion permet à une application web côté serveur (Backend-for-Frontend, BFF) de finaliser les connexions des personnes et de renouveler leurs jetons, qui ne fonctionnent alors qu'avec cette clé.",
     purpose: "Usage",
     purposeMachine: "Machine",
     purposeSignIn: "Connexion",
@@ -1320,12 +1321,15 @@ export const fr: TranslationResources = {
   },
   webhookKeys: {
     title: "Clés Webhook",
-    subtitle: "Gérez les clés de signature des webhooks sortants.",
+    subtitle:
+      "Vous remettez une clé de webhook à un système externe qui envoie des notifications à votre application ; la clé voyage dans l'adresse (?whk=) et votre application la vérifie auprès de cette plateforme. Cette plateforme n'envoie elle-même aucun webhook.",
     newKey: "Nouvelle clé webhook",
     namePlaceholder: "Événements de commande",
     descriptionPlaceholder: "Où cette clé est utilisée",
     createTitle: "Créer une clé webhook",
     targetUrl: "URL cible",
+    targetUrlHint:
+      "L'adresse de votre application à laquelle le système externe envoie ses notifications. Cette plateforme la conserve et la renvoie lors de la vérification de la clé ; elle ne la compare pas.",
     keyPrefix: "Préfixe de la clé",
     environment: "Environnement",
     environmentHint:
@@ -1337,8 +1341,7 @@ export const fr: TranslationResources = {
     expiresLater: "Expire plus tard",
     noExpiry: "Sans expiration",
     revokeTitle: "Révoquer la clé webhook",
-    revokeBody:
-      "Les points de terminaison utilisant cette clé échoueront à la validation de signature.",
+    revokeBody: "Un système externe qui envoie encore cette clé sera refusé.",
     rotateTitle: "Renouveler la clé webhook",
     rotateBody:
       "Une nouvelle clé est émise ; l'ancienne expire après le délai de grâce.",
@@ -1436,8 +1439,8 @@ export const fr: TranslationResources = {
       userHardLocked: "Compte verrouillé après trop d’échecs de connexion",
       externalLoginLinked: "Fournisseur de connexion externe lié",
       sessionEnded: "Session terminée",
-      webhookkeyCreated: "Clé de signature de webhook créée",
-      webhookkeyRevoked: "Clé de signature de webhook révoquée",
+      webhookkeyCreated: "Clé de webhook créée",
+      webhookkeyRevoked: "Clé de webhook révoquée",
       userCreated: "Utilisateur créé",
       userDeleted: "Utilisateur supprimé",
       userHarddeleted: "Utilisateur détruit définitivement",

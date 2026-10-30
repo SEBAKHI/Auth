@@ -121,7 +121,7 @@ Each line below is a shipped capability with its own section later in this docum
 - **An encrypted secrets vault** for signing keys, the gateway token, the SMTP password and the database connection string, where every destructive operation requires a code emailed to the administrator first (Section 13)
 - **Image upload and platform branding** — profile pictures, organization and application logos, and the logo that appears inside outgoing email (Section 13)
 - **A dashboard** with six live statistics panels (Section 13)
-- **API keys and webhook signing keys** for machine-to-machine callers (Section 13)
+- **API keys and webhook keys** that an application gives to the systems that call it (Section 13)
 - **An audit log** recording who did what, to which record, when, and from which address (Section 11)
 - **An API gateway** — YARP (Yet Another Reverse Proxy), Microsoft's reverse-proxy library — carrying 24 routes and the edge rate limits (Section 3)
 - **Security response headers** applied to every response by shared middleware (Section 3)
@@ -199,7 +199,7 @@ Every screen below is a real route in the shipped application. The permission co
 | Applications | `/applications`, `/applications/:id` | Register the applications that sign in through this platform, set their redirect addresses and their access mode | `applications:read` |
 | Organizations | `/organizations`, `/organizations/:id` | Organizations, their members, invitations and application subscriptions | See the warning below |
 | API keys | `/api-keys` | Issue, rotate and revoke machine credentials | `apikeys:read` |
-| Webhook keys | `/webhook-keys` | Manage the signing keys a receiving system uses to verify a callback | `webhookkeys:read` |
+| Webhook keys | `/webhook-keys` | Manage the keys an external system presents when it posts notifications to an application | `webhookkeys:read` |
 | Audit logs | `/audit-logs` | Review security and administrative activity, and export it | `auditlogs:read` |
 | Notifications | `/notifications` and four sub-screens: `/notifications/templates`, `/notifications/layouts`, `/notifications/outbox`, `/notifications/policy` | Edit and publish the content of every email the platform sends, in seven languages; inspect the delivery log; manage privacy-policy revisions | `notification-templates:read` |
 | Platform settings | `/admin/platform-settings` | The platform's own name, light and dark logos, and favicon | `platform-settings:manage` |
@@ -1070,7 +1070,7 @@ Most panels cover a trailing 30-day window by default, adjustable up to 90 days,
 
 A key carries at least one scope, each a permission of its own application, and may carry a list of the addresses it may be presented from. The application that receives a key checks it with its own machine key and hears only about its own keys: another application's key is answered as an unknown one. There are no per-key rate limits: the fields that once suggested them were enforced by nothing and are gone; an application throttles its callers itself.
 
-**Webhook keys** are signing keys, so a system receiving a callback can verify it genuinely came from you. They are created, listed, rotated, revoked and validated the same way.
+**Webhook keys** are given by an application to an external system that posts notifications to it: the key travels in the address (`?whk=`), and the application checks it with this platform, which sends no webhooks itself. They are created, listed, rotated, revoked and validated the same way.
 
 One thing to know before relying on webhook keys: as noted in Section 11, creating or revoking one **writes no audit row**.
 
@@ -1135,7 +1135,7 @@ An evaluator who discovers these in week two will stop trusting the rest of this
 | **No Docker, no container images, no Kubernetes** | There is no Dockerfile, no compose file and no manifest anywhere. Deployment targets IIS on Windows |
 | **No Redis and no distributed cache** | All caching is inside each process. This is what produces the revocation limit in Section 14 |
 | **No message broker** | The interface for publishing events outside the process exists, and its only implementation deliberately discards them. Nothing leaves the process |
-| **No outbound webhook delivery** | Webhook signing *keys* are fully managed, but no event is ever delivered to an external system |
+| **No outbound webhook delivery** | Webhook *keys* (for external systems that post to an application) are fully managed, but this platform never delivers an event to an external system |
 | **No real-time channel** | There is no WebSocket or server-push mechanism. The applications poll |
 | **No external key vault** | Three secret modes only, described in Section 13 |
 | **No Swagger user interface** | A machine-readable OpenAPI document is generated, but only when running in Development. **Production exposes no API document and no interactive explorer at all** |
@@ -1252,7 +1252,7 @@ Older versions of this document listed several of the items below as planned. Th
 | Image upload and platform branding | Section 13 |
 | A dashboard with six statistics panels | Section 13 |
 | Organization invitations, per-member roles, application subscriptions and ownership transfer | Section 7 |
-| API keys and webhook signing keys | Section 13 |
+| API keys and webhook keys | Section 13 |
 
 ### Genuinely Not Built
 
@@ -1264,7 +1264,7 @@ Each of these was checked against the source. None of them exists in any form.
 | **LDAP / Active Directory synchronisation** | Nothing reads a corporate directory | High |
 | **Microsoft Entra ID and other external providers** | Only Google and Apple are implemented. Adding another means implementing one interface and registering it — that is the extension point | Medium |
 | **SAML 2.0 federation** | No SAML implementation of any kind | Medium |
-| **Outbound webhook delivery** | Signing keys are fully managed today, but **no event is delivered to any external system**. The publisher interface exists and its only implementation deliberately discards what it is given. There is no broker and no outbound HTTP sender | Medium |
+| **Outbound webhook delivery** | Webhook keys (inbound: for systems that post to an application) are fully managed today, but **no event is delivered to any external system**. The publisher interface exists and its only implementation deliberately discards what it is given. There is no broker and no outbound HTTP sender | Medium |
 | **Trend and anomaly analytics** | The dashboard shows six live panels over a trailing window. What is missing is history beyond that window and any risk or anomaly scoring | Future |
 | **Passwordless authentication (WebAuthn / FIDO2, passkeys)** | Nothing in the repository touches these standards | Future |
 | **Shared token revocation across instances** | Described in Section 14. Needs a shared cache or a polling loop; neither exists | High, if you intend to run more than one instance |
