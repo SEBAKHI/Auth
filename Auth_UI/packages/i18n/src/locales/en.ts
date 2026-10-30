@@ -1119,7 +1119,7 @@ export const en = {
   apiKeys: {
     title: "API Keys",
     subtitle:
-      "You give an API key to another system; it sends the key in the X-Api-Key header when it calls your application, and your application checks it with this platform. The key opens only its own application's endpoints, within its scopes.",
+      "You give an API key to another system; it sends the key in the X-Api-Key header when it calls your application, and your application checks it with this platform. The key opens only its own application's endpoints, and carries its scopes, which your application enforces.",
     newKey: "New API key",
     namePlaceholder: "Billing service",
     descriptionPlaceholder: "Where this key is used",
@@ -1144,7 +1144,8 @@ export const en = {
     revokeReason: "Reason",
     revokeReasonPlaceholder: "Leaked in a public repository",
     revokeTitle: "Revoke API key",
-    revokeBody: "Applications using this key will lose access immediately.",
+    revokeBody:
+      "The system using this key is refused once your application's cached check of it expires: by default within 1 minute.",
     rotateTitle: "Rotate API key",
     rotateBody:
       "A new key is issued; the old key expires after the grace period.",
@@ -1313,7 +1314,8 @@ export const en = {
     expiresLater: "Expires later",
     noExpiry: "No expiry",
     revokeTitle: "Revoke webhook key",
-    revokeBody: "An external system that still sends this key will be refused.",
+    revokeBody:
+      "An external system that still sends this key is refused once your application's cached check of it expires: by default within 5 minutes.",
     rotateTitle: "Rotate webhook key",
     rotateBody:
       "A new key is issued; the old key expires after the grace period.",

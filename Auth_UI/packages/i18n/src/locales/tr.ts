@@ -1126,7 +1126,7 @@ export const tr: TranslationResources = {
   apiKeys: {
     title: "API Anahtarları",
     subtitle:
-      "Bir API anahtarını başka bir sisteme verirsiniz; o sistem uygulamanızı çağırırken anahtarı X-Api-Key başlığında gönderir ve uygulamanız onu bu platformda doğrular. Anahtar yalnızca kendi uygulamasının uç noktalarını, kapsamları dahilinde açar.",
+      "Bir API anahtarını başka bir sisteme verirsiniz; o sistem uygulamanızı çağırırken anahtarı X-Api-Key başlığında gönderir ve uygulamanız onu bu platformda doğrular. Anahtar yalnızca kendi uygulamasının uç noktalarını açar ve kapsamlarını taşır; bu kapsamları uygulamanız uygular.",
     newKey: "Yeni API anahtarı",
     namePlaceholder: "Faturalama servisi",
     descriptionPlaceholder: "Bu anahtarın kullanıldığı yer",
@@ -1151,7 +1151,8 @@ export const tr: TranslationResources = {
     revokeReason: "Neden",
     revokeReasonPlaceholder: "Herkese açık bir depoda sızdırıldı",
     revokeTitle: "API anahtarını iptal et",
-    revokeBody: "Bu anahtarı kullanan uygulamalar erişimi hemen kaybedecek.",
+    revokeBody:
+      "Bu anahtarı kullanan sistem, uygulamanızın önbelleğe aldığı doğrulama sonucu sona erdiğinde reddedilir: varsayılan olarak 1 dakika içinde.",
     rotateTitle: "API anahtarını yenile",
     rotateBody:
       "Yeni bir anahtar düzenlenir; eski anahtar ek süre sonunda sona erer.",
@@ -1318,7 +1319,8 @@ export const tr: TranslationResources = {
     expiresLater: "Daha sonra doluyor",
     noExpiry: "Süresiz",
     revokeTitle: "Webhook anahtarını iptal et",
-    revokeBody: "Bu anahtarı hâlâ gönderen harici bir sistem reddedilecek.",
+    revokeBody:
+      "Bu anahtarı hâlâ gönderen harici bir sistem, uygulamanızın önbelleğe aldığı doğrulama sonucu sona erdiğinde reddedilir: varsayılan olarak 5 dakika içinde.",
     rotateTitle: "Webhook anahtarını yenile",
     rotateBody:
       "Yeni bir anahtar düzenlenir; eski anahtar ek süre sonunda sona erer.",

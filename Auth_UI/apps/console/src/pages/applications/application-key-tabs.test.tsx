@@ -242,12 +242,10 @@ describe.each(SURFACES)("$kind: one table on two surfaces", (surface) => {
     await tableOf(surface.tab.tableId)
     await waitFor(() =>
       expect(
-        client
-          .getQueryCache()
-          .find({
-            queryKey: [surface.queryKey, { applicationId: APP_ID }],
-            exact: true,
-          })
+        client.getQueryCache().find({
+          queryKey: [surface.queryKey, { applicationId: APP_ID }],
+          exact: true,
+        })
       ).toBeDefined()
     )
     cleanup()
@@ -259,12 +257,10 @@ describe.each(SURFACES)("$kind: one table on two surfaces", (surface) => {
     await tableOf(surface.global.tableId)
     await waitFor(() =>
       expect(
-        client
-          .getQueryCache()
-          .find({
-            queryKey: [surface.queryKey, { applicationId: APP_ID }],
-            exact: true,
-          })
+        client.getQueryCache().find({
+          queryKey: [surface.queryKey, { applicationId: APP_ID }],
+          exact: true,
+        })
       ).toBeDefined()
     )
   })
@@ -343,6 +339,8 @@ describe("the application page's key tabs", () => {
     renderDetail()
     await screen.findByTestId("panel-users")
     expect(tabs()).not.toContain("api-keys")
+    // The identity keys are an API-key-class credential: same gate.
+    expect(tabs()).not.toContain("machine-keys")
     expect(tabs()).toContain("webhook-keys")
     cleanup()
 
@@ -381,5 +379,22 @@ describe("the application page's key tabs", () => {
     }
     expect(table.globalFilter).toBe("billing")
     expect(table.columnFilters).toEqual([{ id: "status", value: ["revoked"] }])
+  })
+
+  it("keeps the two key tabs' searches apart from each other", async () => {
+    const both = "apiKeys.q=billing&webhookKeys.q=orders"
+    renderDetail(`webhook-keys&${both}`)
+    const webhook = (await tableOf("app-webhook-keys")) as unknown as {
+      globalFilter: string
+    }
+    expect(webhook.globalFilter).toBe("orders")
+    cleanup()
+    mocks.tables.clear()
+
+    renderDetail(`api-keys&${both}`)
+    const apiKeys = (await tableOf("app-api-keys")) as unknown as {
+      globalFilter: string
+    }
+    expect(apiKeys.globalFilter).toBe("billing")
   })
 })

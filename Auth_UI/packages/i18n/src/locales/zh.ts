@@ -1078,7 +1078,7 @@ export const zh: TranslationResources = {
   apiKeys: {
     title: "API 密钥",
     subtitle:
-      "您把 API 密钥交给另一个系统；它调用您的应用时在 X-Api-Key 请求头中发送该密钥，您的应用再向本平台核验。该密钥只能访问其所属应用的端点，且限于其作用域。",
+      "您把 API 密钥交给另一个系统；它调用您的应用时在 X-Api-Key 请求头中发送该密钥，您的应用再向本平台核验。该密钥只能访问其所属应用的端点，并携带其作用域，由您的应用负责执行。",
     newKey: "新建 API 密钥",
     namePlaceholder: "计费服务",
     descriptionPlaceholder: "该密钥的使用位置",
@@ -1100,7 +1100,8 @@ export const zh: TranslationResources = {
     revokeReason: "原因",
     revokeReasonPlaceholder: "在公开代码仓库中泄露",
     revokeTitle: "吊销 API 密钥",
-    revokeBody: "使用此密钥的应用将立即失去访问权限。",
+    revokeBody:
+      "使用此密钥的系统将在您的应用缓存的核验结果过期后被拒绝：默认 1 分钟内。",
     rotateTitle: "轮换 API 密钥",
     rotateBody: "签发新密钥；旧密钥在宽限期后过期。",
     gracePeriod: "宽限期（分钟）",
@@ -1261,7 +1262,8 @@ export const zh: TranslationResources = {
     expiresLater: "稍后过期",
     noExpiry: "永不过期",
     revokeTitle: "吊销 Webhook 密钥",
-    revokeBody: "仍发送此密钥的外部系统将被拒绝。",
+    revokeBody:
+      "仍发送此密钥的外部系统将在您的应用缓存的核验结果过期后被拒绝：默认 5 分钟内。",
     rotateTitle: "轮换 Webhook 密钥",
     rotateBody: "签发新密钥；旧密钥在宽限期后过期。",
     gracePeriod: "宽限期（分钟）",

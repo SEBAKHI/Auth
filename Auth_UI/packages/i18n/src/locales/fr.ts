@@ -1145,7 +1145,7 @@ export const fr: TranslationResources = {
   apiKeys: {
     title: "Clés API",
     subtitle:
-      "Vous remettez une clé API à un autre système ; il l'envoie dans l'en-tête X-Api-Key quand il appelle votre application, et votre application la vérifie auprès de cette plateforme. La clé n'ouvre que les points de terminaison de son application, dans la limite de ses portées.",
+      "Vous remettez une clé API à un autre système ; il l'envoie dans l'en-tête X-Api-Key quand il appelle votre application, et votre application la vérifie auprès de cette plateforme. La clé n'ouvre que les points de terminaison de son application et porte ses portées, que votre application fait respecter.",
     newKey: "Nouvelle clé API",
     namePlaceholder: "Service de facturation",
     descriptionPlaceholder: "Où cette clé est utilisée",
@@ -1171,7 +1171,7 @@ export const fr: TranslationResources = {
     revokeReasonPlaceholder: "Divulguée dans un dépôt public",
     revokeTitle: "Révoquer la clé API",
     revokeBody:
-      "Les applications utilisant cette clé perdront l'accès immédiatement.",
+      "Le système qui utilise cette clé est refusé dès que la vérification mise en cache par votre application expire : par défaut sous 1 minute.",
     rotateTitle: "Renouveler la clé API",
     rotateBody:
       "Une nouvelle clé est émise ; l'ancienne expire après le délai de grâce.",
@@ -1341,7 +1341,8 @@ export const fr: TranslationResources = {
     expiresLater: "Expire plus tard",
     noExpiry: "Sans expiration",
     revokeTitle: "Révoquer la clé webhook",
-    revokeBody: "Un système externe qui envoie encore cette clé sera refusé.",
+    revokeBody:
+      "Un système externe qui envoie encore cette clé est refusé dès que la vérification mise en cache par votre application expire : par défaut sous 5 minutes.",
     rotateTitle: "Renouveler la clé webhook",
     rotateBody:
       "Une nouvelle clé est émise ; l'ancienne expire après le délai de grâce.",
