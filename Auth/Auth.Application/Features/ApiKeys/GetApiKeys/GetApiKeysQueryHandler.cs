@@ -68,6 +68,7 @@ public class GetApiKeysQueryHandler : IRequestHandler<GetApiKeysQuery, ErrorOr<I
                 LastUsedAt = apiKey.LastUsedAt,
                 IsRevoked = apiKey.IsRevoked,
                 RevokedAt = apiKey.RevokedAt,
+                RevokeReason = apiKey.RevokeReason,
                 Scopes = scopes
             });
         }

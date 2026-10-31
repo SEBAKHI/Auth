@@ -23,6 +23,7 @@ export function ApplicationSelect({
   className,
   options,
   loading,
+  disabled = false,
 }: {
   /** Trigger id, so a `FieldLabel htmlFor` can name the control. */
   id?: string
@@ -53,6 +54,11 @@ export function ApplicationSelect({
   options?: { id?: string; name?: string }[]
   /** Loading flag for a caller-supplied list. */
   loading?: boolean
+  /**
+   * Shows the value without letting it change: a form opened from inside one
+   * application creates its record there and nowhere else.
+   */
+  disabled?: boolean
 }) {
   const { t } = useTranslation()
   const shared = useApplications()
@@ -82,7 +88,7 @@ export function ApplicationSelect({
     <Select
       value={value ?? (allowAll || allowPlatform ? ALL_VALUE : undefined)}
       onValueChange={(next) => onChange(next === ALL_VALUE ? undefined : next)}
-      disabled={isEmpty || isLoading}
+      disabled={disabled || isEmpty || isLoading}
     >
       <SelectTrigger id={id} className={className}>
         <SelectValue placeholder={placeholder_} />

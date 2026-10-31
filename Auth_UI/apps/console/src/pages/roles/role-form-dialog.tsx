@@ -30,11 +30,18 @@ export function RoleFormDialog({
   onOpenChange,
   role,
   defaultApplicationId,
+  lockedApplication,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   role?: Schemas["RoleDto"]
   defaultApplicationId?: string
+  /**
+   * Opened from inside an application: the record is created there, and the
+   * picker shows that application without letting it change. The name comes
+   * with it so the picker does not depend on the shared list holding it.
+   */
+  lockedApplication?: { id: string; name?: string | null }
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -56,7 +63,7 @@ export function RoleFormDialog({
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
-      applicationId: defaultApplicationId ?? "",
+      applicationId: lockedApplication?.id ?? defaultApplicationId ?? "",
       code: "",
       name: "",
       description: "",
@@ -66,12 +73,16 @@ export function RoleFormDialog({
   React.useEffect(() => {
     if (!open) return
     form.reset({
-      applicationId: role?.applicationId ?? defaultApplicationId ?? "",
+      applicationId:
+        role?.applicationId ??
+        lockedApplication?.id ??
+        defaultApplicationId ??
+        "",
       code: role?.code ?? "",
       name: role?.name ?? "",
       description: role?.description ?? "",
     })
-  }, [open, role, defaultApplicationId, form])
+  }, [open, role, lockedApplication?.id, defaultApplicationId, form])
 
   const mutation = useMutation({
     mutationFn: async (values: Values) => {
@@ -97,8 +108,16 @@ export function RoleFormDialog({
       })
       if (error) throw error
     },
-    onSuccess: () => {
+    onSuccess: (_data, values) => {
       void queryClient.invalidateQueries({ queryKey: ["roles"] })
+      // An application's own tab reads its roles under its own key, so the
+      // main list's key alone left that tab stale until a reload.
+      const applicationId = role?.applicationId ?? values.applicationId
+      if (applicationId) {
+        void queryClient.invalidateQueries({
+          queryKey: ["applications", applicationId, "roles"],
+        })
+      }
       toast.success(isEdit ? t("roles.updated") : t("roles.created"))
       onOpenChange(false)
     },
@@ -129,7 +148,18 @@ export function RoleFormDialog({
                   <ApplicationSelect
                     value={field.value || undefined}
                     onChange={(value) => field.onChange(value ?? "")}
-                    allowPlatform
+                    allowPlatform={!lockedApplication}
+                    options={
+                      lockedApplication
+                        ? [
+                            {
+                              id: lockedApplication.id,
+                              name: lockedApplication.name ?? undefined,
+                            },
+                          ]
+                        : undefined
+                    }
+                    disabled={Boolean(lockedApplication)}
                     className="w-full"
                   />
                 </FormControl>

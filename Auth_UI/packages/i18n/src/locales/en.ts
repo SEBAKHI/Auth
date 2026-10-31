@@ -1024,13 +1024,11 @@ export const en = {
     editTitle: "Edit organization",
     contactEmail: "Contact email",
     website: "Website",
-    logoUrl: "Logo URL",
     codeHint:
       "Permanent identifier for this organization. It cannot be changed after creation.",
     nameHint: "The organization's display name, shown to its members.",
     contactEmailHint: "The main address for notices about this organization.",
     websiteHint: "The organization's public website.",
-    logoUrlHint: "Public image URL shown beside the organization's name.",
     descriptionHint: "An internal note about this organization.",
     isActiveHint:
       "Turning this off stops members signing in to this organization's applications.",

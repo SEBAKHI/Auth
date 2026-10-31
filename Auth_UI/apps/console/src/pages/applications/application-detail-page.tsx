@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
+import { Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useParams } from "react-router-dom"
@@ -32,6 +33,9 @@ import { useAuth } from "@authsystem/auth/auth-context"
 import { usePageBreadcrumb } from "@authsystem/ui/crumbs"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
+import { PermissionFormDialog } from "../permissions/permission-form-dialog"
+import { RoleFormDialog } from "../roles/role-form-dialog"
+import { TabHeader } from "./application-tab-header"
 import {
   organizationHref,
   permissionHref,
@@ -512,8 +516,18 @@ function ApplicationOrganizationsTab({ appId }: { appId: string }) {
   )
 }
 
-function ApplicationRolesTab({ appId }: { appId: string }) {
+function ApplicationRolesTab({
+  appId,
+  appName,
+}: {
+  appId: string
+  appName?: string | null
+}) {
   const { t } = useTranslation()
+  const { hasPermission } = useAuth()
+  const canCreate = hasPermission(PERMISSIONS.roles.create)
+  const [createOpen, setCreateOpen] = React.useState(false)
+  const [createSeq, setCreateSeq] = React.useState(0)
 
   const query = useQuery({
     queryKey: ["applications", appId, "roles"],
@@ -590,21 +604,58 @@ function ApplicationRolesTab({ appId }: { appId: string }) {
   ]
 
   return (
-    <DataTable
-      tableId="app-roles"
-      globalSearch
-      columns={columns}
-      data={query.data ?? []}
-      isLoading={query.isLoading}
-      error={query.isError ? query.error : undefined}
-      onRetry={() => query.refetch()}
-      enableRowDetail={false}
-    />
+    <div className="flex flex-col gap-4">
+      <TabHeader
+        description={t("roles.subtitle")}
+        createButton={
+          // Once the application has loaded: the dialog names it.
+          canCreate && appName ? (
+            <Button
+              onClick={() => {
+                setCreateSeq((seq) => seq + 1)
+                setCreateOpen(true)
+              }}
+            >
+              <Plus data-icon="inline-start" />
+              {t("roles.newRole")}
+            </Button>
+          ) : null
+        }
+      />
+      <DataTable
+        tableId="app-roles"
+        globalSearch
+        columns={columns}
+        data={query.data ?? []}
+        isLoading={query.isLoading}
+        error={query.isError ? query.error : undefined}
+        onRetry={() => query.refetch()}
+        enableRowDetail={false}
+      />
+      {canCreate && appName ? (
+        <RoleFormDialog
+          key={`app-role-create-${appId}-${createSeq}`}
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          lockedApplication={{ id: appId, name: appName }}
+        />
+      ) : null}
+    </div>
   )
 }
 
-function ApplicationPermissionsTab({ appId }: { appId: string }) {
+function ApplicationPermissionsTab({
+  appId,
+  appName,
+}: {
+  appId: string
+  appName?: string | null
+}) {
   const { t } = useTranslation()
+  const { hasPermission } = useAuth()
+  const canCreate = hasPermission(PERMISSIONS.permissions.create)
+  const [createOpen, setCreateOpen] = React.useState(false)
+  const [createSeq, setCreateSeq] = React.useState(0)
 
   const query = useQuery({
     queryKey: ["applications", appId, "permissions"],
@@ -668,16 +719,43 @@ function ApplicationPermissionsTab({ appId }: { appId: string }) {
   ]
 
   return (
-    <DataTable
-      tableId="app-perms"
-      globalSearch
-      columns={columns}
-      data={query.data ?? []}
-      isLoading={query.isLoading}
-      error={query.isError ? query.error : undefined}
-      onRetry={() => query.refetch()}
-      enableRowDetail={false}
-    />
+    <div className="flex flex-col gap-4">
+      <TabHeader
+        description={t("permissions.subtitle")}
+        createButton={
+          // Once the application has loaded: the dialog names it.
+          canCreate && appName ? (
+            <Button
+              onClick={() => {
+                setCreateSeq((seq) => seq + 1)
+                setCreateOpen(true)
+              }}
+            >
+              <Plus data-icon="inline-start" />
+              {t("permissions.newPermission")}
+            </Button>
+          ) : null
+        }
+      />
+      <DataTable
+        tableId="app-perms"
+        globalSearch
+        columns={columns}
+        data={query.data ?? []}
+        isLoading={query.isLoading}
+        error={query.isError ? query.error : undefined}
+        onRetry={() => query.refetch()}
+        enableRowDetail={false}
+      />
+      {canCreate && appName ? (
+        <PermissionFormDialog
+          key={`app-permission-create-${appId}-${createSeq}`}
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          lockedApplication={{ id: appId, name: appName }}
+        />
+      ) : null}
+    </div>
   )
 }
 
@@ -1081,10 +1159,10 @@ export function ApplicationDetailPage() {
           <ApplicationOrganizationsTab appId={appId} />
         </TabsContent>
         <TabsContent value="roles" className="mt-4">
-          <ApplicationRolesTab appId={appId} />
+          <ApplicationRolesTab appId={appId} appName={app?.name} />
         </TabsContent>
         <TabsContent value="permissions" className="mt-4">
-          <ApplicationPermissionsTab appId={appId} />
+          <ApplicationPermissionsTab appId={appId} appName={app?.name} />
         </TabsContent>
         <TabsContent
           value="appearance"

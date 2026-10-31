@@ -66,6 +66,7 @@ public class GetWebhookKeysQueryHandler : IRequestHandler<GetWebhookKeysQuery, E
             LastUsedAt = wk.LastUsedAt,
             IsRevoked = wk.IsRevoked,
             RevokedAt = wk.RevokedAt,
+            RevokeReason = wk.RevokeReason,
             NeedsReissue = OldHmacKeyIdOf(wk, ring) is not null,
             ReissueBy = OldHmacKeyIdOf(wk, ring) is { } oldKeyId && ring.Find(oldKeyId) is { } oldKey
                 ? ring.AcceptedUntil(oldKey, CredentialPurpose.WebhookKey)

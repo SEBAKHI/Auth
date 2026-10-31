@@ -30,6 +30,7 @@ import {
   useWebhookKeyColumns,
   type WebhookKeyColumnId,
 } from "./webhook-key-columns"
+import { revokeReasonOnlyWhenGiven } from "../credential-key-rows"
 
 type WebhookKeyDto = Schemas["WebhookKeyDto"]
 
@@ -97,6 +98,7 @@ export function WebhookKeysPanel({
           params: { query: applicationId ? { applicationId } : {} },
         })
       ),
+    select: revokeReasonOnlyWhenGiven,
   })
 
   const invalidate = () =>

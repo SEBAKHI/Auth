@@ -203,6 +203,39 @@ for (const language of ["en", "ar"] as const) {
     await expectNoShellOverflow(page)
     await page.screenshot({ path: testInfo.outputPath(`templates-375-${language}.png`), fullPage: true })
   })
+
+  // Every source editor (this one, an email template's body, an email layout) is one
+  // component with one fixed window: 28 lines of its own line height, whatever it holds.
+  test(`the source editor shows 28 lines, short or long, and scrolls inside (${language})`, async ({ page }, testInfo) => {
+    const t = catalogs[language]
+    await page.setViewportSize({ width: 1440, height: 1200 })
+    await install(page, language, [], "application")
+    await page.goto(`/applications/${APP_ID}?tab=templates`)
+    await page.getByRole("tabpanel").getByRole("button", { name: t.loginDesigns.edit }).click()
+    await previewFrame(page)
+
+    const scroller = page.locator(".cm-scroller")
+    const measure = () =>
+      scroller.evaluate((el) => ({
+        height: el.clientHeight,
+        lineHeight: parseFloat(getComputedStyle(el).lineHeight),
+        overflows: el.scrollHeight > el.clientHeight,
+      }))
+
+    const short = await measure()
+    // The 8px is CodeMirror's own padding around the content.
+    expect(Math.round((short.height - 8) / short.lineHeight)).toBe(28)
+    expect(short.overflows).toBe(false)
+
+    await page.locator(".cm-content").click()
+    await page.keyboard.press("ControlOrMeta+End")
+    for (let line = 0; line < 60; line++) await page.keyboard.press("Enter")
+
+    const long = await measure()
+    expect(long.height).toBe(short.height)
+    expect(long.overflows).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath(`editor-28-lines-${language}.png`), fullPage: true })
+  })
 }
 
 test("the platform settings card manages the platform's designs, with the platform's fallback named", async ({ page }, testInfo) => {

@@ -27,6 +27,9 @@ public class WebhookKeyDto
     public bool IsRevoked { get; set; }
     public DateTime? RevokedAt { get; set; }
 
+    /// <summary>Why the key was revoked, as the revoking administrator wrote it; null when not revoked or no reason was given.</summary>
+    public string? RevokeReason { get; set; }
+
     /// <summary>
     /// The key's stored fingerprint was computed under an HMAC key that no longer issues
     /// (after a keyring rotation, S11). Its next successful use re-fingerprints it under
