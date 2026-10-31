@@ -1,3 +1,6 @@
+import type { ColumnDef } from "@tanstack/react-table"
+import type { TFunction } from "i18next"
+
 type RevocableKey = { isRevoked?: boolean; revokeReason?: string | null }
 
 /**
@@ -17,4 +20,24 @@ export function revokeReasonOnlyWhenGiven<T extends RevocableKey>(
     delete copy.revokeReason
     return copy
   })
+}
+
+/**
+ * The reason as a column, declared rather than discovered. The rows above drop
+ * the field where there is no reason, and a field the table finds only on some
+ * rows would make the columns menu offer it or not depending on the data. It
+ * starts hidden on every surface; the reader can show it from the menu.
+ */
+export function revokeReasonColumn<T extends RevocableKey>(
+  t: TFunction
+): ColumnDef<T, unknown> {
+  return {
+    id: "revokeReason",
+    accessorFn: (row) => row.revokeReason ?? "",
+    // The server's sort list for these endpoints has no reason.
+    enableSorting: false,
+    header: t("fields.revokeReason"),
+    meta: { label: t("fields.revokeReason"), defaultHidden: true },
+    cell: ({ row }) => row.original.revokeReason?.trim() || "—",
+  }
 }

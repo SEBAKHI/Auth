@@ -15,6 +15,7 @@ import { formatDateTime } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
 import { WebhookKeyStatus } from "./webhook-key-status"
 import { credentialExpiryState } from "../credential-key-list-url"
+import { revokeReasonColumn } from "../credential-key-rows"
 
 type WebhookKeyDto = Schemas["WebhookKeyDto"]
 
@@ -29,6 +30,7 @@ export const WEBHOOK_KEY_COLUMN_IDS = [
   "targetUrl",
   "environment",
   "status",
+  "revokeReason",
   "expiresAt",
   "createdAt",
 ] as const
@@ -136,6 +138,7 @@ export function useWebhookKeyColumns({
       },
       cell: ({ row }) => <WebhookKeyStatus webhookKey={row.original} />,
     },
+    revokeReasonColumn<WebhookKeyDto>(t),
     {
       id: "expiresAt",
       // The accessor stays the raw instant so sorting, CSV export and the row

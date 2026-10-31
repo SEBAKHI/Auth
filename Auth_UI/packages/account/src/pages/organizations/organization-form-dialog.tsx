@@ -23,6 +23,7 @@ import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 
+import { useClearErrorOnEdit } from "../../lib/clear-error-on-edit"
 import { EMAIL_RE } from "../../lib/email-check"
 
 function emptyToNull(value: string | undefined): string | null {
@@ -59,7 +60,7 @@ export function OrganizationFormDialog({
     resolver: zodResolver(schema),
     // After a failed submit, fields are judged again when they are left, not on
     // every keystroke: an address is "invalid" until its last characters arrive
-    // (see useEmailFieldCheck). The contact email also clears its error on edit.
+    // (see useEmailFieldCheck). Every field clears its error on its next edit.
     reValidateMode: "onBlur",
     defaultValues: {
       code: "",
@@ -70,6 +71,8 @@ export function OrganizationFormDialog({
       isActive: true,
     },
   })
+
+  useClearErrorOnEdit(form)
 
   React.useEffect(() => {
     if (!open) return
@@ -176,16 +179,7 @@ export function OrganizationFormDialog({
           <FormItem>
             <FormLabel>{t("organizations.contactEmail")}</FormLabel>
             <FormControl>
-              <Input
-                type="email"
-                placeholder="contact@acme.com"
-                dir="ltr"
-                {...field}
-                onChange={(event) => {
-                  field.onChange(event)
-                  form.clearErrors("contactEmail")
-                }}
-              />
+              <Input type="email" placeholder="contact@acme.com" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>
               {t("organizations.contactEmailHint")}

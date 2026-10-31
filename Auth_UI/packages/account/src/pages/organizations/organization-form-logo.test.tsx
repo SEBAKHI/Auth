@@ -109,6 +109,22 @@ describe("the organization form", () => {
     expect(await screen.findByText(i18n.t("validation.email"))).toBeInTheDocument()
   })
 
+  it("clears a field's error on its next edit, before the field is left", async () => {
+    const user = userEvent.setup()
+    renderForm(ORGANIZATION)
+
+    const name = await screen.findByLabelText(i18n.t("common.name"))
+    await user.clear(name)
+    await user.click(screen.getByRole("button", { name: i18n.t("common.save") }))
+    expect(await screen.findByText(i18n.t("validation.required"))).toBeInTheDocument()
+
+    await user.type(name, "Acme Corp")
+
+    // Still in the field: the error went with the edit, not with a blur.
+    expect(name).toHaveFocus()
+    expect(screen.queryByText(i18n.t("validation.required"))).toBeNull()
+  })
+
   it("sends no logo when it creates an organization", async () => {
     const user = userEvent.setup()
     renderForm()
