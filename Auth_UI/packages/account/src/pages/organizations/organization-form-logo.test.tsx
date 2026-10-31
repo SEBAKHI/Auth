@@ -88,7 +88,43 @@ describe("the organization form", () => {
     expect(init.body).toMatchObject({ name: "Acme Corp", logoUrl: LOGO })
   })
 
-  it("judges the contact email on submit and on leaving the field, never while it is typed", async () => {
+  // Timed like shadcn's forms, that is react-hook-form's defaults (owner,
+  // 2026-10-31): judged on the first submit, then live on every change.
+  it("judges nothing before the first submit, not even on leaving a field", async () => {
+    const user = userEvent.setup()
+    renderForm(ORGANIZATION)
+
+    const name = await screen.findByLabelText(i18n.t("common.name"))
+    await user.clear(name)
+    await user.tab()
+    const email = screen.getByLabelText(i18n.t("organizations.contactEmail"))
+    await user.clear(email)
+    await user.type(email, "contact@acme")
+    await user.tab()
+
+    expect(screen.queryByText(i18n.t("validation.required"))).toBeNull()
+    expect(screen.queryByText(i18n.t("validation.email"))).toBeNull()
+  })
+
+  it("after a failed submit, removes a required error the moment a value is typed", async () => {
+    const user = userEvent.setup()
+    renderForm(ORGANIZATION)
+
+    const name = await screen.findByLabelText(i18n.t("common.name"))
+    await user.clear(name)
+    await user.click(screen.getByRole("button", { name: i18n.t("common.save") }))
+    expect(await screen.findByText(i18n.t("validation.required"))).toBeInTheDocument()
+    expect(name).toHaveFocus()
+
+    await user.type(name, "A")
+
+    expect(name).toHaveFocus()
+    await waitFor(() =>
+      expect(screen.queryByText(i18n.t("validation.required"))).toBeNull()
+    )
+  })
+
+  it("after a failed submit, keeps the contact email's error while malformed and drops it once valid", async () => {
     const user = userEvent.setup()
     renderForm(ORGANIZATION)
 
@@ -100,29 +136,14 @@ describe("the organization form", () => {
     expect(await screen.findByText(i18n.t("validation.email"))).toBeInTheDocument()
     expect(mocks.put).not.toHaveBeenCalled()
 
-    // The next edit clears it, and further typing does not bring it back.
-    await user.type(email, "acme")
-    expect(screen.queryByText(i18n.t("validation.email"))).toBeNull()
+    await user.type(email, "corp")
+    expect(screen.getByText(i18n.t("validation.email"))).toBeInTheDocument()
 
-    // Leaving the field with a malformed address does.
-    await user.tab()
-    expect(await screen.findByText(i18n.t("validation.email"))).toBeInTheDocument()
-  })
-
-  it("clears a field's error on its next edit, before the field is left", async () => {
-    const user = userEvent.setup()
-    renderForm(ORGANIZATION)
-
-    const name = await screen.findByLabelText(i18n.t("common.name"))
-    await user.clear(name)
-    await user.click(screen.getByRole("button", { name: i18n.t("common.save") }))
-    expect(await screen.findByText(i18n.t("validation.required"))).toBeInTheDocument()
-
-    await user.type(name, "Acme Corp")
-
-    // Still in the field: the error went with the edit, not with a blur.
-    expect(name).toHaveFocus()
-    expect(screen.queryByText(i18n.t("validation.required"))).toBeNull()
+    await user.type(email, ".test")
+    expect(email).toHaveFocus()
+    await waitFor(() =>
+      expect(screen.queryByText(i18n.t("validation.email"))).toBeNull()
+    )
   })
 
   it("sends no logo when it creates an organization", async () => {

@@ -23,7 +23,6 @@ import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 
-import { useClearErrorOnEdit } from "../../lib/clear-error-on-edit"
 import { EMAIL_RE } from "../../lib/email-check"
 
 function emptyToNull(value: string | undefined): string | null {
@@ -58,10 +57,6 @@ export function OrganizationFormDialog({
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    // After a failed submit, fields are judged again when they are left, not on
-    // every keystroke: an address is "invalid" until its last characters arrive
-    // (see useEmailFieldCheck). Every field clears its error on its next edit.
-    reValidateMode: "onBlur",
     defaultValues: {
       code: "",
       name: "",
@@ -71,8 +66,6 @@ export function OrganizationFormDialog({
       isActive: true,
     },
   })
-
-  useClearErrorOnEdit(form)
 
   React.useEffect(() => {
     if (!open) return
