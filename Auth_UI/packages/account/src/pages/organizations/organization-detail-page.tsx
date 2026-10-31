@@ -575,9 +575,8 @@ function InviteDialog({
   })
 
   // An application without its role is incomplete: choose one, or no application.
-  // The address is not part of this: its format is checked on submit (and when
-  // the field is left), never while it is typed, so an unfinished address
-  // neither shows an error nor disables the button.
+  // The address is not part of this: it is first judged on submit, then live
+  // (useEmailFieldCheck), so an unfinished address never disables the button.
   const complete = Boolean(roleId) && (!applicationId || Boolean(appRoleId))
   const emailInvalid = emailCheck.invalid
   const submit = () => {
@@ -616,11 +615,7 @@ function InviteDialog({
               ref={emailRef}
               aria-invalid={emailInvalid}
               value={email}
-              onChange={(e) => {
-                setEmail(e.target.value)
-                emailCheck.onEdit()
-              }}
-              onBlur={emailCheck.onBlur}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="name@example.com"
               dir="ltr"
             />

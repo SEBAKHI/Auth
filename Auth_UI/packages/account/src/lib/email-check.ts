@@ -7,31 +7,26 @@ import * as React from "react"
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
- * When an email field says its address is malformed: never while it is being
- * typed. Every address is "invalid" until its last characters arrive, so a
- * verdict on each keystroke reads as a scolding for an address that is not
- * finished. The verdict appears when the person leaves a field they typed in,
- * or tries to submit, and it goes away on their next edit.
+ * An email field outside a form library, timed like shadcn's forms, that is
+ * like react-hook-form's defaults (`mode: "onSubmit"`, `reValidateMode:
+ * "onChange"`): nothing is judged while typing, or on leaving the field, until
+ * the first submit attempt. From then on the verdict is live: the error stays
+ * while the address is malformed and goes the moment it is well-formed.
  *
- * The submit button stays enabled while the address is merely unchecked:
- * `check()` runs on submit, shows the verdict and says whether to send.
+ * The submit button stays enabled while the address is unchecked: `check()`
+ * runs on submit, starts the live verdict and says whether to send.
  */
 export function useEmailFieldCheck(value: string) {
-  const [shown, setShown] = React.useState(false)
+  const [attempted, setAttempted] = React.useState(false)
   const valid = EMAIL_RE.test(value)
 
   return {
     valid,
     /** Drives `data-invalid`, `aria-invalid` and the field's error. */
-    invalid: shown && !valid,
-    /** Leaving an empty field is not an attempt; leaving a typed one is. */
-    onBlur: () => {
-      if (value.length > 0) setShown(true)
-    },
-    onEdit: () => setShown(false),
-    /** On submit: reveal the verdict, and send only when it passes. */
+    invalid: attempted && !valid,
+    /** On submit: start judging, and send only when the address passes. */
     check: () => {
-      setShown(true)
+      setAttempted(true)
       return valid
     },
   }

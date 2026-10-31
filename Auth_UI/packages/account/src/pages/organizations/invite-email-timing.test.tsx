@@ -8,10 +8,12 @@ import i18n from "@authsystem/i18n"
 import { __resetDataTableStorage } from "@authsystem/ui/data-table/storage"
 
 /**
- * The invite dialog never judges an address while it is being typed (owner,
- * 2026-10-31): the format verdict appears when the field is left or a submit is
- * tried, and goes away on the next edit. Submit stays enabled while the address
- * is merely unchecked, and a malformed one shows the error instead of posting.
+ * The invite dialog times its address check like shadcn's forms, that is like
+ * react-hook-form's defaults (owner, 2026-10-31): nothing is judged while
+ * typing or on leaving the field before the first submit; a malformed submit
+ * shows the error, focuses the field and posts nothing; from then on the
+ * verdict is live, clearing the moment the address is well-formed. The button
+ * stays enabled throughout (U1, owner: "Keep it enabled").
  */
 
 const mocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }))
@@ -86,18 +88,21 @@ afterEach(() => {
 })
 
 describe("the invite dialog's address check", () => {
-  it("says nothing while an unfinished address is typed, and keeps submit enabled", async () => {
+  it("judges nothing before the first submit, neither while typing nor on leaving the field", async () => {
     const user = userEvent.setup()
     const { dialog, email, submit } = await openDialog()
 
     await user.type(email, "ada@exam")
-
     expect(within(dialog).queryByText(emailError())).toBeNull()
     expect(email).toHaveAttribute("aria-invalid", "false")
     expect(submit).toBeEnabled()
+
+    await user.tab()
+    expect(within(dialog).queryByText(emailError())).toBeNull()
+    expect(email).toHaveAttribute("aria-invalid", "false")
   })
 
-  it("shows the error on a submit with a malformed address, posts nothing, and clears it on the next edit", async () => {
+  it("on a malformed submit shows the error, focuses the field and posts nothing; then judges live", async () => {
     const user = userEvent.setup()
     const { dialog, email, submit } = await openDialog()
 
@@ -109,24 +114,26 @@ describe("the invite dialog's address check", () => {
     expect(email).toHaveFocus()
     expect(mocks.post).not.toHaveBeenCalled()
 
-    await user.type(email, "p")
+    // Still malformed: the error stays while it is typed.
+    await user.type(email, "ple")
+    expect(within(dialog).getByText(emailError())).toBeInTheDocument()
 
+    // Well-formed: the error goes at once, still in the field.
+    await user.type(email, ".com")
+    expect(email).toHaveFocus()
     expect(within(dialog).queryByText(emailError())).toBeNull()
     expect(email).toHaveAttribute("aria-invalid", "false")
   })
 
-  it("shows the error when a typed field is left, but not when an empty one is", async () => {
+  it("shows the error on an empty submit", async () => {
     const user = userEvent.setup()
-    const { dialog, email } = await openDialog()
+    const { dialog, email, submit } = await openDialog()
 
-    await user.click(email)
-    await user.tab()
-    expect(within(dialog).queryByText(emailError())).toBeNull()
+    await user.click(submit)
 
-    await user.click(email)
-    await user.type(email, "ada@exam")
-    await user.tab()
     expect(within(dialog).getByText(emailError())).toBeInTheDocument()
+    expect(email).toHaveFocus()
+    expect(mocks.post).not.toHaveBeenCalled()
   })
 
   it("sends a well-formed address", async () => {

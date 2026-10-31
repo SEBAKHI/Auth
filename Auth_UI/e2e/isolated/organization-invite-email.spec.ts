@@ -13,10 +13,11 @@ import {
 } from "./organization-owner-api"
 
 /**
- * The invite dialog never judges an address while it is typed (owner,
- * 2026-10-31). The verdict appears when the field is left or a submit is
- * tried, and goes away on the next edit; the button stays enabled, and a
- * malformed address shows the error instead of being sent. Arabic and English.
+ * The invite dialog times its address check like shadcn's forms, that is like
+ * react-hook-form's defaults (owner, 2026-10-31): nothing is judged while
+ * typing or on leaving the field before the first submit; a malformed submit
+ * shows the error, focuses the field and sends nothing; from then on the
+ * verdict is live. The button stays enabled throughout. Arabic and English.
  */
 
 const catalogs = { en, ar } as const
@@ -36,7 +37,7 @@ async function signedInOwner(
 }
 
 for (const language of ["en", "ar"] as const) {
-  test(`an unfinished address shows no error while typed; a submit or leaving the field shows it (${language})`, async ({
+  test(`nothing is judged before the first submit; after it, the verdict is live (${language})`, async ({
     page,
   }, testInfo) => {
     const t = catalogs[language]
@@ -55,6 +56,9 @@ for (const language of ["en", "ar"] as const) {
     await expect(error).toHaveCount(0)
     await expect(email).toHaveAttribute("aria-invalid", "false")
     await expect(send).toBeEnabled()
+    // Leaving the field before any submit: still no verdict.
+    await page.keyboard.press("Tab")
+    await expect(error).toHaveCount(0)
     await page.screenshot({ path: testInfo.outputPath(`invite-typing-${language}.png`) })
 
     // A submit with a malformed address shows the error and sends nothing.
@@ -65,15 +69,15 @@ for (const language of ["en", "ar"] as const) {
     expect(recorded.invitations).toEqual([])
     await page.screenshot({ path: testInfo.outputPath(`invite-submit-error-${language}.png`) })
 
-    // The next edit clears it; leaving the field with a malformed address brings it back.
-    await email.pressSequentially("p")
-    await expect(error).toHaveCount(0)
-    await page.keyboard.press("Tab")
+    // Live from here: still malformed keeps it, well-formed drops it at once.
+    await email.pressSequentially("ple")
     await expect(error).toBeVisible()
-
-    // A complete address is sent.
-    await email.fill("rep@example.test")
+    await email.pressSequentially(".test")
+    await expect(email).toBeFocused()
     await expect(error).toHaveCount(0)
+    await expect(email).toHaveAttribute("aria-invalid", "false")
+
+    // The complete address is sent.
     await send.click()
     await expect(dialog).toBeHidden()
     expect(recorded.invitations).toEqual([
