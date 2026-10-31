@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
-import { CheckCircle2, Copy, Megaphone, Plus } from "lucide-react"
+import { CheckCircle2, Copy, Megaphone, MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -14,6 +14,14 @@ import type { Schemas } from "@authsystem/api/types"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import { UnavailableMenuItem } from "@authsystem/ui/common/unavailable-menu-item"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@authsystem/ui/dropdown-menu"
 
 import { PolicyLanguageGapNotice } from "./components/policy-language-gap-notice"
 import { PageHeader } from "@authsystem/ui/common/page-header"
@@ -34,6 +42,7 @@ import { Textarea } from "@authsystem/ui/textarea"
 import { PERMISSIONS } from "@/lib/constants"
 import { policyRevisionHref } from "@/lib/record-hrefs"
 import { ClonePolicyDialog } from "./components/clone-policy-dialog"
+import { DeletePolicyVersionDialog } from "./components/delete-record-dialogs"
 import { NotificationsTabs } from "./components/notifications-tabs"
 import { PolicyVersionField } from "./components/policy-version-field"
 import { Spinner } from "@authsystem/ui/spinner"
@@ -65,6 +74,7 @@ export function NotificationPolicyPage() {
   const [notifyTarget, setNotifyTarget] = React.useState<PolicyVersionDto | null>(null)
   const [publishTarget, setPublishTarget] = React.useState<PolicyVersionDto | null>(null)
   const [cloneSource, setCloneSource] = React.useState<PolicyVersionDto | null>(null)
+  const [deleteTarget, setDeleteTarget] = React.useState<PolicyVersionDto | null>(null)
 
   const versionsQuery = useQuery({
     queryKey: ["privacy-policy-versions"],
@@ -234,6 +244,8 @@ export function NotificationPolicyPage() {
             header: "",
             enableSorting: false,
             enableHiding: false,
+            // The row's menu shows `canDelete` by what it offers.
+            meta: { covers: ["canDelete"], excludeFromExport: true },
             cell: ({ row }) => (
               <div className="flex items-center justify-end gap-2">
                 <Button
@@ -262,6 +274,38 @@ export function NotificationPolicyPage() {
                   <Megaphone data-icon="inline-start" />
                   {t("notifications.policyNotify")}
                 </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t("common.actions")}
+                    >
+                      <MoreHorizontal />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuGroup>
+                      {/* Only a draft nobody was shown or told about; the server
+                          decides (canDelete) and refuses anything else. */}
+                      {row.original.canDelete ? (
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => setDeleteTarget(row.original)}
+                        >
+                          {t("common.delete")}
+                        </DropdownMenuItem>
+                      ) : (
+                        <UnavailableMenuItem
+                          variant="destructive"
+                          reason={t("notifications.policyNotDeletable")}
+                        >
+                          {t("common.delete")}
+                        </UnavailableMenuItem>
+                      )}
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             ),
           } satisfies ColumnDef<PolicyVersionDto, unknown>,
@@ -368,6 +412,13 @@ export function NotificationPolicyPage() {
           }}
         />
       ) : null}
+
+      <DeletePolicyVersionDialog
+        target={deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null)
+        }}
+      />
 
       <ConfirmDialog
         open={publishTarget !== null}

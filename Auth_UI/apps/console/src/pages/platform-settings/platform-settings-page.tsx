@@ -29,7 +29,11 @@ import {
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
 import { useSaveQueue } from "@authsystem/ui/hooks/use-save-queue"
+import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
+import { useUnsavedChangesPrompt } from "@authsystem/ui/hooks/use-unsaved-changes"
 import { Skeleton } from "@authsystem/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
+import { cn } from "@authsystem/ui/utils"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import { BRANDING_QUERY_KEY } from "@authsystem/ui/branding"
@@ -37,13 +41,24 @@ import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 
 import { AppearanceCard } from "./appearance-card"
+import { useReportUnsaved, type UnsavedState } from "./unsaved-state"
+import {
+  PLATFORM_SETTINGS_TABS,
+  type PlatformSettingsTabValue,
+} from "./platform-settings-tabs"
 
-/** The platform's sign-in page designs, with their code editor: their own chunk. */
-const LoginDesignsCard = React.lazy(() => import("./login-designs-card"))
+/** The platform's sign-in page designs: their own chunk, loaded when the tab first opens. */
+const LoginDesignsTab = React.lazy(() => import("./login-designs-tab"))
 
 const SETTINGS_QUERY_KEY = ["platform-settings"] as const
 
-function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }) {
+function SettingsCard({
+  settings,
+  onUnsavedChange,
+}: {
+  settings: Schemas["PlatformSettingsDto"]
+  onUnsavedChange?: (state: UnsavedState) => void
+}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
 
@@ -113,12 +128,18 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
 
   const saveName = useMutation({
     mutationFn: (values: Values) => save({ platformName: values.platformName }),
-    onSuccess: () => {
+    onSuccess: (_saved, values) => {
+      // The saved name is the new baseline, so the leave-prompt below stops asking.
+      form.reset(values)
       refreshBranding()
       toast.success(t("platformSettings.updated"))
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
+
+  // The tabs keep an unsaved name across a switch; leaving the page (opening a design from
+  // the Templates tab, any other link) asks first, through the page's one prompt.
+  useReportUnsaved(onUnsavedChange, form.formState.isDirty, saveName.isPending)
 
   // Logo changes persist immediately (same flow as organization logos).
   const persistLogoLight = React.useCallback(
@@ -216,40 +237,130 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
   )
 }
 
+interface PlatformSettingsTabPanel {
+  labelKey: string
+  /** Forms are capped at the reading measure; a table is never capped. */
+  capped: boolean
+  render: (context: {
+    settings: Schemas["PlatformSettingsDto"]
+    onSaved: (saved: Schemas["PlatformSettingsDto"] | undefined) => void
+    /** The tab's unsaved edits, for the page's one leave-prompt. */
+    onUnsavedChange: (state: UnsavedState) => void
+  }) => React.ReactNode
+}
+
+/**
+ * Each tab's panel. Adding a tab (fonts, languages) is its value in
+ * `platform-settings-tabs.ts` and its entry here; the allow-list of the `tab` parameter,
+ * the tab strip, the panels and the keep-mounted rule all follow. Each tab also has its
+ * row in the command palette (`static-surfaces.ts`).
+ */
+const TAB_PANELS: Record<PlatformSettingsTabValue, PlatformSettingsTabPanel> = {
+  identity: {
+    labelKey: "platformSettings.tabIdentity",
+    capped: true,
+    render: ({ settings, onUnsavedChange }) => (
+      <SettingsCard settings={settings} onUnsavedChange={onUnsavedChange} />
+    ),
+  },
+  appearance: {
+    labelKey: "platformSettings.appearance.title",
+    capped: true,
+    render: ({ settings, onSaved, onUnsavedChange }) => (
+      <AppearanceCard settings={settings} onSaved={onSaved} onUnsavedChange={onUnsavedChange} />
+    ),
+  },
+  templates: {
+    labelKey: "loginDesigns.tab",
+    capped: false,
+    render: () => (
+      <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
+        <LoginDesignsTab />
+      </React.Suspense>
+    ),
+  },
+}
+
+const TABS = PLATFORM_SETTINGS_TABS.map((value) => ({ value, ...TAB_PANELS[value] }))
+
 export function PlatformSettingsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useTabParam(PLATFORM_SETTINGS_TABS)
+  // A tab once opened stays mounted (hidden) across switches: unmounting it would drop an
+  // unsaved name, an appearance draft and its live preview, or the list's place.
+  const [opened, setOpened] = React.useState<ReadonlySet<string>>(() => new Set([activeTab]))
+  if (!opened.has(activeTab)) setOpened(new Set([...opened, activeTab]))
 
   const query = useQuery({
     queryKey: SETTINGS_QUERY_KEY,
     queryFn: () => unwrap(api.GET("/api/v1/admin/platform-settings")),
   })
 
+  // One leave-prompt for every tab: a router honours a single blocker, so each tab reports
+  // its unsaved edits here instead of holding a prompt of its own.
+  const [unsaved, setUnsaved] = React.useState<Partial<Record<PlatformSettingsTabValue, UnsavedState>>>({})
+  const reporters = React.useMemo(
+    () =>
+      Object.fromEntries(
+        PLATFORM_SETTINGS_TABS.map((value) => [
+          value,
+          (state: UnsavedState) =>
+            setUnsaved((current) =>
+              current[value]?.isDirty === state.isDirty && current[value]?.isSaving === state.isSaving
+                ? current
+                : { ...current, [value]: state }
+            ),
+        ])
+      ) as Record<PlatformSettingsTabValue, (state: UnsavedState) => void>,
+    []
+  )
+  const states = Object.values(unsaved)
+  const unsavedPrompt = useUnsavedChangesPrompt({
+    isDirty: states.some((state) => state?.isDirty),
+    isSaving: states.some((state) => state?.isSaving),
+  })
+
+  const onSaved = React.useCallback(
+    (saved: Schemas["PlatformSettingsDto"] | undefined) => {
+      if (saved) queryClient.setQueryData(SETTINGS_QUERY_KEY, saved)
+    },
+    [queryClient]
+  )
+
   return (
-    // Same cap as the system settings page, and for the same reason: this page
-    // is a form, and its one free-text input is `w-full` from the primitive, so
-    // an uncapped column stretches the platform name across a 2560px monitor.
-    <div className="flex max-w-(--content-measure) flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("platformSettings.title")}
         description={t("platformSettings.subtitle")}
       />
-      {query.isLoading || !query.data ? (
-        <Skeleton className="h-64 w-full" />
-      ) : (
-        <>
-          <SettingsCard settings={query.data} />
-          <AppearanceCard
-            settings={query.data}
-            onSaved={(saved) => {
-              if (saved) queryClient.setQueryData(SETTINGS_QUERY_KEY, saved)
-            }}
-          />
-          <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
-            <LoginDesignsCard />
-          </React.Suspense>
-        </>
-      )}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          {TABS.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value}>
+              {t(tab.labelKey)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {TABS.map((tab) => (
+          <TabsContent
+            key={tab.value}
+            value={tab.value}
+            // The cap, for the form tabs: the one free-text input is `w-full` from the
+            // primitive, so an uncapped column stretches the platform name across a
+            // 2560px monitor. Same cap as the system settings page.
+            className={cn("mt-4 data-[state=inactive]:hidden", tab.capped && "max-w-(--content-measure)")}
+            forceMount={opened.has(tab.value) ? true : undefined}
+          >
+            {!opened.has(tab.value) ? null : query.isLoading || !query.data ? (
+              <Skeleton className="h-64 w-full" />
+            ) : (
+              tab.render({ settings: query.data, onSaved, onUnsavedChange: reporters[tab.value] })
+            )}
+          </TabsContent>
+        ))}
+      </Tabs>
+      {unsavedPrompt}
     </div>
   )
 }

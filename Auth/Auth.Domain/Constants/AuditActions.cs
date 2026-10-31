@@ -190,6 +190,8 @@ public static class AuditActions
     public const string NotificationTemplatePublished = "notification-template.published";
     public const string NotificationTemplateUnpublished = "notification-template.unpublished";
     public const string NotificationTemplateRolledBack = "notification-template.rolled-back";
+    public const string NotificationLayoutDeleted = "notification-layout.deleted";
+    public const string PrivacyPolicyVersionDeleted = "privacy-policy-version.deleted";
     public const string LoginDesignCreated = "login-design.created";
     public const string LoginDesignUpdated = "login-design.updated";
     public const string LoginDesignActivated = "login-design.activated";
@@ -290,6 +292,8 @@ public static class AuditActions
             [NotificationTemplatePublished] = AuditActionTypes.Administration,
             [NotificationTemplateUnpublished] = AuditActionTypes.Administration,
             [NotificationTemplateRolledBack] = AuditActionTypes.Administration,
+            [NotificationLayoutDeleted] = AuditActionTypes.Administration,
+            [PrivacyPolicyVersionDeleted] = AuditActionTypes.Administration,
             [LoginDesignCreated] = AuditActionTypes.Administration,
             [LoginDesignUpdated] = AuditActionTypes.Administration,
             [LoginDesignActivated] = AuditActionTypes.Administration,

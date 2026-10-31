@@ -297,4 +297,13 @@ public partial class NotificationLayout : AggregateRoot
         SetModified(userId);
         return Result.Success;
     }
+
+    /// <summary>
+    /// Whether this layout may be deleted. An application's layout may: its emails then fall
+    /// back to the global layout of the same channel, which the renderer already resolves for
+    /// an application that has none. The global layout of a channel may not, because nothing
+    /// would wrap that channel's emails any more and every send on it would fail.
+    /// </summary>
+    public ErrorOr<Success> EnsureDeletable() =>
+        ApplicationId is null ? NotificationErrors.CannotDeleteGlobalLayout : Result.Success;
 }

@@ -28,10 +28,16 @@ import { cn } from "@authsystem/ui/utils"
  */
 export function RecordLink({
   href,
+  state,
   className,
   children,
 }: {
   href: string | undefined
+  /**
+   * Router state carried to the destination, e.g. the list's own address so the record's
+   * page can return to the list as the reader left it (its search, sort and filters).
+   */
+  state?: unknown
   className?: string
   children: React.ReactNode
 }) {
@@ -40,7 +46,7 @@ export function RecordLink({
   }
 
   return (
-    <Link to={href} className={cn("min-w-0 hover:underline", className)}>
+    <Link to={href} state={state} className={cn("min-w-0 hover:underline", className)}>
       {children}
     </Link>
   )

@@ -391,6 +391,8 @@ GO
 -- qualified; RecoveryCodesQualified defaults to 0, which fails closed.
 -- 2026-10-24 (OI-223): assignments of an application-owned role written without a
 -- scope move to the role's application; the authority they carry does not change.
+-- 2026-10-31 (UI batch P2): privacy-policy revisions already published are marked
+-- FirstPublishedAtUtc, so a superseded one is never mistaken for a deletable draft.
 PRINT '';
 PRINT 'Step 14: Upgrades for existing databases...';
 
@@ -401,6 +403,9 @@ GO
 GO
 
 :r ..\Scripts\Upgrades\2026-10-24_ScopeApplicationOwnedRoleAssignments.sql
+GO
+
+:r ..\Scripts\Upgrades\2026-10-31_MarkPublishedPolicyVersions.sql
 GO
 
 -- ============================================

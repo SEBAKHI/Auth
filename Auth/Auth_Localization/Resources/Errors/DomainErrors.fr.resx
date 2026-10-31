@@ -762,6 +762,12 @@
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>La mise en page de notification avec l'ID '{0}' est introuvable.</value>
   </data>
+  <data name="Notification.CannotDeleteGlobalLayout" xml:space="preserve">
+    <value>La mise en page globale d’un canal ne peut pas être supprimée : chaque e-mail de ce canal sans mise en page propre à son application l’utilise.</value>
+  </data>
+  <data name="Notification.LayoutFallbackMissing" xml:space="preserve">
+    <value>Cette mise en page ne peut pas être supprimée : son canal n’a pas de mise en page globale publiée sur laquelle les messages de l’application peuvent se rabattre. Publiez d’abord la mise en page globale du canal.</value>
+  </data>
   <data name="Notification.LayoutNotPublished" xml:space="preserve">
     <value>Aucune mise en page de notification publiée n'existe pour cette portée.</value>
   </data>
@@ -919,6 +925,9 @@
   </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>Cette version ne peut pas être renommée : elle est publiée ou son avis de modification a déjà été envoyé.</value>
+  </data>
+  <data name="PrivacyPolicy.NotDeletable" xml:space="preserve">
+    <value>La version {0} ne peut pas être supprimée : seul un brouillon jamais publié, jamais annoncé et non cité par les suppressions de compte peut être supprimé.</value>
   </data>
   <data name="SystemSettings.SectionNotFound" xml:space="preserve">
     <value>Section de paramètres inconnue : {0}.</value>

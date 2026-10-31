@@ -4,6 +4,7 @@ using Auth_API.Common;
 using Auth_API.Modules.NotificationManagement.Contracts;
 using Auth.Application.DTOs;
 using Auth.Application.Features.PrivacyPolicy.CreatePrivacyPolicyVersion;
+using Auth.Application.Features.PrivacyPolicy.DeletePrivacyPolicyVersion;
 using Auth.Application.Features.PrivacyPolicy.GetPrivacyPolicyContent;
 using Auth.Application.Features.PrivacyPolicy.GetPrivacyPolicyVersions;
 using Auth.Application.Features.PrivacyPolicy.GetPublishedPrivacyPolicy;
@@ -110,6 +111,23 @@ public class PrivacyPolicyController : ApiController
 
         var result = await _sender.Send(command, cancellationToken);
         return result.Match(dto => Ok(dto), Problem);
+    }
+
+    /// <summary>
+    /// Deletes a draft revision with its written languages. A revision that was ever published,
+    /// whose change notice went out, or that account deletions cite is legal evidence and is
+    /// refused with 409 <c>PrivacyPolicy.NotDeletable</c>.
+    /// </summary>
+    [HttpDelete("versions/{id:guid}")]
+    [RequirePermission(PermissionCodes.PrivacyPolicy.Manage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteVersion(Guid id, CancellationToken cancellationToken)
+    {
+        var command = new DeletePrivacyPolicyVersionCommand(id) { RequestedBy = GetCurrentUserId() };
+        var result = await _sender.Send(command, cancellationToken);
+        return result.Match(_ => NoContent(), Problem);
     }
 
     /// <summary>

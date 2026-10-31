@@ -1,4 +1,6 @@
+using Auth.Domain.Errors;
 using Auth.Domain.Primitives;
+using ErrorOr;
 
 namespace Auth.Domain.Entities;
 
@@ -53,6 +55,13 @@ public class PrivacyPolicyVersion : EntityBase
     /// </summary>
     public Guid CreatedBy { get; private set; }
 
+    /// <summary>
+    /// Gets when this revision was first published; null while nobody has been shown it.
+    /// Never cleared: a revision a later one superseded is back to
+    /// <see cref="IsPublished"/> false but stays published once.
+    /// </summary>
+    public DateTime? FirstPublishedAtUtc { get; private set; }
+
     private PrivacyPolicyVersion() : base()
     {
     }
@@ -66,8 +75,10 @@ public class PrivacyPolicyVersion : EntityBase
         DateTime? notifiedAtUtc,
         int? notifiedCount,
         DateTime createdAt,
-        Guid createdBy) : base(id)
+        Guid createdBy,
+        DateTime? firstPublishedAtUtc = null) : base(id)
     {
+        FirstPublishedAtUtc = firstPublishedAtUtc;
         Version = version;
         EffectiveDateUtc = effectiveDateUtc;
         IsPublished = isPublished;
@@ -131,5 +142,25 @@ public class PrivacyPolicyVersion : EntityBase
     public void Publish()
     {
         IsPublished = true;
+        FirstPublishedAtUtc ??= DateTime.UtcNow;
     }
+
+    /// <summary>
+    /// Whether this revision may be deleted: only a draft nobody was ever shown or told about.
+    /// Everything else is legal evidence and stays. Refused when the revision is published,
+    /// was published once (<see cref="FirstPublishedAtUtc"/>, or served documents of it exist:
+    /// a later revision may have superseded it), when its change notice went out, or when it
+    /// is the version account deletions are stamped with today
+    /// (<paramref name="policyVersionInUse"/>).
+    /// </summary>
+    /// <param name="hasServedDocuments">Whether any served document of this revision exists.</param>
+    /// <param name="policyVersionInUse">The configured <c>AccountDeletion:PolicyVersion</c>.</param>
+    public ErrorOr<Success> EnsureDeletable(bool hasServedDocuments, string policyVersionInUse) =>
+        IsPublished
+        || FirstPublishedAtUtc is not null
+        || NotifiedAtUtc is not null
+        || hasServedDocuments
+        || string.Equals(Version, policyVersionInUse, StringComparison.Ordinal)
+            ? PrivacyPolicyErrors.NotDeletable(Version)
+            : Result.Success;
 }

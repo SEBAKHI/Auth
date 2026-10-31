@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Check } from "lucide-react"
+import { Check, Trash2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { api } from "@authsystem/api/client"
@@ -27,12 +27,14 @@ import { formatDateTime } from "@authsystem/ui/format"
 import { Input } from "@authsystem/ui/input"
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@authsystem/ui/tooltip"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
 import { useUnsavedChangesPrompt } from "@authsystem/ui/hooks/use-unsaved-changes"
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror"
 import { PERMISSIONS } from "@/lib/constants"
 import { CodeEditor } from "./components/code-editor"
 import { insertAtCursor } from "./components/code-editor-utils"
+import { DeleteLayoutDialog } from "./components/delete-record-dialogs"
 import { PreviewPane } from "./components/preview-pane"
 import { PublishConfirmationSummary } from "./components/publish-confirmation-summary"
 import { useSingleFlightConfirm } from "./components/use-single-flight-confirm"
@@ -41,6 +43,7 @@ import {
   getRendererGlobals,
   type NotificationPreviewDto,
   type TemplateVariable,
+  isGlobalLayout,
 } from "./lib"
 
 /** Per-language chrome strings stored in the layout's StringsJson. */
@@ -124,6 +127,8 @@ export function NotificationLayoutDetailPage() {
   const editorRef = React.useRef<ReactCodeMirrorRef>(null)
 
   const canManage = hasPermission(PERMISSIONS.notificationLayouts.manage)
+  const navigate = useNavigate()
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
 
   // The layout's placeholder slots are a fixed contract with the renderer —
   // it injects exactly these into every message. Unlike the type variable
@@ -381,10 +386,16 @@ export function NotificationLayoutDetailPage() {
     onSettled: publishFlight.release,
   })
 
+  // Once the record is deleted there is nothing left to save: the prompt stands down
+  // before the page leaves, or it would ask to discard edits to a record that is gone.
+  const [deleted, setDeleted] = React.useState(false)
   const unsavedPrompt = useUnsavedChangesPrompt({
-    isDirty,
+    isDirty: isDirty && !deleted,
     isSaving: saveMutation.isPending,
   })
+  React.useEffect(() => {
+    if (deleted) navigate("/notifications/layouts")
+  }, [deleted, navigate])
 
   if (query.isLoading || !layout) {
     return (
@@ -445,9 +456,36 @@ export function NotificationLayoutDetailPage() {
                 <Check data-icon="inline-start" />
                 {t("notifications.publish")}
               </Button>
+              {isGlobalLayout(layout) ? (
+                // The global layout stays; the button says why rather than going missing.
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0}>
+                      <Button variant="outline" disabled>
+                        <Trash2 data-icon="inline-start" />
+                        {t("common.delete")}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-64">
+                    {t("notifications.globalLayoutNotDeletable")}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Button variant="outline" onClick={() => setDeleteOpen(true)}>
+                  <Trash2 data-icon="inline-start" />
+                  {t("common.delete")}
+                </Button>
+              )}
             </div>
           ) : null
         }
+      />
+
+      <DeleteLayoutDialog
+        target={deleteOpen ? layout : null}
+        onOpenChange={setDeleteOpen}
+        onDeleted={() => setDeleted(true)}
       />
 
       <div className="flex flex-wrap items-center gap-2">

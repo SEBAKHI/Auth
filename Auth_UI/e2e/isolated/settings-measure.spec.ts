@@ -354,11 +354,12 @@ test("the platform settings page stops at the same measure", async ({
 
   const measured = await measureColumn(page)
 
-  // Identical arithmetic: available 2256, cap 1152, and the column clamped to
-  // the cap. This page has no second column, so there is no card width to
-  // derive — the point is only that the one free-text input, which is `w-full`
-  // from the primitive, no longer stretches across a 2560px monitor.
-  expect(Math.round(measured.columnWidth)).toBe(1152)
+  // Identical arithmetic: available 2256, cap 1152. Since the page became tabs
+  // (UI batch P2) the cap sits on the form tabs' panels, not on the page: the
+  // Templates tab is a table, and tables are never capped. So the card of the
+  // Identity tab is clamped to the cap, and the one free-text input, which is
+  // `w-full` from the primitive, no longer stretches across a 2560px monitor.
+  expect(Math.round(measured.cardWidth)).toBe(1152)
   expect(Math.round(measured.columnLeft)).toBe(Math.round(measured.mainPadLeft))
 
   await expectNoShellOverflow(page, "platform settings at 2560")

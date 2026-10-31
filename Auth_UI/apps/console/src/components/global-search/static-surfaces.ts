@@ -51,9 +51,10 @@ export const STATIC_SURFACES: readonly StaticSurface[] = [
     titleKey: "dashboard.title",
     pathKeys: [],
   },
-  // The dashboard's deep-dives are tabs, but the tab lives in the URL, so each
-  // one is a real destination and is indexed as such. Every other tabbed page
-  // in the console holds its tab in component state and cannot be linked into.
+  // The dashboard's deep-dives are tabs, but the tab lives in the URL
+  // (`useTabParam`), so each one is a real destination and is indexed as such.
+  // So are the platform settings tabs below. Record pages' tabs (a user's, an
+  // application's) are reached through their record, not listed here.
   {
     id: "dashboard-security",
     route: "/?tab=security",
@@ -181,12 +182,31 @@ export const STATIC_SURFACES: readonly StaticSurface[] = [
     pathKeys: ["nav.systemSettings"],
     permission: PERMISSIONS.auditLogs.read,
   },
+  // One row per tab: the identity tab is the page's default, so it is the bare
+  // path and carries the page's own title.
   {
     id: "platform-settings",
     route: "/admin/platform-settings",
     titleKey: "platformSettings.title",
     descriptionKey: "platformSettings.subtitle",
+    altTitleKeys: ["platformSettings.tabIdentity"],
     pathKeys: [],
+    permission: PERMISSIONS.platformSettings.manage,
+  },
+  {
+    id: "platform-settings-appearance",
+    route: `/admin/platform-settings?${TAB_QUERY_PARAM}=appearance`,
+    titleKey: "platformSettings.appearance.title",
+    descriptionKey: "platformSettings.appearance.subtitle",
+    pathKeys: ["nav.platformSettings"],
+    permission: PERMISSIONS.platformSettings.manage,
+  },
+  {
+    id: "platform-settings-templates",
+    route: `/admin/platform-settings?${TAB_QUERY_PARAM}=templates`,
+    titleKey: "loginDesigns.tab",
+    descriptionKey: "loginDesigns.cardDescription",
+    pathKeys: ["nav.platformSettings"],
     permission: PERMISSIONS.platformSettings.manage,
   },
   {

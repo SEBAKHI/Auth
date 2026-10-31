@@ -762,6 +762,12 @@
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>چیدمان اعلان با شناسه '{0}' یافت نشد.</value>
   </data>
+  <data name="Notification.CannotDeleteGlobalLayout" xml:space="preserve">
+    <value>طرح‌بندی عمومی یک کانال را نمی‌توان حذف کرد: هر ایمیل آن کانال که برنامه‌اش طرح‌بندی خودش را ندارد از آن استفاده می‌کند.</value>
+  </data>
+  <data name="Notification.LayoutFallbackMissing" xml:space="preserve">
+    <value>این طرح‌بندی را نمی‌توان حذف کرد: کانال آن طرح‌بندی عمومی منتشرشده‌ای ندارد که پیام‌های برنامه به آن برگردند. ابتدا طرح‌بندی عمومی کانال را منتشر کنید.</value>
+  </data>
   <data name="Notification.LayoutNotPublished" xml:space="preserve">
     <value>هیچ چیدمان اعلان منتشرشده‌ای برای این محدوده وجود ندارد.</value>
   </data>
@@ -919,6 +925,9 @@
   </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>نام این نسخه سیاست قابل تغییر نیست: منتشر شده یا اعلان تغییر آن ارسال شده است.</value>
+  </data>
+  <data name="PrivacyPolicy.NotDeletable" xml:space="preserve">
+    <value>نسخه {0} را نمی‌توان حذف کرد: فقط پیش‌نویسی حذف می‌شود که هرگز منتشر نشده، هرگز اطلاع‌رسانی نشده و در سوابق حذف حساب به آن ارجاع داده نشده باشد.</value>
   </data>
   <data name="SystemSettings.SectionNotFound" xml:space="preserve">
     <value>بخش تنظیمات ناشناخته: {0}.</value>

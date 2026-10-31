@@ -165,6 +165,22 @@ public class NotificationLayoutRepository : INotificationLayoutRepository
     }
 
     /// <inheritdoc />
+    public async Task<bool> DeleteApplicationLayoutAsync(Guid id, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The scope is part of the statement, not only of the entity's rule: whatever the caller
+        // read, this can never remove the global layout a channel's emails fall back to.
+        var affected = await connection.ExecuteAsync(new CommandDefinition(@"
+            DELETE FROM [dbo].[NotificationLayouts]
+            WHERE [Id] = @Id AND [ApplicationId] IS NOT NULL",
+            new { Id = id },
+            cancellationToken: cancellationToken));
+
+        return affected == 1;
+    }
+
+    /// <inheritdoc />
     public async Task<NotificationLayoutRenderSource?> GetPublishedAsync(
         NotificationChannelType channel,
         Guid? applicationId,

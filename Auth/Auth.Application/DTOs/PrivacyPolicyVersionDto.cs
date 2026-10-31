@@ -23,6 +23,13 @@ public class PrivacyPolicyVersionDto
     public DateTime CreatedAt { get; set; }
     /// <summary>Language codes that already have a stored document.</summary>
     public IReadOnlyList<string> Languages { get; set; } = [];
+
+    /// <summary>
+    /// True when this revision is a draft nobody was shown or told about, so the console offers
+    /// Delete. The same rule the delete endpoint applies; that endpoint additionally refuses a
+    /// version that deletion records cite, which this list does not look up.
+    /// </summary>
+    public bool CanDelete { get; set; }
 }
 
 /// <summary>

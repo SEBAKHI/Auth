@@ -764,6 +764,12 @@
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>لم يتم العثور على تخطيط الإشعار بالمعرف '{0}'.</value>
   </data>
+  <data name="Notification.CannotDeleteGlobalLayout" xml:space="preserve">
+    <value>لا يمكن حذف التخطيط العام لقناة: فكل رسالة بريد في هذه القناة ليس لتطبيقها تخطيط خاص تستعمله.</value>
+  </data>
+  <data name="Notification.LayoutFallbackMissing" xml:space="preserve">
+    <value>لا يمكن حذف هذا التخطيط: ليس لقناته تخطيط عام منشور ترجع إليه رسائل التطبيق. انشر التخطيط العام للقناة أولًا.</value>
+  </data>
   <data name="Notification.LayoutNotPublished" xml:space="preserve">
     <value>لا يوجد تخطيط إشعار منشور لهذا النطاق.</value>
   </data>
@@ -921,6 +927,9 @@
   </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>لا يمكن إعادة تسمية إصدار السياسة هذا: فهو منشور أو تم إرسال إشعار تغييره بالفعل.</value>
+  </data>
+  <data name="PrivacyPolicy.NotDeletable" xml:space="preserve">
+    <value>لا يمكن حذف الإصدار {0}: لا تُحذف إلا مسودة لم تُنشر قط ولم يُرسل إشعار بها ولا تستشهد بها طلبات حذف الحسابات.</value>
   </data>
   <data name="SystemSettings.SectionNotFound" xml:space="preserve">
     <value>قسم إعدادات غير معروف: {0}.</value>

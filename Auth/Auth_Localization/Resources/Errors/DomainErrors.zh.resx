@@ -762,6 +762,12 @@
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>未找到 ID 为“{0}”的通知布局。</value>
   </data>
+  <data name="Notification.CannotDeleteGlobalLayout" xml:space="preserve">
+    <value>无法删除渠道的全局布局：该渠道中所有没有自己应用布局的电子邮件都使用它。</value>
+  </data>
+  <data name="Notification.LayoutFallbackMissing" xml:space="preserve">
+    <value>无法删除此布局：其渠道没有可供应用消息回退的已发布全局布局。请先发布该渠道的全局布局。</value>
+  </data>
   <data name="Notification.LayoutNotPublished" xml:space="preserve">
     <value>该范围没有已发布的通知布局。</value>
   </data>
@@ -919,6 +925,9 @@
   </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>此政策版本无法重命名：它已发布，或其变更通知已发送。</value>
+  </data>
+  <data name="PrivacyPolicy.NotDeletable" xml:space="preserve">
+    <value>无法删除版本 {0}：只有从未发布、从未通知且未被账户删除记录引用的草稿才能删除。</value>
   </data>
   <data name="SystemSettings.SectionNotFound" xml:space="preserve">
     <value>未知的设置分区：{0}。</value>

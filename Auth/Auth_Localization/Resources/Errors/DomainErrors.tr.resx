@@ -762,6 +762,12 @@
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>'{0}' kimlikli bildirim düzeni bulunamadı.</value>
   </data>
+  <data name="Notification.CannotDeleteGlobalLayout" xml:space="preserve">
+    <value>Bir kanalın genel düzeni silinemez: kendi uygulama düzeni olmayan o kanaldaki her e-posta bu düzeni kullanır.</value>
+  </data>
+  <data name="Notification.LayoutFallbackMissing" xml:space="preserve">
+    <value>Bu düzen silinemez: kanalının, uygulamanın iletilerinin geri döneceği yayımlanmış bir genel düzeni yok. Önce kanalın genel düzenini yayımlayın.</value>
+  </data>
   <data name="Notification.LayoutNotPublished" xml:space="preserve">
     <value>Bu kapsam için yayımlanmış bir bildirim düzeni yok.</value>
   </data>
@@ -919,6 +925,9 @@
   </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>Bu politika sürümünün adı değiştirilemez: yayımlanmış ya da değişiklik bildirimi zaten gönderilmiş.</value>
+  </data>
+  <data name="PrivacyPolicy.NotDeletable" xml:space="preserve">
+    <value>{0} sürümü silinemez: yalnızca hiç yayımlanmamış, hiç duyurulmamış ve hesap silme kayıtlarında geçmeyen bir taslak silinebilir.</value>
   </data>
   <data name="SystemSettings.SectionNotFound" xml:space="preserve">
     <value>Bilinmeyen ayar bölümü: {0}.</value>

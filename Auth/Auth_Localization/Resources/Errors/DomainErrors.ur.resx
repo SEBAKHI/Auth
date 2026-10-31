@@ -762,6 +762,12 @@
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>شناخت '{0}' والا اطلاعی لے آؤٹ نہیں ملا۔</value>
   </data>
+  <data name="Notification.CannotDeleteGlobalLayout" xml:space="preserve">
+    <value>کسی چینل کا عمومی لے آؤٹ حذف نہیں کیا جا سکتا: اس چینل کی ہر وہ ای میل جس کی ایپلیکیشن کا اپنا لے آؤٹ نہیں، اسی کو استعمال کرتی ہے۔</value>
+  </data>
+  <data name="Notification.LayoutFallbackMissing" xml:space="preserve">
+    <value>یہ لے آؤٹ حذف نہیں کیا جا سکتا: اس کے چینل کا کوئی شائع شدہ عمومی لے آؤٹ نہیں جس پر ایپلیکیشن کے پیغامات واپس جا سکیں۔ پہلے چینل کا عمومی لے آؤٹ شائع کریں۔</value>
+  </data>
   <data name="Notification.LayoutNotPublished" xml:space="preserve">
     <value>اس دائرہ کار کے لیے کوئی شائع شدہ اطلاعی لے آؤٹ موجود نہیں۔</value>
   </data>
@@ -919,6 +925,9 @@
   </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>اس پالیسی ورژن کا نام تبدیل نہیں کیا جا سکتا: یہ شائع ہو چکا ہے یا اس کی تبدیلی کی اطلاع بھیجی جا چکی ہے۔</value>
+  </data>
+  <data name="PrivacyPolicy.NotDeletable" xml:space="preserve">
+    <value>ورژن {0} حذف نہیں کیا جا سکتا: صرف وہ مسودہ حذف ہو سکتا ہے جو کبھی شائع نہ ہوا، جس کا کبھی اعلان نہ ہوا اور جس کا حوالہ اکاؤنٹ حذف کرنے کے ریکارڈ میں نہ ہو۔</value>
   </data>
   <data name="SystemSettings.SectionNotFound" xml:space="preserve">
     <value>نامعلوم ترتیبات سیکشن: {0}۔</value>

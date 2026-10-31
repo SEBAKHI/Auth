@@ -81,3 +81,16 @@ export function toTranslationDrafts(
   }
   return drafts
 }
+
+/** An email template the platform itself depends on (a system type's global template). */
+export function isSystemGlobalTemplate(template: {
+  typeIsSystem?: boolean | null
+  applicationId?: string | null
+}): boolean {
+  return Boolean(template.typeIsSystem && !template.applicationId)
+}
+
+/** The global layout of a channel: every email without a layout of its own uses it. */
+export function isGlobalLayout(layout: { applicationId?: string | null }): boolean {
+  return !layout.applicationId
+}

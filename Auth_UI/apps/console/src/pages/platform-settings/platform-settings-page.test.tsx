@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { cleanup, render, screen, within } from "@testing-library/react"
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { createMemoryRouter, RouterProvider } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import i18n from "@authsystem/i18n"
@@ -29,11 +30,10 @@ vi.mock("@authsystem/ui/theme-provider", () => ({
   useResolvedTheme: () => "light",
 }))
 
-// The appearance card is its own surface with its own tests; these cases are
-// about the branding card only.
-vi.mock("./appearance-card", () => ({ AppearanceCard: () => null }))
-// The sign-in page designs card has tests of its own (components/login-designs).
-vi.mock("./login-designs-card", () => ({ default: () => null }))
+// The appearance card and the sign-in page designs list are surfaces with tests
+// of their own (appearance; components/login-designs); here they only mark their tab.
+vi.mock("./appearance-card", () => ({ AppearanceCard: () => <p>appearance panel</p> }))
+vi.mock("./login-designs-tab", () => ({ default: () => <p>designs panel</p> }))
 
 // An upload the test lets finish when it chooses, and a frame editor that keeps
 // the chosen file as it is (its own tests cover it).
@@ -65,15 +65,23 @@ function ok<T>(data: T) {
   })
 }
 
-function renderPage() {
+function renderPage(initialEntry = "/admin/platform-settings") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  return render(
+  const router = createMemoryRouter(
+    [
+      { path: "/admin/platform-settings", element: <PlatformSettingsPage /> },
+      { path: "/admin/platform-settings/login-designs/:designId", element: <h1>A design</h1> },
+    ],
+    { initialEntries: [initialEntry] }
+  )
+  render(
     <QueryClientProvider client={client}>
-      <PlatformSettingsPage />
+      <RouterProvider router={router} />
     </QueryClientProvider>
   )
+  return router
 }
 
 /** The two circles, each named by the label under it. */
@@ -242,5 +250,71 @@ describe("platform settings branding card — two saves at once", () => {
       logoUrlDark: null,
       faviconUrl: null,
     })
+  })
+})
+
+/**
+ * Item 8 of the UI batch: the page is tabs, not stacked cards, and the open tab lives in the
+ * URL (the default writes none), so a tab can be linked, searched and reloaded. A tab once
+ * opened stays mounted, so an unsaved edit survives a look at another tab.
+ *
+ * Deliberate breaks: hold the tab in state instead of the URL; drop the keep-mounted rule.
+ */
+describe("platform settings tabs", () => {
+  it("opens on Identity with no tab parameter, and offers Identity, Appearance and Templates in that order", async () => {
+    const router = renderPage()
+
+    expect(await screen.findByText("Branding")).toBeInTheDocument()
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Identity", "Appearance", "Templates"])
+    expect(screen.getByRole("tab", { name: "Identity" })).toHaveAttribute("aria-selected", "true")
+    expect(router.state.location.search).toBe("")
+    expect(screen.queryByText("designs panel")).toBeNull()
+  })
+
+  it("opens the tab a link names, and falls back to Identity for one that does not exist", async () => {
+    renderPage("/admin/platform-settings?tab=templates")
+    expect(await screen.findByText("designs panel")).toBeInTheDocument()
+    expect(screen.queryByText("Branding")).toBeNull()
+    cleanup()
+
+    renderPage("/admin/platform-settings?tab=nonsense")
+    expect(await screen.findByText("Branding")).toBeInTheDocument()
+  })
+
+  it("writes the open tab to the URL, and keeps an unsaved edit across a switch", async () => {
+    const user = userEvent.setup()
+    const router = renderPage()
+    const name = await screen.findByRole("textbox", { name: "Platform name" })
+    await user.clear(name)
+    await user.type(name, "Draft name")
+
+    await user.click(screen.getByRole("tab", { name: "Appearance" }))
+    expect(router.state.location.search).toBe("?tab=appearance")
+    expect(await screen.findByText("appearance panel")).toBeVisible()
+
+    await user.click(screen.getByRole("tab", { name: "Identity" }))
+    expect(router.state.location.search).toBe("")
+    expect(screen.getByRole("textbox", { name: "Platform name" })).toHaveValue("Draft name")
+    expect(put).not.toHaveBeenCalled()
+  })
+
+  it("asks before leaving the page with an unsaved name, and stops asking once it is saved", async () => {
+    const user = userEvent.setup()
+    const router = renderPage()
+    const name = await screen.findByRole("textbox", { name: "Platform name" })
+    await user.clear(name)
+    await user.type(name, "Draft name")
+
+    // Opening a design from the Templates tab leaves the page.
+    await act(() => router.navigate("/admin/platform-settings/login-designs/d1"))
+    const prompt = await screen.findByRole("alertdialog")
+    expect(within(prompt).getByText("Discard changes?")).toBeInTheDocument()
+    await user.click(within(prompt).getByRole("button", { name: "Cancel" }))
+    expect(router.state.location.pathname).toBe("/admin/platform-settings")
+
+    await user.click(screen.getByRole("button", { name: "Save" }))
+    await waitFor(() => expect(put).toHaveBeenCalled())
+    await act(() => router.navigate("/admin/platform-settings/login-designs/d1"))
+    expect(await screen.findByRole("heading", { name: "A design" })).toBeInTheDocument()
   })
 })

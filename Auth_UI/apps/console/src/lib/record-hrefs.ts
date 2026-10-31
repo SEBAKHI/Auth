@@ -46,3 +46,30 @@ export const notificationLayoutHref = builder(
 export const policyRevisionHref = builder(
   (id) => routePath`/notifications/policy/${id}`
 )
+
+/** Whose sign-in page designs: the platform's, or one application's. */
+type LoginDesignOwner =
+  | { kind: "platform" }
+  | { kind: "application"; applicationId: string }
+
+/**
+ * A sign-in page design's own page. The platform's live under platform
+ * settings, an application's under that application, each beside the list
+ * (its "Templates" tab) it was opened from.
+ */
+export function loginDesignHref(
+  owner: LoginDesignOwner,
+  designId: string | undefined
+): string | undefined {
+  if (!designId) return undefined
+  return owner.kind === "platform"
+    ? routePath`/admin/platform-settings/login-designs/${designId}`
+    : routePath`/applications/${owner.applicationId}/login-designs/${designId}`
+}
+
+/** The "Templates" tab that lists an owner's designs. */
+export function loginDesignsListHref(owner: LoginDesignOwner): string {
+  return owner.kind === "platform"
+    ? "/admin/platform-settings?tab=templates"
+    : `${routePath`/applications/${owner.applicationId}`}?tab=templates`
+}

@@ -20,6 +20,16 @@ public static class PrivacyPolicyErrors
         description:
             $"Version '{version}' cannot be renamed: it is published or its change notice was already sent.");
 
+    /// <summary>
+    /// Only a draft that was never published, announced or cited can be deleted; anything
+    /// else is the record of what people were shown and told.
+    /// </summary>
+    public static Error NotDeletable(string version) => Error.Conflict(
+        code: "PrivacyPolicy.NotDeletable",
+        description:
+            $"Version '{version}' cannot be deleted: only a draft that was never published, never announced and is not the version account deletions cite can be deleted.",
+        metadata: new() { ["args"] = new object[] { version } });
+
     public static Error NoPublishedVersion => Error.NotFound(
         code: "PrivacyPolicy.NoPublishedVersion",
         description: "No privacy policy version has been published yet.");

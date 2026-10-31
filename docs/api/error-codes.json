@@ -1107,6 +1107,11 @@
       "pointer": null
     },
     {
+      "code": "Notification.CannotDeleteGlobalLayout",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
       "code": "Notification.CannotDeleteSystemGlobalTemplate",
       "status": 403,
       "source": "catalog"
@@ -1224,6 +1229,11 @@
       "status": 400,
       "source": "catalog",
       "pointer": "#/draftContent"
+    },
+    {
+      "code": "Notification.LayoutFallbackMissing",
+      "status": 409,
+      "source": "catalog"
     },
     {
       "code": "Notification.LayoutNameRequired",
@@ -2059,6 +2069,11 @@
     {
       "code": "PrivacyPolicy.NoPublishedVersion",
       "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "PrivacyPolicy.NotDeletable",
+      "status": 409,
       "source": "catalog"
     },
     {
