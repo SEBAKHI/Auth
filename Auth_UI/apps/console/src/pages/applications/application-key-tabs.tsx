@@ -1,5 +1,4 @@
 import type { ColumnFiltersState } from "@tanstack/react-table"
-import * as React from "react"
 import { useTranslation } from "react-i18next"
 
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants"
@@ -17,6 +16,7 @@ import {
   credentialFiltersFromColumns,
   type CredentialKeyColumnFilters,
 } from "../credential-key-list-url"
+import { TabHeader } from "./application-tab-header"
 
 /*
  * An application's own API keys and webhook keys (OI-264): the same tables as
@@ -41,24 +41,6 @@ const APPLICATION_WEBHOOK_KEYS_URL_OPTIONS = {
   defaultSorting: [],
   filters: CREDENTIAL_KEY_COLUMN_URL_FILTERS,
 } satisfies ListUrlStateOptions<CredentialKeyColumnFilters>
-
-/** The tab's direction line, then its create button, the way the identity-keys tab opens. */
-function TabHeader({
-  description,
-  createButton,
-}: {
-  description: string
-  createButton: React.ReactNode
-}) {
-  return (
-    <>
-      <p className="text-sm text-muted-foreground">{description}</p>
-      {createButton ? (
-        <div className="flex justify-end">{createButton}</div>
-      ) : null}
-    </>
-  )
-}
 
 export function ApplicationApiKeysTab({ appId }: { appId: string }) {
   const { t } = useTranslation()

@@ -853,6 +853,30 @@ public class GetApiKeysQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_RevokedKey_CarriesTheReasonItWasRevokedWith()
+    {
+        // The row panel shows why a key was revoked; the reason is stored on the key and
+        // must reach the listing, while a live key carries none.
+        var applicationId = Guid.NewGuid();
+        var revoked = TestHelpers.CreateApiKey(applicationId: applicationId, name: "Revoked");
+        revoked.Revoke(Guid.NewGuid(), "Leaked in a public repository");
+        var live = TestHelpers.CreateApiKey(applicationId: applicationId, name: "Live");
+
+        _apiKeyRepositoryMock
+            .Setup(r => r.ListAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ApiKey> { revoked, live });
+        _apiKeyRepositoryMock
+            .Setup(r => r.GetScopesAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<string>>());
+
+        var result = await _handler.Handle(new GetApiKeysQuery(applicationId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Single(k => k.Name == "Revoked").RevokeReason.Should().Be("Leaked in a public repository");
+        result.Value.Single(k => k.Name == "Live").RevokeReason.Should().BeNull();
+    }
+
+    [Fact]
     public async Task Handle_NoApplicationId_ListsEveryApplicationsKeys()
     {
         var appOne = Guid.NewGuid();

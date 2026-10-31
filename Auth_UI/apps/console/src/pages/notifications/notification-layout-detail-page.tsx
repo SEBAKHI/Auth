@@ -565,7 +565,6 @@ export function NotificationLayoutDetailPage() {
                 ref={editorRef}
                 value={content}
                 onChange={setContent}
-                minHeight="380px"
                 ariaLabel={t("notifications.layoutContent")}
                 allowImages
                 readOnly={!canManage}

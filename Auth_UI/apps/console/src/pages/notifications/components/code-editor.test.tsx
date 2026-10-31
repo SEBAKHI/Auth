@@ -7,31 +7,39 @@ import { ThemeProvider } from "@authsystem/ui/theme-provider"
 import { TooltipProvider } from "@authsystem/ui/tooltip"
 
 // CodeMirror needs layout APIs jsdom does not provide, and none of these cases
-// are about the editor's own rendering - they are about the toolbar around it
-// and what it offers to someone who cannot save.
+// are about the editor's own rendering - they are about the toolbar around it,
+// what it offers to someone who cannot save, and what the editor is handed.
+// The rendered height is measured in a real browser (isolated suite).
+const editorProps = vi.hoisted(() => ({ last: {} as Record<string, unknown> }))
 vi.mock("@uiw/react-codemirror", () => ({
-  default: ({
-    value,
-    readOnly,
-    "aria-label": ariaLabel,
-  }: {
+  default: (props: {
     value: string
     readOnly?: boolean
     "aria-label"?: string
-  }) => (
-    <textarea
-      aria-label={ariaLabel}
-      readOnly={readOnly}
-      defaultValue={value}
-      data-readonly={String(Boolean(readOnly))}
-    />
-  ),
-  EditorView: { lineWrapping: {} },
+  }) => {
+    editorProps.last = props
+    return (
+      <textarea
+        aria-label={props["aria-label"]}
+        readOnly={props.readOnly}
+        defaultValue={props.value}
+        data-readonly={String(Boolean(props.readOnly))}
+      />
+    )
+  },
+  EditorView: {
+    lineWrapping: {},
+    theme: (spec: Record<string, unknown>) => ({ themeSpec: spec }),
+  },
 }))
 vi.mock("@codemirror/lang-liquid", () => ({ liquid: () => ({}) }))
 vi.mock("@codemirror/commands", () => ({ undo: vi.fn(), redo: vi.fn() }))
 
-import { CodeEditor } from "./code-editor"
+import {
+  CODE_EDITOR_HEIGHT,
+  CODE_EDITOR_VISIBLE_LINES,
+  CodeEditor,
+} from "./code-editor"
 
 function renderEditor(
   props: Partial<React.ComponentProps<typeof CodeEditor>> = {}
@@ -88,6 +96,33 @@ describe("CodeEditor", () => {
     // what matters here is that the handlers run without throwing.
     expect(vi.isMockFunction(undo)).toBe(true)
     expect(vi.isMockFunction(redo)).toBe(true)
+  })
+
+  it("shows the same 28-line window whatever the content's length", () => {
+    const heightOf = () => {
+      const extensions = editorProps.last.extensions as {
+        themeSpec?: Record<string, Record<string, string>>
+      }[]
+      return extensions.find((e) => e.themeSpec)?.themeSpec
+    }
+
+    const { unmount } = renderEditor({ value: "<p>one line</p>" })
+    const short = heightOf()
+    // Nothing that grows with the content reaches CodeMirror.
+    expect(editorProps.last).not.toHaveProperty("minHeight")
+    expect(editorProps.last).not.toHaveProperty("height")
+    unmount()
+
+    renderEditor({ value: Array.from({ length: 200 }, (_, i) => `<p>${i}</p>`).join("\n") })
+    const long = heightOf()
+
+    expect(CODE_EDITOR_VISIBLE_LINES).toBe(28)
+    expect(CODE_EDITOR_HEIGHT).toBe("calc(28lh + 8px)")
+    expect(short).toEqual({
+      "&": { fontFamily: "monospace", lineHeight: "1.4", height: CODE_EDITOR_HEIGHT },
+      ".cm-scroller": { overflowY: "auto" },
+    })
+    expect(long).toEqual(short)
   })
 
   it("withdraws every editing affordance when read-only", () => {

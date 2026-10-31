@@ -1029,14 +1029,11 @@ export const tr: TranslationResources = {
     editTitle: "Organizasyonu düzenle",
     contactEmail: "İletişim e-postası",
     website: "Web sitesi",
-    logoUrl: "Logo URL'si",
     codeHint:
       "Bu kuruluş için kalıcı kimlik. Oluşturulduktan sonra değiştirilemez.",
     nameHint: "Kuruluşun üyelerine gösterilen görünen adı.",
     contactEmailHint: "Bu kuruluşla ilgili bildirimler için ana adres.",
     websiteHint: "Kuruluşun herkese açık web sitesi.",
-    logoUrlHint:
-      "Kuruluş adının yanında gösterilen herkese açık görsel URL'si.",
     descriptionHint: "Bu kuruluş hakkında dahili not.",
     isActiveHint:
       "Bunu kapatmak, üyelerin bu kuruluşun uygulamalarına girmesini engeller.",

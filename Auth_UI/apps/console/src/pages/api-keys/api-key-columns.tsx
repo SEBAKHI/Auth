@@ -15,6 +15,7 @@ import {
 import { formatDateTime } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
 import { credentialExpiryState } from "../credential-key-list-url"
+import { revokeReasonColumn } from "../credential-key-rows"
 
 type ApiKeyDto = Schemas["ApiKeyDto"]
 
@@ -28,6 +29,7 @@ export const API_KEY_COLUMN_IDS = [
   "applicationName",
   "environment",
   "status",
+  "revokeReason",
   "expiresAt",
   "lastUsedAt",
   "createdAt",
@@ -129,6 +131,7 @@ export function useApiKeyColumns({
         </Badge>
       ),
     },
+    revokeReasonColumn<ApiKeyDto>(t),
     {
       id: "expiresAt",
       // The accessor stays the raw instant so sorting, CSV export and the row
