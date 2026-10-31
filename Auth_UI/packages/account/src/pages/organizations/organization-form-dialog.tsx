@@ -23,7 +23,7 @@ import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+import { EMAIL_RE } from "../../lib/email-check"
 
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null
@@ -50,7 +50,6 @@ export function OrganizationFormDialog({
       .min(1, t("validation.required"))
       .regex(EMAIL_RE, t("validation.email")),
     website: z.string().optional(),
-    logoUrl: z.string().optional(),
     description: z.string().optional(),
     isActive: z.boolean(),
   })
@@ -58,12 +57,15 @@ export function OrganizationFormDialog({
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
+    // After a failed submit, fields are judged again when they are left, not on
+    // every keystroke: an address is "invalid" until its last characters arrive
+    // (see useEmailFieldCheck). The contact email also clears its error on edit.
+    reValidateMode: "onBlur",
     defaultValues: {
       code: "",
       name: "",
       contactEmail: "",
       website: "",
-      logoUrl: "",
       description: "",
       isActive: true,
     },
@@ -76,7 +78,6 @@ export function OrganizationFormDialog({
       name: organization?.name ?? "",
       contactEmail: organization?.contactEmail ?? "",
       website: organization?.website ?? "",
-      logoUrl: organization?.logoUrl ?? "",
       description: organization?.description ?? "",
       isActive: organization?.isActive ?? true,
     })
@@ -91,7 +92,10 @@ export function OrganizationFormDialog({
             name: values.name,
             contactEmail: values.contactEmail,
             website: emptyToNull(values.website),
-            logoUrl: emptyToNull(values.logoUrl),
+            // The logo is uploaded on the organization's page, not here. The
+            // API reads a null logo as "remove it", so resend the one it last
+            // gave us (it stores the key, not the composed URL).
+            logoUrl: organization.logoUrl ?? null,
             description: emptyToNull(values.description),
             isActive: values.isActive,
           },
@@ -105,7 +109,6 @@ export function OrganizationFormDialog({
           name: values.name,
           contactEmail: values.contactEmail,
           website: emptyToNull(values.website),
-          logoUrl: emptyToNull(values.logoUrl),
           description: emptyToNull(values.description),
         },
       })
@@ -173,7 +176,16 @@ export function OrganizationFormDialog({
           <FormItem>
             <FormLabel>{t("organizations.contactEmail")}</FormLabel>
             <FormControl>
-              <Input type="email" placeholder="contact@acme.com" dir="ltr" {...field} />
+              <Input
+                type="email"
+                placeholder="contact@acme.com"
+                dir="ltr"
+                {...field}
+                onChange={(event) => {
+                  field.onChange(event)
+                  form.clearErrors("contactEmail")
+                }}
+              />
             </FormControl>
             <FormDescription>
               {t("organizations.contactEmailHint")}
@@ -192,20 +204,6 @@ export function OrganizationFormDialog({
               <Input placeholder="https://acme.com" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>{t("organizations.websiteHint")}</FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name="logoUrl"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t("organizations.logoUrl")}</FormLabel>
-            <FormControl>
-              <Input placeholder="https://cdn.acme.com/logo.svg" dir="ltr" {...field} />
-            </FormControl>
-            <FormDescription>{t("organizations.logoUrlHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}

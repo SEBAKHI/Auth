@@ -61,7 +61,9 @@ test("a link opens the invite dialog filled with its choices, and sends only wha
   // The address is the owner's to type: the link cannot choose whom it invites.
   await expect(dialog.getByLabel("Email to invite")).toHaveValue("")
   const send = dialog.getByRole("button", { name: "Invite member" })
-  await expect(send).toBeDisabled()
+  // The button stays usable — the address is checked when it is sent, never
+  // while it is typed — but the link itself sends nothing.
+  await expect(send).toBeEnabled()
   expect(recorded.invitations, "a link never submits").toEqual([])
 
   await dialog.getByLabel("Email to invite").fill("rep@example.test")

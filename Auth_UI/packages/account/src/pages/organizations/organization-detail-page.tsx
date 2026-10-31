@@ -16,6 +16,7 @@ import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { RecordLink } from "@authsystem/ui/common/record-link"
 import { useOrganizationPermissions } from "@authsystem/auth/organization-permissions"
+import { useEmailFieldCheck } from "../../lib/email-check"
 import { ORGANIZATION_GATES } from "../../lib/organization-permissions"
 import {
   ORGANIZATION_INVITATION_SORT_COLUMNS,
@@ -107,8 +108,6 @@ import {
   useOrganizationApplications,
 } from "./role-options"
 import { TransferOwnershipDialog } from "./transfer-ownership-dialog"
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /** The invite dialog's "no application role" choice: a Select item needs a value. */
 const NO_APPLICATION = "none"
@@ -531,6 +530,8 @@ function InviteDialog({
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [email, setEmail] = React.useState("")
+  const emailCheck = useEmailFieldCheck(email)
+  const emailRef = React.useRef<HTMLInputElement>(null)
   const [roleId, setRoleId] = React.useState(initial?.roleId)
   // Optional: an application role assigned on acceptance, so onboarding a member
   // into an application is one step instead of invite, wait, then assign.
@@ -574,13 +575,18 @@ function InviteDialog({
   })
 
   // An application without its role is incomplete: choose one, or no application.
-  const valid =
-    EMAIL_RE.test(email) &&
-    Boolean(roleId) &&
-    (!applicationId || Boolean(appRoleId))
-  // Only complain once something has been typed, so the field does not open
-  // in an error state — but do explain why Confirm stays disabled.
-  const emailInvalid = email.length > 0 && !EMAIL_RE.test(email)
+  // The address is not part of this: its format is checked on submit (and when
+  // the field is left), never while it is typed, so an unfinished address
+  // neither shows an error nor disables the button.
+  const complete = Boolean(roleId) && (!applicationId || Boolean(appRoleId))
+  const emailInvalid = emailCheck.invalid
+  const submit = () => {
+    if (!emailCheck.check()) {
+      emailRef.current?.focus()
+      return
+    }
+    mutation.mutate()
+  }
   const noAssignableAppRoles =
     appRolesQuery.isSuccess && appRolesQuery.data.length === 0
 
@@ -607,9 +613,14 @@ function InviteDialog({
             <Input
               id="invite-email"
               type="email"
+              ref={emailRef}
               aria-invalid={emailInvalid}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                emailCheck.onEdit()
+              }}
+              onBlur={emailCheck.onBlur}
               placeholder="name@example.com"
               dir="ltr"
             />
@@ -730,8 +741,8 @@ function InviteDialog({
             {t("common.cancel")}
           </Button>
           <Button
-            onClick={() => mutation.mutate()}
-            disabled={!valid || mutation.isPending}
+            onClick={submit}
+            disabled={!complete || mutation.isPending}
           >
             {mutation.isPending ? <Spinner /> : null}
             {t("organizations.inviteMember")}
@@ -1676,7 +1687,6 @@ export function OrganizationDetailPage({
                 ),
               },
               { label: t("organizations.website"), value: org.website },
-              { label: t("applications.logoUrl"), value: org.logoUrl },
               {
                 label: t("applications.contactEmail"),
                 value: org.contactEmail,

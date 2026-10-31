@@ -27,6 +27,7 @@ import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 import { ApiKeyCreateDialog } from "./api-key-create-dialog"
 import { useApiKeyColumns, type ApiKeyColumnId } from "./api-key-columns"
+import { revokeReasonOnlyWhenGiven } from "../credential-key-rows"
 
 type ApiKeyDto = Schemas["ApiKeyDto"]
 
@@ -96,6 +97,7 @@ export function ApiKeysPanel({
           params: { query: applicationId ? { applicationId } : {} },
         })
       ),
+    select: revokeReasonOnlyWhenGiven,
   })
 
   const invalidate = () =>

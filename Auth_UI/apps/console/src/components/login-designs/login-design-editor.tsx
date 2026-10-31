@@ -323,7 +323,6 @@ function EditorForm({
                 ref={editorRef}
                 value={content}
                 onChange={setContent}
-                minHeight="360px"
                 ariaLabel={t("loginDesigns.content")}
                 allowImages
                 imagePurpose="Panel"

@@ -325,6 +325,26 @@ public class GetWebhookKeysQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_RevokedKey_CarriesTheReasonItWasRevokedWith()
+    {
+        // The row panel shows why a key was revoked; the reason is stored on the key and
+        // must reach the listing, while a live key carries none.
+        var appId = Guid.NewGuid();
+        var revoked = TestHelpers.CreateWebhookKey(applicationId: appId, name: "Revoked");
+        revoked.Revoke(Guid.NewGuid(), "Receiver decommissioned");
+        var live = TestHelpers.CreateWebhookKey(applicationId: appId, name: "Live");
+
+        _repoMock.Setup(r => r.ListAsync(appId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WebhookKey> { revoked, live });
+
+        var result = await _handler.Handle(new GetWebhookKeysQuery(appId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Single(k => k.Name == "Revoked").RevokeReason.Should().Be("Receiver decommissioned");
+        result.Value.Single(k => k.Name == "Live").RevokeReason.Should().BeNull();
+    }
+
+    [Fact]
     public async Task Handle_NoApplicationId_ListsEveryApplicationsKeys()
     {
         var appOne = Guid.NewGuid();

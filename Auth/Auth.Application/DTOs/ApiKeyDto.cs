@@ -25,6 +25,9 @@ public class ApiKeyDto
     public DateTime? LastUsedAt { get; set; }
     public bool IsRevoked { get; set; }
     public DateTime? RevokedAt { get; set; }
+
+    /// <summary>Why the key was revoked, as the revoking administrator wrote it; null when not revoked or no reason was given.</summary>
+    public string? RevokeReason { get; set; }
     public IReadOnlyList<string> Scopes { get; set; } = [];
 }
 

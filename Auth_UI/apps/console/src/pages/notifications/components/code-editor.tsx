@@ -15,6 +15,35 @@ import { InsertImageDialog } from "./insert-image-dialog"
 import { insertAtCursor } from "./code-editor-utils"
 
 /**
+ * Every source editor shows the same window, whatever it holds: this many
+ * lines. A longer body scrolls inside the editor; a shorter one leaves the rest
+ * blank. Before, the editor grew with its content, so the page under it moved
+ * on every added line and a long body pushed the save bar out of reach.
+ */
+export const CODE_EDITOR_VISIBLE_LINES = 28
+
+/**
+ * The window is measured in editor lines (`lh`), not in pixels, so it stays 28
+ * lines at any font size. The 8px is CodeMirror's own padding around the
+ * content (4px above, 4px below).
+ */
+export const CODE_EDITOR_HEIGHT = `calc(${CODE_EDITOR_VISIBLE_LINES}lh + 8px)`
+
+/**
+ * The height goes on the editor box: the React wrapper pins the scroller to
+ * `height: 100% !important` of it. CodeMirror's base theme draws the code in
+ * `monospace` at a line height of 1.4; the box declares the same font and line
+ * height, so `lh` on the box is one line of code. The font matters, not only
+ * the line height: where no ancestor sets a font size, browsers draw a bare
+ * `monospace` smaller than the page's font, and a box in the page's font would
+ * then hold about 34 code lines instead of 28.
+ */
+const fixedHeight = EditorView.theme({
+  "&": { fontFamily: "monospace", lineHeight: "1.4", height: CODE_EDITOR_HEIGHT },
+  ".cm-scroller": { overflowY: "auto" },
+})
+
+/**
  * Liquid-in-HTML source editor for template bodies and layouts, with an undo/redo
  * toolbar (also Ctrl+Z / Ctrl+Y) and an insert-image action. Validation stays
  * server-side through the same Fluid parser that renders real sends.
@@ -24,7 +53,6 @@ export const CodeEditor = React.forwardRef<
   {
     value: string
     onChange: (value: string) => void
-    minHeight?: string
     ariaLabel?: string
     /** Show the insert-image action (bodies yes; layouts optional). */
     allowImages?: boolean
@@ -48,7 +76,6 @@ export const CodeEditor = React.forwardRef<
   {
     value,
     onChange,
-    minHeight = "260px",
     ariaLabel,
     allowImages = false,
     contentDir,
@@ -69,7 +96,7 @@ export const CodeEditor = React.forwardRef<
   )
 
   const extensions = React.useMemo(
-    () => [liquid(), EditorView.lineWrapping],
+    () => [liquid(), EditorView.lineWrapping, fixedHeight],
     []
   )
 
@@ -130,7 +157,10 @@ export const CodeEditor = React.forwardRef<
       </div>
 
       <div
-        className="overflow-hidden rounded-md border"
+        // `clip`, not `hidden`: it rounds the corners without making this box
+        // a scroll container, which a flex column could then shrink below the
+        // editor's height and cut its last lines off.
+        className="overflow-clip rounded-md border"
         // Source code is LTR whatever the UI language is, and that includes the
         // alignment this block `dir` carries: an RTL gutter would put the line
         // numbers on the wrong edge.
@@ -144,7 +174,6 @@ export const CodeEditor = React.forwardRef<
           readOnly={readOnly}
           extensions={extensions}
           theme={resolvedTheme === "dark" ? "dark" : "light"}
-          minHeight={minHeight}
           aria-label={ariaLabel}
           basicSetup={{
             foldGutter: false,

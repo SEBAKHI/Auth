@@ -1047,15 +1047,12 @@ export const fr: TranslationResources = {
     editTitle: "Modifier l'organisation",
     contactEmail: "E-mail de contact",
     website: "Site web",
-    logoUrl: "URL du logo",
     codeHint:
       "Identifiant permanent de cette organisation. Il ne peut pas être modifié après la création.",
     nameHint: "Le nom affiché de l'organisation, visible par ses membres.",
     contactEmailHint:
       "Adresse principale pour les avis sur cette organisation.",
     websiteHint: "Le site web public de l'organisation.",
-    logoUrlHint:
-      "URL d'image publique affichée à côté du nom de l'organisation.",
     descriptionHint: "Note interne sur cette organisation.",
     isActiveHint:
       "Désactiver empêche les membres de se connecter aux applications de cette organisation.",
