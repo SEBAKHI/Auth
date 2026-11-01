@@ -780,7 +780,7 @@ export function ApplicationDetailPage() {
   // unmounting it would drop an unsaved draft without a word.
   const [appearanceOpened, setAppearanceOpened] = React.useState(activeTab === "appearance")
   if (activeTab === "appearance" && !appearanceOpened) setAppearanceOpened(true)
-  // Kept mounted the same way: a design being edited survives a switch to another tab.
+  // Kept mounted the same way: the designs list keeps its place across a switch to another tab.
   const [templatesOpened, setTemplatesOpened] = React.useState(activeTab === "templates")
   if (activeTab === "templates" && !templatesOpened) setTemplatesOpened(true)
   const [editOpen, setEditOpen] = React.useState(false)

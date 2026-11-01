@@ -66,7 +66,7 @@ BEGIN
     -- install (idempotent: only when nothing is published yet).
     IF NOT EXISTS (SELECT 1 FROM [dbo].[PrivacyPolicyVersions] WHERE [IsPublished] = 1)
     BEGIN
-        UPDATE [dbo].[PrivacyPolicyVersions] SET [IsPublished] = 1 WHERE [Id] = @VersionId;
+        UPDATE [dbo].[PrivacyPolicyVersions] SET [IsPublished] = 1, [FirstPublishedAtUtc] = SYSUTCDATETIME() WHERE [Id] = @VersionId;
         PRINT 'Published privacy policy version 2026.07';
     END
 END

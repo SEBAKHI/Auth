@@ -5,6 +5,7 @@ import { PROFILE_TABS } from "@authsystem/account/pages/profile/profile-tabs"
 import { TAB_QUERY_PARAM } from "@authsystem/ui/hooks/use-tab-param"
 
 import { DASHBOARD_TABS } from "@/pages/dashboard/use-dashboard-window"
+import { PLATFORM_SETTINGS_TABS } from "@/pages/platform-settings/platform-settings-tabs"
 import { RECORD_SOURCES, recordIcon } from "./record-sources"
 import { STATIC_SURFACES } from "./static-surfaces"
 
@@ -73,17 +74,24 @@ describe("static surfaces", () => {
     expect(routes).toEqual([...new Set(routes)])
   })
 
-  it("only opens tabs the profile page will accept", () => {
+  it("only opens tabs the page it links to will accept", () => {
     // The route is built here and validated there. A tab renamed on one side
     // produces a link that silently falls back to the first tab — the exact
-    // half-truth this whole change set out to remove.
-    const named = STATIC_SURFACES.map(
-      (surface) => new URL(surface.route, "http://x").searchParams.get(TAB_QUERY_PARAM)
-    ).filter((tab): tab is string => Boolean(tab))
+    // half-truth this whole change set out to remove. Each page is held to its
+    // own list, so a tab name valid on one page cannot pass for another's.
+    const accepted: Record<string, readonly string[]> = {
+      "/": DASHBOARD_TABS,
+      "/profile": PROFILE_TABS,
+      "/admin/platform-settings": PLATFORM_SETTINGS_TABS,
+    }
+    const named = STATIC_SURFACES.map((surface) => new URL(surface.route, "http://x"))
+      .map((url) => ({ path: url.pathname, tab: url.searchParams.get(TAB_QUERY_PARAM) }))
+      .filter((link): link is { path: string; tab: string } => Boolean(link.tab))
 
     expect(named.length).toBeGreaterThan(0)
-    for (const tab of named) {
-      expect([...PROFILE_TABS, ...DASHBOARD_TABS]).toContain(tab)
+    for (const { path, tab } of named) {
+      expect(accepted[path], path).toBeDefined()
+      expect(accepted[path]).toContain(tab)
     }
   })
 })

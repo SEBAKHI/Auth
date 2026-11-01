@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
-import { Plus } from "lucide-react"
+import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 
 import { api } from "@authsystem/api/client"
 import { toNumber, toSortParams, unwrap } from "@authsystem/api/helpers"
@@ -10,9 +11,18 @@ import { useAuth } from "@authsystem/auth/auth-context"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { RecordLink } from "@authsystem/ui/common/record-link"
 import { SearchInput } from "@authsystem/ui/common/search-input"
+import { UnavailableMenuItem } from "@authsystem/ui/common/unavailable-menu-item"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@authsystem/ui/dropdown-menu"
 import { formatDateTime } from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
 import {
@@ -24,8 +34,9 @@ import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
 import { notificationTemplateHref } from "@/lib/record-hrefs"
 import { CreateTemplateDialog } from "./components/create-template-dialog"
+import { DeleteTemplateDialog } from "./components/delete-record-dialogs"
 import { NotificationsTabs } from "./components/notifications-tabs"
-import type { NotificationTemplateDto } from "./lib"
+import { isSystemGlobalTemplate, type NotificationTemplateDto } from "./lib"
 
 type TemplateListFilters = {
   channels: Array<"Email">
@@ -66,6 +77,8 @@ export function NotificationTemplatesPage() {
   const search = useDebouncedValue(searchInput)
   const { sortBy, sortDirection } = toSortParams(sorting)
   const [createOpen, setCreateOpen] = React.useState(false)
+  const [deleting, setDeleting] =
+    React.useState<NotificationTemplateDto | null>(null)
 
   const columnFilters: ColumnFiltersState = [
     ...(channels.length ? [{ id: "channel", value: channels }] : []),
@@ -265,6 +278,63 @@ export function NotificationTemplatesPage() {
         </span>
       ),
     },
+    {
+      id: "actions",
+      header: "",
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => {
+        const template = row.original
+        return (
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("common.actions")}
+                >
+                  <MoreHorizontal />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem asChild>
+                    <Link to={notificationTemplateHref(template.id) ?? ""}>
+                      {t("common.view")}
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                {canManage ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      {/* The same rule as the template's own page: the
+                          platform's template of a system type stays. */}
+                      {isSystemGlobalTemplate(template) ? (
+                        <UnavailableMenuItem
+                          variant="destructive"
+                          reason={t("notifications.systemTemplateNotDeletable")}
+                        >
+                          {t("common.delete")}
+                        </UnavailableMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => setDeleting(template)}
+                        >
+                          {t("common.delete")}
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuGroup>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )
+      },
+    },
   ]
 
   return (
@@ -317,6 +387,13 @@ export function NotificationTemplatesPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         types={typesQuery.data ?? []}
+      />
+
+      <DeleteTemplateDialog
+        target={deleting}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null)
+        }}
       />
     </div>
   )

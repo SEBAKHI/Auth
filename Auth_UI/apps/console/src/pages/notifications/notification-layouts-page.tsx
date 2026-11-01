@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
-import { Plus } from "lucide-react"
+import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
@@ -10,7 +11,16 @@ import { useAuth } from "@authsystem/auth/auth-context"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { RecordLink } from "@authsystem/ui/common/record-link"
 import { SearchInput } from "@authsystem/ui/common/search-input"
+import { UnavailableMenuItem } from "@authsystem/ui/common/unavailable-menu-item"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@authsystem/ui/dropdown-menu"
 import {
   useListUrlState,
   type ListUrlStateOptions,
@@ -21,8 +31,9 @@ import { formatDateTime } from "@authsystem/ui/format"
 import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
 import { notificationLayoutHref } from "@/lib/record-hrefs"
 import { CreateLayoutDialog } from "./components/create-layout-dialog"
+import { DeleteLayoutDialog } from "./components/delete-record-dialogs"
 import { NotificationsTabs } from "./components/notifications-tabs"
-import type { NotificationLayoutDto } from "./lib"
+import { isGlobalLayout, type NotificationLayoutDto } from "./lib"
 
 const LAYOUTS_LIST_URL_OPTIONS = {
   defaultPageSize: DEFAULT_PAGE_SIZE,
@@ -45,6 +56,9 @@ export function NotificationLayoutsPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
   const [createOpen, setCreateOpen] = React.useState(false)
+  const [deleting, setDeleting] = React.useState<NotificationLayoutDto | null>(
+    null
+  )
   const { search, sorting, setSearch, setSorting } = useListUrlState(
     LAYOUTS_LIST_URL_OPTIONS
   )
@@ -134,6 +148,61 @@ export function NotificationLayoutsPage() {
         </span>
       ),
     },
+    {
+      id: "actions",
+      header: "",
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => {
+        const layout = row.original
+        return (
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("common.actions")}
+                >
+                  <MoreHorizontal />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem asChild>
+                    <Link to={notificationLayoutHref(layout.id) ?? ""}>
+                      {t("common.view")}
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                {canManage ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      {isGlobalLayout(layout) ? (
+                        <UnavailableMenuItem
+                          variant="destructive"
+                          reason={t("notifications.globalLayoutNotDeletable")}
+                        >
+                          {t("common.delete")}
+                        </UnavailableMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => setDeleting(layout)}
+                        >
+                          {t("common.delete")}
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuGroup>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )
+      },
+    },
   ]
 
   return (
@@ -173,6 +242,13 @@ export function NotificationLayoutsPage() {
       />
 
       <CreateLayoutDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      <DeleteLayoutDialog
+        target={deleting}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null)
+        }}
+      />
     </div>
   )
 }

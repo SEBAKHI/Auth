@@ -16,7 +16,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@authsystem/ui/card"
-import { useUnsavedChangesPrompt } from "@authsystem/ui/hooks/use-unsaved-changes"
 import { Spinner } from "@authsystem/ui/spinner"
 import {
   DEFAULT_THEME_CONFIG,
@@ -28,13 +27,17 @@ import {
 
 import { AppearanceEditor } from "../../components/appearance/appearance-editor"
 import { isAppearanceSavable } from "../../components/appearance/appearance-rules"
+import { useReportUnsaved, type UnsavedState } from "./unsaved-state"
 
 export function AppearanceCard({
   settings,
   onSaved,
+  onUnsavedChange,
 }: {
   settings: Schemas["PlatformSettingsDto"]
   onSaved: (saved: Schemas["PlatformSettingsDto"] | undefined) => void
+  /** Tells the page whether there is an unsaved draft, for its leave-prompt. */
+  onUnsavedChange?: (state: UnsavedState) => void
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -77,10 +80,8 @@ export function AppearanceCard({
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
-  const unsavedPrompt = useUnsavedChangesPrompt({
-    isDirty,
-    isSaving: save.isPending,
-  })
+  // The page holds the one leave-prompt for all its tabs (a router honours a single blocker).
+  useReportUnsaved(onUnsavedChange, isDirty, save.isPending)
 
   const isDefault = themeConfigKey(draft) === themeConfigKey(DEFAULT_THEME_CONFIG)
 
@@ -120,7 +121,6 @@ export function AppearanceCard({
           {t("platformSettings.appearance.resetToDefault")}
         </Button>
       </CardFooter>
-      {unsavedPrompt}
     </Card>
   )
 }

@@ -764,6 +764,12 @@
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>Notification layout with ID '{0}' was not found.</value>
   </data>
+  <data name="Notification.CannotDeleteGlobalLayout" xml:space="preserve">
+    <value>The global layout of a channel cannot be deleted: every email of that channel without an application layout of its own uses it.</value>
+  </data>
+  <data name="Notification.LayoutFallbackMissing" xml:space="preserve">
+    <value>This layout cannot be deleted: its channel has no published global layout for the application's messages to fall back to. Publish the channel's global layout first.</value>
+  </data>
   <data name="Notification.LayoutNotPublished" xml:space="preserve">
     <value>No published notification layout exists for this scope.</value>
   </data>
@@ -921,6 +927,9 @@
   </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>This policy version cannot be renamed: it is published or its change notice was already sent.</value>
+  </data>
+  <data name="PrivacyPolicy.NotDeletable" xml:space="preserve">
+    <value>Version {0} cannot be deleted: only a draft that was never published, never announced and is not cited by account deletions can be deleted.</value>
   </data>
   <data name="SystemSettings.SectionNotFound" xml:space="preserve">
     <value>Unknown settings section: {0}.</value>

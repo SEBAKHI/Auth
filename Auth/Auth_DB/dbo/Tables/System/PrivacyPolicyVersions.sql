@@ -10,6 +10,9 @@ CREATE TABLE [dbo].[PrivacyPolicyVersions]
     -- Declared last: new columns append without a table rebuild on publish.
     [IsPublished] BIT NOT NULL CONSTRAINT [DF_PrivacyPolicyVersions_IsPublished] DEFAULT 0,
     [ChangeNote] NVARCHAR(1000) NULL,          -- what changed in this revision (shown in the console)
+    [FirstPublishedAtUtc] DATETIME2 NULL,      -- when it was first published; never cleared, so a
+                                               -- superseded revision (IsPublished back to 0) still
+                                               -- reads as published once. NULL = a draft nobody saw.
 
     CONSTRAINT [PK_PrivacyPolicyVersions] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [UQ_PrivacyPolicyVersions_Version] UNIQUE ([Version])

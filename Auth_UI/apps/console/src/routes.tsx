@@ -298,6 +298,16 @@ export const router = createBrowserRouter([
                 ),
                 handle: crumb("applications", "/applications", true),
               },
+              {
+                // One of the application's sign-in page designs, opened from its
+                // "Templates" tab the way an email template opens from its list.
+                path: "applications/:id/login-designs/:designId",
+                lazy: lazyRoute(
+                  () => import("@/pages/applications/application-login-design-page"),
+                  (m) => m.ApplicationLoginDesignPage
+                ),
+                handle: crumb("applications", "/applications", true),
+              },
             ],
           },
           // Platform admins (organizations:read) manage ALL organizations;
@@ -570,6 +580,21 @@ export const router = createBrowserRouter([
                       "platformSettings",
                       "/admin/platform-settings"
                     ),
+              },
+              {
+                // One of the platform's sign-in page designs; its parent crumb
+                // returns to the "Templates" tab it is listed in.
+                path: "admin/platform-settings/login-designs/:designId",
+                lazy: lazyRoute(
+                  () =>
+                    import("@/pages/platform-settings/platform-login-design-page"),
+                  (m) => m.PlatformLoginDesignPage
+                ),
+                handle: crumb(
+                  "platformSettings",
+                  "/admin/platform-settings?tab=templates",
+                  true
+                ),
               },
             ],
           },

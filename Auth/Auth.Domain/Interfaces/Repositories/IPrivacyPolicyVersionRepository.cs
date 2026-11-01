@@ -18,6 +18,32 @@ public interface IPrivacyPolicyVersionRepository
     Task<PrivacyPolicyVersion?> GetByVersionAsync(string version, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets one revision by its id, or null.
+    /// </summary>
+    Task<PrivacyPolicyVersion?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the ids of every revision that has served documents: every revision that was
+    /// published at least once, including those a later revision superseded.
+    /// </summary>
+    Task<IReadOnlySet<Guid>> GetServedVersionIdsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether any account-deletion request or tombstone was stamped with this version.
+    /// </summary>
+    Task<bool> IsCitedByDeletionRecordsAsync(string version, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes a draft revision and its written languages in one statement. Every condition of
+    /// <see cref="PrivacyPolicyVersion.EnsureDeletable"/> and the citation check is repeated in
+    /// the statement itself, so a revision published, announced or cited after the caller read it
+    /// is not deleted. Returns false when nothing was deleted.
+    /// </summary>
+    /// <param name="id">The revision.</param>
+    /// <param name="policyVersionInUse">The configured <c>AccountDeletion:PolicyVersion</c>.</param>
+    Task<bool> TryDeleteDraftAsync(Guid id, string policyVersionInUse, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Inserts the revision; returns false when the version already exists
     /// (the unique index arbitrates the race).
     /// </summary>

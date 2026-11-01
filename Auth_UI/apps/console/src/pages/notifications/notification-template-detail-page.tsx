@@ -30,6 +30,7 @@ import type { ReactCodeMirrorRef } from "@uiw/react-codemirror"
 import { PERMISSIONS } from "@/lib/constants"
 import { CodeEditor } from "./components/code-editor"
 import { insertAtCursor } from "./components/code-editor-utils"
+import { DeleteTemplateDialog } from "./components/delete-record-dialogs"
 import { ManageVariablesDialog } from "./components/manage-variables-dialog"
 import { PublishConfirmationSummary } from "./components/publish-confirmation-summary"
 import { TemplatePreview } from "./components/template-preview"
@@ -42,6 +43,7 @@ import {
   parseVariables,
   toTranslationDrafts,
   type TranslationDraft,
+  isSystemGlobalTemplate,
 } from "./lib"
 
 const EMPTY_DRAFT: TranslationDraft = {
@@ -357,27 +359,16 @@ export function NotificationTemplateDetailPage() {
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: () =>
-      unwrap(
-        api.DELETE("/api/v1/notification-templates/{id}", {
-          params: { path: { id } },
-        })
-      ),
-    onSuccess: () => {
-      toast.success(t("notifications.templateDeleted"))
-      void queryClient.invalidateQueries({
-        queryKey: ["notification-templates"],
-      })
-      navigate("/notifications/templates")
-    },
-    onError: (error) => toast.error(getErrorMessage(error)),
-  })
-
+  // Once the record is deleted there is nothing left to save: the prompt stands down
+  // before the page leaves, or it would ask to discard edits to a record that is gone.
+  const [deleted, setDeleted] = React.useState(false)
   const unsavedPrompt = useUnsavedChangesPrompt({
-    isDirty,
+    isDirty: isDirty && !deleted,
     isSaving: saveMutation.isPending,
   })
+  React.useEffect(() => {
+    if (deleted) navigate("/notifications/templates")
+  }, [deleted, navigate])
 
   if (query.isLoading || !template) {
     return (
@@ -388,9 +379,7 @@ export function NotificationTemplateDetailPage() {
     )
   }
 
-  const isSystemGlobal = Boolean(
-    template.typeIsSystem && !template.applicationId
-  )
+  const isSystemGlobal = isSystemGlobalTemplate(template)
   const openPublishConfirmation = () => {
     if (!template.draftVersionId || !template.draftVersion) return
     const revisionAt = template.modifiedAt ?? template.createdAt
@@ -484,7 +473,6 @@ export function NotificationTemplateDetailPage() {
             label: t("common.delete"),
             icon: Trash2,
             variant: "destructive" as const,
-            pending: deleteMutation.isPending,
             onAction: () => setDeleteOpen(true),
           },
         ]
@@ -794,15 +782,10 @@ export function NotificationTemplateDetailPage() {
         onConfirm={() => discardMutation.mutate()}
       />
 
-      <ConfirmDialog
-        open={deleteOpen}
+      <DeleteTemplateDialog
+        target={deleteOpen ? template : null}
         onOpenChange={setDeleteOpen}
-        title={t("notifications.deleteTitle")}
-        description={t("notifications.deleteBody")}
-        confirmLabel={t("common.delete")}
-        destructive
-        loading={deleteMutation.isPending}
-        onConfirm={() => deleteMutation.mutate()}
+        onDeleted={() => setDeleted(true)}
       />
       {unsavedPrompt}
     </div>

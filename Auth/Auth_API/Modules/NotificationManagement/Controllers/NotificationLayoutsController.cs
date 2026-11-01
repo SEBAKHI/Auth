@@ -4,6 +4,7 @@ using Auth_API.Common;
 using Auth_API.Modules.NotificationManagement.Contracts;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Notifications.CreateNotificationLayout;
+using Auth.Application.Features.Notifications.DeleteNotificationLayout;
 using Auth.Application.Features.Notifications.GetNotificationLayoutById;
 using Auth.Application.Features.Notifications.GetNotificationLayouts;
 using Auth.Application.Features.Notifications.PreviewNotificationLayout;
@@ -124,6 +125,22 @@ public class NotificationLayoutsController : ApiController
         };
         var result = await _sender.Send(command, cancellationToken);
         return result.Match(dto => Ok(dto), Problem);
+    }
+
+    /// <summary>
+    /// Deletes an application's layout; that application's emails then use the channel's global
+    /// layout. The global layout itself is refused with 409 <c>Notification.CannotDeleteGlobalLayout</c>.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    [RequirePermission(PermissionCodes.NotificationLayouts.Manage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteLayout(Guid id, CancellationToken cancellationToken)
+    {
+        var command = new DeleteNotificationLayoutCommand(id) { DeletedBy = GetCurrentUserId() };
+        var result = await _sender.Send(command, cancellationToken);
+        return result.Match(_ => NoContent(), Problem);
     }
 
     /// <summary>

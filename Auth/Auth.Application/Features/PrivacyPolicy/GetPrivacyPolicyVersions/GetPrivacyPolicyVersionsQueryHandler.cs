@@ -34,6 +34,7 @@ public class GetPrivacyPolicyVersionsQueryHandler
         GetPrivacyPolicyVersionsQuery request, CancellationToken cancellationToken)
     {
         var versions = await _repository.GetAllAsync(cancellationToken);
+        var served = await _repository.GetServedVersionIdsAsync(cancellationToken);
         var liveDisclosure = JsonSerializer.Serialize(
             GetPublishedPrivacyPolicyQueryHandler.BuildDisclosure(_deletionSettings, _controller));
 
@@ -56,6 +57,8 @@ public class GetPrivacyPolicyVersionsQueryHandler
                 NotifiedCount = version.NotifiedCount,
                 CreatedAt = version.CreatedAt,
                 Languages = translations.Select(t => t.LanguageCode).ToList(),
+                CanDelete = !version.EnsureDeletable(
+                    served.Contains(version.Id), _deletionSettings.PolicyVersion).IsError,
                 DisclosureOutOfDate = version.IsPublished
                     && await IsDisclosureStaleAsync(version.Id, liveDisclosure, cancellationToken)
             });

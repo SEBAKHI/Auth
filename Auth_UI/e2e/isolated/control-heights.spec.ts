@@ -149,7 +149,7 @@ for (const language of ["en", "ar"] as const) {
         const t = catalogs[language]
         await page.setViewportSize({ width: 1440, height: 1000 })
         await install(page, { mode, language, theme: themeWith(size.controlSize, size.tableRowHeight) })
-        await page.goto("/admin/platform-settings")
+        await page.goto("/admin/platform-settings?tab=appearance")
 
         const card = page
           .locator('[data-slot="card"]')
@@ -175,8 +175,11 @@ for (const language of ["en", "ar"] as const) {
         await expectHeight(select, size.control, "select")
         const toggle = card.locator('[data-slot="toggle-group-item"]').first()
         await expectHeight(toggle, size.control, "toggle")
+        // The platform name is on the Identity tab; the appearance tab stays mounted meanwhile.
+        await page.getByRole("tab", { name: t.platformSettings.tabIdentity }).click()
         const input = page.getByRole("textbox", { name: t.platformSettings.platformName, exact: true })
         await expectHeight(input, size.control, "input")
+        await page.getByRole("tab", { name: t.platformSettings.appearance.title }).click()
         // The sidebar keeps its own heights (its rail would not hold more).
         await expectHeight(page.locator('[data-slot="sidebar-trigger"]').first(), 32, "sidebar trigger")
 
@@ -242,7 +245,7 @@ for (const language of ["en", "ar"] as const) {
         language,
         theme: themeWith({ preset: "custom", px: 56 }, { preset: "custom", px: 72 }),
       })
-      await page.goto("/admin/platform-settings")
+      await page.goto("/admin/platform-settings?tab=appearance")
       const card = page
         .locator('[data-slot="card"]')
         .filter({ has: page.getByText(t.platformSettings.appearance.title, { exact: true }) })
@@ -285,7 +288,7 @@ for (const language of ["en", "ar"] as const) {
       language,
       theme: themeWith({ preset: "custom", px: 56 }, { preset: "custom", px: 72 }),
     })
-    await page.goto("/admin/platform-settings")
+    await page.goto("/admin/platform-settings?tab=appearance")
     await expectTokens(page, 56, 72)
 
     const header = page.locator("header").first()
@@ -324,7 +327,7 @@ for (const language of ["en", "ar"] as const) {
 test("in Arabic the preview cuts the end of a Latin name, never its start", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await install(page, { mode: "light", language: "ar", theme: themeWith({ preset: "default" }, { preset: "default" }) })
-  await page.goto("/admin/platform-settings")
+  await page.goto("/admin/platform-settings?tab=appearance")
   const tile = page.locator('[data-mode="light"]')
   const names = tile.locator('[data-slot="table-cell"] .truncate')
   await expect(names).toHaveCount(2)
@@ -387,7 +390,7 @@ for (const language of ["en", "ar"] as const) {
       theme: themeWith({ preset: "default" }, { preset: "default" }),
       onPut: (body) => bodies.push(body),
     })
-    await page.goto("/admin/platform-settings")
+    await page.goto("/admin/platform-settings?tab=appearance")
     await expectTokens(page, 36, 44)
 
     const card = page

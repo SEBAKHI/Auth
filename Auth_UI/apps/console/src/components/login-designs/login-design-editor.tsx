@@ -5,9 +5,8 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { getErrorMessage } from "@authsystem/api/errors"
+import { getErrorMessage, getErrorStatus } from "@authsystem/api/errors"
 import { directionForLanguage, SUPPORTED_LANGUAGES } from "@authsystem/i18n"
-import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
@@ -111,6 +110,21 @@ function canonical(strings: DesignStrings): string {
   )
 }
 
+function DesignUnavailable({ message, onClose }: { message: string; onClose: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex flex-col gap-4">
+      <Button variant="ghost" className="w-fit" onClick={onClose}>
+        <ArrowLeft data-icon="inline-start" className="rtl:rotate-180" />
+        {t("loginDesigns.back")}
+      </Button>
+      <Alert variant="destructive">
+        <AlertDescription>{message}</AlertDescription>
+      </Alert>
+    </div>
+  )
+}
+
 /**
  * One design: its name, whether the platform's mark keeps the corner, its HTML and CSS,
  * its texts per language, and a preview through the same frame the sign-in pages use.
@@ -131,12 +145,27 @@ export function LoginDesignEditor({
   onClose: () => void
   onSaved: () => void
 }) {
+  const { t } = useTranslation()
   const query = useQuery({
     queryKey: designKey(scope, designId),
     queryFn: () => getDesign(scope, designId),
   })
 
   if (!query.data) {
+    // A design deleted meanwhile (from another tab, by another administrator) or a stale
+    // link: say so and offer the way back, rather than a skeleton that never resolves.
+    if (query.isError) {
+      return (
+        <DesignUnavailable
+          message={
+            getErrorStatus(query.error) === 404
+              ? t("loginDesigns.notFound")
+              : getErrorMessage(query.error, t("loginDesigns.loadFailed"))
+          }
+          onClose={onClose}
+        />
+      )
+    }
     return <Skeleton className="h-[640px] w-full" />
   }
 
@@ -179,7 +208,6 @@ function EditorForm({
   const [rows, setRows] = React.useState(() => rowsOf(parseStrings(design.stringsJson)))
   const nextRowId = React.useRef(rows.length)
   const [language, setLanguage] = React.useState("en")
-  const [discardOpen, setDiscardOpen] = React.useState(false)
 
   const keys = rows.map((row) => row.key)
   const strings = React.useMemo(() => stringsOf(rows), [rows])
@@ -262,7 +290,8 @@ function EditorForm({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button variant="ghost" onClick={() => (isDirty ? setDiscardOpen(true) : onClose())}>
+        {/* Leaving with unsaved changes is the page's unsaved-changes prompt to stop. */}
+        <Button variant="ghost" onClick={onClose}>
           <ArrowLeft data-icon="inline-start" className="rtl:rotate-180" />
           {t("loginDesigns.back")}
         </Button>
@@ -419,18 +448,6 @@ function EditorForm({
         </div>
       </div>
 
-      <ConfirmDialog
-        open={discardOpen}
-        onOpenChange={setDiscardOpen}
-        title={t("loginDesigns.discardTitle")}
-        description={t("loginDesigns.discardDescription")}
-        confirmLabel={t("loginDesigns.discard")}
-        destructive
-        onConfirm={() => {
-          setDiscardOpen(false)
-          onClose()
-        }}
-      />
       {unsavedPrompt}
     </div>
   )

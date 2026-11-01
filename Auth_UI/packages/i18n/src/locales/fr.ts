@@ -141,6 +141,7 @@ export const fr: TranslationResources = {
     acceptedByUserName: "Acceptée par",
     allowedActions: "Vos actions autorisées",
     applicationRoleOutcome: "Résultat du rôle applicatif",
+    canDelete: "Supprimable",
     canRemove: "Retirable par vous",
     emailCodeAvailable: "Codes par e-mail disponibles",
     emailCodeEnabled: "Codes par e-mail activés",
@@ -1187,8 +1188,12 @@ export const fr: TranslationResources = {
     rotated: "Clé API renouvelée.",
   },
   loginDesigns: {
+    searchPlaceholder: "Rechercher des modèles…",
+    platformLogo: "Logo de la plateforme",
+    platformLogoShown: "Affiché",
+    platformLogoHidden: "Masqué",
+    notFound: "Ce modèle n’existe plus. Il a peut-être été supprimé.",
     tab: "Modèles",
-    cardTitle: "Modèles des pages de connexion",
     cardDescription: "Le panneau à côté du formulaire de connexion sur les pages de connexion de la plateforme, et sur celles de toute application sans modèle actif. Sans modèle actif, le panneau reste vide.",
     appDescription: "Le panneau à côté du formulaire de connexion sur les pages de connexion de cette application, affiché sur les grands écrans. Sans modèle actif, ses pages affichent le modèle de la plateforme.",
     visitorsSee: "Les visiteurs voient : {{name}}",
@@ -1204,8 +1209,6 @@ export const fr: TranslationResources = {
     empty: "Aucun modèle pour l’instant",
     loadFailed: "Les modèles n’ont pas pu être chargés.",
     active: "Actif",
-    hidesPlatformLogo: "Masque le logo de la plateforme",
-    changedAt: "Modifié {{date}}",
     deleteActiveHint: "Les visiteurs voient ce modèle maintenant. Pour le supprimer, désactivez-le ou activez-en un autre d’abord.",
     edit: "Modifier",
     view: "Afficher",
@@ -1257,9 +1260,6 @@ export const fr: TranslationResources = {
     warningsTitle: "Une partie du balisage ne s’exécutera pas",
     warningScript: "Les scripts (éléments <script> et liens javascript:) ne s’exécutent pas sur les pages de connexion.",
     warningEventHandler: "Les attributs d’événement (onclick, onload…) ne s’exécutent pas sur les pages de connexion.",
-    discardTitle: "Abandonner vos modifications ?",
-    discardDescription: "Ce que vous avez modifié depuis le dernier enregistrement sera perdu.",
-    discard: "Abandonner",
   },
   machineKeys: {
     directoryAccess:
@@ -1454,6 +1454,8 @@ export const fr: TranslationResources = {
       loginDesignActivated: "Modèle de page de connexion activé",
       loginDesignDeactivated: "Modèle de page de connexion désactivé",
       loginDesignDeleted: "Modèle de page de connexion supprimé",
+      notificationLayoutDeleted: "Mise en page de notification supprimée",
+      privacyPolicyVersionDeleted: "Version de la politique de confidentialité supprimée",
       notificationTemplateUnpublished: "Modèle de notification dépublié",
       notificationTemplateRolledBack: "Modèle de notification restauré",
       secretsValueChanged: "Valeur secrète modifiée",
@@ -1693,6 +1695,15 @@ export const fr: TranslationResources = {
     },
   },
   notifications: {
+    deleteNamedTitle: "Supprimer {{name}} ?",
+    systemTemplateNotDeletable: "Le modèle de la plateforme pour une notification système ne peut pas être supprimé. Une application peut avoir son propre modèle à la place.",
+    deleteLayoutBody: "Les e-mails de cette application utilisent désormais la mise en page globale. La mise en page est supprimée définitivement.",
+    layoutDeleted: "Mise en page supprimée",
+    globalLayoutNotDeletable: "La mise en page globale entoure chaque e-mail qui n’a pas de mise en page propre ; elle ne peut donc pas être supprimée.",
+    policyDeleteTitle: "Supprimer la version {{version}} ?",
+    policyDeleteBody: "Le brouillon et chaque langue rédigée pour lui sont supprimés définitivement.",
+    policyDeleted: "Version supprimée",
+    policyNotDeletable: "Seul un brouillon jamais publié ni annoncé peut être supprimé. Tout ce qui a été montré reste comme trace légale.",
     title: "Modèles de notification",
     subtitle:
       "Tout le contenu des messages vit en base de données — modifiez, traduisez, prévisualisez et publiez sans redéploiement.",
@@ -1804,7 +1815,6 @@ export const fr: TranslationResources = {
     savedDraftRevision: "Brouillon enregistré · {{modifiedAt}}",
     unsavedChanges: "Modifications non enregistrées",
     unpublishedChanges: "Modifications non publiées",
-    deleteTitle: "Supprimer le modèle ?",
     deleteBody:
       "Le modèle et tout son historique de versions seront supprimés.",
     versionHistory: "Historique des versions",
@@ -2125,6 +2135,7 @@ export const fr: TranslationResources = {
     exportFailed: "L'image cadrée n'a pas pu être créée. Réessayez, ou appuyez sur Réinitialiser pour envoyer l'original.",
   },
   platformSettings: {
+    tabIdentity: "Identité",
     title: "Paramètres de la plateforme",
     subtitle:
       "Contrôlez l'image de marque de la plateforme affichée dans la console.",

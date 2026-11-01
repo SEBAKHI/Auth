@@ -136,6 +136,14 @@ public static class NotificationErrors
         description: $"The layout shows the logo, but its card colour {colour} appears nowhere in the layout, so the logo would sit inside a visible box. Set the card colour to the colour behind the logo, written #RRGGBB.",
         metadata: new() { ["args"] = new object[] { colour } });
 
+    public static Error CannotDeleteGlobalLayout => Error.Conflict(
+        code: "Notification.CannotDeleteGlobalLayout",
+        description: "The global layout of a channel cannot be deleted: it wraps every email of that channel that has no application layout of its own.");
+
+    public static Error LayoutFallbackMissing => Error.Conflict(
+        code: "Notification.LayoutFallbackMissing",
+        description: "This layout cannot be deleted: its channel has no published global layout for the application's messages to fall back to. Publish the channel's global layout first.");
+
     #endregion
 
     #region Rendering Errors

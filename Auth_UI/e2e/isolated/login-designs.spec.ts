@@ -7,7 +7,8 @@ import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
 
 /**
  * Sign-in page designs in the console (phase 6): an application › Templates, and the
- * platform settings card. A new design opens in the editor; the preview is the server's
+ * platform settings › Templates tab, each a table whose rows open a design on its own page
+ * (UI batch P2). A new design opens on its own page; the preview is the server's
  * rendering in the same isolated frame the sign-in pages use, following the chosen mode;
  * Save sends the editor's fields with the revision it loaded; Activate is confirmed.
  * Arabic and English, 1440px and 375px, each with a screenshot.
@@ -198,7 +199,7 @@ for (const language of ["en", "ar"] as const) {
     await install(page, language, [], "application")
     await page.goto(`/applications/${APP_ID}?tab=templates`)
     await expect(page.getByText(t.loginDesigns.visitorsSeePlatform)).toBeVisible()
-    await page.getByRole("tabpanel").getByRole("button", { name: t.loginDesigns.edit }).click()
+    await page.getByRole("tabpanel").getByRole("link", { name: "Autumn" }).click()
     await previewFrame(page)
     await expectNoShellOverflow(page)
     await page.screenshot({ path: testInfo.outputPath(`templates-375-${language}.png`), fullPage: true })
@@ -207,11 +208,10 @@ for (const language of ["en", "ar"] as const) {
   // Every source editor (this one, an email template's body, an email layout) is one
   // component with one fixed window: 28 lines of its own line height, whatever it holds.
   test(`the source editor shows 28 lines, short or long, and scrolls inside (${language})`, async ({ page }, testInfo) => {
-    const t = catalogs[language]
     await page.setViewportSize({ width: 1440, height: 1200 })
     await install(page, language, [], "application")
     await page.goto(`/applications/${APP_ID}?tab=templates`)
-    await page.getByRole("tabpanel").getByRole("button", { name: t.loginDesigns.edit }).click()
+    await page.getByRole("tabpanel").getByRole("link", { name: "Autumn" }).click()
     await previewFrame(page)
 
     const scroller = page.locator(".cm-scroller")
@@ -238,18 +238,24 @@ for (const language of ["en", "ar"] as const) {
   })
 }
 
-test("the platform settings card manages the platform's designs, with the platform's fallback named", async ({ page }, testInfo) => {
+test("the platform settings Templates tab lists the platform's designs, each opening on its own page and back", async ({ page }, testInfo) => {
   const seen: Seen[] = []
   await page.setViewportSize({ width: 1440, height: 1200 })
   await install(page, "en", seen, "platform")
-  await page.goto("/admin/platform-settings")
+  await page.goto("/admin/platform-settings?tab=templates&designs.q=aut")
 
-  const card = page.locator('[data-slot="card"]').filter({ hasText: en.loginDesigns.cardTitle })
-  await expect(card).toBeVisible()
-  await expect(card.getByText(en.loginDesigns.visitorsSeePlain)).toBeVisible()
-  await card.getByRole("button", { name: en.loginDesigns.edit }).click()
+  const panel = page.getByRole("tabpanel")
+  await expect(panel.getByText(en.loginDesigns.visitorsSeePlain)).toBeVisible()
+  await expect(panel.getByRole("table")).toBeVisible()
+  await panel.getByRole("link", { name: "Autumn" }).click()
+  await expect(page).toHaveURL(/\/admin\/platform-settings\/login-designs\/d1$/)
   const frame = await previewFrame(page)
   await expect(frame.locator("#design")).toHaveText("Hello Example CRM")
   expect(seen.some((entry) => entry.path.endsWith("/admin/platform-settings/login-designs/preview"))).toBe(true)
-  await page.screenshot({ path: testInfo.outputPath("platform-designs-card.png"), fullPage: true })
+  await page.screenshot({ path: testInfo.outputPath("platform-design-page.png"), fullPage: true })
+
+  // Back lands on the list as it was left: the Templates tab, with its search.
+  await page.getByRole("button", { name: en.loginDesigns.back }).click()
+  await expect(page).toHaveURL(/\/admin\/platform-settings\?tab=templates&designs\.q=aut$/)
+  await expect(page.getByRole("tabpanel").getByRole("link", { name: "Autumn" })).toBeVisible()
 })

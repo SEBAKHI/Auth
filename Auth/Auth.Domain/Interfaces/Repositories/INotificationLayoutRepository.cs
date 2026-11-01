@@ -44,6 +44,12 @@ public interface INotificationLayoutRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Deletes an application's layout. Returns false when no such row exists any more; the
+    /// statement never deletes a global layout (application null), whatever the id names.
+    /// </summary>
+    Task<bool> DeleteApplicationLayoutAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets the published layout content for the exact (channel, application)
     /// scope, or null when none is published there. The caller performs
     /// app-to-global fallback by probing the application scope first.
