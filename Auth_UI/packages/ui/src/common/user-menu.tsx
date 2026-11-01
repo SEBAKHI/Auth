@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { LogOut, User as UserIcon } from "lucide-react"
+import { AppWindow, LogOut, User as UserIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
@@ -23,11 +23,17 @@ import { fullName } from "@authsystem/ui/format"
 export function UserMenu({
   profileHref = "/profile",
   showProfile = true,
+  myApplicationsHref,
 }: {
   /** In-app route the profile entry points to. */
   profileHref?: string
   /** Hide the profile entry where the shell nav already links to it. */
   showProfile?: boolean
+  /**
+   * In-app route of the person's own applications (UI batch item 12), where
+   * the shell nav does not already link to them: the console. Omitted, no entry.
+   */
+  myApplicationsHref?: string
 } = {}) {
   const { t } = useTranslation()
   const { user, logout } = useAuth()
@@ -75,15 +81,25 @@ export function UserMenu({
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {showProfile ? (
+        {showProfile || myApplicationsHref ? (
           <>
             <DropdownMenuGroup>
-              <DropdownMenuItem asChild>
-                <Link to={profileHref}>
-                  <UserIcon />
-                  {t("common.profile")}
-                </Link>
-              </DropdownMenuItem>
+              {showProfile ? (
+                <DropdownMenuItem asChild>
+                  <Link to={profileHref}>
+                    <UserIcon />
+                    {t("common.profile")}
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
+              {myApplicationsHref ? (
+                <DropdownMenuItem asChild>
+                  <Link to={myApplicationsHref}>
+                    <AppWindow />
+                    {t("nav.myApplications")}
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
           </>

@@ -1,10 +1,11 @@
-import { Building2, UserRound } from "lucide-react"
+import { Building2, House, UserRound } from "lucide-react"
 
 import { AppShell, type AppNavItem } from "@authsystem/ui/common/app-shell"
 
 import { PolicyUpdateNotice } from "./policy-update-notice"
 
 const NAV: AppNavItem[] = [
+  { titleKey: "home", url: "/", icon: House },
   { titleKey: "profile", url: "/profile", icon: UserRound },
   { titleKey: "organizations", url: "/organizations", icon: Building2 },
 ]
@@ -17,11 +18,10 @@ export function AccountShell() {
       <AppShell
         navItems={NAV}
         navGroupKey="account"
-        homeKey="account"
-        // `/` only redirects here, so the profile IS this app's landing page.
-        // Saying so is what stops the phone-width back link offering a way up
-        // from it - a "‹ Account" that pointed at `/` and bounced straight back.
-        homeHref="/profile"
+        // Home (`/`) is this app's landing page and the first crumb of every
+        // trail, so it is named as the nav names it.
+        homeKey="home"
+        homeHref="/"
         // The sidebar already links to the profile; skip the avatar-menu entry.
         showProfile={false}
       />

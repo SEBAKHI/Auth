@@ -1,8 +1,8 @@
 import { safeHomeUrl } from "./use-app-branding"
 
 /**
- * The address IAM may send the browser to after an accepted invitation (OI-192),
- * or null: an absolute `https:` URL, or `http:` on the loopback host of local
+ * The address IAM may send the browser to after an accepted invitation (OI-192)
+ * or from a tile of Home (UI batch item 12), or null: an absolute `https:` URL, or `http:` on the loopback host of local
  * development, nothing else.
  *
  * The server builds the address from the application's registration alone, and
@@ -13,11 +13,14 @@ import { safeHomeUrl } from "./use-app-branding"
 export function launchTarget(raw: string | null | undefined): string | null {
   const target = safeHomeUrl(raw)
   if (!target) return null
-  // The server's shape rule as well: no user information, which only ever makes
-  // an address read as another host, and no fragment. Kept here and not in
-  // `safeHomeUrl`, whose other caller is the application's way home.
+  // The server's shape rule as well (ApplicationLaunchTarget): no user
+  // information, which only ever makes an address read as another host. A
+  // fragment is kept, as the server keeps it: a home URL may name a hash-routed
+  // page, and refusing it here dropped an address the server had sent. Kept
+  // here and not in `safeHomeUrl`, whose other caller is the application's way
+  // home.
   const url = new URL(target)
-  return url.username || url.password || url.hash ? null : target
+  return url.username || url.password ? null : target
 }
 
 /**

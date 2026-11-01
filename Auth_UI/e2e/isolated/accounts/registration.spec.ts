@@ -318,7 +318,7 @@ for (const shape of SHAPES) {
   }) => signUpWalk(page, shape))
 }
 
-test("a plain sign-up ends signed in on the profile, with nothing of the flow left behind", async ({
+test("a plain sign-up ends signed in on Home, with nothing of the flow left behind", async ({
   page,
 }) => {
   const seen: SeenRequest[] = []
@@ -333,7 +333,8 @@ test("a plain sign-up ends signed in on the profile, with nothing of the flow le
   await fillNameAndPassword(page)
   await page.getByRole("button", { name: "Create account" }).click()
 
-  await page.waitForURL("**/profile")
+  // Home, the accounts app's landing page (UI batch item 12).
+  await page.waitForURL((url) => url.pathname === "/")
   await expect(page.getByText("Your account is ready.")).toBeVisible()
 
   const storage = await page.evaluate(() => ({

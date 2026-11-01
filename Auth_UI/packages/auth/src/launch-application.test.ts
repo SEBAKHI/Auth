@@ -30,13 +30,14 @@ const followed = [
   "http://localhost:5173/login",
   "http://127.0.0.1:8080/login",
   "http://[::1]:8080/login",
+  // A home URL may name a hash-routed page; the server sends it (UI batch item 12).
+  "https://spa.example.com/#/dashboard",
 ]
 
 const refused = [
   "https://user@crm.example.com/",
   "https://a:b@crm.example.com/",
   "https://crm.example.com@evil.example.com/signin/start",
-  "https://crm.example.com/signin/start#fragment",
   "javascript:alert(1)",
   "JavaScript:alert(1)",
   "data:text/html,<script>alert(1)</script>",

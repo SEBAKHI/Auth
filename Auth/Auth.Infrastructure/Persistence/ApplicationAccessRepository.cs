@@ -93,7 +93,15 @@ public class ApplicationAccessRepository : IApplicationAccessRepository
                       AND aua.[RevokedAt] IS NULL
                       AND (aua.[ExpiresAt] IS NULL OR aua.[ExpiresAt] > GETUTCDATE()))
                     THEN 1 ELSE 0 END AS BIT) AS [ViaGrant],
-                a.[LogoUrlDark]
+                a.[LogoUrlDark],
+                a.[BaseUrl],
+                a.[InitiateLoginUri],
+                -- Application.HasBrowserSignIn, in SQL: a redirect URI of either kind.
+                CAST(CASE WHEN EXISTS (
+                    SELECT 1 FROM [dbo].[ApplicationRedirectUris] r WHERE r.[ApplicationId] = a.[Id])
+                  OR EXISTS (
+                    SELECT 1 FROM [dbo].[ApplicationConfidentialRedirectUris] c WHERE c.[ApplicationId] = a.[Id])
+                    THEN 1 ELSE 0 END AS BIT) AS [HasBrowserSignIn]
             FROM [dbo].[Applications] a
             WHERE {EntitlementPredicateSql}
             ORDER BY a.[Name]",

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 
+import { MyApplicationsPage } from "@authsystem/account/pages/home/my-applications-page"
 import { RequireAnonymous } from "@authsystem/auth/require-auth"
+import { RequireMfaSatisfied } from "@authsystem/auth/require-mfa-satisfied"
 
 import { router } from "./routes"
 
@@ -8,6 +10,7 @@ type RouteNode = {
   path?: string
   index?: boolean
   element?: { type?: unknown }
+  handle?: { crumb?: { titleKey: string; href: string } }
   lazy?: () => Promise<{ Component: unknown }>
   children?: RouteNode[]
 }
@@ -86,5 +89,25 @@ describe("accounts routes", () => {
     expect(root.children?.map((route) => route.path)).toContain(
       "/register/complete"
     )
+  })
+
+  /**
+   * UI batch item 12: `/` is Home, the person's applications, and no longer a
+   * redirect to the profile. It sits behind the second-factor guard like every
+   * page but the profile, and its crumb is the trail's home.
+   */
+  it("opens on Home, the person's applications", async () => {
+    const all = walk(router.routes as RouteNode[])
+    const guard = all.find(([, route]) => route.element?.type === RequireMfaSatisfied)?.[1]
+    expect(guard, "the RequireMfaSatisfied layout route").toBeDefined()
+
+    const inside = walk(guard!.children ?? [])
+    const home = inside.find(([, route]) => route.index)?.[1]
+    expect(home, "an index route inside the guard").toBeDefined()
+    expect(home!.handle?.crumb).toEqual(expect.objectContaining({ titleKey: "home", href: "/" }))
+
+    const load = lazyRoutes.find(([path]) => path === "(index)")?.[1]
+    expect(load, "the index route is lazy").toBeDefined()
+    expect((await load!()).Component).toBe(MyApplicationsPage)
   })
 })

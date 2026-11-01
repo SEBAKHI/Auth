@@ -78,6 +78,35 @@ public class ApplicationEntitlementSqlTests
     }
 
     [Fact]
+    public void TheListing_SelectsTheReadModelsColumnsInConstructorOrder()
+    {
+        // Dapper fills a positional record through its constructor, matching the selected
+        // columns by name AND position. A column added out of order compiles, and every
+        // listing (the user's applications page, the accounts Home) fails at run time.
+        var listing = ListingSelectList();
+        var parameters = typeof(Auth.Domain.ReadModels.Access.UserApplicationAccess)
+            .GetConstructors().Single().GetParameters().Select(p => p.Name!).ToArray();
+
+        var aliases = Regex.Matches(listing, @"(?:AS\s+\[(\w+)\]|(?<![\w.])a\.\[(\w+)\]\s*,)")
+            .Select(m => m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value)
+            .ToArray();
+
+        aliases.Should().Equal(parameters);
+    }
+
+    [Fact]
+    public void TheListing_StatesBrowserSignInAsTheEntityDoes()
+    {
+        // The SQL twin of Application.HasBrowserSignIn: a redirect URI of either kind. Reading
+        // only the public list would drop every server-side (OI-171) application from Home.
+        var listing = ListingSelectList();
+
+        listing.Should().Contain("[dbo].[ApplicationRedirectUris]");
+        listing.Should().Contain("[dbo].[ApplicationConfidentialRedirectUris]");
+        listing.Should().MatchRegex(@"AS\s+\[HasBrowserSignIn\]");
+    }
+
+    [Fact]
     public void NoOtherRepository_AnswersTheSameQuestion()
     {
         // HasAppAccessAsync used to answer a near-identical question from the
@@ -106,6 +135,23 @@ public class ApplicationEntitlementSqlTests
         end.Should().BeGreaterThan(start, "the predicate constant must be terminated");
 
         return repository[start..end];
+    }
+
+    /// <summary>
+    /// The SELECT list of GetApplicationsForUserAsync, up to its FROM.
+    /// </summary>
+    private static string ListingSelectList()
+    {
+        var repository = ReadRepository();
+        var method = repository.IndexOf("GetApplicationsForUserAsync(", StringComparison.Ordinal);
+        method.Should().BeGreaterThan(-1);
+
+        var select = repository.IndexOf("SELECT", method, StringComparison.Ordinal);
+        var from = repository.IndexOf("FROM [dbo].[Applications] a", select, StringComparison.Ordinal);
+        from.Should().BeGreaterThan(select);
+
+        // The nested EXISTS sub-selects carry their own FROM, but never "[Applications] a".
+        return repository[(select + "SELECT".Length)..from];
     }
 
     private static string ReadRepository() => File.ReadAllText(Path.Combine(

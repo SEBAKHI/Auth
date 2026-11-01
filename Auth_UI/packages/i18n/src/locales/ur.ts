@@ -337,6 +337,14 @@ export const ur: TranslationResources = {
     viaRole: "کردار کے ذریعے عطا",
     website: "ویب سائٹ",
   },
+  myApplications: {
+    title: "میری ایپلیکیشنز",
+    description: "وہ ایپلیکیشنز جن میں آپ سائن اِن کر سکتے ہیں۔ ہر ایک نئے ٹیب میں کھلتی ہے۔",
+    emptyTitle: "ابھی کوئی ایپلیکیشن نہیں",
+    emptyDescription: "جن ایپلیکیشنز میں آپ سائن اِن کر سکتے ہیں وہ یہاں نظر آئیں گی۔",
+    // Read after a tile's name by screen readers; never drawn.
+    opensInNewTab: "(نئے ٹیب میں کھلتی ہے)",
+  },
   nav: {
     notifications: "اطلاعات",
     notificationTemplates: "سانچے",
@@ -362,6 +370,8 @@ export const ur: TranslationResources = {
     security: "سلامتی",
     platform: "پلیٹ فارم",
     account: "اکاؤنٹ",
+    home: "ہوم",
+    myApplications: "میری ایپلیکیشنز",
     sidebar: "نیویگیشن",
     sidebarDescription: "بنیادی حصوں کے روابط۔",
     toggleSidebar: "نیویگیشن دکھائیں یا چھپائیں",

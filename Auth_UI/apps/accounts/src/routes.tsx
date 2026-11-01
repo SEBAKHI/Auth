@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom"
+import { createBrowserRouter } from "react-router-dom"
 
 import { RequireAnonymous, RequireAuth } from "@authsystem/auth/require-auth"
 import { RequireMfaSatisfied } from "@authsystem/auth/require-mfa-satisfied"
@@ -93,7 +93,16 @@ export const router = createBrowserRouter([
           (m) => m.AccountShell
         ),
         children: [
-          { index: true, element: <Navigate to="/profile" replace /> },
+          {
+            // Home (UI batch item 12): the applications this person can open.
+            // The landing page of the app, so signing in arrives here.
+            index: true,
+            lazy: lazyRoute(
+              () => import("@authsystem/account/pages/home/my-applications-page"),
+              (m) => m.MyApplicationsPage
+            ),
+            handle: crumb("home", "/"),
+          },
           {
             path: "profile",
             lazy: lazyRoute(

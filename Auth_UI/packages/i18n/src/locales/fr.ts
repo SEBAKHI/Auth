@@ -337,6 +337,14 @@ export const fr: TranslationResources = {
     viaRole: "Accordée via un rôle",
     website: "Site web",
   },
+  myApplications: {
+    title: "Mes applications",
+    description: "Les applications auxquelles vous pouvez vous connecter. Chacune s’ouvre dans un nouvel onglet.",
+    emptyTitle: "Aucune application pour l’instant",
+    emptyDescription: "Les applications auxquelles vous pouvez vous connecter apparaîtront ici.",
+    // Read after a tile's name by screen readers; never drawn.
+    opensInNewTab: "(s’ouvre dans un nouvel onglet)",
+  },
   nav: {
     notifications: "Notifications",
     notificationTemplates: "Modèles",
@@ -362,6 +370,8 @@ export const fr: TranslationResources = {
     security: "Sécurité",
     platform: "Plateforme",
     account: "Compte",
+    home: "Accueil",
+    myApplications: "Mes applications",
     sidebar: "Navigation",
     sidebarDescription: "Liens vers les sections principales.",
     toggleSidebar: "Afficher ou masquer la navigation",

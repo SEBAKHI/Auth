@@ -335,6 +335,14 @@ export const ar: TranslationResources = {
     viaRole: "ممنوح عبر دور",
     website: "الموقع الإلكتروني",
   },
+  myApplications: {
+    title: "تطبيقاتي",
+    description: "التطبيقات التي يمكنك تسجيل الدخول إليها. يفتح كلٌّ منها في تبويب جديد.",
+    emptyTitle: "لا توجد تطبيقات بعد",
+    emptyDescription: "ستظهر هنا التطبيقات التي يمكنك تسجيل الدخول إليها.",
+    // Read after a tile's name by screen readers; never drawn.
+    opensInNewTab: "(يفتح في تبويب جديد)",
+  },
   nav: {
     notifications: "الإشعارات",
     notificationTemplates: "القوالب",
@@ -360,6 +368,8 @@ export const ar: TranslationResources = {
     security: "الأمان",
     platform: "المنصة",
     account: "الحساب",
+    home: "الرئيسية",
+    myApplications: "تطبيقاتي",
     sidebar: "التنقل",
     sidebarDescription: "روابط إلى الأقسام الرئيسية.",
     toggleSidebar: "إظهار قائمة التنقل أو إخفاؤها",

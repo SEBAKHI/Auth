@@ -8,8 +8,9 @@ namespace Auth.Application.Common;
 
 /// <summary>
 /// The one answer to "where may this application be entered from IAM": after accepting an
-/// invitation that gave the invitee one of its roles (OI-192), and, through
-/// <see cref="HomeUrlOf"/>, the way home the anonymous branding endpoint offers.
+/// invitation that gave the invitee one of its roles (OI-192), from a tile of the accounts
+/// app's Home (<see cref="ForEntitled(string?, string?, bool)"/>), and, through
+/// <see cref="HomeUrlOf(ApplicationEntity)"/>, the way home the anonymous branding endpoint offers.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -47,7 +48,7 @@ public class ApplicationLaunchTarget
     /// </returns>
     public string? For(ApplicationEntity? application, InvitationApplicationRoleOutcome? outcome)
     {
-        if (application is null || !application.IsActive)
+        if (application is null)
         {
             return null;
         }
@@ -57,16 +58,55 @@ public class ApplicationLaunchTarget
             return null;
         }
 
+        return ForEntitled(
+            application.IsActive, application.InitiateLoginUri, application.BaseUrl, application.HasBrowserSignIn);
+    }
+
+    /// <summary>
+    /// Where a person who is already entitled to the application enters it from IAM, or null
+    /// when it offers no way in: the accepted invitation above, and, through
+    /// <see cref="ForHomeTile"/>, the tiles of the accounts app's Home (UI batch item 12).
+    /// </summary>
+    /// <param name="isActive">Whether the application is switched on; off launches nothing.</param>
+    /// <param name="initiateLoginUri">The registration's initiate-login URI, as stored.</param>
+    /// <param name="baseUrl">The registration's home URL, as stored.</param>
+    /// <param name="hasBrowserSignIn">See <c>Application.HasBrowserSignIn</c>.</param>
+    /// <returns>
+    /// The initiate-login URI with <c>iss</c> appended (OpenID Connect Core 1.0 §4, "Initiating
+    /// Login from a Third Party"), else the home URL (<see cref="HomeUrlOf(ApplicationEntity)"/>), else null.
+    /// </returns>
+    public string? ForEntitled(bool isActive, string? initiateLoginUri, string? baseUrl, bool hasBrowserSignIn)
+    {
+        if (!isActive)
+        {
+            return null;
+        }
+
         // Re-checked on the way out with the save's own rule, though a save already refused
         // anything else: the stored value is the browser's destination, and a row written by
         // any other means must not become one.
-        var stored = application.InitiateLoginUri;
-        var initiateLoginUri = !string.IsNullOrWhiteSpace(stored) && SharedValidationRules.IsAcceptableInitiateLoginUri(stored)
-            ? AsSafeAbsoluteUrl(stored)
+        var safeInitiateLoginUri =
+            !string.IsNullOrWhiteSpace(initiateLoginUri) && SharedValidationRules.IsAcceptableInitiateLoginUri(initiateLoginUri)
+                ? AsSafeAbsoluteUrl(initiateLoginUri)
+                : null;
+        return safeInitiateLoginUri is not null
+            ? WithIssuer(safeInitiateLoginUri, _jwtSettings.Issuer)
+            : HomeUrlOf(baseUrl, hasBrowserSignIn);
+    }
+
+    /// <summary>
+    /// Where a tile of the accounts app's Home opens the application: <see cref="ForEntitled"/>,
+    /// and only an <c>https</c> address (owner decision D9). The plain-http loopback addresses of
+    /// local development stay a way in after an accepted invitation, never a tile: a development
+    /// registration left in a shared database would otherwise point every user's tile at their
+    /// own machine.
+    /// </summary>
+    public string? ForHomeTile(bool isActive, string? initiateLoginUri, string? baseUrl, bool hasBrowserSignIn)
+    {
+        var launchUrl = ForEntitled(isActive, initiateLoginUri, baseUrl, hasBrowserSignIn);
+        return launchUrl is not null && launchUrl.StartsWith("https://", StringComparison.Ordinal)
+            ? launchUrl
             : null;
-        return initiateLoginUri is not null
-            ? WithIssuer(initiateLoginUri, _jwtSettings.Issuer)
-            : HomeUrlOf(application);
     }
 
     /// <summary>
@@ -76,14 +116,17 @@ public class ApplicationLaunchTarget
     /// URL is safe to render as a link. A machine client never exposes its address.
     /// </summary>
     public static string? HomeUrlOf(ApplicationEntity application) =>
-        application.RedirectUris.Count > 0 || application.ConfidentialRedirectUris.Count > 0
-            ? AsSafeAbsoluteUrl(application.BaseUrl)
-            : null;
+        HomeUrlOf(application.BaseUrl, application.HasBrowserSignIn);
+
+    private static string? HomeUrlOf(string? baseUrl, bool hasBrowserSignIn) =>
+        hasBrowserSignIn ? AsSafeAbsoluteUrl(baseUrl) : null;
 
     /// <summary>
-    /// The value when it is safe to render as a link or to navigate to: absolute, and
-    /// <c>https</c>, or <c>http</c> on a loopback host for local development. Anything else
-    /// (a relative path, another scheme such as <c>javascript:</c>) is withheld.
+    /// The value when it is safe to render as a link or to navigate to: absolute, without user
+    /// information (which only ever makes an address read as another host), and <c>https</c>,
+    /// or <c>http</c> on a loopback host of local development. Anything else (a relative path,
+    /// another scheme such as <c>javascript:</c>) is withheld. A fragment is kept: a home URL
+    /// may name a hash-routed page, and the browser re-check (<c>launchTarget</c>) keeps it too.
     /// </summary>
     private static string? AsSafeAbsoluteUrl(string? value)
     {
@@ -93,8 +136,9 @@ public class ApplicationLaunchTarget
             return null;
         }
 
-        var allowed = uri.Scheme == Uri.UriSchemeHttps ||
-                      (uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback);
+        var allowed = uri.UserInfo.Length == 0 &&
+                      (uri.Scheme == Uri.UriSchemeHttps ||
+                       (uri.Scheme == Uri.UriSchemeHttp && SharedValidationRules.IsDevelopmentLoopback(uri)));
         return allowed ? uri.AbsoluteUri : null;
     }
 
