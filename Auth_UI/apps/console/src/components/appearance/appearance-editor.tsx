@@ -39,6 +39,8 @@ import {
   BASE_COLOR_NAMES,
   CONTROL_HEIGHT,
   CUSTOM_PRESET,
+  HEADER_ICON_SIZES,
+  HEADER_ICON_SIZE_PX,
   MENU_ACCENT_OPTIONS,
   RADIUS_OPTIONS,
   SIZE_STEPS,
@@ -51,6 +53,7 @@ import {
   themeCss,
   type ColorChoice,
   type ColorMode,
+  type HeaderIconSize,
   type MenuAccent,
   type RadiusName,
   type SizeChoice,
@@ -526,6 +529,53 @@ function ScopedAppearance({ config, scope }: { config: ThemeConfig; scope: strin
 }
 
 /**
+ * The size of the header's icon buttons and avatar. Two steps, no custom
+ * value: the header is 56px tall at both, and the owner wants nothing larger.
+ */
+function HeaderIconSizeField({
+  value,
+  onChange,
+}: {
+  value: HeaderIconSize
+  onChange: (value: HeaderIconSize) => void
+}) {
+  const { t } = useTranslation()
+  const px = HEADER_ICON_SIZE_PX[value]
+
+  return (
+    <Field>
+      <FieldTitle id="appearance-header-icon-size">
+        {t("platformSettings.appearance.headerIconSize")}
+      </FieldTitle>
+      <ToggleGroup
+        type="single"
+        spacing={0}
+        variant="outline"
+        value={value}
+        aria-labelledby="appearance-header-icon-size"
+        onValueChange={(next) => {
+          // An empty value is the group deselecting itself on a second click.
+          if (!next) return
+          onChange(next as HeaderIconSize)
+        }}
+      >
+        {HEADER_ICON_SIZES.map((option) => (
+          <ToggleGroupItem key={option} value={option}>
+            {t(`platformSettings.appearance.headerIconSizes.${option}`)}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+      <FieldDescription>
+        {t("platformSettings.appearance.headerIconSizeHint", {
+          icon: px.icon,
+          button: px.button,
+        })}
+      </FieldDescription>
+    </Field>
+  )
+}
+
+/**
  * Every choice of an appearance, and the preview of both modes.
  *
  * Without `previewScope` the preview's tiles take the page's own tokens: the
@@ -533,17 +583,22 @@ function ScopedAppearance({ config, scope }: { config: ThemeConfig; scope: strin
  * administrator. With it, the tiles alone are painted with `value`, and the
  * console keeps its own colours: an application's appearance is never the
  * console's.
+ *
+ * `showHeaderIconSize` is the platform's alone: an application's sign-in pages
+ * have no header, so its appearance keeps the default and offers no choice.
  */
 export function AppearanceEditor({
   value,
   onChange,
   previewName,
   previewScope,
+  showHeaderIconSize = false,
 }: {
   value: ThemeConfig
   onChange: (update: (current: ThemeConfig) => ThemeConfig) => void
   previewName: string
   previewScope?: string
+  showHeaderIconSize?: boolean
 }) {
   const { t } = useTranslation()
   const baseOptions = [...BASE_COLOR_NAMES]
@@ -642,6 +697,17 @@ export function AppearanceEditor({
             onChange={(tableRowHeight) => onChange((current) => ({ ...current, tableRowHeight }))}
           />
         </div>
+        {showHeaderIconSize ? (
+          <>
+            <FieldSeparator />
+            <HeaderIconSizeField
+              value={value.headerIconSize}
+              onChange={(headerIconSize) =>
+                onChange((current) => ({ ...current, headerIconSize }))
+              }
+            />
+          </>
+        ) : null}
       </FieldGroup>
       {previewScope ? <ScopedAppearance config={value} scope={previewScope} /> : null}
       <AppearancePreview name={previewName} scope={previewScope} />

@@ -30,6 +30,10 @@ const buttonVariants = cva(
         "icon-xs": "size-6 [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-control-sm",
         "icon-lg": "size-control-lg",
+        // The header's icon buttons: their size and their icon's follow the
+        // platform's header icon size (preset.css), not the control height.
+        "icon-header":
+          "size-header-button [&_svg:not([class*='size-'])]:size-header-icon",
       },
     },
     defaultVariants: {
@@ -62,4 +66,6 @@ function Button({
   )
 }
 
-export { Button, buttonVariants }
+type ButtonSize = NonNullable<VariantProps<typeof buttonVariants>["size"]>
+
+export { Button, buttonVariants, type ButtonSize }

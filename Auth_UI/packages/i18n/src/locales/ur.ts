@@ -345,6 +345,7 @@ export const ur: TranslationResources = {
     emptyDescription: "جن ایپلیکیشنز میں آپ سائن اِن کر سکتے ہیں وہ یہاں نظر آئیں گی۔",
     // Read after a tile's name by screen readers; never drawn.
     opensInNewTab: "(نئے ٹیب میں کھلتی ہے)",
+    launcher: "ایپلیکیشنز",
   },
   nav: {
     notifications: "اطلاعات",
@@ -2193,6 +2194,12 @@ export const ur: TranslationResources = {
       controlSizeHint: "بٹن، ان پٹ فیلڈز، ڈراپ ڈاؤن اور ٹوگلز، سب ایک ساتھ: اس وقت {{px}} پکسل۔",
       tableRowHeight: "ٹیبل کی قطاروں کی اونچائی",
       tableRowHeightHint: "متن کی ایک سطر والی قطار: اس وقت {{px}} پکسل۔ تصویر یا بٹن والی قطار ان کی اضافی اونچائی جتنی اونچی ہوتی ہے۔",
+      headerIconSize: "ہیڈر کے آئیکنز کا سائز",
+      headerIconSizeHint: "ہر صفحے کے اوپر آئیکن بٹن اور آپ کی تصویر: {{button}} px بٹنوں پر {{icon}} px آئیکنز، اور تصویر بٹن جتنی بڑی۔ پٹی کی اونچائی وہی رہتی ہے۔",
+      headerIconSizes: {
+        small: "چھوٹا",
+        default: "پہلے سے طے شدہ",
+      },
       sizes: {
         compact: "کمپیکٹ",
         default: "پہلے سے طے شدہ",

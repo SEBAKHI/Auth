@@ -35,7 +35,15 @@ describe("toThemeConfig", () => {
       menuAccent: "bold",
       controlSize: { preset: "default" },
       tableRowHeight: { preset: "default" },
+      headerIconSize: "default",
     })
+  })
+
+  it("reads the header icon size, and the default for one it does not know or that is absent", () => {
+    expect(toThemeConfig({ headerIconSize: "small" }).headerIconSize).toBe("small")
+    expect(toThemeConfig({ headerIconSize: "default" }).headerIconSize).toBe("default")
+    expect(toThemeConfig({ headerIconSize: "large" }).headerIconSize).toBe("default")
+    expect(toThemeConfig({}).headerIconSize).toBe("default")
   })
 
   it("reads the two heights: a step, or custom pixels (int32 may arrive as a string)", () => {
@@ -104,5 +112,14 @@ describe("themeConfigKey", () => {
     expect(
       themeConfigKey({ ...DEFAULT_THEME_CONFIG, controlSize: { preset: "default", px: 40 } })
     ).toBe(themeConfigKey(DEFAULT_THEME_CONFIG))
+  })
+})
+
+describe("toThemeRequest — the header icon size", () => {
+  it("sends the chosen size as its name", () => {
+    expect(toThemeRequest({ ...DEFAULT_THEME_CONFIG, headerIconSize: "small" }).headerIconSize).toBe(
+      "small"
+    )
+    expect(toThemeRequest(DEFAULT_THEME_CONFIG).headerIconSize).toBe("default")
   })
 })

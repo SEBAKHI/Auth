@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using Auth.Domain.ValueObjects;
 using Dapper;
 
@@ -231,6 +232,8 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
     /// (an unknown step, a height out of bounds, or a value of the wrong JSON
     /// type), because a height cannot leave a palette half built. The sizes
     /// are therefore read field by field, never as part of the row's type.
+    /// The header icon size likewise: absent (saved before it existed, or the
+    /// default, which is never written) or unreadable, it reads as the default.
     /// </remarks>
     public static class ThemeJson
     {
@@ -259,7 +262,10 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
                     theme.Radius,
                     theme.MenuAccent,
                     Element(theme.ControlSize),
-                    Element(theme.TableRowHeight)),
+                    Element(theme.TableRowHeight),
+                    theme.HeaderIconSize == ThemePresets.DefaultHeaderIconSize
+                        ? null
+                        : JsonSerializer.SerializeToElement(theme.HeaderIconSize, Options)),
                 Options);
 
         public static PlatformTheme Read(string? json) => ReadOrNull(json) ?? PlatformTheme.Default;
@@ -283,13 +289,14 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
                     return null;
                 }
 
-                var theme = Create(row, Size(row.ControlSize), Size(row.TableRowHeight));
+                var headerIconSize = HeaderIconSize(row.HeaderIconSize);
+                var theme = Create(row, Size(row.ControlSize), Size(row.TableRowHeight), headerIconSize);
                 if (!theme.IsError)
                 {
                     return theme.Value;
                 }
 
-                theme = Create(row, ThemeSizeChoice.Default, ThemeSizeChoice.Default);
+                theme = Create(row, ThemeSizeChoice.Default, ThemeSizeChoice.Default, headerIconSize);
                 return theme.IsError ? null : theme.Value;
             }
             catch (JsonException)
@@ -299,7 +306,7 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
         }
 
         private static ErrorOr.ErrorOr<PlatformTheme> Create(
-            ThemeRow row, ThemeSizeChoice controlSize, ThemeSizeChoice tableRowHeight) =>
+            ThemeRow row, ThemeSizeChoice controlSize, ThemeSizeChoice tableRowHeight, string headerIconSize) =>
             PlatformTheme.Create(
                 Choice(row.Base),
                 Choice(row.Theme),
@@ -307,7 +314,8 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
                 row.Radius,
                 row.MenuAccent,
                 controlSize,
-                tableRowHeight);
+                tableRowHeight,
+                headerIconSize);
 
         private static ChoiceRow Row(ThemeColorChoice choice) => new(choice.Preset, choice.Light, choice.Dark);
 
@@ -348,6 +356,17 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
                 : Unreadable;
         }
 
+        /// <summary>
+        /// The stored header icon size: a known name, or the default for
+        /// anything else (absent, null, not text, or a name this build does not know).
+        /// </summary>
+        private static string HeaderIconSize(JsonElement? stored) =>
+            stored is { ValueKind: JsonValueKind.String } element
+                && element.GetString() is { } name
+                && ThemePresets.HeaderIconSizes.Contains(name)
+                ? name
+                : ThemePresets.DefaultHeaderIconSize;
+
         private sealed record ChoiceRow(string Preset, string? Light, string? Dark);
 
         private sealed record SizeRow(string Preset, int? Px);
@@ -359,7 +378,8 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
             string? Radius,
             string? MenuAccent,
             JsonElement? ControlSize,
-            JsonElement? TableRowHeight);
+            JsonElement? TableRowHeight,
+            JsonElement? HeaderIconSize);
     }
 
     private record PlatformSettingsDto

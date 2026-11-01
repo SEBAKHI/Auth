@@ -33,41 +33,44 @@ async function openMenu(props: Parameters<typeof UserMenu>[0]) {
 }
 
 /**
- * UI batch item 12, owner decision D9: the console reaches the person's own
- * applications from the user menu. The accounts app links them from its nav
- * (Home), so it passes no route and shows no entry.
+ * The person's applications left the avatar menu for the grid button beside
+ * it (owner, 2026-11-02): the menu holds the profile and signing out only.
  */
 describe("UserMenu", () => {
-  it("links the person's applications where the shell asks for it", async () => {
-    await openMenu({ myApplicationsHref: "/my-applications" })
-
-    expect(
-      screen.getByRole("menuitem", { name: "My applications" })
-    ).toHaveAttribute("href", "/my-applications")
-    expect(
-      screen.getByRole("menuitem", { name: "Profile" })
-    ).toBeInTheDocument()
-  })
-
-  it("shows no such entry by default", async () => {
+  it("offers the profile and signing out, and no applications entry", async () => {
     await openMenu({})
 
+    expect(screen.getByRole("menuitem", { name: "Profile" })).toHaveAttribute(
+      "href",
+      "/profile"
+    )
+    expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument()
+    expect(screen.getAllByRole("menuitem")).toHaveLength(2)
     expect(
       screen.queryByRole("menuitem", { name: "My applications" })
     ).not.toBeInTheDocument()
   })
 
-  it("keeps the entry when the profile entry is hidden", async () => {
-    await openMenu({
-      showProfile: false,
-      myApplicationsHref: "/my-applications",
-    })
+  it("drops the profile entry where the shell's nav already links it", async () => {
+    await openMenu({ showProfile: false })
 
-    expect(
-      screen.getByRole("menuitem", { name: "My applications" })
-    ).toBeInTheDocument()
     expect(
       screen.queryByRole("menuitem", { name: "Profile" })
     ).not.toBeInTheDocument()
+    expect(screen.getAllByRole("menuitem")).toHaveLength(1)
+  })
+
+  it("draws its avatar as large as the header's buttons", () => {
+    const client = new QueryClient()
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <UserMenu />
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+    const trigger = screen.getByRole("button", { name: "Jane Doe" })
+    expect(trigger).toHaveAttribute("data-size", "icon-header")
+    expect(trigger.querySelector("[data-slot=avatar]")).toHaveClass("size-header-button")
   })
 })

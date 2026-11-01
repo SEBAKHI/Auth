@@ -343,6 +343,7 @@ export const ar: TranslationResources = {
     emptyDescription: "ستظهر هنا التطبيقات التي يمكنك تسجيل الدخول إليها.",
     // Read after a tile's name by screen readers; never drawn.
     opensInNewTab: "(يفتح في تبويب جديد)",
+    launcher: "التطبيقات",
   },
   nav: {
     notifications: "الإشعارات",
@@ -2163,6 +2164,12 @@ export const ar: TranslationResources = {
       controlSizeHint: "الأزرار وحقول الإدخال والقوائم المنسدلة ومفاتيح التبديل معًا: {{px}} بكسل الآن.",
       tableRowHeight: "ارتفاع صفوف الجداول",
       tableRowHeightHint: "صفّ فيه سطر نصّ واحد: {{px}} بكسل الآن. والصفّ الذي يحمل صورة أو زرًّا يزيد بقدر ارتفاعهما الزائد.",
+      headerIconSize: "حجم أيقونات الشريط العلوي",
+      headerIconSizeHint: "أزرار الأيقونات وصورتك في أعلى كل صفحة: أيقونات {{icon}} بكسل على أزرار {{button}} بكسل، والصورة بحجم الزر. يبقى الشريط بارتفاعه نفسه.",
+      headerIconSizes: {
+        small: "صغير",
+        default: "افتراضي",
+      },
       sizes: {
         compact: "مضغوط",
         default: "افتراضي",

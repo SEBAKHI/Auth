@@ -275,6 +275,8 @@ describe("useAppTheme", () => {
         menuAccent: "bold",
         controlSize: { preset: "custom", px: 44 },
         tableRowHeight: { preset: "comfortable" },
+        // An application's appearance has no header to size: always the default.
+        headerIconSize: "default",
       })
     )
   })

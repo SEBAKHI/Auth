@@ -345,6 +345,7 @@ export const tr: TranslationResources = {
     emptyDescription: "Oturum açabileceğiniz uygulamalar burada görünecek.",
     // Read after a tile's name by screen readers; never drawn.
     opensInNewTab: "(yeni sekmede açılır)",
+    launcher: "Uygulamalar",
   },
   nav: {
     notifications: "Bildirimler",
@@ -2208,6 +2209,12 @@ export const tr: TranslationResources = {
       controlSizeHint: "Düğmeler, alanlar, seçim listeleri ve geçişler hep birlikte: şu an {{px}} px.",
       tableRowHeight: "Tablo satırı yüksekliği",
       tableRowHeightHint: "Tek satır metin içeren bir satır: şu an {{px}} px. Resim veya düğme içeren bir satır, onların fazladan yüksekliği kadar daha yüksektir.",
+      headerIconSize: "Üst çubuk simge boyutu",
+      headerIconSizeHint: "Her sayfanın üstündeki simge düğmeleri ve resminiz: {{button}} px düğmelerde {{icon}} px simgeler; resim bir düğme kadar büyük. Çubuğun yüksekliği değişmez.",
+      headerIconSizes: {
+        small: "Küçük",
+        default: "Varsayılan",
+      },
       sizes: {
         compact: "Sıkı",
         default: "Varsayılan",

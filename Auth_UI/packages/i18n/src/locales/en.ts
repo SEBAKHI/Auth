@@ -346,6 +346,9 @@ export const en = {
     emptyDescription: "Applications you can sign in to will appear here.",
     // Read after a tile's name by screen readers; never drawn.
     opensInNewTab: "(opens in a new tab)",
+    // The name of the grid button beside the avatar in the header, which opens
+    // these applications as tiles in a panel. Announced, never drawn.
+    launcher: "Applications",
   },
   nav: {
     notifications: "Notifications",
@@ -2226,6 +2229,12 @@ export const en = {
       controlSizeHint: "Buttons, inputs, selects and toggles, all together: {{px}} px now.",
       tableRowHeight: "Table row height",
       tableRowHeightHint: "A row with one line of text: {{px}} px now. A row holding a picture or a button is taller by their extra height.",
+      headerIconSize: "Header icon size",
+      headerIconSizeHint: "The icon buttons and your picture at the top of every page: {{icon}} px icons on {{button}} px buttons, and the picture as large as a button. The bar stays the same height.",
+      headerIconSizes: {
+        small: "Small",
+        default: "Default",
+      },
       sizes: {
         compact: "Compact",
         default: "Default",

@@ -24,6 +24,7 @@ import { useActiveTimeZone } from "@authsystem/i18n/timezone"
 import { useLanguage } from "@authsystem/i18n/direction"
 import { BrandingLogo, useBranding } from "@authsystem/ui/branding"
 import { AppBreadcrumbs, ParentLink } from "@authsystem/ui/common/app-breadcrumbs"
+import { AppsLauncher } from "@authsystem/ui/common/apps-launcher"
 import { LanguageToggle } from "@authsystem/ui/common/language-toggle"
 import { ThemeToggle } from "@authsystem/ui/common/theme-toggle"
 import { UserMenu } from "@authsystem/ui/common/user-menu"
@@ -56,8 +57,6 @@ interface AppShellProps {
   profileHref?: string
   /** Forwarded to the header UserMenu. */
   showProfile?: boolean
-  /** Forwarded to the header UserMenu. */
-  myApplicationsHref?: string
   /**
    * App-specific header controls, placed before the language and theme
    * toggles. The console puts its settings search here; the accounts app
@@ -213,7 +212,6 @@ export function AppShell({
   homeHref,
   profileHref,
   showProfile,
-  myApplicationsHref,
   headerExtras,
 }: AppShellProps) {
   // The same store `SidebarProvider` reads, so the header and the sidebar can
@@ -239,7 +237,10 @@ export function AppShell({
               Above it the sidebar is always present, so the control belongs on
               the thing it collapses and the mark gets a slot that never shrinks. */}
           {isMobile ? (
-            <SidebarTrigger />
+            // A header button here, sized with the others. The same control
+            // inside the sidebar keeps the sidebar's own size, fitted to the
+            // collapsed rail and to the menu rows below it.
+            <SidebarTrigger size="icon-header" className="size-header-button" />
           ) : (
             <NavLink
               to={homeHref ?? "/"}
@@ -266,15 +267,15 @@ export function AppShell({
             homeHref={homeHref}
             className="hidden lg:flex"
           />
+          {/* The icon buttons and the avatar follow the platform's header icon
+              size (Platform settings › Appearance); the bar stays h-14 at both
+              sizes. The grid button sits beside the avatar, as on Google's pages. */}
           <div className="ms-auto flex items-center gap-1">
             {headerExtras}
-            <LanguageToggle />
-            <ThemeToggle />
-            <UserMenu
-              profileHref={profileHref}
-              showProfile={showProfile}
-              myApplicationsHref={myApplicationsHref}
-            />
+            <LanguageToggle size="icon-header" />
+            <ThemeToggle size="icon-header" />
+            <AppsLauncher />
+            <UserMenu profileHref={profileHref} showProfile={showProfile} />
           </div>
         </header>
         {/* `min-h-0` so this can actually shrink inside the flex column; without
