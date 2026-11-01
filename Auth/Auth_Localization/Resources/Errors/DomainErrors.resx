@@ -1747,4 +1747,10 @@
   <data name="Template.TooComplex" xml:space="preserve">
     <value>The template is too complex to render: it nests blocks too deeply, takes too long, or builds too much text while it renders. Simplify its loops and its nesting.</value>
   </data>
+  <data name="HiddenLanguages.DefaultLanguageRequired" xml:space="preserve">
+    <value>English cannot be hidden: it is the language every page falls back to.</value>
+  </data>
+  <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
+    <value>Only a language the apps ship can be hidden.</value>
+  </data>
 </root>

@@ -18,6 +18,9 @@ export const SUPPORTED_LANGUAGES = [
 
 export type LanguageCode = (typeof SUPPORTED_LANGUAGES)[number]["code"]
 
+/** The language every page falls back to: always shipped, never hidden. */
+export const DEFAULT_LANGUAGE: LanguageCode = "en"
+
 export function isLanguageCode(value: string | null | undefined): value is LanguageCode {
   return SUPPORTED_LANGUAGES.some((lang) => lang.code === value)
 }

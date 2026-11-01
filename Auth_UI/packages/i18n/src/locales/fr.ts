@@ -2151,6 +2151,15 @@ export const fr: TranslationResources = {
   platformSettings: {
     tabIdentity: "Identité",
     tabFonts: "Polices",
+    tabLanguages: "Langues",
+    languages: {
+      title: "Menus des langues",
+      subtitle: "Les langues que proposent les menus de langue de la console, de l’application des comptes et des pages de connexion. Une langue masquée n’est ni listée ni téléchargée, et quiconque l’utilise voit l’anglais à la place. Les traductions des notifications et des modèles de page de connexion gardent toutes les langues.",
+      legend: "Affichées dans les menus de langue",
+      englishAlwaysShown: "Toujours affichée : chaque page se replie sur l’anglais.",
+      revert: "Annuler les modifications",
+      saved: "Langues enregistrées.",
+    },
     fonts: {
       subtitle: "Les polices propres à la plateforme, utilisées dans la console, l’application des comptes et chaque modèle de page de connexion. Les e-mails gardent leurs propres polices.",
       heading: { title: "Police des titres", description: "Les titres des cartes, boîtes de dialogue et panneaux, et ceux des modèles de page de connexion. Sans elle, les titres utilisent la police du texte." },

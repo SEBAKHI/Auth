@@ -61,6 +61,7 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
             LogoHeightPx = settings.LogoHeight?.Px,
             Theme = PlatformThemeDto.From(settings.Theme),
             Fonts = PlatformFontsDto.From(settings, _imageUrlComposer),
+            HiddenLanguages = settings.HiddenLanguages.Codes,
             StaySignedInOffered = _idpSettings.StaySignedInOffered,
             CodeSignInOffered = _emailSettings.Enabled,
             PrimaryMethod = signUp.PasswordRequired ? SignInMethods.Password : SignInMethods.Code,

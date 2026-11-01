@@ -162,6 +162,8 @@ export const PUBLISHED_ERROR_CODES = {
   "Font.FileTooLarge": "catalog",
   "Font.Invalid": "catalog",
   "Font.StorageUnavailable": "catalog",
+  "HiddenLanguages.DefaultLanguageRequired": "catalog",
+  "HiddenLanguages.UnsupportedLanguage": "catalog",
   "Http.BadRequest": "transport",
   "Http.ContentTooLarge": "transport",
   "Http.Forbidden": "transport",

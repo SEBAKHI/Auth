@@ -1745,4 +1745,10 @@
   <data name="Template.TooComplex" xml:space="preserve">
     <value>Le modèle est trop complexe à produire : il imbrique ses blocs trop profondément, prend trop de temps ou construit trop de texte pendant le rendu. Simplifiez ses boucles et ses imbrications.</value>
   </data>
+  <data name="HiddenLanguages.DefaultLanguageRequired" xml:space="preserve">
+    <value>L’anglais ne peut pas être masqué : c’est la langue de repli de chaque page.</value>
+  </data>
+  <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
+    <value>Seule une langue proposée par les applications peut être masquée.</value>
+  </data>
 </root>

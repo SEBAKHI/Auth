@@ -1,17 +1,17 @@
 import { TZDate } from "@date-fns/tz"
 import { format, formatDistanceToNow, parseISO, type Locale } from "date-fns"
-import { ar, faIR, fr, tr, zhCN } from "date-fns/locale"
 
-import i18n from "@authsystem/i18n"
+import i18n, { dateLocaleFor } from "@authsystem/i18n"
 import { getActiveTimeZone } from "@authsystem/i18n/timezone"
 
-// date-fns locale per UI language. English needs none, and date-fns ships no
-// Urdu locale, so "en" and "ur" use the default English date formatting.
-const DATE_LOCALES: Record<string, Locale> = { ar, tr, fr, zh: zhCN, fa: faIR }
-
-/** The date-fns locale matching the active UI language (undefined = English). */
+/**
+ * The date-fns locale matching the active UI language (undefined = English). English needs
+ * none, and date-fns ships no Urdu locale, so "en" and "ur" use the default English date
+ * formatting. Each locale loads with its language's bundle (`loadLanguage`), never in the
+ * entry chunk, and is in place before the language becomes active.
+ */
 export function activeDateLocale(): Locale | undefined {
-  return DATE_LOCALES[i18n.language]
+  return dateLocaleFor(i18n.language)
 }
 
 /** BCP-47 tag for number formatting: active language with Latin digits. */

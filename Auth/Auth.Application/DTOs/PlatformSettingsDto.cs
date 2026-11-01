@@ -46,6 +46,12 @@ public class PlatformSettingsDto
     /// <summary>The platform's own fonts: heading and body, each absent while the shipped one is used.</summary>
     public PlatformFontsDto Fonts { get; set; } = new();
 
+    /// <summary>
+    /// The language codes hidden from the language menus of both apps, in the order the menus
+    /// list them; empty when every language is shown. Never <c>en</c>.
+    /// </summary>
+    public IReadOnlyList<string> HiddenLanguages { get; set; } = [];
+
     public DateTime? ModifiedAt { get; set; }
     public Guid? ModifiedBy { get; set; }
     public string? ModifiedByName { get; set; }
@@ -69,6 +75,7 @@ public class PlatformSettingsDto
         Theme = PlatformThemeDto.From(settings.Theme),
         LogoHeightPx = settings.LogoHeight?.Px,
         Fonts = PlatformFontsDto.From(settings, imageUrlComposer),
+        HiddenLanguages = settings.HiddenLanguages.Codes,
         ModifiedAt = settings.ModifiedAt,
         ModifiedBy = settings.ModifiedBy,
         ModifiedByName = settings.ModifiedBy.HasValue
@@ -104,6 +111,12 @@ public class PlatformBrandingDto
     /// absent while the shipped IBM Plex Sans is used.
     /// </summary>
     public PlatformFontsDto Fonts { get; set; } = new();
+
+    /// <summary>
+    /// The language codes both apps leave out of their language menus and never download; a
+    /// page that would open in one opens in English. Empty when every language is shown.
+    /// </summary>
+    public IReadOnlyList<string> HiddenLanguages { get; set; } = [];
 
     /// <summary>
     /// Whether the sign-in page offers the "Stay signed in" box: true only while

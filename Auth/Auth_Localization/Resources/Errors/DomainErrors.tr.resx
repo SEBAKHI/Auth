@@ -1745,4 +1745,10 @@
   <data name="Template.TooComplex" xml:space="preserve">
     <value>Şablon oluşturulamayacak kadar karmaşık: blokları çok derin iç içe geçiriyor, çok uzun sürüyor veya oluşturulurken çok fazla metin üretiyor. Döngülerini ve iç içeliğini sadeleştirin.</value>
   </data>
+  <data name="HiddenLanguages.DefaultLanguageRequired" xml:space="preserve">
+    <value>İngilizce gizlenemez: her sayfanın geri döndüğü dil odur.</value>
+  </data>
+  <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
+    <value>Yalnızca uygulamaların sunduğu bir dil gizlenebilir.</value>
+  </data>
 </root>

@@ -1745,4 +1745,10 @@
   <data name="Template.TooComplex" xml:space="preserve">
     <value>سانچہ بنانے کے لیے بہت پیچیدہ ہے: یہ بلاکس کو بہت گہرائی تک ایک دوسرے کے اندر رکھتا ہے، بہت وقت لیتا ہے، یا بناتے وقت بہت زیادہ متن بناتا ہے۔ اس کے لوپس اور اندرونی ترتیب کو آسان بنائیں۔</value>
   </data>
+  <data name="HiddenLanguages.DefaultLanguageRequired" xml:space="preserve">
+    <value>انگریزی چھپائی نہیں جا سکتی: یہی وہ زبان ہے جس پر ہر صفحہ واپس آتا ہے۔</value>
+  </data>
+  <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
+    <value>صرف وہی زبان چھپائی جا سکتی ہے جو ایپس فراہم کرتی ہیں۔</value>
+  </data>
 </root>

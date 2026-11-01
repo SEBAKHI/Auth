@@ -15802,6 +15802,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/platform-settings/hidden-languages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateHiddenLanguagesRequest"];
+                    "text/json": components["schemas"]["UpdateHiddenLanguagesRequest"];
+                    "application/*+json": components["schemas"]["UpdateHiddenLanguagesRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformSettingsDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/platform-settings/fonts/{role}": {
         parameters: {
             query?: never;
@@ -19360,6 +19428,7 @@ export interface components {
             logoHeightPx?: null | number | string;
             theme?: components["schemas"]["PlatformThemeDto"];
             fonts?: components["schemas"]["PlatformFontsDto"];
+            hiddenLanguages?: string[];
             staySignedInOffered?: boolean;
             codeSignInOffered?: boolean;
             primaryMethod?: string;
@@ -19385,6 +19454,7 @@ export interface components {
             /** Format: int32 */
             logoHeightPx?: null | number | string;
             fonts?: components["schemas"]["PlatformFontsDto"];
+            hiddenLanguages?: string[];
             /** Format: date-time */
             modifiedAt?: null | string;
             /** Format: uuid */
@@ -20067,6 +20137,9 @@ export interface components {
             postLogoutRedirectUris?: null | string[];
             confidentialRedirectUris?: null | string[];
             initiateLoginUri?: null | string;
+        };
+        UpdateHiddenLanguagesRequest: {
+            hiddenLanguages: null | string[];
         };
         UpdateLoginDesignRequest: {
             name: string;

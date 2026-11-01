@@ -1747,4 +1747,10 @@
   <data name="Template.TooComplex" xml:space="preserve">
     <value>القالب أعقد من أن يُعرض: فهو يُدخل الكتل بعضها في بعض بعمق كبير، أو يستغرق وقتًا طويلًا، أو يبني نصًّا كثيرًا أثناء عرضه. بسّط حلقاته وتداخله.</value>
   </data>
+  <data name="HiddenLanguages.DefaultLanguageRequired" xml:space="preserve">
+    <value>لا يمكن إخفاء الإنجليزية: فهي اللغة التي تعود إليها كل الصفحات.</value>
+  </data>
+  <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
+    <value>لا يمكن إخفاء إلا لغةٍ من اللغات التي يوفّرها التطبيقان.</value>
+  </data>
 </root>

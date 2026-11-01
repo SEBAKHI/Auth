@@ -39,4 +39,10 @@ public interface IPlatformSettingsRepository
     /// the seed row is missing, for the same reason as <see cref="UpdateThemeAsync"/>.
     /// </summary>
     Task UpdateFontsAsync(PlatformSettings settings, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Persists the hidden languages and the modification stamp only, inserting the row when
+    /// the seed row is missing, for the same reason as <see cref="UpdateThemeAsync"/>.
+    /// </summary>
+    Task UpdateHiddenLanguagesAsync(PlatformSettings settings, CancellationToken cancellationToken);
 }
