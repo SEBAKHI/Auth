@@ -214,6 +214,49 @@ test("a logo that fails to load shows the name's initials", async ({
   await expect(crm.locator("img")).toHaveCSS("object-fit", "contain")
 })
 
+test("a long name stops at two lines, so its row stays as short as the others, and a tile has no border", async ({
+  page,
+}) => {
+  await signIn(page, SEVEN)
+
+  const name = (pattern: RegExp) =>
+    grid(page)
+      .getByRole("link", { name: pattern })
+      .locator("[data-slot=item-title]")
+  const lines = (box: { height: number } | null, lineHeight: number) =>
+    Math.round(box!.height / lineHeight)
+  const lineHeight = await name(/^Wiki/).evaluate((element) =>
+    parseFloat(getComputedStyle(element).lineHeight)
+  )
+
+  // Floor: a one-line name measures one line, so the count below can move.
+  expect(lines(await name(/^Wiki/).boundingBox(), lineHeight)).toBe(1)
+  expect(lines(await name(/^Payroll/).boundingBox(), lineHeight)).toBe(2)
+  await expect(name(/^Payroll/)).toHaveAttribute(
+    "title",
+    "Payroll and human resources self-service portal"
+  )
+
+  // A name that wraps grows downwards: its logo stays level with the logos
+  // beside it (owner, 2026-11-01).
+  const logoOffsets = await grid(page)
+    .getByRole("link")
+    .evaluateAll((elements) =>
+      elements.map((element) => {
+        const media = element.querySelector("[data-slot=item-media]")!
+        return Math.round(
+          media.getBoundingClientRect().top -
+            element.getBoundingClientRect().top
+        )
+      })
+    )
+  expect(logoOffsets).toHaveLength(SEVEN.length)
+  expect(new Set(logoOffsets).size, "logo offset inside each tile").toBe(1)
+
+  const crm = grid(page).getByRole("link", { name: /^CRM/ })
+  await expect(crm).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)")
+})
+
 test("placeholder tiles while the list loads, then the tiles", async ({
   page,
 }) => {
@@ -320,6 +363,13 @@ for (const language of ["en", "ar"] as const) {
               name: "CRM (يفتح في تبويب جديد)",
             })
           ).toBeVisible()
+          // A Latin name on an Arabic page keeps its own direction, so the
+          // two-line cut drops its end, never its first letters.
+          await expect(
+            grid(page, title)
+              .getByRole("link", { name: /^Payroll/ })
+              .locator("[data-slot=item-title]")
+          ).toHaveCSS("direction", "ltr")
         }
         await expectNoShellOverflow(page, `${language} ${mode} ${width}`)
         await page.screenshot({

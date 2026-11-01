@@ -142,13 +142,10 @@ function ApplicationTile({
   const resolvedTheme = useResolvedTheme()
 
   // Stacked from the top, not centred: a name that wraps to two lines must not
-  // lift its logo above the logos beside it in the same row.
+  // lift its logo above the logos beside it in the same row. No border (owner,
+  // 2026-11-01): the tile shows only on hover and focus, from the preset.
   return (
-    <Item
-      asChild
-      variant="outline"
-      className="h-full flex-col flex-nowrap text-center"
-    >
+    <Item asChild className="h-full flex-col flex-nowrap text-center">
       <a href={href} target="_blank" rel="noopener noreferrer">
         {/* Hidden from the accessibility tree: the name below already names the
             link, and the image's alt (or its initials) would say it twice. */}
@@ -167,9 +164,14 @@ function ApplicationTile({
           />
         </ItemMedia>
         <ItemContent className="w-full min-w-0 flex-none items-center">
-          {/* Two lines at most; the whole name on hover. */}
+          {/* Two lines at most; the whole name on hover. No display class
+              here: one after `line-clamp-2` overrides its -webkit-box and the
+              name grows to every line it needs. `dir="auto"`: the name keeps
+              its own direction, so a Latin name cut short on an Arabic page
+              loses its end, not its first letters. */}
           <ItemTitle
-            className="line-clamp-2 block w-full break-words"
+            dir="auto"
+            className="line-clamp-2 w-full break-words"
             title={application.name}
           >
             {application.name}
