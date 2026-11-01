@@ -529,9 +529,8 @@ function ScopedAppearance({ config, scope }: { config: ThemeConfig; scope: strin
 }
 
 /**
- * The size of the header's icon buttons and avatar. Three steps, no custom
- * value: the header is 56px tall at every size, and the largest step already
- * leaves the biggest button 4px either side.
+ * The size of the header's icon buttons and avatar. Two steps, no custom
+ * value: the header is 56px tall at both, and the owner wants nothing larger.
  */
 function HeaderIconSizeField({
   value,
@@ -570,7 +569,6 @@ function HeaderIconSizeField({
         {t("platformSettings.appearance.headerIconSizeHint", {
           icon: px.icon,
           button: px.button,
-          avatar: px.avatar,
         })}
       </FieldDescription>
     </Field>

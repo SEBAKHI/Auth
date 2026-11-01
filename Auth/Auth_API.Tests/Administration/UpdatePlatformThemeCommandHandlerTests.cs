@@ -36,7 +36,7 @@ public class UpdatePlatformThemeCommandHandlerTests
         Guid? updatedBy = null,
         ThemeSizeChoice? controlSize = null,
         ThemeSizeChoice? tableRowHeight = null,
-        string? headerIconSize = "large") =>
+        string? headerIconSize = "small") =>
         new(
             new ThemeColorChoice("stone"),
             theme ?? new ThemeColorChoice("amber"),
@@ -67,7 +67,7 @@ public class UpdatePlatformThemeCommandHandlerTests
         result.Value.Theme.ControlSize.Px.Should().BeNull();
         result.Value.Theme.TableRowHeight.Preset.Should().Be("custom");
         result.Value.Theme.TableRowHeight.Px.Should().Be(60);
-        result.Value.Theme.HeaderIconSize.Should().Be("large");
+        result.Value.Theme.HeaderIconSize.Should().Be("small");
         result.Value.ModifiedBy.Should().Be(actor);
         _settingsRepoMock.Verify(
             r => r.UpdateThemeAsync(
@@ -75,7 +75,7 @@ public class UpdatePlatformThemeCommandHandlerTests
                     s.Theme.Base.Preset == "stone" &&
                     s.Theme.ControlHeightPx == 32 &&
                     s.Theme.TableRowHeightPx == 60 &&
-                    s.Theme.HeaderIconSize == "large" &&
+                    s.Theme.HeaderIconSize == "small" &&
                     s.ModifiedBy == actor),
                 It.IsAny<CancellationToken>()),
             Times.Once());

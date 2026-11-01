@@ -233,8 +233,8 @@ public class PlatformThemeDto
     public ThemeSizeChoiceDto TableRowHeight { get; set; } = ThemeSizeChoiceDto.From(ThemeSizeChoice.Default);
 
     /// <summary>
-    /// The size of the header's icon buttons and avatar: <c>current</c>, <c>google</c> or
-    /// <c>large</c>. The platform's only; an application's appearance always reads the default.
+    /// The size of the header's icon buttons and avatar: <c>small</c> or <c>default</c>.
+    /// The platform's only; an application's appearance always reads the default.
     /// </summary>
     public string HeaderIconSize { get; set; } = ThemePresets.DefaultHeaderIconSize;
 

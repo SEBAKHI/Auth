@@ -2195,11 +2195,10 @@ export const ur: TranslationResources = {
       tableRowHeight: "ٹیبل کی قطاروں کی اونچائی",
       tableRowHeightHint: "متن کی ایک سطر والی قطار: اس وقت {{px}} پکسل۔ تصویر یا بٹن والی قطار ان کی اضافی اونچائی جتنی اونچی ہوتی ہے۔",
       headerIconSize: "ہیڈر کے آئیکنز کا سائز",
-      headerIconSizeHint: "ہر صفحے کے اوپر آئیکن بٹن اور آپ کی تصویر: ابھی {{button}} px بٹنوں پر {{icon}} px آئیکنز اور {{avatar}} px تصویر۔ پٹی کی اونچائی وہی رہتی ہے، اور فون پر سائز Google سے بڑا نہیں ہوتا۔",
+      headerIconSizeHint: "ہر صفحے کے اوپر آئیکن بٹن اور آپ کی تصویر: {{button}} px بٹنوں پر {{icon}} px آئیکنز، اور تصویر بٹن جتنی بڑی۔ پٹی کی اونچائی وہی رہتی ہے۔",
       headerIconSizes: {
-        current: "چھوٹا",
-        google: "Google",
-        large: "بڑا",
+        small: "چھوٹا",
+        default: "پہلے سے طے شدہ",
       },
       sizes: {
         compact: "کمپیکٹ",

@@ -17,7 +17,6 @@ const twMerge = extendTailwindMerge({
         "cell-y",
         "header-button",
         "header-icon",
-        "header-avatar",
       ],
     },
   },

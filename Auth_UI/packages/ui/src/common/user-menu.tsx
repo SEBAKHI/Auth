@@ -55,10 +55,12 @@ export function UserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon-header" aria-label={name}>
+          {/* As large as the buttons beside it (owner, 2026-11-02): smaller,
+              it read as the one control drawn at another size. */}
           <EntityAvatar
             src={meQuery.data?.profileImageUrl}
             name={name}
-            className="size-header-avatar"
+            className="size-header-button"
           />
         </Button>
       </DropdownMenuTrigger>

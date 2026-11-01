@@ -981,7 +981,7 @@
     <value>'{0}' مینو نمایاں کرنے کا قابلِ انتخاب انداز نہیں ہے۔</value>
   </data>
   <data name="SystemSettings.ThemeUnknownHeaderIconSize" xml:space="preserve">
-    <value>'{0}' ہیڈر کے آئیکنز کا قابلِ انتخاب سائز نہیں ہے۔ current، google یا large منتخب کریں۔</value>
+    <value>'{0}' ہیڈر کے آئیکنز کا قابلِ انتخاب سائز نہیں ہے۔ small یا default منتخب کریں۔</value>
   </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>یہ ڈسپلے ترجیح کی کلید ایسی نہیں جسے یہ ایپلیکیشن محفوظ کرتی ہے۔</value>

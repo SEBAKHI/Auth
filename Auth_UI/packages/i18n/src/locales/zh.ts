@@ -2103,11 +2103,10 @@ export const zh: TranslationResources = {
       tableRowHeight: "表格行高",
       tableRowHeightHint: "只有一行文字的行：当前 {{px}} 像素。含有图片或按钮的行会高出它们多出的高度。",
       headerIconSize: "页眉图标尺寸",
-      headerIconSizeHint: "每个页面顶部的图标按钮和您的头像：当前为 {{button}} px 按钮上的 {{icon}} px 图标，头像 {{avatar}} px。页眉高度不变，手机上最大为 Google 尺寸。",
+      headerIconSizeHint: "每个页面顶部的图标按钮和您的头像：{{button}} px 按钮上的 {{icon}} px 图标，头像与按钮一样大。页眉高度不变。",
       headerIconSizes: {
-        current: "小",
-        google: "Google",
-        large: "大",
+        small: "小",
+        default: "默认",
       },
       sizes: {
         compact: "紧凑",

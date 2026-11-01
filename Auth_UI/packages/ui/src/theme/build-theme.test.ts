@@ -26,7 +26,7 @@ import {
 } from "./build-theme"
 import { contrastRatio, hexToOklch, oklchToHex, parseOklch } from "./oklch"
 import { THEMES } from "./shadcn-themes"
-import { HEADER_ICON_SIZE_PHONE_CAP, THEME_ENGINE_VERSION } from "./theme-config"
+import { THEME_ENGINE_VERSION } from "./theme-config"
 
 function repoFile(relative: string): string {
   let dir = process.cwd()
@@ -303,42 +303,28 @@ describe("themeCss", () => {
 describe("the header icon size", () => {
   const rem = (px: number) => `${px / 16}rem`
 
-  it("writes the icon, button and avatar of each size once, on the light (root) block", () => {
+  it("writes the icon and button of each size once, on the light (root) block", () => {
     for (const size of HEADER_ICON_SIZES) {
       const { light, dark } = buildThemeVars({ ...DEFAULT_THEME_CONFIG, headerIconSize: size })
       const px = HEADER_ICON_SIZE_PX[size]
       expect(light["header-icon"], size).toBe(rem(px.icon))
       expect(light["header-button"], size).toBe(rem(px.button))
-      expect(light["header-avatar"], size).toBe(rem(px.avatar))
       expect(dark["header-button"]).toBeUndefined()
     }
   })
 
-  it("has the owner's pixels, Google's by default, and never outgrows the 56px header", () => {
+  it("has the owner's two sizes, Google's by default, both inside the 56px header", () => {
+    // No larger size (owner, 2026-11-02), and the avatar takes the button's
+    // size, so no avatar size of its own exists to drift.
     expect(HEADER_ICON_SIZE_PX).toEqual({
-      current: { icon: 16, button: 36, avatar: 28 },
-      google: { icon: 24, button: 40, avatar: 32 },
-      large: { icon: 32, button: 48, avatar: 36 },
+      small: { icon: 16, button: 36 },
+      default: { icon: 24, button: 40 },
     })
-    expect(DEFAULT_THEME_CONFIG.headerIconSize).toBe("google")
+    expect(DEFAULT_THEME_CONFIG.headerIconSize).toBe("default")
     for (const px of Object.values(HEADER_ICON_SIZE_PX)) {
       expect(px.button).toBeLessThan(56)
-      expect(px.avatar).toBeLessThanOrEqual(px.button)
       expect(px.icon).toBeLessThan(px.button)
     }
-  })
-
-  it("caps a phone at Google's size in preset.css", () => {
-    // The cap is CSS (a media query), so this reads the rule itself: a cap
-    // that drifted from HEADER_ICON_SIZE_PHONE_CAP would let a large header
-    // push the controls past a 375px screen, and nothing else would fail.
-    const css = repoFile("Auth_UI/packages/ui/src/preset.css")
-    const cap = HEADER_ICON_SIZE_PX[HEADER_ICON_SIZE_PHONE_CAP]
-    expect(css).toContain(`--header-icon-drawn: min(var(--header-icon), ${rem(cap.icon)});`)
-    expect(css).toContain(`--header-button-drawn: min(var(--header-button), ${rem(cap.button)});`)
-    expect(css).toContain(`--header-avatar-drawn: min(var(--header-avatar), ${rem(cap.avatar)});`)
-    // Lifted from the width where the sidebar stops being a drawer (use-mobile.ts: 768px).
-    expect(css).toMatch(/@media \(width >= 48rem\) \{\s*:root \{\s*--header-icon-drawn: var\(--header-icon\);/)
   })
 })
 
@@ -349,7 +335,7 @@ describe("the engine version", () => {
   // both new values here, or visitors keep the colours of the old engine.
   const RECORDED = {
     version: 5,
-    fingerprint: "86a85adbdd2a7308",
+    fingerprint: "22d711676accd8b8",
   }
 
   it("changes whenever the computed stylesheets change", () => {
@@ -371,7 +357,7 @@ describe("the engine version", () => {
         menuAccent: "bold" as const,
         controlSize: { preset: "default" as const },
         tableRowHeight: { preset: "default" as const },
-        headerIconSize: "google" as const,
+        headerIconSize: "default" as const,
       })),
       ...SIZE_STEPS.map((step) => ({
         ...DEFAULT_THEME_CONFIG,

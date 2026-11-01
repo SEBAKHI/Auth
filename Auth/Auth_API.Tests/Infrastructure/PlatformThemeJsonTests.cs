@@ -30,7 +30,7 @@ public class PlatformThemeJsonTests
         "\"radius\":\"large\",\"menuAccent\":\"bold\"}";
 
     private static PlatformTheme Customised(
-        ThemeSizeChoice controlSize, ThemeSizeChoice tableRowHeight, string headerIconSize = "google") =>
+        ThemeSizeChoice controlSize, ThemeSizeChoice tableRowHeight, string headerIconSize = "default") =>
         PlatformTheme.Create(
             new ThemeColorChoice("custom", "#112233", "#445566"),
             new ThemeColorChoice("violet"),
@@ -58,11 +58,11 @@ public class PlatformThemeJsonTests
     [Fact]
     public void AHeaderIconSizeOtherThanTheDefault_IsStoredAndReadBack()
     {
-        var theme = Customised(ThemeSizeChoice.Default, ThemeSizeChoice.Default, "large");
+        var theme = Customised(ThemeSizeChoice.Default, ThemeSizeChoice.Default, "small");
 
         var json = PlatformSettingsRepository.ThemeJson.Write(theme);
 
-        json.Should().EndWith(",\"headerIconSize\":\"large\"}");
+        json.Should().EndWith(",\"headerIconSize\":\"small\"}");
         PlatformSettingsRepository.ThemeJson.Read(json).Should().Be(theme);
     }
 
@@ -77,19 +77,20 @@ public class PlatformThemeJsonTests
     }
 
     [Fact]
-    public void ARowSavedBeforeTheHeaderIconSizeExisted_ReadsGoogle()
+    public void ARowSavedBeforeTheHeaderIconSizeExisted_ReadsTheDefault()
     {
         var theme = PlatformSettingsRepository.ThemeJson.Read(RowWrittenBeforeSizes);
 
-        theme.HeaderIconSize.Should().Be("google");
+        theme.HeaderIconSize.Should().Be("default");
     }
 
     [Theory]
     [InlineData(",\"headerIconSize\":\"huge\"}")]
     [InlineData(",\"headerIconSize\":7}")]
     [InlineData(",\"headerIconSize\":null}")]
-    [InlineData(",\"headerIconSize\":{\"preset\":\"large\"}}")]
-    public void AnUnreadableHeaderIconSize_ReadsGoogleAndKeepsEverythingElse(string field)
+    [InlineData(",\"headerIconSize\":{\"preset\":\"small\"}}")]
+    [InlineData(",\"headerIconSize\":\"large\"}")]
+    public void AnUnreadableHeaderIconSize_ReadsTheDefaultAndKeepsEverythingElse(string field)
     {
         var theme = PlatformSettingsRepository.ThemeJson.Read(RowWrittenBeforeSizes[..^1] + field);
 

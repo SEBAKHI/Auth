@@ -91,7 +91,7 @@ public static class SystemSettingsErrors
 
     public static Error ThemeUnknownHeaderIconSize(string value) => Error.Validation(
         code: "SystemSettings.ThemeUnknownHeaderIconSize",
-        description: $"'{value}' is not a header icon size that can be chosen. Choose current, google or large.",
+        description: $"'{value}' is not a header icon size that can be chosen. Choose small or default.",
         metadata: new() { ["args"] = new object[] { value } });
 
     // The size choices. The slot argument is "controlSize" or "tableRowHeight".

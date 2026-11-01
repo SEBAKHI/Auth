@@ -11,7 +11,7 @@
  *
  * It also writes what shadcn's builder does not have: this platform's two
  * heights, --control-height and --table-row-height, and the header's icon
- * sizes, --header-icon, --header-button and --header-avatar.
+ * sizes, --header-icon and --header-button.
  *
  * Each of the three colours may instead be "custom": one colour per mode,
  * from which this file derives the tokens shadcn would otherwise supply.
@@ -385,11 +385,10 @@ export function buildThemeVars(config: ThemeConfig): ThemeVarsByMode {
   light["control-height"] = rem(sizePx(config.controlSize, CONTROL_HEIGHT))
   light["table-row-height"] = rem(sizePx(config.tableRowHeight, TABLE_ROW_HEIGHT))
 
-  // The header's sizes, as chosen; preset.css caps them on a phone.
-  const header = HEADER_ICON_SIZE_PX[config.headerIconSize] ?? HEADER_ICON_SIZE_PX.google
+  // The header's icon buttons (and the avatar, as large as a button).
+  const header = HEADER_ICON_SIZE_PX[config.headerIconSize] ?? HEADER_ICON_SIZE_PX.default
   light["header-icon"] = rem(header.icon)
   light["header-button"] = rem(header.button)
-  light["header-avatar"] = rem(header.avatar)
 
   return { light, dark }
 }

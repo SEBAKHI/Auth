@@ -152,27 +152,25 @@ public static class ThemePresets
     /// <summary>
     /// The sizes of the icon buttons and the avatar in the header of the console
     /// and the accounts app, smallest first. The header itself stays 56px tall at
-    /// every size. The pixels belong to the front end
-    /// (<c>Auth_UI/packages/ui/src/theme/theme-config.ts</c>), which also caps the
-    /// size at <see cref="DefaultHeaderIconSize"/> below 768px:
+    /// both. The avatar is as large as a button. The pixels belong to the front
+    /// end (<c>Auth_UI/packages/ui/src/theme/theme-config.ts</c>):
     /// <list type="bullet">
-    /// <item><c>current</c>: icon 16px, button 36px, avatar 28px (the header before the setting existed).</item>
-    /// <item><c>google</c>: icon 24px, button 40px, avatar 32px (Google's header).</item>
-    /// <item><c>large</c>: icon 32px, button 48px, avatar 36px.</item>
+    /// <item><c>small</c>: icon 16px, button and avatar 36px (the header's buttons before the setting existed).</item>
+    /// <item><c>default</c>: icon 24px, button and avatar 40px (Google's header).</item>
     /// </list>
+    /// No larger size (owner, 2026-11-02).
     /// </summary>
     public static readonly IReadOnlyList<string> HeaderIconSizes =
     [
-        "current",
-        "google",
-        "large",
+        "small",
+        "default",
     ];
 
     /// <summary>
     /// The header icon size of an installation nobody has customised, and of an
     /// appearance saved before the setting existed (owner decision, 2026-11-02).
     /// </summary>
-    public const string DefaultHeaderIconSize = "google";
+    public const string DefaultHeaderIconSize = "default";
 
     /// <summary>
     /// The height in pixels of a size step on a scale (<see cref="ControlHeightsPx"/>

@@ -2165,11 +2165,10 @@ export const ar: TranslationResources = {
       tableRowHeight: "ارتفاع صفوف الجداول",
       tableRowHeightHint: "صفّ فيه سطر نصّ واحد: {{px}} بكسل الآن. والصفّ الذي يحمل صورة أو زرًّا يزيد بقدر ارتفاعهما الزائد.",
       headerIconSize: "حجم أيقونات الشريط العلوي",
-      headerIconSizeHint: "أزرار الأيقونات وصورتك في أعلى كل صفحة: أيقونات {{icon}} بكسل على أزرار {{button}} بكسل وصورة {{avatar}} بكسل الآن. يبقى الشريط بارتفاعه نفسه، ولا يتجاوز الهاتف حجم Google.",
+      headerIconSizeHint: "أزرار الأيقونات وصورتك في أعلى كل صفحة: أيقونات {{icon}} بكسل على أزرار {{button}} بكسل، والصورة بحجم الزر. يبقى الشريط بارتفاعه نفسه.",
       headerIconSizes: {
-        current: "صغير",
-        google: "Google",
-        large: "كبير",
+        small: "صغير",
+        default: "افتراضي",
       },
       sizes: {
         compact: "مضغوط",

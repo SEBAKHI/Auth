@@ -77,31 +77,24 @@ export const TABLE_ROW_HEIGHT: SizeScale = {
 /**
  * The size of the icon buttons and the avatar in the header of the console and
  * the accounts app (owner, 2026-11-02), smallest first. The header stays 56px
- * tall at every size: the largest button leaves it 4px either side.
+ * tall at both. No larger size: the owner turned it down.
  */
-export const HEADER_ICON_SIZES = ["current", "google", "large"] as const
+export const HEADER_ICON_SIZES = ["small", "default"] as const
 export type HeaderIconSize = (typeof HEADER_ICON_SIZES)[number]
 
 /**
- * Pixels per header size. "current" is the header before the setting existed
- * (`size-control` buttons with `size-4` icons, a `size-7` avatar); "google" is
- * Google's header (button 40 and icon 24 measured on google.com, avatar 32 from
- * its markup).
+ * Pixels per header size. The avatar is as large as a button (owner,
+ * 2026-11-02: a smaller one read as smaller than the buttons beside it).
+ * "small" is the header's buttons before the setting existed (`size-control`
+ * with `size-4` icons); "default" is Google's header (button 40 and icon 24,
+ * measured on google.com).
  */
 export const HEADER_ICON_SIZE_PX: Readonly<
-  Record<HeaderIconSize, { icon: number; button: number; avatar: number }>
+  Record<HeaderIconSize, { icon: number; button: number }>
 > = {
-  current: { icon: 16, button: 36, avatar: 28 },
-  google: { icon: 24, button: 40, avatar: 32 },
-  large: { icon: 32, button: 48, avatar: 36 },
+  small: { icon: 16, button: 36 },
+  default: { icon: 24, button: 40 },
 }
-
-/**
- * The largest header size a phone draws (below 768px), whatever was chosen:
- * a larger one would push the header's controls past a 375px screen.
- * preset.css writes these pixels as its cap; a test holds the two equal.
- */
-export const HEADER_ICON_SIZE_PHONE_CAP: HeaderIconSize = "google"
 
 /** One of the two size choices: a step, or custom with a height in pixels. */
 export type SizeChoice = {
@@ -145,7 +138,7 @@ export const DEFAULT_THEME_CONFIG: ThemeConfig = {
   menuAccent: "subtle",
   controlSize: { preset: "default" },
   tableRowHeight: { preset: "default" },
-  headerIconSize: "google",
+  headerIconSize: "default",
 }
 
 /**

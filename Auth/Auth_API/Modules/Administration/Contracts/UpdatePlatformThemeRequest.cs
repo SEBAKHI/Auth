@@ -15,9 +15,9 @@ namespace Auth_API.Modules.Administration.Contracts;
 /// <param name="ControlSize">Height of every control: compact (32px), default (36px), comfortable (40px), or custom (28–56px).</param>
 /// <param name="TableRowHeight">Height of a table row: compact (40px), default (44px), comfortable (48px), or custom (32–72px); never lower than the control height.</param>
 /// <param name="HeaderIconSize">
-/// Size of the header's icon buttons and avatar in the console and the accounts app: current
-/// (icon 16px, button 36px, avatar 28px), google (24/40/32, the default) or large (32/48/36).
-/// Left out, google. The platform's appearance only: an application's appearance ignores it.
+/// Size of the header's icon buttons and avatar in the console and the accounts app: small
+/// (icon 16px, button and avatar 36px) or default (24px, 40px). Left out, default. The
+/// platform's appearance only: an application's appearance ignores it.
 /// </param>
 public record UpdatePlatformThemeRequest(
     ThemeColorChoiceRequest? Base,

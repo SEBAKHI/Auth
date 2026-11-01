@@ -2230,11 +2230,10 @@ export const en = {
       tableRowHeight: "Table row height",
       tableRowHeightHint: "A row with one line of text: {{px}} px now. A row holding a picture or a button is taller by their extra height.",
       headerIconSize: "Header icon size",
-      headerIconSizeHint: "The icon buttons and your picture at the top of every page: {{icon}} px icons on {{button}} px buttons and a {{avatar}} px picture now. The bar stays the same height, and a phone never goes above the Google size.",
+      headerIconSizeHint: "The icon buttons and your picture at the top of every page: {{icon}} px icons on {{button}} px buttons, and the picture as large as a button. The bar stays the same height.",
       headerIconSizes: {
-        current: "Small",
-        google: "Google",
-        large: "Large",
+        small: "Small",
+        default: "Default",
       },
       sizes: {
         compact: "Compact",

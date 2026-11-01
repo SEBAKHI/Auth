@@ -60,7 +60,7 @@ describe("UserMenu", () => {
     expect(screen.getAllByRole("menuitem")).toHaveLength(1)
   })
 
-  it("draws its avatar at the header icon size", () => {
+  it("draws its avatar as large as the header's buttons", () => {
     const client = new QueryClient()
     render(
       <QueryClientProvider client={client}>
@@ -71,6 +71,6 @@ describe("UserMenu", () => {
     )
     const trigger = screen.getByRole("button", { name: "Jane Doe" })
     expect(trigger).toHaveAttribute("data-size", "icon-header")
-    expect(trigger.querySelector("[data-slot=avatar]")).toHaveClass("size-header-avatar")
+    expect(trigger.querySelector("[data-slot=avatar]")).toHaveClass("size-header-button")
   })
 })

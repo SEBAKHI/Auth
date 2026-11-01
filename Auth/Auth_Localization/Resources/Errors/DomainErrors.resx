@@ -983,7 +983,7 @@
     <value>'{0}' is not a menu accent that can be chosen.</value>
   </data>
   <data name="SystemSettings.ThemeUnknownHeaderIconSize" xml:space="preserve">
-    <value>'{0}' is not a header icon size that can be chosen. Choose current, google or large.</value>
+    <value>'{0}' is not a header icon size that can be chosen. Choose small or default.</value>
   </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>That display preference key is not one this application stores.</value>

@@ -2210,11 +2210,10 @@ export const tr: TranslationResources = {
       tableRowHeight: "Tablo satırı yüksekliği",
       tableRowHeightHint: "Tek satır metin içeren bir satır: şu an {{px}} px. Resim veya düğme içeren bir satır, onların fazladan yüksekliği kadar daha yüksektir.",
       headerIconSize: "Üst çubuk simge boyutu",
-      headerIconSizeHint: "Her sayfanın üstündeki simge düğmeleri ve resminiz: şu an {{button}} px düğmelerde {{icon}} px simgeler ve {{avatar}} px resim. Çubuğun yüksekliği değişmez; telefonda boyut Google boyutunu asla aşmaz.",
+      headerIconSizeHint: "Her sayfanın üstündeki simge düğmeleri ve resminiz: {{button}} px düğmelerde {{icon}} px simgeler; resim bir düğme kadar büyük. Çubuğun yüksekliği değişmez.",
       headerIconSizes: {
-        current: "Küçük",
-        google: "Google",
-        large: "Büyük",
+        small: "Küçük",
+        default: "Varsayılan",
       },
       sizes: {
         compact: "Sıkı",

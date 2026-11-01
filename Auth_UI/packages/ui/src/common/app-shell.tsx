@@ -238,8 +238,8 @@ export function AppShell({
               the thing it collapses and the mark gets a slot that never shrinks. */}
           {isMobile ? (
             // A header button here, sized with the others. The same control
-            // inside the sidebar keeps the sidebar's own size: the collapsed
-            // rail is 56px wide, and a 48px button plus its offset would not fit.
+            // inside the sidebar keeps the sidebar's own size, fitted to the
+            // collapsed rail and to the menu rows below it.
             <SidebarTrigger size="icon-header" className="size-header-button" />
           ) : (
             <NavLink
@@ -268,9 +268,8 @@ export function AppShell({
             className="hidden lg:flex"
           />
           {/* The icon buttons and the avatar follow the platform's header icon
-              size (Platform settings › Appearance); the bar stays h-14 at every
-              size, and a phone never draws more than Google's (preset.css). The
-              grid button sits beside the avatar, as on Google's pages. */}
+              size (Platform settings › Appearance); the bar stays h-14 at both
+              sizes. The grid button sits beside the avatar, as on Google's pages. */}
           <div className="ms-auto flex items-center gap-1">
             {headerExtras}
             <LanguageToggle size="icon-header" />

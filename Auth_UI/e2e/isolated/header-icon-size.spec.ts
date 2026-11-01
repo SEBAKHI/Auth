@@ -4,19 +4,18 @@ import { expectNoShellOverflow } from "./layout-overflow"
 import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
 
 /**
- * The header's icon size (owner, 2026-11-02) on the built console: three sizes
- * chosen in Platform settings › Appearance, Google's by default. The header
- * stays 56px tall at every size, and a phone (below 768px) never draws more
- * than Google's. The grid button beside the avatar opens the tiles panel.
+ * The header's icon size (owner, 2026-11-02) on the built console: Small or
+ * Default (Google's size), chosen in Platform settings › Appearance. The
+ * header stays 56px tall at both, and the avatar is as large as the buttons
+ * beside it. The grid button beside the avatar opens the tiles panel.
  *
  * Measured, not trusted: every header icon button, its icon and the avatar are
  * read off the page against the owner's pixels.
  */
 
 const PX = {
-  current: { icon: 16, button: 36, avatar: 28 },
-  google: { icon: 24, button: 40, avatar: 32 },
-  large: { icon: 32, button: 48, avatar: 36 },
+  small: { icon: 16, button: 36 },
+  default: { icon: 24, button: 40 },
 } as const
 type Size = keyof typeof PX
 
@@ -74,7 +73,7 @@ async function measure(page: Page) {
   })
 }
 
-for (const size of [null, "current", "google", "large"] as const) {
+for (const size of [null, "small", "default"] as const) {
   // 768 and 1024: the narrowest desktop headers, with the sidebar open.
   for (const width of [375, 768, 1024, 1440]) {
     test(`header icons: ${size ?? "no field"} at ${width}px`, async ({ page }) => {
@@ -83,9 +82,9 @@ for (const size of [null, "current", "google", "large"] as const) {
       await page.goto("/")
       await expect(page.getByRole("button", { name: "Applications" })).toBeVisible()
 
-      // An appearance without the field draws Google's; a phone caps at Google's.
-      const chosen: Size = size ?? "google"
-      const drawn = width < 768 && chosen === "large" ? PX.google : PX[chosen]
+      // An appearance without the field draws the default.
+      const chosen: Size = size ?? "default"
+      const drawn = PX[chosen]
       // The platform's appearance arrives with the branding answer; a cold
       // load (nothing cached yet) draws the preset's until then.
       await expect
@@ -105,7 +104,8 @@ for (const size of [null, "current", "google", "large"] as const) {
       for (const button of buttons) {
         expect(button.box, button.name).toEqual({ width: drawn.button, height: drawn.button })
         if (button.avatar) {
-          expect(button.avatar, button.name).toEqual({ width: drawn.avatar, height: drawn.avatar })
+          // As large as the button (owner, 2026-11-02).
+          expect(button.avatar, button.name).toEqual({ width: drawn.button, height: drawn.button })
         } else {
           expect(button.icon, button.name).toEqual({ width: drawn.icon, height: drawn.icon })
         }
@@ -117,7 +117,7 @@ for (const size of [null, "current", "google", "large"] as const) {
 
 test("the grid button opens the tiles in a panel that scrolls inside the screen", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 400 })
-  await install(page, "google", "en", 15)
+  await install(page, "default", "en", 15)
   await page.goto("/")
 
   await page.getByRole("button", { name: "Applications" }).click()
@@ -141,7 +141,7 @@ test("the grid button opens the tiles in a panel that scrolls inside the screen"
   await expect(panel).toHaveCount(0)
 })
 
-for (const size of ["current", "google", "large"] as const) {
+for (const size of ["small", "default"] as const) {
   for (const language of ["en", "ar"] as const) {
     for (const mode of ["light", "dark"] as const) {
       for (const width of [375, 1440]) {
@@ -171,7 +171,7 @@ for (const size of ["current", "google", "large"] as const) {
 }
 
 for (const language of ["en", "ar"] as const) {
-  test(`Platform settings › Appearance offers the three sizes, Google's chosen, and saves the choice (${language})`, async ({
+  test(`Platform settings › Appearance offers Small and Default, Default chosen, and saves the choice (${language})`, async ({
     page,
   }) => {
     const theme = {
@@ -209,21 +209,24 @@ for (const language of ["en", "ar"] as const) {
 
     const name = language === "ar" ? "حجم أيقونات الشريط العلوي" : "Header icon size"
     const group = page.getByRole("radiogroup", { name })
+    // No "Google" in the copy, and no larger size (owner, 2026-11-02).
     await expect(group.getByRole("radio")).toHaveText(
-      language === "ar" ? ["صغير", "Google", "كبير"] : ["Small", "Google", "Large"]
+      language === "ar" ? ["صغير", "افتراضي"] : ["Small", "Default"]
     )
-    await expect(group.getByRole("radio", { name: "Google" })).toBeChecked()
+    await expect(
+      group.getByRole("radio", { name: language === "ar" ? "افتراضي" : "Default" })
+    ).toBeChecked()
 
-    // The platform's card previews on the console itself: the header grows at once.
-    await group.getByRole("radio", { name: language === "ar" ? "كبير" : "Large" }).click()
+    // The platform's card previews on the console itself: the header changes at once.
+    await group.getByRole("radio", { name: language === "ar" ? "صغير" : "Small" }).click()
     await expect
       .poll(async () => (await measure(page)).buttons.map((b) => b.box?.width))
-      .toEqual([48, 48, 48, 48])
+      .toEqual([36, 36, 36, 36])
     expect((await measure(page)).header).toBe(56)
     await group.scrollIntoViewIfNeeded()
     await page.screenshot({ path: test.info().outputPath(`appearance-control-${language}.png`) })
 
     await page.getByRole("button", { name: language === "ar" ? "حفظ" : "Save", exact: true }).click()
-    await expect.poll(() => saved.at(-1)?.headerIconSize).toBe("large")
+    await expect.poll(() => saved.at(-1)?.headerIconSize).toBe("small")
   })
 }

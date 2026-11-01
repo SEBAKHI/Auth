@@ -981,7 +981,7 @@
     <value>'{0}' تأکید منوی قابل انتخابی نیست.</value>
   </data>
   <data name="SystemSettings.ThemeUnknownHeaderIconSize" xml:space="preserve">
-    <value>'{0}' اندازهٔ قابل انتخابی برای آیکون‌های نوار بالا نیست. current، google یا large را انتخاب کنید.</value>
+    <value>'{0}' اندازهٔ قابل انتخابی برای آیکون‌های نوار بالا نیست. small یا default را انتخاب کنید.</value>
   </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>این کلید ترجیح نمایش از آن‌هایی نیست که این برنامه ذخیره می‌کند.</value>

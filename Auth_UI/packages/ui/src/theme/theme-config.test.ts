@@ -35,15 +35,15 @@ describe("toThemeConfig", () => {
       menuAccent: "bold",
       controlSize: { preset: "default" },
       tableRowHeight: { preset: "default" },
-      headerIconSize: "google",
+      headerIconSize: "default",
     })
   })
 
-  it("reads the header icon size, and Google's for one it does not know or that is absent", () => {
-    expect(toThemeConfig({ headerIconSize: "large" }).headerIconSize).toBe("large")
-    expect(toThemeConfig({ headerIconSize: "current" }).headerIconSize).toBe("current")
-    expect(toThemeConfig({ headerIconSize: "enormous" }).headerIconSize).toBe("google")
-    expect(toThemeConfig({}).headerIconSize).toBe("google")
+  it("reads the header icon size, and the default for one it does not know or that is absent", () => {
+    expect(toThemeConfig({ headerIconSize: "small" }).headerIconSize).toBe("small")
+    expect(toThemeConfig({ headerIconSize: "default" }).headerIconSize).toBe("default")
+    expect(toThemeConfig({ headerIconSize: "large" }).headerIconSize).toBe("default")
+    expect(toThemeConfig({}).headerIconSize).toBe("default")
   })
 
   it("reads the two heights: a step, or custom pixels (int32 may arrive as a string)", () => {
@@ -117,9 +117,9 @@ describe("themeConfigKey", () => {
 
 describe("toThemeRequest — the header icon size", () => {
   it("sends the chosen size as its name", () => {
-    expect(toThemeRequest({ ...DEFAULT_THEME_CONFIG, headerIconSize: "large" }).headerIconSize).toBe(
-      "large"
+    expect(toThemeRequest({ ...DEFAULT_THEME_CONFIG, headerIconSize: "small" }).headerIconSize).toBe(
+      "small"
     )
-    expect(toThemeRequest(DEFAULT_THEME_CONFIG).headerIconSize).toBe("google")
+    expect(toThemeRequest(DEFAULT_THEME_CONFIG).headerIconSize).toBe("default")
   })
 })

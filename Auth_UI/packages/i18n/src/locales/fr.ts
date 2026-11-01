@@ -2249,11 +2249,10 @@ export const fr: TranslationResources = {
       tableRowHeight: "Hauteur des lignes de tableau",
       tableRowHeightHint: "Une ligne contenant un seul texte : {{px}} px actuellement. Une ligne qui contient une image ou un bouton est plus haute de leur hauteur supplémentaire.",
       headerIconSize: "Taille des icônes de l'en-tête",
-      headerIconSizeHint: "Les boutons d'icône et votre photo en haut de chaque page : icônes de {{icon}} px sur des boutons de {{button}} px et photo de {{avatar}} px actuellement. La barre garde sa hauteur, et un téléphone ne dépasse jamais la taille Google.",
+      headerIconSizeHint: "Les boutons d'icône et votre photo en haut de chaque page : icônes de {{icon}} px sur des boutons de {{button}} px, la photo aussi grande qu'un bouton. La barre garde sa hauteur.",
       headerIconSizes: {
-        current: "Petite",
-        google: "Google",
-        large: "Grande",
+        small: "Petite",
+        default: "Par défaut",
       },
       sizes: {
         compact: "Compacte",
