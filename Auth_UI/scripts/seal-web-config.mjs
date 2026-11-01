@@ -155,11 +155,19 @@ if (!headers.some((header) => header.name === "Content-Security-Policy" && heade
 }
 
 for (const header of headers) {
-  // A site-wide policy needs the API for fetch and images. A <location>'s own
-  // policy (the email preview, the sign-in page design frame) fetches nothing,
-  // so only img-src names it there - by origin, or, in the design frame, which
-  // shows images from any site (owner decision Q9), by the scheme that covers it.
-  const required = header.location === null ? ["connect-src", "img-src"] : ["img-src"]
+  // A site-wide policy needs the API for fetch, images and the platform's fonts
+  // (Platform settings > Fonts). A <location>'s own policy (the email preview, the
+  // sign-in page design frame) fetches nothing, so only img-src names it there - by
+  // origin, or, in the design frame, which shows images from any site (owner
+  // decision Q9), by the scheme that covers it - and, in the design frame, font-src
+  // by origin: the frame registers the platform's fonts itself. Emails use no
+  // platform font (owner decision D7), so the email preview's does not.
+  const required =
+    header.location === null
+      ? ["connect-src", "img-src", "font-src"]
+      : header.location === "login-design-frame.html"
+        ? ["img-src", "font-src"]
+        : ["img-src"]
   for (const directive of required) {
     const sources = sourcesOf(header.policy, directive) ?? []
     const covered =

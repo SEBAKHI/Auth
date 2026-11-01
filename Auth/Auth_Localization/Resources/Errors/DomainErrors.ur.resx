@@ -992,6 +992,18 @@
   <data name="UiPreference.TooManyKeys" xml:space="preserve">
     <value>آپ محفوظ شدہ {0} ڈسپلے ترجیحات کی حد تک پہنچ چکے ہیں۔</value>
   </data>
+  <data name="Font.FileRequired" xml:space="preserve">
+    <value>کوئی فونٹ فائل فراہم نہیں کی گئی۔</value>
+  </data>
+  <data name="Font.FileTooLarge" xml:space="preserve">
+    <value>فونٹ فائل {0} بائٹس کے زیادہ سے زیادہ سائز سے بڑی ہے۔</value>
+  </data>
+  <data name="Font.Invalid" xml:space="preserve">
+    <value>یہ فائل درست WOFF2 فونٹ نہیں ہے۔</value>
+  </data>
+  <data name="Font.StorageUnavailable" xml:space="preserve">
+    <value>فونٹس کا اسٹوریج دستیاب نہیں ہے۔</value>
+  </data>
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>یہ تصویر منسلک کرنے کے لیے دستیاب نہیں ہے۔ تصویر دوبارہ اپ لوڈ کریں اور دوبارہ کوشش کریں۔</value>
   </data>

@@ -50,7 +50,12 @@ test("is /login-design-frame.html with exactly its own headers", async ({ harnes
   )
   const headers = served.headers()
   expect(headers["content-security-policy"]).toBe(expected["content-security-policy"])
-  expect(headers["content-security-policy"]).toMatch(/^default-src 'none'; script-src 'sha256-[^ ;]+'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src https: data:;/)
+  expect(headers["content-security-policy"]).toMatch(
+    // font-src names the API: the platform's own fonts (P4) load from it into the frame.
+    new RegExp(
+      `^default-src 'none'; script-src 'sha256-[^ ;]+'; style-src 'self' 'unsafe-inline'; font-src 'self' data: ${ORIGINS.api.replace(/\./g, "\\.")}; img-src https: data:;`
+    )
+  )
   expect(headers["content-security-policy-report-only"]).toBeUndefined()
   expect(headers["x-frame-options"]).toBe("SAMEORIGIN")
 })

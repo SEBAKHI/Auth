@@ -853,6 +853,29 @@
       "pointer": null
     },
     {
+      "code": "Font.FileRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Font.FileTooLarge",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Font.Invalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Font.StorageUnavailable",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
       "code": "Http.BadRequest",
       "status": 400,
       "source": "transport"

@@ -3,6 +3,7 @@ import * as React from "react"
 import { useIsolatedFrame } from "@authsystem/ui/isolated-frame/use-isolated-frame"
 import { readDesignTokens } from "@authsystem/ui/login-design/design-tokens"
 import { THEME_APPLIED_EVENT } from "@authsystem/ui/theme/apply-theme"
+import { platformFontFaces } from "@authsystem/ui/theme/platform-fonts"
 import { cn } from "@authsystem/ui/utils"
 
 /**
@@ -159,6 +160,8 @@ function DesignDocument({
         dir: design.dir,
         mode: design.mode,
         tokens: design.tokens(),
+        // The platform's font files: the frame sees none of the page's, and registers these.
+        fonts: platformFontFaces(),
       },
       "*"
     )
@@ -200,7 +203,10 @@ function DesignDocument({
       return
     }
     if (!sentRef.current) return
-    windowRef.current?.postMessage({ type: DESIGN_MESSAGES.theme, mode, tokens: tokens() }, "*")
+    windowRef.current?.postMessage(
+      { type: DESIGN_MESSAGES.theme, mode, tokens: tokens(), fonts: platformFontFaces() },
+      "*"
+    )
   }, [mode, pageVersion, appearanceKey, tokens])
 
   // The design that arrives after the frame said "ready". After the repaint above, so a

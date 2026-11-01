@@ -992,6 +992,18 @@
   <data name="UiPreference.TooManyKeys" xml:space="preserve">
     <value>Kayıtlı {0} görünüm tercihi sınırına ulaştınız.</value>
   </data>
+  <data name="Font.FileRequired" xml:space="preserve">
+    <value>Yazı tipi dosyası sağlanmadı.</value>
+  </data>
+  <data name="Font.FileTooLarge" xml:space="preserve">
+    <value>Yazı tipi dosyası {0} baytlık azami boyutu aşıyor.</value>
+  </data>
+  <data name="Font.Invalid" xml:space="preserve">
+    <value>Dosya geçerli bir WOFF2 yazı tipi değil.</value>
+  </data>
+  <data name="Font.StorageUnavailable" xml:space="preserve">
+    <value>Yazı tipi depolama kullanılamıyor.</value>
+  </data>
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>Bu görsel eklenmek için uygun değil. Görseli yeniden yükleyip tekrar deneyin.</value>
   </data>

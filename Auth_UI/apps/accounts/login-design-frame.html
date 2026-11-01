@@ -19,8 +19,16 @@
   var THEME = "authsystem.login-design.theme";
   var RENDERED = "authsystem.login-design.rendered";
   var FAILED = "authsystem.login-design.failed";
-  // Before the design's own styles: whatever it does not set follows the appearance.
-  var BASE = "html{background:var(--background);color:var(--foreground);font-family:var(--font-sans)}";
+  // Before the design's own styles: whatever it does not set follows the appearance, and its
+  // headings take the platform's heading font.
+  var BASE = "html{background:var(--background);color:var(--foreground);font-family:var(--font-sans)}" +
+    "h1,h2,h3,h4,h5,h6{font-family:var(--font-heading,var(--font-sans))}";
+  // The platform's own fonts (Platform settings > Fonts), as the page registered them: one
+  // family name of the page's own per file, and an http(s) address with nothing that could
+  // leave url("...").
+  var FAMILY = /^[A-Za-z ]{1,64}$/;
+  var FONT_URL = /^https?:\/\/[^\s"'()\\]+$/;
+  var faces = {};
   var tokens = null;
   var rendered = false;
   function tell(type) {
@@ -37,8 +45,31 @@
     }
     return css + "}";
   }
+  function loadFonts(list) {
+    if (typeof FontFace !== "function" || !document.fonts) return;
+    var wanted = {};
+    for (var i = 0; Array.isArray(list) && i < list.length; i++) {
+      var font = list[i];
+      if (!font || typeof font.family !== "string" || typeof font.url !== "string") continue;
+      if (!FAMILY.test(font.family) || !FONT_URL.test(font.url)) continue;
+      var id = font.family + " " + font.url;
+      wanted[id] = true;
+      if (faces[id]) continue;
+      faces[id] = new FontFace(font.family, "url(\"" + font.url + "\") format(\"woff2\")", { display: "swap" });
+      document.fonts.add(faces[id]);
+      // A file the browser refuses leaves the stack's next family, IBM Plex.
+      faces[id].load().catch(function () {});
+    }
+    for (var key in faces) {
+      if (!wanted[key]) {
+        document.fonts.delete(faces[key]);
+        delete faces[key];
+      }
+    }
+  }
   function paint(data) {
     var dark = data.mode === "dark";
+    loadFonts(data.fonts);
     tokens.textContent = tokenCss(data.tokens || {});
     document.documentElement.classList.toggle("dark", dark);
     document.documentElement.style.colorScheme = dark ? "dark" : "light";

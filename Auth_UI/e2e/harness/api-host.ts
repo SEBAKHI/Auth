@@ -11,6 +11,9 @@ export type ApiAnswer = (route: HarnessRoute, url: URL) => Promise<boolean>
 
 const ALLOWED_METHODS = "GET, POST, PUT, PATCH, DELETE"
 
+/** Where the API serves the platform's fonts: the uploads volume, fonts/{sha-256}.woff2. */
+const UPLOADED_FONT = /^\/uploads\/images\/fonts\/[0-9a-f]{64}\.woff2$/
+
 /**
  * auth.example.com: a real HTTPS endpoint, so the browser sends what it would
  * send to production - the Cookie it stored, Origin, Sec-Fetch-Site, and a real
@@ -35,7 +38,14 @@ export class ApiHost {
     this.#answer = null
   }
 
-  #cors(request: IncomingMessage, response: ServerResponse) {
+  #cors(request: IncomingMessage, response: ServerResponse, url: URL) {
+    // The platform's fonts, as the API's uploads middleware serves them
+    // (Auth/Auth_API/Modules/Media/UploadsStaticFiles.cs, held by PlatformFontsTests): to any
+    // origin, the design frame's opaque "null" included, and without credentials.
+    if (UPLOADED_FONT.test(url.pathname)) {
+      response.setHeader("access-control-allow-origin", "*")
+      return true
+    }
     const origin = request.headers.origin
     response.setHeader("vary", "Origin")
     if (!origin || !CORS_ALLOWED_ORIGINS.includes(origin)) return false
@@ -46,7 +56,7 @@ export class ApiHost {
   }
 
   async serve(request: IncomingMessage, response: ServerResponse, url: URL, body: Buffer) {
-    const allowed = this.#cors(request, response)
+    const allowed = this.#cors(request, response, url)
 
     const preflight =
       request.method === "OPTIONS" && request.headers["access-control-request-method"] !== undefined

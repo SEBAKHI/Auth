@@ -38,9 +38,11 @@ export const DESIGN_TOKENS = [
 export type DesignTokens = Record<string, string>
 
 /**
- * The live values of the design tokens on `element`, plus `--font-sans`: the font the
- * element actually uses. The theme's font variable is inlined into the utilities that use
- * it, so the element's computed font family is the one reliable reading.
+ * The live values of the design tokens on `element`, plus the two fonts: `--font-sans`, the
+ * font the element actually uses (its computed family), and `--font-heading`, the titles'
+ * (the variable, as preset.css and the platform's fonts set it; the body's when unset). A
+ * design uses them as `var(--font-sans)` and `var(--font-heading)`; the frame's own base
+ * style gives its headings the second.
  */
 export function readDesignTokens(element: Element): DesignTokens {
   const style = getComputedStyle(element)
@@ -50,5 +52,7 @@ export function readDesignTokens(element: Element): DesignTokens {
     if (value) tokens[name] = value
   }
   if (style.fontFamily) tokens["--font-sans"] = style.fontFamily
+  const heading = style.getPropertyValue("--font-heading").trim() || style.fontFamily
+  if (heading) tokens["--font-heading"] = heading
   return tokens
 }

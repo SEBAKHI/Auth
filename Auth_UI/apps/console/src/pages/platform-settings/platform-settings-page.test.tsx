@@ -263,11 +263,11 @@ describe("platform settings branding card — two saves at once", () => {
  * Deliberate breaks: hold the tab in state instead of the URL; drop the keep-mounted rule.
  */
 describe("platform settings tabs", () => {
-  it("opens on Identity with no tab parameter, and offers Identity, Appearance and Templates in that order", async () => {
+  it("opens on Identity with no tab parameter, and offers Identity, Appearance, Templates and Fonts in that order", async () => {
     const router = renderPage()
 
     expect(await screen.findByText("Branding")).toBeInTheDocument()
-    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Identity", "Appearance", "Templates"])
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Identity", "Appearance", "Templates", "Fonts"])
     expect(screen.getByRole("tab", { name: "Identity" })).toHaveAttribute("aria-selected", "true")
     expect(router.state.location.search).toBe("")
     expect(screen.queryByText("designs panel")).toBeNull()

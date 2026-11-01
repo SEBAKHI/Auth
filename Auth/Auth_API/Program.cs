@@ -27,6 +27,7 @@ using Auth.Infrastructure.Authentication;
 using Auth.Infrastructure.Authorization;
 using Auth.Infrastructure.Persistence;
 using Auth.Infrastructure.Services;
+using Auth_API.Modules.Media;
 using Auth.Infrastructure.Notifications;
 using Auth.Infrastructure.Notifications.Channels;
 using Auth.Infrastructure.Notifications.Outbox;
@@ -642,6 +643,8 @@ builder.Services.AddHostedService<NotificationTemplateStartupCheck>();
 builder.Services.AddHostedService<NotificationOutboxDispatcher>();
 builder.Services.AddHostedService<EmailLogoRenditionStartupTask>();
 builder.Services.AddSingleton<IImageStorageService, FileSystemImageStorageService>();
+// The platform's fonts: WOFF2 files kept as uploaded, in the same uploads volume (fonts/).
+builder.Services.AddSingleton<IFontStorageService, FileSystemFontStorageService>();
 builder.Services.AddSingleton<IImageUrlComposer, ImageUrlComposer>();
 // Logo writers store only an upload key the actor uploaded (and claim it in the
 // uploads ledger), an https URL, or nothing. Scoped: it uses the ledger repository.
@@ -1415,25 +1418,7 @@ catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         imageStorageRoot);
 }
 
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new PhysicalFileProvider(imageStorageRoot),
-    RequestPath = imageStorageSettings.RequestPath,
-    OnPrepareResponse = ctx =>
-    {
-        ctx.Context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-
-        // Uploads are content-addressed by a random key, so they are immutable and cache
-        // hard. The email logo renditions are the exception: they sit at a STABLE filename
-        // that is overwritten whenever branding changes, precisely so that mail already
-        // delivered picks up the new logo. A long TTL there would defeat the point, so they
-        // get a short one and must be revalidated.
-        var isEmailRendition = ctx.File.Name.StartsWith("platform-email-", StringComparison.OrdinalIgnoreCase);
-        ctx.Context.Response.Headers["Cache-Control"] = isEmailRendition
-            ? "public, max-age=3600, must-revalidate"
-            : "public, max-age=86400";
-    }
-});
+app.UseStaticFiles(UploadsStaticFiles.Options(imageStorageRoot, imageStorageSettings.RequestPath));
 
 app.UseCors();
 app.UseAuthentication();

@@ -112,10 +112,13 @@ public class LogoHeightTests
     public void TheColumn_IsAppendedLast_NullableWithoutADefault(string table)
     {
         var columns = OrganizationCreationSchemaTests.DeclaredColumns(TableSource(table), table);
+        // Columns a later batch appended after this one (the platform's fonts: PlatformFontsTests).
+        var later = table == "PlatformSettings" ? 4 : 0;
 
         columns.Should().NotBeEmpty();
-        columns.Last().Name.Should().Be("LogoHeightPx", "appended, the publish is an ALTER TABLE ADD, not a rebuild");
-        columns.Last().Definition.Should().MatchRegex(@"^INT\s+NULL$");
+        var column = columns[^(1 + later)];
+        column.Name.Should().Be("LogoHeightPx", "appended, the publish is an ALTER TABLE ADD, not a rebuild");
+        column.Definition.Should().MatchRegex(@"^INT\s+NULL$");
     }
 
     [Theory]

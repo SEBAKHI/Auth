@@ -60,6 +60,7 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
             FaviconUrl = _imageUrlComposer.Compose(settings.FaviconUrl),
             LogoHeightPx = settings.LogoHeight?.Px,
             Theme = PlatformThemeDto.From(settings.Theme),
+            Fonts = PlatformFontsDto.From(settings, _imageUrlComposer),
             StaySignedInOffered = _idpSettings.StaySignedInOffered,
             CodeSignInOffered = _emailSettings.Enabled,
             PrimaryMethod = signUp.PasswordRequired ? SignInMethods.Password : SignInMethods.Code,

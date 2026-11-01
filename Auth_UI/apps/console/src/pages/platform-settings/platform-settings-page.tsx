@@ -41,6 +41,7 @@ import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 
 import { AppearanceCard } from "./appearance-card"
+import { FontsTab } from "./fonts-tab"
 import { LogoDisplaySizeCard } from "../../components/logo-display-size/logo-display-size-card"
 import { useReportUnsaved, useUnsavedParts, type UnsavedState } from "../../lib/unsaved-state"
 import {
@@ -331,6 +332,13 @@ const TAB_PANELS: Record<PlatformSettingsTabValue, PlatformSettingsTabPanel> = {
       <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
         <LoginDesignsTab />
       </React.Suspense>
+    ),
+  },
+  fonts: {
+    labelKey: "platformSettings.tabFonts",
+    capped: true,
+    render: ({ settings, onSaved, onUnsavedChange }) => (
+      <FontsTab settings={settings} onSaved={onSaved} onUnsavedChange={onUnsavedChange} />
     ),
   },
 }

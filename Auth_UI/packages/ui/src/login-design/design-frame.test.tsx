@@ -6,6 +6,7 @@ import { act, render } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { applyThemeCss } from "@authsystem/ui/theme/apply-theme"
+import { applyPlatformFonts, PLATFORM_FONT_FAMILY } from "@authsystem/ui/theme/platform-fonts"
 import {
   DESIGN_FRAME_SANDBOX,
   DESIGN_FRAME_SRC,
@@ -135,6 +136,27 @@ describe("DesignFrame", () => {
     act(() => applyThemeCss(null))
     expect(target.postMessage).toHaveBeenCalledTimes(2)
     expect(target.postMessage.mock.calls[1][0]).toMatchObject({ type: DESIGN_MESSAGES.theme })
+  })
+
+  it("sends the platform's fonts with the design and with every repaint, and the heading font as a token", async () => {
+    // jsdom has no Font Loading API: the files are recorded, the variables applied.
+    await act(() => applyPlatformFonts({ heading: "https://api.test/h.woff2", body: null }))
+    document.documentElement.style.setProperty("--font-heading", `"${PLATFORM_FONT_FAMILY.heading}", serif`)
+    const { rerender } = renderFrame()
+    const target = stubFrameWindow(frameOf())
+
+    say(READY, target)
+
+    const [rendered] = target.postMessage.mock.calls[0]
+    expect(rendered.fonts).toEqual([{ family: PLATFORM_FONT_FAMILY.heading, url: "https://api.test/h.woff2" }])
+    expect(rendered.tokens["--font-heading"]).toBe(`"${PLATFORM_FONT_FAMILY.heading}", serif`)
+
+    // A font removed while the page is open reaches the frame that shows the design.
+    target.postMessage.mockClear()
+    await act(() => applyPlatformFonts({ heading: null, body: null }))
+    rerender(<DesignFrame html="<p>design</p>" lang="ar" dir="rtl" mode="light" title="t" />)
+    expect(target.postMessage.mock.calls.at(-1)?.[0]).toMatchObject({ type: DESIGN_MESSAGES.theme, fonts: [] })
+    document.documentElement.style.removeProperty("--font-heading")
   })
 
   it("a new design is a new frame", () => {

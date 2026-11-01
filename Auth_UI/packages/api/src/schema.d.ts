@@ -15802,6 +15802,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/platform-settings/fonts/{role}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    role: components["schemas"]["FontRole"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        file?: components["schemas"]["IFormFile"];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformSettingsDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    role: components["schemas"]["FontRole"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformSettingsDto"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/Secrets/status": {
         parameters: {
             query?: never;
@@ -18170,6 +18279,7 @@ export interface components {
             entityTag?: null | components["schemas"]["EntityTagHeaderValue"];
             enableRangeProcessing?: boolean;
         };
+        FontRole: string;
         ForgotPasswordRequest: {
             email?: string;
         };
@@ -19249,6 +19359,7 @@ export interface components {
             /** Format: int32 */
             logoHeightPx?: null | number | string;
             theme?: components["schemas"]["PlatformThemeDto"];
+            fonts?: components["schemas"]["PlatformFontsDto"];
             staySignedInOffered?: boolean;
             codeSignInOffered?: boolean;
             primaryMethod?: string;
@@ -19256,6 +19367,14 @@ export interface components {
             passwordAtSignUp?: boolean;
             nameAtSignUp?: boolean;
             loginDesign?: null | components["schemas"]["LoginDesignRefDto"];
+        };
+        PlatformFontDto: {
+            url?: string;
+            familyName?: null | string;
+        };
+        PlatformFontsDto: {
+            heading?: null | components["schemas"]["PlatformFontDto"];
+            body?: null | components["schemas"]["PlatformFontDto"];
         };
         PlatformSettingsDto: {
             platformName?: string;
@@ -19265,6 +19384,7 @@ export interface components {
             theme?: components["schemas"]["PlatformThemeDto"];
             /** Format: int32 */
             logoHeightPx?: null | number | string;
+            fonts?: components["schemas"]["PlatformFontsDto"];
             /** Format: date-time */
             modifiedAt?: null | string;
             /** Format: uuid */

@@ -210,6 +210,14 @@ export const STATIC_SURFACES: readonly StaticSurface[] = [
     permission: PERMISSIONS.platformSettings.manage,
   },
   {
+    id: "platform-settings-fonts",
+    route: `/admin/platform-settings?${TAB_QUERY_PARAM}=fonts`,
+    titleKey: "platformSettings.tabFonts",
+    descriptionKey: "platformSettings.fonts.subtitle",
+    pathKeys: ["nav.platformSettings"],
+    permission: PERMISSIONS.platformSettings.manage,
+  },
+  {
     id: "system-settings",
     route: "/admin/system-settings",
     titleKey: "systemSettings.title",

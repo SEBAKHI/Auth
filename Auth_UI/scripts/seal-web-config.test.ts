@@ -18,7 +18,7 @@ import { pinnedEnvironment } from "./build-harness.mjs"
 const SEAL = join(dirname(fileURLToPath(import.meta.url)), "seal-web-config.mjs")
 const PLACEHOLDER = "https://auth.example.com"
 const REAL = "https://auth.contoso-sample.net"
-const POLICY = `default-src 'self'; img-src 'self' data: ${PLACEHOLDER}; connect-src 'self' ${PLACEHOLDER}`
+const POLICY = `default-src 'self'; img-src 'self' data: ${PLACEHOLDER}; font-src 'self' data: ${PLACEHOLDER}; connect-src 'self' ${PLACEHOLDER}`
 const WEB_CONFIG = `<?xml version="1.0"?><configuration><system.webServer><httpProtocol><customHeaders>
   <add name="Content-Security-Policy" value="${POLICY}" />
 </customHeaders></httpProtocol></system.webServer></configuration>`
@@ -51,9 +51,14 @@ const RECEIVER = 'parent.postMessage("ready", location.origin)'
  * Card S02's shape: a site-wide CSP, its Report-Only twin, and a <location>
  * with its own CSP for a preview document whose inline script it allows by hash.
  */
-function stagedApp(origin: string, overrides: { report?: string; preview?: string; html?: string } = {}) {
+function stagedApp(
+  origin: string,
+  overrides: { report?: string; preview?: string; html?: string; frame?: string } = {}
+) {
   const dir = app(origin)
-  const report = overrides.report ?? `default-src 'self'; img-src 'self' ${PLACEHOLDER}; connect-src 'self' ${PLACEHOLDER}`
+  const report =
+    overrides.report ??
+    `default-src 'self'; img-src 'self' ${PLACEHOLDER}; font-src 'self' ${PLACEHOLDER}; connect-src 'self' ${PLACEHOLDER}`
   const preview =
     overrides.preview ?? `default-src 'none'; script-src ${sha(RECEIVER)}; img-src 'self' data: ${PLACEHOLDER}`
   writeFileSync(
@@ -65,9 +70,18 @@ function stagedApp(origin: string, overrides: { report?: string; preview?: strin
 <location path="email-preview.html"><system.webServer><httpProtocol><customHeaders>
   <remove name="Content-Security-Policy" />
   <add name="Content-Security-Policy" value="${preview}" />
-</customHeaders></httpProtocol></system.webServer></location></configuration>`
+</customHeaders></httpProtocol></system.webServer></location>${
+      overrides.frame === undefined
+        ? ""
+        : `
+<location path="login-design-frame.html"><system.webServer><httpProtocol><customHeaders>
+  <remove name="Content-Security-Policy" />
+  <add name="Content-Security-Policy" value="${overrides.frame}" />
+</customHeaders></httpProtocol></system.webServer></location>`
+    }</configuration>`
   )
   writeFileSync(join(dir, "dist", "email-preview.html"), overrides.html ?? `<!doctype html><script>${RECEIVER}</script>`)
+  writeFileSync(join(dir, "dist", "login-design-frame.html"), `<!doctype html><script>${RECEIVER}</script>`)
   return dir
 }
 
@@ -128,7 +142,29 @@ describe("seal-web-config.mjs post-conditions (card S02)", () => {
     expect(run.status, run.stderr).toBe(0)
     const sealed = readFileSync(join(dir, "dist", "web.config"), "utf8")
     expect(sealed).not.toContain(PLACEHOLDER)
-    expect(sealed.split(REAL).length - 1).toBe(5)
+    expect(sealed.split(REAL).length - 1).toBe(7)
+  })
+
+  it("refuses a site policy without the origin in font-src: the platform's fonts are served by the API", () => {
+    const run = seal(
+      stagedApp(REAL, {
+        report: `default-src 'self'; img-src 'self' ${PLACEHOLDER}; font-src 'self' data:; connect-src 'self' ${PLACEHOLDER}`,
+      })
+    )
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain(`font-src of Content-Security-Policy-Report-Only does not allow ${REAL}`)
+  })
+
+  it("asks the sign-in page design frame for the origin in font-src, and the email preview for none", () => {
+    const frame = (fonts: string) =>
+      `default-src 'none'; script-src ${sha(RECEIVER)}; font-src 'self' data:${fonts}; img-src https: data:`
+    const refused = seal(stagedApp(REAL, { frame: frame("") }))
+    expect(refused.status).toBe(1)
+    expect(refused.stderr).toContain(
+      `font-src of Content-Security-Policy for login-design-frame.html does not allow ${REAL}`
+    )
+    const accepted = seal(stagedApp(REAL, { frame: frame(` ${PLACEHOLDER}`) }))
+    expect(accepted.status, accepted.stderr).toBe(0)
   })
 
   it("refuses a Report-Only header without the origin in connect-src", () => {
