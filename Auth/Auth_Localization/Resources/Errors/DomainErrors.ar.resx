@@ -994,6 +994,18 @@
   <data name="UiPreference.TooManyKeys" xml:space="preserve">
     <value>بلغتَ الحد الأقصى وهو {0} من تفضيلات العرض المحفوظة.</value>
   </data>
+  <data name="Font.FileRequired" xml:space="preserve">
+    <value>لم يُرفق أي ملف خط.</value>
+  </data>
+  <data name="Font.FileTooLarge" xml:space="preserve">
+    <value>يتجاوز ملف الخط الحجم الأقصى البالغ {0} بايت.</value>
+  </data>
+  <data name="Font.Invalid" xml:space="preserve">
+    <value>الملف ليس خط WOFF2 صالحًا.</value>
+  </data>
+  <data name="Font.StorageUnavailable" xml:space="preserve">
+    <value>تخزين الخطوط غير متاح.</value>
+  </data>
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>هذه الصورة غير متاحة للإرفاق. ارفع الصورة من جديد ثم أعد المحاولة.</value>
   </data>

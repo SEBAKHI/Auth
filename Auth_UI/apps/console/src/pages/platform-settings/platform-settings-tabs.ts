@@ -6,6 +6,6 @@
  *
  * Kept out of the page module so the palette can check its links without loading the page.
  */
-export const PLATFORM_SETTINGS_TABS = ["identity", "appearance", "templates"] as const
+export const PLATFORM_SETTINGS_TABS = ["identity", "appearance", "templates", "fonts"] as const
 
 export type PlatformSettingsTabValue = (typeof PLATFORM_SETTINGS_TABS)[number]

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
 using Dapper;
@@ -25,7 +26,8 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var dto = await connection.QueryFirstOrDefaultAsync<PlatformSettingsDto>(@"
-            SELECT [Id], [PlatformName], [LogoUrl], [LogoUrlDark], [FaviconUrl], [ModifiedAt], [ModifiedBy], [Theme], [LogoHeightPx]
+            SELECT [Id], [PlatformName], [LogoUrl], [LogoUrlDark], [FaviconUrl], [ModifiedAt], [ModifiedBy], [Theme], [LogoHeightPx],
+                   [HeadingFontKey], [HeadingFontName], [BodyFontKey], [BodyFontName]
             FROM [dbo].[PlatformSettings]
             WHERE [Id] = @Id",
             new { Id = PlatformSettings.SingletonId });
@@ -116,6 +118,42 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
                 settings.Id,
                 settings.PlatformName,
                 LogoHeightPx = settings.LogoHeight?.Px,
+                settings.ModifiedAt,
+                settings.ModifiedBy
+            },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <inheritdoc />
+    public async Task UpdateFontsAsync(PlatformSettings settings, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var heading = settings.FontFor(FontRole.Heading);
+        var body = settings.FontFor(FontRole.Body);
+        await connection.ExecuteAsync(new CommandDefinition(@"
+            MERGE [dbo].[PlatformSettings] AS target
+            USING (SELECT @Id AS [Id]) AS source
+            ON target.[Id] = source.[Id]
+            WHEN MATCHED THEN
+                UPDATE SET
+                    [HeadingFontKey] = @HeadingFontKey,
+                    [HeadingFontName] = @HeadingFontName,
+                    [BodyFontKey] = @BodyFontKey,
+                    [BodyFontName] = @BodyFontName,
+                    [ModifiedAt] = @ModifiedAt,
+                    [ModifiedBy] = @ModifiedBy
+            WHEN NOT MATCHED THEN
+                INSERT ([Id], [PlatformName], [HeadingFontKey], [HeadingFontName], [BodyFontKey], [BodyFontName], [ModifiedAt], [ModifiedBy])
+                VALUES (@Id, @PlatformName, @HeadingFontKey, @HeadingFontName, @BodyFontKey, @BodyFontName, @ModifiedAt, @ModifiedBy);",
+            new
+            {
+                settings.Id,
+                settings.PlatformName,
+                HeadingFontKey = heading?.Key,
+                HeadingFontName = heading?.FamilyName,
+                BodyFontKey = body?.Key,
+                BodyFontName = body?.FamilyName,
                 settings.ModifiedAt,
                 settings.ModifiedBy
             },
@@ -278,6 +316,10 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
         public Guid? ModifiedBy { get; init; }
         public string? Theme { get; init; }
         public int? LogoHeightPx { get; init; }
+        public string? HeadingFontKey { get; init; }
+        public string? HeadingFontName { get; init; }
+        public string? BodyFontKey { get; init; }
+        public string? BodyFontName { get; init; }
 
         public PlatformSettings ToEntity() => new(
             Id,
@@ -288,6 +330,23 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
             ModifiedAt,
             ModifiedBy,
             ThemeJson.Read(Theme),
-            LogoHeight.FromStored(LogoHeightPx));
+            LogoHeight.FromStored(LogoHeightPx),
+            Fonts());
+
+        private Dictionary<FontRole, PlatformFont> Fonts()
+        {
+            var fonts = new Dictionary<FontRole, PlatformFont>();
+            if (PlatformFont.FromStored(HeadingFontKey, HeadingFontName) is { } heading)
+            {
+                fonts[FontRole.Heading] = heading;
+            }
+
+            if (PlatformFont.FromStored(BodyFontKey, BodyFontName) is { } body)
+            {
+                fonts[FontRole.Body] = body;
+            }
+
+            return fonts;
+        }
     }
 }

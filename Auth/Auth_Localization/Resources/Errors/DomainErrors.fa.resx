@@ -992,6 +992,18 @@
   <data name="UiPreference.TooManyKeys" xml:space="preserve">
     <value>به سقف {0} ترجیح نمایش ذخیره‌شده رسیده‌اید.</value>
   </data>
+  <data name="Font.FileRequired" xml:space="preserve">
+    <value>هیچ فایل قلمی ارسال نشده است.</value>
+  </data>
+  <data name="Font.FileTooLarge" xml:space="preserve">
+    <value>حجم فایل قلم از حداکثر {0} بایت بیشتر است.</value>
+  </data>
+  <data name="Font.Invalid" xml:space="preserve">
+    <value>این فایل یک قلم WOFF2 معتبر نیست.</value>
+  </data>
+  <data name="Font.StorageUnavailable" xml:space="preserve">
+    <value>فضای ذخیره‌سازی قلم‌ها در دسترس نیست.</value>
+  </data>
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>این تصویر برای پیوست‌کردن در دسترس نیست. تصویر را دوباره بارگذاری کنید و دوباره تلاش کنید.</value>
   </data>

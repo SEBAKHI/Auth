@@ -33,4 +33,10 @@ public interface IPlatformSettingsRepository
     /// <see cref="UpdateThemeAsync"/>.
     /// </summary>
     Task UpdateLogoHeightAsync(PlatformSettings settings, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Persists the fonts (both roles) and the modification stamp only, inserting the row when
+    /// the seed row is missing, for the same reason as <see cref="UpdateThemeAsync"/>.
+    /// </summary>
+    Task UpdateFontsAsync(PlatformSettings settings, CancellationToken cancellationToken);
 }

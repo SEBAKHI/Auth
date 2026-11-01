@@ -69,7 +69,9 @@ describe("the sign-in page design frame's page", () => {
     const [receiver] = inlineScripts(html)
     const policy =
       `default-src 'none'; script-src ${sha256Source(receiver)}; style-src 'self' 'unsafe-inline'; ` +
-      "font-src 'self' data:; img-src https: data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+      // The API origin in font-src: the receiver registers the platform's own fonts (P4).
+      "font-src 'self' data: https://auth.example.com; img-src https: data:; base-uri 'none'; form-action 'none'; " +
+      "frame-ancestors 'self'"
 
     const headers = cspHeaders(webConfig).filter((header) => header.location === FRAME)
     expect(headers.map((header) => header.name)).toEqual(["Content-Security-Policy"])

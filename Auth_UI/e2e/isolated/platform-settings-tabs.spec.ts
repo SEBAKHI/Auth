@@ -7,7 +7,7 @@ import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
 
 /**
  * UI batch phase P2, in a real browser: platform settings as URL-synced tabs (Identity,
- * Appearance, Templates), the platform's sign-in designs as a table, and Delete in the row
+ * Appearance, Templates; Fonts since P4), the platform's sign-in designs as a table, and Delete in the row
  * menus of sign-in designs, email templates, layouts and the privacy policy. A row the
  * server would refuse keeps its Delete, disabled. Arabic and English, light and dark, 1440px
  * and 375px, each with a screenshot.
@@ -122,6 +122,7 @@ for (const language of ["en", "ar"] as const) {
           t.platformSettings.tabIdentity,
           t.platformSettings.appearance.title,
           t.loginDesigns.tab,
+          t.platformSettings.tabFonts,
         ])
         await expect(
           page.getByRole("tabpanel").locator('[data-slot="card-title"]').filter({ hasText: t.platformSettings.brandingTitle })
@@ -232,6 +233,7 @@ test("the command palette reaches each platform settings tab", async ({ page }) 
   for (const [title, search] of [
     [en.platformSettings.appearance.title, "?tab=appearance"],
     [en.loginDesigns.tab, "?tab=templates"],
+    [en.platformSettings.tabFonts, "?tab=fonts"],
   ] as const) {
     await page.getByRole("button", { name: en.globalSearch.label, exact: true }).first().click()
     await page.getByPlaceholder(en.globalSearch.placeholder).fill(title)

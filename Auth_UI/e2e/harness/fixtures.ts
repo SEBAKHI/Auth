@@ -120,7 +120,11 @@ export interface HarnessApi {
   /** The anonymous defaults of mock-anonymous-api.ts, then `handle`. */
   useAnonymous(
     handle?: (route: Route, url: URL, body: unknown) => Promise<boolean>,
-    options?: { seen?: SeenRequest[] }
+    options?: {
+      seen?: SeenRequest[]
+      /** Merged into what /platform/branding answers (default: the shipped preset). */
+      branding?: Record<string, unknown>
+    }
   ): Promise<void>
 }
 
@@ -317,7 +321,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
             options?.seen?.push({ method: request.method(), path, body })
           }
           return (
-            (await answerAnonymousDefaults(route.asRoute(), path)) ||
+            (await answerAnonymousDefaults(route.asRoute(), path, options?.branding)) ||
             (await handle(route.asRoute(), url, body))
           )
         })

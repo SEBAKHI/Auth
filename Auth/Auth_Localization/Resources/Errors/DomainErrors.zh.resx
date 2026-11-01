@@ -992,6 +992,18 @@
   <data name="UiPreference.TooManyKeys" xml:space="preserve">
     <value>已达到已保存显示偏好的上限 {0} 项。</value>
   </data>
+  <data name="Font.FileRequired" xml:space="preserve">
+    <value>未提供字体文件。</value>
+  </data>
+  <data name="Font.FileTooLarge" xml:space="preserve">
+    <value>字体文件超过了{0}字节的最大限制。</value>
+  </data>
+  <data name="Font.Invalid" xml:space="preserve">
+    <value>该文件不是有效的 WOFF2 字体。</value>
+  </data>
+  <data name="Font.StorageUnavailable" xml:space="preserve">
+    <value>字体存储不可用。</value>
+  </data>
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>该图片无法附加。请重新上传后再试。</value>
   </data>

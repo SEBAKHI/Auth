@@ -38,7 +38,7 @@ public class PlatformBrandingPayloadTests
     private static readonly string[] PublishedFields =
         ["platformName", "logoUrl", "logoUrlDark", "logoHeightPx", "faviconUrl", "theme", "staySignedInOffered",
          "codeSignInOffered", "primaryMethod", "selfRegistrationOpen", "passwordAtSignUp", "nameAtSignUp",
-         "loginDesign"];
+         "loginDesign", "fonts"];
 
     private static async Task<HttpResponseMessage> GetBrandingAsync(StaySignedInPolicy mode)
     {

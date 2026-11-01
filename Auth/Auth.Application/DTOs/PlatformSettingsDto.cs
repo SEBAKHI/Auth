@@ -1,6 +1,7 @@
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.ValueObjects;
 
 namespace Auth.Application.DTOs;
@@ -42,6 +43,9 @@ public class PlatformSettingsDto
     /// </summary>
     public int? LogoHeightPx { get; set; }
 
+    /// <summary>The platform's own fonts: heading and body, each absent while the shipped one is used.</summary>
+    public PlatformFontsDto Fonts { get; set; } = new();
+
     public DateTime? ModifiedAt { get; set; }
     public Guid? ModifiedBy { get; set; }
     public string? ModifiedByName { get; set; }
@@ -64,6 +68,7 @@ public class PlatformSettingsDto
         FaviconUrl = imageUrlComposer.Compose(settings.FaviconUrl),
         Theme = PlatformThemeDto.From(settings.Theme),
         LogoHeightPx = settings.LogoHeight?.Px,
+        Fonts = PlatformFontsDto.From(settings, imageUrlComposer),
         ModifiedAt = settings.ModifiedAt,
         ModifiedBy = settings.ModifiedBy,
         ModifiedByName = settings.ModifiedBy.HasValue
@@ -93,6 +98,12 @@ public class PlatformBrandingDto
     /// The platform appearance, rendered by both apps for every visitor.
     /// </summary>
     public PlatformThemeDto Theme { get; set; } = PlatformThemeDto.From(PlatformTheme.Default);
+
+    /// <summary>
+    /// The platform's own fonts, used by both apps and by every sign-in page design; each
+    /// absent while the shipped IBM Plex Sans is used.
+    /// </summary>
+    public PlatformFontsDto Fonts { get; set; } = new();
 
     /// <summary>
     /// Whether the sign-in page offers the "Stay signed in" box: true only while
@@ -135,6 +146,46 @@ public class PlatformBrandingDto
     /// on <c>ContentHash</c>.
     /// </summary>
     public LoginDesignRefDto? LoginDesign { get; set; }
+}
+
+/// <summary>
+/// The platform's own fonts by role.
+/// </summary>
+public class PlatformFontsDto
+{
+    /// <summary>The heading font, or null while titles use the body font.</summary>
+    public PlatformFontDto? Heading { get; set; }
+
+    /// <summary>The body font, or null while the shipped IBM Plex Sans is used.</summary>
+    public PlatformFontDto? Body { get; set; }
+
+    /// <summary>The fonts of <paramref name="settings"/>, with their files' public URLs.</summary>
+    public static PlatformFontsDto From(PlatformSettings settings, IImageUrlComposer urlComposer) => new()
+    {
+        Heading = PlatformFontDto.FromOrNull(settings.FontFor(FontRole.Heading), urlComposer),
+        Body = PlatformFontDto.FromOrNull(settings.FontFor(FontRole.Body), urlComposer),
+    };
+}
+
+/// <summary>
+/// One platform font: a WOFF2 file, served with <c>Access-Control-Allow-Origin: *</c> so any
+/// page (and the sandboxed design frame) can load it.
+/// </summary>
+public class PlatformFontDto
+{
+    /// <summary>The public URL of the WOFF2 file; it changes whenever the file does.</summary>
+    public string Url { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The family name the file declares, for the console to show; null when it declares none.
+    /// Pages never use it in CSS: they register the file under a family name of their own.
+    /// </summary>
+    public string? FamilyName { get; set; }
+
+    public static PlatformFontDto? FromOrNull(PlatformFont? font, IImageUrlComposer urlComposer) =>
+        font is null
+            ? null
+            : new PlatformFontDto { Url = urlComposer.Compose(font.Key)!, FamilyName = font.FamilyName };
 }
 
 /// <summary>

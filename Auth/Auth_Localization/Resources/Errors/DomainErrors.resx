@@ -994,6 +994,18 @@
   <data name="UiPreference.TooManyKeys" xml:space="preserve">
     <value>You have reached the limit of {0} saved display preferences.</value>
   </data>
+  <data name="Font.FileRequired" xml:space="preserve">
+    <value>No font file was provided.</value>
+  </data>
+  <data name="Font.FileTooLarge" xml:space="preserve">
+    <value>The font file exceeds the maximum size of {0} bytes.</value>
+  </data>
+  <data name="Font.Invalid" xml:space="preserve">
+    <value>The file is not a valid WOFF2 font.</value>
+  </data>
+  <data name="Font.StorageUnavailable" xml:space="preserve">
+    <value>Font storage is not available.</value>
+  </data>
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>That image is not available to attach. Upload the image again and retry.</value>
   </data>

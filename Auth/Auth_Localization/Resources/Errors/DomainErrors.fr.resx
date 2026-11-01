@@ -992,6 +992,18 @@
   <data name="UiPreference.TooManyKeys" xml:space="preserve">
     <value>Vous avez atteint la limite de {0} préférences d'affichage enregistrées.</value>
   </data>
+  <data name="Font.FileRequired" xml:space="preserve">
+    <value>Aucun fichier de police n'a été fourni.</value>
+  </data>
+  <data name="Font.FileTooLarge" xml:space="preserve">
+    <value>Le fichier de police dépasse la taille maximale de {0} octets.</value>
+  </data>
+  <data name="Font.Invalid" xml:space="preserve">
+    <value>Le fichier n'est pas une police WOFF2 valide.</value>
+  </data>
+  <data name="Font.StorageUnavailable" xml:space="preserve">
+    <value>Le stockage des polices n'est pas disponible.</value>
+  </data>
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>Cette image n'est pas disponible pour être jointe. Téléversez-la de nouveau, puis réessayez.</value>
   </data>

@@ -5,13 +5,17 @@ using Auth_API.Common;
 using Auth_API.Modules.Administration.Contracts;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Platform.GetPlatformSettings;
+using Auth.Application.Features.Platform.SetPlatformFont;
 using Auth.Application.Features.Platform.UpdatePlatformLogoHeight;
 using Auth.Application.Features.Platform.UpdatePlatformSettings;
 using Auth.Application.Features.Platform.UpdatePlatformTheme;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Auth.Domain.Constants;
+using Auth.Domain.Enums;
+using Auth.Domain.Errors;
 
 namespace Auth_API.Modules.Administration.Controllers;
 
@@ -141,6 +145,81 @@ public class PlatformSettingsController : ApiController
         var result = await _sender.Send(
             new UpdatePlatformLogoHeightCommand(request.LogoHeightPx, GetUserId()),
             cancellationToken);
+
+        return result.Match(
+            settings => Ok(settings),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Slack for the multipart envelope (boundaries, part headers, file name), so a font of
+    /// exactly <see cref="PlatformFonts.MaxSizeBytes"/> is not refused by the bytes around it.
+    /// The handler checks the file's own length against the exact limit.
+    /// </summary>
+    private const long FontUploadBodyLimit = PlatformFonts.MaxSizeBytes + (8 * 1024);
+
+    /// <summary>
+    /// Sets one of the platform's fonts from a WOFF2 file of at most 2 MiB: <c>heading</c>
+    /// (titles) or <c>body</c> (everything else). Both apps and every sign-in page design use
+    /// it at once; nothing else in the settings changes. The file is kept as uploaded, after a
+    /// check that it is a whole WOFF2 font.
+    /// </summary>
+    /// <param name="role">Which font: <c>heading</c> or <c>body</c>.</param>
+    /// <param name="file">The WOFF2 file.</param>
+    /// <param name="cancellationToken">The request's cancellation.</param>
+    /// <response code="200">Returns the updated platform settings</response>
+    /// <response code="400">No file, a file over 2 MiB, or a file that is not a whole WOFF2 font</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions</response>
+    [HttpPut("fonts/{role:regex(^(heading|body)$)}")]
+    [RequirePermission(PermissionCodes.PlatformSettings.Manage)]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(FontUploadBodyLimit)]
+    [RequestFormLimits(MultipartBodyLengthLimit = FontUploadBodyLimit)]
+    // Concurrency, as for images: checking a font holds its decompressed tables in memory.
+    [EnableRateLimiting("image-upload")]
+    [ProducesResponseType(typeof(PlatformSettingsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> SetFont(
+        FontRole role,
+        IFormFile? file,
+        CancellationToken cancellationToken)
+    {
+        if (file is null)
+        {
+            return Problem([FontErrors.FileRequired]);
+        }
+
+        await using var content = file.OpenReadStream();
+        var result = await _sender.Send(
+            new SetPlatformFontCommand(role, new FontUpload(content, file.Length, file.FileName), GetUserId()),
+            cancellationToken);
+
+        return result.Match(
+            settings => Ok(settings),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Removes one of the platform's fonts: its role goes back to the shipped IBM Plex Sans (a
+    /// heading without its own font follows the body's). Removing a font that is not set
+    /// changes nothing.
+    /// </summary>
+    /// <param name="role">Which font: <c>heading</c> or <c>body</c>.</param>
+    /// <param name="cancellationToken">The request's cancellation.</param>
+    /// <response code="200">Returns the updated platform settings</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions</response>
+    [HttpDelete("fonts/{role:regex(^(heading|body)$)}")]
+    [RequirePermission(PermissionCodes.PlatformSettings.Manage)]
+    [ProducesResponseType(typeof(PlatformSettingsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> RemoveFont(FontRole role, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new SetPlatformFontCommand(role, null, GetUserId()), cancellationToken);
 
         return result.Match(
             settings => Ok(settings),

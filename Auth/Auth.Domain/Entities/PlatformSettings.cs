@@ -1,3 +1,4 @@
+using Auth.Domain.Enums;
 using Auth.Domain.Primitives;
 using Auth.Domain.ValueObjects;
 
@@ -57,6 +58,14 @@ public class PlatformSettings : EntityBase
     /// </summary>
     public LogoHeight? LogoHeight { get; private set; }
 
+    private readonly Dictionary<FontRole, PlatformFont> _fonts = [];
+
+    /// <summary>
+    /// Gets the platform's own fonts by role; a role with none uses the shipped IBM Plex
+    /// Sans (a heading without its own font uses the body's).
+    /// </summary>
+    public IReadOnlyDictionary<FontRole, PlatformFont> Fonts => _fonts.AsReadOnly();
+
     /// <summary>
     /// Gets the last modification timestamp.
     /// </summary>
@@ -80,7 +89,8 @@ public class PlatformSettings : EntityBase
         DateTime? modifiedAt,
         Guid? modifiedBy,
         PlatformTheme? theme = null,
-        LogoHeight? logoHeight = null) : base(id)
+        LogoHeight? logoHeight = null,
+        IReadOnlyDictionary<FontRole, PlatformFont>? fonts = null) : base(id)
     {
         PlatformName = platformName;
         LogoUrl = logoUrl;
@@ -90,6 +100,10 @@ public class PlatformSettings : EntityBase
         ModifiedBy = modifiedBy;
         Theme = theme ?? PlatformTheme.Default;
         LogoHeight = logoHeight;
+        foreach (var (role, font) in fonts ?? new Dictionary<FontRole, PlatformFont>())
+        {
+            _fonts[role] = font;
+        }
     }
 
     /// <summary>
@@ -140,4 +154,40 @@ public class PlatformSettings : EntityBase
         ModifiedBy = modifiedBy;
         return true;
     }
+
+    /// <summary>The font of <paramref name="role"/>, or null while it uses the shipped one.</summary>
+    public PlatformFont? FontFor(FontRole role) => _fonts.GetValueOrDefault(role);
+
+    /// <summary>
+    /// Sets the font of one role (null: back to the shipped one) and stamps the modification
+    /// audit fields. Nothing else changes: fonts are saved on their own, like the appearance.
+    /// </summary>
+    /// <returns>False, and no change, when that role already has this font.</returns>
+    public bool SetFont(FontRole role, PlatformFont? font, Guid modifiedBy)
+    {
+        if (Equals(FontFor(role), font))
+        {
+            return false;
+        }
+
+        if (font is null)
+        {
+            _fonts.Remove(role);
+        }
+        else
+        {
+            _fonts[role] = font;
+        }
+
+        ModifiedAt = DateTime.UtcNow;
+        ModifiedBy = modifiedBy;
+        return true;
+    }
+
+    /// <summary>
+    /// Whether any role still uses the stored file <paramref name="key"/>: one file may serve
+    /// both roles, and a replaced file is deleted only once no role uses it.
+    /// </summary>
+    public bool UsesFontFile(string key) =>
+        _fonts.Values.Any(font => string.Equals(font.Key, key, StringComparison.Ordinal));
 }

@@ -74,9 +74,9 @@ export async function installAnonymousApi(
  * real API host. `path` is the lower-cased pathname. Returns false when the
  * request is not one of the defaults.
  */
-export async function answerAnonymousDefaults(route: Route, path: string) {
+export async function answerAnonymousDefaults(route: Route, path: string, branding?: Record<string, unknown>) {
   if (path === "/api/v1/platform/branding") {
-    await fulfillJson(route, { platformName: "AuthSystem", staySignedInOffered: true })
+    await fulfillJson(route, { platformName: "AuthSystem", staySignedInOffered: true, ...branding })
     return true
   }
   if (path === "/api/v1/platform/password-policy") {

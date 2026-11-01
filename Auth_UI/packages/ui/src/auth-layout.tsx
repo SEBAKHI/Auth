@@ -196,7 +196,7 @@ export function AuthLayout({
                 <p className="mb-2 max-w-full text-sm font-semibold wrap-anywhere">{appName}</p>
               ) : null}
 
-              <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+              <h1 className="font-heading text-xl font-semibold tracking-tight">{title}</h1>
               {appName && continueTo ? (
                 // An application's name may run to 200 characters with no space.
                 <p className="max-w-full text-sm wrap-anywhere text-muted-foreground">

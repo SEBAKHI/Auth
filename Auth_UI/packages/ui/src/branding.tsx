@@ -9,6 +9,8 @@ import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import { API_BASE_URL } from "@authsystem/api/env"
 import type { Schemas } from "@authsystem/api/types"
+import { readCachedBranding, writeCachedBranding } from "@authsystem/ui/branding-cache"
+import { applyPlatformFonts, fontUrlsFrom } from "@authsystem/ui/theme/platform-fonts"
 import {
   applyThemeCss,
   readCachedTheme,
@@ -28,9 +30,6 @@ const DEFAULT_THEME_KEY = themeConfigKey(DEFAULT_THEME_CONFIG)
 export const BRANDING_QUERY_KEY = ["platform-branding"] as const
 
 const DEFAULT_FAVICON = "/vite.svg"
-const BRANDING_CACHE_KEY = "auth.ui.branding"
-
-type BrandingPayload = Schemas["PlatformBrandingDto"]
 
 /** Which design a sign-in page shows in its panel: its id, its version, its logo choice. */
 export type LoginDesignRef = Schemas["LoginDesignRefDto"]
@@ -131,32 +130,6 @@ export function toSignInOptions(payload: {
     selfRegistrationOpen: payload.selfRegistrationOpen !== false,
     passwordAtSignUp: payload.passwordAtSignUp !== false,
     nameAtSignUp: payload.nameAtSignUp !== false,
-  }
-}
-
-/**
- * Last known branding, so a returning visitor's first frame is the real mark
- * rather than a placeholder.
- *
- * Legitimate here precisely because branding is cosmetic: a one-frame-stale
- * logo costs nothing, and the revalidation lands in the same second. The same
- * trick is forbidden for anything a user could act on or rely upon.
- */
-function readCachedBranding(): BrandingPayload | undefined {
-  try {
-    const raw = window.localStorage.getItem(BRANDING_CACHE_KEY)
-    return raw ? (JSON.parse(raw) as BrandingPayload) : undefined
-  } catch {
-    // Storage is absent in privacy-restricted contexts and in jsdom.
-    return undefined
-  }
-}
-
-function writeCachedBranding(value: BrandingPayload): void {
-  try {
-    window.localStorage.setItem(BRANDING_CACHE_KEY, JSON.stringify(value))
-  } catch {
-    // Losing the cache only costs the placeholder frame back.
   }
 }
 
@@ -341,6 +314,14 @@ export function BrandingProvider({
   React.useEffect(() => {
     if (query.data) writeCachedBranding(query.data)
   }, [query.data])
+
+  // The platform's fonts, keyed on their addresses: a refetch that changes nothing applies
+  // nothing. Applied before React mounts from the cached copy (applyCachedFonts); this puts
+  // the current answer in place, and takes a removed font away.
+  const fontsKey = query.data ? JSON.stringify(fontUrlsFrom(query.data.fonts)) : null
+  React.useEffect(() => {
+    if (fontsKey) void applyPlatformFonts(JSON.parse(fontsKey))
+  }, [fontsKey])
 
   React.useEffect(() => {
     // While pending, `name` is the compiled-in product name — writing it made
