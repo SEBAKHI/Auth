@@ -1724,6 +1724,9 @@
   <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
     <value>این زبان پشتیبانی نمی‌شود.</value>
   </data>
+  <data name="LogoHeight.OutOfRange" xml:space="preserve">
+    <value>ارتفاع لوگو باید عددی صحیح از {0} تا {1} پیکسل باشد.</value>
+  </data>
   <data name="Template.OutputTooLarge" xml:space="preserve">
     <value>پیام تولیدشده بزرگ‌تر از {0:N0} بایت است، یعنی بیشترین اندازه‌ای که یک پیام می‌تواند داشته باشد: برنامه‌های ایمیل مانند Gmail ایمیل بزرگ‌تر از آن را کوتاه می‌کنند. قالب، متن‌ها یا حلقه‌های آن را کوتاه‌تر کنید.</value>
   </data>

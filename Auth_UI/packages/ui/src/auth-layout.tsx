@@ -4,12 +4,12 @@ import { ShieldCheck } from "lucide-react"
 import { LanguageToggle } from "@authsystem/ui/common/language-toggle"
 import { ThemeToggle } from "@authsystem/ui/common/theme-toggle"
 import { Card, CardContent } from "@authsystem/ui/card"
-import { BrandingLogo, useBranding, type LoginDesignRef } from "@authsystem/ui/branding"
+import { useBranding, type LoginDesignRef } from "@authsystem/ui/branding"
 import type { DesignFrameState } from "@authsystem/ui/login-design/design-frame"
 import LoginDesignPanel from "@authsystem/ui/login-design/login-design-panel"
+import { LOGO_HEIGHT, LOGO_MAX_ASPECT, LogoMark, PlatformMark, resolveLogoHeight } from "@authsystem/ui/logo-mark"
 import { pickLogo } from "@authsystem/ui/theme/pick-logo"
 import { useResolvedTheme } from "@authsystem/ui/theme-provider"
-import { cn } from "@authsystem/ui/utils"
 
 // Imported with the page, not as a chunk of its own: it is 2 KB, and a lazy component put
 // a round trip in front of the design on a first visit and, on every visit, React's hold
@@ -50,12 +50,14 @@ export type FlowLoginDesign = { clientId: string; design: LoginDesignRef | null 
  * panel, shown from the `lg` breakpoint up; it is a plain surface until an
  * application's design fills it.
  *
- * Only one logo is large. Behind a pending authorize request the application
- * is where the visitor is going, so its logo sits above the title with its name
- * spelled out under it, and the platform's mark stays small in the corner; the
- * trust marker below names the platform. The panel never carries the visitor's
- * bearings: under `lg` it is gone, and the form half has to say on its own
- * which application this is.
+ * Each logo has one place. The platform's mark is in the corner, at the height
+ * the administrator chose for it, on every page. Behind a pending authorize
+ * request the application is where the visitor is going, so its logo sits above
+ * the title, at the height chosen for it, with its name spelled out under it; the
+ * trust marker below names the platform. An application's design may hide the
+ * platform's mark: the corner is then empty, and nothing moves into it. The
+ * panel never carries the visitor's bearings: under `lg` it is gone, and the form
+ * half has to say on its own which application this is.
  */
 export function AuthLayout({
   title,
@@ -66,6 +68,7 @@ export function AuthLayout({
   appName,
   appLogoUrl,
   appLogoUrlDark,
+  appLogoHeightPx,
   continueTo,
   showPlatformLogo,
   securedBy,
@@ -96,12 +99,18 @@ export function AuthLayout({
    * platform's own logos.
    */
   appLogoUrlDark?: string | null
+  /**
+   * The height the application's logo is drawn at, in pixels, from its public
+   * branding; null or left out draws it at the default (48px).
+   */
+  appLogoHeightPx?: number | null
   /** The line under the title naming the application, e.g. "Continue to Acme." */
   continueTo?: string | null
   /**
-   * False when the application's design hides the platform's mark: the
-   * application's logo then takes the corner, and the trust marker still names
-   * the platform. Ignored without an application, on the platform's own pages.
+   * False when the application's design hides the platform's mark: only that
+   * mark goes, the corner stays empty, the application's logo stays above the
+   * title, and the trust marker still names the platform. Ignored without an
+   * application, on the platform's own pages.
    * Left out, the design's own choice decides (shown when there is no design).
    */
   showPlatformLogo?: boolean
@@ -114,7 +123,13 @@ export function AuthLayout({
   loginDesign?: FlowLoginDesign
 }) {
   const resolvedTheme = useResolvedTheme()
-  const { loginDesign: platformDesign } = useBranding()
+  const {
+    loginDesign: platformDesign,
+    logoUrl: platformLogo,
+    logoHeightPx: platformLogoHeight,
+    name: platformName,
+    isPending: brandingPending,
+  } = useBranding()
   // The application's flow names its design (its own, else the platform's, decided by the
   // server); the platform's own pages show the platform's.
   const design = loginDesign ? loginDesign.design : platformDesign
@@ -137,52 +152,26 @@ export function AuthLayout({
     : null
   const appLogo = pickedLogo !== failedLogo ? pickedLogo : null
   const dropLogo = () => setFailedLogo(pickedLogo)
-  const appTakesCorner = Boolean(appName) && !keepsPlatformLogo
   // The application is named nowhere else on a page that has no "Continue to" line
   // (logout, signed out): without a usable logo there, its name is written instead.
-  const appNamedAsText = Boolean(appName) && !appTakesCorner && !appLogo && !continueTo
-
-  let corner: React.ReactNode
-  if (appTakesCorner) {
-    corner = appLogo ? (
-      <img
-        src={appLogo}
-        alt={appName!}
-        onError={dropLogo}
-        className="h-10 w-auto max-w-40 object-contain"
-      />
-    ) : (
-      <CornerName name={appName!} />
-    )
-  } else {
-    // Small while the application's logo is the large one, as on every
-    // screen of the flow; at its full corner size on the platform's own pages.
-    const compact = Boolean(appName)
-    corner = (
-      <BrandingLogo
-        className={cn(compact ? "h-7" : "h-10", "w-auto max-w-40 object-contain")}
-        fallback={(name) => (
-          <span className="flex min-w-0 items-center gap-2">
-            <span
-              className={cn(
-                "flex shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground",
-                compact ? "size-7" : "size-10"
-              )}
-            >
-              <ShieldCheck className={compact ? "size-4" : "size-5"} />
-            </span>
-            <CornerName name={name} />
-          </span>
-        )}
-      />
-    )
-  }
+  const appNamedAsText = Boolean(appName) && !appLogo && !continueTo
+  // Hiding the platform's mark hides that mark alone: nothing takes its place.
+  const showsPlatformMark = !appName || keepsPlatformLogo
 
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="flex min-w-0 flex-col gap-6 p-4 md:p-6">
         <header className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center">{corner}</div>
+          <div className="flex min-w-0 items-center">
+            {showsPlatformMark ? (
+              <PlatformMark
+                src={platformLogo}
+                name={platformName}
+                heightPx={platformLogoHeight}
+                pending={brandingPending}
+              />
+            ) : null}
+          </div>
           <div className="flex shrink-0 items-center gap-1">
             <LanguageToggle />
             <ThemeToggle />
@@ -192,12 +181,14 @@ export function AuthLayout({
         <main className="flex flex-1 flex-col items-center justify-center">
           <div className="w-full max-w-sm">
             <div className="mb-6 flex flex-col items-center gap-2 text-center">
-              {appLogo && !appTakesCorner ? (
-                <img
+              {appLogo ? (
+                <LogoMark
                   src={appLogo}
                   alt={appName!}
+                  heightPx={resolveLogoHeight(appLogoHeightPx, LOGO_HEIGHT.applicationDefault)}
+                  maxAspect={LOGO_MAX_ASPECT.application}
                   onError={dropLogo}
-                  className="mb-2 h-12 w-auto max-w-60 object-contain"
+                  className="mb-2"
                 />
               ) : null}
               {appNamedAsText ? (
@@ -263,21 +254,5 @@ export function AuthLayout({
         ) : null}
       </div>
     </div>
-  )
-}
-
-/**
- * A name in the corner, cut with an ellipsis when it does not fit.
- *
- * The ellipsis falls at the end of the cutting box in that box's own direction:
- * inheriting an RTL page's direction, a Latin name lost its beginning instead of
- * its end ("… Everyone Everywhere"). Its own direction keeps the start in view
- * in every language.
- */
-function CornerName({ name }: { name: string }) {
-  return (
-    <bdi dir="auto" className="min-w-0 truncate text-sm font-semibold">
-      {name}
-    </bdi>
   )
 }

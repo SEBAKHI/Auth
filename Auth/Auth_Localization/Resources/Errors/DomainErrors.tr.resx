@@ -1724,6 +1724,9 @@
   <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
     <value>Bu dil desteklenmiyor.</value>
   </data>
+  <data name="LogoHeight.OutOfRange" xml:space="preserve">
+    <value>Logonun yüksekliği {0} ile {1} arasında tam sayı piksel olmalıdır.</value>
+  </data>
   <data name="Template.OutputTooLarge" xml:space="preserve">
     <value>Oluşturulan ileti {0:N0} bayttan büyük; bu, bir iletinin olabileceği en büyük boyuttur: Gmail gibi e-posta uygulamaları bunu aşan e-postayı keser. Şablonu, metinlerini veya döngülerini kısaltın.</value>
   </data>

@@ -62,7 +62,7 @@ public class OrganizationCreationSchemaTests
     /// may follow it; each later batch pins its own shape in its own guard
     /// (<see cref="BrandingSchemaTests"/>).
     /// </summary>
-    private static readonly string[] LaterBatchColumns = ["LogoUrlDark", "InitiateLoginUri", "AllowMachineOrganizationsRead", "Theme", "ThemeEnabled"];
+    private static readonly string[] LaterBatchColumns = ["LogoUrlDark", "InitiateLoginUri", "AllowMachineOrganizationsRead", "Theme", "ThemeEnabled", "LogoHeightPx"];
 
     [Fact]
     public void TheTwoColumns_AreLast_InOrder_AfterTheAllowedScopes()

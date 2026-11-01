@@ -1724,6 +1724,9 @@
   <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
     <value>不支持此语言。</value>
   </data>
+  <data name="LogoHeight.OutOfRange" xml:space="preserve">
+    <value>徽标的高度必须是 {0} 到 {1} 之间的整数像素。</value>
+  </data>
   <data name="Template.OutputTooLarge" xml:space="preserve">
     <value>生成的消息超过 {0:N0} 字节，即一条消息的上限：超过此大小的邮件会被 Gmail 等邮件应用截断。请缩短模板、其文本或循环。</value>
   </data>

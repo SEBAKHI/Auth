@@ -28,7 +28,9 @@ public class BrandingSchemaTests
     private static readonly Dictionary<string, string[]> LaterBatchColumns = new()
     {
         // OI-202: MachineDirectoryConsentSchemaTests. The application's appearance: ApplicationAppearanceSchemaTests.
-        ["Applications"] = ["InitiateLoginUri", "AllowMachineOrganizationsRead", "Theme", "ThemeEnabled"],
+        ["Applications"] = ["InitiateLoginUri", "AllowMachineOrganizationsRead", "Theme", "ThemeEnabled", "LogoHeightPx"],
+        // The logo height on the sign-in pages: LogoHeightTests.
+        ["PlatformSettings"] = ["LogoHeightPx"],
     };
 
     [Theory]

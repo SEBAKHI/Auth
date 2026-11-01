@@ -35,18 +35,6 @@ public class GetPlatformSettingsQueryHandler : IRequestHandler<GetPlatformSettin
         var modifierNames = await NameLookupHelper.UserNamesAsync(
             _userRepository, [settings.ModifiedBy], cancellationToken);
 
-        return new PlatformSettingsDto
-        {
-            PlatformName = settings.PlatformName,
-            LogoUrl = _imageUrlComposer.Compose(settings.LogoUrl),
-            LogoUrlDark = _imageUrlComposer.Compose(settings.LogoUrlDark),
-            FaviconUrl = _imageUrlComposer.Compose(settings.FaviconUrl),
-            Theme = PlatformThemeDto.From(settings.Theme),
-            ModifiedAt = settings.ModifiedAt,
-            ModifiedBy = settings.ModifiedBy,
-            ModifiedByName = settings.ModifiedBy.HasValue
-                ? modifierNames.GetValueOrDefault(settings.ModifiedBy.Value)
-                : null
-        };
+        return PlatformSettingsDto.From(settings, _imageUrlComposer, modifierNames);
     }
 }

@@ -187,6 +187,13 @@ public class Application : AggregateRoot
     public PlatformTheme? EffectiveTheme => ThemeEnabled ? Theme : null;
 
     /// <summary>
+    /// Gets the height the application's logo is shown at on its sign-in pages, or null while
+    /// none is chosen (<see cref="Constants.LogoHeights.ApplicationDefaultPx"/> applies). Light
+    /// and dark logos share it.
+    /// </summary>
+    public LogoHeight? LogoHeight { get; private set; }
+
+    /// <summary>
     /// Gets the machine scopes, of <see cref="Constants.MachineClients.Scopes.ConsentOnly"/>, this
     /// application's administrator consented to: the ones its machine key may be granted when it
     /// asks for them.
@@ -533,6 +540,33 @@ public class Application : AggregateRoot
 
         Theme = nextTheme;
         ThemeEnabled = enabled;
+        SetModified(modifiedBy);
+        return true;
+    }
+
+    /// <summary>
+    /// Hydrates the logo's height on the sign-in pages without touching audit fields. For
+    /// repository use only.
+    /// </summary>
+    public void LoadLogoHeight(int? px)
+    {
+        LogoHeight = LogoHeight.FromStored(px);
+    }
+
+    /// <summary>
+    /// Sets the logo's height on the sign-in pages (null: back to the default). Saved on its own,
+    /// never by <c>Update</c>, for the reason given at <see cref="SetAppearance"/>'s command: the
+    /// console's update is a full-object save built from a possibly stale copy.
+    /// </summary>
+    /// <returns>False, and no change, when the height was already this.</returns>
+    public bool SetLogoHeight(LogoHeight? logoHeight, Guid modifiedBy)
+    {
+        if (Equals(LogoHeight, logoHeight))
+        {
+            return false;
+        }
+
+        LogoHeight = logoHeight;
         SetModified(modifiedBy);
         return true;
     }

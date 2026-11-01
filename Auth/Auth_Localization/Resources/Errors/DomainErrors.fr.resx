@@ -1724,6 +1724,9 @@
   <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
     <value>Cette langue n’est pas prise en charge.</value>
   </data>
+  <data name="LogoHeight.OutOfRange" xml:space="preserve">
+    <value>La hauteur d’un logo doit être un nombre entier de pixels, de {0} à {1}.</value>
+  </data>
   <data name="Template.OutputTooLarge" xml:space="preserve">
     <value>Le message produit dépasse {0:N0} octets, la taille maximale d’un message : au-delà, les applications de messagerie comme Gmail tronquent l’e-mail. Raccourcissez le modèle, ses textes ou ses boucles.</value>
   </data>

@@ -28,8 +28,9 @@ public class ApplicationAppearanceSchemaTests
     {
         var names = OrganizationCreationSchemaTests.DeclaredColumns(TableSource()).Select(c => c.Name).ToList();
 
-        names.Should().HaveCountGreaterThan(3);
-        names.TakeLast(3).Should().Equal(["AllowMachineOrganizationsRead", "Theme", "ThemeEnabled"],
+        // Only a later batch follows them: the logo height on the sign-in pages (LogoHeightTests).
+        names.Should().HaveCountGreaterThan(4);
+        names.TakeLast(4).Should().Equal(["AllowMachineOrganizationsRead", "Theme", "ThemeEnabled", "LogoHeightPx"],
             "they are appended, so the publish does not rebuild the table");
     }
 

@@ -79,6 +79,13 @@ public interface IApplicationRepository
     Task<bool> UpdateAppearanceAsync(AppEntity application, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Writes the logo's height on the sign-in pages (<see cref="AppEntity.LogoHeight"/>) and the
+    /// modification stamp, and nothing else. <see cref="UpdateAsync"/> never writes the height.
+    /// </summary>
+    /// <returns>True when the row was written; false when the application no longer exists.</returns>
+    Task<bool> UpdateLogoHeightAsync(AppEntity application, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Soft-deletes an application and revokes its API and webhook keys in the
     /// same transaction. <paramref name="deletedBy"/> is the acting user.
     /// </summary>

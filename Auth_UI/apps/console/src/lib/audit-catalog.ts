@@ -99,6 +99,7 @@ export const AUDIT_ACTIONS: readonly AuditActionEntry[] = [
   { code: "application.redirect_uris.changed", actionType: "Application" },
   { code: "application.launch_addresses.changed", actionType: "Application" },
   { code: "application.appearance.changed", actionType: "Application" },
+  { code: "application.logo_height.changed", actionType: "Application" },
   {
     code: "organization.ownership_transfer_initiated",
     actionType: "OrganizationManagement",

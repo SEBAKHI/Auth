@@ -1724,6 +1724,9 @@
   <data name="LoginDesign.UnsupportedLanguage" xml:space="preserve">
     <value>یہ زبان معاون نہیں ہے۔</value>
   </data>
+  <data name="LogoHeight.OutOfRange" xml:space="preserve">
+    <value>لوگو کی اونچائی {0} سے {1} تک پورے پکسلز میں ہونی چاہیے۔</value>
+  </data>
   <data name="Template.OutputTooLarge" xml:space="preserve">
     <value>بنایا گیا پیغام {0:N0} بائٹ سے بڑا ہے، جو ایک پیغام کی زیادہ سے زیادہ حد ہے: اس سے بڑی ای میل کو Gmail جیسی ای میل ایپس کاٹ دیتی ہیں۔ سانچے، اس کی عبارتوں یا اس کے لوپس کو مختصر کریں۔</value>
   </data>

@@ -5,6 +5,7 @@ using Auth_API.Common;
 using Auth_API.Modules.Administration.Contracts;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Platform.GetPlatformSettings;
+using Auth.Application.Features.Platform.UpdatePlatformLogoHeight;
 using Auth.Application.Features.Platform.UpdatePlatformSettings;
 using Auth.Application.Features.Platform.UpdatePlatformTheme;
 using MediatR;
@@ -113,6 +114,33 @@ public class PlatformSettingsController : ApiController
             GetUserId());
 
         var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match(
+            settings => Ok(settings),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Sets the height the platform's logo is shown at on the sign-in pages: the area it takes
+    /// on the page, never the image. Name, logos, favicon and appearance are left as they are.
+    /// </summary>
+    /// <response code="200">Returns the updated platform settings</response>
+    /// <response code="400">A height outside 24–120 pixels</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions</response>
+    [HttpPut("logo-height")]
+    [RequirePermission(PermissionCodes.PlatformSettings.Manage)]
+    [ProducesResponseType(typeof(PlatformSettingsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpdateLogoHeight(
+        [FromBody] UpdateLogoHeightRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new UpdatePlatformLogoHeightCommand(request.LogoHeightPx, GetUserId()),
+            cancellationToken);
 
         return result.Match(
             settings => Ok(settings),

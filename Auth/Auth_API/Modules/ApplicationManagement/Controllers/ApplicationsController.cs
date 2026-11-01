@@ -18,6 +18,7 @@ using Auth.Application.Features.Applications.GetApplicationUsers;
 using Auth.Application.Features.Applications.GetPublicBranding;
 using Auth.Application.Features.Applications.UpdateApplication;
 using Auth.Application.Features.Applications.UpdateApplicationAppearance;
+using Auth.Application.Features.Applications.UpdateApplicationLogoHeight;
 using Auth.Application.Features.LoginDesigns.GetPublicLoginDesign;
 using Auth.Application.DTOs;
 using Auth.Domain.Constants;
@@ -419,6 +420,36 @@ public class ApplicationsController : ApiController
 
         return result.Match(
             appearance => Ok(appearance),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Set the height the application's logo is shown at on its sign-in pages: the area it takes
+    /// on the page, never the image. Nothing else of the application changes.
+    /// </summary>
+    /// <response code="200">Returns the saved height</response>
+    /// <response code="400">A height outside 24–120 pixels</response>
+    [HttpPut("{id:guid}/logo-height")]
+    [RequirePermission(PermissionCodes.Applications.Update)]
+    [ProducesResponseType(typeof(ApplicationLogoHeightDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpdateApplicationLogoHeight(
+        Guid id,
+        [FromBody] UpdateLogoHeightRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpdateApplicationLogoHeightCommand(id, request.LogoHeightPx)
+        {
+            ChangedBy = GetCurrentUserId()
+        };
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match(
+            saved => Ok(saved),
             errors => Problem(errors));
     }
 

@@ -1050,6 +1050,12 @@
       "pointer": "#/language"
     },
     {
+      "code": "LogoHeight.OutOfRange",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "MachineKey.AlreadyRevoked",
       "status": 409,
       "source": "catalog"

@@ -112,7 +112,8 @@ for (const language of ["en", "ar"] as const) {
       // The preview takes the draft; the console does not.
       await expect.poll(tilePrimary).not.toBe(before)
       expect(await cssVar(page, "--primary")).toBe(consolePrimary)
-      const outside = page.getByRole("button", { name: t.common.save, exact: true })
+      // The card's own Save, outside the preview (the logo display size card above has one too).
+      const outside = card.getByRole("button", { name: t.common.save, exact: true })
       expect(await outside.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(before)
 
       const results = await new AxeBuilder({ page })

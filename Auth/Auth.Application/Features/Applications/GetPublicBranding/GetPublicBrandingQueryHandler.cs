@@ -53,6 +53,7 @@ public class GetPublicBrandingQueryHandler
             Name = application.Name,
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             LogoUrlDark = _imageUrlComposer.Compose(application.LogoUrlDark),
+            LogoHeightPx = application.LogoHeight?.Px,
             // Only for an application a browser can sign in to: that is the page that
             // offers the way home. A machine client never exposes its address on this
             // anonymous endpoint. The rule is shared with the launch after an accepted

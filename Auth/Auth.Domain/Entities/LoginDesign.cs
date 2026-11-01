@@ -59,8 +59,9 @@ public sealed partial class LoginDesign : AggregateRoot
     public string StringsJson { get; private set; } = "{}";
 
     /// <summary>
-    /// Gets whether the sign-in pages keep the platform's mark in their corner. False gives the
-    /// corner to the application's logo; "Secured by" still names the platform.
+    /// Gets whether the sign-in pages keep the platform's mark in their corner. False hides that
+    /// mark alone: the corner stays empty, the application's logo stays above the form, and
+    /// "Secured by" still names the platform.
     /// </summary>
     public bool ShowPlatformLogo { get; private set; } = true;
 

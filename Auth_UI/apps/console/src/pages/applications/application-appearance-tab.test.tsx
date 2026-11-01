@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { cleanup, render, screen, waitFor } from "@testing-library/react"
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -80,7 +80,9 @@ function renderTab(app = application(), canUpdate = true) {
 
 const theSwitch = () => screen.getByRole("switch", { name: "Customize this application's appearance" })
 const baseColour = () => screen.getByRole("combobox", { name: "Base color" })
-const saveButton = () => screen.getByRole("button", { name: "Save" })
+// The appearance card's own Save: the logo display size card above it has one too.
+const saveButton = () =>
+  within(theSwitch().closest<HTMLElement>('[data-slot="card"]')!).getByRole("button", { name: "Save" })
 
 beforeEach(async () => {
   await i18n.changeLanguage("en")
