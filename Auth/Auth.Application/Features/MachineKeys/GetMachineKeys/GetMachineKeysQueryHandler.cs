@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -50,6 +51,7 @@ public class GetMachineKeysQueryHandler : IRequestHandler<GetMachineKeysQuery, E
         LastUsedAt = key.LastUsedAt,
         IsRevoked = key.IsRevoked,
         RevokedAt = key.RevokedAt,
-        RevokeReason = key.RevokeReason,
+        RevokeReason = KeyRevocationReasons.Split(key.RevokeReason).Text,
+        RevokeReasonCode = KeyRevocationReasons.Split(key.RevokeReason).Code,
     };
 }

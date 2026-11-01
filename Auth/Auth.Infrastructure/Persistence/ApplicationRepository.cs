@@ -490,22 +490,26 @@ public class ApplicationRepository : IApplicationRepository
             new { Id = id, DeletedBy = deletedBy },
             transaction);
 
+        // The keys are revoked by the system, not by an administrator: their reason is a code the
+        // console names in the reader's language (Q6), not prose frozen in one language.
+        var revocation = new { Id = id, DeletedBy = deletedBy, RevokeReason = KeyRevocationReasons.ApplicationDeleted };
+
         await connection.ExecuteAsync(@"
             UPDATE [dbo].[ApiKeys]
             SET [RevokedAt] = GETUTCDATE(),
                 [RevokedBy] = @DeletedBy,
-                [RevokeReason] = N'Application deleted'
+                [RevokeReason] = @RevokeReason
             WHERE [ApplicationId] = @Id AND [RevokedAt] IS NULL",
-            new { Id = id, DeletedBy = deletedBy },
+            revocation,
             transaction);
 
         await connection.ExecuteAsync(@"
             UPDATE [dbo].[WebhookKeys]
             SET [RevokedAt] = GETUTCDATE(),
                 [RevokedBy] = @DeletedBy,
-                [RevokeReason] = N'Application deleted'
+                [RevokeReason] = @RevokeReason
             WHERE [ApplicationId] = @Id AND [RevokedAt] IS NULL",
-            new { Id = id, DeletedBy = deletedBy },
+            revocation,
             transaction);
 
         // Its machine keys too (OI-128). The token endpoint already refuses a key of a deleted
@@ -514,9 +518,9 @@ public class ApplicationRepository : IApplicationRepository
             UPDATE [dbo].[ApplicationMachineKeys]
             SET [RevokedAt] = GETUTCDATE(),
                 [RevokedBy] = @DeletedBy,
-                [RevokeReason] = N'Application deleted'
+                [RevokeReason] = @RevokeReason
             WHERE [ApplicationId] = @Id AND [RevokedAt] IS NULL",
-            new { Id = id, DeletedBy = deletedBy },
+            revocation,
             transaction);
 
         transaction.Commit();

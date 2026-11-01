@@ -297,6 +297,7 @@ export const fr: TranslationResources = {
     requireEmailVerification: "Vérification de l'e-mail requise",
     requireTwoFactor: "Deux facteurs requis",
     revokeReason: "Motif de révocation",
+    revokeReasonCode: "Code du motif de révocation",
     revokedAt: "Révoqué le",
     role: "Rôle",
     roleCode: "Code du rôle",
@@ -1178,6 +1179,9 @@ export const fr: TranslationResources = {
     rotate: "Renouveler",
     revokeReason: "Motif",
     revokeReasonPlaceholder: "Divulguée dans un dépôt public",
+    revokeReasonCodes: {
+      ApplicationDeleted: "Application supprimée",
+    },
     revokeTitle: "Révoquer la clé API",
     revokeBody:
       "Le système qui utilise cette clé est refusé dès que la vérification mise en cache par votre application expire : par défaut sous 1 minute.",

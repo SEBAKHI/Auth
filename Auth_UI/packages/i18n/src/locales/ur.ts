@@ -297,6 +297,7 @@ export const ur: TranslationResources = {
     requireEmailVerification: "ای میل توثیق لازمی",
     requireTwoFactor: "دو مرحلہ توثیق لازمی",
     revokeReason: "منسوخی کی وجہ",
+    revokeReasonCode: "منسوخی کی وجہ کا کوڈ",
     revokedAt: "تاریخِ منسوخی",
     role: "کردار",
     roleCode: "کردار کا کوڈ",
@@ -1148,6 +1149,9 @@ export const ur: TranslationResources = {
     rotate: "گھمائیں",
     revokeReason: "وجہ",
     revokeReasonPlaceholder: "عوامی ریپازٹری میں افشا ہو گئی",
+    revokeReasonCodes: {
+      ApplicationDeleted: "ایپلیکیشن حذف کر دی گئی",
+    },
     revokeTitle: "API کلید منسوخ کریں",
     revokeBody:
       "اس کلید کو استعمال کرنے والا سسٹم اس وقت مسترد ہوتا ہے جب آپ کی ایپلیکیشن میں محفوظ کی گئی تصدیق کی مدت ختم ہو: بطورِ طے شدہ 1 منٹ کے اندر۔",

@@ -25,7 +25,20 @@ public class MachineKeyDto
     public DateTime? LastUsedAt { get; set; }
     public bool IsRevoked { get; set; }
     public DateTime? RevokedAt { get; set; }
+
+    /// <summary>
+    /// Why the key was revoked, as the revoking administrator wrote it; null when not revoked, when no
+    /// reason was given (the revoke endpoint takes none today), or when the system revoked it
+    /// (<see cref="RevokeReasonCode"/>).
+    /// </summary>
     public string? RevokeReason { get; set; }
+
+    /// <summary>
+    /// Why the system revoked the key, as a code the reader's language names: one of
+    /// <see cref="Auth.Domain.Constants.KeyRevocationReasons.All"/> (today only <c>ApplicationDeleted</c>).
+    /// Null when an administrator revoked it, or it is not revoked.
+    /// </summary>
+    public string? RevokeReasonCode { get; set; }
 }
 
 /// <summary>

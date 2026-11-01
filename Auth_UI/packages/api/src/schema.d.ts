@@ -17784,6 +17784,7 @@ export interface components {
             /** Format: date-time */
             revokedAt?: null | string;
             revokeReason?: null | string;
+            revokeReasonCode?: null | string;
             scopes?: string[];
         };
         AppActivityDto: {
@@ -18754,6 +18755,7 @@ export interface components {
             /** Format: date-time */
             revokedAt?: null | string;
             revokeReason?: null | string;
+            revokeReasonCode?: null | string;
         };
         MachineKeyPurpose: number;
         MyApplicationDto: {
@@ -20574,6 +20576,7 @@ export interface components {
             /** Format: date-time */
             revokedAt?: null | string;
             revokeReason?: null | string;
+            revokeReasonCode?: null | string;
             needsReissue?: boolean;
             /** Format: date-time */
             reissueBy?: null | string;

@@ -27,7 +27,7 @@ import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 import { ApiKeyCreateDialog } from "./api-key-create-dialog"
 import { useApiKeyColumns, type ApiKeyColumnId } from "./api-key-columns"
-import { revokeReasonOnlyWhenGiven } from "../credential-key-rows"
+import { revokeReasonForReader } from "../credential-key-rows"
 
 type ApiKeyDto = Schemas["ApiKeyDto"]
 
@@ -88,6 +88,9 @@ export function ApiKeysPanel({
   const canRevoke = hasPermission(PERMISSIONS.apiKeys.revoke)
   const canRotate = hasPermission(PERMISSIONS.apiKeys.rotate)
 
+  // `t` changes with the language, so the reason is named again in the new one.
+  const rowsForReader = React.useMemo(() => revokeReasonForReader(t), [t])
+
   // One key shape on every surface, so a change made on either refreshes both.
   const query = useQuery({
     queryKey: ["api-keys", { applicationId }],
@@ -97,7 +100,7 @@ export function ApiKeysPanel({
           params: { query: applicationId ? { applicationId } : {} },
         })
       ),
-    select: revokeReasonOnlyWhenGiven,
+    select: rowsForReader,
   })
 
   const invalidate = () =>

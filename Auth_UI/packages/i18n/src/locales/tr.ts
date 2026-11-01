@@ -297,6 +297,7 @@ export const tr: TranslationResources = {
     requireEmailVerification: "E-posta doğrulaması zorunlu",
     requireTwoFactor: "İki adımlı doğrulama zorunlu",
     revokeReason: "İptal nedeni",
+    revokeReasonCode: "İptal nedeni kodu",
     revokedAt: "İptal edilme",
     role: "Rol",
     roleCode: "Rol kodu",
@@ -1159,6 +1160,9 @@ export const tr: TranslationResources = {
     rotate: "Yenile",
     revokeReason: "Neden",
     revokeReasonPlaceholder: "Herkese açık bir depoda sızdırıldı",
+    revokeReasonCodes: {
+      ApplicationDeleted: "Uygulama silindi",
+    },
     revokeTitle: "API anahtarını iptal et",
     revokeBody:
       "Bu anahtarı kullanan sistem, uygulamanızın önbelleğe aldığı doğrulama sonucu sona erdiğinde reddedilir: varsayılan olarak 1 dakika içinde.",

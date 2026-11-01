@@ -1,6 +1,7 @@
 using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Application.Security.Keyring;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -66,7 +67,8 @@ public class GetWebhookKeysQueryHandler : IRequestHandler<GetWebhookKeysQuery, E
             LastUsedAt = wk.LastUsedAt,
             IsRevoked = wk.IsRevoked,
             RevokedAt = wk.RevokedAt,
-            RevokeReason = wk.RevokeReason,
+            RevokeReason = KeyRevocationReasons.Split(wk.RevokeReason).Text,
+            RevokeReasonCode = KeyRevocationReasons.Split(wk.RevokeReason).Code,
             NeedsReissue = OldHmacKeyIdOf(wk, ring) is not null,
             ReissueBy = OldHmacKeyIdOf(wk, ring) is { } oldKeyId && ring.Find(oldKeyId) is { } oldKey
                 ? ring.AcceptedUntil(oldKey, CredentialPurpose.WebhookKey)

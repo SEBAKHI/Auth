@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
@@ -52,6 +53,7 @@ public class GetApiKeysQueryHandler : IRequestHandler<GetApiKeysQuery, ErrorOr<I
         foreach (var apiKey in apiKeys)
         {
             var scopes = scopesByKey.GetValueOrDefault(apiKey.Id, []);
+            var (revokeReasonCode, revokeReason) = KeyRevocationReasons.Split(apiKey.RevokeReason);
             apiKeyDtos.Add(new ApiKeyDto
             {
                 Id = apiKey.Id,
@@ -68,7 +70,8 @@ public class GetApiKeysQueryHandler : IRequestHandler<GetApiKeysQuery, ErrorOr<I
                 LastUsedAt = apiKey.LastUsedAt,
                 IsRevoked = apiKey.IsRevoked,
                 RevokedAt = apiKey.RevokedAt,
-                RevokeReason = apiKey.RevokeReason,
+                RevokeReason = revokeReason,
+                RevokeReasonCode = revokeReasonCode,
                 Scopes = scopes
             });
         }

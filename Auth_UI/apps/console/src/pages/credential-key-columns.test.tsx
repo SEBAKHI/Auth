@@ -7,7 +7,7 @@ import "@authsystem/i18n"
 import { buildDisplayColumns } from "@authsystem/ui/data-table/auto-columns"
 
 import { useApiKeyColumns } from "./api-keys/api-key-columns"
-import { revokeReasonOnlyWhenGiven } from "./credential-key-rows"
+import { revokeReasonForReader } from "./credential-key-rows"
 import { useWebhookKeyColumns } from "./webhook-keys/webhook-key-columns"
 
 /**
@@ -37,8 +37,8 @@ const key = (extra: Record<string, unknown>) => ({
   ...extra,
 })
 
-const LIVE_ONLY = revokeReasonOnlyWhenGiven([key({}), key({})])
-const WITH_REASON = revokeReasonOnlyWhenGiven([
+const LIVE_ONLY = revokeReasonForReader(t)([key({}), key({})])
+const WITH_REASON = revokeReasonForReader(t)([
   key({}),
   key({ isRevoked: true, revokedAt: "2026-10-20T09:00:00Z", revokeReason: "Leaked" }),
 ])

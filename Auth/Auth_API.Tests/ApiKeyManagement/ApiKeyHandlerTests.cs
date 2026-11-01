@@ -873,7 +873,32 @@ public class GetApiKeysQueryHandlerTests
 
         result.IsError.Should().BeFalse();
         result.Value.Single(k => k.Name == "Revoked").RevokeReason.Should().Be("Leaked in a public repository");
+        result.Value.Single(k => k.Name == "Revoked").RevokeReasonCode.Should().BeNull();
         result.Value.Single(k => k.Name == "Live").RevokeReason.Should().BeNull();
+        result.Value.Single(k => k.Name == "Live").RevokeReasonCode.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("ApplicationDeleted")]
+    [InlineData("Application deleted")] // written before Q6
+    public async Task Handle_KeyOfADeletedApplication_CarriesTheReasonCode_NotProse(string stored)
+    {
+        // Q6: the console names the code in the reader's language; English prose would show in every one.
+        var applicationId = Guid.NewGuid();
+        var key = TestHelpers.CreateApiKey(applicationId: applicationId, name: "Orphaned");
+        key.Revoke(Guid.NewGuid(), stored);
+
+        _apiKeyRepositoryMock
+            .Setup(r => r.ListAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ApiKey> { key });
+        _apiKeyRepositoryMock
+            .Setup(r => r.GetScopesAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<string>>());
+
+        var dto = (await _handler.Handle(new GetApiKeysQuery(applicationId), CancellationToken.None)).Value.Single();
+
+        dto.RevokeReasonCode.Should().Be("ApplicationDeleted");
+        dto.RevokeReason.Should().BeNull();
     }
 
     [Fact]

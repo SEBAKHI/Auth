@@ -180,7 +180,7 @@ export function ApplicationMachineKeysTab({ appId }: { appId: string }) {
       header: t("common.status"),
       meta: {
         label: t("common.status"),
-        covers: ["isRevoked", "revokedAt", "revokeReason"],
+        covers: ["isRevoked", "revokedAt", "revokeReason", "revokeReasonCode"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "active", label: t("common.active") },

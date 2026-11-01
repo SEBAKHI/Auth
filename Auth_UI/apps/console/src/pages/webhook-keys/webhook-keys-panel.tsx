@@ -30,7 +30,7 @@ import {
   useWebhookKeyColumns,
   type WebhookKeyColumnId,
 } from "./webhook-key-columns"
-import { revokeReasonOnlyWhenGiven } from "../credential-key-rows"
+import { revokeReasonForReader } from "../credential-key-rows"
 
 type WebhookKeyDto = Schemas["WebhookKeyDto"]
 
@@ -89,6 +89,9 @@ export function WebhookKeysPanel({
   const canRevoke = hasPermission(PERMISSIONS.webhookKeys.revoke)
   const canRotate = hasPermission(PERMISSIONS.webhookKeys.rotate)
 
+  // `t` changes with the language, so the reason is named again in the new one.
+  const rowsForReader = React.useMemo(() => revokeReasonForReader(t), [t])
+
   // One key shape on every surface, so a change made on either refreshes both.
   const query = useQuery({
     queryKey: ["webhook-keys", { applicationId }],
@@ -98,7 +101,7 @@ export function WebhookKeysPanel({
           params: { query: applicationId ? { applicationId } : {} },
         })
       ),
-    select: revokeReasonOnlyWhenGiven,
+    select: rowsForReader,
   })
 
   const invalidate = () =>

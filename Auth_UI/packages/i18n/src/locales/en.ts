@@ -298,6 +298,7 @@ export const en = {
     requireEmailVerification: "Email verification required",
     requireTwoFactor: "Two-factor required",
     revokeReason: "Revocation reason",
+    revokeReasonCode: "Revocation reason code",
     revokedAt: "Revoked at",
     role: "Role",
     roleCode: "Role code",
@@ -1153,6 +1154,11 @@ export const en = {
     rotate: "Rotate",
     revokeReason: "Reason",
     revokeReasonPlaceholder: "Leaked in a public repository",
+    // Why the system revoked a key (API, webhook or machine key), by the code the API
+    // sends in revokeReasonCode. An administrator's own reason is shown as typed.
+    revokeReasonCodes: {
+      ApplicationDeleted: "Application deleted",
+    },
     revokeTitle: "Revoke API key",
     revokeBody:
       "The system using this key is refused once your application's cached check of it expires: by default within 1 minute.",
