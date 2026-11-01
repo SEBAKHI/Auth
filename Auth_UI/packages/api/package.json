@@ -5,10 +5,10 @@
   "type": "module",
   "dependencies": {
     "@authsystem/i18n": "workspace:*",
-    "@tanstack/react-query": "^5.103.2",
+    "@tanstack/react-query": "^5.104.5",
     "openapi-fetch": "^0.17.0",
-    "react": "^19.3.0",
-    "react-i18next": "^17.0.15",
+    "react": "^19.3.1",
+    "react-i18next": "^17.1.8",
     "sonner": "^2.0.8"
   },
   "devDependencies": {
