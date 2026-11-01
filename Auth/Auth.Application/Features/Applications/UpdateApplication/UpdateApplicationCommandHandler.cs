@@ -278,6 +278,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             OrganizationCreatorRoleId = application.OrganizationCreatorRoleId,
             ThemeEnabled = application.ThemeEnabled,
             Theme = PlatformThemeDto.FromOrNull(application.Theme),
+            LogoHeightPx = application.LogoHeight?.Px,
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,
             ModifiedAt = application.ModifiedAt,

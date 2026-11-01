@@ -109,9 +109,11 @@ describe("platform settings branding card", () => {
     expect(await brandingCircles()).toHaveLength(2)
     expect(screen.getByText("Logo")).toBeTruthy()
     expect(screen.getByText("Favicon")).toBeTruthy()
-    // The per-mode labels belong to the dialog, not the page.
-    expect(screen.queryByText("Light mode")).toBeNull()
-    expect(screen.queryByText("Dark mode")).toBeNull()
+    // The per-mode labels belong to the dialog, not the branding card (the logo display
+    // size card below it previews each mode under its own label).
+    const card = within(screen.getByText("Branding").closest<HTMLElement>('[data-slot="card"]')!)
+    expect(card.queryByText("Light mode")).toBeNull()
+    expect(card.queryByText("Dark mode")).toBeNull()
   })
 
   it("edits the light and dark logos in one dialog, keeping the other fields", async () => {
@@ -312,7 +314,7 @@ describe("platform settings tabs", () => {
     await user.click(within(prompt).getByRole("button", { name: "Cancel" }))
     expect(router.state.location.pathname).toBe("/admin/platform-settings")
 
-    await user.click(screen.getByRole("button", { name: "Save" }))
+    await user.click(within(name.closest("form")!).getByRole("button", { name: "Save" }))
     await waitFor(() => expect(put).toHaveBeenCalled())
     await act(() => router.navigate("/admin/platform-settings/login-designs/d1"))
     expect(await screen.findByRole("heading", { name: "A design" })).toBeInTheDocument()

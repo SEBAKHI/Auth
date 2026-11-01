@@ -9,6 +9,8 @@ export interface AppBranding {
   logoUrl: string | null
   /** The dark-mode logo; null when the application has one logo for both modes. */
   logoUrlDark: string | null
+  /** The height its logo is drawn at, in pixels; null while none is chosen (the default). */
+  logoHeightPx: number | null
   /**
    * Where the application is hosted, for a way back when nothing else leads
    * there (OI-145); null unless it is safe to render as a link.
@@ -61,6 +63,7 @@ async function fetchAppBranding(
     name?: string
     logoUrl?: string | null
     logoUrlDark?: string | null
+    logoHeightPx?: number | string | null
     homeUrl?: string | null
     theme?: Parameters<typeof toThemeConfig>[0]
     loginDesign?: LoginDesignRef | null
@@ -70,6 +73,7 @@ async function fetchAppBranding(
         name: data.name,
         logoUrl: data.logoUrl ?? null,
         logoUrlDark: data.logoUrlDark ?? null,
+        logoHeightPx: data.logoHeightPx == null ? null : Number(data.logoHeightPx),
         homeUrl: safeHomeUrl(data.homeUrl),
         // The whole appearance or none: the server sends it only while it is
         // switched on, and it replaces the platform's, never merged with it.

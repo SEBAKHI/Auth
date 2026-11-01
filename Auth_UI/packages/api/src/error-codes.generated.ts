@@ -194,6 +194,7 @@ export const PUBLISHED_ERROR_CODES = {
   "LoginDesign.StringsTooLarge": "#/stringsJson",
   "LoginDesign.UnknownVariables": "catalog",
   "LoginDesign.UnsupportedLanguage": "#/language",
+  "LogoHeight.OutOfRange": "catalog",
   "MachineKey.AlreadyRevoked": "catalog",
   "MachineKey.InvalidPublicKey": "catalog",
   "MachineKey.LimitReached": "catalog",

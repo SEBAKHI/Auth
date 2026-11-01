@@ -17,7 +17,8 @@ import "@authsystem/i18n"
 /**
  * Every screen a pending authorize request passes through shows the requesting
  * application (OI-105): its logo above the title, its name under it, and the
- * platform's mark small in the corner (owner, 2026-10-28). So does every other
+ * platform's mark in the corner (owner, 2026-10-28), each at the height its
+ * owner chose and the platform's no smaller for it (owner, 2026-10-31). So does every other
  * page that names an application, by the client id in its own address: the
  * sign-out confirmation, the signed-out page and the expired request (owner,
  * 2026-10-29), with the application's appearance and its design too.
@@ -36,6 +37,8 @@ const { get, auth, platform, applicationTheme } = vi.hoisted(() => ({
   applicationTheme: vi.fn(),
   platform: {
     isPending: false,
+    /** The height the platform chose for its mark (60 is the default). */
+    logoHeightPx: 60,
     /** The platform's own design, which its own pages show. */
     loginDesign: undefined as { id: string; contentHash: string; showPlatformLogo: boolean } | undefined,
   },
@@ -58,17 +61,17 @@ vi.mock("@authsystem/auth/auth-context", () => ({ useAuth: () => auth }))
 vi.mock("@authsystem/auth/external/external-providers", () => ({
   ExternalProviders: () => null,
 }))
-// The platform's own branding is settled; its mark stands in for the platform
-// header, so "no application" is something the test can see.
+// The platform's own branding is settled, with no logo uploaded: its mark is the
+// default tile, so "no application" is something the test can see.
 vi.mock("@authsystem/ui/branding", () => ({
   useBranding: () => ({
     name: "AuthSystem",
     logoUrl: null,
+    logoHeightPx: platform.logoHeightPx,
     isPending: platform.isPending,
     staySignedInOffered: true,
     loginDesign: platform.loginDesign,
   }),
-  BrandingLogo: () => <span data-testid="platform-mark" />,
   // The sign-in options are not yet known: the sign-up page shows its form.
   useSignInOptions: () => null,
   // What the provider then does with it has its own tests (branding.provider.test.tsx).
@@ -342,6 +345,10 @@ function renderPage(page: FlowPage, returnTo: string | null) {
   )
 }
 
+/** The platform's mark in the corner (the default tile: no platform logo here), or null. */
+const platformMark = () =>
+  screen.getByRole("banner").querySelector<HTMLElement>('[data-slot="logo-mark"]')
+
 const brandingRequests = (fetch: MockInstance<typeof globalThis.fetch>) =>
   fetch.mock.calls.map(([url]) => String(url))
 
@@ -378,6 +385,7 @@ describe("the application header on every screen of the flow", () => {
     get.mockReset()
     applicationTheme.mockReset()
     platform.isPending = false
+    platform.logoHeightPx = 60
     platform.loginDesign = undefined
     fetch = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
       Promise.resolve({
@@ -425,9 +433,7 @@ describe("the application header on every screen of the flow", () => {
         expect(screen.queryByText("Continue to SHOP.")).toBeNull()
       }
       expect(screen.getByText("Secured by AuthSystem")).toBeInTheDocument()
-      expect(screen.getByRole("banner")).toContainElement(
-        screen.getByTestId("platform-mark")
-      )
+      expect(platformMark()).not.toBeNull()
       // The screen keeps its own title; only the header changed.
       expect(
         screen.getByRole("heading", { level: 1, name: page.heading })
@@ -440,7 +446,7 @@ describe("the application header on every screen of the flow", () => {
   )
 
   it.each(PAGES)(
-    "$name follows the application's design: one that hides the platform's mark gives the corner to the application's logo",
+    "$name follows the application's design: one that hides the platform's mark hides only that mark",
     async (page) => {
       // The design reaches a page only through the flow's header: a screen that
       // builds its header by hand shows the platform's design and corner instead.
@@ -458,8 +464,10 @@ describe("the application header on every screen of the flow", () => {
       renderPage(page, AUTHORIZE)
 
       const logo = await screen.findByRole("img", { name: "SHOP" })
-      expect(screen.getByRole("banner")).toContainElement(logo)
-      expect(screen.queryByTestId("platform-mark")).toBeNull()
+      // The application's logo stays above the form; nothing moves into the corner.
+      expect(screen.getByRole("main")).toContainElement(logo)
+      expect(platformMark()).toBeNull()
+      expect(screen.getByRole("banner").querySelector("img")).toBeNull()
       expect(screen.getByText("Secured by AuthSystem")).toBeInTheDocument()
     }
   )
@@ -526,7 +534,7 @@ describe("the application header on every screen of the flow", () => {
       const panel = await screen.findByTestId("design-panel")
       expect(panel).toHaveAttribute("data-client-id", "")
       expect(panel).toHaveAttribute("data-design-id", PLATFORM_DESIGN.id)
-      expect(screen.getByTestId("platform-mark")).toBeInTheDocument()
+      expect(platformMark()).not.toBeNull()
       expect(container.querySelector("img")).toBeNull()
       expect(screen.queryByText(/Secured by/)).toBeNull()
       expect(screen.queryByText(/Continue to/)).toBeNull()
@@ -545,9 +553,24 @@ describe("the application header on every screen of the flow", () => {
       // that nothing was asked for and nothing changed.
       await new Promise((resolve) => setTimeout(resolve, 50))
       expect(fetch).not.toHaveBeenCalled()
-      expect(screen.getByTestId("platform-mark")).toBeInTheDocument()
+      expect(platformMark()).not.toBeNull()
       expect(container.querySelector("img")).toBeNull()
       expect(screen.queryByText(/Secured by/)).toBeNull()
+    }
+  )
+
+  it.each(PAGES)(
+    "$name draws both logos at the heights their owners chose, never stretched (D5/D12)",
+    async (page) => {
+      platform.logoHeightPx = 90
+      fetch.mockImplementation(answering({ name: "SHOP", logoUrl: LOGO_URL, logoHeightPx: 100 }))
+      renderPage(page, AUTHORIZE)
+
+      const logo = await screen.findByRole("img", { name: "SHOP" })
+      expect(logo.style.getPropertyValue("--logo-h")).toBe("100px")
+      expect(logo.style.getPropertyValue("--logo-w-max")).toBe("500px")
+      expect(logo).toHaveClass("w-auto", "object-contain")
+      expect(platformMark()!.style.getPropertyValue("--logo-h")).toBe("90px")
     }
   )
 

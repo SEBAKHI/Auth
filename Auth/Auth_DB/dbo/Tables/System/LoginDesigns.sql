@@ -11,7 +11,8 @@ CREATE TABLE [dbo].[LoginDesigns]
     -- Per-language strings: JSON object { "<lang>": { "<key>": "..." } }, as a
     -- notification layout keeps its chrome strings.
     [StringsJson] NVARCHAR(MAX) NOT NULL CONSTRAINT [DF_LoginDesigns_StringsJson] DEFAULT N'{}',
-    -- 0 = the design hides the platform's mark: the application's logo takes the corner.
+    -- 0 = the design hides the platform's mark, and only it: the corner stays empty and the
+    -- application's logo stays above the form.
     [ShowPlatformLogo] BIT NOT NULL CONSTRAINT [DF_LoginDesigns_ShowPlatformLogo] DEFAULT 1,
     -- No draft and no publish: saving an active design changes what visitors see.
     -- A new design and a copy start inactive.

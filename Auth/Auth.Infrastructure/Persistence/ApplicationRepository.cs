@@ -30,7 +30,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled], [LogoHeightPx],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [Id] = @Id AND [IsDeleted] = 0",
@@ -56,7 +56,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled], [LogoHeightPx],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy],
                 [IsDeleted], [DeletedAt], [DeletedBy]
             FROM [dbo].[Applications]
@@ -85,7 +85,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled], [LogoHeightPx],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy],
                 [IsDeleted], [DeletedAt], [DeletedBy]
             FROM [dbo].[Applications]
@@ -105,7 +105,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled], [LogoHeightPx],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [Code] = @Code AND [IsDeleted] = 0",
@@ -204,7 +204,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled], [LogoHeightPx],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [IsDeleted] = 0
@@ -222,7 +222,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled], [LogoHeightPx],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [IsActive] = 1 AND [IsDeleted] = 0
@@ -259,12 +259,12 @@ public class ApplicationRepository : IApplicationRepository
             INSERT INTO [dbo].[Applications] (
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled], [LogoHeightPx],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             ) VALUES (
                 @Id, @Code, @Name, @Description, @BaseUrl, @LogoUrl, @ContactEmail,
                 @IsActive, @AllowSelfRegistration, @RequireTwoFactor, @RequireEmailVerification,
-                @SessionTimeoutMinutes, @MaxConcurrentSessions, @ReauthenticationMaxAgeMinutes, @AccessMode, @AllowedScopes, @AllowOrganizationCreation, @OrganizationCreatorRoleId, @LogoUrlDark, @InitiateLoginUri, @AllowMachineOrganizationsRead, @Theme, @ThemeEnabled,
+                @SessionTimeoutMinutes, @MaxConcurrentSessions, @ReauthenticationMaxAgeMinutes, @AccessMode, @AllowedScopes, @AllowOrganizationCreation, @OrganizationCreatorRoleId, @LogoUrlDark, @InitiateLoginUri, @AllowMachineOrganizationsRead, @Theme, @ThemeEnabled, @LogoHeightPx,
                 @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
             )",
             new
@@ -292,6 +292,7 @@ public class ApplicationRepository : IApplicationRepository
                 application.AllowMachineOrganizationsRead,
                 Theme = ThemeJsonOf(application),
                 application.ThemeEnabled,
+                LogoHeightPx = application.LogoHeight?.Px,
                 application.CreatedAt,
                 application.CreatedBy,
                 application.ModifiedAt,
@@ -439,6 +440,31 @@ public class ApplicationRepository : IApplicationRepository
         return affected == 1;
     }
 
+    /// <inheritdoc />
+    public async Task<bool> UpdateLogoHeightAsync(AppEntity application, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Its own statement, never part of UpdateAsync, for the reason given at
+        // UpdateMachineOrganizationsReadAsync.
+        var affected = await connection.ExecuteAsync(new CommandDefinition(@"
+            UPDATE [dbo].[Applications] SET
+                [LogoHeightPx] = @LogoHeightPx,
+                [ModifiedAt] = @ModifiedAt,
+                [ModifiedBy] = @ModifiedBy
+            WHERE [Id] = @Id AND [IsDeleted] = 0",
+            new
+            {
+                application.Id,
+                LogoHeightPx = application.LogoHeight?.Px,
+                application.ModifiedAt,
+                application.ModifiedBy
+            },
+            cancellationToken: cancellationToken));
+
+        return affected == 1;
+    }
+
     // An application's appearance is always written in full, the shipped preset
     // included: its NULL means "none saved", not "the preset".
     private static string? ThemeJsonOf(AppEntity application) =>
@@ -548,7 +574,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode], [AllowedScopes], [AllowOrganizationCreation], [OrganizationCreatorRoleId], [LogoUrlDark], [InitiateLoginUri], [AllowMachineOrganizationsRead], [Theme], [ThemeEnabled], [LogoHeightPx],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             {whereClause}
@@ -741,6 +767,7 @@ public class ApplicationRepository : IApplicationRepository
         public bool AllowMachineOrganizationsRead { get; init; }
         public string? Theme { get; init; }
         public bool ThemeEnabled { get; init; }
+        public int? LogoHeightPx { get; init; }
         public DateTime CreatedAt { get; init; }
         public Guid CreatedBy { get; init; }
         public DateTime? ModifiedAt { get; init; }
@@ -777,6 +804,7 @@ public class ApplicationRepository : IApplicationRepository
             entity.LoadOrganizationCreation(AllowOrganizationCreation, OrganizationCreatorRoleId);
             entity.LoadMachineOrganizationsRead(AllowMachineOrganizationsRead);
             entity.LoadAppearance(PlatformSettingsRepository.ThemeJson.ReadOrNull(Theme), ThemeEnabled);
+            entity.LoadLogoHeight(LogoHeightPx);
             entity.LoadDeletionState(IsDeleted, DeletedAt, DeletedBy);
             return entity;
         }

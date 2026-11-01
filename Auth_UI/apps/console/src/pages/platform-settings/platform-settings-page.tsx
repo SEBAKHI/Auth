@@ -41,7 +41,8 @@ import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 
 import { AppearanceCard } from "./appearance-card"
-import { useReportUnsaved, type UnsavedState } from "./unsaved-state"
+import { LogoDisplaySizeCard } from "../../components/logo-display-size/logo-display-size-card"
+import { useReportUnsaved, useUnsavedParts, type UnsavedState } from "../../lib/unsaved-state"
 import {
   PLATFORM_SETTINGS_TABS,
   type PlatformSettingsTabValue,
@@ -237,6 +238,59 @@ function SettingsCard({
   )
 }
 
+/** The Identity tab's two parts, each with edits of its own to keep. */
+const IDENTITY_PARTS = ["branding", "logoSize"] as const
+
+/**
+ * The Identity tab: the name, logos and favicon, then the height the logo is shown at on the
+ * sign-in pages, beside the logo and outside its upload dialog (owner decision D6).
+ */
+function IdentityTab({
+  settings,
+  onUnsavedChange,
+}: {
+  settings: Schemas["PlatformSettingsDto"]
+  onUnsavedChange: (state: UnsavedState) => void
+}) {
+  const queryClient = useQueryClient()
+  const { reporters, combined } = useUnsavedParts(IDENTITY_PARTS)
+  useReportUnsaved(onUnsavedChange, combined.isDirty, combined.isSaving)
+
+  const saveLogoHeight = React.useCallback(
+    async (logoHeightPx: number | null) => {
+      const { data, error } = await api.PUT("/api/v1/admin/platform-settings/logo-height", {
+        body: { logoHeightPx },
+      })
+      if (error) throw error
+      // The height alone into the page's copy: the branding card's saves queue on that copy
+      // (useSaveQueue), and a whole answer landing out of turn could hand an older logo back to
+      // its next save.
+      queryClient.setQueryData<Schemas["PlatformSettingsDto"]>(SETTINGS_QUERY_KEY, (old) =>
+        old ? { ...old, logoHeightPx: data?.logoHeightPx ?? null } : old
+      )
+      void queryClient.invalidateQueries({ queryKey: BRANDING_QUERY_KEY })
+      return data?.logoHeightPx
+    },
+    [queryClient]
+  )
+
+  return (
+    <div className="flex flex-col gap-6">
+      <SettingsCard settings={settings} onUnsavedChange={reporters.branding} />
+      <LogoDisplaySizeCard
+        owner="platform"
+        storedPx={settings.logoHeightPx}
+        name={settings.platformName ?? ""}
+        lightSrc={settings.logoUrl}
+        darkSrc={settings.logoUrlDark}
+        canEdit
+        save={saveLogoHeight}
+        onUnsavedChange={reporters.logoSize}
+      />
+    </div>
+  )
+}
+
 interface PlatformSettingsTabPanel {
   labelKey: string
   /** Forms are capped at the reading measure; a table is never capped. */
@@ -260,7 +314,7 @@ const TAB_PANELS: Record<PlatformSettingsTabValue, PlatformSettingsTabPanel> = {
     labelKey: "platformSettings.tabIdentity",
     capped: true,
     render: ({ settings, onUnsavedChange }) => (
-      <SettingsCard settings={settings} onUnsavedChange={onUnsavedChange} />
+      <IdentityTab settings={settings} onUnsavedChange={onUnsavedChange} />
     ),
   },
   appearance: {
@@ -299,27 +353,8 @@ export function PlatformSettingsPage() {
 
   // One leave-prompt for every tab: a router honours a single blocker, so each tab reports
   // its unsaved edits here instead of holding a prompt of its own.
-  const [unsaved, setUnsaved] = React.useState<Partial<Record<PlatformSettingsTabValue, UnsavedState>>>({})
-  const reporters = React.useMemo(
-    () =>
-      Object.fromEntries(
-        PLATFORM_SETTINGS_TABS.map((value) => [
-          value,
-          (state: UnsavedState) =>
-            setUnsaved((current) =>
-              current[value]?.isDirty === state.isDirty && current[value]?.isSaving === state.isSaving
-                ? current
-                : { ...current, [value]: state }
-            ),
-        ])
-      ) as Record<PlatformSettingsTabValue, (state: UnsavedState) => void>,
-    []
-  )
-  const states = Object.values(unsaved)
-  const unsavedPrompt = useUnsavedChangesPrompt({
-    isDirty: states.some((state) => state?.isDirty),
-    isSaving: states.some((state) => state?.isSaving),
-  })
+  const { reporters, combined } = useUnsavedParts(PLATFORM_SETTINGS_TABS)
+  const unsavedPrompt = useUnsavedChangesPrompt(combined)
 
   const onSaved = React.useCallback(
     (saved: Schemas["PlatformSettingsDto"] | undefined) => {

@@ -111,6 +111,13 @@ public class ApplicationDto
     /// </summary>
     public PlatformThemeDto? Theme { get; set; }
 
+    /// <summary>
+    /// The height in pixels the logo is shown at on the application's sign-in pages, or null
+    /// while none is chosen (<c>LogoHeights.ApplicationDefaultPx</c> applies). Changed through
+    /// the dedicated logo-height endpoint, never through an update.
+    /// </summary>
+    public int? LogoHeightPx { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public Guid CreatedBy { get; set; }
 
@@ -148,4 +155,13 @@ public class ApplicationAppearanceDto
 
     /// <summary>The saved appearance, kept while switched off; null when none was ever saved.</summary>
     public PlatformThemeDto? Theme { get; set; }
+}
+
+/// <summary>
+/// The height an application's logo is shown at on its sign-in pages, as saved.
+/// </summary>
+public class ApplicationLogoHeightDto
+{
+    /// <summary>The height in pixels; null while none is chosen (the default applies).</summary>
+    public int? LogoHeightPx { get; set; }
 }

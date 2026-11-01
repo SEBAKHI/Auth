@@ -28,6 +28,13 @@ public record PublicBrandingDto
     public string? LogoUrlDark { get; init; }
 
     /// <summary>
+    /// The height in pixels the logo is shown at above the sign-in form, or null while none is
+    /// chosen: the page then uses <c>LogoHeights.ApplicationDefaultPx</c>. Light and dark logos
+    /// share it.
+    /// </summary>
+    public int? LogoHeightPx { get; init; }
+
+    /// <summary>
     /// Where the application is hosted (<c>Application.BaseUrl</c>), so a page that
     /// cannot send the visitor back through a sign-in request can still offer the
     /// way home (OI-145). Null unless the application has at least one registered

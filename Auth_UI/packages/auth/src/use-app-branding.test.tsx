@@ -46,6 +46,7 @@ describe("useAppBranding", () => {
         name: "Portal",
         logoUrl: "/logo.svg",
         logoUrlDark: null,
+        logoHeightPx: null,
         homeUrl: null,
         theme: null,
         loginDesign: null,
@@ -54,6 +55,16 @@ describe("useAppBranding", () => {
     expect(String(fetch.mock.calls[0][0])).toMatch(
       /\/api\/v1\/applications\/portal\/public-branding$/
     )
+  })
+
+  it("adopts the height chosen for the logo, which the contract may send as a string", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ name: "Portal", logoUrl: "/logo.svg", logoHeightPx: "96" }),
+    } as Response)
+    const { result } = renderHook(() => useAppBranding("portal"), { wrapper: withClient() })
+
+    await waitFor(() => expect(result.current?.logoHeightPx).toBe(96))
   })
 
   it("does not expose an earlier client's branding during a switch", async () => {
@@ -104,6 +115,7 @@ describe("useAppBranding", () => {
       name: "Portal",
       logoUrl: "/logo.svg",
       logoUrlDark: null,
+      logoHeightPx: null,
       homeUrl: null,
       theme: null,
       loginDesign: null,

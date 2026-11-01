@@ -38,12 +38,17 @@ import {
 
 import { AppearanceEditor } from "../../components/appearance/appearance-editor"
 import { isAppearanceSavable } from "../../components/appearance/appearance-rules"
+import { LogoDisplaySizeCard } from "../../components/logo-display-size/logo-display-size-card"
+import { useReportUnsaved, useUnsavedParts, type UnsavedState } from "../../lib/unsaved-state"
 
 type ApplicationDto = Schemas["ApplicationDto"]
 type Appearance = { enabled: boolean; theme: ThemeConfig }
 
 /** The preview's stylesheet scope: the console itself never takes the application's colours. */
 const PREVIEW_SCOPE = "application-appearance"
+
+/** The tab's two parts, each with edits of its own; the tab holds the one leave-prompt. */
+const APPEARANCE_PARTS = ["logoSize", "appearance"] as const
 
 /**
  * An application's own appearance: a switch, and the same editor as the
@@ -65,16 +70,76 @@ export default function ApplicationAppearanceTab(props: {
   canUpdate: boolean
 }) {
   const { isPending } = useBranding()
-  if (isPending) return <Skeleton className="h-96 w-full" />
-  return <ApplicationAppearanceCard {...props} />
+  const { reporters, combined } = useUnsavedParts(APPEARANCE_PARTS)
+  const unsavedPrompt = useUnsavedChangesPrompt(combined)
+  return (
+    <div className="flex flex-col gap-6">
+      <ApplicationLogoSizeCard {...props} onUnsavedChange={reporters.logoSize} />
+      {isPending ? (
+        <Skeleton className="h-96 w-full" />
+      ) : (
+        <ApplicationAppearanceCard {...props} onUnsavedChange={reporters.appearance} />
+      )}
+      {unsavedPrompt}
+    </div>
+  )
+}
+
+/**
+ * The height the application's logo is shown at above the form on its sign-in pages (owner
+ * decision D6): on this tab, outside the logo's upload dialog, saved on its own.
+ */
+function ApplicationLogoSizeCard({
+  application,
+  canUpdate,
+  onUnsavedChange,
+}: {
+  application: ApplicationDto
+  canUpdate: boolean
+  onUnsavedChange: (state: UnsavedState) => void
+}) {
+  const queryClient = useQueryClient()
+  const appId = application.id as string
+
+  const save = React.useCallback(
+    async (logoHeightPx: number | null) => {
+      const { data, error } = await api.PUT("/api/v1/Applications/{id}/logo-height", {
+        params: { path: { id: appId } },
+        body: { logoHeightPx },
+      })
+      if (error) throw error
+      // The page's read of the application, at once, as the appearance's save does.
+      queryClient.setQueryData<ApplicationDto>(["applications", appId], (old) =>
+        old ? { ...old, logoHeightPx: data?.logoHeightPx ?? null } : old
+      )
+      void queryClient.invalidateQueries({ queryKey: ["applications"] })
+      return data?.logoHeightPx
+    },
+    [appId, queryClient]
+  )
+
+  return (
+    <LogoDisplaySizeCard
+      owner="application"
+      storedPx={application.logoHeightPx}
+      name={application.name ?? ""}
+      lightSrc={application.logoUrl}
+      darkSrc={application.logoUrlDark}
+      canEdit={canUpdate}
+      save={save}
+      onUnsavedChange={onUnsavedChange}
+    />
+  )
 }
 
 function ApplicationAppearanceCard({
   application,
   canUpdate,
+  onUnsavedChange,
 }: {
   application: ApplicationDto
   canUpdate: boolean
+  onUnsavedChange: (state: UnsavedState) => void
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -122,7 +187,7 @@ function ApplicationAppearanceCard({
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
-  const unsavedPrompt = useUnsavedChangesPrompt({ isDirty, isSaving: save.isPending })
+  useReportUnsaved(onUnsavedChange, isDirty, save.isPending)
   const isPlatforms = themeConfigKey(draft.theme) === themeConfigKey(platformTheme)
   const switchId = `application-appearance-enabled-${appId}`
 
@@ -187,7 +252,6 @@ function ApplicationAppearanceCard({
           </Button>
         </CardFooter>
       ) : null}
-      {unsavedPrompt}
     </Card>
   )
 }

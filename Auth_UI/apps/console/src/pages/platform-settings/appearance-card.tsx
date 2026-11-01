@@ -27,7 +27,7 @@ import {
 
 import { AppearanceEditor } from "../../components/appearance/appearance-editor"
 import { isAppearanceSavable } from "../../components/appearance/appearance-rules"
-import { useReportUnsaved, type UnsavedState } from "./unsaved-state"
+import { useReportUnsaved, type UnsavedState } from "../../lib/unsaved-state"
 
 export function AppearanceCard({
   settings,

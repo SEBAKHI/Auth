@@ -52,6 +52,12 @@ public class PlatformSettings : EntityBase
     public PlatformTheme Theme { get; private set; } = PlatformTheme.Default;
 
     /// <summary>
+    /// Gets the height the logo is shown at on the sign-in pages, or null while none is chosen
+    /// (<see cref="Constants.LogoHeights.PlatformDefaultPx"/> applies). Light and dark logos share it.
+    /// </summary>
+    public LogoHeight? LogoHeight { get; private set; }
+
+    /// <summary>
     /// Gets the last modification timestamp.
     /// </summary>
     public DateTime? ModifiedAt { get; private set; }
@@ -73,7 +79,8 @@ public class PlatformSettings : EntityBase
         string? faviconUrl,
         DateTime? modifiedAt,
         Guid? modifiedBy,
-        PlatformTheme? theme = null) : base(id)
+        PlatformTheme? theme = null,
+        LogoHeight? logoHeight = null) : base(id)
     {
         PlatformName = platformName;
         LogoUrl = logoUrl;
@@ -82,6 +89,7 @@ public class PlatformSettings : EntityBase
         ModifiedAt = modifiedAt;
         ModifiedBy = modifiedBy;
         Theme = theme ?? PlatformTheme.Default;
+        LogoHeight = logoHeight;
     }
 
     /// <summary>
@@ -112,5 +120,24 @@ public class PlatformSettings : EntityBase
         Theme = theme;
         ModifiedAt = DateTime.UtcNow;
         ModifiedBy = modifiedBy;
+    }
+
+    /// <summary>
+    /// Sets the logo's height on the sign-in pages (null: back to the default) and stamps the
+    /// modification audit fields. Nothing else changes: it is saved on its own, like the
+    /// appearance, so a stale copy of the branding cannot put back an older height.
+    /// </summary>
+    /// <returns>False, and no change, when the height was already this.</returns>
+    public bool SetLogoHeight(LogoHeight? logoHeight, Guid modifiedBy)
+    {
+        if (Equals(LogoHeight, logoHeight))
+        {
+            return false;
+        }
+
+        LogoHeight = logoHeight;
+        ModifiedAt = DateTime.UtcNow;
+        ModifiedBy = modifiedBy;
+        return true;
     }
 }

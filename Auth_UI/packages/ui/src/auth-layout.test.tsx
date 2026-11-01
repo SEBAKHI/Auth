@@ -6,6 +6,7 @@ import "@authsystem/i18n"
 const theme = vi.hoisted(() => ({ resolved: "light" as "light" | "dark" }))
 const branding = vi.hoisted(() => ({
   loginDesign: undefined as { id: string; contentHash: string; showPlatformLogo: boolean } | null | undefined,
+  logoHeightPx: 60,
 }))
 const panels = vi.hoisted(() => ({
   rendered: [] as { clientId: string | null; design: { id: string } }[],
@@ -15,9 +16,16 @@ const panels = vi.hoisted(() => ({
 vi.mock("@authsystem/ui/theme-provider", () => ({
   useResolvedTheme: () => theme.resolved,
 }))
+// The platform's logo is real here, named by the platform: the corner's mark is found by
+// that name, and its box read off the element the page draws.
 vi.mock("@authsystem/ui/branding", () => ({
-  BrandingLogo: () => <span data-testid="platform-mark" />,
-  useBranding: () => ({ loginDesign: branding.loginDesign }),
+  useBranding: () => ({
+    loginDesign: branding.loginDesign,
+    logoUrl: "platform.webp",
+    logoHeightPx: branding.logoHeightPx,
+    name: "Auth",
+    isPending: false,
+  }),
 }))
 // The panel's own chunk: here it records what it was asked to show and hands the test
 // the way to say "rendered".
@@ -40,6 +48,11 @@ vi.mock("@authsystem/ui/common/theme-toggle", () => ({
 }))
 
 import { AuthLayout } from "./auth-layout"
+
+/** The platform's mark in the corner, or null. */
+const platformMark = () => within(screen.getByRole("banner")).queryByRole("img", { name: "Auth" })
+/** The height a logo's box is drawn at, as its own variable says. */
+const boxHeight = (element: HTMLElement) => element.style.getPropertyValue("--logo-h")
 
 function renderLayout(logos: { light?: string | null; dark?: string | null }) {
   return render(
@@ -73,16 +86,18 @@ describe("AuthLayout — the application's logo per theme", () => {
     renderLayout({ light: null, dark: null })
 
     expect(screen.queryByRole("img", { name: "SHOP" })).toBeNull()
-    expect(within(screen.getByRole("banner")).getByTestId("platform-mark")).toBeInTheDocument()
+    expect(platformMark()).toBeInTheDocument()
   })
 })
 
 /**
- * Which logo stands where (owner, 2026-10-28): one large logo per page, each
- * beside the words that name it, so the application's and the platform's
- * cannot be taken for each other.
+ * Which logo stands where: each logo has one place, beside the words that name it, so the
+ * application's and the platform's cannot be taken for each other. The platform's mark is in
+ * the corner, the application's logo above the title. A design that hides the platform's mark
+ * hides that mark alone and moves nothing (owner, 2026-10-31, reversing the corner rule of
+ * 2026-10-28).
  */
-describe("AuthLayout — one large logo, each beside its name", () => {
+describe("AuthLayout — each logo in its one place", () => {
   const banner = () => within(screen.getByRole("banner"))
   const main = () => within(screen.getByRole("main"))
 
@@ -94,7 +109,7 @@ describe("AuthLayout — one large logo, each beside its name", () => {
       </AuthLayout>
     )
 
-    expect(banner().getByTestId("platform-mark")).toBeInTheDocument()
+    expect(platformMark()).toBeInTheDocument()
     expect(main().queryByRole("img")).toBeNull()
     expect(screen.getByText("Access the console.")).toBeInTheDocument()
     // The trust marker belongs to a page that shows someone else's logo.
@@ -115,14 +130,14 @@ describe("AuthLayout — one large logo, each beside its name", () => {
       </AuthLayout>
     )
 
-    expect(banner().getByTestId("platform-mark")).toBeInTheDocument()
+    expect(platformMark()).toBeInTheDocument()
     expect(banner().queryByRole("img", { name: "SHOP" })).toBeNull()
     expect(main().getByRole("img", { name: "SHOP" })).toHaveAttribute("src", "shop.webp")
     expect(main().getByText("Continue to SHOP.")).toBeInTheDocument()
     expect(main().getByText("Secured by Auth")).toBeInTheDocument()
   })
 
-  it("moves the application's logo into the corner when its design hides the platform's mark", () => {
+  it("hides only the platform's mark when its design hides it: the application's logo stays above the title", () => {
     theme.resolved = "light"
     render(
       <AuthLayout
@@ -137,16 +152,20 @@ describe("AuthLayout — one large logo, each beside its name", () => {
       </AuthLayout>
     )
 
-    expect(screen.queryByTestId("platform-mark")).toBeNull()
-    expect(banner().getByRole("img", { name: "SHOP" })).toHaveAttribute("src", "shop.webp")
-    // Once, not twice: nothing above the title repeats it.
+    expect(platformMark()).toBeNull()
+    // Nothing moves into the corner.
+    expect(banner().queryByRole("img")).toBeNull()
+    const logo = main().getByRole("img", { name: "SHOP" })
+    expect(logo).toHaveAttribute("src", "shop.webp")
+    // At its own size, the same as with the platform's mark shown.
+    expect(boxHeight(logo)).toBe("48px")
     expect(screen.getAllByRole("img", { name: "SHOP" })).toHaveLength(1)
     expect(main().getByText("Continue to SHOP.")).toBeInTheDocument()
     // The platform stays named even with its mark hidden.
     expect(main().getByText("Secured by Auth")).toBeInTheDocument()
   })
 
-  it("names the application in the corner when its design hides the platform's mark and it has no logo", () => {
+  it("names the application above the title when its design hides the platform's mark and it has no logo", () => {
     theme.resolved = "light"
     render(
       <AuthLayout title="Sign in" appName="SHOP" showPlatformLogo={false}>
@@ -154,8 +173,9 @@ describe("AuthLayout — one large logo, each beside its name", () => {
       </AuthLayout>
     )
 
-    expect(screen.queryByTestId("platform-mark")).toBeNull()
-    expect(banner().getByText("SHOP")).toBeInTheDocument()
+    expect(platformMark()).toBeNull()
+    expect(banner().queryByText("SHOP")).toBeNull()
+    expect(main().getByText("SHOP")).toBeInTheDocument()
   })
 
   it("never hides the platform's mark on the platform's own pages", () => {
@@ -166,7 +186,7 @@ describe("AuthLayout — one large logo, each beside its name", () => {
       </AuthLayout>
     )
 
-    expect(banner().getByTestId("platform-mark")).toBeInTheDocument()
+    expect(platformMark()).toBeInTheDocument()
   })
 
   it("drops an application logo that fails to load instead of drawing a broken image", () => {
@@ -184,7 +204,7 @@ describe("AuthLayout — one large logo, each beside its name", () => {
     expect(main().getByText("Continue to SHOP.")).toBeInTheDocument()
   })
 
-  it("names the application in the corner when its logo there fails to load", () => {
+  it("names the application above the title when its logo fails to load and the platform's mark is hidden", () => {
     theme.resolved = "light"
     render(
       <AuthLayout title="Sign in" appName="SHOP" appLogoUrl="gone.webp" showPlatformLogo={false}>
@@ -192,10 +212,11 @@ describe("AuthLayout — one large logo, each beside its name", () => {
       </AuthLayout>
     )
 
-    fireEvent.error(banner().getByRole("img", { name: "SHOP" }))
+    fireEvent.error(main().getByRole("img", { name: "SHOP" }))
 
     expect(screen.queryByRole("img", { name: "SHOP" })).toBeNull()
-    expect(banner().getByText("SHOP")).toBeInTheDocument()
+    expect(banner().queryByText("SHOP")).toBeNull()
+    expect(main().getByText("SHOP")).toBeInTheDocument()
   })
 
   it("keeps the panel out of the accessibility tree while it is a plain surface", () => {
@@ -295,7 +316,7 @@ describe("AuthLayout — the panel's design", () => {
     }
   })
 
-  it("gives the corner to the application's logo when its design hides the platform's mark", () => {
+  it("hides only the platform's mark when the application's design hides it", () => {
     branding.loginDesign = PLATFORM
     wide(false)
     theme.resolved = "light"
@@ -305,8 +326,9 @@ describe("AuthLayout — the panel's design", () => {
       </AuthLayout>
     )
 
-    expect(within(screen.getByRole("banner")).getByRole("img", { name: "SHOP" })).toBeInTheDocument()
-    expect(within(screen.getByRole("banner")).queryByTestId("platform-mark")).toBeNull()
+    expect(platformMark()).toBeNull()
+    expect(within(screen.getByRole("banner")).queryByRole("img")).toBeNull()
+    expect(within(screen.getByRole("main")).getByRole("img", { name: "SHOP" })).toBeInTheDocument()
   })
 })
 
@@ -346,5 +368,77 @@ describe("AuthLayout — an application named without its logo", () => {
       </AuthLayout>
     )
     expect(within(screen.getByRole("main")).queryByText("Shop Everywhere")).toBeNull()
+  })
+})
+
+/**
+ * The sizes (owner, 2026-10-31): the platform's mark defaults to 60px (1.5 × the former 40px),
+ * its width cap grows with it, and it no longer shrinks when an application is named; each logo
+ * takes the height its owner chose (D5), the application's defaulting to its 48px. Breaks: bring
+ * back the `compact` 28px mark; draw the application's logo at a fixed height; size the width cap
+ * apart from the height.
+ */
+describe("AuthLayout — the logos' heights", () => {
+  it("draws the platform's mark at 60px with a 240px width cap by default", () => {
+    branding.loginDesign = null
+    branding.logoHeightPx = 60
+    render(
+      <AuthLayout title="Sign in">
+        <div />
+      </AuthLayout>
+    )
+
+    const mark = platformMark()!
+    expect(boxHeight(mark)).toBe("60px")
+    expect(mark.style.getPropertyValue("--logo-w-max")).toBe("240px")
+    expect(mark).toHaveClass("object-contain", "w-auto")
+  })
+
+  it("keeps the platform's mark at its size when an application is named", () => {
+    branding.loginDesign = null
+    branding.logoHeightPx = 60
+    render(
+      <AuthLayout title="Sign in" appName="SHOP" appLogoUrl="shop.webp" continueTo="Continue to SHOP.">
+        <div />
+      </AuthLayout>
+    )
+
+    expect(boxHeight(platformMark()!)).toBe("60px")
+  })
+
+  it("draws each logo at the height its owner chose, and the width cap follows", () => {
+    branding.loginDesign = null
+    branding.logoHeightPx = 110
+    render(
+      <AuthLayout title="Sign in" appName="SHOP" appLogoUrl="shop.webp" appLogoHeightPx={96}>
+        <div />
+      </AuthLayout>
+    )
+
+    expect(boxHeight(platformMark()!)).toBe("110px")
+    expect(platformMark()!.style.getPropertyValue("--logo-w-max")).toBe("440px")
+    const logo = within(screen.getByRole("main")).getByRole("img", { name: "SHOP" })
+    expect(boxHeight(logo)).toBe("96px")
+    // An application's cap is 5 × its height, the 240×48 it always had.
+    expect(logo.style.getPropertyValue("--logo-w-max")).toBe("480px")
+  })
+
+  it.each([
+    [null, "48px"],
+    [undefined, "48px"],
+    [200, "48px"],
+    [23, "48px"],
+    [24, "24px"],
+    [120, "120px"],
+  ])("draws the application's logo at %s → %s", (stored, expected) => {
+    branding.loginDesign = null
+    branding.logoHeightPx = 60
+    render(
+      <AuthLayout title="Sign in" appName="SHOP" appLogoUrl="shop.webp" appLogoHeightPx={stored}>
+        <div />
+      </AuthLayout>
+    )
+
+    expect(boxHeight(within(screen.getByRole("main")).getByRole("img", { name: "SHOP" }))).toBe(expected)
   })
 })

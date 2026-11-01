@@ -33,6 +33,8 @@ export interface FlowBranding {
     appName: string | null
     appLogoUrl: string | null
     appLogoUrlDark: string | null
+    /** The height its logo is drawn at; null while none is chosen (the default). */
+    appLogoHeightPx: number | null
     /**
      * The line under the title naming the application ("Continue to Acme."),
      * on a screen of a pending request only: the visitor goes on to the
@@ -92,6 +94,7 @@ export function useFlowBranding(named: NamedApplication): FlowBranding {
       appName: appBranding?.name ?? null,
       appLogoUrl: appBranding?.logoUrl ?? null,
       appLogoUrlDark: appBranding?.logoUrlDark ?? null,
+      appLogoHeightPx: appBranding?.logoHeightPx ?? null,
       continueTo:
         ofRequest && appBranding
           ? t("auth.continueToApp", { name: appBranding.name })

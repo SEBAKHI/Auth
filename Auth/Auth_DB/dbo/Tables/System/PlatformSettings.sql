@@ -12,10 +12,16 @@ CREATE TABLE [dbo].[PlatformSettings]
     -- NULL = never customised: the shipped preset. Declared last so DacFx
     -- appends it instead of rebuilding the table.
     [Theme] NVARCHAR(1000) NULL,
+    -- The height, in CSS pixels, the logo is shown at on the sign-in pages: the area it takes
+    -- on the page, never the image. NULL = none chosen, the shipped default (LogoHeights in
+    -- Auth.Domain). Declared last for the same reason as Theme.
+    [LogoHeightPx] INT NULL,
 
     CONSTRAINT [PK_PlatformSettings] PRIMARY KEY CLUSTERED ([Id]),
     -- Single-row table: the only allowed row is the fixed singleton id.
     CONSTRAINT [CK_PlatformSettings_SingleRow] CHECK ([Id] = '30000000-0000-0000-0000-000000000001'),
-    CONSTRAINT [CK_PlatformSettings_ThemeIsJson] CHECK ([Theme] IS NULL OR ISJSON([Theme]) = 1)
+    CONSTRAINT [CK_PlatformSettings_ThemeIsJson] CHECK ([Theme] IS NULL OR ISJSON([Theme]) = 1),
+    -- The range of LogoHeights.MinPx and LogoHeights.MaxPx.
+    CONSTRAINT [CK_PlatformSettings_LogoHeightPx] CHECK ([LogoHeightPx] IS NULL OR ([LogoHeightPx] >= 24 AND [LogoHeightPx] <= 120))
 );
 GO

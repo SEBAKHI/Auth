@@ -58,10 +58,16 @@ CREATE TABLE [dbo].[Applications]
     -- sends people to. Off by default, existing rows included; switching it off keeps [Theme].
     -- Declared last, with a named default, for the same reasons as AllowMachineOrganizationsRead.
     [ThemeEnabled] BIT NOT NULL CONSTRAINT [DF_Applications_ThemeEnabled] DEFAULT (0),
+    -- The height, in CSS pixels, the application's logo is shown at on its sign-in pages: the
+    -- area it takes on the page, never the image. NULL = none chosen, the shipped default
+    -- (LogoHeights in Auth.Domain). Declared last for the same reason as LogoUrlDark.
+    [LogoHeightPx] INT NULL,
 
     CONSTRAINT [PK_Applications] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [UQ_Applications_Code] UNIQUE ([Code]),
-    CONSTRAINT [CK_Applications_ThemeIsJson] CHECK ([Theme] IS NULL OR ISJSON([Theme]) = 1)
+    CONSTRAINT [CK_Applications_ThemeIsJson] CHECK ([Theme] IS NULL OR ISJSON([Theme]) = 1),
+    -- The range of LogoHeights.MinPx and LogoHeights.MaxPx.
+    CONSTRAINT [CK_Applications_LogoHeightPx] CHECK ([LogoHeightPx] IS NULL OR ([LogoHeightPx] >= 24 AND [LogoHeightPx] <= 120))
 );
 GO
 

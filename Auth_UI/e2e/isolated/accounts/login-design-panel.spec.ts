@@ -276,18 +276,18 @@ test("the platform's fonts reach the design", async ({ page }) => {
   expect(fonts.loaded.join("|")).toMatch(/IBM Plex Sans Arabic/)
 })
 
-test("a design that hides the platform's mark gives the corner to the application's logo", async ({ page }) => {
+test("a design that hides the platform's mark hides that mark alone: the application's logo stays above the form", async ({ page }) => {
   await open(page, FLOW, { app: OWN_DESIGN })
-  await expect(page.locator("header").getByRole("img", { name: "Partner App" })).toBeVisible()
-  await expect(page.locator("main").getByRole("img", { name: "Partner App" })).toHaveCount(0)
+  await expect(page.locator("main").getByRole("img", { name: "Partner App" })).toBeVisible()
+  await expect(page.locator("header").getByRole("img")).toHaveCount(0)
   // "Secured by" still names the platform.
   await expect(page.getByText("Secured by AuthSystem")).toBeVisible()
 })
 
 // The organization step has a header of its own rather than the flow's: it must still take the
-// application's design and corner, or the panel and the corner change on the flow's last step.
+// application's design and its choice of corner, or both change on the flow's last step.
 for (const language of ["en", "ar"] as const) {
-  test(`${language}: the organization step of an application's flow shows that application's design and corner`, async ({
+  test(`${language}: the organization step of an application's flow shows that application's design and its corner choice`, async ({
     page,
   }) => {
     const { renders } = await open(page, SETUP, {
@@ -299,8 +299,8 @@ for (const language of ["en", "ar"] as const) {
 
     await expect(frame.locator("#who")).toHaveText("Own design")
     expect(renders).toEqual([`/api/v1/applications/app/login-design?lang=${language}`])
-    await expect(page.locator("header").getByRole("img", { name: "Partner App" })).toBeVisible()
-    await expect(page.locator("main").getByRole("img", { name: "Partner App" })).toHaveCount(0)
+    await expect(page.locator("main").getByRole("img", { name: "Partner App" })).toBeVisible()
+    await expect(page.locator("header").getByRole("img")).toHaveCount(0)
   })
 }
 
@@ -312,7 +312,7 @@ const SECURED_BY = { en: "Secured by AuthSystem", ar: "محمي بواسطة Aut
 
 for (const language of ["en", "ar"] as const) {
   for (const path of NAMED_PAGES) {
-    test(`${language}: ${path} of an application shows that application's design, corner and trust marker`, async ({
+    test(`${language}: ${path} of an application shows that application's design, corner choice and trust marker`, async ({
       page,
     }) => {
       const { renders } = await open(page, `${path}?client_id=app`, {
@@ -324,8 +324,8 @@ for (const language of ["en", "ar"] as const) {
 
       await expect(frame.locator("#who")).toHaveText("Own design")
       expect(renders).toEqual([`/api/v1/applications/app/login-design?lang=${language}`])
-      await expect(page.locator("header").getByRole("img", { name: "Partner App" })).toBeVisible()
-      await expect(page.locator("main").getByRole("img", { name: "Partner App" })).toHaveCount(0)
+      await expect(page.locator("main").getByRole("img", { name: "Partner App" })).toBeVisible()
+      await expect(page.locator("header").getByRole("img")).toHaveCount(0)
       await expect(page.getByText(SECURED_BY[language])).toBeVisible()
     })
   }
@@ -458,5 +458,6 @@ test("logout names the application when its logo fails to load", async ({ page }
   await page.goto("/logout?client_id=app")
 
   await expect(page.locator("main").getByText("Partner App", { exact: true })).toBeVisible()
+  // The broken logo is dropped, not drawn.
   await expect(page.locator("main").getByRole("img", { name: "Partner App" })).toHaveCount(0)
 })

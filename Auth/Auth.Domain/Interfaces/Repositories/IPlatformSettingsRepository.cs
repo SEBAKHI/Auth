@@ -26,4 +26,11 @@ public interface IPlatformSettingsRepository
     /// colour change from restoring the logos.
     /// </summary>
     Task UpdateThemeAsync(PlatformSettings settings, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Persists the logo's height on the sign-in pages and the modification stamp only,
+    /// inserting the row when the seed row is missing, for the same reason as
+    /// <see cref="UpdateThemeAsync"/>.
+    /// </summary>
+    Task UpdateLogoHeightAsync(PlatformSettings settings, CancellationToken cancellationToken);
 }

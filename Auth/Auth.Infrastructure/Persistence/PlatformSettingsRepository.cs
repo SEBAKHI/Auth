@@ -25,7 +25,7 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var dto = await connection.QueryFirstOrDefaultAsync<PlatformSettingsDto>(@"
-            SELECT [Id], [PlatformName], [LogoUrl], [LogoUrlDark], [FaviconUrl], [ModifiedAt], [ModifiedBy], [Theme]
+            SELECT [Id], [PlatformName], [LogoUrl], [LogoUrlDark], [FaviconUrl], [ModifiedAt], [ModifiedBy], [Theme], [LogoHeightPx]
             FROM [dbo].[PlatformSettings]
             WHERE [Id] = @Id",
             new { Id = PlatformSettings.SingletonId });
@@ -92,6 +92,34 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
                 settings.ModifiedAt,
                 settings.ModifiedBy
             });
+    }
+
+    /// <inheritdoc />
+    public async Task UpdateLogoHeightAsync(PlatformSettings settings, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(new CommandDefinition(@"
+            MERGE [dbo].[PlatformSettings] AS target
+            USING (SELECT @Id AS [Id]) AS source
+            ON target.[Id] = source.[Id]
+            WHEN MATCHED THEN
+                UPDATE SET
+                    [LogoHeightPx] = @LogoHeightPx,
+                    [ModifiedAt] = @ModifiedAt,
+                    [ModifiedBy] = @ModifiedBy
+            WHEN NOT MATCHED THEN
+                INSERT ([Id], [PlatformName], [LogoHeightPx], [ModifiedAt], [ModifiedBy])
+                VALUES (@Id, @PlatformName, @LogoHeightPx, @ModifiedAt, @ModifiedBy);",
+            new
+            {
+                settings.Id,
+                settings.PlatformName,
+                LogoHeightPx = settings.LogoHeight?.Px,
+                settings.ModifiedAt,
+                settings.ModifiedBy
+            },
+            cancellationToken: cancellationToken));
     }
 
     /// <summary>
@@ -249,6 +277,7 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
         public DateTime? ModifiedAt { get; init; }
         public Guid? ModifiedBy { get; init; }
         public string? Theme { get; init; }
+        public int? LogoHeightPx { get; init; }
 
         public PlatformSettings ToEntity() => new(
             Id,
@@ -258,6 +287,7 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
             FaviconUrl,
             ModifiedAt,
             ModifiedBy,
-            ThemeJson.Read(Theme));
+            ThemeJson.Read(Theme),
+            LogoHeight.FromStored(LogoHeightPx));
     }
 }

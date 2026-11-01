@@ -58,6 +58,7 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
             LogoUrl = _imageUrlComposer.Compose(settings.LogoUrl),
             LogoUrlDark = _imageUrlComposer.Compose(settings.LogoUrlDark),
             FaviconUrl = _imageUrlComposer.Compose(settings.FaviconUrl),
+            LogoHeightPx = settings.LogoHeight?.Px,
             Theme = PlatformThemeDto.From(settings.Theme),
             StaySignedInOffered = _idpSettings.StaySignedInOffered,
             CodeSignInOffered = _emailSettings.Enabled,

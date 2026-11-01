@@ -6,7 +6,9 @@ import { fulfillJson, installAnonymousApi } from "./mock-anonymous-api"
 /**
  * The sign-in pages in two halves (owner, 2026-10-28): the form half on the
  * inline-start side, the panel on the other from the `lg` breakpoint up, and
- * one large logo per page.
+ * each logo in its own place at its own size: the platform's mark 60px in the
+ * corner, never smaller when an application is named, and the application's
+ * 48px above the title (owner, 2026-10-31).
  *
  * Measured in the built app, because each of these is a CSS fact a unit test
  * cannot see: which side each half lands on under RTL, where the panel starts
@@ -96,7 +98,7 @@ for (const language of ["en", "ar"] as const) {
 }
 
 for (const width of [375, 1440]) {
-  test(`at ${width}px the application's logo is the large one, the platform's stays small in the corner`, async ({
+  test(`at ${width}px each logo keeps its own size: the application's 48px above the title, the platform's 60px in the corner`, async ({
     page,
   }) => {
     await open(page, FLOW, "ar", width)
@@ -106,19 +108,18 @@ for (const width of [375, 1440]) {
     await expect(page.getByRole("main").getByText("للمتابعة إلى Partner App.")).toBeVisible()
     const appHeight = (await app.boundingBox())!.height
     const cornerHeight = (await box(page, "header img")).height
-    // A floor, so a logo drawn at zero height cannot pass.
-    expect(cornerHeight).toBeGreaterThan(16)
-    expect(appHeight).toBeGreaterThan(cornerHeight * 1.5)
+    expect(appHeight).toBeCloseTo(48, 0)
+    // No smaller for the application being named (it was 28px before).
+    expect(cornerHeight).toBeCloseTo(60, 0)
   })
 }
 
-test("without an application, the platform's mark takes its full corner size and is the only logo", async ({
+test("without an application, the platform's mark is 60px and the only logo", async ({
   page,
 }) => {
   await open(page, "/login", "en", 1440)
 
-  const flowCorner = 28
-  expect((await box(page, "header img")).height).toBeGreaterThan(flowCorner)
+  expect((await box(page, "header img")).height).toBeCloseTo(60, 0)
   await expect(page.getByRole("main").getByRole("img")).toHaveCount(0)
   await expect(page.getByText(/Secured by/)).toHaveCount(0)
 })

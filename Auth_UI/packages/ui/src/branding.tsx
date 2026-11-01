@@ -3,6 +3,7 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 
 import { useTheme } from "@authsystem/ui/theme-provider"
+import { LOGO_HEIGHT, resolveLogoHeight } from "@authsystem/ui/logo-mark"
 import { pickLogo } from "@authsystem/ui/theme/pick-logo"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
@@ -42,6 +43,12 @@ interface BrandingValue {
    * logo), or null when no logo has been uploaded.
    */
   logoUrl: string | null
+  /**
+   * The height the logo is drawn at on the sign-in pages, in pixels: the one
+   * the administrator chose, else the default (60px) — also while the branding
+   * is unknown, so the corner's reservation has the likeliest height.
+   */
+  logoHeightPx: number
   /**
    * True only while the branding is genuinely unknown — no cached copy and no
    * response yet.
@@ -329,6 +336,7 @@ export function BrandingProvider({
   // Dedicated square favicon when uploaded; wordmark logos are illegible at
   // tab-icon size, so admins can set a distinct mark. Falls back to the logo.
   const faviconUrl = toAbsolute(query.data?.faviconUrl) ?? logoUrl
+  const logoHeightPx = resolveLogoHeight(query.data?.logoHeightPx, LOGO_HEIGHT.platformDefault)
 
   React.useEffect(() => {
     if (query.data) writeCachedBranding(query.data)
@@ -386,8 +394,8 @@ export function BrandingProvider({
   )
 
   const value = React.useMemo<BrandingValue>(
-    () => ({ name, logoUrl, isPending, staySignedInOffered, signInOptions, loginDesign }),
-    [name, logoUrl, isPending, staySignedInOffered, signInOptions, loginDesign]
+    () => ({ name, logoUrl, logoHeightPx, isPending, staySignedInOffered, signInOptions, loginDesign }),
+    [name, logoUrl, logoHeightPx, isPending, staySignedInOffered, signInOptions, loginDesign]
   )
 
   // Unknown until the branding arrives: applying the default meanwhile would

@@ -1,4 +1,6 @@
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
+using Auth.Domain.Entities;
 using Auth.Domain.ValueObjects;
 
 namespace Auth.Application.DTOs;
@@ -34,9 +36,40 @@ public class PlatformSettingsDto
     /// </summary>
     public PlatformThemeDto Theme { get; set; } = PlatformThemeDto.From(PlatformTheme.Default);
 
+    /// <summary>
+    /// The height in pixels the logo is shown at on the sign-in pages, or null while none is
+    /// chosen (<see cref="LogoHeights.PlatformDefaultPx"/> applies).
+    /// </summary>
+    public int? LogoHeightPx { get; set; }
+
     public DateTime? ModifiedAt { get; set; }
     public Guid? ModifiedBy { get; set; }
     public string? ModifiedByName { get; set; }
+
+    /// <summary>
+    /// The admin view of <paramref name="settings"/>: every handler that answers with the
+    /// settings builds it here, so none of them can leave a field out.
+    /// </summary>
+    /// <param name="settings">The stored settings.</param>
+    /// <param name="imageUrlComposer">Composes the stored image keys into public URLs.</param>
+    /// <param name="modifierNames">Display names by user id, for the last modifier.</param>
+    public static PlatformSettingsDto From(
+        PlatformSettings settings,
+        IImageUrlComposer imageUrlComposer,
+        IReadOnlyDictionary<Guid, string> modifierNames) => new()
+    {
+        PlatformName = settings.PlatformName,
+        LogoUrl = imageUrlComposer.Compose(settings.LogoUrl),
+        LogoUrlDark = imageUrlComposer.Compose(settings.LogoUrlDark),
+        FaviconUrl = imageUrlComposer.Compose(settings.FaviconUrl),
+        Theme = PlatformThemeDto.From(settings.Theme),
+        LogoHeightPx = settings.LogoHeight?.Px,
+        ModifiedAt = settings.ModifiedAt,
+        ModifiedBy = settings.ModifiedBy,
+        ModifiedByName = settings.ModifiedBy.HasValue
+            ? modifierNames.GetValueOrDefault(settings.ModifiedBy.Value)
+            : null
+    };
 }
 
 /// <summary>
@@ -49,6 +82,12 @@ public class PlatformBrandingDto
     public string? LogoUrl { get; set; }
     public string? LogoUrlDark { get; set; }
     public string? FaviconUrl { get; set; }
+
+    /// <summary>
+    /// The height in pixels the logo is shown at on the sign-in pages, or null while none is
+    /// chosen: the page then uses <see cref="LogoHeights.PlatformDefaultPx"/>.
+    /// </summary>
+    public int? LogoHeightPx { get; set; }
 
     /// <summary>
     /// The platform appearance, rendered by both apps for every visitor.
