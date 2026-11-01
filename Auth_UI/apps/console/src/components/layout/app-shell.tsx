@@ -14,7 +14,6 @@ export function AppShell() {
       navGroupKey="platform"
       homeKey="dashboard"
       profileHref="/profile"
-      myApplicationsHref="/my-applications"
       // Console-only: the accounts app has neither the pages nor the records
       // this searches, and none of the permissions that gate them.
       headerExtras={<GlobalSearch />}

@@ -9,8 +9,9 @@
  *   4. menu accent "bold" copies primary into accent,
  *   5. a non-default radius replaces --radius.
  *
- * It also writes this platform's two heights, which shadcn's builder does
- * not have: --control-height and --table-row-height.
+ * It also writes what shadcn's builder does not have: this platform's two
+ * heights, --control-height and --table-row-height, and the header's icon
+ * sizes, --header-icon, --header-button and --header-avatar.
  *
  * Each of the three colours may instead be "custom": one colour per mode,
  * from which this file derives the tokens shadcn would otherwise supply.
@@ -36,12 +37,15 @@ import {
   CONTROL_HEIGHT,
   CUSTOM_PRESET,
   DEFAULT_THEME_CONFIG,
+  HEADER_ICON_SIZES,
+  HEADER_ICON_SIZE_PX,
   MENU_ACCENT_OPTIONS,
   RADIUS_OPTIONS,
   SIZE_STEPS,
   TABLE_ROW_HEIGHT,
   sizePx,
   type ColorChoice,
+  type HeaderIconSize,
   type MenuAccent,
   type RadiusName,
   type SizeChoice,
@@ -59,12 +63,15 @@ export {
   CONTROL_HEIGHT,
   CUSTOM_PRESET,
   DEFAULT_THEME_CONFIG,
+  HEADER_ICON_SIZES,
+  HEADER_ICON_SIZE_PX,
   MENU_ACCENT_OPTIONS,
   RADIUS_OPTIONS,
   SIZE_STEPS,
   TABLE_ROW_HEIGHT,
   sizePx,
   type ColorChoice,
+  type HeaderIconSize,
   type MenuAccent,
   type RadiusName,
   type SizeChoice,
@@ -377,6 +384,12 @@ export function buildThemeVars(config: ThemeConfig): ThemeVarsByMode {
   // --radius. Every control and table cell reads them (preset.css, @theme).
   light["control-height"] = rem(sizePx(config.controlSize, CONTROL_HEIGHT))
   light["table-row-height"] = rem(sizePx(config.tableRowHeight, TABLE_ROW_HEIGHT))
+
+  // The header's sizes, as chosen; preset.css caps them on a phone.
+  const header = HEADER_ICON_SIZE_PX[config.headerIconSize] ?? HEADER_ICON_SIZE_PX.google
+  light["header-icon"] = rem(header.icon)
+  light["header-button"] = rem(header.button)
+  light["header-avatar"] = rem(header.avatar)
 
   return { light, dark }
 }

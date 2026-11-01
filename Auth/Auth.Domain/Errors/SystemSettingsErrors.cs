@@ -89,6 +89,11 @@ public static class SystemSettingsErrors
         description: $"'{value}' is not a menu accent that can be chosen.",
         metadata: new() { ["args"] = new object[] { value } });
 
+    public static Error ThemeUnknownHeaderIconSize(string value) => Error.Validation(
+        code: "SystemSettings.ThemeUnknownHeaderIconSize",
+        description: $"'{value}' is not a header icon size that can be chosen. Choose current, google or large.",
+        metadata: new() { ["args"] = new object[] { value } });
+
     // The size choices. The slot argument is "controlSize" or "tableRowHeight".
 
     public static Error ThemeUnknownSize(string slot, string value) => Error.Validation(

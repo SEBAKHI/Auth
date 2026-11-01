@@ -77,6 +77,15 @@
     --spacing-control-sm: calc(var(--control-height) - 0.25rem);
     --spacing-control-lg: calc(var(--control-height) + 0.25rem);
     --spacing-cell-y: calc((var(--table-row-height) - 1.25rem) / 2);
+    /*
+     * The header's icon buttons, their icons and the avatar (Platform
+     * settings › Appearance › Header icon size): `size-header-button`,
+     * `size-header-icon`, `size-header-avatar`. They read the capped values
+     * below, never the setting itself.
+     */
+    --spacing-header-button: var(--header-button-drawn);
+    --spacing-header-icon: var(--header-icon-drawn);
+    --spacing-header-avatar: var(--header-avatar-drawn);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -118,6 +127,9 @@
     --radius: 0.625rem;
     --control-height: 2.25rem;
     --table-row-height: 2.75rem;
+    --header-icon: 1.5rem;
+    --header-button: 2.5rem;
+    --header-avatar: 2rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.205 0 0);
@@ -192,4 +204,25 @@
   .dark {
     color-scheme: dark;
     }
+
+  /*
+   * The header sizes as drawn. A phone (below 768px, the width where the
+   * sidebar becomes a drawer) never draws more than Google's size, so a larger
+   * choice cannot push the header's controls past a 375px screen
+   * (HEADER_ICON_SIZE_PHONE_CAP in theme/theme-config.ts; a test holds these
+   * pixels equal to it). Here, not beside --header-*: the theme stylesheet
+   * replaces those, and a custom property cannot cap itself.
+   */
+  :root {
+    --header-icon-drawn: min(var(--header-icon), 1.5rem);
+    --header-button-drawn: min(var(--header-button), 2.5rem);
+    --header-avatar-drawn: min(var(--header-avatar), 2rem);
+    }
+  @media (width >= 48rem) {
+    :root {
+      --header-icon-drawn: var(--header-icon);
+      --header-button-drawn: var(--header-button);
+      --header-avatar-drawn: var(--header-avatar);
+      }
+  }
 }

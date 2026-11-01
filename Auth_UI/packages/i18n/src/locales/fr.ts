@@ -345,6 +345,7 @@ export const fr: TranslationResources = {
     emptyDescription: "Les applications auxquelles vous pouvez vous connecter apparaîtront ici.",
     // Read after a tile's name by screen readers; never drawn.
     opensInNewTab: "(s’ouvre dans un nouvel onglet)",
+    launcher: "Applications",
   },
   nav: {
     notifications: "Notifications",
@@ -2247,6 +2248,13 @@ export const fr: TranslationResources = {
       controlSizeHint: "Boutons, champs, listes et bascules, tous ensemble : {{px}} px actuellement.",
       tableRowHeight: "Hauteur des lignes de tableau",
       tableRowHeightHint: "Une ligne contenant un seul texte : {{px}} px actuellement. Une ligne qui contient une image ou un bouton est plus haute de leur hauteur supplémentaire.",
+      headerIconSize: "Taille des icônes de l'en-tête",
+      headerIconSizeHint: "Les boutons d'icône et votre photo en haut de chaque page : icônes de {{icon}} px sur des boutons de {{button}} px et photo de {{avatar}} px actuellement. La barre garde sa hauteur, et un téléphone ne dépasse jamais la taille Google.",
+      headerIconSizes: {
+        current: "Petite",
+        google: "Google",
+        large: "Grande",
+      },
       sizes: {
         compact: "Compacte",
         default: "Par défaut",

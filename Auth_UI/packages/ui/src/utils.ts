@@ -3,14 +3,22 @@ import { extendTailwindMerge } from "tailwind-merge"
 
 /*
  * The height names preset.css adds to the spacing scale (`h-control`,
- * `size-control-sm`, `py-cell-y`…). Without them tailwind-merge cannot tell
+ * `size-control-sm`, `py-cell-y`, `size-header-button`…). Without them tailwind-merge cannot tell
  * that `h-control` and `h-8` set the same property, keeps both, and the
  * stylesheet's order, not the caller, decides which height a control gets.
  */
 const twMerge = extendTailwindMerge({
   extend: {
     theme: {
-      spacing: ["control", "control-sm", "control-lg", "cell-y"],
+      spacing: [
+        "control",
+        "control-sm",
+        "control-lg",
+        "cell-y",
+        "header-button",
+        "header-icon",
+        "header-avatar",
+      ],
     },
   },
 })

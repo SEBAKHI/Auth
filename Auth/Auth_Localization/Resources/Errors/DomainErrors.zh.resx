@@ -980,6 +980,9 @@
   <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
     <value>“{0}”不是可选的菜单强调样式。</value>
   </data>
+  <data name="SystemSettings.ThemeUnknownHeaderIconSize" xml:space="preserve">
+    <value>“{0}”不是可选的页眉图标尺寸。请选择 current、google 或 large。</value>
+  </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>该显示偏好键不是本应用会保存的类型。</value>
   </data>

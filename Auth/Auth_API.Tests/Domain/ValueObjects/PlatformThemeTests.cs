@@ -47,7 +47,47 @@ public class PlatformThemeTests
         // The preset draws controls at h-9 and text rows at p-3 around a 20px line.
         PlatformTheme.Default.ControlHeightPx.Should().Be(36);
         PlatformTheme.Default.TableRowHeightPx.Should().Be(44);
+        // Google's header is the default (owner, 2026-11-02).
+        PlatformTheme.Default.HeaderIconSize.Should().Be("google");
         Create().Value.Should().Be(PlatformTheme.Default);
+    }
+
+    [Theory]
+    [InlineData("current")]
+    [InlineData("google")]
+    [InlineData("large")]
+    public void Create_EveryHeaderIconSize_IsKept(string size)
+    {
+        var result = PlatformTheme.Create(
+            Preset("neutral"), Preset("neutral"), Preset("cyan"), "default", "subtle",
+            ThemeSizeChoice.Default, ThemeSizeChoice.Default, size);
+
+        result.IsError.Should().BeFalse();
+        result.Value.HeaderIconSize.Should().Be(size);
+    }
+
+    [Fact]
+    public void Create_WithoutAHeaderIconSize_TakesGoogle()
+    {
+        // An application's appearance and a stored row from before the
+        // setting leave it out; neither may be refused for it.
+        Create().Value.HeaderIconSize.Should().Be(ThemePresets.DefaultHeaderIconSize);
+    }
+
+    [Theory]
+    [InlineData("huge")]
+    [InlineData("Google")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void Create_AnUnknownHeaderIconSize_IsRefused(string? size)
+    {
+        var result = PlatformTheme.Create(
+            Preset("neutral"), Preset("neutral"), Preset("cyan"), "default", "subtle",
+            ThemeSizeChoice.Default, ThemeSizeChoice.Default, size);
+
+        result.IsError.Should().BeTrue();
+        result.Errors.Should().ContainSingle()
+            .Which.Code.Should().Be("SystemSettings.ThemeUnknownHeaderIconSize");
     }
 
     [Theory]

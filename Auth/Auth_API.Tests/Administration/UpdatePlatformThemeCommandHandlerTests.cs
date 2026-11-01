@@ -35,7 +35,8 @@ public class UpdatePlatformThemeCommandHandlerTests
         string radius = "default",
         Guid? updatedBy = null,
         ThemeSizeChoice? controlSize = null,
-        ThemeSizeChoice? tableRowHeight = null) =>
+        ThemeSizeChoice? tableRowHeight = null,
+        string? headerIconSize = "large") =>
         new(
             new ThemeColorChoice("stone"),
             theme ?? new ThemeColorChoice("amber"),
@@ -44,6 +45,7 @@ public class UpdatePlatformThemeCommandHandlerTests
             "bold",
             controlSize ?? new ThemeSizeChoice("compact"),
             tableRowHeight ?? new ThemeSizeChoice("custom", 60),
+            headerIconSize,
             updatedBy ?? Guid.NewGuid());
 
     [Fact]
@@ -65,6 +67,7 @@ public class UpdatePlatformThemeCommandHandlerTests
         result.Value.Theme.ControlSize.Px.Should().BeNull();
         result.Value.Theme.TableRowHeight.Preset.Should().Be("custom");
         result.Value.Theme.TableRowHeight.Px.Should().Be(60);
+        result.Value.Theme.HeaderIconSize.Should().Be("large");
         result.Value.ModifiedBy.Should().Be(actor);
         _settingsRepoMock.Verify(
             r => r.UpdateThemeAsync(
@@ -72,6 +75,7 @@ public class UpdatePlatformThemeCommandHandlerTests
                     s.Theme.Base.Preset == "stone" &&
                     s.Theme.ControlHeightPx == 32 &&
                     s.Theme.TableRowHeightPx == 60 &&
+                    s.Theme.HeaderIconSize == "large" &&
                     s.ModifiedBy == actor),
                 It.IsAny<CancellationToken>()),
             Times.Once());
@@ -79,6 +83,18 @@ public class UpdatePlatformThemeCommandHandlerTests
         // logo replaced in another tab meanwhile must survive a colour change.
         _settingsRepoMock.Verify(
             r => r.UpdateAsync(It.IsAny<PlatformSettings>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_UnknownHeaderIconSize_IsRefusedAndNothingIsWritten()
+    {
+        var result = await _handler.Handle(Command(headerIconSize: "huge"), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("SystemSettings.ThemeUnknownHeaderIconSize");
+        _settingsRepoMock.Verify(
+            r => r.UpdateThemeAsync(It.IsAny<PlatformSettings>(), It.IsAny<CancellationToken>()),
             Times.Never());
     }
 

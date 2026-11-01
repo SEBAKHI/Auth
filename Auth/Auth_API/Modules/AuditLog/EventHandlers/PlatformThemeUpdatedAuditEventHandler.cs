@@ -49,6 +49,7 @@ public class PlatformThemeUpdatedAuditEventHandler : INotificationHandler<Platfo
         menuAccent = theme.MenuAccent,
         controlSize = Describe(theme.ControlSize),
         tableRowHeight = Describe(theme.TableRowHeight),
+        headerIconSize = theme.HeaderIconSize,
     };
 
     private static object Describe(ThemeColorChoice choice) =>

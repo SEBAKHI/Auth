@@ -57,8 +57,8 @@ public sealed record ThemeSizeChoice
 /// <summary>
 /// The platform's appearance: the selections of shadcn/ui's theme builder
 /// (https://ui.shadcn.com/create) that both front-end apps render for every
-/// visitor, including the anonymous sign-in pages, and the height of every
-/// control and of a table row.
+/// visitor, including the anonymous sign-in pages, the height of every
+/// control and of a table row, and the size of the header's icon buttons.
 /// </summary>
 /// <remarks>
 /// Only names, <c>#rrggbb</c> colours and whole pixel counts within fixed
@@ -74,6 +74,7 @@ public sealed partial record PlatformTheme
     public const string ChartSlot = "chart";
     public const string ControlSizeSlot = "controlSize";
     public const string TableRowHeightSlot = "tableRowHeight";
+    public const string HeaderIconSizeSlot = "headerIconSize";
 
     /// <summary>The appearance of an installation nobody has customised.</summary>
     public static readonly PlatformTheme Default = new(
@@ -83,7 +84,8 @@ public sealed partial record PlatformTheme
         ThemePresets.DefaultRadius,
         ThemePresets.DefaultMenuAccent,
         ThemeSizeChoice.Default,
-        ThemeSizeChoice.Default);
+        ThemeSizeChoice.Default,
+        ThemePresets.DefaultHeaderIconSize);
 
     private PlatformTheme(
         ThemeColorChoice baseColor,
@@ -92,7 +94,8 @@ public sealed partial record PlatformTheme
         string radius,
         string menuAccent,
         ThemeSizeChoice controlSize,
-        ThemeSizeChoice tableRowHeight)
+        ThemeSizeChoice tableRowHeight,
+        string headerIconSize)
     {
         Base = baseColor;
         Theme = theme;
@@ -101,6 +104,7 @@ public sealed partial record PlatformTheme
         MenuAccent = menuAccent;
         ControlSize = controlSize;
         TableRowHeight = tableRowHeight;
+        HeaderIconSize = headerIconSize;
     }
 
     /// <summary>Gets the base colour: backgrounds, cards, borders and muted text.</summary>
@@ -124,6 +128,14 @@ public sealed partial record PlatformTheme
     /// <summary>Gets the height of a table row holding one line of text.</summary>
     public ThemeSizeChoice TableRowHeight { get; }
 
+    /// <summary>
+    /// Gets the size of the icon buttons and the avatar in the header of the
+    /// console and the accounts app: a name from <see cref="ThemePresets.HeaderIconSizes"/>.
+    /// Only the platform's appearance uses it; an application's sign-in pages
+    /// have no header, so an application's appearance always holds the default.
+    /// </summary>
+    public string HeaderIconSize { get; }
+
     /// <summary>Gets the control height in pixels.</summary>
     public int ControlHeightPx => HeightPx(ControlSize, ThemePresets.ControlHeightsPx);
 
@@ -134,6 +146,11 @@ public sealed partial record PlatformTheme
     /// Validates an appearance and returns it in canonical form: colours in
     /// lower case, and no colours or pixels kept on a choice that is not custom.
     /// </summary>
+    /// <param name="headerIconSize">
+    /// The header icon size. Callers that offer no such choice (an application's
+    /// appearance, a stored appearance saved before it existed) leave it out and
+    /// get the default; an explicit null or an unknown name is refused.
+    /// </param>
     public static ErrorOr<PlatformTheme> Create(
         ThemeColorChoice? baseColor,
         ThemeColorChoice? theme,
@@ -141,7 +158,8 @@ public sealed partial record PlatformTheme
         string? radius,
         string? menuAccent,
         ThemeSizeChoice? controlSize,
-        ThemeSizeChoice? tableRowHeight)
+        ThemeSizeChoice? tableRowHeight,
+        string? headerIconSize = ThemePresets.DefaultHeaderIconSize)
     {
         var errors = new List<Error>();
 
@@ -159,6 +177,11 @@ public sealed partial record PlatformTheme
         if (menuAccent is null || !ThemePresets.MenuAccents.Contains(menuAccent))
         {
             errors.Add(SystemSettingsErrors.ThemeUnknownMenuAccent(menuAccent ?? string.Empty));
+        }
+
+        if (headerIconSize is null || !ThemePresets.HeaderIconSizes.Contains(headerIconSize))
+        {
+            errors.Add(SystemSettingsErrors.ThemeUnknownHeaderIconSize(headerIconSize ?? string.Empty));
         }
 
         var normalizedControl = NormalizeSize(
@@ -191,7 +214,8 @@ public sealed partial record PlatformTheme
             radius!,
             menuAccent!,
             normalizedControl!,
-            normalizedRow!);
+            normalizedRow!,
+            headerIconSize!);
     }
 
     private static ThemeSizeChoice? NormalizeSize(

@@ -2,7 +2,7 @@ import { Monitor, Moon, Sun } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { useTheme, type Theme } from "@authsystem/ui/theme-provider"
-import { Button } from "@authsystem/ui/button"
+import { Button, type ButtonSize } from "@authsystem/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +13,12 @@ import {
 } from "@authsystem/ui/dropdown-menu"
 import { usePreferenceSync } from "@authsystem/ui/common/use-preference-sync"
 
-export function ThemeToggle() {
+export function ThemeToggle({
+  size = "icon",
+}: {
+  /** "icon-header" in the app header, which follows the header icon size. */
+  size?: ButtonSize
+} = {}) {
   const { t } = useTranslation()
   const { setTheme } = useTheme()
   const syncPreference = usePreferenceSync()
@@ -28,7 +33,7 @@ export function ThemeToggle() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={t("common.theme")}>
+        <Button variant="ghost" size={size} aria-label={t("common.theme")}>
           <Sun className="dark:hidden" />
           <Moon className="hidden dark:block" />
         </Button>

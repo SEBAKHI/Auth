@@ -1,7 +1,7 @@
 import { Languages } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@authsystem/ui/button"
+import { Button, type ButtonSize } from "@authsystem/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +20,12 @@ import { useVisibleLanguages } from "@authsystem/i18n/hidden-languages"
  * With every other language hidden there is nothing to choose, so there is no menu either: a
  * button whose one item is the language already in use would offer nothing.
  */
-export function LanguageToggle() {
+export function LanguageToggle({
+  size = "icon",
+}: {
+  /** "icon-header" in the app header, which follows the header icon size. */
+  size?: ButtonSize
+} = {}) {
   const { t } = useTranslation()
   const { language, setLanguage } = useLanguage()
   const languages = useVisibleLanguages()
@@ -38,7 +43,7 @@ export function LanguageToggle() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={t("common.language")}>
+        <Button variant="ghost" size={size} aria-label={t("common.language")}>
           <Languages />
         </Button>
       </DropdownMenuTrigger>

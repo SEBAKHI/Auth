@@ -980,6 +980,9 @@
   <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
     <value>« {0} » n'est pas un accent de menu disponible.</value>
   </data>
+  <data name="SystemSettings.ThemeUnknownHeaderIconSize" xml:space="preserve">
+    <value>« {0} » n'est pas une taille d'icônes d'en-tête disponible. Choisissez current, google ou large.</value>
+  </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>Cette clé de préférence d'affichage n'est pas de celles que l'application enregistre.</value>
   </data>

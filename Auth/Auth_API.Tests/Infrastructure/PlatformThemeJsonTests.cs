@@ -29,7 +29,8 @@ public class PlatformThemeJsonTests
         "\"chart\":{\"preset\":\"custom\",\"light\":\"#aabbcc\",\"dark\":\"#ddeeff\"}," +
         "\"radius\":\"large\",\"menuAccent\":\"bold\"}";
 
-    private static PlatformTheme Customised(ThemeSizeChoice controlSize, ThemeSizeChoice tableRowHeight) =>
+    private static PlatformTheme Customised(
+        ThemeSizeChoice controlSize, ThemeSizeChoice tableRowHeight, string headerIconSize = "google") =>
         PlatformTheme.Create(
             new ThemeColorChoice("custom", "#112233", "#445566"),
             new ThemeColorChoice("violet"),
@@ -37,7 +38,8 @@ public class PlatformThemeJsonTests
             "large",
             "bold",
             controlSize,
-            tableRowHeight).Value;
+            tableRowHeight,
+            headerIconSize).Value;
 
     [Fact]
     public void ACustomisedAppearance_RoundTrips()
@@ -51,6 +53,47 @@ public class PlatformThemeJsonTests
             ",\"controlSize\":{\"preset\":\"custom\",\"px\":30}," +
             "\"tableRowHeight\":{\"preset\":\"comfortable\"}}");
         PlatformSettingsRepository.ThemeJson.Read(json).Should().Be(theme);
+    }
+
+    [Fact]
+    public void AHeaderIconSizeOtherThanTheDefault_IsStoredAndReadBack()
+    {
+        var theme = Customised(ThemeSizeChoice.Default, ThemeSizeChoice.Default, "large");
+
+        var json = PlatformSettingsRepository.ThemeJson.Write(theme);
+
+        json.Should().EndWith(",\"headerIconSize\":\"large\"}");
+        PlatformSettingsRepository.ThemeJson.Read(json).Should().Be(theme);
+    }
+
+    [Fact]
+    public void TheDefaultHeaderIconSize_IsNotWritten()
+    {
+        // An application's appearance always holds the default, so its row
+        // carries no header field; absent reads back as the default.
+        var theme = Customised(ThemeSizeChoice.Default, ThemeSizeChoice.Default);
+
+        PlatformSettingsRepository.ThemeJson.Write(theme).Should().NotContain("headerIconSize");
+    }
+
+    [Fact]
+    public void ARowSavedBeforeTheHeaderIconSizeExisted_ReadsGoogle()
+    {
+        var theme = PlatformSettingsRepository.ThemeJson.Read(RowWrittenBeforeSizes);
+
+        theme.HeaderIconSize.Should().Be("google");
+    }
+
+    [Theory]
+    [InlineData(",\"headerIconSize\":\"huge\"}")]
+    [InlineData(",\"headerIconSize\":7}")]
+    [InlineData(",\"headerIconSize\":null}")]
+    [InlineData(",\"headerIconSize\":{\"preset\":\"large\"}}")]
+    public void AnUnreadableHeaderIconSize_ReadsGoogleAndKeepsEverythingElse(string field)
+    {
+        var theme = PlatformSettingsRepository.ThemeJson.Read(RowWrittenBeforeSizes[..^1] + field);
+
+        theme.Should().Be(Customised(ThemeSizeChoice.Default, ThemeSizeChoice.Default));
     }
 
     [Fact]

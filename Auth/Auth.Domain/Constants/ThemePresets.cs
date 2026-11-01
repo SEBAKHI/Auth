@@ -3,8 +3,9 @@ namespace Auth.Domain.Constants;
 /// <summary>
 /// The closed vocabulary of the platform appearance settings: the names of
 /// shadcn/ui's colour registry (the Base Color, Theme and Chart Color pickers of
-/// https://ui.shadcn.com/create), its radius steps and its menu accents, and
-/// the size steps of the control height and the table row height.
+/// https://ui.shadcn.com/create), its radius steps and its menu accents,
+/// the size steps of the control height and the table row height, and the
+/// header icon sizes.
 /// </summary>
 /// <remarks>
 /// The API stores names, never colour values: the console builds the CSS from
@@ -147,6 +148,31 @@ public static class ThemePresets
     /// has customised, and of an appearance saved before either existed.
     /// </summary>
     public const string DefaultSize = "default";
+
+    /// <summary>
+    /// The sizes of the icon buttons and the avatar in the header of the console
+    /// and the accounts app, smallest first. The header itself stays 56px tall at
+    /// every size. The pixels belong to the front end
+    /// (<c>Auth_UI/packages/ui/src/theme/theme-config.ts</c>), which also caps the
+    /// size at <see cref="DefaultHeaderIconSize"/> below 768px:
+    /// <list type="bullet">
+    /// <item><c>current</c>: icon 16px, button 36px, avatar 28px (the header before the setting existed).</item>
+    /// <item><c>google</c>: icon 24px, button 40px, avatar 32px (Google's header).</item>
+    /// <item><c>large</c>: icon 32px, button 48px, avatar 36px.</item>
+    /// </list>
+    /// </summary>
+    public static readonly IReadOnlyList<string> HeaderIconSizes =
+    [
+        "current",
+        "google",
+        "large",
+    ];
+
+    /// <summary>
+    /// The header icon size of an installation nobody has customised, and of an
+    /// appearance saved before the setting existed (owner decision, 2026-11-02).
+    /// </summary>
+    public const string DefaultHeaderIconSize = "google";
 
     /// <summary>
     /// The height in pixels of a size step on a scale (<see cref="ControlHeightsPx"/>

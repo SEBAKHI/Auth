@@ -982,6 +982,9 @@
   <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
     <value>'{0}' ليس خيارًا متاحًا لتمييز عناصر القوائم.</value>
   </data>
+  <data name="SystemSettings.ThemeUnknownHeaderIconSize" xml:space="preserve">
+    <value>'{0}' ليس حجمًا متاحًا لأيقونات الشريط العلوي. اختر current أو google أو large.</value>
+  </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>مفتاح تفضيل العرض هذا ليس مما يخزّنه التطبيق.</value>
   </data>
