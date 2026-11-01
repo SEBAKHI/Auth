@@ -341,7 +341,28 @@ public class GetWebhookKeysQueryHandlerTests
 
         result.IsError.Should().BeFalse();
         result.Value.Single(k => k.Name == "Revoked").RevokeReason.Should().Be("Receiver decommissioned");
+        result.Value.Single(k => k.Name == "Revoked").RevokeReasonCode.Should().BeNull();
         result.Value.Single(k => k.Name == "Live").RevokeReason.Should().BeNull();
+        result.Value.Single(k => k.Name == "Live").RevokeReasonCode.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("ApplicationDeleted")]
+    [InlineData("Application deleted")] // written before Q6
+    public async Task Handle_KeyOfADeletedApplication_CarriesTheReasonCode_NotProse(string stored)
+    {
+        // Q6: the console names the code in the reader's language; English prose would show in every one.
+        var appId = Guid.NewGuid();
+        var key = TestHelpers.CreateWebhookKey(applicationId: appId, name: "Orphaned");
+        key.Revoke(Guid.NewGuid(), stored);
+
+        _repoMock.Setup(r => r.ListAsync(appId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WebhookKey> { key });
+
+        var dto = (await _handler.Handle(new GetWebhookKeysQuery(appId), CancellationToken.None)).Value.Single();
+
+        dto.RevokeReasonCode.Should().Be("ApplicationDeleted");
+        dto.RevokeReason.Should().BeNull();
     }
 
     [Fact]

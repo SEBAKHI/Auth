@@ -41,8 +41,21 @@ public class ApplicationSoftDeleteSqlTests
         Regex(@"UPDATE\s+\[dbo\]\.\[WebhookKeys\]\s+SET\s+\[RevokedAt\]")
             .IsMatch(sql).Should().BeTrue("DeleteAsync must revoke the application's webhook keys");
         // OI-128: and its machine keys, inside the same transaction.
-        Regex(@"UPDATE\s+\[dbo\]\.\[ApplicationMachineKeys\]\s+SET\s+\[RevokedAt\]\s*=\s*GETUTCDATE\(\),\s*\[RevokedBy\]\s*=\s*@DeletedBy,\s*\[RevokeReason\]\s*=\s*N'Application deleted'\s+WHERE\s+\[ApplicationId\]\s*=\s*@Id\s+AND\s+\[RevokedAt\]\s+IS\s+NULL"",\s*new\s*\{\s*Id\s*=\s*id,\s*DeletedBy\s*=\s*deletedBy\s*\},\s*transaction\)")
+        Regex(@"UPDATE\s+\[dbo\]\.\[ApplicationMachineKeys\]\s+SET\s+\[RevokedAt\]\s*=\s*GETUTCDATE\(\),\s*\[RevokedBy\]\s*=\s*@DeletedBy,\s*\[RevokeReason\]\s*=\s*@RevokeReason\s+WHERE\s+\[ApplicationId\]\s*=\s*@Id\s+AND\s+\[RevokedAt\]\s+IS\s+NULL"",\s*revocation,\s*transaction\)")
             .IsMatch(sql).Should().BeTrue("DeleteAsync must revoke the application's machine keys inside its transaction");
+    }
+
+    [Fact]
+    public void DeleteAsync_StoresTheReasonCode_NotProse()
+    {
+        // Q6: the console names the code in the reader's language; prose here would show in English in every one.
+        var sql = ReadPersistenceFile("ApplicationRepository.cs");
+
+        Regex(@"\[RevokeReason\]\s*=\s*@RevokeReason").Matches(sql).Should().HaveCount(3,
+            "the API, webhook and machine keys of a deleted application all take the code");
+        Regex(@"var\s+revocation\s*=\s*new\s*\{\s*Id\s*=\s*id,\s*DeletedBy\s*=\s*deletedBy,\s*RevokeReason\s*=\s*KeyRevocationReasons\.ApplicationDeleted\s*\}")
+            .IsMatch(sql).Should().BeTrue("the reason bound to the three statements is the code");
+        Regex(@"\[RevokeReason\]\s*=\s*N'").IsMatch(sql).Should().BeFalse("no reason is written as a literal sentence");
     }
 
     [Theory]

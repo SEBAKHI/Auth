@@ -296,6 +296,7 @@ export const fa: TranslationResources = {
     requireEmailVerification: "الزام تأیید ایمیل",
     requireTwoFactor: "الزام احراز دومرحله‌ای",
     revokeReason: "دلیل ابطال",
+    revokeReasonCode: "کد دلیل ابطال",
     revokedAt: "تاریخ ابطال",
     role: "نقش",
     roleCode: "کد نقش",
@@ -1145,6 +1146,9 @@ export const fa: TranslationResources = {
     rotate: "چرخش",
     revokeReason: "دلیل",
     revokeReasonPlaceholder: "در یک مخزن عمومی افشا شد",
+    revokeReasonCodes: {
+      ApplicationDeleted: "برنامه حذف شد",
+    },
     revokeTitle: "ابطال کلید API",
     revokeBody:
       "سامانه‌ای که از این کلید استفاده می‌کند، وقتی نتیجهٔ بررسیِ ذخیره‌شده در برنامهٔ شما منقضی شود رد می‌شود: به‌طور پیش‌فرض ظرف ۱ دقیقه.",

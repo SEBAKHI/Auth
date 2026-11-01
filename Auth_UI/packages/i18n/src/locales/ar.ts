@@ -295,6 +295,7 @@ export const ar: TranslationResources = {
     requireEmailVerification: "اشتراط تأكيد البريد",
     requireTwoFactor: "اشتراط المصادقة الثنائية",
     revokeReason: "سبب الإلغاء",
+    revokeReasonCode: "رمز سبب الإلغاء",
     revokedAt: "تاريخ الإلغاء",
     role: "الدور",
     roleCode: "رمز الدور",
@@ -1139,6 +1140,9 @@ export const ar: TranslationResources = {
     rotate: "تدوير",
     revokeReason: "السبب",
     revokeReasonPlaceholder: "تسرّب في مستودع عام",
+    revokeReasonCodes: {
+      ApplicationDeleted: "حُذف التطبيق",
+    },
     revokeTitle: "إلغاء مفتاح API",
     revokeBody:
       "يُرفض النظام الذي يستعمل هذا المفتاح حين تنتهي نتيجة التحقق المخزّنة مؤقتًا في تطبيقك: خلال دقيقة واحدة افتراضيًّا.",

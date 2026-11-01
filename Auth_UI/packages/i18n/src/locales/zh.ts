@@ -294,6 +294,7 @@ export const zh: TranslationResources = {
     requireEmailVerification: "强制邮箱验证",
     requireTwoFactor: "强制双重认证",
     revokeReason: "吊销原因",
+    revokeReasonCode: "吊销原因代码",
     revokedAt: "吊销时间",
     role: "角色",
     roleCode: "角色代码",
@@ -1109,6 +1110,9 @@ export const zh: TranslationResources = {
     rotate: "轮换",
     revokeReason: "原因",
     revokeReasonPlaceholder: "在公开代码仓库中泄露",
+    revokeReasonCodes: {
+      ApplicationDeleted: "应用已删除",
+    },
     revokeTitle: "吊销 API 密钥",
     revokeBody:
       "使用此密钥的系统将在您的应用缓存的核验结果过期后被拒绝：默认 1 分钟内。",

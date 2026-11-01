@@ -354,4 +354,30 @@ public class MachineKeyHandlerTests
 
         GetMachineKeysQueryHandler.ToDto(key).Purpose.Should().Be(Auth.Domain.Enums.MachineKeyPurpose.SignIn);
     }
+
+    [Theory]
+    [InlineData("ApplicationDeleted")]
+    [InlineData("Application deleted")] // written before Q6
+    public void TheKeyList_GivesADeletedApplicationsKeyTheReasonCode_NotProse(string stored)
+    {
+        var key = ApplicationMachineKey.Create(_application.Id, "kid", "{}", null, _admin, DateTime.UtcNow).Value;
+        key.Revoke(_admin, stored, DateTime.UtcNow);
+
+        var dto = GetMachineKeysQueryHandler.ToDto(key);
+
+        dto.RevokeReasonCode.Should().Be("ApplicationDeleted");
+        dto.RevokeReason.Should().BeNull();
+    }
+
+    [Fact]
+    public void TheKeyList_KeepsAnAdministratorsReason_AsTyped()
+    {
+        var key = ApplicationMachineKey.Create(_application.Id, "kid", "{}", null, _admin, DateTime.UtcNow).Value;
+        key.Revoke(_admin, "Server retired", DateTime.UtcNow);
+
+        var dto = GetMachineKeysQueryHandler.ToDto(key);
+
+        dto.RevokeReason.Should().Be("Server retired");
+        dto.RevokeReasonCode.Should().BeNull();
+    }
 }

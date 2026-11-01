@@ -8,7 +8,9 @@ import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
  * A revoked API key or webhook key says why in its row panel (owner,
  * 2026-10-31): the reason its administrator gave when revoking it. A live key,
  * and a revoked key whose reason was left empty, show no reason row at all.
- * Both key kinds, on the application's tabs, in Arabic and English.
+ * A key the system revoked when its application was deleted carries a reason
+ * code, not prose, and its panel names it in the reader's language (Q6, owner
+ * 2026-10-31). Both key kinds, on the application's tabs, in Arabic and English.
  */
 
 const catalogs = { en, ar } as const
@@ -53,6 +55,12 @@ function keys(extra: Record<string, unknown>) {
       revokeReason: null,
     }),
     key("20000000-0000-0000-0000-000000000003", "Live key", {}),
+    key("20000000-0000-0000-0000-000000000004", "Orphaned key", {
+      isRevoked: true,
+      revokedAt: "2026-10-22T09:00:00Z",
+      revokeReason: null,
+      revokeReasonCode: "ApplicationDeleted",
+    }),
   ]
 }
 
@@ -121,6 +129,23 @@ for (const language of ["en", "ar"] as const) {
 
       sheet = await openRow(page, t.common.details, "Live key")
       await expect(sheet.getByText(label, { exact: true })).toHaveCount(0)
+      await page.keyboard.press("Escape")
+      await expect(sheet).toBeHidden()
+
+      sheet = await openRow(page, t.common.details, "Orphaned key")
+      await expect(sheet.getByText(label, { exact: true })).toBeVisible()
+      const named = t.apiKeys.revokeReasonCodes.ApplicationDeleted
+      await expect(sheet.getByText(named, { exact: true })).toBeVisible()
+      // Neither the code nor its field becomes a row of its own.
+      await expect(sheet.getByText("ApplicationDeleted")).toHaveCount(0)
+      await expect(sheet.getByText(/revoke\s*reason\s*code/i)).toHaveCount(0)
+      if (language !== "en") {
+        const english = en.apiKeys.revokeReasonCodes.ApplicationDeleted
+        await expect(sheet.getByText(english)).toHaveCount(0)
+      }
+      await page.screenshot({
+        path: testInfo.outputPath(`${tab}-system-reason-${language}.png`),
+      })
     })
   }
 }
