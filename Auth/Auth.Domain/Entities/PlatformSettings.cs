@@ -67,6 +67,11 @@ public class PlatformSettings : EntityBase
     public IReadOnlyDictionary<FontRole, PlatformFont> Fonts => _fonts.AsReadOnly();
 
     /// <summary>
+    /// Gets the languages hidden from the language menus of both apps; never English.
+    /// </summary>
+    public HiddenLanguages HiddenLanguages { get; private set; } = HiddenLanguages.None;
+
+    /// <summary>
     /// Gets the last modification timestamp.
     /// </summary>
     public DateTime? ModifiedAt { get; private set; }
@@ -90,8 +95,10 @@ public class PlatformSettings : EntityBase
         Guid? modifiedBy,
         PlatformTheme? theme = null,
         LogoHeight? logoHeight = null,
-        IReadOnlyDictionary<FontRole, PlatformFont>? fonts = null) : base(id)
+        IReadOnlyDictionary<FontRole, PlatformFont>? fonts = null,
+        HiddenLanguages? hiddenLanguages = null) : base(id)
     {
+        HiddenLanguages = hiddenLanguages ?? HiddenLanguages.None;
         PlatformName = platformName;
         LogoUrl = logoUrl;
         LogoUrlDark = logoUrlDark;
@@ -150,6 +157,24 @@ public class PlatformSettings : EntityBase
         }
 
         LogoHeight = logoHeight;
+        ModifiedAt = DateTime.UtcNow;
+        ModifiedBy = modifiedBy;
+        return true;
+    }
+
+    /// <summary>
+    /// Sets the languages hidden from the language menus and stamps the modification audit
+    /// fields. Nothing else changes: it is saved on its own, like the appearance.
+    /// </summary>
+    /// <returns>False, and no change, when these languages were already the hidden ones.</returns>
+    public bool SetHiddenLanguages(HiddenLanguages hiddenLanguages, Guid modifiedBy)
+    {
+        if (HiddenLanguages.Equals(hiddenLanguages))
+        {
+            return false;
+        }
+
+        HiddenLanguages = hiddenLanguages;
         ModifiedAt = DateTime.UtcNow;
         ModifiedBy = modifiedBy;
         return true;

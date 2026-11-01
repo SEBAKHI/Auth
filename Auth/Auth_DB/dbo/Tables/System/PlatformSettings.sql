@@ -24,6 +24,9 @@ CREATE TABLE [dbo].[PlatformSettings]
     [HeadingFontName] NVARCHAR(100) NULL,
     [BodyFontKey] NVARCHAR(100) NULL,
     [BodyFontName] NVARCHAR(100) NULL,
+    -- The languages hidden from the language menus of both apps, as a JSON array of codes
+    -- (never "en"). NULL = none hidden. Declared last for the same reason as Theme.
+    [HiddenLanguages] NVARCHAR(100) NULL,
 
     CONSTRAINT [PK_PlatformSettings] PRIMARY KEY CLUSTERED ([Id]),
     -- Single-row table: the only allowed row is the fixed singleton id.
@@ -33,6 +36,7 @@ CREATE TABLE [dbo].[PlatformSettings]
     CONSTRAINT [CK_PlatformSettings_LogoHeightPx] CHECK ([LogoHeightPx] IS NULL OR ([LogoHeightPx] >= 24 AND [LogoHeightPx] <= 120)),
     -- A font's name describes its file: no name without a file.
     CONSTRAINT [CK_PlatformSettings_HeadingFont] CHECK ([HeadingFontName] IS NULL OR [HeadingFontKey] IS NOT NULL),
-    CONSTRAINT [CK_PlatformSettings_BodyFont] CHECK ([BodyFontName] IS NULL OR [BodyFontKey] IS NOT NULL)
+    CONSTRAINT [CK_PlatformSettings_BodyFont] CHECK ([BodyFontName] IS NULL OR [BodyFontKey] IS NOT NULL),
+    CONSTRAINT [CK_PlatformSettings_HiddenLanguagesIsJson] CHECK ([HiddenLanguages] IS NULL OR ISJSON([HiddenLanguages]) = 1)
 );
 GO

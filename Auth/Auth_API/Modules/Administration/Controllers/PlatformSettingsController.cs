@@ -6,6 +6,7 @@ using Auth_API.Modules.Administration.Contracts;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Platform.GetPlatformSettings;
 using Auth.Application.Features.Platform.SetPlatformFont;
+using Auth.Application.Features.Platform.UpdatePlatformHiddenLanguages;
 using Auth.Application.Features.Platform.UpdatePlatformLogoHeight;
 using Auth.Application.Features.Platform.UpdatePlatformSettings;
 using Auth.Application.Features.Platform.UpdatePlatformTheme;
@@ -144,6 +145,34 @@ public class PlatformSettingsController : ApiController
     {
         var result = await _sender.Send(
             new UpdatePlatformLogoHeightCommand(request.LogoHeightPx, GetUserId()),
+            cancellationToken);
+
+        return result.Match(
+            settings => Ok(settings),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Sets the languages hidden from the language menus of both apps: a hidden language is
+    /// neither listed nor downloaded, and a page that would open in it opens in English. Content
+    /// editors keep every language. Nothing else in the settings changes.
+    /// </summary>
+    /// <response code="200">Returns the updated platform settings</response>
+    /// <response code="400">A code that is not a shipped language, or English</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions</response>
+    [HttpPut("hidden-languages")]
+    [RequirePermission(PermissionCodes.PlatformSettings.Manage)]
+    [ProducesResponseType(typeof(PlatformSettingsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpdateHiddenLanguages(
+        [FromBody] UpdateHiddenLanguagesRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new UpdatePlatformHiddenLanguagesCommand(request.HiddenLanguages, GetUserId()),
             cancellationToken);
 
         return result.Match(

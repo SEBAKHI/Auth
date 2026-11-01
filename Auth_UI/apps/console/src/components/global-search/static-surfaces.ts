@@ -218,6 +218,14 @@ export const STATIC_SURFACES: readonly StaticSurface[] = [
     permission: PERMISSIONS.platformSettings.manage,
   },
   {
+    id: "platform-settings-languages",
+    route: `/admin/platform-settings?${TAB_QUERY_PARAM}=languages`,
+    titleKey: "platformSettings.tabLanguages",
+    descriptionKey: "platformSettings.languages.subtitle",
+    pathKeys: ["nav.platformSettings"],
+    permission: PERMISSIONS.platformSettings.manage,
+  },
+  {
     id: "system-settings",
     route: "/admin/system-settings",
     titleKey: "systemSettings.title",

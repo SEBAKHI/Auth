@@ -2113,6 +2113,15 @@ export const tr: TranslationResources = {
   platformSettings: {
     tabIdentity: "Kimlik",
     tabFonts: "Yazı tipleri",
+    tabLanguages: "Diller",
+    languages: {
+      title: "Dil menüleri",
+      subtitle: "Konsolun, hesaplar uygulamasının ve oturum açma sayfalarının dil menülerinin sunduğu diller. Gizlenen bir dil listelenmez ve indirilmez; onu kullanan herkes yerine İngilizce görür. Bildirimlerin ve oturum açma sayfası tasarımlarının çevirileri tüm dilleri korur.",
+      legend: "Dil menülerinde gösterilir",
+      englishAlwaysShown: "Her zaman gösterilir: her sayfa İngilizceye geri döner.",
+      revert: "Değişiklikleri at",
+      saved: "Diller kaydedildi.",
+    },
     fonts: {
       subtitle: "Platformun kendi yazı tipleri; konsolda, hesaplar uygulamasında ve her oturum açma sayfası tasarımında kullanılır. E-postalar kendi yazı tiplerini korur.",
       heading: { title: "Başlık yazı tipi", description: "Kartların, iletişim kutularının ve panellerin başlıkları ile oturum açma sayfası tasarımlarının başlıkları. Seçilmezse başlıklar gövde yazı tipini kullanır." },

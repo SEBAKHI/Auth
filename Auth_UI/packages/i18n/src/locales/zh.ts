@@ -2006,6 +2006,15 @@ export const zh: TranslationResources = {
   platformSettings: {
     tabIdentity: "标识",
     tabFonts: "字体",
+    tabLanguages: "语言",
+    languages: {
+      title: "语言菜单",
+      subtitle: "控制台、账户应用和登录页面的语言菜单所提供的语言。隐藏的语言既不会列出也不会下载，使用它的人将改为看到英语。通知和登录页面设计的翻译保留所有语言。",
+      legend: "在语言菜单中显示",
+      englishAlwaysShown: "始终显示：每个页面都会回退到英语。",
+      revert: "放弃更改",
+      saved: "语言已保存。",
+    },
     fonts: {
       subtitle: "平台自有的字体，用于控制台、账户应用以及每个登录页设计。电子邮件保留其自身字体。",
       heading: { title: "标题字体", description: "卡片、对话框和面板的标题，以及登录页设计中的标题。未设置时，标题使用正文字体。" },

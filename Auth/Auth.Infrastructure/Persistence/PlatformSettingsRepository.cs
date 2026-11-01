@@ -27,7 +27,7 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
 
         var dto = await connection.QueryFirstOrDefaultAsync<PlatformSettingsDto>(@"
             SELECT [Id], [PlatformName], [LogoUrl], [LogoUrlDark], [FaviconUrl], [ModifiedAt], [ModifiedBy], [Theme], [LogoHeightPx],
-                   [HeadingFontKey], [HeadingFontName], [BodyFontKey], [BodyFontName]
+                   [HeadingFontKey], [HeadingFontName], [BodyFontKey], [BodyFontName], [HiddenLanguages]
             FROM [dbo].[PlatformSettings]
             WHERE [Id] = @Id",
             new { Id = PlatformSettings.SingletonId });
@@ -158,6 +158,63 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
                 settings.ModifiedBy
             },
             cancellationToken: cancellationToken));
+    }
+
+    /// <inheritdoc />
+    public async Task UpdateHiddenLanguagesAsync(PlatformSettings settings, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(new CommandDefinition(@"
+            MERGE [dbo].[PlatformSettings] AS target
+            USING (SELECT @Id AS [Id]) AS source
+            ON target.[Id] = source.[Id]
+            WHEN MATCHED THEN
+                UPDATE SET
+                    [HiddenLanguages] = @HiddenLanguages,
+                    [ModifiedAt] = @ModifiedAt,
+                    [ModifiedBy] = @ModifiedBy
+            WHEN NOT MATCHED THEN
+                INSERT ([Id], [PlatformName], [HiddenLanguages], [ModifiedAt], [ModifiedBy])
+                VALUES (@Id, @PlatformName, @HiddenLanguages, @ModifiedAt, @ModifiedBy);",
+            new
+            {
+                settings.Id,
+                settings.PlatformName,
+                HiddenLanguages = HiddenLanguagesJson.Write(settings.HiddenLanguages),
+                settings.ModifiedAt,
+                settings.ModifiedBy
+            },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <summary>
+    /// The stored form of <see cref="HiddenLanguages"/>: a JSON array of codes, or
+    /// NULL when none is hidden. Reading never fails, as for the appearance: a value that does
+    /// not parse reads as none hidden, and what it names is filtered by the domain's rules
+    /// (<see cref="HiddenLanguages.FromStored"/>).
+    /// </summary>
+    public static class HiddenLanguagesJson
+    {
+        public static string? Write(HiddenLanguages hidden) =>
+            hidden.Codes.Count == 0 ? null : JsonSerializer.Serialize(hidden.Codes);
+
+        public static HiddenLanguages Read(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return HiddenLanguages.None;
+            }
+
+            try
+            {
+                return HiddenLanguages.FromStored(JsonSerializer.Deserialize<string?[]>(json));
+            }
+            catch (JsonException)
+            {
+                return HiddenLanguages.None;
+            }
+        }
     }
 
     /// <summary>
@@ -320,6 +377,7 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
         public string? HeadingFontName { get; init; }
         public string? BodyFontKey { get; init; }
         public string? BodyFontName { get; init; }
+        public string? HiddenLanguages { get; init; }
 
         public PlatformSettings ToEntity() => new(
             Id,
@@ -331,7 +389,8 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
             ModifiedBy,
             ThemeJson.Read(Theme),
             LogoHeight.FromStored(LogoHeightPx),
-            Fonts());
+            Fonts(),
+            HiddenLanguagesJson.Read(HiddenLanguages));
 
         private Dictionary<FontRole, PlatformFont> Fonts()
         {

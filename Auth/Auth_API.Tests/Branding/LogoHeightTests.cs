@@ -112,8 +112,9 @@ public class LogoHeightTests
     public void TheColumn_IsAppendedLast_NullableWithoutADefault(string table)
     {
         var columns = OrganizationCreationSchemaTests.DeclaredColumns(TableSource(table), table);
-        // Columns a later batch appended after this one (the platform's fonts: PlatformFontsTests).
-        var later = table == "PlatformSettings" ? 4 : 0;
+        // Columns later batches appended after this one (the platform's fonts: PlatformFontsTests;
+        // the hidden languages: HiddenLanguagesTests).
+        var later = table == "PlatformSettings" ? 5 : 0;
 
         columns.Should().NotBeEmpty();
         var column = columns[^(1 + later)];

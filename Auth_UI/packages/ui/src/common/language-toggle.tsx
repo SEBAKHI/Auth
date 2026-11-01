@@ -11,12 +11,19 @@ import {
   DropdownMenuTrigger,
 } from "@authsystem/ui/dropdown-menu"
 import { usePreferenceSync } from "@authsystem/ui/common/use-preference-sync"
-import { SUPPORTED_LANGUAGES, type LanguageCode } from "@authsystem/i18n"
+import type { LanguageCode } from "@authsystem/i18n"
 import { useLanguage } from "@authsystem/i18n/direction"
+import { useVisibleLanguages } from "@authsystem/i18n/hidden-languages"
 
+/**
+ * The language menu: the languages an administrator has not hidden (platform settings › Languages).
+ * With every other language hidden there is nothing to choose, so there is no menu either: a
+ * button whose one item is the language already in use would offer nothing.
+ */
 export function LanguageToggle() {
   const { t } = useTranslation()
   const { language, setLanguage } = useLanguage()
+  const languages = useVisibleLanguages()
   const syncPreference = usePreferenceSync()
 
   const changeLanguage = (code: LanguageCode) => {
@@ -25,6 +32,8 @@ export function LanguageToggle() {
     // localized emails — follow the user's choice.
     syncPreference({ preferredLanguage: code })
   }
+
+  if (languages.length < 2) return null
 
   return (
     <DropdownMenu>
@@ -36,7 +45,7 @@ export function LanguageToggle() {
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>{t("common.language")}</DropdownMenuLabel>
         <DropdownMenuGroup>
-          {SUPPORTED_LANGUAGES.map((lang) => (
+          {languages.map((lang) => (
             <DropdownMenuItem
               key={lang.code}
               onClick={() => changeLanguage(lang.code)}

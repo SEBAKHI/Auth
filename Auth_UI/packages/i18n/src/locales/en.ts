@@ -2129,6 +2129,15 @@ export const en = {
   platformSettings: {
     tabIdentity: "Identity",
     tabFonts: "Fonts",
+    tabLanguages: "Languages",
+    languages: {
+      title: "Language menus",
+      subtitle: "The languages the language menus of the console, the accounts app and the sign-in pages offer. A hidden language is neither listed nor downloaded, and anyone using it sees English instead. Translations of notifications and sign-in page designs keep every language.",
+      legend: "Shown in the language menus",
+      englishAlwaysShown: "Always shown: every page falls back to English.",
+      revert: "Discard changes",
+      saved: "Languages saved.",
+    },
     fonts: {
       subtitle: "The platform's own fonts, used across the console, the accounts app and every sign-in page design. Emails keep their own fonts.",
       heading: { title: "Heading font", description: "Titles of cards, dialogs and panels, and the headings of sign-in page designs. Without one, titles use the body font." },

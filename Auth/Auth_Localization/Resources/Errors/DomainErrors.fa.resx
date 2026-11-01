@@ -1745,4 +1745,10 @@
   <data name="Template.TooComplex" xml:space="preserve">
     <value>قالب برای نمایش بیش از حد پیچیده است: بلوک‌ها را بیش از حد تودرتو می‌کند، زمان زیادی می‌برد یا هنگام نمایش متن زیادی می‌سازد. حلقه‌ها و تودرتویی آن را ساده‌تر کنید.</value>
   </data>
+  <data name="HiddenLanguages.DefaultLanguageRequired" xml:space="preserve">
+    <value>انگلیسی را نمی‌توان پنهان کرد: زبانی است که همهٔ صفحه‌ها به آن برمی‌گردند.</value>
+  </data>
+  <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
+    <value>فقط زبانی را می‌توان پنهان کرد که برنامه‌ها ارائه می‌دهند.</value>
+  </data>
 </root>

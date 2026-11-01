@@ -42,9 +42,11 @@ import type { Schemas } from "@authsystem/api/types"
 
 import { AppearanceCard } from "./appearance-card"
 import { FontsTab } from "./fonts-tab"
+import { LanguagesTab } from "./languages-tab"
 import { LogoDisplaySizeCard } from "../../components/logo-display-size/logo-display-size-card"
 import { useReportUnsaved, useUnsavedParts, type UnsavedState } from "../../lib/unsaved-state"
 import {
+  PLATFORM_SETTINGS_QUERY_KEY,
   PLATFORM_SETTINGS_TABS,
   type PlatformSettingsTabValue,
 } from "./platform-settings-tabs"
@@ -52,7 +54,7 @@ import {
 /** The platform's sign-in page designs: their own chunk, loaded when the tab first opens. */
 const LoginDesignsTab = React.lazy(() => import("./login-designs-tab"))
 
-const SETTINGS_QUERY_KEY = ["platform-settings"] as const
+const SETTINGS_QUERY_KEY = PLATFORM_SETTINGS_QUERY_KEY
 
 function SettingsCard({
   settings,
@@ -339,6 +341,13 @@ const TAB_PANELS: Record<PlatformSettingsTabValue, PlatformSettingsTabPanel> = {
     capped: true,
     render: ({ settings, onSaved, onUnsavedChange }) => (
       <FontsTab settings={settings} onSaved={onSaved} onUnsavedChange={onUnsavedChange} />
+    ),
+  },
+  languages: {
+    labelKey: "platformSettings.tabLanguages",
+    capped: true,
+    render: ({ settings, onUnsavedChange }) => (
+      <LanguagesTab settings={settings} onUnsavedChange={onUnsavedChange} />
     ),
   },
 }

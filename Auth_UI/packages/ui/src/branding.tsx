@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
+import { setHiddenLanguages } from "@authsystem/i18n/hidden-languages"
 import { useTheme } from "@authsystem/ui/theme-provider"
 import { LOGO_HEIGHT, resolveLogoHeight } from "@authsystem/ui/logo-mark"
 import { pickLogo } from "@authsystem/ui/theme/pick-logo"
@@ -314,6 +315,14 @@ export function BrandingProvider({
   React.useEffect(() => {
     if (query.data) writeCachedBranding(query.data)
   }, [query.data])
+
+  // The languages the menus leave out, keyed on the list: the language store keeps its own
+  // copy for the next load, and moves this page to English if its language was just hidden.
+  // A payload without the field (an older API) hides none.
+  const hiddenLanguagesKey = query.data ? JSON.stringify(query.data.hiddenLanguages ?? []) : null
+  React.useEffect(() => {
+    if (hiddenLanguagesKey) setHiddenLanguages(JSON.parse(hiddenLanguagesKey) as string[])
+  }, [hiddenLanguagesKey])
 
   // The platform's fonts, keyed on their addresses: a refetch that changes nothing applies
   // nothing. Applied before React mounts from the cached copy (applyCachedFonts); this puts

@@ -876,6 +876,18 @@
       "source": "catalog"
     },
     {
+      "code": "HiddenLanguages.DefaultLanguageRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "HiddenLanguages.UnsupportedLanguage",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "Http.BadRequest",
       "status": 400,
       "source": "transport"

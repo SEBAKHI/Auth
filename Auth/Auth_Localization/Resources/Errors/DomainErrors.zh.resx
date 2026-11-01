@@ -1745,4 +1745,10 @@
   <data name="Template.TooComplex" xml:space="preserve">
     <value>模板过于复杂，无法渲染：区块嵌套过深、耗时过长，或在渲染时生成了过多文本。请简化其循环和嵌套。</value>
   </data>
+  <data name="HiddenLanguages.DefaultLanguageRequired" xml:space="preserve">
+    <value>无法隐藏英语：它是每个页面的后备语言。</value>
+  </data>
+  <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
+    <value>只能隐藏应用提供的语言。</value>
+  </data>
 </root>

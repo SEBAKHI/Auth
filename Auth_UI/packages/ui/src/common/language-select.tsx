@@ -8,9 +8,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@authsystem/ui/select"
-import { SUPPORTED_LANGUAGES } from "@authsystem/i18n"
+import { useVisibleLanguages } from "@authsystem/i18n/hidden-languages"
 
-/** Preferred-language picker restricted to the languages the console ships. */
+/**
+ * Preferred-language picker restricted to the languages the console ships and an
+ * administrator has not hidden (platform settings › Languages). A saved language that is
+ * hidden now shows the placeholder; it stays saved until another one is picked.
+ */
 export function LanguageSelect({
   value,
   onChange,
@@ -21,7 +25,8 @@ export function LanguageSelect({
   className?: string
 }) {
   const { t } = useTranslation()
-  const known = SUPPORTED_LANGUAGES.some((lang) => lang.code === value)
+  const languages = useVisibleLanguages()
+  const known = languages.some((lang) => lang.code === value)
 
   return (
     <Select value={known && value ? value : undefined} onValueChange={onChange}>
@@ -30,7 +35,7 @@ export function LanguageSelect({
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>
-          {SUPPORTED_LANGUAGES.map((lang) => (
+          {languages.map((lang) => (
             <SelectItem key={lang.code} value={lang.code}>
               {lang.label}
             </SelectItem>

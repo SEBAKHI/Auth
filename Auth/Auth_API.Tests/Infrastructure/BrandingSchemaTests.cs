@@ -30,7 +30,8 @@ public class BrandingSchemaTests
         // OI-202: MachineDirectoryConsentSchemaTests. The application's appearance: ApplicationAppearanceSchemaTests.
         ["Applications"] = ["InitiateLoginUri", "AllowMachineOrganizationsRead", "Theme", "ThemeEnabled", "LogoHeightPx"],
         // The logo height on the sign-in pages: LogoHeightTests. The platform's fonts: PlatformFontsTests.
-        ["PlatformSettings"] = ["LogoHeightPx", "HeadingFontKey", "HeadingFontName", "BodyFontKey", "BodyFontName"],
+        // The hidden languages: HiddenLanguagesTests.
+        ["PlatformSettings"] = ["LogoHeightPx", "HeadingFontKey", "HeadingFontName", "BodyFontKey", "BodyFontName", "HiddenLanguages"],
     };
 
     [Theory]

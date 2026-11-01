@@ -641,6 +641,9 @@ public class PlatformFontsTests : IDisposable
     {
         var columns = OrganizationCreationSchemaTests.DeclaredColumns(TableSource(), "PlatformSettings");
 
+        // A column a later batch appended after these (the hidden languages: HiddenLanguagesTests).
+        columns = columns.SkipLast(1).ToList();
+
         columns.Select(c => c.Name).TakeLast(4).Should().Equal(
             ["HeadingFontKey", "HeadingFontName", "BodyFontKey", "BodyFontName"],
             "appended, the publish is an ALTER TABLE ADD, not a rebuild");
