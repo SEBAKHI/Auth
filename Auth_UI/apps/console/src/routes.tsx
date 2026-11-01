@@ -340,6 +340,17 @@ export const router = createBrowserRouter([
             handle: { ...crumb("profile", "/profile"), mfaExempt: true },
           },
           {
+            // The same page as the accounts app's Home (UI batch item 12),
+            // reached from the user menu: console supremacy, so nobody has to
+            // leave the console for the accounts origin to find it.
+            path: "my-applications",
+            lazy: lazyRoute(
+              () => import("@authsystem/account/pages/home/my-applications-page"),
+              (m) => m.MyApplicationsPage
+            ),
+            handle: crumb("myApplications", "/my-applications"),
+          },
+          {
                 element: (
                   <PermissionRoute permission={PERMISSIONS.apiKeys.read} />
                 ),

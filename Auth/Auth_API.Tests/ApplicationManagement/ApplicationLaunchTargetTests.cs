@@ -115,6 +115,59 @@ public class ApplicationLaunchTargetTests
     }
 
     [Fact]
+    public void ForEntitled_IsTheSameRuleAsAnAcceptedInvitation()
+    {
+        // UI batch item 12: a Home tile enters the application exactly where an accepted
+        // invitation would, from the stored registration alone.
+        Target.ForEntitled(true, "https://crm.example.com/signin/start", "https://crm.example.com", hasBrowserSignIn: false)
+            .Should().Be($"https://crm.example.com/signin/start?iss={EscapedIssuer}");
+        Target.ForEntitled(true, null, "https://crm.example.com/app", hasBrowserSignIn: true)
+            .Should().Be("https://crm.example.com/app");
+    }
+
+    [Fact]
+    public void ForEntitled_NoSafeAddress_LaunchesNothing()
+    {
+        Target.ForEntitled(true, null, "https://crm.example.com", hasBrowserSignIn: false)
+            .Should().BeNull("a machine client never exposes its address");
+        Target.ForEntitled(true, null, null, hasBrowserSignIn: true).Should().BeNull();
+        Target.ForEntitled(true, "javascript:alert(1)", "http://crm.example.com", hasBrowserSignIn: true).Should().BeNull();
+        Target.ForEntitled(true, "https://crm.example.com/login#start", null, hasBrowserSignIn: true).Should().BeNull();
+        Target.ForEntitled(false, "https://crm.example.com/signin/start", "https://crm.example.com", hasBrowserSignIn: true)
+            .Should().BeNull("a switched-off application launches nothing");
+    }
+
+    [Fact]
+    public void TheHomeUrl_RefusesUserInformation_AndAnyLoopbackButTheDevelopmentNames()
+    {
+        // The browser re-check (launchTarget) refuses the same, so an address the server sends
+        // is never one the page then drops in silence.
+        Target.ForEntitled(true, null, "https://crm.example.com@evil.example.com/", hasBrowserSignIn: true)
+            .Should().BeNull("user information only ever makes an address read as another host");
+        Target.ForEntitled(true, null, "http://127.0.0.2:3000/", hasBrowserSignIn: true).Should().BeNull();
+        Target.ForEntitled(true, null, "http://localhost:3000/", hasBrowserSignIn: true).Should().Be("http://localhost:3000/");
+    }
+
+    [Fact]
+    public void TheHomeUrl_KeepsAFragment()
+    {
+        // A hash-routed application's home: harmless as a destination, and the page keeps it.
+        Target.ForEntitled(true, null, "https://crm.example.com/#/dashboard", hasBrowserSignIn: true)
+            .Should().Be("https://crm.example.com/#/dashboard");
+    }
+
+    [Fact]
+    public void ForHomeTile_IsHttpsOnly()
+    {
+        // D9: a tile opens an https address; a development registration's loopback http does
+        // not become every user's tile.
+        Target.ForHomeTile(true, null, "http://localhost:3000/", hasBrowserSignIn: true).Should().BeNull();
+        Target.ForHomeTile(true, "http://localhost:3000/signin", null, hasBrowserSignIn: false).Should().BeNull();
+        Target.ForHomeTile(true, null, "https://crm.example.com/", hasBrowserSignIn: true).Should().Be("https://crm.example.com/");
+        Target.ForHomeTile(false, null, "https://crm.example.com/", hasBrowserSignIn: true).Should().BeNull();
+    }
+
+    [Fact]
     public void HomeUrlOf_IsTheBrandingRule()
     {
         ApplicationLaunchTarget.HomeUrlOf(App(baseUrl: "http://localhost:3000")).Should().Be("http://localhost:3000/");

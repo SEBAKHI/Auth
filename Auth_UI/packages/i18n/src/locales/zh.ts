@@ -334,6 +334,14 @@ export const zh: TranslationResources = {
     viaRole: "通过角色授予",
     website: "网站",
   },
+  myApplications: {
+    title: "我的应用",
+    description: "您可以登录的应用。每个应用都会在新标签页中打开。",
+    emptyTitle: "暂无应用",
+    emptyDescription: "您可以登录的应用将显示在这里。",
+    // Read after a tile's name by screen readers; never drawn.
+    opensInNewTab: "（在新标签页中打开）",
+  },
   nav: {
     notifications: "通知",
     notificationTemplates: "模板",
@@ -359,6 +367,8 @@ export const zh: TranslationResources = {
     security: "安全",
     platform: "平台",
     account: "账户",
+    home: "首页",
+    myApplications: "我的应用",
     sidebar: "导航",
     sidebarDescription: "指向主要板块的链接。",
     toggleSidebar: "显示或隐藏导航",

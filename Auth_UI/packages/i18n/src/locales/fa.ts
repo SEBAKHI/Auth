@@ -336,6 +336,14 @@ export const fa: TranslationResources = {
     viaRole: "اعطا از طریق نقش",
     website: "وب‌سایت",
   },
+  myApplications: {
+    title: "برنامه‌های من",
+    description: "برنامه‌هایی که می‌توانید وارد آن‌ها شوید. هر کدام در زبانهٔ تازه باز می‌شود.",
+    emptyTitle: "هنوز برنامه‌ای نیست",
+    emptyDescription: "برنامه‌هایی که می‌توانید وارد آن‌ها شوید اینجا نمایش داده می‌شوند.",
+    // Read after a tile's name by screen readers; never drawn.
+    opensInNewTab: "(در زبانهٔ تازه باز می‌شود)",
+  },
   nav: {
     notifications: "اعلان‌ها",
     notificationTemplates: "قالب‌ها",
@@ -361,6 +369,8 @@ export const fa: TranslationResources = {
     security: "امنیت",
     platform: "پلتفرم",
     account: "حساب",
+    home: "خانه",
+    myApplications: "برنامه‌های من",
     sidebar: "ناوبری",
     sidebarDescription: "پیوند به بخش‌های اصلی.",
     toggleSidebar: "نمایش یا پنهان کردن ناوبری",

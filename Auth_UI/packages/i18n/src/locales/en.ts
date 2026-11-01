@@ -338,6 +338,14 @@ export const en = {
     viaRole: "Granted through a role",
     website: "Website",
   },
+  myApplications: {
+    title: "My applications",
+    description: "The applications you can sign in to. Each one opens in a new tab.",
+    emptyTitle: "No applications yet",
+    emptyDescription: "Applications you can sign in to will appear here.",
+    // Read after a tile's name by screen readers; never drawn.
+    opensInNewTab: "(opens in a new tab)",
+  },
   nav: {
     notifications: "Notifications",
     notificationTemplates: "Templates",
@@ -363,6 +371,8 @@ export const en = {
     security: "Security",
     platform: "Platform",
     account: "Account",
+    home: "Home",
+    myApplications: "My applications",
     // Announced, never drawn: the name of the nav panel and of the control
     // that shows and hides it. A screen reader is the only way anyone meets
     // these three, which is exactly why they were the last strings left in

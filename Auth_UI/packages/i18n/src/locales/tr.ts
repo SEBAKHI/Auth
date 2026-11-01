@@ -337,6 +337,14 @@ export const tr: TranslationResources = {
     viaRole: "Rol üzerinden verildi",
     website: "Web sitesi",
   },
+  myApplications: {
+    title: "Uygulamalarım",
+    description: "Oturum açabileceğiniz uygulamalar. Her biri yeni bir sekmede açılır.",
+    emptyTitle: "Henüz uygulama yok",
+    emptyDescription: "Oturum açabileceğiniz uygulamalar burada görünecek.",
+    // Read after a tile's name by screen readers; never drawn.
+    opensInNewTab: "(yeni sekmede açılır)",
+  },
   nav: {
     notifications: "Bildirimler",
     notificationTemplates: "Şablonlar",
@@ -362,6 +370,8 @@ export const tr: TranslationResources = {
     security: "Güvenlik",
     platform: "Platform",
     account: "Hesap",
+    home: "Ana sayfa",
+    myApplications: "Uygulamalarım",
     sidebar: "Gezinme",
     sidebarDescription: "Ana bölümlere bağlantılar.",
     toggleSidebar: "Gezinmeyi aç veya kapat",

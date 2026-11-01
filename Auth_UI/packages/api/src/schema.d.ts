@@ -1898,6 +1898,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Users/me/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["MyApplicationDto"][];
+                        "application/json": components["schemas"]["MyApplicationDto"][];
+                        "text/json": components["schemas"]["MyApplicationDto"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Users/me/ui-preferences": {
         parameters: {
             query?: never;
@@ -18708,6 +18756,14 @@ export interface components {
             revokeReason?: null | string;
         };
         MachineKeyPurpose: number;
+        MyApplicationDto: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            logoUrl?: null | string;
+            logoUrlDark?: null | string;
+            launchUrl?: string;
+        };
         /** @default 1 */
         NotificationChannelType: number;
         NotificationDeliveryStatus: number;

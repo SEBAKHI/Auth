@@ -262,6 +262,16 @@ public class Application : AggregateRoot
     /// </summary>
     public IReadOnlyList<string> ConfidentialRedirectUris => _confidentialRedirectUris.AsReadOnly();
 
+    /// <summary>
+    /// Gets whether a person can sign in to the application in a browser: it registered at
+    /// least one redirect URI, public or server-side (OI-171). A machine client has none.
+    /// </summary>
+    /// <remarks>
+    /// The list read of <c>IApplicationAccessRepository.GetApplicationsForUserAsync</c> states the
+    /// same rule in SQL (an <c>EXISTS</c> over both allowlist tables); change them together.
+    /// </remarks>
+    public bool HasBrowserSignIn => _redirectUris.Count > 0 || _confidentialRedirectUris.Count > 0;
+
     private Application() : base()
     {
     }

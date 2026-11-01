@@ -47,15 +47,17 @@ interface AppShellProps {
   /** i18n key under `nav.*` for the breadcrumb home crumb. */
   homeKey: string
   /**
-   * The app landing route, when it is not `/`. The accounts app redirects
-   * `/` to `/profile`, so without this the breadcrumbs read its landing page
-   * as an inner page and offer a way "up" that lands right back on it.
+   * The app landing route, when it is not `/`. An app whose `/` only
+   * redirects elsewhere must name the real landing page, or the breadcrumbs
+   * read it as an inner page and offer a way "up" that lands right back on it.
    */
   homeHref?: string
   /** Forwarded to the header UserMenu. */
   profileHref?: string
   /** Forwarded to the header UserMenu. */
   showProfile?: boolean
+  /** Forwarded to the header UserMenu. */
+  myApplicationsHref?: string
   /**
    * App-specific header controls, placed before the language and theme
    * toggles. The console puts its settings search here; the accounts app
@@ -211,6 +213,7 @@ export function AppShell({
   homeHref,
   profileHref,
   showProfile,
+  myApplicationsHref,
   headerExtras,
 }: AppShellProps) {
   // The same store `SidebarProvider` reads, so the header and the sidebar can
@@ -267,7 +270,11 @@ export function AppShell({
             {headerExtras}
             <LanguageToggle />
             <ThemeToggle />
-            <UserMenu profileHref={profileHref} showProfile={showProfile} />
+            <UserMenu
+              profileHref={profileHref}
+              showProfile={showProfile}
+              myApplicationsHref={myApplicationsHref}
+            />
           </div>
         </header>
         {/* `min-h-0` so this can actually shrink inside the flex column; without

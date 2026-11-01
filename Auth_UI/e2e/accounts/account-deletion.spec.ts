@@ -268,9 +268,10 @@ async function signIn(page: Page, email: string): Promise<void> {
   await page.getByRole("button", { name: "Sign in" }).click()
 }
 
-async function signInExpectingProfile(page: Page, email: string): Promise<void> {
+async function signInExpectingHome(page: Page, email: string): Promise<void> {
   await signIn(page, email)
-  await expect(page).toHaveURL(/\/profile/)
+  // Home, the accounts app's landing page (UI batch item 12).
+  await expect(page).toHaveURL((url) => url.pathname === "/")
 }
 
 /** Opens the danger-zone re-auth dialog from the profile's Account tab. */
@@ -327,7 +328,8 @@ async function recoverViaLogin(page: Page, email: string): Promise<void> {
   await expect(page.getByLabel("Email")).toHaveValue(email)
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD)
   await page.getByRole("button", { name: "Restore my account" }).click()
-  await expect(page).toHaveURL(/\/profile/)
+  // Home, the accounts app's landing page (UI batch item 12).
+  await expect(page).toHaveURL((url) => url.pathname === "/")
 }
 
 test.describe("account deletion", () => {
@@ -350,7 +352,7 @@ test.describe("account deletion", () => {
     test.setTimeout(120_000)
     const email = await createConfirmedUser(api, "j1")
 
-    await signInExpectingProfile(page, email)
+    await signInExpectingHome(page, email)
     await openDeleteDialog(page)
     // Holding a password does not change the factor — the account still
     // confirms by mailbox possession, exactly like an external-only one.

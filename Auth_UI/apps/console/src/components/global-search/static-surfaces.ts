@@ -258,4 +258,12 @@ export const STATIC_SURFACES: readonly StaticSurface[] = [
     titleKey: "profile.security",
     pathKeys: ["nav.profile"],
   },
+  // The applications this person can open (UI batch item 12), under the user menu.
+  {
+    id: "my-applications",
+    route: "/my-applications",
+    titleKey: "myApplications.title",
+    descriptionKey: "myApplications.description",
+    pathKeys: [],
+  },
 ]

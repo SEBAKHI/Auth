@@ -18,12 +18,12 @@ import { useBreadcrumbOverride, type CrumbHandle } from "@authsystem/ui/crumbs"
 /**
  * The matched trail, and where the current page sits in it.
  *
- * `homeHref` exists because an app's landing page is not always `/`. The
- * accounts app redirects `/` straight to `/profile`, and `/profile` carries its
- * own crumb - so recognising home by the crumb's KEY alone left the landing
- * page looking like an inner page, and the phone-width back link offered a way
- * up from it: a "‹ Account" that pointed at `/`, which bounced right back to
- * the page the reader was already on.
+ * `homeHref` exists because an app's landing page is not always `/`. When an
+ * app's `/` redirects straight to an inner page that carries its own crumb (the
+ * accounts app's `/` once redirected to `/profile`), recognising home by the
+ * crumb's KEY alone left the landing page looking like an inner page, and the
+ * phone-width back link offered a way up from it: a "‹ Account" that pointed at
+ * `/`, which bounced right back to the page the reader was already on.
  */
 function useCrumbTrail(homeKey: string, homeHref = "/") {
   const matches = useMatches()

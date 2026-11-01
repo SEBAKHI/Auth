@@ -304,8 +304,15 @@ public static class SharedValidationRules
         }
 
         return parsed.Scheme == Uri.UriSchemeHttps ||
-               (parsed.Scheme == Uri.UriSchemeHttp && parsed.Host is "localhost" or "127.0.0.1" or "[::1]");
+               (parsed.Scheme == Uri.UriSchemeHttp && IsDevelopmentLoopback(parsed));
     }
+
+    /// <summary>
+    /// The hosts on which a browser destination may be plain <c>http</c>: the loopback names of
+    /// local development, spelled exactly (the accounts app's <c>safeHomeUrl</c> keeps the same
+    /// list). Not <see cref="Uri.IsLoopback"/>, which also admits every other 127.x address.
+    /// </summary>
+    public static bool IsDevelopmentLoopback(Uri uri) => uri.Host is "localhost" or "127.0.0.1" or "[::1]";
 
     /// <summary>
     /// Whether the query already names <c>iss</c> (any letter case, percent-encoded or not).

@@ -10,6 +10,12 @@ namespace Auth.Domain.ReadModels.Access;
 /// Mirrors the sign-in gate exactly. An open application admits everyone, so it
 /// is listed for every user with <see cref="ViaOpenAccess"/> set; a restricted
 /// one is listed only for the people on its list.
+/// <para>
+/// <see cref="BaseUrl"/>, <see cref="InitiateLoginUri"/> and <see cref="HasBrowserSignIn"/> are
+/// the registration's launch inputs, as stored: where the person may be sent to enter the
+/// application is decided from them by <c>ApplicationLaunchTarget</c>, never by a caller.
+/// <see cref="HasBrowserSignIn"/> mirrors <c>Application.HasBrowserSignIn</c>.
+/// </para>
 /// </remarks>
 public sealed record UserApplicationAccess(
     Guid ApplicationId,
@@ -19,7 +25,10 @@ public sealed record UserApplicationAccess(
     bool IsActive,
     bool ViaOpenAccess,
     bool ViaGrant,
-    string? LogoUrlDark = null);
+    string? LogoUrlDark = null,
+    string? BaseUrl = null,
+    string? InitiateLoginUri = null,
+    bool HasBrowserSignIn = false);
 
 /// <summary>
 /// One user attached to an application: invited on its access list, holding an

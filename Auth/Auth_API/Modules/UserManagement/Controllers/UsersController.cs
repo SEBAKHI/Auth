@@ -10,6 +10,7 @@ using Auth.Application.Features.Users.CreateUser;
 using Auth.Application.Features.Users.DeactivateAccount;
 using Auth.Application.Features.Users.DeleteUser;
 using Auth.Application.Features.Organizations.GetUserOrganizations;
+using Auth.Application.Features.Users.GetMyApplications;
 using Auth.Application.Features.Users.GetUserApplications;
 using Auth.Application.Features.Users.GetUserById;
 using Auth.Application.Features.Users.GetUserOrganizationRoles;
@@ -654,6 +655,30 @@ public class UsersController : ApiController
             new RemoveProfileImageCommand(userId, userId), cancellationToken);
 
         return result.Match(_ => NoContent(), errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Lists the applications the current user can open from IAM's Home (UI batch item 12):
+    /// the ones the sign-in gate admits them to that offer a way in, each with its launch
+    /// address. Self-service and unpermissioned, like the profile: the user comes from the
+    /// access token, and there is no parameter that could name anyone else.
+    /// </summary>
+    [HttpGet("me/applications")]
+    [ProducesResponseType(typeof(IReadOnlyList<MyApplicationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyApplications(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _sender.Send(new GetMyApplicationsQuery(userId), cancellationToken);
+
+        return result.Match(
+            applications => Ok(applications),
+            errors => Problem(errors));
     }
 
     /// <summary>
