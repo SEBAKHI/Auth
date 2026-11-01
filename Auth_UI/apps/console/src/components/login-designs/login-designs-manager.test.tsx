@@ -122,10 +122,9 @@ describe("LoginDesignsManager", () => {
     const remove = within(menu).getByRole("menuitem", { name: "Delete" })
     expect(remove).toHaveAttribute("aria-disabled", "true")
 
-    await user.hover(remove.parentElement!)
-    expect(
-      (await screen.findAllByText(/Visitors see this design now\. To delete it/)).length
-    ).toBeGreaterThan(0)
+    // Written in the menu, not on hover: keyboard and touch readers see it too.
+    expect(within(menu).getByText(/Visitors see this design now\. To delete it/)).toBeVisible()
+    expect(remove).toHaveAccessibleDescription(/Visitors see this design now\. To delete it/)
   })
 
   it("deletes an inactive design after a confirmation that names it", async () => {

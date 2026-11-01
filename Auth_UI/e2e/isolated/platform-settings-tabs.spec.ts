@@ -146,12 +146,18 @@ for (const language of ["en", "ar"] as const) {
         // The active design keeps Delete, disabled; an inactive one is deleted after a named confirmation.
         const activeMenu = await rowMenu(page, "Autumn", fill(t.loginDesigns.actions, { name: "Autumn" }))
         await expect(activeMenu.getByRole("menuitem", { name: t.loginDesigns.delete })).toHaveAttribute("aria-disabled", "true")
-        await activeMenu.getByRole("menuitem", { name: t.loginDesigns.delete }).locator("..").hover()
-        await expect(page.getByRole("tooltip")).toContainText(t.loginDesigns.deleteActiveHint)
+        // The reason is written in the menu, without hovering, so keyboard and touch readers see it.
+        const reason = activeMenu.getByText(t.loginDesigns.deleteActiveHint)
+        await expect(reason).toBeVisible()
+        await expect(activeMenu.getByRole("menuitem", { name: t.loginDesigns.delete })).toHaveAccessibleDescription(
+          t.loginDesigns.deleteActiveHint
+        )
+        // Inside the menu's own box at a phone's width too: not clipped, not widening it.
+        const [reasonBox, menuBox] = await Promise.all([reason.boundingBox(), activeMenu.boundingBox()])
+        expect(reasonBox && menuBox).toBeTruthy()
+        expect(reasonBox!.x).toBeGreaterThanOrEqual(menuBox!.x)
+        expect(reasonBox!.x + reasonBox!.width).toBeLessThanOrEqual(menuBox!.x + menuBox!.width)
         await page.screenshot({ path: testInfo.outputPath(`templates-${language}-${mode}-${width}.png`), fullPage: true })
-        // Layered: the first Escape closes the tooltip, the second the menu.
-        await page.keyboard.press("Escape")
-        await expect(page.getByRole("tooltip")).toBeHidden()
         await page.keyboard.press("Escape")
         await expect(page.getByRole("menu")).toBeHidden()
 

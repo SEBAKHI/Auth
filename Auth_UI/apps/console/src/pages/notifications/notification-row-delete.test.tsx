@@ -120,14 +120,14 @@ describe("row-menu delete", () => {
   })
 
   it("keeps Delete on the platform's system template, disabled, with the reason", async () => {
-    const user = userEvent.setup()
     renderPage(<NotificationTemplatesPage />)
 
     const menu = await openMenu("Password reset")
     const item = within(menu).getByRole("menuitem", { name: "Delete" })
     expect(item).toHaveAttribute("aria-disabled", "true")
-    await user.hover(item.parentElement!)
-    expect((await screen.findAllByText(/system notification cannot be deleted/)).length).toBeGreaterThan(0)
+    // Written in the menu, not on hover: keyboard and touch readers see it too.
+    expect(within(menu).getByText(/system notification cannot be deleted/)).toBeVisible()
+    expect(item).toHaveAccessibleDescription(/system notification cannot be deleted/)
   })
 
   it("deletes an application's layout, and keeps the global layout's Delete disabled with the reason", async () => {
@@ -135,7 +135,9 @@ describe("row-menu delete", () => {
     renderPage(<NotificationLayoutsPage />)
 
     const globalMenu = await openMenu("Default email")
-    expect(within(globalMenu).getByRole("menuitem", { name: "Delete" })).toHaveAttribute("aria-disabled", "true")
+    const globalDelete = within(globalMenu).getByRole("menuitem", { name: "Delete" })
+    expect(globalDelete).toHaveAttribute("aria-disabled", "true")
+    expect(globalDelete).toHaveAccessibleDescription(/global layout/i)
     await user.keyboard("{Escape}")
 
     const menu = await openMenu("Billing email")
@@ -157,10 +159,9 @@ describe("row-menu delete", () => {
     const liveMenu = await openMenu("2026.09")
     const refused = within(liveMenu).getByRole("menuitem", { name: "Delete" })
     expect(refused).toHaveAttribute("aria-disabled", "true")
-    await user.hover(refused.parentElement!)
-    expect((await screen.findAllByText(/Only a draft that was never published or announced/)).length).toBeGreaterThan(0)
-    // The first Escape closes the tooltip, the second the menu.
-    await user.keyboard("{Escape}{Escape}")
+    expect(within(liveMenu).getByText(/Only a draft that was never published or announced/)).toBeVisible()
+    expect(refused).toHaveAccessibleDescription(/Only a draft that was never published or announced/)
+    await user.keyboard("{Escape}")
 
     const menu = await openMenu("2026.11")
     await user.click(within(menu).getByRole("menuitem", { name: "Delete" }))

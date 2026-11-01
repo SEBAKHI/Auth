@@ -1,17 +1,18 @@
-import type * as React from "react"
+import * as React from "react"
 
 import { DropdownMenuItem } from "@authsystem/ui/dropdown-menu"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@authsystem/ui/tooltip"
 
 /**
- * A row-menu action this row cannot take, shown disabled with the reason on
- * hover rather than left out. A missing item reads as a missing feature: the
+ * A row-menu action this row cannot take, shown disabled with the reason written
+ * under it rather than left out. A missing item reads as a missing feature: the
  * reader cannot tell "not allowed here" from "not possible anywhere", so they
  * go looking for it elsewhere (the active design that cannot be deleted, the
  * global layout, a published policy version).
  *
- * A disabled menu item takes no pointer events, so the tooltip is anchored on
- * a wrapper that does.
+ * The reason is a visible line, not a tooltip: a disabled menu item takes neither
+ * focus nor touch, so a tooltip reached only mouse users. It sits outside the item,
+ * so the disabled item's fading does not fade the reason too, and the item's name
+ * stays the action alone; the item points at it as its description.
  */
 export function UnavailableMenuItem({
   reason,
@@ -23,20 +24,15 @@ export function UnavailableMenuItem({
   variant?: "default" | "destructive"
   children: React.ReactNode
 }) {
+  const reasonId = React.useId()
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span data-slot="unavailable-menu-item">
-          <DropdownMenuItem variant={variant} disabled>
-            {children}
-          </DropdownMenuItem>
-        </span>
-      </TooltipTrigger>
-      {/* Below: beside the menu it ran off a phone's edge, and above it covered the item
-          above it. A refused action is the menu's last group, so below is free. */}
-      <TooltipContent side="bottom" className="max-w-64">
+    <div data-slot="unavailable-menu-item" className="flex flex-col">
+      <DropdownMenuItem variant={variant} disabled aria-describedby={reasonId} className="pb-1">
+        {children}
+      </DropdownMenuItem>
+      <p id={reasonId} className="px-3 pb-2 text-xs text-muted-foreground">
         {reason}
-      </TooltipContent>
-    </Tooltip>
+      </p>
+    </div>
   )
 }
