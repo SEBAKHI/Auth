@@ -1812,15 +1812,23 @@ name. Both are created the same way.
 
 Every refusal below is logged at Fatal as `Startup aborted during: <step>`, followed by the message, in
 the API's own log (`Logs/…`) before the process exits. Where the host hides that log, the 500.30 note
-above applies. They hold in every environment except Development, which generates with a Warning instead
-of refusing, so a fresh clone still starts.
+above applies.
+
+- The `Refusing to generate …` rows, and the `Jwt:PrivateKeyPath` row without a file, hold in every
+  environment except Development, which generates with a Warning listing what the new keys orphan, so a
+  fresh clone still starts. The plaintext `Jwt:PrivateKeyPath` row holds in Production only.
+- The other rows hold in every environment, Development included: a key that cannot sign, or a gateway
+  token that is too short, is never something to start on.
+- The database check is one statement, so it costs at most the connection's own timeout plus 30 seconds,
+  well inside the 120 seconds IIS gives a starting application by default (`startupTimeLimit`).
 
 | The message begins | Cause | Way out |
 |---|---|---|
 | `Refusing to generate … the database already holds data written under the key(s) a new one would replace:` and a count per kind of row | `AutoGenerateKeys` is `true` and the secrets are missing or were not read (a lost or moved `secrets.dpapi`, a changed `SecretFilePath`, a key ring or certificate that did not come along), on a database that is in use | **Restore the backup set** below and restart. Nothing was written, so the restored file is the only one there. Generating instead would sign everyone out, make every webhook key and pending invitation invalid, stop peppered passwords from verifying, and orphan every account-deletion reservation for good |
 | `Refusing to generate … could not be checked: the AuthDb connection string is still the placeholder` | No real connection string is configured. When it is kept in the secrets file, this is the same lost file | A deployment that has run before: restore the secrets file. A brand-new install: set `ConnectionStrings__AuthDb` (web.config `<environmentVariables>`) |
 | `Refusing to generate … could not be checked: the database could not be reached` | The database is down, or the server, login or firewall is wrong | Fix the connection, then restart. Generation never proceeds unverified |
-| `Refusing to generate … could not be checked: [dbo].[…] could not be read` | The schema was not published, or is older than this build | Publish the DACPAC ([Phase 2](#phase-2--database)), then restart |
+| `Refusing to generate … could not be checked: [dbo].[…] could not be read` | The schema was not published or is older than this build, or the login cannot read one of the tables named | Publish the DACPAC ([Phase 2](#phase-2--database)), or grant the login read access, then restart |
+| `Another process created the secrets file at … while this one was generating keys. Nothing was written; restart to load that file.` | Two processes started on the same missing file (a web garden, two sites sharing the secrets folder) | Recycle once: the next start loads the file the other process wrote |
 | `Refusing to start: N required secret(s) are missing …`, followed by `Which case is this?` | `AutoGenerateKeys` is `false` and the secrets are missing | The message names both cases. A deployment that has run before: restore the backup set; **do not** turn generation on. A brand-new install only: `AutoGenerateKeys: true` for one run, then back to `false` |
 | `Refusing to start: the JWT signing key from <source> cannot sign tokens.` | The key in `Jwt:PrivateKeyPem` (the secrets file), `Jwt:PrivateKeyEncrypted` or `Jwt:PrivateKeyPath` is public-only, shorter than 2048 bits, or not a PEM | Correct that source, or restore `secrets.dpapi` (or its `.bak`). Until this release such a key loaded, `/ready` read Healthy, and the first sign-in failed |
 | `Refusing to start: no JWT signing key is configured.` | No source at all. Until this release an unsaved random key was used and lost at the next restart | Restore the secrets file, or import your key ([§F](#f-provision-your-own-keys-byok--painless-migration)) |
@@ -1828,7 +1836,7 @@ of refusing, so a fresh clone still starts.
 | `Refusing to start: Jwt:PrivateKeyPath is set to '…', but no file exists there.` | A key-file path that does not resolve. Until this release the next source was used without a word | Fix the path, or remove the setting so the key in the secrets file is used |
 | `Refusing to start: plaintext secret(s) [Jwt:PrivateKeyPath] were found in the Production configuration.` | A plaintext PEM file decides the signing key in Production, outside encrypted storage | Remove `Jwt:PrivateKeyPath` and import the key into the secrets file ([§F](#f-provision-your-own-keys-byok--painless-migration)) |
 | `Refusing to start: Gateway:ExpectedToken is unusable.` | The gateway token is shorter than 16 characters (the generator makes 44) | Set a longer token where it came from, and give the Gateway the same value as `Gateway:Token` |
-| `/ready` Unhealthy: `JWT signing key cannot sign.` | The loaded key failed to sign or validate a probe token | Read the exception in the log; restore a valid key |
+| `/ready` Unhealthy: `JWT signing key cannot sign.`, or `JWT signing key signed a token that did not validate (…)` | The loaded key failed to sign a probe token, or the token it signed did not validate. The probe runs once per process, on the first readiness call | Read the exception in the log; restore a valid key and recycle |
 
 **The backup set.** Three artefacts, together, after the first successful run and after every key
 change: `secrets.dpapi` with its `.bak`, the Data Protection key-ring folder (`DataProtection:KeyPath`),

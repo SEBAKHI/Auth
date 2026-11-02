@@ -46,6 +46,23 @@ public class SigningKeyHealthCheckTests
     }
 
     [Fact]
+    public void ProbeSigningKey_IsComputedOnce_SoReadinessCallsNeverSignAgain()
+    {
+        // /ready needs no sign-in: signing on every call would let any caller keep the server's
+        // cores busy with RSA. The key is fixed for the process, so the answer is reused.
+        using var keyPair = RSA.Create(2048);
+        var publicOnly = RSA.Create();
+        publicOnly.ImportFromPem(keyPair.ExportSubjectPublicKeyInfoPem());
+        using var service = new JwtTokenService(Settings, publicOnly);
+
+        var first = Record.Exception(() => service.ProbeSigningKey());
+        var second = Record.Exception(() => service.ProbeSigningKey());
+
+        first.Should().NotBeNull();
+        second.Should().BeSameAs(first, "a second sign attempt would have thrown a new exception");
+    }
+
+    [Fact]
     public void ProbeSigningKey_AKeyThatSigns_SignsAndValidates()
     {
         using var service = new JwtTokenService(Settings, RSA.Create(2048));

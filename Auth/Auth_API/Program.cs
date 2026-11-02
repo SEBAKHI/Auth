@@ -219,10 +219,16 @@ StartupStep.Run(
 // X03: nothing is generated while the database still holds data written under the key it would
 // replace. Every generation path below calls this before it writes anything; see
 // KeyRegenerationGuard for what counts as such data and for the dated override.
+// The pepper step below writes into the same store after these paths: when it is going to mint a
+// pepper, every check includes it, so a refusal there can never follow a write here.
+bool PepperIsMissing() =>
+    builder.Configuration.GetValue<bool>("Password:Pepper:Enabled")
+    && string.IsNullOrEmpty(builder.Configuration["Password:Pepper:CurrentKeyId"]);
+
 void EnsureSafeToGenerate(IReadOnlyCollection<GeneratedSecret> secrets, string? connectionStringToCheck)
 {
     var warning = KeyRegenerationGuard.EnsureSafeToGenerate(
-        secrets,
+        PepperIsMissing() ? secrets.Append(GeneratedSecret.PasswordPepper).Distinct().ToList() : secrets,
         connectionStringToCheck,
         builder.Environment.IsDevelopment(),
         Environment.GetEnvironmentVariable(KeyRegenerationGuard.OverrideVariable),
@@ -288,9 +294,12 @@ else
     // Certificate / Dpapi: secrets are stored in an encrypted file, decrypted via the key ring.
     var dpapiProvider = bootDataProtection;
 
-    // Add encrypted secrets to configuration (overrides appsettings.json values)
-    Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(
-        builder.Configuration, dpapiProvider, secretManagementSettings.SecretFilePath);
+    // Add encrypted secrets to configuration (overrides appsettings.json values). A file the
+    // application pool cannot open throws here, so it is a step.
+    StartupStep.Run(
+        "secrets file load",
+        () => Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(
+            builder.Configuration, dpapiProvider, secretManagementSettings.SecretFilePath));
 
     // Auto-generate keys on FIRST startup ONLY (when the secrets file does not yet exist).
     // After first startup the file exists, so keys are loaded and never regenerated. A file
@@ -360,13 +369,18 @@ else
                 "identifier-key top-up",
                 () =>
                 {
-                    EnsureSafeToGenerate(
-                        [GeneratedSecret.IdentifierKey], builder.Configuration.GetConnectionString("AuthDb"));
-
                     var topUpService = new DpapiSecretService(
                         dpapiProvider,
                         Options.Create(secretManagementSettings),
                         new Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>());
+
+                    // A file that does not decrypt (a rotated certificate, a missing key ring) also
+                    // reads as "no identifier key". Reading it first stops here with the decryption
+                    // error, instead of a generation check that blames a missing file.
+                    topUpService.LoadSecretsAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+                    EnsureSafeToGenerate(
+                        [GeneratedSecret.IdentifierKey], builder.Configuration.GetConnectionString("AuthDb"));
 
                     var mintedIdentifierKey = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
                     topUpService.UpdateAsync<ErrorOr.Success>(
@@ -437,14 +451,17 @@ builder.Services.AddSingleton<IDpapiSecretService>(sp =>
 // ════════════════════════════════════════════════════════════════════════════
 
 // Database
-var connectionString = builder.Configuration.GetConnectionString("AuthDb")
-    ?? throw new InvalidOperationException("Connection string 'AuthDb' not found.");
-
-// The null-check above cannot fire while appsettings.json ships a non-empty
+// The null-check cannot fire while appsettings.json ships a non-empty
 // placeholder for this key, so the placeholder gets its own check.
+string connectionString = null!;
 StartupStep.Run(
     "connection-string resolution check",
-    () => ConnectionStringGuard.EnsureResolved(connectionString));
+    () =>
+    {
+        connectionString = builder.Configuration.GetConnectionString("AuthDb")
+            ?? throw new InvalidOperationException("Connection string 'AuthDb' not found.");
+        ConnectionStringGuard.EnsureResolved(connectionString);
+    });
 
 builder.Services.AddSingleton<IDbConnectionFactory>(_ => new SqlConnectionFactory(connectionString));
 
@@ -567,8 +584,7 @@ builder.Services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>
 // failure is fatal. "Safe to create" holds only while no stored hash was peppered under a pepper
 // this process cannot see, so the database is checked before anything is written (X03).
 // ════════════════════════════════════════════════════════════════════════════
-if (builder.Configuration.GetValue<bool>("Password:Pepper:Enabled")
-    && string.IsNullOrEmpty(builder.Configuration["Password:Pepper:CurrentKeyId"]))
+if (PepperIsMissing())
 {
     StartupStep.Run(
         "password pepper provisioning",

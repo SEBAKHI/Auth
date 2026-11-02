@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Data.Common;
 using System.Globalization;
 using System.Security.Cryptography;
 using Auth.Application.Interfaces;
@@ -40,6 +41,9 @@ public static class KeyRegenerationGuard
     public const string OverrideVariable = "AUTH_ALLOW_KEY_REGENERATION";
 
     private const string DateFormat = "yyyy-MM-dd";
+
+    /// <summary>The whole count's budget, after the connection's own timeout.</summary>
+    private const int CommandTimeoutSeconds = 30;
 
     /// <summary>One kind of row written under a key, and the query that counts the live ones.</summary>
     /// <param name="Description">What the rows are, as the operator reads it.</param>
@@ -198,7 +202,8 @@ public static class KeyRegenerationGuard
             if (isDevelopment || overridden)
             {
                 return $"{acceptedBy}: generating {names} without checking the database for data written under " +
-                       $"the keys they replace: {ex.Message}.";
+                       $"the keys they replace ({ex.Message}). If there is any:{Environment.NewLine}" +
+                       Consequences(secrets);
             }
 
             throw new InvalidOperationException(
@@ -222,11 +227,8 @@ public static class KeyRegenerationGuard
         var rows = string.Join(
             Environment.NewLine,
             found.Select(row => $"  - {row.count} {row.dependent.Description}"));
-        var consequences = string.Join(
-            Environment.NewLine,
-            secrets
-                .Where(secret => found.Any(row => row.dependent.DependsOn.Contains(secret)))
-                .Select(secret => $"  - a new {Facts[secret].Label}: {Facts[secret].Consequence}"));
+        var consequences = Consequences(
+            secrets.Where(secret => found.Any(row => row.dependent.DependsOn.Contains(secret))));
 
         if (isDevelopment || overridden)
         {
@@ -245,6 +247,10 @@ public static class KeyRegenerationGuard
             OverrideHint(overrideValue, today));
     }
 
+    private static string Consequences(IEnumerable<GeneratedSecret> secrets) => string.Join(
+        Environment.NewLine,
+        secrets.Select(secret => $"  - a new {Facts[secret].Label}: {Facts[secret].Consequence}"));
+
     private static string OverrideHint(string? overrideValue, string today)
     {
         var stale = string.IsNullOrWhiteSpace(overrideValue)
@@ -257,7 +263,33 @@ public static class KeyRegenerationGuard
                "it. It is honoured on that UTC date only.";
     }
 
-    /// <summary>Counts each dependent's rows on one connection, naming what failed.</summary>
+    /// <summary>
+    /// The one statement that counts every dependent's rows: one round trip and one command timeout,
+    /// so the check stays well inside a host's startup time limit (IIS: 120 s by default) however
+    /// many keys a path generates.
+    /// </summary>
+    public static string CountSql(IReadOnlyList<KeyDependent> dependents) =>
+        "SELECT " + string.Join(", ", dependents.Select((dependent, index) => $"({dependent.CountSql}) AS [c{index}]"));
+
+    /// <summary>
+    /// Runs <see cref="CountSql"/> through <paramref name="execute"/>, which answers one count per
+    /// dependent, and turns a database failure into one that names the tables and the reason.
+    /// </summary>
+    public static IReadOnlyList<long> CountRows(
+        IReadOnlyList<KeyDependent> dependents,
+        Func<string, IReadOnlyList<long>> execute)
+    {
+        try
+        {
+            return execute(CountSql(dependents));
+        }
+        catch (DbException ex)
+        {
+            var tables = string.Join(", ", dependents.Select(dependent => $"[dbo].[{dependent.Table}]").Distinct());
+            throw new InvalidOperationException($"{tables} could not be read ({ex.Message})", ex);
+        }
+    }
+
     private static IReadOnlyList<long> CountRows(string? connectionString, IReadOnlyList<KeyDependent> dependents)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -269,29 +301,21 @@ public static class KeyRegenerationGuard
         {
             throw new InvalidOperationException(
                 $"the AuthDb connection string is still the placeholder '{ConnectionStringGuard.Placeholder}' " +
-                "(a deployment that keeps it in the secrets file is missing that file)");
+                "(a deployment that keeps it in the secrets file has lost that file, or cannot decrypt it)");
         }
 
         using var connection = Open(connectionString);
 
-        var counts = new List<long>(dependents.Count);
-        foreach (var dependent in dependents)
+        return CountRows(dependents, sql =>
         {
             using var command = connection.CreateCommand();
-            command.CommandText = dependent.CountSql;
-            command.CommandTimeout = 30;
+            command.CommandText = sql;
+            command.CommandTimeout = CommandTimeoutSeconds;
 
-            try
-            {
-                counts.Add(Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture));
-            }
-            catch (SqlException ex)
-            {
-                throw new InvalidOperationException($"[dbo].[{dependent.Table}] could not be read ({ex.Message})", ex);
-            }
-        }
-
-        return counts;
+            using var reader = command.ExecuteReader();
+            reader.Read();
+            return Enumerable.Range(0, reader.FieldCount).Select(reader.GetInt64).ToList();
+        });
     }
 
     private static SqlConnection Open(string connectionString)

@@ -29,6 +29,7 @@ public class JwtTokenService : IJwtTokenService, ISigningKeyProbe, IDisposable
     private readonly RsaSecurityKey _securityKey;
     private readonly SigningCredentials _signingCredentials;
     private readonly JwtSecurityTokenHandler _tokenHandler;
+    private readonly Lazy<ErrorOr<Success>> _signingKeyProbe;
     private bool _disposed;
 
     public JwtTokenService(
@@ -52,6 +53,9 @@ public class JwtTokenService : IJwtTokenService, ISigningKeyProbe, IDisposable
         _securityKey = new RsaSecurityKey(_rsa) { KeyId = _settings.KeyId };
         _signingCredentials = new SigningCredentials(_securityKey, SecurityAlgorithms.RsaSha256);
         _tokenHandler = new JwtSecurityTokenHandler();
+        // The key is fixed for the life of the process, so the answer is too: signed once, on the
+        // first readiness call, and an anonymous /ready caller never makes the server sign again.
+        _signingKeyProbe = new Lazy<ErrorOr<Success>>(SignAndValidateProbe, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <inheritdoc />
@@ -414,7 +418,9 @@ public class JwtTokenService : IJwtTokenService, ISigningKeyProbe, IDisposable
     public SecurityKey GetSecurityKey() => _securityKey;
 
     /// <inheritdoc />
-    public ErrorOr<Success> ProbeSigningKey()
+    public ErrorOr<Success> ProbeSigningKey() => _signingKeyProbe.Value;
+
+    private ErrorOr<Success> SignAndValidateProbe()
     {
         var now = DateTime.UtcNow;
         var probe = _tokenHandler.CreateToken(new SecurityTokenDescriptor

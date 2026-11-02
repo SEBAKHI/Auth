@@ -144,6 +144,26 @@ public class CertificateModeBootstrapTests : IDisposable
     }
 
     [Fact]
+    public async Task FirstStartup_AFileAnotherProcessWroteDuringTheCheck_IsNotOverwritten()
+    {
+        // Two processes starting on the same missing file: the in-process lock does not reach the
+        // other one, and the database check widens the window. Overwriting its file would leave it
+        // signing with keys no longer in the file, so this start stops and the next one loads it.
+        var secretFilePath = Path.Combine(_workingDirectory, "contended-secrets.dpapi");
+        var settings = new SecretManagementSettings { SecretFilePath = secretFilePath, AutoGenerateKeys = true };
+        var service = new DpapiSecretService(
+            BuildCertificateProtectedProvider(), Options.Create(settings), NullLogger<DpapiSecretService>.Instance);
+        var theOtherProcessesFile = new byte[] { 1, 2, 3 };
+
+        var act = () => service.GenerateMissingKeysAsync(
+            CancellationToken.None,
+            beforeSave: _ => File.WriteAllBytes(secretFilePath, theOtherProcessesFile));
+
+        (await act.Should().ThrowAsync<IOException>()).WithMessage("*Another process created the secrets file*");
+        File.ReadAllBytes(secretFilePath).Should().Equal(theOtherProcessesFile, "the other process's keys stay as it wrote them");
+    }
+
+    [Fact]
     public async Task ExistingSecretFile_MissingOnlyTheLateAddedKey_IsToppedUpWithoutTouchingTheOthers()
     {
         // Models the real production state: a secrets file created before the

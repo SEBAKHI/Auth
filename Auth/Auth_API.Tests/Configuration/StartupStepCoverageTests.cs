@@ -17,12 +17,14 @@ public class StartupStepCoverageTests
         { "storage mode resolution", "AuthDataProtectionExtensions.ResolveStorageMode(" },
         { "production plaintext-secret check", "ProductionSecretGuard.EnsureNoPlaintextSecrets(" },
         { "data protection key ring setup", "ConfigureSecretKeyRing(builder.Services.AddDataProtection())" },
+        { "secrets file load", "() => Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(" },
         { "plain-text secret generation", "PlainTextSecretInitializer.EnsureSecrets(" },
         { "first-start key generation", ".GenerateMissingKeysAsync(" },
         { "identifier-key top-up", "existingSecrets.AccountDeletionIdentifierHmacKey = mintedIdentifierKey" },
         { "required-secrets check", "RequiredSecretsGuard.EnsureAllPresent(" },
         { "key material validation", "HmacKeyringConfiguration.Load(" },
         { "key material validation", "KeyMaterialValidator.Validate(" },
+        { "connection-string resolution check", "connectionString = builder.Configuration.GetConnectionString(" },
         { "connection-string resolution check", "ConnectionStringGuard.EnsureResolved(" },
         { "password pepper provisioning", "KeyMaterialGenerator.GeneratePepperBase64()" },
         { "signing key load", "new JwtTokenService(" },
@@ -43,17 +45,54 @@ public class StartupStepCoverageTests
     }
 
     [Theory]
-    [InlineData("plain-text secret generation", "beforeGenerate: secrets => EnsureSafeToGenerate(")]
-    [InlineData("first-start key generation", "beforeSave: generated => EnsureSafeToGenerate(")]
-    [InlineData("identifier-key top-up", "EnsureSafeToGenerate(")]
-    [InlineData("password pepper provisioning", "EnsureSafeToGenerate(")]
-    public void Program_EveryGenerationPath_ChecksTheDatabase(string step, string call)
+    [InlineData("plain-text secret generation", "beforeGenerate:", "beforeGenerate: secrets => EnsureSafeToGenerate(secrets, builder.Configuration.GetConnectionString(\"AuthDb\"))")]
+    [InlineData("first-start key generation", "beforeSave:", "beforeSave: generated => EnsureSafeToGenerate(KeyRegenerationGuard.GeneratedBy(generated), builder.Configuration.GetConnectionString(\"AuthDb\"))")]
+    [InlineData("identifier-key top-up", "EnsureSafeToGenerate(", "EnsureSafeToGenerate([GeneratedSecret.IdentifierKey], builder.Configuration.GetConnectionString(\"AuthDb\"))")]
+    [InlineData("password pepper provisioning", "EnsureSafeToGenerate(", "EnsureSafeToGenerate([GeneratedSecret.PasswordPepper], connectionString)")]
+    public void Program_EveryGenerationPath_ChecksTheDatabase_WithWhatItGeneratesAndTheConnectionString(
+        string step, string start, string expected)
+    {
+        // The arguments are pinned, not just the call: passing no secrets, the wrong key or no
+        // connection string would turn the check into a no-op with the call still in place.
+        var program = ProgramSource.Read();
+
+        var calls = program.Occurrences(start).Where(index => program.StepAround(index) == step).ToList();
+
+        calls.Should().ContainSingle($"\"{step}\" asks KeyRegenerationGuard once before it generates");
+        ProgramSource.Squeezed(program.CallText(calls[0], "EnsureSafeToGenerate("))
+            .Should().Be(ProgramSource.Squeezed(expected));
+    }
+
+    [Fact]
+    public void Program_TheCheck_PassesEverythingToTheGuard_AndAddsAPepperAboutToBeMinted()
     {
         var program = ProgramSource.Read();
 
-        program.Occurrences(call)
-            .Where(index => program.StepAround(index) == step)
-            .Should().ContainSingle($"\"{step}\" asks KeyRegenerationGuard before it generates");
+        var guardCall = program.Occurrences("KeyRegenerationGuard.EnsureSafeToGenerate(").Should().ContainSingle().Which;
+        ProgramSource.Squeezed(program.CallText(guardCall, "KeyRegenerationGuard.EnsureSafeToGenerate(")).Should().Be(
+            ProgramSource.Squeezed(
+                "KeyRegenerationGuard.EnsureSafeToGenerate(" +
+                "PepperIsMissing() ? secrets.Append(GeneratedSecret.PasswordPepper).Distinct().ToList() : secrets, " +
+                "connectionStringToCheck, builder.Environment.IsDevelopment(), " +
+                "Environment.GetEnvironmentVariable(KeyRegenerationGuard.OverrideVariable), " +
+                "DateOnly.FromDateTime(DateTime.UtcNow))"),
+            "a pepper the later step will mint is checked by the earlier paths too, so its refusal never follows their write");
+        program.Occurrences("if (PepperIsMissing())").Should().ContainSingle(
+            "the pepper step and the earlier checks decide \"a pepper will be minted\" with one rule");
+    }
+
+    [Fact]
+    public void Program_TheTopUp_ReadsTheFileBeforeItChecksAndWrites()
+    {
+        // A file that does not decrypt also reads as "no identifier key": reading it first
+        // stops on the decryption error instead of a check that blames a missing file.
+        var program = ProgramSource.Read();
+        const string step = "identifier-key top-up";
+
+        var read = program.Occurrences("topUpService.LoadSecretsAsync(").Single(index => program.StepAround(index) == step);
+        var check = program.Occurrences("EnsureSafeToGenerate(").Single(index => program.StepAround(index) == step);
+
+        read.Should().BeLessThan(check);
     }
 
     [Theory]
@@ -104,6 +143,16 @@ public class StartupStepCoverageTests
 
             _steps.Should().NotBeEmpty("Program.cs runs its boot steps through StartupStep.Run");
         }
+
+        /// <summary>The original text of the call to <paramref name="call"/> found from <paramref name="start"/>, to its closing parenthesis.</summary>
+        public string CallText(int start, string call)
+        {
+            var open = _code.IndexOf(call, start, StringComparison.Ordinal) + call.Length - 1;
+            return _original[start..(MatchingParenthesis(open) + 1)];
+        }
+
+        /// <summary><paramref name="text"/> without any whitespace, so line breaks never decide a comparison.</summary>
+        public static string Squeezed(string text) => new(text.Where(c => !char.IsWhiteSpace(c)).ToArray());
 
         public static ProgramSource Read() =>
             new(File.ReadAllText(Path.Combine(SolutionDirectory(), "Auth_API", "Program.cs")));

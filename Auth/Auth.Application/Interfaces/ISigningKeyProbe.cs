@@ -11,7 +11,9 @@ public interface ISigningKeyProbe
 {
     /// <summary>
     /// Signs a short-lived probe token with the signing key and validates it with the same
-    /// parameters every access token is validated with. Never issued to anyone.
+    /// parameters every access token is validated with. Never issued to anyone. The key is fixed
+    /// for the life of the process, so the result is computed once and reused (a key that can
+    /// rotate at runtime must probe again after each change).
     /// </summary>
     /// <returns>Success, or the validation error of the probe token.</returns>
     /// <exception cref="System.Security.Cryptography.CryptographicException">The key cannot sign.</exception>

@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Auth.Application.Interfaces;
 using Auth.Shared.Configuration;
 using Auth_API.Common;
+using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Configuration;
 using Dependent = Auth_API.Common.KeyRegenerationGuard.KeyDependent;
 
@@ -186,17 +187,71 @@ public class KeyRegenerationGuardTests : IDisposable
     }
 
     [Fact]
-    public void EnsureSafeToGenerate_AMissingTable_RefusesNamingIt()
+    public void EnsureSafeToGenerate_AMissingTable_RefusesNamingTheTablesAndTheReason()
     {
+        // The real counting wrapper, over an executor that fails as SQL Server does on a schema
+        // older than the build (error 208).
         var act = () => KeyRegenerationGuard.EnsureSafeToGenerate(
             [GeneratedSecret.IdentifierKey],
-            _ => throw new InvalidOperationException("[dbo].[AccountDeletionTombstones] could not be read (Invalid object name)"),
+            dependents => KeyRegenerationGuard.CountRows(
+                dependents,
+                _ => throw SqlExceptions.WithNumber(208, "Invalid object name 'dbo.AccountDeletionTombstones'.")),
             isDevelopment: false,
             overrideValue: null,
             Today);
 
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*could not be checked: [dbo].[AccountDeletionTombstones] could not be read*");
+            .WithMessage("*could not be checked: [dbo].[AccountDeletionTombstones] could not be read (Invalid object name*");
+    }
+
+    [Fact]
+    public void CountRows_CountsEveryDependentInOneStatement()
+    {
+        // One round trip and one command timeout, so the check stays inside the host's startup
+        // time limit however many keys a path generates.
+        var dependents = KeyRegenerationGuard.Dependents.Take(2).ToList();
+        var statements = new List<string>();
+
+        var counts = KeyRegenerationGuard.CountRows(dependents, sql =>
+        {
+            statements.Add(sql);
+            return [3, 0];
+        });
+
+        counts.Should().Equal(3, 0);
+        statements.Should().ContainSingle().Which.Should().Be(
+            $"SELECT ({dependents[0].CountSql}) AS [c0], ({dependents[1].CountSql}) AS [c1]");
+    }
+
+    [Fact]
+    public void Dependents_CountOnlyTheRowsANewKeyWouldOrphan()
+    {
+        // Pinned: a filter turned round (Accepted for Pending, IS NOT NULL for IS NULL) would make
+        // the check refuse less than it must, and CI has no database to notice. The real run on a
+        // DACPAC database is what proves the filters against data.
+        KeyRegenerationGuard.Dependents.ToDictionary(dependent => dependent.Table, dependent => dependent.CountSql)
+            .Should().Equal(new Dictionary<string, string>
+            {
+                ["RefreshTokens"] = "SELECT COUNT_BIG(*) FROM [dbo].[RefreshTokens] WHERE [RevokedAt] IS NULL AND [ExpiresAt] > SYSUTCDATETIME()",
+                ["IdpSessions"] = "SELECT COUNT_BIG(*) FROM [dbo].[IdpSessions] WHERE [RevokedAt] IS NULL AND [ExpiresAt] > SYSUTCDATETIME()",
+                ["WebhookKeys"] = "SELECT COUNT_BIG(*) FROM [dbo].[WebhookKeys] WHERE [RevokedAt] IS NULL AND ([ExpiresAt] IS NULL OR [ExpiresAt] > SYSUTCDATETIME())",
+                ["OrganizationInvitations"] = "SELECT COUNT_BIG(*) FROM [dbo].[OrganizationInvitations] WHERE [Status] = N'Pending' AND [ExpiresAt] > SYSUTCDATETIME()",
+                ["ApplicationMachineKeys"] = "SELECT COUNT_BIG(*) FROM [dbo].[ApplicationMachineKeys] WHERE [RevokedAt] IS NULL",
+                ["AccountDeletionTombstones"] = "SELECT COUNT_BIG(*) FROM [dbo].[AccountDeletionTombstones]",
+                ["Users"] = "SELECT COUNT_BIG(*) FROM [dbo].[Users] WHERE [PasswordHash] LIKE N'%,keyid=%'",
+                ["ApiKeys"] = "SELECT COUNT_BIG(*) FROM [dbo].[ApiKeys] WHERE [RevokedAt] IS NULL AND ([ExpiresAt] IS NULL OR [ExpiresAt] > SYSUTCDATETIME()) AND [KeyHash] LIKE N'%,keyid=%'",
+                ["TwoFactorAuth"] = "SELECT COUNT_BIG(*) FROM [dbo].[TwoFactorAuth] WHERE [RecoveryCodes] LIKE N'%,keyid=%'",
+            });
+    }
+
+    [Fact]
+    public void EnsureSafeToGenerate_TheOverrideOverAnUnreadableDatabase_StillWarnsWhatALiveSystemLoses()
+    {
+        var warning = KeyRegenerationGuard.EnsureSafeToGenerate(
+            [GeneratedSecret.IdentifierKey], ConnectionStringGuard.Placeholder, isDevelopment: false, "2026-11-02", Today);
+
+        warning.Should().StartWith($"{KeyRegenerationGuard.OverrideVariable}=2026-11-02: generating the account-deletion identifier key without checking")
+            .And.Contain("orphaned for good", "each use of the override says what is lost, read or not");
     }
 
     [Fact]

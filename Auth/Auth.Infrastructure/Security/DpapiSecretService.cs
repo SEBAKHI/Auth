@@ -397,12 +397,24 @@ public class DpapiSecretService : IDpapiSecretService
             secrets =>
             {
                 var result = new KeyGenerationResult();
+                var existedBefore = SecretFileExists();
                 var modified = GenerateMissingKeys(secrets, result);
 
                 // Inside the change, so a refusal thrown here aborts before the write.
                 if (modified)
                 {
                     beforeSave?.Invoke(result);
+
+                    // The lock above holds within this process only. Another process starting on the
+                    // same missing file (a web garden, two sites sharing the folder) may have written
+                    // it while the check ran; writing over it would leave that process signing with
+                    // keys no longer in the file. Stop instead: the next start loads that file.
+                    if (!existedBefore && SecretFileExists())
+                    {
+                        throw new IOException(
+                            $"Another process created the secrets file at {_settings.SecretFilePath} while this one " +
+                            "was generating keys. Nothing was written; restart to load that file.");
+                    }
                 }
 
                 return (result, modified);
@@ -678,8 +690,8 @@ public class DpapiSecretService : IDpapiSecretService
             // backup after a secrets-file loss. Setting a DIFFERENT value while
             // the deletion registry holds rows silently orphans every
             // reservation — deleted addresses become registrable again with
-            // nothing failing anywhere. IdentifierKeyRegenerationGuard catches
-            // the accidental case at startup; this path is a deliberate
+            // nothing failing anywhere. KeyRegenerationGuard refuses the accidental
+            // case at startup, before the write; this path is a deliberate
             // operator action and is audited by the controller above it.
             case "accountdeletionidentifierhmackey":
                 secrets.AccountDeletionIdentifierHmacKey = value;
