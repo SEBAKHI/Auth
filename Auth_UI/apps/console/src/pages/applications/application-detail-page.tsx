@@ -58,7 +58,6 @@ import { useSaveQueue } from "@authsystem/ui/hooks/use-save-queue"
 import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import type { Schemas } from "@authsystem/api/types"
 import { ApplicationAccessDialog } from "./application-access-dialog"
-import { ApplicationAccountBarCard } from "./application-account-bar-card"
 import { ApplicationEditDialog, OPENID_SCOPE } from "./application-dialogs"
 import { ApplicationMachineKeysTab } from "./application-machine-keys"
 
@@ -1106,7 +1105,6 @@ export function ApplicationDetailPage() {
               { label: t("common.modifiedBy"), value: app.modifiedByName },
             ]}
           />
-          <ApplicationAccountBarCard />
         </>
       )}
 
