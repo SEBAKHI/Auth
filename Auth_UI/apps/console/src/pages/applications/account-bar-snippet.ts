@@ -66,3 +66,20 @@ export function endSessionUrl(clientId: string, postLogoutRedirectUri: string, a
 export function accountBarCsp(accountsUrl: string = ACCOUNTS_URL): string {
   return [`script-src ${accountsUrl}`, `frame-src ${accountsUrl}`].join("\n")
 }
+
+/** The sign-in choice that adds no address: Sign in opens IAM's own sign-in page. */
+export const IAM_SIGN_IN = "iam"
+
+/**
+ * The application's sign-in addresses this IAM knows, in order: its registered initiate-login
+ * address, then its base address, then IAM's own sign-in page. Duplicates count once.
+ */
+export function signInChoices(application: {
+  initiateLoginUri?: string | null
+  baseUrl?: string | null
+}): string[] {
+  const addresses = [application.initiateLoginUri, application.baseUrl]
+    .map((address) => address?.trim())
+    .filter((address): address is string => Boolean(address))
+  return [...new Set(addresses), IAM_SIGN_IN]
+}

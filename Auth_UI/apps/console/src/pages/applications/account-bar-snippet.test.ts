@@ -5,6 +5,8 @@ import {
   accountBarSnippet,
   DEFAULT_ACCOUNT_BAR_CHOICES,
   endSessionUrl,
+  IAM_SIGN_IN,
+  signInChoices,
 } from "./account-bar-snippet"
 
 const ACCOUNTS = "https://accounts.contoso-sample.net"
@@ -65,5 +67,18 @@ describe("endSessionUrl", () => {
 describe("accountBarCsp", () => {
   it("allows the accounts app for the loader and its frames", () => {
     expect(accountBarCsp(ACCOUNTS)).toBe(`script-src ${ACCOUNTS}\nframe-src ${ACCOUNTS}`)
+  })
+})
+
+describe("signInChoices", () => {
+  it("offers the registered sign-in start, then the base address, then IAM's page, once each", () => {
+    expect(
+      signInChoices({ initiateLoginUri: "https://crm.example.com/signin", baseUrl: "https://crm.example.com/" })
+    ).toEqual(["https://crm.example.com/signin", "https://crm.example.com/", IAM_SIGN_IN])
+    expect(signInChoices({ initiateLoginUri: " https://a.example.com/ ", baseUrl: "https://a.example.com/" })).toEqual([
+      "https://a.example.com/",
+      IAM_SIGN_IN,
+    ])
+    expect(signInChoices({ initiateLoginUri: null, baseUrl: null })).toEqual([IAM_SIGN_IN])
   })
 })

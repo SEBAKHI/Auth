@@ -94,7 +94,8 @@ async function install(page: Page, sent: unknown[], options: { rolesDelayMs?: nu
 
 async function openEditDialog(page: Page) {
   await page.goto(`/applications/${APP_ID}`)
-  await page.getByRole("button", { name: "Edit" }).click()
+  await page.getByRole("button", { name: "Actions" }).first().click()
+  await page.getByRole("menuitem", { name: "Edit" }).click()
   const dialog = page.getByRole("dialog")
   await expect(dialog.getByRole("switch", { name: /Organization creation/ })).toBeVisible()
   return dialog
@@ -153,7 +154,8 @@ test("when the roles cannot be loaded the dialog says so and cannot be saved", a
   const sent: unknown[] = []
   await install(page, sent, { rolesFail: true })
   await page.goto(`/applications/${APP_ID}`)
-  await page.getByRole("button", { name: "Edit" }).click()
+  await page.getByRole("button", { name: "Actions" }).first().click()
+  await page.getByRole("menuitem", { name: "Edit" }).click()
 
   const dialog = page.getByRole("dialog")
   await expect(dialog.getByRole("alert")).toBeVisible()

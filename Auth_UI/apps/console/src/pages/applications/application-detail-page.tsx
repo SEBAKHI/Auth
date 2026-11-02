@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
-import { Plus } from "lucide-react"
+import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useParams } from "react-router-dom"
@@ -17,6 +17,13 @@ import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@authsystem/ui/dropdown-menu"
 import { Field, FieldLabel } from "@authsystem/ui/field"
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { Switch } from "@authsystem/ui/switch"
@@ -58,6 +65,7 @@ import { useSaveQueue } from "@authsystem/ui/hooks/use-save-queue"
 import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import type { Schemas } from "@authsystem/api/types"
 import { ApplicationAccessDialog } from "./application-access-dialog"
+import { ApplicationAccountBarDialog } from "./application-account-bar-dialog"
 import { ApplicationEditDialog, OPENID_SCOPE } from "./application-dialogs"
 import { ApplicationMachineKeysTab } from "./application-machine-keys"
 
@@ -784,6 +792,7 @@ export function ApplicationDetailPage() {
   const [templatesOpened, setTemplatesOpened] = React.useState(activeTab === "templates")
   if (activeTab === "templates" && !templatesOpened) setTemplatesOpened(true)
   const [editOpen, setEditOpen] = React.useState(false)
+  const [accountBarOpen, setAccountBarOpen] = React.useState(false)
   const [accessOpen, setAccessOpen] = React.useState(false)
   const [deactivateOpen, setDeactivateOpen] = React.useState(false)
 
@@ -914,8 +923,8 @@ export function ApplicationDetailPage() {
               />
             }
             actions={
-              canUpdate ? (
-                <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
+                {canUpdate ? (
                   <Field orientation="horizontal" className="w-auto">
                     <FieldLabel
                       htmlFor="application-available"
@@ -935,11 +944,29 @@ export function ApplicationDetailPage() {
                       }}
                     />
                   </Field>
-                  <Button variant="outline" onClick={() => setEditOpen(true)}>
-                    {t("common.edit")}
-                  </Button>
-                </div>
-              ) : null
+                ) : null}
+                {/* One menu for what is done to the application (owner, 2026-11-02): Edit, and
+                    the account bar's code, which anyone who can read it may copy. */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" aria-label={t("common.actions")}>
+                      <MoreHorizontal />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuGroup>
+                      {canUpdate ? (
+                        <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                          {t("common.edit")}
+                        </DropdownMenuItem>
+                      ) : null}
+                      <DropdownMenuItem onSelect={() => setAccountBarOpen(true)}>
+                        {t("applications.accountBar.menuItem")}
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             }
           />
           <DetailList
@@ -1213,6 +1240,19 @@ export function ApplicationDetailPage() {
             open={editOpen}
             onOpenChange={setEditOpen}
             application={app}
+          />
+          <ApplicationAccountBarDialog
+            open={accountBarOpen}
+            onOpenChange={setAccountBarOpen}
+            application={app}
+            onEditApplication={
+              canUpdate
+                ? () => {
+                    setAccountBarOpen(false)
+                    setEditOpen(true)
+                  }
+                : undefined
+            }
           />
           <ApplicationAccessDialog
             open={accessOpen}
