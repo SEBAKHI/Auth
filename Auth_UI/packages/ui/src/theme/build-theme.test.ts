@@ -313,17 +313,28 @@ describe("the header icon size", () => {
     }
   })
 
-  it("has the owner's two sizes, Google's by default, both inside the 56px header", () => {
+  it("has the owner's two sizes, Google's button by default, both inside the 56px header", () => {
     // No larger size (owner, 2026-11-02), and the avatar takes the button's
     // size, so no avatar size of its own exists to drift.
     expect(HEADER_ICON_SIZE_PX).toEqual({
       small: { icon: 16, button: 36 },
-      default: { icon: 24, button: 40 },
+      default: { icon: 20, button: 40 },
     })
     expect(DEFAULT_THEME_CONFIG.headerIconSize).toBe("default")
     for (const px of Object.values(HEADER_ICON_SIZE_PX)) {
       expect(px.button).toBeLessThan(56)
       expect(px.icon).toBeLessThan(px.button)
+    }
+  })
+
+  it("grows the icon as much as its button from one size to the next", () => {
+    // Owner, 2026-11-02: with Google's 24px icon the default grew the icon 8px
+    // for a 4px larger button, and it read as out of proportion. Each size
+    // checked on its own never showed it; the step between them does.
+    const sizes = HEADER_ICON_SIZES.map((size) => HEADER_ICON_SIZE_PX[size])
+    expect(sizes.length).toBeGreaterThan(1)
+    for (let index = 1; index < sizes.length; index++) {
+      expect(sizes[index].icon - sizes[index - 1].icon).toBe(sizes[index].button - sizes[index - 1].button)
     }
   })
 })
@@ -334,8 +345,8 @@ describe("the engine version", () => {
   // computes moved: bump THEME_ENGINE_VERSION (theme-config.ts) and record
   // both new values here, or visitors keep the colours of the old engine.
   const RECORDED = {
-    version: 5,
-    fingerprint: "22d711676accd8b8",
+    version: 6,
+    fingerprint: "ac0254bda873c897",
   }
 
   it("changes whenever the computed stylesheets change", () => {

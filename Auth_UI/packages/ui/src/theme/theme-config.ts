@@ -14,7 +14,7 @@ export const CUSTOM_PRESET = "custom"
  * its old colours forever. Bump it whenever the output for an unchanged
  * configuration changes — `build-theme.test.ts` fails until you do.
  */
-export const THEME_ENGINE_VERSION = 5
+export const THEME_ENGINE_VERSION = 6
 
 /** Base colours, in the order shadcn's picker lists them. */
 export const BASE_COLOR_NAMES = [
@@ -86,14 +86,17 @@ export type HeaderIconSize = (typeof HEADER_ICON_SIZES)[number]
  * Pixels per header size. The avatar is as large as a button (owner,
  * 2026-11-02: a smaller one read as smaller than the buttons beside it).
  * "small" is the header's buttons before the setting existed (`size-control`
- * with `size-4` icons); "default" is Google's header (button 40 and icon 24,
- * measured on google.com).
+ * with `size-4` icons); "default" is Google's 40px button (measured on
+ * google.com) with a 20px icon (owner, 2026-11-02): from one size to the next
+ * the icon grows as much as its button does, 4px, where Google's 24px icon
+ * grew twice as much and read as out of proportion. `theme-config.test.ts`
+ * holds the two steps equal.
  */
 export const HEADER_ICON_SIZE_PX: Readonly<
   Record<HeaderIconSize, { icon: number; button: number }>
 > = {
   small: { icon: 16, button: 36 },
-  default: { icon: 24, button: 40 },
+  default: { icon: 20, button: 40 },
 }
 
 /** One of the two size choices: a step, or custom with a height in pixels. */

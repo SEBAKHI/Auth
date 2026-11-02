@@ -15,7 +15,7 @@ import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
 
 const PX = {
   small: { icon: 16, button: 36 },
-  default: { icon: 24, button: 40 },
+  default: { icon: 20, button: 40 },
 } as const
 type Size = keyof typeof PX
 
