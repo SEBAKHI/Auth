@@ -42,7 +42,7 @@ public sealed class ScopeIsNotAPermissionTests : IAsyncLifetime, IDisposable
     private const string Audience = "SHOP";
 
     private readonly JwtTokenService _issuer = new(
-        Options.Create(new JwtSettings { Issuer = Issuer, Audience = "auth-platform", KeyId = "test-key" }),
+        Options.Create(new JwtSettings { Issuer = Issuer, Audience = "auth-platform", KeyId = "test-key", PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem() }),
         Mock.Of<IPasswordHasher>());
 
     private IHost _host = null!;

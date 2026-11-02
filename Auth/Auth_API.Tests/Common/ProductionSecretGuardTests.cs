@@ -85,6 +85,29 @@ public class ProductionSecretGuardTests
     }
 
     [Fact]
+    public void Production_WithAPrivateKeyPath_Throws_NamingIt()
+    {
+        // X03: a PEM file on disk wins over the encrypted secrets file, so in Production it
+        // would decide the signing key outside encrypted storage.
+        var config = BuildConfig(("Jwt:PrivateKeyPath", @"C:\keys\signing.pem"));
+
+        var act = () => ProductionSecretGuard.EnsureNoPlaintextSecrets(config, isProduction: true);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*Jwt:PrivateKeyPath*");
+    }
+
+    [Fact]
+    public void Production_WithAnEncryptedPrivateKey_DoesNotThrow()
+    {
+        // Jwt:PrivateKeyEncrypted is protected by the Data Protection key ring, not plaintext.
+        var config = BuildConfig(("Jwt:PrivateKeyEncrypted", "CfDJ8-protected-payload"), ("Jwt:PrivateKeyPath", ""));
+
+        var act = () => ProductionSecretGuard.EnsureNoPlaintextSecrets(config, isProduction: true);
+
+        act.Should().NotThrow("the shipped appsettings.json carries an empty PrivateKeyPath, which is not a path");
+    }
+
+    [Fact]
     public void NonProduction_WithPlaintextSecret_DoesNotThrow()
     {
         // Development legitimately uses plaintext keys.

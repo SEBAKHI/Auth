@@ -163,11 +163,18 @@ var dpCertificateSettings = builder.Configuration
 // Certificate is the shipped default so real deployments encrypt the key ring at rest, but a
 // fresh clone has no certificate and would abort here. Development falls back to PlainText in
 // that case; every other environment still fails fast. See ResolveStorageMode.
-var configuredStorageMode = AuthDataProtectionExtensions.ParseStorageMode(secretManagementSettings.StorageMode);
-var storageMode = AuthDataProtectionExtensions.ResolveStorageMode(
-    secretManagementSettings.StorageMode,
-    builder.Environment.IsDevelopment(),
-    dpCertificateSettings);
+var configuredStorageMode = default(SecretStorageMode);
+var storageMode = default(SecretStorageMode);
+StartupStep.Run(
+    "storage mode resolution",
+    () =>
+    {
+        configuredStorageMode = AuthDataProtectionExtensions.ParseStorageMode(secretManagementSettings.StorageMode);
+        storageMode = AuthDataProtectionExtensions.ResolveStorageMode(
+            secretManagementSettings.StorageMode,
+            builder.Environment.IsDevelopment(),
+            dpCertificateSettings);
+    });
 
 // Generated plain-text secrets land in the running environment's own appsettings file unless
 // one is configured explicitly, so a developer's keys never reach another environment's config.
@@ -189,16 +196,43 @@ StartupStep.Run(
     () => ProductionSecretGuard.EnsureNoPlaintextSecrets(
         builder.Configuration, builder.Environment.IsProduction()));
 
-// Set when this startup wrote a NEW permanent identifier HMAC key into an
-// already-existing secrets file. Verified against the deletion registry once
-// the connection string is resolved: a new key over a non-empty registry
-// orphans every reservation, silently.
-var identifierKeyWasMinted = false;
-
-builder.Services.AddDataProtection()
+// The key ring the secrets file is encrypted under, registered for the host and built once more
+// for the startup steps that read or write the secrets file before the host exists. Loading the
+// certificate can fail, so this is a step of its own.
+IDataProtectionBuilder ConfigureSecretKeyRing(IDataProtectionBuilder dataProtection) => dataProtection
     .SetApplicationName("AuthSystem")
     .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath))
     .ConfigureKeyProtection(storageMode, dpCertificateSettings);
+
+IDataProtectionProvider bootDataProtection = null!;
+StartupStep.Run(
+    "data protection key ring setup",
+    () =>
+    {
+        ConfigureSecretKeyRing(builder.Services.AddDataProtection());
+
+        var bootServices = new ServiceCollection();
+        ConfigureSecretKeyRing(bootServices.AddDataProtection());
+        bootDataProtection = bootServices.BuildServiceProvider().GetRequiredService<IDataProtectionProvider>();
+    });
+
+// X03: nothing is generated while the database still holds data written under the key it would
+// replace. Every generation path below calls this before it writes anything; see
+// KeyRegenerationGuard for what counts as such data and for the dated override.
+void EnsureSafeToGenerate(IReadOnlyCollection<GeneratedSecret> secrets, string? connectionStringToCheck)
+{
+    var warning = KeyRegenerationGuard.EnsureSafeToGenerate(
+        secrets,
+        connectionStringToCheck,
+        builder.Environment.IsDevelopment(),
+        Environment.GetEnvironmentVariable(KeyRegenerationGuard.OverrideVariable),
+        DateOnly.FromDateTime(DateTime.UtcNow));
+
+    if (warning != null)
+    {
+        Log.Warning("{KeyRegeneration}", warning);
+    }
+}
 
 Log.Information("Secret storage mode: {Mode}", storageMode);
 
@@ -215,71 +249,94 @@ if (storageMode != configuredStorageMode)
 if (storageMode == SecretStorageMode.PlainText)
 {
     // Secrets live as plain text in an appsettings file. Generate any missing values on first run.
-    var plainTextResult = PlainTextSecretInitializer.EnsureSecrets(
-        builder.Configuration,
-        builder.Environment.ContentRootPath,
-        secretManagementSettings.AutoGenerateKeys,
-        plainTextTargetFile);
-
-    if (plainTextResult.Generated)
-    {
-        // Inject into the running configuration so this process uses the new values immediately.
-        builder.Configuration.AddInMemoryCollection(plainTextResult.ConfigValues);
-
-        Log.Information("Generated plain-text secrets: {Keys}", string.Join(", ", plainTextResult.GeneratedKeys));
-
-        if (plainTextResult.PublicKeyPem != null)
+    StartupStep.Run(
+        "plain-text secret generation",
+        () =>
         {
-            Log.Information("JWT Public Key (for external validation):\n{PublicKey}", plainTextResult.PublicKeyPem);
-        }
+            var plainTextResult = PlainTextSecretInitializer.EnsureSecrets(
+                builder.Configuration,
+                builder.Environment.ContentRootPath,
+                secretManagementSettings.AutoGenerateKeys,
+                plainTextTargetFile,
+                beforeGenerate: secrets => EnsureSafeToGenerate(
+                    secrets, builder.Configuration.GetConnectionString("AuthDb")));
 
-        if (plainTextResult.PersistError != null)
-        {
-            Log.Warning(
-                "Generated secrets are active for this run but were NOT saved to disk. They will be " +
-                "regenerated on restart (invalidating existing tokens) until this is fixed. {Error}",
-                plainTextResult.PersistError);
-        }
-    }
+            if (plainTextResult.Generated)
+            {
+                // Inject into the running configuration so this process uses the new values immediately.
+                builder.Configuration.AddInMemoryCollection(plainTextResult.ConfigValues);
+
+                Log.Information("Generated plain-text secrets: {Keys}", string.Join(", ", plainTextResult.GeneratedKeys));
+
+                if (plainTextResult.PublicKeyPem != null)
+                {
+                    Log.Information("JWT Public Key (for external validation):\n{PublicKey}", plainTextResult.PublicKeyPem);
+                }
+
+                if (plainTextResult.PersistError != null)
+                {
+                    Log.Warning(
+                        "Generated secrets are active for this run but were NOT saved to disk. They will be " +
+                        "regenerated on restart (invalidating existing tokens) until this is fixed. {Error}",
+                        plainTextResult.PersistError);
+                }
+            }
+        });
 }
 else
 {
     // Certificate / Dpapi: secrets are stored in an encrypted file, decrypted via the key ring.
-    var tempDpapiServices = new ServiceCollection();
-    tempDpapiServices.AddDataProtection()
-        .SetApplicationName("AuthSystem")
-        .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath))
-        .ConfigureKeyProtection(storageMode, dpCertificateSettings);
-    var tempDpapiProvider = tempDpapiServices.BuildServiceProvider();
-    var dpapiProvider = tempDpapiProvider.GetRequiredService<IDataProtectionProvider>();
+    var dpapiProvider = bootDataProtection;
 
     // Add encrypted secrets to configuration (overrides appsettings.json values)
     Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(
         builder.Configuration, dpapiProvider, secretManagementSettings.SecretFilePath);
 
     // Auto-generate keys on FIRST startup ONLY (when the secrets file does not yet exist).
-    // After first startup the file exists, so keys are loaded and never regenerated.
+    // After first startup the file exists, so keys are loaded and never regenerated. A file
+    // that is missing on a deployment that has run before looks exactly like a first start,
+    // so the database is checked before the new file is written (X03).
     if (secretManagementSettings.AutoGenerateKeys && !File.Exists(secretManagementSettings.SecretFilePath))
     {
-        Log.Information("First startup detected - auto-generating cryptographic keys...");
+        StartupStep.Run(
+            "first-start key generation",
+            () =>
+            {
+                Log.Information("First startup detected - auto-generating cryptographic keys...");
 
-        var secretService = new DpapiSecretService(
-            dpapiProvider,
-            Options.Create(secretManagementSettings),
-            new Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>());
+                var secretService = new DpapiSecretService(
+                    dpapiProvider,
+                    Options.Create(secretManagementSettings),
+                    new Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>());
 
-        var keyGenResult = secretService.GenerateMissingKeysAsync(CancellationToken.None).GetAwaiter().GetResult();
+                var keyGenResult = secretService.GenerateMissingKeysAsync(
+                        CancellationToken.None,
+                        beforeSave: generated => EnsureSafeToGenerate(
+                            KeyRegenerationGuard.GeneratedBy(generated),
+                            builder.Configuration.GetConnectionString("AuthDb")))
+                    .GetAwaiter().GetResult();
 
-        Log.Information("Generated keys: {Keys}", string.Join(", ", keyGenResult.GeneratedKeys));
+                Log.Information("Generated keys: {Keys}", string.Join(", ", keyGenResult.GeneratedKeys));
 
-        if (keyGenResult.PublicKeyPem != null)
-        {
-            Log.Information("JWT Public Key (for external validation):\n{PublicKey}", keyGenResult.PublicKeyPem);
-        }
+                if (keyGenResult.PublicKeyPem != null)
+                {
+                    Log.Information("JWT Public Key (for external validation):\n{PublicKey}", keyGenResult.PublicKeyPem);
+                }
 
-        // Rebuild configuration to pick up newly generated secrets
-        Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(
-            builder.Configuration, dpapiProvider, secretManagementSettings.SecretFilePath);
+                // The service logs into a NullLogger here, so the line the operator must act on is written here.
+                if (keyGenResult.IdentifierKeyGenerated)
+                {
+                    Log.Warning(
+                        "Generated a new secrets file at {Path}. Back it up now, with the Data Protection key ring " +
+                        "and certificate: the account-deletion identifier key in it is PERMANENT, and a lost file " +
+                        "cannot be regenerated once the system is in use.",
+                        secretManagementSettings.SecretFilePath);
+                }
+
+                // Rebuild configuration to pick up newly generated secrets
+                Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(
+                    builder.Configuration, dpapiProvider, secretManagementSettings.SecretFilePath);
+            });
     }
     else if (File.Exists(secretManagementSettings.SecretFilePath))
     {
@@ -294,39 +351,44 @@ else
         // or leaving the API Gateway holding a token this process no longer
         // accepts: a total outage that repeats on every restart, logged at
         // Information. This path therefore provisions the late-added permanent
-        // identifier key and nothing else, logs at Warning, and is verified
-        // against the deletion registry once the database is reachable
-        // (IdentifierKeyRegenerationGuard, below).
+        // identifier key and nothing else, logs at Warning, and checks the
+        // deletion registry BEFORE it writes (KeyRegenerationGuard, X03).
         if (secretManagementSettings.AutoGenerateKeys
             && string.IsNullOrWhiteSpace(builder.Configuration["AccountDeletion:IdentifierHmacKeyPlain"]))
         {
-            var topUpService = new DpapiSecretService(
-                dpapiProvider,
-                Options.Create(secretManagementSettings),
-                new Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>());
-
-            var mintedIdentifierKey = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
-            topUpService.UpdateAsync<ErrorOr.Success>(
-                existingSecrets =>
+            StartupStep.Run(
+                "identifier-key top-up",
+                () =>
                 {
-                    existingSecrets.AccountDeletionIdentifierHmacKey = mintedIdentifierKey;
-                    return ErrorOr.Result.Success;
-                },
-                overwriteBackup: false,
-                CancellationToken.None).GetAwaiter().GetResult();
+                    EnsureSafeToGenerate(
+                        [GeneratedSecret.IdentifierKey], builder.Configuration.GetConnectionString("AuthDb"));
 
-            identifierKeyWasMinted = true;
+                    var topUpService = new DpapiSecretService(
+                        dpapiProvider,
+                        Options.Create(secretManagementSettings),
+                        new Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>());
 
-            // Re-layer so this process uses the key it just wrote.
-            Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(
-                builder.Configuration, dpapiProvider, secretManagementSettings.SecretFilePath);
+                    var mintedIdentifierKey = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
+                    topUpService.UpdateAsync<ErrorOr.Success>(
+                        existingSecrets =>
+                        {
+                            existingSecrets.AccountDeletionIdentifierHmacKey = mintedIdentifierKey;
+                            return ErrorOr.Result.Success;
+                        },
+                        overwriteBackup: false,
+                        CancellationToken.None).GetAwaiter().GetResult();
 
-            Log.Warning(
-                "Provisioned the missing account-deletion identifier HMAC key into the existing secrets " +
-                "file (fingerprint {Fingerprint}). This key is PERMANENT: back it up with the secrets file " +
-                "and never rotate it. If this message appears on a later restart, the secrets file is not " +
-                "persisting and identifier reservations are being silently orphaned.",
-                IdentifierKeyRegenerationGuard.Fingerprint(mintedIdentifierKey));
+                    // Re-layer so this process uses the key it just wrote.
+                    Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(
+                        builder.Configuration, dpapiProvider, secretManagementSettings.SecretFilePath);
+
+                    Log.Warning(
+                        "Provisioned the missing account-deletion identifier HMAC key into the existing secrets " +
+                        "file (fingerprint {Fingerprint}). This key is PERMANENT: back it up with the secrets file " +
+                        "and never rotate it. If this message appears on a later restart, the secrets file is not " +
+                        "persisting.",
+                        KeyRegenerationGuard.Fingerprint(mintedIdentifierKey));
+                });
         }
     }
 }
@@ -343,11 +405,17 @@ StartupStep.Run(
 // key stops the boot with the reason, instead of failing the first sign-in.
 // Whenever secrets live in the encrypted file, the ring is taken from that file alone:
 // a Keyring:Hmac value from any other source stops the boot here (S11 SEC-1).
+// The same step proves the signing key can sign (a private part, at least 2048 bits) and the
+// gateway token is long enough (X03), instead of the first sign-in finding out.
 HmacKeyring? hmacKeyring = null;
 StartupStep.Run(
     "key material validation",
-    () => hmacKeyring = HmacKeyringConfiguration.Load(
-        builder.Configuration, secretFileOnly: storageMode != SecretStorageMode.PlainText));
+    () =>
+    {
+        hmacKeyring = HmacKeyringConfiguration.Load(
+            builder.Configuration, secretFileOnly: storageMode != SecretStorageMode.PlainText);
+        KeyMaterialValidator.Validate(builder.Configuration, bootDataProtection, builder.Environment.IsDevelopment());
+    });
 builder.Services.AddSingleton(new HmacKeyringHolder(hmacKeyring!));
 
 // The mode this process actually runs in, not the configured one (Development without a
@@ -377,16 +445,6 @@ var connectionString = builder.Configuration.GetConnectionString("AuthDb")
 StartupStep.Run(
     "connection-string resolution check",
     () => ConnectionStringGuard.EnsureResolved(connectionString));
-
-// A permanent key minted over a populated registry is a silent data-integrity
-// failure, so it is verified here — the first point where the database is
-// reachable — and never merely trusted.
-if (identifierKeyWasMinted)
-{
-    StartupStep.Run(
-        "identifier-key regeneration check",
-        () => IdentifierKeyRegenerationGuard.EnsureRegistryIsEmpty(connectionString));
-}
 
 builder.Services.AddSingleton<IDbConnectionFactory>(_ => new SqlConnectionFactory(connectionString));
 
@@ -506,61 +564,61 @@ builder.Services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>
 // The pepper is required-when-enabled and safe to create on demand (it never invalidates tokens),
 // so it is provisioned here independently of AutoGenerateKeys, covering fresh AND existing
 // deployments. Running with an ephemeral pepper would lock out users on restart, so persistence
-// failure is fatal.
+// failure is fatal. "Safe to create" holds only while no stored hash was peppered under a pepper
+// this process cannot see, so the database is checked before anything is written (X03).
 // ════════════════════════════════════════════════════════════════════════════
 if (builder.Configuration.GetValue<bool>("Password:Pepper:Enabled")
     && string.IsNullOrEmpty(builder.Configuration["Password:Pepper:CurrentKeyId"]))
 {
-    var pepperValue = Auth.Shared.Configuration.KeyMaterialGenerator.GeneratePepperBase64();
-    var pepperConfig = new Dictionary<string, string?>
-    {
-        ["Password:Pepper:Keys:1"] = pepperValue,
-        ["Password:Pepper:CurrentKeyId"] = "1"
-    };
-
-    if (storageMode == SecretStorageMode.PlainText)
-    {
-        var pepperPersistError = Auth.Shared.Configuration.PlainTextSecretInitializer.Persist(
-            builder.Environment.ContentRootPath,
-            plainTextTargetFile,
-            pepperConfig);
-
-        if (pepperPersistError != null)
+    StartupStep.Run(
+        "password pepper provisioning",
+        () =>
         {
-            throw new InvalidOperationException(
-                $"Password peppering is enabled but the generated pepper could not be persisted: {pepperPersistError}. " +
-                "Refusing to start with an ephemeral pepper (it would lock out all users on restart).");
-        }
-    }
-    else
-    {
-        // Certificate / Dpapi: persist into the encrypted secret file using the same key ring.
-        var tempPepperServices = new ServiceCollection();
-        tempPepperServices.AddDataProtection()
-            .SetApplicationName("AuthSystem")
-            .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath))
-            .ConfigureKeyProtection(storageMode, dpCertificateSettings);
-        var pepperDpProvider = tempPepperServices.BuildServiceProvider()
-            .GetRequiredService<IDataProtectionProvider>();
+            EnsureSafeToGenerate([GeneratedSecret.PasswordPepper], connectionString);
 
-        var pepperSecretService = new DpapiSecretService(
-            pepperDpProvider,
-            Options.Create(secretManagementSettings),
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>.Instance);
-
-        pepperSecretService.UpdateAsync<ErrorOr.Success>(
-            pepperSecrets =>
+            var pepperValue = Auth.Shared.Configuration.KeyMaterialGenerator.GeneratePepperBase64();
+            var pepperConfig = new Dictionary<string, string?>
             {
-                pepperSecrets.PasswordPeppers[1] = pepperValue;
-                pepperSecrets.PasswordPepperCurrentKeyId = 1;
-                return ErrorOr.Result.Success;
-            },
-            overwriteBackup: false,
-            CancellationToken.None).GetAwaiter().GetResult();
-    }
+                ["Password:Pepper:Keys:1"] = pepperValue,
+                ["Password:Pepper:CurrentKeyId"] = "1"
+            };
 
-    builder.Configuration.AddInMemoryCollection(pepperConfig);
-    Log.Information("Generated and persisted Argon2id password pepper (peppering enabled).");
+            if (storageMode == SecretStorageMode.PlainText)
+            {
+                var pepperPersistError = Auth.Shared.Configuration.PlainTextSecretInitializer.Persist(
+                    builder.Environment.ContentRootPath,
+                    plainTextTargetFile,
+                    pepperConfig);
+
+                if (pepperPersistError != null)
+                {
+                    throw new InvalidOperationException(
+                        $"Password peppering is enabled but the generated pepper could not be persisted: {pepperPersistError}. " +
+                        "Refusing to start with an ephemeral pepper (it would lock out all users on restart).");
+                }
+            }
+            else
+            {
+                // Certificate / Dpapi: persist into the encrypted secret file using the same key ring.
+                var pepperSecretService = new DpapiSecretService(
+                    bootDataProtection,
+                    Options.Create(secretManagementSettings),
+                    Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>.Instance);
+
+                pepperSecretService.UpdateAsync<ErrorOr.Success>(
+                    pepperSecrets =>
+                    {
+                        pepperSecrets.PasswordPeppers[1] = pepperValue;
+                        pepperSecrets.PasswordPepperCurrentKeyId = 1;
+                        return ErrorOr.Result.Success;
+                    },
+                    overwriteBackup: false,
+                    CancellationToken.None).GetAwaiter().GetResult();
+            }
+
+            builder.Configuration.AddInMemoryCollection(pepperConfig);
+            Log.Information("Generated and persisted Argon2id password pepper (peppering enabled).");
+        });
 }
 
 // Services
@@ -580,12 +638,18 @@ var jwtDataProtectionProvider = tempServiceProvider.GetRequiredService<IDataProt
 
 // liveSettings makes token LIFETIMES hot (read per issue); issuer/audience/
 // keys stay on the startup snapshot to match the validation parameters below.
-var jwtTokenService = new JwtTokenService(
-    Options.Create(jwtSettings),
-    passwordHasher,
-    jwtDataProtectionProvider,
-    tempServiceProvider.GetRequiredService<IOptionsMonitor<JwtSettings>>());
+// The constructor loads the signing key and refuses one that cannot sign (X03).
+JwtTokenService jwtTokenService = null!;
+StartupStep.Run(
+    "signing key load",
+    () => jwtTokenService = new JwtTokenService(
+        Options.Create(jwtSettings),
+        passwordHasher,
+        jwtDataProtectionProvider,
+        tempServiceProvider.GetRequiredService<IOptionsMonitor<JwtSettings>>()));
 builder.Services.AddSingleton<IJwtTokenService>(jwtTokenService);
+// The readiness check asks it to sign and validate a probe token (X03).
+builder.Services.AddSingleton<ISigningKeyProbe>(jwtTokenService);
 
 // Token blacklist: one singleton behind both the interface and the concrete
 // type (the background service needs the concrete LoadSnapshot for rehydration),

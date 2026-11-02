@@ -104,7 +104,7 @@ public sealed class PromoteRecordsTheCutoverTests : IDisposable
         public Task<bool> RemoveSecretAsync(string key, CancellationToken cancellationToken) => inner.RemoveSecretAsync(key, cancellationToken);
         public Task<string> GenerateRsaKeyPairAsync(CancellationToken cancellationToken) => inner.GenerateRsaKeyPairAsync(cancellationToken);
         public Task<string> GenerateGatewayTokenAsync(CancellationToken cancellationToken) => inner.GenerateGatewayTokenAsync(cancellationToken);
-        public Task<KeyGenerationResult> GenerateMissingKeysAsync(CancellationToken cancellationToken) => inner.GenerateMissingKeysAsync(cancellationToken);
+        public Task<KeyGenerationResult> GenerateMissingKeysAsync(CancellationToken cancellationToken, Action<KeyGenerationResult>? beforeSave = null) => inner.GenerateMissingKeysAsync(cancellationToken, beforeSave);
         public Task ImportRsaKeyPairAsync(string privateKeyPem, string publicKeyPem, CancellationToken cancellationToken) => inner.ImportRsaKeyPairAsync(privateKeyPem, publicKeyPem, cancellationToken);
         public Task ImportGatewayTokenAsync(string token, CancellationToken cancellationToken) => inner.ImportGatewayTokenAsync(token, cancellationToken);
         public Task<SecretStatusResult> GetStatusAsync(CancellationToken cancellationToken) => inner.GetStatusAsync(cancellationToken);

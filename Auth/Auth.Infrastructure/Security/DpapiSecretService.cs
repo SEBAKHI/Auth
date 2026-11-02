@@ -389,13 +389,23 @@ public class DpapiSecretService : IDpapiSecretService
         return token;
     }
 
-    public async Task<KeyGenerationResult> GenerateMissingKeysAsync(CancellationToken cancellationToken)
+    public async Task<KeyGenerationResult> GenerateMissingKeysAsync(
+        CancellationToken cancellationToken,
+        Action<KeyGenerationResult>? beforeSave = null)
     {
         var generated = await UpdateCoreAsync<KeyGenerationResult>(
             secrets =>
             {
                 var result = new KeyGenerationResult();
-                return (result, GenerateMissingKeys(secrets, result));
+                var modified = GenerateMissingKeys(secrets, result);
+
+                // Inside the change, so a refusal thrown here aborts before the write.
+                if (modified)
+                {
+                    beforeSave?.Invoke(result);
+                }
+
+                return (result, modified);
             },
             overwriteBackup: false,
             cancellationToken);
@@ -482,6 +492,7 @@ public class DpapiSecretService : IDpapiSecretService
         {
             secrets.AccountDeletionIdentifierHmacKey =
                 Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
+            result.IdentifierKeyGenerated = true;
             result.GeneratedKeys.Add(nameof(secrets.AccountDeletionIdentifierHmacKey));
             modified = true;
             _logger.LogWarning(

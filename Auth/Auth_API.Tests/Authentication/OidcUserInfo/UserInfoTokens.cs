@@ -7,6 +7,7 @@ using Auth_API.Common.Authentication;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Authentication.OidcUserInfo;
 
@@ -35,7 +36,8 @@ public sealed class UserInfoTokens : IDisposable
         {
             Issuer = Issuer,
             Audience = platformAudience,
-            KeyId = "test-key"
+            KeyId = "test-key",
+            PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem()
         };
         Service = new JwtTokenService(Options.Create(Settings), Mock.Of<IPasswordHasher>());
     }

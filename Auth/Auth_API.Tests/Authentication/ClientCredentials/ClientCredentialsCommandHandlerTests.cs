@@ -34,7 +34,8 @@ public sealed class ClientCredentialsCommandHandlerTests : IDisposable
     {
         Issuer = MachineCredentials.Issuer,
         Audience = "authsystem-api",
-        KeyId = "test-key"
+        KeyId = "test-key",
+        PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem()
     };
     private readonly JwtTokenService _tokens;
 

@@ -142,6 +142,15 @@ switch painlessly later, because switching regenerates the keys and signs everyo
 > it does.
 > *In code:* `Auth/Auth_API/Program.cs` — `if (AutoGenerateKeys && !File.Exists(SecretFilePath))`.
 >
+> **A missing secrets file on a system that is already in use is not a first start.** Outside
+> Development, every generation path first asks the database whether it holds data written under the
+> keys it is about to replace — live sign-ins, webhook keys, pending invitations, account-deletion
+> reservations, peppered passwords — and **refuses to start, writing nothing,** if it does. A brand-new
+> database has none of that (its seeded System user and administrator do not count), so a first install
+> still generates. The way out of the refusal is the backup, never a new key:
+> [Reference §D.1](#d1-startup-refusals-about-key-material).
+> *In code:* `Auth/Auth_API/Common/KeyRegenerationGuard.cs`.
+>
 > Prefer to hold the key material yourself, so you can move servers without signing everyone out?
 > See [Reference §F](#f-provision-your-own-keys-byok--painless-migration).
 
@@ -1790,7 +1799,7 @@ name. Both are created the same way.
 | "Failed to load the Data Protection certificate" | Wrong or missing `AUTH_DP_CERT_PASSWORD`, or a wrong `.pfx` path | Set the variable correctly and verify the `.pfx` path and password ([Phase 4 step 1](#phase-4--publish-and-run-the-auth-api)) |
 | Gateway 500.30 while the API is healthy | The **Gateway's own** `web.config` is missing `AUTH_DP_CERT_PASSWORD`, so it cannot open the `.pfx` | Add the same value to the Gateway's `web.config` — it is a separate file from the API's |
 | Every proxied request returns 403, both applications report healthy | The Gateway's `Gateway:Token` and the API's `Gateway:ExpectedToken` have drifted apart | Point both at one shared secrets file ([Phase 5](#phase-5--optional-api-gateway)) |
-| Tokens suddenly invalid, everyone signed out after a deploy | A re-publish wiped or overwrote `secrets.dpapi` and the keys regenerated | Keep the secrets folder outside the deploy target and set `AutoGenerateKeys: false` ([§E](#e-first-publish-vs-every-publish-after-dont-wipe-your-keys)) |
+| Tokens suddenly invalid, everyone signed out after a deploy | A re-publish wiped or overwrote `secrets.dpapi` and the keys regenerated. Outside Development a used database now stops this with `Refusing to generate …` ([§D.1](#d1-startup-refusals-about-key-material)); in Development it still happens, with a Warning | Keep the secrets folder outside the deploy target and set `AutoGenerateKeys: false` ([§E](#e-first-publish-vs-every-publish-after-dont-wipe-your-keys)) |
 | Login returns `User.InvalidCredentials` for the seeded admin | The address or the password is not the one given to `Auth_Setup`, or the statement was never run | Run `Auth_Setup -- --email <your address>` again and run the statement it prints; it must report one row ([Phase 2 Step 5](#step-5--give-the-seeded-admin-your-address-and-a-password-it-has-neither-until-you-do)). If it throws "missing or deleted", the seeded row is gone: do not recreate it by hand |
 | Generated keys not saved | The secrets folder is not writable by the application pool identity | Fix the folder permission and restart |
 | A permission you granted still returns 403 | The person's access token predates the grant — permissions travel inside the token | Wait for their next token refresh (at most `Jwt:AccessTokenLifetimeMinutes`), or have them sign in again |
@@ -1798,6 +1807,41 @@ name. Both are created the same way.
 | Both web applications show a blank page | Either the API rejected the request (CORS) or the browser blocked it (Content Security Policy). The browser console says which | [Phase 7 steps 3 and 6](#phase-7--build-and-deploy-the-two-web-applications) |
 | A deep link in a web application returns 404 or 500 | The IIS URL Rewrite module is missing, or `web.config` was not copied into the site root | [Phase 7 steps 4 and 5](#phase-7--build-and-deploy-the-two-web-applications) |
 | Production is using development settings | `ASPNETCORE_ENVIRONMENT` is not `Production` | Set it in `web.config` or the host's settings |
+
+### D.1 Startup refusals about key material
+
+Every refusal below is logged at Fatal as `Startup aborted during: <step>`, followed by the message, in
+the API's own log (`Logs/…`) before the process exits. Where the host hides that log, the 500.30 note
+above applies. They hold in every environment except Development, which generates with a Warning instead
+of refusing, so a fresh clone still starts.
+
+| The message begins | Cause | Way out |
+|---|---|---|
+| `Refusing to generate … the database already holds data written under the key(s) a new one would replace:` and a count per kind of row | `AutoGenerateKeys` is `true` and the secrets are missing or were not read (a lost or moved `secrets.dpapi`, a changed `SecretFilePath`, a key ring or certificate that did not come along), on a database that is in use | **Restore the backup set** below and restart. Nothing was written, so the restored file is the only one there. Generating instead would sign everyone out, make every webhook key and pending invitation invalid, stop peppered passwords from verifying, and orphan every account-deletion reservation for good |
+| `Refusing to generate … could not be checked: the AuthDb connection string is still the placeholder` | No real connection string is configured. When it is kept in the secrets file, this is the same lost file | A deployment that has run before: restore the secrets file. A brand-new install: set `ConnectionStrings__AuthDb` (web.config `<environmentVariables>`) |
+| `Refusing to generate … could not be checked: the database could not be reached` | The database is down, or the server, login or firewall is wrong | Fix the connection, then restart. Generation never proceeds unverified |
+| `Refusing to generate … could not be checked: [dbo].[…] could not be read` | The schema was not published, or is older than this build | Publish the DACPAC ([Phase 2](#phase-2--database)), then restart |
+| `Refusing to start: N required secret(s) are missing …`, followed by `Which case is this?` | `AutoGenerateKeys` is `false` and the secrets are missing | The message names both cases. A deployment that has run before: restore the backup set; **do not** turn generation on. A brand-new install only: `AutoGenerateKeys: true` for one run, then back to `false` |
+| `Refusing to start: the JWT signing key from <source> cannot sign tokens.` | The key in `Jwt:PrivateKeyPem` (the secrets file), `Jwt:PrivateKeyEncrypted` or `Jwt:PrivateKeyPath` is public-only, shorter than 2048 bits, or not a PEM | Correct that source, or restore `secrets.dpapi` (or its `.bak`). Until this release such a key loaded, `/ready` read Healthy, and the first sign-in failed |
+| `Refusing to start: no JWT signing key is configured.` | No source at all. Until this release an unsaved random key was used and lost at the next restart | Restore the secrets file, or import your key ([§F](#f-provision-your-own-keys-byok--painless-migration)) |
+| `Refusing to start: Jwt:PrivateKeyEncrypted could not be decrypted.` | The Data Protection key ring or certificate it was encrypted under is not the one configured | Restore that key ring and certificate, or replace the value |
+| `Refusing to start: Jwt:PrivateKeyPath is set to '…', but no file exists there.` | A key-file path that does not resolve. Until this release the next source was used without a word | Fix the path, or remove the setting so the key in the secrets file is used |
+| `Refusing to start: plaintext secret(s) [Jwt:PrivateKeyPath] were found in the Production configuration.` | A plaintext PEM file decides the signing key in Production, outside encrypted storage | Remove `Jwt:PrivateKeyPath` and import the key into the secrets file ([§F](#f-provision-your-own-keys-byok--painless-migration)) |
+| `Refusing to start: Gateway:ExpectedToken is unusable.` | The gateway token is shorter than 16 characters (the generator makes 44) | Set a longer token where it came from, and give the Gateway the same value as `Gateway:Token` |
+| `/ready` Unhealthy: `JWT signing key cannot sign.` | The loaded key failed to sign or validate a probe token | Read the exception in the log; restore a valid key |
+
+**The backup set.** Three artefacts, together, after the first successful run and after every key
+change: `secrets.dpapi` with its `.bak`, the Data Protection key-ring folder (`DataProtection:KeyPath`),
+and in Certificate mode the `.pfx` with its password. Any one of them alone restores nothing.
+
+**Accepting the losses on purpose — only when no backup exists.** Set the environment variable
+`AUTH_ALLOW_KEY_REGENERATION` to **today's UTC date** (`yyyy-MM-dd`, the refusal prints it) in the API's
+`web.config` `<environmentVariables>`, recycle once, then remove it. It is honoured on the day it names
+only, so a value left behind stops working at midnight UTC instead of staying armed. Each start under
+it logs a Warning listing what was lost. Afterwards: every user signs in again, every webhook key must be
+issued again, pending invitations are sent again, peppered users reset their passwords, and the
+applications that cache the signing key fetch the new one. The deletion reservations do not come back.
+Take a backup of the new set straight away.
 
 ## E. First publish vs. every publish after (don't wipe your keys)
 
@@ -1816,9 +1860,11 @@ you to compare against, use the label in the dialog rather than trusting a prope
 
 **Why it bites.** "Remove extra files in destination" deletes anything in the destination that is not
 in the publish output. If the secrets folder — the key ring plus `secrets.dpapi` — sits **inside**
-that destination, it is deleted; and with `AutoGenerateKeys: true` the application then **silently
-mints new keys** on the next start. Every existing token dies, every user is signed out, and the
-gateway token desynchronises so every proxied request returns 403.
+that destination, it is deleted; and with `AutoGenerateKeys: true` the next start treats it as a
+first start. On a database already in use it now refuses instead, naming what new keys would destroy
+([§D.1](#d1-startup-refusals-about-key-material)); before this release it **silently minted new
+keys**: every existing token died, every user was signed out, and the gateway token desynchronised so
+every proxied request returned 403.
 
 **The robust layout, which removes the trap rather than documenting it:** put the secrets folder
 **outside** the publish destination, as a sibling of the site root rather than under it. Then "Remove
