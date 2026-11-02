@@ -338,7 +338,7 @@ export const ar: TranslationResources = {
   },
   myApplications: {
     title: "تطبيقاتي",
-    description: "التطبيقات التي يمكنك تسجيل الدخول إليها. يفتح كلٌّ منها في تبويب جديد.",
+    description: "التطبيقات التي يمكنك تسجيل الدخول إليها.",
     emptyTitle: "لا توجد تطبيقات بعد",
     emptyDescription: "ستظهر هنا التطبيقات التي يمكنك تسجيل الدخول إليها.",
     // Read after a tile's name by screen readers; never drawn.
@@ -2140,7 +2140,7 @@ export const ar: TranslationResources = {
       isDefault: "افتراضي",
       notSaved: "لم يُحفظ بعد",
       preview: "معاينة",
-      hint: "WOFF2 فقط، وبحد أقصى 2 ميغابايت. الخط المتغير (variable) يغطي كل الأوزان في ملف واحد. والأحرف التي لا يحويها الخط، كالعربية مثلًا، تبقى بخط IBM Plex.",
+      hint: "WOFF2 أو TTF أو OTF، وبحد أقصى 2 ميغابايت. الخط المتغير (variable) يغطي كل الأوزان في ملف واحد. والأحرف التي لا يحويها الخط، كالعربية مثلًا، تبقى بخط IBM Plex.",
       upload: "رفع خط",
       replace: "استبدال الخط",
       remove: "إزالة الخط",
@@ -2150,7 +2150,7 @@ export const ar: TranslationResources = {
       saved: "حُفظ الخط.",
       removed: "أُزيل الخط.",
       tooLarge: "حجم هذا الملف أكبر من 2 ميغابايت.",
-      notWoff2: "هذا الملف ليس خط WOFF2. حوّله إلى WOFF2 أولًا.",
+      notWoff2: "هذا الملف ليس خطًّا من نوع WOFF2 أو TTF أو OTF.",
       unreadable: "لم يستطع هذا المتصفح قراءة الخط. ربما الملف تالف.",
     },
     title: "إعدادات المنصة",

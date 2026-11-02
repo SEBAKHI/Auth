@@ -84,14 +84,75 @@ export function fontUrlsFrom(fonts: FontsPayload | null | undefined): PlatformFo
   return { heading: absolute(fonts?.heading?.url), body: absolute(fonts?.body?.url) }
 }
 
+/**
+ * Tailwind's line height for each text size (tailwindcss/theme.css), as a multiple of the size.
+ * A platform font taller than these is given its own (`lineHeightCss`), never a shorter one.
+ */
+const TEXT_LINE_HEIGHTS = {
+  xs: "calc(1 / 0.75)",
+  sm: "calc(1.25 / 0.875)",
+  base: "calc(1.5 / 1)",
+  lg: "calc(1.75 / 1.125)",
+  xl: "calc(1.75 / 1.25)",
+  "2xl": "calc(2 / 1.5)",
+  "3xl": "calc(2.25 / 1.875)",
+  "4xl": "calc(2.5 / 2.25)",
+} as const
+
+/**
+ * Letters that reach furthest above and below the line in the scripts the platform writes:
+ * Arabic tails (ح ع ي), Latin capitals with accents and descenders. Not stacked vowel marks,
+ * which the interface never writes and which would open every line for them.
+ */
+const TALL_SAMPLE = "حعيجخغقÁÉÇgjpqy"
+
+/**
+ * The line height, as a multiple of the font size, a loaded family needs so that no letter is
+ * cut: the larger of the font's own ascent and descent (what `line-height: normal` would give)
+ * and the ink of its tallest letters. Null where it cannot be measured.
+ */
+export function measureLineHeight(family: string): number | null {
+  const context = document.createElement("canvas").getContext("2d")
+  if (!context) return null
+  context.font = `100px "${family}"`
+  const metrics = context.measureText(TALL_SAMPLE)
+  const height = Math.max(
+    (metrics.fontBoundingBoxAscent ?? 0) + (metrics.fontBoundingBoxDescent ?? 0),
+    (metrics.actualBoundingBoxAscent ?? 0) + (metrics.actualBoundingBoxDescent ?? 0)
+  )
+  return Number.isFinite(height) && height > 0 ? Math.ceil(height) / 100 : null
+}
+
+/**
+ * Every text size's line height raised to `lineHeight` where the font needs more than Tailwind
+ * gives (owner, 2026-11-02: Arabic letters such as ح were cut at the bottom in the sidebar,
+ * whose labels clip what leaves their line). Raised, never lowered.
+ */
+function lineHeightCss(lineHeight: number | null): string {
+  if (!lineHeight) return ""
+  return Object.entries(TEXT_LINE_HEIGHTS)
+    .map(([step, base]) => `--text-${step}--line-height: max(${base}, ${lineHeight});`)
+    .join("")
+}
+
 /** The stylesheet that points the preset's variables at the registered families; null for none. */
-export function platformFontsCss(urls: PlatformFontUrls): string | null {
+export function platformFontsCss(urls: PlatformFontUrls, lineHeight: number | null = null): string | null {
   const declarations = [
     urls.body ? `--font-sans: "${PLATFORM_FONT_FAMILY.body}", ${DEFAULT_FONT_STACK};` : "",
     // A heading without its own font follows the body's, as the preset does.
     urls.heading ? `--font-heading: "${PLATFORM_FONT_FAMILY.heading}", var(--font-sans);` : "",
+    urls.body || urls.heading ? lineHeightCss(lineHeight) : "",
   ].join("")
   return declarations ? `:root{${declarations}}` : null
+}
+
+/** The tallest line height the loaded platform fonts need; null when none is loaded. */
+function loadedLineHeight(): number | null {
+  const heights = [...registered.entries()]
+    .filter(([, { face }]) => face?.status === "loaded")
+    .map(([role]) => measureLineHeight(PLATFORM_FONT_FAMILY[role]))
+    .filter((height): height is number => height !== null)
+  return heights.length ? Math.max(...heights) : null
 }
 
 function register(role: FontRole, url: string | null): Promise<unknown> | null {
@@ -118,13 +179,19 @@ function register(role: FontRole, url: string | null): Promise<unknown> | null {
  * Applies the platform's fonts; a role set to null goes back to the shipped one. Returns once
  * the newly registered files have loaded or failed. Applying what is already applied does
  * nothing; a change tells the sign-in page design frames (THEME_APPLIED_EVENT).
+ *
+ * The line heights follow once the files have loaded, since a font is measured only then.
  */
 export function applyPlatformFonts(urls: PlatformFontUrls): Promise<void> {
   const changed = FONT_ROLES.some((role) => (registered.get(role)?.url ?? null) !== urls[role])
   const loads = FONT_ROLES.map((role) => register(role, urls[role]))
-  setDocumentStyleSheet(STYLE_ID, platformFontsCss(urls))
+  setDocumentStyleSheet(STYLE_ID, platformFontsCss(urls, loadedLineHeight()))
   if (changed) document.dispatchEvent(new Event(THEME_APPLIED_EVENT))
-  return Promise.all(loads).then(() => undefined)
+  return Promise.all(loads).then(() => {
+    // A later call has since put other fonts in place: its own load sets their heights.
+    if (FONT_ROLES.some((role) => (registered.get(role)?.url ?? null) !== urls[role])) return
+    setDocumentStyleSheet(STYLE_ID, platformFontsCss(urls, loadedLineHeight()))
+  })
 }
 
 /** The registered fonts, for the sign-in page design frame, which registers them itself. */

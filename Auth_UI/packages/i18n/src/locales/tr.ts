@@ -340,7 +340,7 @@ export const tr: TranslationResources = {
   },
   myApplications: {
     title: "Uygulamalarım",
-    description: "Oturum açabileceğiniz uygulamalar. Her biri yeni bir sekmede açılır.",
+    description: "Oturum açabileceğiniz uygulamalar.",
     emptyTitle: "Henüz uygulama yok",
     emptyDescription: "Oturum açabileceğiniz uygulamalar burada görünecek.",
     // Read after a tile's name by screen readers; never drawn.
@@ -2185,7 +2185,7 @@ export const tr: TranslationResources = {
       isDefault: "Varsayılan",
       notSaved: "Henüz kaydedilmedi",
       preview: "Önizleme",
-      hint: "Yalnızca WOFF2, en fazla 2 MB. Değişken bir yazı tipi tüm ağırlıkları tek dosyada kapsar. Yazı tipinde olmayan harfler, örneğin Arapça, IBM Plex ile kalır.",
+      hint: "WOFF2, TTF veya OTF, en fazla 2 MB. Değişken bir yazı tipi tüm ağırlıkları tek dosyada kapsar. Yazı tipinde olmayan harfler, örneğin Arapça, IBM Plex ile kalır.",
       upload: "Yazı tipi yükle",
       replace: "Yazı tipini değiştir",
       remove: "Yazı tipini kaldır",
@@ -2195,7 +2195,7 @@ export const tr: TranslationResources = {
       saved: "Yazı tipi kaydedildi.",
       removed: "Yazı tipi kaldırıldı.",
       tooLarge: "Bu dosya 2 MB'tan büyük.",
-      notWoff2: "Bu dosya bir WOFF2 yazı tipi değil. Önce WOFF2'ye dönüştürün.",
+      notWoff2: "Bu dosya bir WOFF2, TTF veya OTF yazı tipi değil.",
       unreadable: "Bu tarayıcı yazı tipini okuyamadı. Dosya bozuk olabilir.",
     },
     title: "Platform ayarları",

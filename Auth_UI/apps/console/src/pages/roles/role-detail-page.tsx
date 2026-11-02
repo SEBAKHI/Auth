@@ -275,6 +275,7 @@ function RoleApplicationsTab({ roleId }: { roleId: string }) {
       getDarkSrc: (row) => row.logoUrlDark,
       getName: (row) => row.name,
       fit: "contain",
+      bare: true,
       covers: ["logoUrl", "logoUrlDark"],
     }),
     {

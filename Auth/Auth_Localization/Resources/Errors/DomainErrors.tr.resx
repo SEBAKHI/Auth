@@ -1002,7 +1002,7 @@
     <value>Yazı tipi dosyası {0} baytlık azami boyutu aşıyor.</value>
   </data>
   <data name="Font.Invalid" xml:space="preserve">
-    <value>Dosya geçerli bir WOFF2 yazı tipi değil.</value>
+    <value>Dosya geçerli bir WOFF2, TTF veya OTF yazı tipi değil.</value>
   </data>
   <data name="Font.StorageUnavailable" xml:space="preserve">
     <value>Yazı tipi depolama kullanılamıyor.</value>

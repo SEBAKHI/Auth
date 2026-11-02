@@ -1004,7 +1004,7 @@
     <value>يتجاوز ملف الخط الحجم الأقصى البالغ {0} بايت.</value>
   </data>
   <data name="Font.Invalid" xml:space="preserve">
-    <value>الملف ليس خط WOFF2 صالحًا.</value>
+    <value>الملف ليس خطًّا صالحًا من نوع WOFF2 أو TTF أو OTF.</value>
   </data>
   <data name="Font.StorageUnavailable" xml:space="preserve">
     <value>تخزين الخطوط غير متاح.</value>

@@ -1002,7 +1002,7 @@
     <value>فونٹ فائل {0} بائٹس کے زیادہ سے زیادہ سائز سے بڑی ہے۔</value>
   </data>
   <data name="Font.Invalid" xml:space="preserve">
-    <value>یہ فائل درست WOFF2 فونٹ نہیں ہے۔</value>
+    <value>یہ فائل درست WOFF2، TTF یا OTF فونٹ نہیں ہے۔</value>
   </data>
   <data name="Font.StorageUnavailable" xml:space="preserve">
     <value>فونٹس کا اسٹوریج دستیاب نہیں ہے۔</value>

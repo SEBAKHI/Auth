@@ -196,10 +196,10 @@ public class PlatformSettingsController : ApiController
     /// check that it is a whole WOFF2 font.
     /// </summary>
     /// <param name="role">Which font: <c>heading</c> or <c>body</c>.</param>
-    /// <param name="file">The WOFF2 file.</param>
+    /// <param name="file">The WOFF2 file, or a TrueType or OpenType file, stored as WOFF2.</param>
     /// <param name="cancellationToken">The request's cancellation.</param>
     /// <response code="200">Returns the updated platform settings</response>
-    /// <response code="400">No file, a file over 2 MiB, or a file that is not a whole WOFF2 font</response>
+    /// <response code="400">No file, a file over 2 MiB, or a file that is not a whole WOFF2, TrueType or OpenType font</response>
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions</response>
     [HttpPut("fonts/{role:regex(^(heading|body)$)}")]

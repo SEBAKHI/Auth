@@ -341,7 +341,7 @@ export const en = {
   },
   myApplications: {
     title: "My applications",
-    description: "The applications you can sign in to. Each one opens in a new tab.",
+    description: "The applications you can sign in to.",
     emptyTitle: "No applications yet",
     emptyDescription: "Applications you can sign in to will appear here.",
     // Read after a tile's name by screen readers; never drawn.
@@ -2207,7 +2207,7 @@ export const en = {
       isDefault: "Default",
       notSaved: "Not saved yet",
       preview: "Preview",
-      hint: "WOFF2 only, up to 2 MB. A variable font covers every weight in one file. Letters the font does not have, Arabic for example, stay in IBM Plex.",
+      hint: "WOFF2, TTF or OTF, up to 2 MB. A variable font covers every weight in one file. Letters the font does not have, Arabic for example, stay in IBM Plex.",
       upload: "Upload font",
       replace: "Replace font",
       remove: "Remove font",
@@ -2217,7 +2217,7 @@ export const en = {
       saved: "Font saved.",
       removed: "Font removed.",
       tooLarge: "This file is larger than 2 MB.",
-      notWoff2: "This file is not a WOFF2 font. Convert it to WOFF2 first.",
+      notWoff2: "This file is not a WOFF2, TTF or OTF font.",
       unreadable: "This browser could not read the font. The file may be damaged.",
     },
     title: "Platform settings",

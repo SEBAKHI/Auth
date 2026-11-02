@@ -42,8 +42,11 @@ const SPECIMEN = {
   arabic: "نصٌّ حكيمٌ له سرٌّ قاطعٌ وذو شأنٍ عظيمٍ مكتوبٌ على ثوبٍ أخضرَ ومغلفٌ بجلدٍ أزرق ٠١٢٣٤٥٦٧٨٩",
 } as const
 
-/** The first bytes of every WOFF2 file. */
-const WOFF2_SIGNATURE = "wOF2"
+/**
+ * The first four bytes of the files the server takes: WOFF2, and the TrueType and OpenType
+ * files it stores as WOFF2 (`SfntFont`): TrueType outlines, CFF outlines, Apple TrueType.
+ */
+const FONT_SIGNATURES = ["wOF2", "\0\x01\0\0", "OTTO", "true"]
 
 type FontDto = Schemas["PlatformFontDto"]
 
@@ -57,14 +60,14 @@ interface StagedFont {
 let previewSequence = 0
 
 /**
- * Reads a picked file as the server will: WOFF2, at most 2 MiB, and a font this browser can
+ * Reads a picked file as the server will: WOFF2, TTF or OTF, at most 2 MiB, and a font this browser can
  * load. Registered under a preview family of its own, so the preview shows the file before
  * anything is sent. Throws the sentence to show.
  */
 async function stage(file: File, role: FontRole, t: (key: string) => string): Promise<StagedFont> {
   if (file.size > FONT_MAX_SIZE_BYTES) throw new Error(t("platformSettings.fonts.tooLarge"))
   const bytes = await file.arrayBuffer()
-  if (new TextDecoder().decode(bytes.slice(0, 4)) !== WOFF2_SIGNATURE) {
+  if (!FONT_SIGNATURES.includes(new TextDecoder("latin1").decode(bytes.slice(0, 4)))) {
     throw new Error(t("platformSettings.fonts.notWoff2"))
   }
   const family = `AuthSystem Font Preview ${role} ${++previewSequence}`
@@ -228,7 +231,7 @@ function FontRoleCard({
             <input
               ref={inputRef}
               type="file"
-              accept=".woff2,font/woff2"
+              accept=".woff2,.ttf,.otf,font/woff2,font/ttf,font/otf"
               className="hidden"
               aria-describedby={error ? errorId : undefined}
               data-testid={`font-file-${role}`}

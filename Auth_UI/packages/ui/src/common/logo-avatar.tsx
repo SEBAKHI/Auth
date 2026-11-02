@@ -17,6 +17,8 @@ export function LogoAvatar({
   successMessage,
   size = "xl",
   frame = "logo",
+  surface,
+  bare,
 }: {
   src?: string | null
   name?: string | null
@@ -29,11 +31,15 @@ export function LogoAvatar({
   size?: "default" | "sm" | "lg" | "xl"
   /** A favicon is framed square; every other logo keeps a free aspect. */
   frame?: "logo" | "favicon"
+  /** The mode the logo is for, when it is not the page's (`ImageFrameDialog`). */
+  surface?: "light" | "dark"
+  /** No circle and no ring around the logo (`EntityAvatar`). */
+  bare?: boolean
 }) {
   const logo = useLogo({ persist, invalidate, successMessage })
 
   if (!canEdit) {
-    return <EntityAvatar src={src} name={name} size={size} fit="contain" />
+    return <EntityAvatar src={src} name={name} size={size} fit="contain" bare={bare} />
   }
 
   return (
@@ -43,7 +49,9 @@ export function LogoAvatar({
       label={label}
       size={size}
       fit="contain"
+      bare={bare}
       frame={frame}
+      surface={surface}
       onChange={logo.onChange}
       onRemove={logo.onRemove}
       pending={logo.pending}

@@ -340,7 +340,7 @@ export const fr: TranslationResources = {
   },
   myApplications: {
     title: "Mes applications",
-    description: "Les applications auxquelles vous pouvez vous connecter. Chacune s’ouvre dans un nouvel onglet.",
+    description: "Les applications auxquelles vous pouvez vous connecter.",
     emptyTitle: "Aucune application pour l’instant",
     emptyDescription: "Les applications auxquelles vous pouvez vous connecter apparaîtront ici.",
     // Read after a tile's name by screen readers; never drawn.
@@ -2223,7 +2223,7 @@ export const fr: TranslationResources = {
       isDefault: "Par défaut",
       notSaved: "Pas encore enregistrée",
       preview: "Aperçu",
-      hint: "WOFF2 uniquement, 2 Mo au plus. Une police variable couvre toutes les graisses en un seul fichier. Les lettres que la police n’a pas, l’arabe par exemple, restent en IBM Plex.",
+      hint: "WOFF2, TTF ou OTF, 2 Mo au plus. Une police variable couvre toutes les graisses en un seul fichier. Les lettres que la police n’a pas, l’arabe par exemple, restent en IBM Plex.",
       upload: "Importer une police",
       replace: "Remplacer la police",
       remove: "Retirer la police",
@@ -2233,7 +2233,7 @@ export const fr: TranslationResources = {
       saved: "Police enregistrée.",
       removed: "Police retirée.",
       tooLarge: "Ce fichier dépasse 2 Mo.",
-      notWoff2: "Ce fichier n’est pas une police WOFF2. Convertissez-le d’abord en WOFF2.",
+      notWoff2: "Ce fichier n’est pas une police WOFF2, TTF ou OTF.",
       unreadable: "Ce navigateur n’a pas pu lire la police. Le fichier est peut-être endommagé.",
     },
     title: "Paramètres de la plateforme",

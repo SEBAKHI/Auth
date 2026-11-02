@@ -337,7 +337,7 @@ export const zh: TranslationResources = {
   },
   myApplications: {
     title: "我的应用",
-    description: "您可以登录的应用。每个应用都会在新标签页中打开。",
+    description: "您可以登录的应用。",
     emptyTitle: "暂无应用",
     emptyDescription: "您可以登录的应用将显示在这里。",
     // Read after a tile's name by screen readers; never drawn.
@@ -2078,7 +2078,7 @@ export const zh: TranslationResources = {
       isDefault: "默认",
       notSaved: "尚未保存",
       preview: "预览",
-      hint: "仅限 WOFF2，最大 2 MB。可变字体在一个文件中包含所有字重。字体中没有的字符（例如阿拉伯文）仍使用 IBM Plex。",
+      hint: "WOFF2、TTF 或 OTF，最大 2 MB。可变字体在一个文件中包含所有字重。字体中没有的字符（例如阿拉伯文）仍使用 IBM Plex。",
       upload: "上传字体",
       replace: "替换字体",
       remove: "移除字体",
@@ -2088,7 +2088,7 @@ export const zh: TranslationResources = {
       saved: "字体已保存。",
       removed: "字体已移除。",
       tooLarge: "此文件大于 2 MB。",
-      notWoff2: "此文件不是 WOFF2 字体。请先将其转换为 WOFF2。",
+      notWoff2: "此文件不是 WOFF2、TTF 或 OTF 字体。",
       unreadable: "此浏览器无法读取该字体。文件可能已损坏。",
     },
     title: "平台设置",

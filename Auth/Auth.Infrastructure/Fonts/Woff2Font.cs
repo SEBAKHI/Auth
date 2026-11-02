@@ -30,15 +30,15 @@ internal static class Woff2Font
 
     private const uint Signature = 0x774F4632; // "wOF2"
     private const int HeaderSize = 48;
-    private const int MaxTables = 1024;
+    internal const int MaxTables = 1024;
 
     // TrueType outlines, CFF outlines, Apple TrueType. A collection ("ttcf") is not a font file
     // a page can name in one @font-face, so it is refused with everything else.
-    private static readonly uint[] Flavors = [0x00010000, 0x4F54544F, 0x74727565];
+    internal static readonly uint[] Flavors = [0x00010000, 0x4F54544F, 0x74727565];
 
     // The table tags a directory entry names by index (WOFF2 §5.1, "Known Table Tags"); index 63
     // means the tag follows as four bytes.
-    private static readonly string[] KnownTags =
+    internal static readonly string[] KnownTags =
     [
         "cmap", "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post", "cvt ", "fpgm", "glyf", "loca",
         "prep", "CFF ", "VORG", "EBDT", "EBLC", "gasp", "hdmx", "kern", "LTSH", "PCLT", "VDMX", "vhea",

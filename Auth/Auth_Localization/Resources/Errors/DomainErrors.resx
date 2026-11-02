@@ -1004,7 +1004,7 @@
     <value>The font file exceeds the maximum size of {0} bytes.</value>
   </data>
   <data name="Font.Invalid" xml:space="preserve">
-    <value>The file is not a valid WOFF2 font.</value>
+    <value>The file is not a valid WOFF2, TrueType or OpenType font.</value>
   </data>
   <data name="Font.StorageUnavailable" xml:space="preserve">
     <value>Font storage is not available.</value>

@@ -64,12 +64,18 @@ const EDGES: readonly Edge[] = ["top", "right", "bottom", "left"]
 export default function ImageFrameDialog({
   file,
   mode,
+  surface,
   onCancel,
   onConfirm,
   returnFocus,
 }: {
   file: File
   mode: FrameMode
+  /**
+   * The mode the image is for, when it is not the page's: a dark-mode logo is
+   * framed on a dark stage, or a white drawing is invisible on a light one.
+   */
+  surface?: "light" | "dark"
   onCancel: () => void
   onConfirm: (file: File) => void
   /**
@@ -186,6 +192,7 @@ export default function ImageFrameDialog({
               url={ready.url}
               image={ready.image}
               mode={mode}
+              surface={surface}
               frame={frame}
               onFrame={setFrame}
             />
@@ -312,12 +319,14 @@ function FrameStage({
   url,
   image,
   mode,
+  surface,
   frame,
   onFrame,
 }: {
   url: string
   image: Size
   mode: FrameMode
+  surface?: "light" | "dark"
   frame: FrameState
   onFrame: React.Dispatch<React.SetStateAction<FrameState | null>>
 }) {
@@ -434,7 +443,12 @@ function FrameStage({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="mx-auto aspect-square w-full max-w-80 overflow-hidden rounded-2xl bg-muted">
+      <div
+        className={cn(
+          surface,
+          "mx-auto aspect-square w-full max-w-80 overflow-hidden rounded-2xl bg-muted"
+        )}
+      >
         <svg
           ref={svgRef}
           viewBox={`0 0 ${STAGE} ${STAGE}`}

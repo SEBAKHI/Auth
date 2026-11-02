@@ -442,6 +442,37 @@ test("inside the platform logo dialog, closing the editor keeps focus in that di
   expect(await logos.evaluate((el) => el.contains(document.activeElement))).toBe(true)
 })
 
+// Owner, 2026-11-02: a dark-mode logo (often white) was framed on a light stage from a light
+// page, and could not be seen. The stage takes the mode of the slot it was chosen from.
+test("the editor's stage is painted in the mode of the logo slot it was opened from", async ({ page }) => {
+  await install(page)
+  await page.emulateMedia({ colorScheme: "light" })
+  await page.goto("/admin/platform-settings")
+  const stageBackground = async (mode: "light" | "dark") => {
+    await page.getByRole("button", { name: en.platformSettings.logo, exact: true }).click()
+    await page.getByRole("menuitem", { name: en.common.change, exact: true }).click()
+    const logos = page.getByRole("dialog", { name: en.platformSettings.logoDialogTitle })
+    const label = mode === "light" ? en.platformSettings.logoLight : en.platformSettings.logoDark
+    const slot = logos.locator(`[data-mode="${mode}"]`).getByRole("button", { name: label })
+    const dialog = await chooseThroughMenu(page, slot)
+    const color = await dialog
+      .locator('[data-slot="image-frame-stage"]')
+      .evaluate((stage) => getComputedStyle(stage.parentElement!).backgroundColor)
+    await page.keyboard.press("Escape")
+    await page.keyboard.press("Escape")
+    await expect(logos).toBeHidden()
+    return color
+  }
+
+  const light = await stageBackground("light")
+  const dark = await stageBackground("dark")
+
+  // The stage is the preset's --muted in that mode: a different colour, and the dark one darker.
+  expect(dark).not.toBe(light)
+  const lightness = (color: string) => Number(/oklch\(([\d.]+)/.exec(color)?.[1] ?? /\d+/.exec(color)?.[0])
+  expect(lightness(dark)).toBeLessThan(lightness(light))
+})
+
 test("the edge grips are at least 24 px on their thin side at a 320 px viewport", async ({
   page,
 }) => {

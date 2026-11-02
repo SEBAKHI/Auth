@@ -49,7 +49,9 @@ public sealed partial class FileSystemFontStorageService : IFontStorageService
             }
         }
 
-        var bytes = buffer.ToArray();
+        // A TrueType or OpenType file is stored as WOFF2, so one format is served whatever was sent.
+        var uploaded = buffer.ToArray();
+        var bytes = SfntFont.ToWoff2(uploaded) ?? uploaded;
         var font = Woff2Font.Read(bytes);
         if (font is null)
         {

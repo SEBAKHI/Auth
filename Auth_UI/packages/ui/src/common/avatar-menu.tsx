@@ -37,7 +37,9 @@ export function AvatarMenu({
   label,
   size = "lg",
   fit,
+  bare,
   frame,
+  surface,
   onChange,
   onRemove,
   pending,
@@ -52,8 +54,12 @@ export function AvatarMenu({
   label?: string
   size?: "default" | "sm" | "lg" | "xl"
   fit?: "cover" | "contain"
+  /** No circle and no ring around the image (`EntityAvatar`). */
+  bare?: boolean
   /** How the editor frames the image: a free-aspect logo, a square favicon, a person's photo. */
   frame: FrameMode
+  /** The mode the image is for, when it is not the page's (`ImageFrameDialog`). */
+  surface?: "light" | "dark"
   onChange: (file: File) => void
   onRemove: () => void
   pending?: boolean
@@ -86,7 +92,7 @@ export function AvatarMenu({
             aria-disabled={pending || undefined}
             className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring aria-disabled:opacity-50"
           >
-            <EntityAvatar src={src} name={name} size={size} fit={fit} />
+            <EntityAvatar src={src} name={name} size={size} fit={fit} bare={bare} />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
@@ -137,6 +143,7 @@ export function AvatarMenu({
             key={framing.seq}
             file={framing.file}
             mode={frame}
+            surface={surface}
             returnFocus={() => triggerRef.current?.focus()}
             onCancel={() => setFraming(null)}
             onConfirm={(file) => {
