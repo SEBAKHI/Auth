@@ -128,7 +128,12 @@ const withOrigin = readFileSync(webConfigPath, "utf8").split(PLACEHOLDER_ORIGIN)
 // ---------------------------------------------------------------- SITE
 
 const withoutComments = (xml) => xml.replace(/<!--[\s\S]*?-->/g, (comment) => " ".repeat(comment.length))
-const hasAccountBar = /<location\s+path="embed"\s*>/.test(withoutComments(withOrigin))
+// By the web.config's own <location> (whatever else the element carries) or by the built
+// frames: either one alone engages every check below, so neither a respelt element nor a
+// removed one ships the bar's pages unchecked.
+const hasAccountBar =
+  /<location\s+path="embed"[\s>]/.test(withoutComments(withOrigin)) ||
+  existsSync(join(distDir, "embed", "v1", "bar.html"))
 
 /**
  * Why `site` cannot be the IAM site the account bar is framed under, or null. One
@@ -189,7 +194,9 @@ writeFileSync(webConfigPath, sealed, "utf8")
 function cspHeaders(xml) {
   // Comments blanked (same length, so positions hold): a commented-out <add> is not a header.
   const text = xml.replace(/<!--[\s\S]*?-->/g, (comment) => " ".repeat(comment.length))
-  const locations = [...text.matchAll(/<location\s+path="([^"]*)"\s*>([\s\S]*?)<\/location>/g)].map(
+  // Any other attribute on the element (inheritInChildApplications...) still makes it a
+  // <location>: read as site-wide, its policy would escape every per-path rule below.
+  const locations = [...text.matchAll(/<location\s+path="([^"]*)"[^>]*>([\s\S]*?)<\/location>/g)].map(
     (match) => ({ path: match[1], start: match.index, end: match.index + match[0].length }),
   )
   const attribute = (attributes, name) => new RegExp(`\\b${name}="([^"]*)"`).exec(attributes)?.[1]
@@ -304,6 +311,18 @@ if (hasAccountBar) {
     refuse(
       'the "Embed Unknown Path" rewrite rule is missing from web.config',
       "  Without it the SPA fallback serves the whole app at /embed/anything, under the bar's frame policy."
+    )
+  }
+}
+
+// Framing, everywhere: no policy outside the account bar's may let another site frame a
+// page of this app. 'none' (the site) and 'self' (the sign-in page design frame) only.
+for (const header of headers.filter((candidate) => candidate.location !== "embed")) {
+  const ancestors = sourcesOf(header.policy, "frame-ancestors")
+  if (ancestors && !ancestors.every((source) => source === "'none'" || source === "'self'")) {
+    refuse(
+      `frame-ancestors of ${header.name}${header.location ? ` for ${header.location}` : ""} allows "${ancestors.join(" ")}"`,
+      "  Only <location path=\"embed\"> (the account bar) may be framed by another site."
     )
   }
 }

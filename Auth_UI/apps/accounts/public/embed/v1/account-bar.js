@@ -79,11 +79,14 @@
       detail: { action: action, href: href },
     });
     if (!element.dispatchEvent(event)) return;
-    try {
-      window.top.location.href = href;
-    } catch (error) {
-      window.location.href = href;
-    }
+    // This page, not window.top: the application's own sign-out and sign-in belong to the
+    // page that shows the bar, even when another page frames it.
+    window.location.href = href;
+  }
+
+  /** A size a frame reports, kept inside the screen: no frame of the bar may cover the page. */
+  function clamp(value, limit) {
+    return Math.min(Math.max(0, Math.ceil(Number(value) || 0)), Math.max(0, limit));
   }
 
   var FRAME_CSS =
@@ -245,8 +248,8 @@
 
     _fromBar(data) {
       if (data.type === "size") {
-        var width = Math.max(0, Math.ceil(Number(data.width) || 0));
-        var height = Math.max(0, Math.ceil(Number(data.height) || 0));
+        var width = clamp(data.width, window.innerWidth);
+        var height = clamp(data.height, 200);
         this._barInset = Math.max(0, Number(data.inset) || 0);
         this._bar.style.width = width + "px";
         this._bar.style.height = height + "px";
@@ -264,8 +267,8 @@
     _fromPanel(panel, data) {
       var entry = this._panels[panel];
       if (data.type === "size") {
-        entry.width = Math.max(0, Math.ceil(Number(data.width) || 0));
-        entry.height = Math.max(0, Math.ceil(Number(data.height) || 0));
+        entry.width = clamp(data.width, Math.min(window.innerWidth, 640));
+        entry.height = clamp(data.height, window.innerHeight);
         entry.inset = Math.max(0, Number(data.inset) || 0);
         var first = !entry.ready;
         entry.ready = true;

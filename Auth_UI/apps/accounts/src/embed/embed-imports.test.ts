@@ -22,5 +22,6 @@ describe("the account bar's frames", () => {
       bootEmbed: vi.fn(async () => undefined),
     }))
     await expect(import(entry)).resolves.toBeDefined()
-  })
+    // A cold import of the whole frame (React, Radix, the tiles): seconds under a full run.
+  }, 20_000)
 })

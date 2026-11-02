@@ -360,6 +360,37 @@ describe("seal-web-config.mjs account bar site", () => {
     expect(run.stderr).toContain("must keep frame-ancestors 'none'")
   })
 
+  it("still checks the bar when its <location> carries another attribute", () => {
+    const dir = barApp("*")
+    const file = join(dir, "dist", "web.config")
+    writeFileSync(file, readFileSync(file, "utf8").replace('<location path="embed">', '<location path="embed" inheritInChildApplications="false">'))
+    const run = seal(dir)
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain("must be a host name")
+  })
+
+  it("still checks the bar when the build ships its frames but web.config lost the <location>", () => {
+    const dir = barApp("contoso-sample.net")
+    const file = join(dir, "dist", "web.config")
+    const xml = readFileSync(file, "utf8")
+    writeFileSync(file, xml.slice(0, xml.indexOf("<location")) + "</configuration>")
+    mkdirSync(join(dir, "dist", "embed", "v1"), { recursive: true })
+    writeFileSync(join(dir, "dist", "embed", "v1", "bar.html"), "<!doctype html>")
+    const run = seal(dir)
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain('<location path="embed"> has no Content-Security-Policy of its own')
+  })
+
+  it("refuses any other policy that lets another site frame a page", () => {
+    // A console-like app, no account bar at all: its site policy may not open framing either.
+    const dir = app(REAL)
+    const file = join(dir, "dist", "web.config")
+    writeFileSync(file, readFileSync(file, "utf8").replace(POLICY, `${POLICY}; frame-ancestors https://*.contoso-sample.net`))
+    const run = seal(dir)
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain("frame-ancestors of Content-Security-Policy allows")
+  })
+
   it("refuses a web.config whose SPA fallback could serve the app under /embed", () => {
     const run = seal(barApp("contoso-sample.net", { rule: "" }))
     expect(run.status).toBe(1)

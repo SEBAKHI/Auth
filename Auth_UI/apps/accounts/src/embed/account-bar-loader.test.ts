@@ -90,6 +90,18 @@ describe("account-bar.js", () => {
     expect(bar.hasAttribute("data-empty")).toBe(true)
   })
 
+  it("keeps every frame inside the screen, whatever size it reports", () => {
+    const { bar, panel, post } = mount()
+    post(bar.contentWindow!, { type: "size", width: 99_999, height: 99_999, inset: 4 })
+    expect(bar.style.width).toBe(`${window.innerWidth}px`)
+    expect(bar.style.height).toBe("200px")
+    post(bar.contentWindow!, { type: "toggle", panel: "apps" })
+    const frame = panel()!
+    post(frame.contentWindow!, { type: "size", width: 99_999, height: 99_999, inset: 16 })
+    expect(frame.style.width).toBe(`${Math.min(window.innerWidth, 640)}px`)
+    expect(frame.style.height).toBe(`${window.innerHeight}px`)
+  })
+
   it("ignores a message from another origin, from a window it did not frame, or without the namespace", () => {
     const { bar, post } = mount()
     post(bar.contentWindow!, { type: "size", width: 88, height: 48, inset: 4 }, "https://evil.example.com")
