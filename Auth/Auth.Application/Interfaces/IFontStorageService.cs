@@ -20,7 +20,8 @@ public sealed record StoredFont(string Key, string? FamilyName);
 public interface IFontStorageService
 {
     /// <summary>
-    /// Checks and stores a WOFF2 file. <c>Font.Invalid</c> when it is not one, or is damaged;
+    /// Checks and stores a WOFF2 file; a TrueType or OpenType file is stored as WOFF2.
+    /// <c>Font.Invalid</c> when it is none of these, or is damaged;
     /// <c>Font.StorageUnavailable</c> when the volume cannot be written. The same content
     /// uploaded twice is one file.
     /// </summary>

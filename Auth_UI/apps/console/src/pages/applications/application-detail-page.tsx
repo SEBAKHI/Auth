@@ -900,6 +900,7 @@ export function ApplicationDetailPage() {
               <ThemedLogo
                 name={app.name}
                 label={t("applications.logoDialogTitle")}
+                bare
                 lightSrc={app.logoUrl}
                 darkSrc={app.logoUrlDark}
                 canEdit={canUpdate}

@@ -71,10 +71,34 @@ class FakeFontFace {
 
 const fontSet = new Set<FakeFontFace>()
 
+/** What the canvas measures for each family, at 100px: ascent and descent. jsdom has no canvas. */
+let measured: Record<string, [number, number]> = {}
+
+function fakeCanvasContext() {
+  const context = {
+    font: "",
+    measureText: () => {
+      const family = Object.keys(measured).find((name) => context.font.includes(name))
+      const [ascent, descent] = family ? measured[family] : [80, 20]
+      return {
+        fontBoundingBoxAscent: ascent,
+        fontBoundingBoxDescent: descent,
+        actualBoundingBoxAscent: ascent - 10,
+        actualBoundingBoxDescent: descent - 10,
+      }
+    },
+  }
+  return context as unknown as CanvasRenderingContext2D
+}
+
 beforeEach(() => {
   FakeFontFace.loads = []
   fontSet.clear()
   vi.stubGlobal("FontFace", FakeFontFace)
+  measured = {}
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+    fakeCanvasContext as unknown as typeof HTMLCanvasElement.prototype.getContext
+  )
   Object.defineProperty(document, "fonts", {
     configurable: true,
     value: { add: (face: FakeFontFace) => fontSet.add(face), delete: (face: FakeFontFace) => fontSet.delete(face) },
@@ -84,6 +108,7 @@ beforeEach(() => {
 afterEach(async () => {
   await applyPlatformFonts({ heading: null, body: null })
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   window.localStorage.clear()
 })
 
@@ -165,6 +190,20 @@ describe("applyPlatformFonts", () => {
     expect(FakeFontFace.loads).toHaveLength(2)
     expect(told).toHaveBeenCalledTimes(1)
     document.removeEventListener(THEME_APPLIED_EVENT, told)
+  })
+
+  it("raises every text size's line height to what the tallest loaded font needs, once it has loaded", async () => {
+    measured = { [PLATFORM_FONT_FAMILY.body]: [110, 60], [PLATFORM_FONT_FAMILY.heading]: [90, 40] }
+
+    const applied = applyPlatformFonts({ heading: "https://api.test/h.woff2", body: "https://api.test/b.woff2" })
+    // Not measurable before the file has loaded: Tailwind's own heights stand until then.
+    expect(sheet()).not.toContain("line-height")
+    FakeFontFace.loads.forEach((load) => load.resolve())
+    await applied
+
+    // 110 + 60 at 100px: the body font needs 1.7, more than the heading font's 1.3.
+    expect(sheet()).toContain("--text-sm--line-height: max(calc(1.25 / 0.875), 1.7);")
+    expect(sheet()).toContain("--text-4xl--line-height: max(calc(2.5 / 2.25), 1.7);")
   })
 
   it("takes a removed font away, and the variables with it", async () => {

@@ -340,7 +340,7 @@ export const ur: TranslationResources = {
   },
   myApplications: {
     title: "میری ایپلیکیشنز",
-    description: "وہ ایپلیکیشنز جن میں آپ سائن اِن کر سکتے ہیں۔ ہر ایک نئے ٹیب میں کھلتی ہے۔",
+    description: "وہ ایپلیکیشنز جن میں آپ سائن اِن کر سکتے ہیں۔",
     emptyTitle: "ابھی کوئی ایپلیکیشن نہیں",
     emptyDescription: "جن ایپلیکیشنز میں آپ سائن اِن کر سکتے ہیں وہ یہاں نظر آئیں گی۔",
     // Read after a tile's name by screen readers; never drawn.
@@ -2170,7 +2170,7 @@ export const ur: TranslationResources = {
       isDefault: "پہلے سے طے شدہ",
       notSaved: "ابھی محفوظ نہیں ہوا",
       preview: "پیش منظر",
-      hint: "صرف WOFF2، زیادہ سے زیادہ 2 MB۔ ایک variable فونٹ تمام وزن ایک فائل میں رکھتا ہے۔ جو حروف فونٹ میں نہیں، مثلاً عربی، وہ IBM Plex میں رہتے ہیں۔",
+      hint: "WOFF2، TTF یا OTF، زیادہ سے زیادہ 2 MB۔ ایک variable فونٹ تمام وزن ایک فائل میں رکھتا ہے۔ جو حروف فونٹ میں نہیں، مثلاً عربی، وہ IBM Plex میں رہتے ہیں۔",
       upload: "فونٹ اپ لوڈ کریں",
       replace: "فونٹ بدلیں",
       remove: "فونٹ ہٹائیں",
@@ -2180,7 +2180,7 @@ export const ur: TranslationResources = {
       saved: "فونٹ محفوظ ہو گیا۔",
       removed: "فونٹ ہٹا دیا گیا۔",
       tooLarge: "یہ فائل 2 MB سے بڑی ہے۔",
-      notWoff2: "یہ فائل WOFF2 فونٹ نہیں ہے۔ پہلے اسے WOFF2 میں تبدیل کریں۔",
+      notWoff2: "یہ فائل WOFF2، TTF یا OTF فونٹ نہیں ہے۔",
       unreadable: "یہ براؤزر فونٹ نہیں پڑھ سکا۔ ممکن ہے فائل خراب ہو۔",
     },
     title: "پلیٹ فارم کی ترتیبات",

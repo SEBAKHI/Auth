@@ -11,12 +11,14 @@ function ThemedAvatar({
   name,
   size,
   fit,
+  bare,
 }: {
   src: string | null | undefined
   darkSrc: string | null | undefined
   name: string | null | undefined
   size?: "default" | "sm" | "lg" | "xl"
   fit?: "cover" | "contain"
+  bare?: boolean
 }) {
   const resolvedTheme = useResolvedTheme()
   return (
@@ -25,6 +27,7 @@ function ThemedAvatar({
       name={name}
       size={size}
       fit={fit}
+      bare={bare}
     />
   )
 }
@@ -49,6 +52,8 @@ export function avatarColumn<T>(opts: {
   size?: "default" | "sm" | "lg" | "xl"
   /** Use "contain" for logo columns so marks keep their aspect ratio. */
   fit?: "cover" | "contain"
+  /** No circle and no ring around the image: application icons (`EntityAvatar`). */
+  bare?: boolean
   /** Record fields the avatar renders — typically the image URL field. */
   covers?: readonly string[]
 }): ColumnDef<T, unknown> {
@@ -66,6 +71,7 @@ export function avatarColumn<T>(opts: {
           name={opts.getName(row.original)}
           size={opts.size}
           fit={opts.fit}
+          bare={opts.bare}
         />
       ) : (
         <EntityAvatar
@@ -73,6 +79,7 @@ export function avatarColumn<T>(opts: {
           name={opts.getName(row.original)}
           size={opts.size}
           fit={opts.fit}
+          bare={opts.bare}
         />
       ),
   }

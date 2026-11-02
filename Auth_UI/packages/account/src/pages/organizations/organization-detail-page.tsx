@@ -1192,6 +1192,7 @@ function ApplicationsTab({
       getDarkSrc: (row) => row.applicationLogoUrlDark,
       getName: (row) => row.applicationName,
       fit: "contain",
+      bare: true,
       covers: ["applicationLogoUrl", "applicationLogoUrlDark"],
     }),
     {

@@ -277,6 +277,91 @@ public class PlatformFontsTests : IDisposable
         Directory.GetFiles(Path.Combine(_root, "fonts")).Should().ContainSingle();
     }
 
+    // --- a TrueType file, stored as WOFF2 (owner, 2026-11-02) ---
+
+    /// <summary>
+    /// A minimal TrueType file: head, cmap, name and an empty glyf and loca, the two tables WOFF2
+    /// carries with the null transform. Tables are padded to four bytes, as an sfnt lays them out.
+    /// </summary>
+    internal static byte[] Ttf(string family = "Ttf Sans", int truncateBy = 0)
+    {
+        var tables = new (string Tag, byte[] Data)[]
+        {
+            ("cmap", new byte[4]), ("glyf", new byte[8]), ("head", new byte[54]), ("loca", new byte[6]),
+            ("name", NameTable(family)),
+        };
+        var offset = 12 + (16 * tables.Length);
+        var file = new MemoryStream();
+        var header = new byte[offset];
+        BinaryPrimitives.WriteUInt32BigEndian(header, 0x00010000);
+        BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(4), (ushort)tables.Length);
+        for (var i = 0; i < tables.Length; i++)
+        {
+            var record = header.AsSpan(12 + (16 * i));
+            Encoding.ASCII.GetBytes(tables[i].Tag).CopyTo(record);
+            BinaryPrimitives.WriteUInt32BigEndian(record[8..], (uint)offset);
+            BinaryPrimitives.WriteUInt32BigEndian(record[12..], (uint)tables[i].Data.Length);
+            offset += (tables[i].Data.Length + 3) & ~3;
+        }
+
+        file.Write(header);
+        foreach (var (_, data) in tables)
+        {
+            file.Write(data);
+            file.Write(new byte[((data.Length + 3) & ~3) - data.Length]);
+        }
+
+        return file.ToArray()[..^truncateBy];
+    }
+
+    [Fact]
+    public async Task ATrueTypeFile_IsStoredAsAWholeWoff2_WithTheFamilyItDeclares()
+    {
+        var stored = await Store().SaveAsync(new MemoryStream(Ttf("Variable Sans")), CancellationToken.None);
+
+        stored.IsError.Should().BeFalse();
+        stored.Value.Key.Should().MatchRegex("^fonts/[0-9a-f]{64}\\.woff2$");
+        stored.Value.FamilyName.Should().Be("Variable Sans");
+        var file = File.ReadAllBytes(Path.Combine(_root, stored.Value.Key));
+        Woff2Font.Read(file).Should().NotBeNull("glyf and loca go in with the null transform the reader accepts");
+        (file.Length % 4).Should().Be(0, "the decoders want the font data to end on a four-byte boundary");
+    }
+
+    [Fact]
+    public async Task ATrueTypeFile_WhoseTablesRunPastItsEnd_IsRefused()
+    {
+        var stored = await Store().SaveAsync(new MemoryStream(Ttf(truncateBy: 20)), CancellationToken.None);
+
+        stored.FirstError.Code.Should().Be("Font.Invalid");
+    }
+
+    [Fact]
+    public void ADirectoryWhoseTablesAllPointAtTheWholeFile_IsRefused_BeforeAnythingIsCopied()
+    {
+        // 1000 tables of 40 KB each, all at offset 0: 40 MB to copy from a 56 KB file.
+        const int count = 1000;
+        var file = new byte[12 + (16 * count) + (40 * 1024)];
+        BinaryPrimitives.WriteUInt32BigEndian(file, 0x00010000);
+        BinaryPrimitives.WriteUInt16BigEndian(file.AsSpan(4), count);
+        for (var i = 0; i < count; i++)
+        {
+            var record = file.AsSpan(12 + (16 * i));
+            Encoding.ASCII.GetBytes($"T{i:000}").CopyTo(record);
+            BinaryPrimitives.WriteUInt32BigEndian(record[12..], 40 * 1024);
+        }
+
+        SfntFont.ToWoff2(file).Should().BeNull();
+    }
+
+    [Fact]
+    public void AFontCollection_IsNotWrapped()
+    {
+        var collection = Ttf();
+        BinaryPrimitives.WriteUInt32BigEndian(collection, 0x74746366); // "ttcf"
+
+        SfntFont.ToWoff2(collection).Should().BeNull("a page names one font in an @font-face, not a collection");
+    }
+
     [Fact]
     public async Task AFileThatIsNotAFont_IsRefused_AndNothingIsWritten()
     {

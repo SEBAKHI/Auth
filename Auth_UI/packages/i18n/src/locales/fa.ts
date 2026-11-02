@@ -339,7 +339,7 @@ export const fa: TranslationResources = {
   },
   myApplications: {
     title: "برنامه‌های من",
-    description: "برنامه‌هایی که می‌توانید وارد آن‌ها شوید. هر کدام در زبانهٔ تازه باز می‌شود.",
+    description: "برنامه‌هایی که می‌توانید وارد آن‌ها شوید.",
     emptyTitle: "هنوز برنامه‌ای نیست",
     emptyDescription: "برنامه‌هایی که می‌توانید وارد آن‌ها شوید اینجا نمایش داده می‌شوند.",
     // Read after a tile's name by screen readers; never drawn.
@@ -2165,7 +2165,7 @@ export const fa: TranslationResources = {
       isDefault: "پیش‌فرض",
       notSaved: "هنوز ذخیره نشده",
       preview: "پیش‌نمایش",
-      hint: "فقط WOFF2، حداکثر 2 مگابایت. یک قلم متغیر (variable) همهٔ وزن‌ها را در یک فایل دارد. حروفی که قلم ندارد، مثلاً عربی، با IBM Plex می‌مانند.",
+      hint: "WOFF2، TTF یا OTF، حداکثر 2 مگابایت. یک قلم متغیر (variable) همهٔ وزن‌ها را در یک فایل دارد. حروفی که قلم ندارد، مثلاً عربی، با IBM Plex می‌مانند.",
       upload: "بارگذاری قلم",
       replace: "جایگزینی قلم",
       remove: "حذف قلم",
@@ -2175,7 +2175,7 @@ export const fa: TranslationResources = {
       saved: "قلم ذخیره شد.",
       removed: "قلم حذف شد.",
       tooLarge: "این فایل بزرگ‌تر از 2 مگابایت است.",
-      notWoff2: "این فایل قلم WOFF2 نیست. ابتدا آن را به WOFF2 تبدیل کنید.",
+      notWoff2: "این فایل قلم WOFF2، TTF یا OTF نیست.",
       unreadable: "این مرورگر نتوانست قلم را بخواند. شاید فایل آسیب دیده باشد.",
     },
     title: "تنظیمات پلتفرم",

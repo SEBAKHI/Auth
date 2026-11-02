@@ -24,7 +24,12 @@ export type MyApplicationDto = Schemas["MyApplicationDto"]
 /**
  * Where the tiles are drawn. "page": the My applications page (Home in the
  * accounts app), large tiles as many to a row as fit. "panel": the popover the
- * header's grid button opens, three smaller tiles to a row, as Google's.
+ * header's grid button opens, three smaller tiles to a row, as Google's, and
+ * centred, so one or two applications sit in the middle (owner, 2026-11-02).
+ *
+ * Icon sizes (owner, 2026-11-02): Google's panel draws a 40px icon that fills
+ * its square edge to edge; a logo with its own margin fills less, so the panel
+ * draws 48px, and the page, larger still, 80px.
  */
 export type ApplicationTilesVariant = "page" | "panel"
 
@@ -32,9 +37,10 @@ const LAYOUT: Record<
   ApplicationTilesVariant,
   {
     grid: string
+    cell: string
     skeleton: string
     skeletons: number
-    avatar: "lg" | "xl"
+    icon: string
     item: "default" | "xs"
   }
 > = {
@@ -42,16 +48,20 @@ const LAYOUT: Record<
     // One column per 9rem of width, as many as fit: a single tile stays
     // tile-sized instead of stretching across the page, and 375px still holds two.
     grid: "grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-4",
-    skeleton: "h-36",
+    cell: "",
+    skeleton: "h-40",
     skeletons: 6,
-    avatar: "xl",
+    icon: "size-20",
     item: "default",
   },
   panel: {
-    grid: "grid grid-cols-3 gap-1",
-    skeleton: "h-24",
+    // Wrapping thirds, not grid columns: a short last row is centred, where
+    // a grid leaves it against the start edge.
+    grid: "flex flex-wrap justify-center gap-y-1",
+    cell: "w-1/3 px-0.5",
+    skeleton: "h-28",
     skeletons: 6,
-    avatar: "lg",
+    icon: "size-12",
     item: "xs",
   },
 }
@@ -112,7 +122,7 @@ export function ApplicationTiles({
         aria-label={t("common.loading")}
       >
         {Array.from({ length: layout.skeletons }, (_, index) => (
-          <li key={index}>
+          <li key={index} className={layout.cell}>
             <Skeleton className={cn(layout.skeleton, "w-full rounded-2xl")} />
           </li>
         ))}
@@ -155,7 +165,7 @@ export function ApplicationTiles({
   return (
     <ul role="list" className={layout.grid} aria-label={label}>
       {applications.map(({ application, href }) => (
-        <li key={application.id}>
+        <li key={application.id} className={layout.cell}>
           <ApplicationTile
             application={application}
             href={href}
@@ -202,7 +212,8 @@ function ApplicationTile({
         {/* Hidden from the accessibility tree: the name below already names the
             link, and the image's alt (or its initials) would say it twice. */}
         <ItemMedia aria-hidden="true">
-          {/* A logo in a circle keeps its whole drawing (`contain`); one that
+          {/* No circle and no ring: the icon carries its own shape, as
+              Google's do. It keeps its whole drawing (`contain`); one that
               fails to load falls back to the name's initials. */}
           <EntityAvatar
             src={pickLogo(
@@ -211,8 +222,9 @@ function ApplicationTile({
               resolvedTheme
             )}
             name={application.name}
-            size={layout.avatar}
             fit="contain"
+            bare
+            className={layout.icon}
           />
         </ItemMedia>
         <ItemContent className="w-full min-w-0 flex-none items-center">

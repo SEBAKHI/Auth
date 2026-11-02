@@ -13,13 +13,13 @@ public static class FontErrors
         description: "No font file was provided.");
 
     /// <summary>
-    /// Not a WOFF2 font, or one that is damaged: a wrong signature, a declared length that is
+    /// Not a WOFF2, TrueType or OpenType font, or one that is damaged: a wrong signature, a declared length that is
     /// not the file's, a table directory that does not parse, or font data that does not
     /// decompress to what the directory declares.
     /// </summary>
     public static readonly Error Invalid = Error.Validation(
         code: "Font.Invalid",
-        description: "The file is not a valid WOFF2 font.");
+        description: "The file is not a valid WOFF2, TrueType or OpenType font.");
 
     public static readonly Error StorageUnavailable = Error.Unexpected(
         code: "Font.StorageUnavailable",

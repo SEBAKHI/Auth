@@ -257,6 +257,7 @@ function UserApplicationsTab({ userId }: { userId: string }) {
       getDarkSrc: (row) => row.logoUrlDark,
       getName: (row) => row.name,
       fit: "contain",
+      bare: true,
       covers: ["logoUrl", "logoUrlDark"],
     }),
     {

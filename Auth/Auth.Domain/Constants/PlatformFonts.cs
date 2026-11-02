@@ -1,7 +1,8 @@
 namespace Auth.Domain.Constants;
 
 /// <summary>
-/// The limits on the platform's own font files (owner decision D7, 2026-10-31): WOFF2 only,
+/// The limits on the platform's own font files (owner decision D7, 2026-10-31): WOFF2, or a
+/// TrueType or OpenType file the server stores as WOFF2 (owner, 2026-11-02),
 /// one file per role, each at most <see cref="MaxSizeBytes"/>. The console's copy
 /// (<c>FONT_MAX_SIZE_BYTES</c> in <c>packages/ui/src/theme/platform-fonts.ts</c>) is held to
 /// this value by a test that reads this file.

@@ -1002,7 +1002,7 @@
     <value>字体文件超过了{0}字节的最大限制。</value>
   </data>
   <data name="Font.Invalid" xml:space="preserve">
-    <value>该文件不是有效的 WOFF2 字体。</value>
+    <value>该文件不是有效的 WOFF2、TTF 或 OTF 字体。</value>
   </data>
   <data name="Font.StorageUnavailable" xml:space="preserve">
     <value>字体存储不可用。</value>

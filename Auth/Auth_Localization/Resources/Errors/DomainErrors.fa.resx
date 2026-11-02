@@ -1002,7 +1002,7 @@
     <value>حجم فایل قلم از حداکثر {0} بایت بیشتر است.</value>
   </data>
   <data name="Font.Invalid" xml:space="preserve">
-    <value>این فایل یک قلم WOFF2 معتبر نیست.</value>
+    <value>این فایل یک قلم WOFF2، TTF یا OTF معتبر نیست.</value>
   </data>
   <data name="Font.StorageUnavailable" xml:space="preserve">
     <value>فضای ذخیره‌سازی قلم‌ها در دسترس نیست.</value>

@@ -8,7 +8,7 @@ import type { Schemas } from "@authsystem/api/types"
 
 /**
  * The Fonts tab (UI batch P4, item 7): per role, what is in use, a Latin and Arabic preview,
- * and upload / replace / remove. A picked file is checked in the browser first (WOFF2, at most
+ * and upload / replace / remove. A picked file is checked in the browser first (WOFF2, TTF or OTF, at most
  * 2 MB, loadable) and previewed before anything is sent; Save sends it as multipart to the
  * role's endpoint; Remove asks first.
  *
@@ -147,7 +147,7 @@ describe("FontsTab", () => {
     [
       "a PNG renamed .woff2",
       new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "logo.woff2"),
-      "This file is not a WOFF2 font. Convert it to WOFF2 first.",
+      "This file is not a WOFF2, TTF or OTF font.",
     ],
   ])("refuses %s in the browser, and sends nothing", async (_what, file, message) => {
     renderTab()
@@ -157,6 +157,16 @@ describe("FontsTab", () => {
     expect(await within(card("Heading font")).findByText(message)).toBeInTheDocument()
     expect(within(card("Heading font")).queryByText("Not saved yet")).toBeNull()
     expect(put).not.toHaveBeenCalled()
+  })
+
+  it("takes a TrueType file, which the server stores as WOFF2", async () => {
+    renderTab()
+    const ttf = new Uint8Array(64)
+    ttf.set([0x00, 0x01, 0x00, 0x00])
+
+    await pick("body", new File([ttf], "Readex-VariableFont_HEXP,wght.ttf", { type: "font/ttf" }))
+
+    await within(card("Body font")).findByText("Not saved yet")
   })
 
   it("refuses a file the browser cannot load as a font", async () => {

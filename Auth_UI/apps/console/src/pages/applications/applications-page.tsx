@@ -146,6 +146,7 @@ export function ApplicationsPage() {
       getDarkSrc: (row) => row.logoUrlDark,
       getName: (row) => row.name,
       fit: "contain",
+      bare: true,
       covers: ["logoUrl", "logoUrlDark"],
     }),
     {

@@ -43,6 +43,7 @@ export function ThemedLogo({
   dialogTitle,
   dialogDescription,
   size = "xl",
+  bare,
 }: {
   name?: string | null
   /**
@@ -61,6 +62,8 @@ export function ThemedLogo({
   dialogTitle: string
   dialogDescription: string
   size?: "default" | "sm" | "lg" | "xl"
+  /** No circle and no ring around the logo (`EntityAvatar`). */
+  bare?: boolean
 }) {
   const { t } = useTranslation()
   const resolvedTheme = useResolvedTheme()
@@ -69,7 +72,7 @@ export function ThemedLogo({
   const src = pickLogo(lightSrc ?? null, darkSrc ?? null, resolvedTheme)
 
   if (!canEdit) {
-    return <EntityAvatar src={src} name={name} size={size} fit="contain" />
+    return <EntityAvatar src={src} name={name} size={size} fit="contain" bare={bare} />
   }
 
   // Each slot is painted in its own mode: a light wordmark meant for dark
@@ -88,7 +91,7 @@ export function ThemedLogo({
             aria-label={label ?? t("common.avatar")}
             className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <EntityAvatar src={src} name={name} size={size} fit="contain" />
+            <EntityAvatar src={src} name={name} size={size} fit="contain" bare={bare} />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
@@ -125,6 +128,8 @@ export function ThemedLogo({
                   label={slot.label}
                   canEdit
                   persist={slot.persist}
+                  surface={slot.mode}
+                  bare={bare}
                   invalidate={invalidate}
                   successMessage={successMessage}
                 />
