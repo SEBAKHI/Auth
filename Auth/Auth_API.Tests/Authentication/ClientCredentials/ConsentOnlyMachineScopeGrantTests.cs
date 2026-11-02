@@ -30,7 +30,7 @@ public sealed class ConsentOnlyMachineScopeGrantTests : IDisposable
     private readonly Mock<IApplicationMachineKeyRepository> _keys = new();
     private readonly Mock<IApplicationRepository> _applications = new();
     private readonly Mock<IClientAssertionJtiStore> _jtis = new();
-    private readonly JwtSettings _settings = new() { Issuer = MachineCredentials.Issuer, Audience = "authsystem-api", KeyId = "test-key" };
+    private readonly JwtSettings _settings = new() { Issuer = MachineCredentials.Issuer, Audience = "authsystem-api", KeyId = "test-key", PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem() };
     private readonly JwtTokenService _tokens;
     private readonly AppEntity _application = TestHelpers.CreateApplication(id: ApplicationId, code: MachineCredentials.ClientId);
 

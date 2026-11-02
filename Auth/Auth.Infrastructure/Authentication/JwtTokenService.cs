@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.Json;
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
-using Auth.Infrastructure.Security;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
@@ -22,16 +21,15 @@ namespace Auth.Infrastructure.Authentication;
 /// JWT token service implementation using RS256 (asymmetric) signing.
 /// Supports JWKS endpoint for external token validation.
 /// </summary>
-public class JwtTokenService : IJwtTokenService, IDisposable
+public class JwtTokenService : IJwtTokenService, ISigningKeyProbe, IDisposable
 {
     private readonly JwtSettings _settings;
     private readonly IOptionsMonitor<JwtSettings>? _liveSettings;
-    private readonly IPasswordHasher _passwordHasher;
-    private readonly IDataProtectionProvider? _dataProtectionProvider;
     private readonly RSA _rsa;
     private readonly RsaSecurityKey _securityKey;
     private readonly SigningCredentials _signingCredentials;
     private readonly JwtSecurityTokenHandler _tokenHandler;
+    private readonly Lazy<ErrorOr<Success>> _signingKeyProbe;
     private bool _disposed;
 
     public JwtTokenService(
@@ -39,15 +37,25 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         IPasswordHasher passwordHasher,
         IDataProtectionProvider? dataProtectionProvider = null,
         IOptionsMonitor<JwtSettings>? liveSettings = null)
+        : this(settings.Value, SigningKeyLoader.Load(settings.Value, dataProtectionProvider), liveSettings)
     {
-        _settings = settings.Value;
+    }
+
+    /// <summary>
+    /// Over an RSA key loaded elsewhere, bypassing <see cref="SigningKeyLoader"/>'s checks: lets a
+    /// test hold a key the loader refuses (a public-only one) and prove the readiness probe fails on it.
+    /// </summary>
+    internal JwtTokenService(JwtSettings settings, RSA rsa, IOptionsMonitor<JwtSettings>? liveSettings = null)
+    {
+        _settings = settings;
         _liveSettings = liveSettings;
-        _passwordHasher = passwordHasher;
-        _dataProtectionProvider = dataProtectionProvider;
-        _rsa = LoadOrGenerateKey();
+        _rsa = rsa;
         _securityKey = new RsaSecurityKey(_rsa) { KeyId = _settings.KeyId };
         _signingCredentials = new SigningCredentials(_securityKey, SecurityAlgorithms.RsaSha256);
         _tokenHandler = new JwtSecurityTokenHandler();
+        // The key is fixed for the life of the process, so the answer is too: signed once, on the
+        // first readiness call, and an anonymous /ready caller never makes the server sign again.
+        _signingKeyProbe = new Lazy<ErrorOr<Success>>(SignAndValidateProbe, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <inheritdoc />
@@ -409,36 +417,24 @@ public class JwtTokenService : IJwtTokenService, IDisposable
     /// </summary>
     public SecurityKey GetSecurityKey() => _securityKey;
 
-    private RSA LoadOrGenerateKey()
+    /// <inheritdoc />
+    public ErrorOr<Success> ProbeSigningKey() => _signingKeyProbe.Value;
+
+    private ErrorOr<Success> SignAndValidateProbe()
     {
-        var rsa = RSA.Create(2048);
-
-        // Priority 1: Load from file path
-        if (!string.IsNullOrEmpty(_settings.PrivateKeyPath) && File.Exists(_settings.PrivateKeyPath))
+        var now = DateTime.UtcNow;
+        var probe = _tokenHandler.CreateToken(new SecurityTokenDescriptor
         {
-            var pem = File.ReadAllText(_settings.PrivateKeyPath);
-            rsa.ImportFromPem(pem);
-            return rsa;
-        }
+            Subject = new ClaimsIdentity([new Claim(JwtClaimNames.Subject, "signing-key-probe")]),
+            Expires = now.AddMinutes(1),
+            NotBefore = now,
+            IssuedAt = now,
+            Issuer = _settings.Issuer,
+            Audience = _settings.Audience,
+            SigningCredentials = _signingCredentials
+        });
 
-        // Priority 2: Decrypt DPAPI-encrypted key from config (recommended for production)
-        if (!string.IsNullOrEmpty(_settings.PrivateKeyEncrypted) && _dataProtectionProvider != null)
-        {
-            var pem = RsaKeyService.DecryptPrivateKey(_dataProtectionProvider, _settings.PrivateKeyEncrypted);
-            rsa.ImportFromPem(pem);
-            return rsa;
-        }
-
-        // Priority 3: Load plain PEM from config (legacy/development)
-        if (!string.IsNullOrEmpty(_settings.PrivateKeyPem))
-        {
-            rsa.ImportFromPem(_settings.PrivateKeyPem);
-            return rsa;
-        }
-
-        // Priority 4: Generate new key (development only)
-        // In production, this should be configured via one of the above methods
-        return rsa;
+        return ValidateAccessToken(_tokenHandler.WriteToken(probe)).Then(_ => Result.Success);
     }
 
     private static string Base64UrlEncode(byte[] input)

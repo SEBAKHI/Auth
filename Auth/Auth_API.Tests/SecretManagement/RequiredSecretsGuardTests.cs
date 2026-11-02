@@ -64,6 +64,27 @@ public class RequiredSecretsGuardTests
         }
     }
 
+    [Fact]
+    public void Throws_TellingARestoreFromANewInstall_AndAdvisesGenerationForTheNewInstallOnly()
+    {
+        // X03: before, the one piece of advice was "Enable SecretManagement:AutoGenerateKeys".
+        // After a lost file on a database in use, following it replaced every key: everyone
+        // signed out, webhook keys dead, the deletion reservations orphaned for good.
+        var act = () => RequiredSecretsGuard.EnsureAllPresent(new ConfigurationBuilder().Build(), "Certificate");
+
+        var lines = act.Should().Throw<InvalidOperationException>().Which.Message
+            .Split(Environment.NewLine);
+
+        var ranBefore = lines.Should().ContainSingle(line => line.StartsWith("  - This deployment has run before:")).Which;
+        ranBefore.Should().Contain("Restore it from backup")
+            .And.Contain("Do not enable SecretManagement:AutoGenerateKeys")
+            .And.Contain("permanently break the account-deletion reservations");
+
+        lines.Should().ContainSingle(line => line.Contains("AutoGenerateKeys to true"))
+            .Which.Should().StartWith("  - A brand-new install only:",
+                "turning generation on is the right advice for a new install and the wrong one after a lost file");
+    }
+
     private static IConfiguration BuildConfiguration(string? omit = null, string? blank = null)
     {
         var values = new Dictionary<string, string?>();

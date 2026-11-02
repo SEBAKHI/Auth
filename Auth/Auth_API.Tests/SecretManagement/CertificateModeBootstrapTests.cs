@@ -112,6 +112,58 @@ public class CertificateModeBootstrapTests : IDisposable
     }
 
     [Fact]
+    public async Task FirstStartup_ARefusedRegeneration_WritesNoSecretsFile()
+    {
+        // X03: a lost file on a used system looks exactly like a first start. The database check
+        // runs inside the generation, before the write, so a refusal leaves nothing a later start
+        // would load as if it were the deployment's own keys.
+        var secretFilePath = Path.Combine(_workingDirectory, "refused-secrets.dpapi");
+        var settings = new SecretManagementSettings { SecretFilePath = secretFilePath, AutoGenerateKeys = true };
+        var service = new DpapiSecretService(
+            BuildCertificateProtectedProvider(), Options.Create(settings), NullLogger<DpapiSecretService>.Instance);
+        IReadOnlyCollection<GeneratedSecret>? checkedSecrets = null;
+
+        var act = () => service.GenerateMissingKeysAsync(
+            CancellationToken.None,
+            beforeSave: generated =>
+            {
+                checkedSecrets = KeyRegenerationGuard.GeneratedBy(generated);
+                throw new InvalidOperationException("Refusing to generate (test)");
+            });
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        File.Exists(secretFilePath).Should().BeFalse("nothing is written once the check refuses");
+        checkedSecrets.Should().BeEquivalentTo(
+            [
+                GeneratedSecret.SigningKey,
+                GeneratedSecret.CredentialHmacKey,
+                GeneratedSecret.GatewayToken,
+                GeneratedSecret.IdentifierKey
+            ],
+            "a first start mints every key, the permanent one included, so every one of them is checked");
+    }
+
+    [Fact]
+    public async Task FirstStartup_AFileAnotherProcessWroteDuringTheCheck_IsNotOverwritten()
+    {
+        // Two processes starting on the same missing file: the in-process lock does not reach the
+        // other one, and the database check widens the window. Overwriting its file would leave it
+        // signing with keys no longer in the file, so this start stops and the next one loads it.
+        var secretFilePath = Path.Combine(_workingDirectory, "contended-secrets.dpapi");
+        var settings = new SecretManagementSettings { SecretFilePath = secretFilePath, AutoGenerateKeys = true };
+        var service = new DpapiSecretService(
+            BuildCertificateProtectedProvider(), Options.Create(settings), NullLogger<DpapiSecretService>.Instance);
+        var theOtherProcessesFile = new byte[] { 1, 2, 3 };
+
+        var act = () => service.GenerateMissingKeysAsync(
+            CancellationToken.None,
+            beforeSave: _ => File.WriteAllBytes(secretFilePath, theOtherProcessesFile));
+
+        (await act.Should().ThrowAsync<IOException>()).WithMessage("*Another process created the secrets file*");
+        File.ReadAllBytes(secretFilePath).Should().Equal(theOtherProcessesFile, "the other process's keys stay as it wrote them");
+    }
+
+    [Fact]
     public async Task ExistingSecretFile_MissingOnlyTheLateAddedKey_IsToppedUpWithoutTouchingTheOthers()
     {
         // Models the real production state: a secrets file created before the
@@ -180,8 +232,8 @@ public class CertificateModeBootstrapTests : IDisposable
                 "a permanent key that changes across restarts silently orphans the deletion registry, " +
                 "making identifiers the policy promises are never recycled registrable again");
 
-        IdentifierKeyRegenerationGuard.Fingerprint(second["AccountDeletion:IdentifierHmacKeyPlain"])
-            .Should().Be(IdentifierKeyRegenerationGuard.Fingerprint(first["AccountDeletion:IdentifierHmacKeyPlain"]),
+        KeyRegenerationGuard.Fingerprint(second["AccountDeletion:IdentifierHmacKeyPlain"])
+            .Should().Be(KeyRegenerationGuard.Fingerprint(first["AccountDeletion:IdentifierHmacKeyPlain"]),
                 "the logged fingerprint is how an operator detects exactly this failure");
     }
 

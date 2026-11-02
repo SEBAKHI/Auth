@@ -42,11 +42,21 @@ public static class RequiredSecretsGuard
                 $"  - {secret.ConfigurationKey} ({secret.Permanence}) — {secret.Purpose}. " +
                 $"In Certificate/Dpapi mode it is carried by SecretConfiguration.{secret.SecretFileProperty}."));
 
+        // Two situations end here, and the way out of one destroys the other (X03). This check runs
+        // before the database is reachable, so the operator is the one who tells them apart: the
+        // advice to generate is given for a brand-new install only.
         throw new InvalidOperationException(
             $"Refusing to start: {missing.Count} required secret(s) are missing from the resolved " +
             $"configuration under storage mode '{storageMode}'.{Environment.NewLine}{details}{Environment.NewLine}" +
-            "Enable SecretManagement:AutoGenerateKeys so the storage mode's generator provisions them, or " +
-            "provision them manually in the secrets file. Starting without them would serve traffic that " +
-            "fails at the first request touching the secret, not at boot.");
+            "Which case is this?" + Environment.NewLine +
+            "  - This deployment has run before: its secrets file is missing or was not read (check " +
+            "SecretManagement:SecretFilePath and any decryption error logged above). Restore it from backup, with " +
+            "the Data Protection key ring and certificate, and restart. Do not enable " +
+            "SecretManagement:AutoGenerateKeys: new keys over a database in use sign everyone out, make every " +
+            "webhook key and pending invitation invalid, and permanently break the account-deletion reservations." +
+            Environment.NewLine +
+            "  - A brand-new install only: set SecretManagement:AutoGenerateKeys to true for one run, so the storage " +
+            "mode's generator provisions them, then set it back to false." + Environment.NewLine +
+            "Starting without them would serve traffic that fails at the first request touching the secret, not at boot.");
     }
 }

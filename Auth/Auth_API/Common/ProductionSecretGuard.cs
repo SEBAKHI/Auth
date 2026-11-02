@@ -19,6 +19,9 @@ public static class ProductionSecretGuard
     private static readonly string[] PlaintextSecretKeys =
     [
         "Jwt:PrivateKeyPem",
+        // A plaintext PEM file on disk (X03): it wins over the encrypted secrets file, so
+        // in Production it would decide the signing key outside encrypted storage.
+        "Jwt:PrivateKeyPath",
         "Jwt:RefreshTokenHmacKeyPlain",
         "AccountDeletion:IdentifierHmacKeyPlain",
         "ExternalAuth:Apple:PrivateKeyPem"
@@ -61,6 +64,7 @@ public static class ProductionSecretGuard
             "Production configuration. The JWT signing key, the refresh-token HMAC key and the keyrings must never be " +
             "stored in plaintext in appsettings. Use SecretManagement:StorageMode = Certificate (or Dpapi) " +
             "so they live encrypted in the secrets file, and REMOVE these plaintext values (and Jwt:PublicKeyPem) " +
-            "from appsettings.Production.json. If they were ever committed or exposed, rotate the keys.");
+            "from appsettings.Production.json; Jwt:PrivateKeyPath points at a plaintext key file, so remove it too. " +
+            "If they were ever committed or exposed, rotate the keys.");
     }
 }

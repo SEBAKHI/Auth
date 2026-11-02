@@ -114,7 +114,7 @@ public sealed class MachineTokenProviderTests : IDisposable
     /// </summary>
     private JwtSettings ServerAnswersWithItsRealHandler(JwtTokenService tokens)
     {
-        var settings = new JwtSettings { Issuer = Issuer, Audience = "platform", KeyId = "server-key" };
+        var settings = new JwtSettings { Issuer = Issuer, Audience = "platform", KeyId = "server-key", PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem() };
         var keys = new Mock<IApplicationMachineKeyRepository>();
         keys.Setup(r => r.GetActiveByKidAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string kid, CancellationToken _) => kid == _key.PublicKey.Kid
@@ -155,7 +155,7 @@ public sealed class MachineTokenProviderTests : IDisposable
     [Fact]
     public async Task RoundTrip_TheServersOwnHandlerAcceptsTheSdkAssertion_AndTheTokenIsAMachineToken()
     {
-        var settings = new JwtSettings { Issuer = Issuer, Audience = "platform", KeyId = "server-key" };
+        var settings = new JwtSettings { Issuer = Issuer, Audience = "platform", KeyId = "server-key", PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem() };
         using var tokens = new JwtTokenService(Options.Create(settings), Mock.Of<IPasswordHasher>());
         ServerAnswersWithItsRealHandler(tokens);
         var client = Build().GetRequiredService<AuthSystemClient>();

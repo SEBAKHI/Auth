@@ -118,8 +118,15 @@ public interface IDpapiSecretService
     /// Only generates keys that are not already configured.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="beforeSave">
+    /// Called with what is about to be generated, after the keys exist in memory and before the
+    /// file is written. Throwing from it writes nothing (X03: the startup path checks the database
+    /// here, so a refused regeneration leaves no secrets file behind).
+    /// </param>
     /// <returns>Summary of keys generated and skipped.</returns>
-    Task<KeyGenerationResult> GenerateMissingKeysAsync(CancellationToken cancellationToken);
+    Task<KeyGenerationResult> GenerateMissingKeysAsync(
+        CancellationToken cancellationToken,
+        Action<KeyGenerationResult>? beforeSave = null);
 
     // ═══════════════════════════════════════════════════════════════
     // Key Import Operations (bring-your-own-keys)
@@ -177,6 +184,11 @@ public class KeyGenerationResult
     /// Whether a new gateway token was generated.
     /// </summary>
     public bool GatewayTokenGenerated { get; set; }
+
+    /// <summary>
+    /// Whether a new account-deletion identifier key was generated. The key is permanent.
+    /// </summary>
+    public bool IdentifierKeyGenerated { get; set; }
 
     /// <summary>
     /// The public key PEM (only set if RSA key was generated).

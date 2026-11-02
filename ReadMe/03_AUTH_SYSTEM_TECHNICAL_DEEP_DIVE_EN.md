@@ -1750,9 +1750,9 @@ Two further keys are secret-managed but not startup-required: `ExternalAuth:Appl
 Apple `.p8` signing key) and the SMTP password `Email:Password`.
 
 **A startup guard refuses to boot if any crown-jewel secret is present in plaintext Production
-configuration.** It checks `Jwt:PrivateKeyPem`, `Jwt:RefreshTokenHmacKeyPlain`,
-`AccountDeletion:IdentifierHmacKeyPlain` and `ExternalAuth:Apple:PrivateKeyPem`, and it runs *before* the
-secret provider is layered.
+configuration.** It checks `Jwt:PrivateKeyPem`, `Jwt:PrivateKeyPath` (a plaintext key file),
+`Jwt:RefreshTokenHmacKeyPlain`, `AccountDeletion:IdentifierHmacKeyPlain` and
+`ExternalAuth:Apple:PrivateKeyPem`, and it runs *before* the secret provider is layered.
 
 ### Provisioning
 
@@ -1761,6 +1761,19 @@ secret provider is layered.
   each.
 - **Set it to `false` after the first successful startup**, so that a missing secret fails loudly instead
   of being silently regenerated — a silent regeneration invalidates every outstanding token.
+- **With it `true`, generation still never replaces a key that live data depends on.** Outside
+  Development, every generation path (plain text, first start, identifier-key top-up, pepper) counts the
+  rows written under the key it would replace before anything is written, and refuses to start if there
+  are any: a lost secrets file on a used system is no longer taken for a first start. The seeded System
+  user and administrator are not such rows, so a brand-new database generates. An unreadable database
+  refuses too. Development generates with a Warning. The deliberate way past a refusal, when no backup
+  exists, is `AUTH_ALLOW_KEY_REGENERATION` set to today's UTC date, honoured on that date only
+  ([PRODUCTION_DEPLOYMENT_GUIDE.md §D.1](PRODUCTION_DEPLOYMENT_GUIDE.md#d1-startup-refusals-about-key-material)).
+- **The signing key and the gateway token are checked at boot.** The winning signing-key source must hold
+  a private RSA key of at least 2048 bits, no source at all refuses (it used to mean an unsaved random
+  key), and outside Development a `Jwt:PrivateKeyPath` without a file refuses instead of falling through.
+  A gateway token shorter than 16 characters refuses. `/ready` signs and validates a probe token rather
+  than reading the public key, which a public-only key still exports.
 - **Bring your own keys** by importing them through the administration endpoints below (Certificate and
   Dpapi modes) or by writing them into `appsettings.Production.json` (PlainText mode). This is what makes
   a server migration possible without logging every user out. See

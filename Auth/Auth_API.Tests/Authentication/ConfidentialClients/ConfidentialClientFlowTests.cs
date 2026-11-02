@@ -299,7 +299,8 @@ public sealed class ConfidentialClientFlowTests : IDisposable
     {
         using var settings = new JwtTokenService(Options.Create(new JwtSettings
         {
-            Issuer = MachineCredentials.Issuer, Audience = "authsystem-api", KeyId = "test-key"
+            Issuer = MachineCredentials.Issuer, Audience = "authsystem-api", KeyId = "test-key",
+            PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem()
         }), Mock.Of<IPasswordHasher>());
         var handler = new ClientCredentialsCommandHandler(
             Authenticator(), _keys.Object, Mock.Of<IApplicationRepository>(), settings, NullLogger<ClientCredentialsCommandHandler>.Instance);

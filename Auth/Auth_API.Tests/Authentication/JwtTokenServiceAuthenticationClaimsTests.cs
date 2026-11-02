@@ -28,7 +28,8 @@ public sealed class JwtTokenServiceAuthenticationClaimsTests : IDisposable
         {
             Issuer = "https://auth.example.com",
             Audience = "auth-platform",
-            KeyId = "test-key"
+            KeyId = "test-key",
+            PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem()
         }),
         Mock.Of<IPasswordHasher>());
 

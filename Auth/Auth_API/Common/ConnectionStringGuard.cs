@@ -30,11 +30,15 @@ public static class ConnectionStringGuard
     /// heuristic ("looks nothing like a connection string") would eventually
     /// reject a real one.
     /// </summary>
-    private const string Placeholder = "ConnectionStrings__AuthDb";
+    public const string Placeholder = "ConnectionStrings__AuthDb";
+
+    /// <summary>Whether <paramref name="connectionString"/> is still the shipped placeholder.</summary>
+    public static bool IsPlaceholder(string? connectionString) =>
+        string.Equals(connectionString?.Trim(), Placeholder, StringComparison.Ordinal);
 
     public static void EnsureResolved(string? connectionString)
     {
-        if (!string.Equals(connectionString?.Trim(), Placeholder, StringComparison.Ordinal))
+        if (!IsPlaceholder(connectionString))
         {
             return;
         }

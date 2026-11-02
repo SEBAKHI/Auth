@@ -70,11 +70,17 @@ public static class PlainTextSecretInitializer
     /// <param name="contentRootPath">Application content root, used to resolve a relative <paramref name="targetFile"/>.</param>
     /// <param name="autoGenerate">Whether missing secrets should be generated.</param>
     /// <param name="targetFile">Appsettings file to persist generated secrets to (absolute or relative to content root).</param>
+    /// <param name="beforeGenerate">
+    /// Called with the secrets about to be generated, before anything is generated or written.
+    /// Throwing from it leaves the target file as it was (X03: the startup path checks the database
+    /// here, so a refused regeneration writes nothing).
+    /// </param>
     public static PlainTextSecretResult EnsureSecrets(
         IConfiguration configuration,
         string contentRootPath,
         bool autoGenerate,
-        string targetFile)
+        string targetFile,
+        Action<IReadOnlyCollection<GeneratedSecret>>? beforeGenerate = null)
     {
         var existingPrivateKey = configuration["Jwt:PrivateKeyPem"];
         var existingHmac = configuration["Jwt:RefreshTokenHmacKeyPlain"];
@@ -91,6 +97,18 @@ public static class PlainTextSecretInitializer
         {
             return new PlainTextSecretResult { Generated = false };
         }
+
+        beforeGenerate?.Invoke(
+            new (bool Needed, GeneratedSecret Secret)[]
+                {
+                    (needsPrivateKey, GeneratedSecret.SigningKey),
+                    (needsHmac, GeneratedSecret.CredentialHmacKey),
+                    (needsGateway, GeneratedSecret.GatewayToken),
+                    (needsIdentifierHmac, GeneratedSecret.IdentifierKey)
+                }
+                .Where(candidate => candidate.Needed)
+                .Select(candidate => candidate.Secret)
+                .ToList());
 
         var configValues = new Dictionary<string, string?>();
         var generatedKeys = new List<string>();
