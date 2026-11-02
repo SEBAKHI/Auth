@@ -226,14 +226,6 @@ export const STATIC_SURFACES: readonly StaticSurface[] = [
     permission: PERMISSIONS.platformSettings.manage,
   },
   {
-    id: "platform-settings-account-bar",
-    route: `/admin/platform-settings?${TAB_QUERY_PARAM}=account-bar`,
-    titleKey: "platformSettings.tabAccountBar",
-    descriptionKey: "platformSettings.accountBar.description",
-    pathKeys: ["nav.platformSettings"],
-    permission: PERMISSIONS.platformSettings.manage,
-  },
-  {
     id: "system-settings",
     route: "/admin/system-settings",
     titleKey: "systemSettings.title",

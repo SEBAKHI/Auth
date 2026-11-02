@@ -54,9 +54,6 @@ import {
 /** The platform's sign-in page designs: their own chunk, loaded when the tab first opens. */
 const LoginDesignsTab = React.lazy(() => import("./login-designs-tab"))
 
-/** The account bar's code generator: its own chunk too, loaded when the tab first opens. */
-const AccountBarTab = React.lazy(() => import("./account-bar-tab"))
-
 const SETTINGS_QUERY_KEY = PLATFORM_SETTINGS_QUERY_KEY
 
 function SettingsCard({
@@ -351,17 +348,6 @@ const TAB_PANELS: Record<PlatformSettingsTabValue, PlatformSettingsTabPanel> = {
     capped: true,
     render: ({ settings, onUnsavedChange }) => (
       <LanguagesTab settings={settings} onUnsavedChange={onUnsavedChange} />
-    ),
-  },
-  // The account bar of linked applications is the platform's, not one application's
-  // (owner, 2026-11-02): its code is written here. Nothing on the tab is saved.
-  "account-bar": {
-    labelKey: "platformSettings.tabAccountBar",
-    capped: true,
-    render: () => (
-      <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
-        <AccountBarTab />
-      </React.Suspense>
     ),
   },
 }
