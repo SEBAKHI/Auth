@@ -77,6 +77,13 @@
     --spacing-control-sm: calc(var(--control-height) - 0.25rem);
     --spacing-control-lg: calc(var(--control-height) + 0.25rem);
     --spacing-cell-y: calc((var(--table-row-height) - 1.25rem) / 2);
+    /*
+     * The header's icon buttons and the avatar (`size-header-button`), and
+     * their icons (`size-header-icon`): Platform settings › Appearance ›
+     * Header icon size.
+     */
+    --spacing-header-button: var(--header-button);
+    --spacing-header-icon: var(--header-icon);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -118,6 +125,8 @@
     --radius: 0.625rem;
     --control-height: 2.25rem;
     --table-row-height: 2.75rem;
+    --header-icon: 1.5rem;
+    --header-button: 2.5rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.205 0 0);

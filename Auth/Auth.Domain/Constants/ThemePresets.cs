@@ -3,8 +3,9 @@ namespace Auth.Domain.Constants;
 /// <summary>
 /// The closed vocabulary of the platform appearance settings: the names of
 /// shadcn/ui's colour registry (the Base Color, Theme and Chart Color pickers of
-/// https://ui.shadcn.com/create), its radius steps and its menu accents, and
-/// the size steps of the control height and the table row height.
+/// https://ui.shadcn.com/create), its radius steps and its menu accents,
+/// the size steps of the control height and the table row height, and the
+/// header icon sizes.
 /// </summary>
 /// <remarks>
 /// The API stores names, never colour values: the console builds the CSS from
@@ -147,6 +148,29 @@ public static class ThemePresets
     /// has customised, and of an appearance saved before either existed.
     /// </summary>
     public const string DefaultSize = "default";
+
+    /// <summary>
+    /// The sizes of the icon buttons and the avatar in the header of the console
+    /// and the accounts app, smallest first. The header itself stays 56px tall at
+    /// both. The avatar is as large as a button. The pixels belong to the front
+    /// end (<c>Auth_UI/packages/ui/src/theme/theme-config.ts</c>):
+    /// <list type="bullet">
+    /// <item><c>small</c>: icon 16px, button and avatar 36px (the header's buttons before the setting existed).</item>
+    /// <item><c>default</c>: icon 24px, button and avatar 40px (Google's header).</item>
+    /// </list>
+    /// No larger size (owner, 2026-11-02).
+    /// </summary>
+    public static readonly IReadOnlyList<string> HeaderIconSizes =
+    [
+        "small",
+        "default",
+    ];
+
+    /// <summary>
+    /// The header icon size of an installation nobody has customised, and of an
+    /// appearance saved before the setting existed (owner decision, 2026-11-02).
+    /// </summary>
+    public const string DefaultHeaderIconSize = "default";
 
     /// <summary>
     /// The height in pixels of a size step on a scale (<see cref="ControlHeightsPx"/>

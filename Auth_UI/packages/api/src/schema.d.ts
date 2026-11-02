@@ -19527,6 +19527,7 @@ export interface components {
             menuAccent?: string;
             controlSize?: components["schemas"]["ThemeSizeChoiceDto"];
             tableRowHeight?: components["schemas"]["ThemeSizeChoiceDto"];
+            headerIconSize?: string;
         };
         PreviewLoginDesignRequest: {
             content: string;
@@ -20270,6 +20271,7 @@ export interface components {
             menuAccent: null | string;
             controlSize: null | components["schemas"]["ThemeSizeChoiceRequest"];
             tableRowHeight: null | components["schemas"]["ThemeSizeChoiceRequest"];
+            headerIconSize?: null | string;
         };
         UpdatePrivacyPolicyVersionRequest: {
             version?: string;

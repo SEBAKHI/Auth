@@ -96,6 +96,7 @@ export function AppearanceCard({
           value={draft}
           onChange={setDraft}
           previewName={settings.platformName ?? ""}
+          showHeaderIconSize
         />
       </CardContent>
       <CardFooter className="flex-wrap gap-2">

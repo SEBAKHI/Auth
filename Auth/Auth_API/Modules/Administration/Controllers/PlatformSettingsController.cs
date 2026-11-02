@@ -116,6 +116,8 @@ public class PlatformSettingsController : ApiController
             request.MenuAccent,
             request.ControlSize.ToSize(),
             request.TableRowHeight.ToSize(),
+            // Left out by a client that predates the setting: the default, never a refusal.
+            request.HeaderIconSize ?? ThemePresets.DefaultHeaderIconSize,
             GetUserId());
 
         var result = await _sender.Send(command, cancellationToken);

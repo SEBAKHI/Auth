@@ -267,7 +267,9 @@ for (const language of ["en", "ar"] as const) {
           .filter((box) => box.width > 0 && (box.left < 0 || box.right > window.innerWidth)).length
       )
       expect(outside, "controls outside the screen").toBe(0)
-      await expectHeight(page.locator('[data-slot="sidebar-trigger"]').first(), 32, "sidebar trigger")
+      // On a phone the trigger is a header button: it follows the header icon
+      // size (Google's, 40px, by default), never the control height.
+      await expectHeight(page.locator('[data-slot="sidebar-trigger"]').first(), 40, "sidebar trigger")
 
       // Viewport shots: the card is taller than the screen, and an element
       // shot of it inside the shell's scroll pane is stitched, not seen.

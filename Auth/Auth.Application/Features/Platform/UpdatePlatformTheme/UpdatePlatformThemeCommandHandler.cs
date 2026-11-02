@@ -44,7 +44,8 @@ public class UpdatePlatformThemeCommandHandler : IRequestHandler<UpdatePlatformT
             request.Radius,
             request.MenuAccent,
             request.ControlSize,
-            request.TableRowHeight);
+            request.TableRowHeight,
+            request.HeaderIconSize);
         if (theme.IsError)
         {
             return theme.Errors;

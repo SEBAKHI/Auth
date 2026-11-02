@@ -474,18 +474,20 @@ export function GlobalSearch() {
         onClick={() => setOpen(true)}
         // Reads as the search field it stands in for, so it carries the
         // weight and colour of placeholder text rather than of a button.
-        // The width is claimed from `md` up only: every other control in the
-        // header is `shrink-0`, so a fixed width on a phone comes straight out
-        // of the breadcrumb's share and leaves the page title nowhere to go.
-        // Below that it collapses to the icon alone, as the table's column
-        // button does.
-        className="justify-start font-normal text-muted-foreground md:w-48 lg:w-64"
+        // The width is claimed from `lg` up only: every other control in the
+        // header is `shrink-0`, so a fixed width where the header is narrow
+        // comes straight out of the breadcrumb's share and leaves the page
+        // title nowhere to go. Below that it collapses to the icon alone, as
+        // the table's column button does. Not from `md`: at 768px with the
+        // sidebar open, the header's icon buttons at Google's size and the
+        // grid button beside the avatar leave no room for a 192px field.
+        className="justify-start font-normal text-muted-foreground lg:w-48 xl:w-64"
       >
         <Search data-icon="inline-start" />
-        <span className="hidden truncate md:inline">
+        <span className="hidden truncate lg:inline">
           {t("globalSearch.placeholder")}
         </span>
-        <Kbd className="ms-auto hidden lg:inline-flex">{commandKey}</Kbd>
+        <Kbd className="ms-auto hidden xl:inline-flex">{commandKey}</Kbd>
       </Button>
 
       <CommandDialog

@@ -467,6 +467,7 @@ export const PUBLISHED_ERROR_CODES = {
   "SystemSettings.ThemeCustomSizeOutOfRange": "catalog",
   "SystemSettings.ThemeRowHeightBelowControlHeight": "catalog",
   "SystemSettings.ThemeUnknownColor": "catalog",
+  "SystemSettings.ThemeUnknownHeaderIconSize": "catalog",
   "SystemSettings.ThemeUnknownMenuAccent": "catalog",
   "SystemSettings.ThemeUnknownRadius": "catalog",
   "SystemSettings.ThemeUnknownSize": "catalog",

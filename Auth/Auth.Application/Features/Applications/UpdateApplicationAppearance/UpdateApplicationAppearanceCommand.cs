@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.ValueObjects;
 using ErrorOr;
 using MediatR;
@@ -40,7 +41,11 @@ public sealed record ThemeChoices(
     ThemeSizeChoice? ControlSize,
     ThemeSizeChoice? TableRowHeight)
 {
-    /// <summary>The appearance these choices make, under the platform's rules.</summary>
+    /// <summary>
+    /// The appearance these choices make, under the platform's rules. The header icon size is
+    /// always the default: an application's sign-in pages have no header to size.
+    /// </summary>
     public ErrorOr<PlatformTheme> ToTheme() =>
-        PlatformTheme.Create(BaseColor, Theme, Chart, Radius, MenuAccent, ControlSize, TableRowHeight);
+        PlatformTheme.Create(
+            BaseColor, Theme, Chart, Radius, MenuAccent, ControlSize, TableRowHeight, ThemePresets.DefaultHeaderIconSize);
 }

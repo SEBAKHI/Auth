@@ -379,3 +379,32 @@ for (const language of ["en", "ar"] as const) {
     }
   }
 }
+
+/**
+ * The header's grid button (owner, 2026-11-02) in the accounts app too: beside
+ * the avatar, it opens the same tiles in a panel.
+ */
+for (const language of ["en", "ar"] as const) {
+  for (const width of [375, 1440]) {
+    test(`the header's grid button opens the tiles in a panel (${language}, ${width}px)`, async ({
+      page,
+    }) => {
+      await page.addInitScript((lang) => localStorage.setItem("auth.language", lang), language)
+      await page.setViewportSize({ width, height: 900 })
+      await signIn(page, SEVEN, { language })
+
+      const launcher = page.getByRole("button", {
+        name: language === "ar" ? "التطبيقات" : "Applications",
+      })
+      await launcher.click()
+      const panel = page.getByRole("list", {
+        name: language === "ar" ? "التطبيقات" : "Applications",
+      })
+      await expect(panel.getByRole("link")).toHaveCount(7)
+      await expect(panel.getByRole("link").first()).toHaveAttribute("target", "_blank")
+      await page.screenshot({
+        path: test.info().outputPath(`accounts-panel-${language}-${width}.png`),
+      })
+    })
+  }
+}

@@ -5,8 +5,10 @@ import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
 
 /**
  * UI batch item 12, owner decision D9, on the built console: the same page as
- * the accounts app's Home, reached from the user menu as "My applications"
- * (console supremacy). Nothing on it points at the accounts origin.
+ * the accounts app's Home, at /my-applications (console supremacy). Since
+ * 2026-11-02 the header's grid button opens the same tiles from any page, and
+ * the user menu no longer lists the page. Nothing on it points at the accounts
+ * origin.
  */
 
 const APPLICATIONS = [
@@ -43,16 +45,23 @@ async function install(page: import("@playwright/test").Page, language = "en") {
   return asked
 }
 
-test("the user menu opens My applications, the shared Home page", async ({
-  page,
-}) => {
-  const asked = await install(page)
+test("the user menu no longer lists My applications", async ({ page }) => {
+  await install(page)
   await page.goto("/")
 
   await page.getByRole("button", { name: "Isolated Operator" }).click()
-  await page.getByRole("menuitem", { name: "My applications" }).click()
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible()
+  await expect(
+    page.getByRole("menuitem", { name: "My applications" })
+  ).toHaveCount(0)
+})
 
-  await expect(page).toHaveURL(/\/my-applications$/)
+test("My applications is still its own page, the shared Home page", async ({
+  page,
+}) => {
+  const asked = await install(page)
+  await page.goto("/my-applications")
+
   await expect(
     page.getByRole("heading", { level: 1, name: "My applications" })
   ).toBeVisible()

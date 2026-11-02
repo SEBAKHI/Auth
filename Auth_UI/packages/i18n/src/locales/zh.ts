@@ -342,6 +342,7 @@ export const zh: TranslationResources = {
     emptyDescription: "您可以登录的应用将显示在这里。",
     // Read after a tile's name by screen readers; never drawn.
     opensInNewTab: "（在新标签页中打开）",
+    launcher: "应用",
   },
   nav: {
     notifications: "通知",
@@ -2101,6 +2102,12 @@ export const zh: TranslationResources = {
       controlSizeHint: "按钮、输入框、下拉框和切换按钮一起调整：当前 {{px}} 像素。",
       tableRowHeight: "表格行高",
       tableRowHeightHint: "只有一行文字的行：当前 {{px}} 像素。含有图片或按钮的行会高出它们多出的高度。",
+      headerIconSize: "页眉图标尺寸",
+      headerIconSizeHint: "每个页面顶部的图标按钮和您的头像：{{button}} px 按钮上的 {{icon}} px 图标，头像与按钮一样大。页眉高度不变。",
+      headerIconSizes: {
+        small: "小",
+        default: "默认",
+      },
       sizes: {
         compact: "紧凑",
         default: "默认",

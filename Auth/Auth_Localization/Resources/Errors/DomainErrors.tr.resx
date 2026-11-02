@@ -980,6 +980,9 @@
   <data name="SystemSettings.ThemeUnknownMenuAccent" xml:space="preserve">
     <value>'{0}' seçilebilecek bir menü vurgusu değil.</value>
   </data>
+  <data name="SystemSettings.ThemeUnknownHeaderIconSize" xml:space="preserve">
+    <value>'{0}' seçilebilecek bir üst çubuk simge boyutu değil. small veya default seçin.</value>
+  </data>
   <data name="UiPreference.InvalidKey" xml:space="preserve">
     <value>Bu görünüm tercihi anahtarı uygulamanın sakladığı türden değil.</value>
   </data>

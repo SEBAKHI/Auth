@@ -7,7 +7,8 @@ namespace Auth.Application.Features.Platform.UpdatePlatformTheme;
 
 /// <summary>
 /// Command to replace the platform appearance (base colour, theme, chart
-/// colour, radius, menu accent, control height and table row height). The
+/// colour, radius, menu accent, control height, table row height and header
+/// icon size). The
 /// branding — name, logos, favicon — is saved by
 /// <c>UpdatePlatformSettingsCommand</c> and is not touched here.
 /// </summary>
@@ -18,6 +19,7 @@ namespace Auth.Application.Features.Platform.UpdatePlatformTheme;
 /// <param name="MenuAccent">The menu accent.</param>
 /// <param name="ControlSize">The control height choice.</param>
 /// <param name="TableRowHeight">The table row height choice.</param>
+/// <param name="HeaderIconSize">The header icon size.</param>
 /// <param name="UpdatedBy">ID of the admin performing the update.</param>
 public record UpdatePlatformThemeCommand(
     ThemeColorChoice? BaseColor,
@@ -27,4 +29,5 @@ public record UpdatePlatformThemeCommand(
     string? MenuAccent,
     ThemeSizeChoice? ControlSize,
     ThemeSizeChoice? TableRowHeight,
+    string? HeaderIconSize,
     Guid UpdatedBy) : IRequest<ErrorOr<PlatformSettingsDto>>;

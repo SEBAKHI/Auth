@@ -10,6 +10,8 @@ import {
   CHART_LIGHTNESS,
   CONTROL_HEIGHT,
   DEFAULT_THEME_CONFIG,
+  HEADER_ICON_SIZES,
+  HEADER_ICON_SIZE_PX,
   MENU_ACCENT_OPTIONS,
   RADIUS_OPTIONS,
   SIZE_STEPS,
@@ -298,14 +300,42 @@ describe("themeCss", () => {
   })
 })
 
+describe("the header icon size", () => {
+  const rem = (px: number) => `${px / 16}rem`
+
+  it("writes the icon and button of each size once, on the light (root) block", () => {
+    for (const size of HEADER_ICON_SIZES) {
+      const { light, dark } = buildThemeVars({ ...DEFAULT_THEME_CONFIG, headerIconSize: size })
+      const px = HEADER_ICON_SIZE_PX[size]
+      expect(light["header-icon"], size).toBe(rem(px.icon))
+      expect(light["header-button"], size).toBe(rem(px.button))
+      expect(dark["header-button"]).toBeUndefined()
+    }
+  })
+
+  it("has the owner's two sizes, Google's by default, both inside the 56px header", () => {
+    // No larger size (owner, 2026-11-02), and the avatar takes the button's
+    // size, so no avatar size of its own exists to drift.
+    expect(HEADER_ICON_SIZE_PX).toEqual({
+      small: { icon: 16, button: 36 },
+      default: { icon: 24, button: 40 },
+    })
+    expect(DEFAULT_THEME_CONFIG.headerIconSize).toBe("default")
+    for (const px of Object.values(HEADER_ICON_SIZE_PX)) {
+      expect(px.button).toBeLessThan(56)
+      expect(px.icon).toBeLessThan(px.button)
+    }
+  })
+})
+
 describe("the engine version", () => {
   // Browsers reuse a stylesheet computed for the same configuration and the
   // same THEME_ENGINE_VERSION. If this fingerprint moves, what the engine
   // computes moved: bump THEME_ENGINE_VERSION (theme-config.ts) and record
   // both new values here, or visitors keep the colours of the old engine.
   const RECORDED = {
-    version: 4,
-    fingerprint: "e58354d56adc3926",
+    version: 5,
+    fingerprint: "22d711676accd8b8",
   }
 
   it("changes whenever the computed stylesheets change", () => {
@@ -327,6 +357,7 @@ describe("the engine version", () => {
         menuAccent: "bold" as const,
         controlSize: { preset: "default" as const },
         tableRowHeight: { preset: "default" as const },
+        headerIconSize: "default" as const,
       })),
       ...SIZE_STEPS.map((step) => ({
         ...DEFAULT_THEME_CONFIG,
@@ -338,6 +369,7 @@ describe("the engine version", () => {
         controlSize: { preset: "custom" as const, px: 30 },
         tableRowHeight: { preset: "custom" as const, px: 61 },
       },
+      ...HEADER_ICON_SIZES.map((headerIconSize) => ({ ...DEFAULT_THEME_CONFIG, headerIconSize })),
     ]
     const fingerprint = createHash("sha256")
       .update(samples.map((config) => themeCss(buildThemeVars(config))).join("\n"))
@@ -372,6 +404,10 @@ describe("the API's vocabulary", () => {
   it("names the same radii and menu accents", () => {
     expect(csharpList("Radii")).toEqual(RADIUS_OPTIONS.map((r) => r.name))
     expect(csharpList("MenuAccents")).toEqual([...MENU_ACCENT_OPTIONS])
+  })
+
+  it("names the same header icon sizes, in the same order", () => {
+    expect(csharpList("HeaderIconSizes")).toEqual([...HEADER_ICON_SIZES])
   })
 
   function csharpNumbers(name: string): number[] {
@@ -411,6 +447,7 @@ describe("the API's vocabulary", () => {
     expect(constant("DefaultChartColor")).toBe(DEFAULT_THEME_CONFIG.chart.preset)
     expect(constant("DefaultRadius")).toBe(DEFAULT_THEME_CONFIG.radius)
     expect(constant("DefaultMenuAccent")).toBe(DEFAULT_THEME_CONFIG.menuAccent)
+    expect(constant("DefaultHeaderIconSize")).toBe(DEFAULT_THEME_CONFIG.headerIconSize)
   })
 
   it("offers a base itself and the colourful themes, as shadcn does", () => {

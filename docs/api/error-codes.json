@@ -2566,6 +2566,12 @@
       "pointer": null
     },
     {
+      "code": "SystemSettings.ThemeUnknownHeaderIconSize",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "SystemSettings.ThemeUnknownMenuAccent",
       "status": 400,
       "source": "catalog",

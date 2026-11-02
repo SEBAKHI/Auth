@@ -344,6 +344,7 @@ export const fa: TranslationResources = {
     emptyDescription: "برنامه‌هایی که می‌توانید وارد آن‌ها شوید اینجا نمایش داده می‌شوند.",
     // Read after a tile's name by screen readers; never drawn.
     opensInNewTab: "(در زبانهٔ تازه باز می‌شود)",
+    launcher: "برنامه‌ها",
   },
   nav: {
     notifications: "اعلان‌ها",
@@ -2188,6 +2189,12 @@ export const fa: TranslationResources = {
       controlSizeHint: "دکمه‌ها، فیلدها، فهرست‌های کشویی و کلیدهای تغییر، همه با هم: اکنون {{px}} پیکسل.",
       tableRowHeight: "ارتفاع ردیف‌های جدول",
       tableRowHeightHint: "ردیفی با یک خط متن: اکنون {{px}} پیکسل. ردیفی که تصویر یا دکمه دارد به اندازهٔ ارتفاع اضافهٔ آن‌ها بلندتر است.",
+      headerIconSize: "اندازهٔ آیکون‌های نوار بالا",
+      headerIconSizeHint: "دکمه‌های آیکون و تصویر شما در بالای هر صفحه: آیکون‌های {{icon}} پیکسلی روی دکمه‌های {{button}} پیکسلی، و تصویر هم‌اندازهٔ یک دکمه. ارتفاع نوار ثابت می‌ماند.",
+      headerIconSizes: {
+        small: "کوچک",
+        default: "پیش‌فرض",
+      },
       sizes: {
         compact: "فشرده",
         default: "پیش‌فرض",

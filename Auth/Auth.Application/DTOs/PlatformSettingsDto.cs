@@ -232,6 +232,12 @@ public class PlatformThemeDto
     /// <summary>The height of a table row holding one line of text.</summary>
     public ThemeSizeChoiceDto TableRowHeight { get; set; } = ThemeSizeChoiceDto.From(ThemeSizeChoice.Default);
 
+    /// <summary>
+    /// The size of the header's icon buttons and avatar: <c>small</c> or <c>default</c>.
+    /// The platform's only; an application's appearance always reads the default.
+    /// </summary>
+    public string HeaderIconSize { get; set; } = ThemePresets.DefaultHeaderIconSize;
+
     public static PlatformThemeDto From(PlatformTheme theme) => new()
     {
         Base = ThemeColorChoiceDto.From(theme.Base),
@@ -241,6 +247,7 @@ public class PlatformThemeDto
         MenuAccent = theme.MenuAccent,
         ControlSize = ThemeSizeChoiceDto.From(theme.ControlSize),
         TableRowHeight = ThemeSizeChoiceDto.From(theme.TableRowHeight),
+        HeaderIconSize = theme.HeaderIconSize,
     };
 
     /// <summary>The DTO of an appearance that may be absent (an application's own).</summary>

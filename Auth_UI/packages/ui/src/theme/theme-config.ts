@@ -14,7 +14,7 @@ export const CUSTOM_PRESET = "custom"
  * its old colours forever. Bump it whenever the output for an unchanged
  * configuration changes — `build-theme.test.ts` fails until you do.
  */
-export const THEME_ENGINE_VERSION = 4
+export const THEME_ENGINE_VERSION = 5
 
 /** Base colours, in the order shadcn's picker lists them. */
 export const BASE_COLOR_NAMES = [
@@ -74,6 +74,28 @@ export const TABLE_ROW_HEIGHT: SizeScale = {
   max: 72,
 }
 
+/**
+ * The size of the icon buttons and the avatar in the header of the console and
+ * the accounts app (owner, 2026-11-02), smallest first. The header stays 56px
+ * tall at both. No larger size: the owner turned it down.
+ */
+export const HEADER_ICON_SIZES = ["small", "default"] as const
+export type HeaderIconSize = (typeof HEADER_ICON_SIZES)[number]
+
+/**
+ * Pixels per header size. The avatar is as large as a button (owner,
+ * 2026-11-02: a smaller one read as smaller than the buttons beside it).
+ * "small" is the header's buttons before the setting existed (`size-control`
+ * with `size-4` icons); "default" is Google's header (button 40 and icon 24,
+ * measured on google.com).
+ */
+export const HEADER_ICON_SIZE_PX: Readonly<
+  Record<HeaderIconSize, { icon: number; button: number }>
+> = {
+  small: { icon: 16, button: 36 },
+  default: { icon: 24, button: 40 },
+}
+
 /** One of the two size choices: a step, or custom with a height in pixels. */
 export type SizeChoice = {
   preset: SizeStep | typeof CUSTOM_PRESET
@@ -97,11 +119,14 @@ export type ThemeConfig = {
   menuAccent: MenuAccent
   controlSize: SizeChoice
   tableRowHeight: SizeChoice
+  /** The platform's only: an application's appearance always holds the default. */
+  headerIconSize: HeaderIconSize
 }
 
 /**
  * What `packages/ui/src/preset.css` renders: Neutral base and theme, Cyan
- * charts, controls at `h-9`, table rows at 44px. A test holds the two equal,
+ * charts, controls at `h-9`, table rows at 44px, Google's header icons. A test
+ * holds the two equal,
  * so an install that never opens the appearance settings looks exactly as it
  * did before they existed.
  */
@@ -113,6 +138,7 @@ export const DEFAULT_THEME_CONFIG: ThemeConfig = {
   menuAccent: "subtle",
   controlSize: { preset: "default" },
   tableRowHeight: { preset: "default" },
+  headerIconSize: "default",
 }
 
 /**
@@ -146,6 +172,7 @@ type ThemeDto = {
   menuAccent?: string | null
   controlSize?: SizeChoiceDto | null
   tableRowHeight?: SizeChoiceDto | null
+  headerIconSize?: string | null
 }
 
 function choice(value: ColorChoiceDto | null | undefined, fallback: ColorChoice): ColorChoice {
@@ -173,6 +200,7 @@ export function toThemeConfig(dto: ThemeDto | null | undefined): ThemeConfig {
   if (!dto) return DEFAULT_THEME_CONFIG
   const radius = RADIUS_OPTIONS.find((option) => option.name === dto.radius)
   const menuAccent = MENU_ACCENT_OPTIONS.find((option) => option === dto.menuAccent)
+  const headerIconSize = HEADER_ICON_SIZES.find((option) => option === dto.headerIconSize)
   return {
     base: choice(dto.base, DEFAULT_THEME_CONFIG.base),
     theme: choice(dto.theme, DEFAULT_THEME_CONFIG.theme),
@@ -181,6 +209,7 @@ export function toThemeConfig(dto: ThemeDto | null | undefined): ThemeConfig {
     menuAccent: menuAccent ?? DEFAULT_THEME_CONFIG.menuAccent,
     controlSize: size(dto.controlSize, CONTROL_HEIGHT),
     tableRowHeight: size(dto.tableRowHeight, TABLE_ROW_HEIGHT),
+    headerIconSize: headerIconSize ?? DEFAULT_THEME_CONFIG.headerIconSize,
   }
 }
 
@@ -205,6 +234,7 @@ export function toThemeRequest(config: ThemeConfig) {
     menuAccent: config.menuAccent,
     controlSize: sizeBody(config.controlSize),
     tableRowHeight: sizeBody(config.tableRowHeight),
+    headerIconSize: config.headerIconSize,
   }
 }
 

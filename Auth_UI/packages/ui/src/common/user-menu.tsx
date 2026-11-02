@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { AppWindow, LogOut, User as UserIcon } from "lucide-react"
+import { LogOut, User as UserIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
@@ -20,20 +20,18 @@ import { unwrap } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { fullName } from "@authsystem/ui/format"
 
+/**
+ * The avatar at the end of the header and its menu. The person's applications
+ * are not in it: the grid button beside it opens them (`AppsLauncher`).
+ */
 export function UserMenu({
   profileHref = "/profile",
   showProfile = true,
-  myApplicationsHref,
 }: {
   /** In-app route the profile entry points to. */
   profileHref?: string
   /** Hide the profile entry where the shell nav already links to it. */
   showProfile?: boolean
-  /**
-   * In-app route of the person's own applications (UI batch item 12), where
-   * the shell nav does not already link to them: the console. Omitted, no entry.
-   */
-  myApplicationsHref?: string
 } = {}) {
   const { t } = useTranslation()
   const { user, logout } = useAuth()
@@ -56,11 +54,13 @@ export function UserMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={name}>
+        <Button variant="ghost" size="icon-header" aria-label={name}>
+          {/* As large as the buttons beside it (owner, 2026-11-02): smaller,
+              it read as the one control drawn at another size. */}
           <EntityAvatar
             src={meQuery.data?.profileImageUrl}
             name={name}
-            className="size-7"
+            className="size-header-button"
           />
         </Button>
       </DropdownMenuTrigger>
@@ -81,25 +81,15 @@ export function UserMenu({
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {showProfile || myApplicationsHref ? (
+        {showProfile ? (
           <>
             <DropdownMenuGroup>
-              {showProfile ? (
-                <DropdownMenuItem asChild>
-                  <Link to={profileHref}>
-                    <UserIcon />
-                    {t("common.profile")}
-                  </Link>
-                </DropdownMenuItem>
-              ) : null}
-              {myApplicationsHref ? (
-                <DropdownMenuItem asChild>
-                  <Link to={myApplicationsHref}>
-                    <AppWindow />
-                    {t("nav.myApplications")}
-                  </Link>
-                </DropdownMenuItem>
-              ) : null}
+              <DropdownMenuItem asChild>
+                <Link to={profileHref}>
+                  <UserIcon />
+                  {t("common.profile")}
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
           </>
