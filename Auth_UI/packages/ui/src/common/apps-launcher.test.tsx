@@ -17,7 +17,7 @@ const { AppsLauncher } = await import("./apps-launcher")
 // The panel's chunk, loaded ahead so the lazy import resolves at once: these
 // tests are about what the panel does, not how long a loaded runner takes to
 // transform a module (the full suite timed out on it).
-await import("./application-tiles")
+await import("./my-applications")
 
 function app(name: string, launchUrl: string): Schemas["MyApplicationDto"] {
   return { id: `id-${name}`, name, logoUrl: null, logoUrlDark: null, launchUrl }

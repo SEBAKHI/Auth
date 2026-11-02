@@ -184,6 +184,15 @@ export function persistLanguage(code: LanguageCode): void {
   }
 }
 
+/** Whether this browser holds a language chosen here (or adopted from the profile at sign-in). */
+export function hasStoredLanguage(): boolean {
+  try {
+    return localStorage.getItem(LANGUAGE_STORAGE_KEY) !== null
+  } catch {
+    return false
+  }
+}
+
 export function directionForLanguage(code: string): "ltr" | "rtl" {
   return SUPPORTED_LANGUAGES.find((lang) => lang.code === code)?.dir ?? "ltr"
 }

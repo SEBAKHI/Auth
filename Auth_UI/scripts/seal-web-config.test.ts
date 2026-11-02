@@ -280,3 +280,89 @@ describe("build-harness.mjs key guard", () => {
     )
   })
 })
+
+/**
+ * The account bar (<location path="embed">): pages on the IAM site's subdomains may frame
+ * it, and the seal writes the site into frame-ancestors. A value broader than one
+ * registrable domain would let any site frame the bar, so the build stops instead.
+ */
+describe("seal-web-config.mjs account bar site", () => {
+  const SITE_POLICY = `${POLICY}; frame-ancestors 'none'`
+  const EMBED = `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: ${PLACEHOLDER}; font-src 'self' data: ${PLACEHOLDER}; connect-src ${PLACEHOLDER}; frame-ancestors https://*.example.com`
+  const RULE = `<rewrite><rules><rule name="Embed Unknown Path" stopProcessing="true"><match url="^embed(/.*)?$" /></rule></rules></rewrite>`
+
+  function barApp(site: string | null, overrides: { embed?: string; site?: string; rule?: string; accounts?: string } = {}) {
+    const dir = app(REAL)
+    const env = [`VITE_API_BASE_URL=${REAL}`, `VITE_ACCOUNTS_URL=${overrides.accounts ?? "https://accounts.contoso-sample.net"}`]
+    if (site !== null) env.push(`VITE_IAM_SITE=${site}`)
+    writeFileSync(join(dir, ".env.production"), `${env.join("\n")}\n`)
+    writeFileSync(
+      join(dir, "dist", "web.config"),
+      `<?xml version="1.0"?><configuration><system.webServer>${overrides.rule ?? RULE}<httpProtocol><customHeaders>
+  <add name="Content-Security-Policy" value="${overrides.site ?? SITE_POLICY}" />
+</customHeaders></httpProtocol></system.webServer>
+<location path="embed"><system.webServer><httpProtocol><customHeaders>
+  <remove name="Content-Security-Policy" />
+  <add name="Content-Security-Policy" value="${overrides.embed ?? EMBED}" />
+</customHeaders></httpProtocol></system.webServer></location></configuration>`
+    )
+    return dir
+  }
+
+  it("writes the site into the bar's frame-ancestors, and leaves the rest of the site unframable", () => {
+    const dir = barApp("contoso-sample.net")
+    const run = seal(dir)
+    expect(run.status, run.stderr).toBe(0)
+    const sealed = readFileSync(join(dir, "dist", "web.config"), "utf8")
+    expect(sealed).toContain("frame-ancestors https://*.contoso-sample.net")
+    expect(sealed).not.toContain("*.example.com")
+    expect(sealed).toContain("frame-ancestors 'none'")
+    expect(run.stdout).toContain("account bar framed by https://*.contoso-sample.net")
+  })
+
+  it("refuses a narrower site that leaves the API outside it", () => {
+    const run = seal(barApp("iam.contoso-sample.net", { accounts: "https://accounts.iam.contoso-sample.net" }))
+    // The API (auth.contoso-sample.net) is outside iam.contoso-sample.net.
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain("does not hold auth.contoso-sample.net")
+  })
+
+  it.each([
+    ["is missing", null, "VITE_IAM_SITE is not set"],
+    ["is a bare wildcard", "*", "must be a host name"],
+    ["is a wildcard pattern", "*.contoso-sample.net", "must be a host name"],
+    ["carries a scheme", "https://contoso-sample.net", "must be a host name"],
+    ["is a single label", "net", "must be a host name"],
+    ["is a public suffix", "co.uk", "is a public suffix"],
+    ["is a private public suffix anyone can register under", "github.io", "is a public suffix"],
+    ["holds neither the API nor the accounts app", "example.org", "does not hold auth.contoso-sample.net and accounts.contoso-sample.net"],
+  ])("refuses a site that %s", (_, site, message) => {
+    const run = seal(barApp(site))
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain(message)
+  })
+
+  it("refuses an embed script-src beyond 'self'", () => {
+    const run = seal(barApp("contoso-sample.net", { embed: EMBED.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'") }))
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain("script-src of Content-Security-Policy for embed must be 'self' alone")
+  })
+
+  it("refuses an embed frame-ancestors beyond the site", () => {
+    const run = seal(barApp("contoso-sample.net", { embed: EMBED.replace("frame-ancestors https://*.example.com", "frame-ancestors https://*.example.com https:") }))
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain("frame-ancestors of Content-Security-Policy for embed must be https://*.contoso-sample.net alone")
+  })
+
+  it("refuses a site policy that lets every page be framed", () => {
+    const run = seal(barApp("contoso-sample.net", { site: POLICY }))
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain("must keep frame-ancestors 'none'")
+  })
+
+  it("refuses a web.config whose SPA fallback could serve the app under /embed", () => {
+    const run = seal(barApp("contoso-sample.net", { rule: "" }))
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain('the "Embed Unknown Path" rewrite rule is missing')
+  })
+})

@@ -85,13 +85,23 @@ describe("accounts CSP: inline styles (card S02)", () => {
     )
   })
 
-  it("has one <location> policy, the sign-in page design frame's; /privacy stays under the site's", () => {
-    // The frame's own policy is pinned in packages/ui login-design-frame-policy.test.ts.
+  it("has two <location> policies, the sign-in page design frame's and the account bar's; /privacy stays under the site's", () => {
+    // The frame's own policy is pinned in packages/ui login-design-frame-policy.test.ts; the
+    // account bar's by scripts/seal-web-config.mjs and e2e/harness/account-bar.spec.ts.
     expect(
       cspHeaders(webConfig)
         .filter((header) => header.location !== null)
         .map((header) => `${header.location} ${header.name}`)
-    ).toEqual(["login-design-frame.html Content-Security-Policy"])
+    ).toEqual(["login-design-frame.html Content-Security-Policy", "embed Content-Security-Policy"])
+  })
+
+  it("lets the account bar run no inline style at all, and be framed by the IAM site's subdomains only", () => {
+    const embed = cspHeaders(webConfig).find((header) => header.location === "embed")!
+    const directive = (name: string) => embed.directives[name]?.join(" ")
+    expect(directive("style-src")).toBe("'self'")
+    expect(directive("script-src")).toBe("'self'")
+    expect(directive("default-src")).toBe("'none'")
+    expect(directive("frame-ancestors")).toBe("https://*.example.com")
   })
 
   it("(e) floor: the inventory is not empty (at least three texts reach accounts)", () => {

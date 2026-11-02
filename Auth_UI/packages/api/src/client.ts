@@ -60,6 +60,10 @@ const EMAIL_CODE_RECOVER_PATH = "/api/v1/Auth/email-code/recover"
 // SPA's bearer would be ignored, and a 401 there means "no SSO session", not
 // "this tab's token expired" - refreshing on it would end a session that is fine.
 const ORGANIZATION_SETUP_PATH = "/api/v1/Auth/organization-setup"
+// The account bar of linked applications: authenticated by the single sign-on cookie, so
+// its 401 says nothing about this tab's token. Its frames never load this client
+// (apps/accounts/src/embed/embed-api.ts); listed so no page that does can refresh on it.
+const ACCOUNT_BAR_PATH = "/api/v1/Auth/account-bar"
 
 export { SESSION_EXPIRED_EVENT } from "@authsystem/api/tab-sync"
 
@@ -433,6 +437,7 @@ const ANONYMOUS_PATHS = new Set(
     EMAIL_CODE_SIGN_IN_PATH,
     EMAIL_CODE_RECOVER_PATH,
     ORGANIZATION_SETUP_PATH,
+    ACCOUNT_BAR_PATH,
   ].map((path) => path.toLowerCase())
 )
 

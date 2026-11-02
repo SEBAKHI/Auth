@@ -176,6 +176,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           [HOSTS.api]: (request, response, url, body) => apiHost.serve(request, response, url, body),
           [HOSTS.apex]: (_, response, url) => attacker.answer(HOSTS.apex, url, response),
           [HOSTS.attacker]: (_, response, url) => attacker.answer(HOSTS.attacker, url, response),
+          [HOSTS.linkedApp]: (_, response, url) => attacker.answer(HOSTS.linkedApp, url, response),
         },
         log
       )

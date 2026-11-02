@@ -3,6 +3,7 @@ import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
+import { accountBarInputs } from "../../account-bar-embed"
 import { apiPreconnect } from "../../api-preconnect"
 import { devHttps } from "../../dev-https"
 import { assetsCors, htmlInputs } from "../../login-design-frame"
@@ -44,8 +45,9 @@ export default defineConfig((config) => ({
   build: {
     chunkSizeWarningLimit: 400,
     rollupOptions: {
-      // The frame of a sign-in page design is a second page (login-design-frame.ts).
-      input: htmlInputs(__dirname),
+      // The frame of a sign-in page design is a second page (login-design-frame.ts), and
+      // the account bar's two frames two more (account-bar-embed.ts).
+      input: { ...htmlInputs(__dirname), ...accountBarInputs(__dirname) },
       output: {
         // The accounts app has no charts or editors; only the framework vendors
         // are worth hoisting out of the per-route chunks.

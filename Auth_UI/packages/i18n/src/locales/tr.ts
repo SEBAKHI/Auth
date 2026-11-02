@@ -909,6 +909,13 @@ export const tr: TranslationResources = {
     implicationRemoved: "Kapsanan kaldırıldı.",
   },
   applications: {
+    accountBar: {
+      title: "Hesap çubuğu",
+      description: "Uygulamalar ızgarasını ve oturum açmış kişinin avatarını hesaplar uygulamasındaki gibi göstermek için bu iki satırı uygulamanın üst bilgisine ekleyin.",
+      copy: "Kodu kopyala",
+      attributes: "/sign-out yerine uygulamanın kendi oturum kapatma adresini yazın: önce uygulamanın oturumunu, ardından IAM oturumunu sonlandırır. İsteğe bağlı: hide=\"apps\" veya hide=\"avatar\" ikisinden birini gizler, theme=\"light\" veya theme=\"dark\" uygulamanın renk moduna uyar, signin-href ise Oturum aç düğmesinin nereye gideceğini belirler.",
+      subdomainsOnly: "Yalnızca IAM sitesinin bir alt alan adındaki, yani {{origin}} ile aynı sitedeki bir uygulama için çalışır. Uygulamanın Content-Security-Policy ilkesi script-src ve frame-src içinde {{origin}} adresine izin vermelidir.",
+    },
     title: "Uygulamalar",
     subtitle:
       "Bu kimlik sistemini kullanan uygulamaları kaydedin ve yapılandırın.",

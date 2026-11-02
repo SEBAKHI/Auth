@@ -1,9 +1,7 @@
 import { useTranslation } from "react-i18next"
 
-import {
-  ApplicationTiles,
-  useMyApplications,
-} from "@authsystem/ui/common/application-tiles"
+import { ApplicationTiles } from "@authsystem/ui/common/application-tiles"
+import { useMyApplications } from "@authsystem/ui/common/my-applications"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 
 /**

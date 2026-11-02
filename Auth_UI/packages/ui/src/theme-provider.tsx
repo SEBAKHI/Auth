@@ -11,6 +11,13 @@ type ThemeProviderProps = {
   defaultTheme?: Theme
   storageKey?: string
   disableTransitionOnChange?: boolean
+  /**
+   * A colour mode shown and never stored, over every other source, with the
+   * "d" shortcut off: a linked application's account bar, whose frames follow
+   * the application's mode or the profile's and must never write the
+   * person's own choice.
+   */
+  forcedTheme?: Theme
 }
 
 type ThemeProviderState = {
@@ -90,6 +97,7 @@ export function ThemeProvider({
   defaultTheme = "system",
   storageKey = "theme",
   disableTransitionOnChange = true,
+  forcedTheme,
   ...props
 }: ThemeProviderProps) {
   const [theme, setThemeState] = React.useState<Theme>(() => {
@@ -112,7 +120,8 @@ export function ThemeProvider({
     subscribeToSystemTheme,
     getSystemTheme
   )
-  const resolvedTheme = theme === "system" ? systemTheme : theme
+  const shownTheme = forcedTheme ?? theme
+  const resolvedTheme = shownTheme === "system" ? systemTheme : shownTheme
 
   const setTheme = React.useCallback(
     (nextTheme: Theme) => {
@@ -139,6 +148,7 @@ export function ThemeProvider({
   }, [resolvedTheme, disableTransitionOnChange])
 
   React.useEffect(() => {
+    if (forcedTheme) return
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) {
         return
@@ -177,7 +187,7 @@ export function ThemeProvider({
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
     }
-  }, [storageKey])
+  }, [storageKey, forcedTheme])
 
   React.useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
@@ -206,11 +216,11 @@ export function ThemeProvider({
 
   const value = React.useMemo(
     () => ({
-      theme,
+      theme: shownTheme,
       resolvedTheme,
       setTheme,
     }),
-    [theme, resolvedTheme, setTheme]
+    [shownTheme, resolvedTheme, setTheme]
   )
 
   return (

@@ -844,6 +844,27 @@ describe("deciding which requests carry a token", () => {
     expect(tab.tokenStore.getRefreshToken()).toBe("R0")
   })
 
+  it("reads the account bar without a bearer, and its 401 ends no session", async () => {
+    // The account bar of linked applications answers by the single sign-on
+    // cookie alone. Its frames use their own fetch; a page that reads it
+    // through this client must neither refresh for it (rotating this tab's
+    // token for a read that ignores it) nor sign out on its "no SSO session".
+    // Unlisted, the client would refresh, send a bearer and get 200 here.
+    storage.set(REFRESH_KEY, "R0")
+    const server = installServer()
+    const tab = await openTab()
+    const expired = vi.fn()
+    window.addEventListener(tab.tabSync.SESSION_EXPIRED_EVENT, expired)
+
+    const read = await tab.client.api.GET("/api/v1/Auth/account-bar")
+
+    window.removeEventListener(tab.tabSync.SESSION_EXPIRED_EVENT, expired)
+    expect(read.response.status).toBe(401)
+    expect(expired).not.toHaveBeenCalled()
+    expect(server.refreshCalls()).toBe(0)
+    expect(tab.tokenStore.getRefreshToken()).toBe("R0")
+  })
+
   it("authenticates a sibling that merely starts with a registration path", async () => {
     // The whole-path rule from the login-history defect, applied to the new
     // entries: an entry that matched by prefix would be one that matches

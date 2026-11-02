@@ -1,5 +1,5 @@
 /**
- * The harness's five HTTPS hosts. All but the last share one registrable
+ * The harness's six HTTPS hosts. All but the attacker share one registrable
  * domain, example.com ("com" is a public suffix and example.com has no rule of
  * its own, so the Public Suffix List's default "*" rule applies), which makes
  * console, accounts, the API and the apex SAME-SITE, and attacker.example.net
@@ -21,6 +21,11 @@ export const HOSTS = {
   api: "auth.example.com",
   /** Same-site attacker: the registrable domain itself. */
   apex: "example.com",
+  /**
+   * A linked application on a sibling subdomain, as one that shows the account bar
+   * (apps/accounts/public/embed/v1/account-bar.js). Serves only what a test writes.
+   */
+  linkedApp: "app.example.com",
   /** Cross-site attacker. */
   attacker: "attacker.example.net",
 } as const
@@ -32,6 +37,7 @@ export const ORIGINS = {
   accounts: `https://${HOSTS.accounts}`,
   api: `https://${HOSTS.api}`,
   apex: `https://${HOSTS.apex}`,
+  linkedApp: `https://${HOSTS.linkedApp}`,
   attacker: `https://${HOSTS.attacker}`,
 } as const
 

@@ -44,6 +44,7 @@
     "prettier": "^3.9.9",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "shadcn": "^4.21.0",
+    "tldts": "7.4.3",
     "typescript": "~6",
     "typescript-eslint": "^8",
     "vite": "^8",

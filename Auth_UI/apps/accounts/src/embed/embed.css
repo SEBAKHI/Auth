@@ -1,0 +1,20 @@
+@import "../index.css";
+
+/*
+ * The account bar's frames sit inside another application's page. Their canvas stays
+ * transparent: the bar lies on the application's header, and a panel draws its own card
+ * and shadow. Browsers paint an opaque backdrop behind a frame whose colour scheme differs
+ * from its frame element's, so the document keeps the `normal` scheme the loader also sets
+ * on the frame element, in light and in dark; the panels' own scroll pane takes the dark
+ * scheme back for its scrollbar.
+ */
+html,
+html.light,
+html.dark {
+  color-scheme: normal;
+  background: transparent;
+}
+
+body {
+  background: transparent;
+}

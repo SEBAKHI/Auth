@@ -4,14 +4,16 @@ import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { EntityAvatar } from "@authsystem/ui/common/entity-avatar"
-import { Button } from "@authsystem/ui/button"
+import {
+  USER_MENU_CONTENT_CLASS,
+  UserAvatarButton,
+  UserMenuIdentity,
+} from "@authsystem/ui/common/user-identity"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@authsystem/ui/dropdown-menu"
@@ -54,32 +56,14 @@ export function UserMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-header" aria-label={name}>
-          {/* As large as the buttons beside it (owner, 2026-11-02): smaller,
-              it read as the one control drawn at another size. */}
-          <EntityAvatar
-            src={meQuery.data?.profileImageUrl}
-            name={name}
-            className="size-header-button"
-          />
-        </Button>
+        <UserAvatarButton name={name} src={meQuery.data?.profileImageUrl} />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>
-          <div className="flex items-center gap-2">
-            <EntityAvatar
-              src={meQuery.data?.profileImageUrl}
-              name={name}
-              className="size-8"
-            />
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-medium">{name}</span>
-              <span className="truncate text-xs font-normal text-muted-foreground">
-                {user?.email}
-              </span>
-            </div>
-          </div>
-        </DropdownMenuLabel>
+      <DropdownMenuContent align="end" className={USER_MENU_CONTENT_CLASS}>
+        <UserMenuIdentity
+          name={name}
+          email={user?.email}
+          src={meQuery.data?.profileImageUrl}
+        />
         <DropdownMenuSeparator />
         {showProfile ? (
           <>
