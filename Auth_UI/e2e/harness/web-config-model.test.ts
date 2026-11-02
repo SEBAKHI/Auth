@@ -88,7 +88,7 @@ describe("web.config model: console", () => {
 })
 
 describe("web.config model: accounts", () => {
-  it("has the privacy rules then SPA Fallback, in order", () => {
+  it("has the privacy rules, the account bar's 404, then SPA Fallback, in order", () => {
     expect(accounts.rules.map((rule) => rule.name)).toEqual([
       "Privacy Root Canonical Slash",
       "Privacy Root Document",
@@ -100,6 +100,8 @@ describe("web.config model: accounts", () => {
       "Privacy Language Document",
       "Privacy Static File",
       "Privacy Unknown Document",
+      // Nothing under /embed is the SPA: it would be framable there (the account bar).
+      "Embed Unknown Path",
       "SPA Fallback",
     ])
     expect(accounts.rules.map((rule) => rule.action.type)).toEqual([
@@ -113,9 +115,11 @@ describe("web.config model: accounts", () => {
       "Rewrite",
       "None",
       "CustomResponse",
+      "CustomResponse",
       "Rewrite",
     ])
     expect(accounts.rules[9].action).toMatchObject({ type: "CustomResponse", status: 404 })
+    expect(accounts.rules[10].action).toMatchObject({ type: "CustomResponse", status: 404 })
   })
 
   it("sends six headers, the CSP and its Report-Only twin verbatim from the file", () => {
@@ -141,6 +145,8 @@ describe("web.config model: accounts", () => {
         headers: [{ op: "add", name: "Access-Control-Allow-Origin", value: "*" }],
       },
       expect.objectContaining({ path: "login-design-frame.html", clientCache: undefined }),
+      // The account bar of linked applications: its own policy, no X-Frame-Options.
+      expect.objectContaining({ path: "embed", clientCache: undefined }),
     ])
   })
 })

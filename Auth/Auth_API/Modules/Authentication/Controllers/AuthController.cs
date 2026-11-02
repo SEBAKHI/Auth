@@ -38,6 +38,7 @@ using Auth.Application.Features.Authentication.TerminateAllSessions;
 using Auth.Application.Features.Authentication.TerminateSession;
 using Auth.Application.Features.Authentication.VerifyEmail;
 using Auth.Application.Features.Authentication.VerifyRegistration;
+using Auth.Application.Features.Users.GetAccountBar;
 using Auth_API.Modules.Authentication.Contracts;
 using Auth_API.Common.RateLimiting;
 using Auth.Application.Features.Authentication.GetUserSessions;
@@ -868,6 +869,35 @@ public class AuthController : ApiController
 
         return result.Match<IActionResult>(
             response => response.SignInRequired ? Unauthorized() : Ok(response.State),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// The account bar of a linked application: who is signed in to IAM in this browser, and
+    /// the tiles of the applications they can open.
+    /// </summary>
+    /// <remarks>
+    /// Authenticated by the single sign-on cookie alone, as the organization-setup state is; a
+    /// bearer token authenticates nothing here. No usable session is 401, which the bar shows
+    /// as Sign in. Read only by the accounts app's bar pages, framed inside an application on a
+    /// subdomain of the IAM site, so only the accounts app's Origin is answered: a page on a
+    /// sibling subdomain is same-site and SameSite would hand it the cookie. Throttled at the
+    /// edge on the 'api' policy (its own gateway route): every page view of a linked
+    /// application reads it, which is page traffic, not sign-in traffic.
+    /// </remarks>
+    [HttpGet("account-bar")]
+    [AllowAnonymous]
+    [RequireAccountsOrigin]
+    [ProducesResponseType(typeof(AccountBarDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAccountBar(CancellationToken cancellationToken)
+    {
+        var query = new GetAccountBarQuery(IdpSessionCookie.Read(Request, _idpSettings));
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => response.SignInRequired ? NoStore(Unauthorized()) : NoStore(Ok(response.Account)),
             errors => Problem(errors));
     }
 

@@ -25,15 +25,26 @@
 // its script by hash matches the built file; every inline style text the CSP
 // allows by hash is in the bundle; and the bundle has no <style> site that
 // csp/bundle-style-sites.json does not count.
+//
+// SITE - the accounts app's web.config lets pages on the IAM site's subdomains
+//        frame the account bar (<location path="embed">, frame-ancestors
+//        https://*.example.com). The seal writes VITE_IAM_SITE there, and refuses a
+//        value broader than one registrable domain - a bare "*" or a public suffix
+//        such as co.uk or github.io would let any site on the internet frame it -
+//        or one that holds neither the API nor the accounts app.
 
 import { createHash } from "node:crypto"
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { parse as parseDomain } from "tldts"
 import { loadEnv } from "vite"
 
 /** The origin committed to .env.production and public/web.config. RFC 2606 reserves
  *  example.com for documentation, so it resolves nowhere and cannot silently "work". */
 const PLACEHOLDER_ORIGIN = "https://auth.example.com"
+
+/** The frame-ancestors source web.config commits for the account bar (<location path="embed">). */
+const FRAME_ANCESTORS_PLACEHOLDER = "https://*.example.com"
 
 const allowPlaceholder = process.argv.includes("--allow-placeholder")
 const distFlag = process.argv.indexOf("--dist")
@@ -112,7 +123,64 @@ if (!existsSync(webConfigPath)) {
   )
 }
 
-const sealed = readFileSync(webConfigPath, "utf8").split(PLACEHOLDER_ORIGIN).join(origin)
+const withOrigin = readFileSync(webConfigPath, "utf8").split(PLACEHOLDER_ORIGIN).join(origin)
+
+// ---------------------------------------------------------------- SITE
+
+const withoutComments = (xml) => xml.replace(/<!--[\s\S]*?-->/g, (comment) => " ".repeat(comment.length))
+// By the web.config's own <location> (whatever else the element carries) or by the built
+// frames: either one alone engages every check below, so neither a respelt element nor a
+// removed one ships the bar's pages unchecked.
+const hasAccountBar =
+  /<location\s+path="embed"[\s>]/.test(withoutComments(withOrigin)) ||
+  existsSync(join(distDir, "embed", "v1", "bar.html"))
+
+/**
+ * Why `site` cannot be the IAM site the account bar is framed under, or null. One
+ * registrable domain at most (a subdomain of one is narrower, and allowed), written as
+ * a bare host name, holding every host in `hosts`.
+ */
+function iamSiteProblem(site, hosts) {
+  if (!site) return "VITE_IAM_SITE is not set"
+  const label = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+  if (site.length > 253 || !new RegExp(`^${label}(?:\\.${label})+$`).test(site)) {
+    return `VITE_IAM_SITE must be a host name such as example.com (no scheme, port, path or "*"), found "${site}"`
+  }
+  // Private suffixes count as public ones: anyone can own a subdomain of github.io.
+  const parsed = parseDomain(site, { allowPrivateDomains: true })
+  if (parsed.isIp || !parsed.domain) {
+    return `VITE_IAM_SITE "${site}" is a public suffix: every site under it could frame the account bar`
+  }
+  const outside = hosts.filter((host) => host !== site && !host.endsWith(`.${site}`))
+  if (outside.length) {
+    return `VITE_IAM_SITE "${site}" does not hold ${outside.join(" and ")}: the bar's frames and the API it reads must be on the IAM site`
+  }
+  return null
+}
+
+let iamSite = null
+let sealed = withOrigin
+if (hasAccountBar) {
+  iamSite = (env.VITE_IAM_SITE ?? "").trim().toLowerCase()
+  const hosts = [new URL(origin).hostname]
+  try {
+    if (env.VITE_ACCOUNTS_URL) hosts.push(new URL(env.VITE_ACCOUNTS_URL.trim()).hostname)
+  } catch {
+    refuse(`VITE_ACCOUNTS_URL is not an absolute URL: ${env.VITE_ACCOUNTS_URL}`, configuredOrigin)
+  }
+  const problem = iamSiteProblem(iamSite, hosts)
+  if (problem) {
+    refuse(
+      problem,
+      `  web.config lets pages on https://*.<VITE_IAM_SITE> frame the account bar
+  (<location path="embed">). Set it beside VITE_API_BASE_URL:
+
+    ${join(appDir, ".env.production.local")}
+      VITE_IAM_SITE=yourdomain.com`
+    )
+  }
+  sealed = withOrigin.split(FRAME_ANCESTORS_PLACEHOLDER).join(`https://*.${iamSite}`)
+}
 writeFileSync(webConfigPath, sealed, "utf8")
 
 // ------------------------------------------------- POST-CONDITIONS
@@ -126,7 +194,9 @@ writeFileSync(webConfigPath, sealed, "utf8")
 function cspHeaders(xml) {
   // Comments blanked (same length, so positions hold): a commented-out <add> is not a header.
   const text = xml.replace(/<!--[\s\S]*?-->/g, (comment) => " ".repeat(comment.length))
-  const locations = [...text.matchAll(/<location\s+path="([^"]*)"\s*>([\s\S]*?)<\/location>/g)].map(
+  // Any other attribute on the element (inheritInChildApplications...) still makes it a
+  // <location>: read as site-wide, its policy would escape every per-path rule below.
+  const locations = [...text.matchAll(/<location\s+path="([^"]*)"[^>]*>([\s\S]*?)<\/location>/g)].map(
     (match) => ({ path: match[1], start: match.index, end: match.index + match[0].length }),
   )
   const attribute = (attributes, name) => new RegExp(`\\b${name}="([^"]*)"`).exec(attributes)?.[1]
@@ -167,12 +237,14 @@ for (const header of headers) {
       ? ["connect-src", "img-src", "font-src"]
       : header.location === "login-design-frame.html"
         ? ["img-src", "font-src"]
-        : ["img-src"]
+        : header.location === "embed"
+          ? ["connect-src", "img-src", "font-src"]
+          : ["img-src"]
   for (const directive of required) {
     const sources = sourcesOf(header.policy, directive) ?? []
     const covered =
       sources.includes(origin) ||
-      (header.location !== null && sources.includes(`${new URL(origin).protocol}`))
+      (header.location !== null && header.location !== "embed" && sources.includes(`${new URL(origin).protocol}`))
     if (!covered) {
       const where = header.location === null ? "" : ` for ${header.location}`
       refuse(
@@ -200,10 +272,66 @@ if (!bundle.some(({ text }) => text.includes(origin))) {
   )
 }
 
+// The account bar (SITE above): its frames are this app's own pages, so their
+// script-src is 'self' and nothing more; they may be framed by the IAM site's
+// subdomains and by nothing else; every other page refuses framing; and no path
+// under /embed falls back to the SPA, which would serve the whole app under the
+// bar's frame policy.
+if (hasAccountBar) {
+  for (const header of headers.filter((candidate) => candidate.location === null)) {
+    if ((sourcesOf(header.policy, "frame-ancestors") ?? []).join(" ") !== "'none'" &&
+        header.name === "Content-Security-Policy") {
+      refuse(
+        "the site-wide Content-Security-Policy must keep frame-ancestors 'none'",
+        '  Only /embed may be framed (<location path="embed">); every other page of this app refuses it.'
+      )
+    }
+  }
+  const embedPolicies = headers.filter((candidate) => candidate.location === "embed")
+  if (!embedPolicies.some((header) => header.name === "Content-Security-Policy")) {
+    refuse("<location path=\"embed\"> has no Content-Security-Policy of its own", "  The bar's frames would get the site policy, which refuses framing.")
+  }
+  for (const header of embedPolicies) {
+    const scripts = (sourcesOf(header.policy, "script-src") ?? []).join(" ")
+    const ancestors = (sourcesOf(header.policy, "frame-ancestors") ?? []).join(" ")
+    if (scripts !== "'self'") {
+      refuse(
+        `script-src of ${header.name} for embed must be 'self' alone, found "${scripts}"`,
+        "  The bar's frames run this app's bundle and nothing else."
+      )
+    }
+    if (ancestors !== `https://*.${iamSite}`) {
+      refuse(
+        `frame-ancestors of ${header.name} for embed must be https://*.${iamSite} alone, found "${ancestors}"`,
+        "  Only the IAM site's https subdomains may frame the account bar."
+      )
+    }
+  }
+  if (!/<rule\s+name="Embed Unknown Path"/.test(withoutComments(sealed))) {
+    refuse(
+      'the "Embed Unknown Path" rewrite rule is missing from web.config',
+      "  Without it the SPA fallback serves the whole app at /embed/anything, under the bar's frame policy."
+    )
+  }
+}
+
+// Framing, everywhere: no policy outside the account bar's may let another site frame a
+// page of this app. 'none' (the site) and 'self' (the sign-in page design frame) only.
+for (const header of headers.filter((candidate) => candidate.location !== "embed")) {
+  const ancestors = sourcesOf(header.policy, "frame-ancestors")
+  if (ancestors && !ancestors.every((source) => source === "'none'" || source === "'self'")) {
+    refuse(
+      `frame-ancestors of ${header.name}${header.location ? ` for ${header.location}` : ""} allows "${ancestors.join(" ")}"`,
+      "  Only <location path=\"embed\"> (the account bar) may be framed by another site."
+    )
+  }
+}
+
 // Each <location> policy that allows scripts by hash allows exactly the inline
 // scripts of the file it serves - recomputed here from the built file, so a
 // checkout that rewrote its line endings cannot ship a hash that matches nothing.
-for (const header of headers.filter((candidate) => candidate.location !== null)) {
+// The account bar's (embed) is held above instead: it runs the bundle, not an inline script.
+for (const header of headers.filter((candidate) => candidate.location !== null && candidate.location !== "embed")) {
   const scriptSources = sourcesOf(header.policy, "script-src") ?? []
   // A path-specific policy exists to be narrower, and the only one today frames
   // untrusted HTML (the email preview). Its script-src must name its own
@@ -290,4 +418,5 @@ if (!pinned || pinned.count !== pinnedTotal || pinned.count !== total) {
 }
 
 const note = allowPlaceholder ? " (placeholder allowed: test build)" : ""
-console.log(`seal-web-config [${appName}] CSP sealed to ${origin}${note}`)
+const framing = iamSite ? `, account bar framed by https://*.${iamSite}` : ""
+console.log(`seal-web-config [${appName}] CSP sealed to ${origin}${framing}${note}`)

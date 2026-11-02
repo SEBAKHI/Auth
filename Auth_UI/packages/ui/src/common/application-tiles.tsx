@@ -1,9 +1,6 @@
-import { useQuery } from "@tanstack/react-query"
 import { AppWindow, TriangleAlert } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { api } from "@authsystem/api/client"
-import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
 import { launchTarget } from "@authsystem/auth/launch-application"
 import { Button } from "@authsystem/ui/button"
@@ -23,8 +20,6 @@ import { cn } from "@authsystem/ui/utils"
 
 export type MyApplicationDto = Schemas["MyApplicationDto"]
 
-/** The caller's own list; signing out clears it with every other user-scoped entry. */
-export const MY_APPLICATIONS_QUERY_KEY = ["me", "applications"] as const
 
 /**
  * Where the tiles are drawn. "page": the My applications page (Home in the
@@ -76,8 +71,10 @@ export interface ApplicationTilesState {
  * two can never disagree about which applications show or how one opens.
  *
  * The data comes from the caller, so a surface that reads the list some other
- * way (a page of the accounts app framed inside a linked application) draws
- * exactly these tiles. Every row is re-checked here, whatever its source: the
+ * way (the account bar's panel, framed inside a linked application) draws
+ * exactly these tiles. This module must not import the API client: the bar's
+ * frames load it, and the client's import starts the session's cross-tab sync
+ * (`my-applications.tsx` holds the self-service reads). Every row is re-checked here, whatever its source: the
  * launch address must pass the rule an accepted invitation's launch uses
  * (`launchTarget`), and be https only as the server requires for a tile, so a
  * value that is not a web address never becomes a link. Such a row is dropped,
@@ -168,32 +165,6 @@ export function ApplicationTiles({
         </li>
       ))}
     </ul>
-  )
-}
-
-/** The signed-in person's own applications, from the self-service endpoint. */
-export function useMyApplications(): ApplicationTilesState {
-  return useQuery({
-    queryKey: MY_APPLICATIONS_QUERY_KEY,
-    queryFn: () => unwrap(api.GET("/api/v1/Users/me/applications")),
-  })
-}
-
-/**
- * The person's tiles as the header's panel draws them. Its own export so the
- * panel can load it on first open: the list is fetched only while the panel
- * is open, and none of this code is in the shell's first download.
- */
-export function MyApplicationsPanelTiles({ onOpen }: { onOpen?: () => void }) {
-  const { t } = useTranslation()
-  const state = useMyApplications()
-  return (
-    <ApplicationTiles
-      state={state}
-      label={t("myApplications.launcher")}
-      variant="panel"
-      onOpen={onOpen}
-    />
   )
 }
 

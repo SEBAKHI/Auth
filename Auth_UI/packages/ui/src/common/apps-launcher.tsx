@@ -1,9 +1,8 @@
 import * as React from "react"
-import { Grip } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@authsystem/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@authsystem/ui/popover"
+import { AppsGridButton, AppsPanelContent } from "@authsystem/ui/common/apps-panel"
+import { Popover, PopoverTrigger } from "@authsystem/ui/popover"
 import { Spinner } from "@authsystem/ui/spinner"
 
 /*
@@ -12,7 +11,7 @@ import { Spinner } from "@authsystem/ui/spinner"
  * open (the panel's content is not mounted while it is closed).
  */
 const PanelTiles = React.lazy(() =>
-  import("@authsystem/ui/common/application-tiles").then((module) => ({
+  import("@authsystem/ui/common/my-applications").then((module) => ({
     default: module.MyApplicationsPanelTiles,
   }))
 )
@@ -31,21 +30,9 @@ export function AppsLauncher() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-header" aria-label={label}>
-          <Grip />
-        </Button>
+        <AppsGridButton label={label} />
       </PopoverTrigger>
-      {/* Many applications scroll inside the panel, never past the screen:
-          its height stops at what Radix measures free below the button, less
-          the 8px it keeps from every edge of the screen.
-          `[&>*]:shrink-0`: this column is a scroll pane, and a child that
-          could shrink would be squashed instead of scrolling (layout.md). */}
-      <PopoverContent
-        align="end"
-        collisionPadding={8}
-        aria-label={label}
-        className="max-h-[min(30rem,var(--radix-popover-content-available-height))] w-80 overflow-y-auto [&>*]:shrink-0"
-      >
+      <AppsPanelContent label={label}>
         <React.Suspense
           fallback={
             <div className="flex justify-center py-6">
@@ -57,7 +44,7 @@ export function AppsLauncher() {
               tab, and coming back should find the page as it was left. */}
           <PanelTiles onOpen={() => setOpen(false)} />
         </React.Suspense>
-      </PopoverContent>
+      </AppsPanelContent>
     </Popover>
   )
 }

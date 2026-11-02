@@ -29,11 +29,11 @@ public class GetMyApplicationsQueryHandlerTests
             .Returns((string? key) => key is null ? null : $"https://cdn.example.com/{key}");
     }
 
-    private GetMyApplicationsQueryHandler Handler(params string[] firstPartyOrigins) => new(
+    private GetMyApplicationsQueryHandler Handler(params string[] firstPartyOrigins) => new(new MyApplicationsList(
         _accessRepository.Object,
         new ApplicationLaunchTarget(TestHelpers.CreateOptions(new JwtSettings { Issuer = Issuer })),
         _imageUrlComposer.Object,
-        TestHelpers.CreateOptions(new IdentityProviderSettings { FirstPartySpaOrigins = firstPartyOrigins }));
+        TestHelpers.CreateOptions(new IdentityProviderSettings { FirstPartySpaOrigins = firstPartyOrigins })));
 
     private static UserApplicationAccess Access(
         string name,

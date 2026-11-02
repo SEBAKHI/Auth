@@ -923,6 +923,13 @@ export const fr: TranslationResources = {
     implicationRemoved: "Implication retirée.",
   },
   applications: {
+    accountBar: {
+      title: "Barre de compte",
+      description: "Ajoutez ces deux lignes à l'en-tête de l'application pour afficher la grille des applications et l'avatar de la personne connectée, comme dans l'application des comptes.",
+      copy: "Copier le code",
+      attributes: "Remplacez /sign-out par l'adresse de déconnexion propre à l'application : elle met fin à la session de l'application, puis à celle d'IAM. Facultatif : hide=\"apps\" ou hide=\"avatar\" masque l'un des deux, theme=\"light\" ou theme=\"dark\" suit le mode de couleur de l'application, et signin-href indique où mène Se connecter.",
+      subdomainsOnly: "Ne fonctionne que pour une application sur un sous-domaine du site IAM, le même site que {{origin}}. La Content-Security-Policy de l'application doit autoriser {{origin}} dans script-src et frame-src.",
+    },
     title: "Applications",
     subtitle:
       "Enregistrez et configurez les applications qui utilisent ce système Auth.",

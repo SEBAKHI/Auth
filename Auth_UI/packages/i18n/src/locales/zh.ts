@@ -881,6 +881,13 @@ export const zh: TranslationResources = {
     implicationRemoved: "蕴含已移除。",
   },
   applications: {
+    accountBar: {
+      title: "账户栏",
+      description: "将这两行添加到应用的页眉中，即可像账户应用中那样显示应用网格按钮和已登录用户的头像。",
+      copy: "复制代码",
+      attributes: "将 /sign-out 替换为应用自己的退出登录地址：它会先结束应用的会话，再结束 IAM 的会话。可选：hide=\"apps\" 或 hide=\"avatar\" 隐藏其中之一，theme=\"light\" 或 theme=\"dark\" 与应用的颜色模式一致，signin-href 指定“登录”按钮的去向。",
+      subdomainsOnly: "仅适用于位于 IAM 站点子域上的应用，即与 {{origin}} 同一站点。应用的 Content-Security-Policy 必须在 script-src 和 frame-src 中允许 {{origin}}。",
+    },
     title: "应用",
     subtitle: "注册并配置使用此认证系统的应用。",
     newApplication: "新建应用",

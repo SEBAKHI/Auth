@@ -899,6 +899,13 @@ export const fa: TranslationResources = {
     implicationRemoved: "مجوز ضمنی برداشته شد.",
   },
   applications: {
+    accountBar: {
+      title: "نوار حساب",
+      description: "این دو خط را به سرصفحهٔ برنامه اضافه کنید تا دکمهٔ شبکهٔ برنامه‌ها و تصویر فرد واردشده، مانند برنامهٔ حساب‌ها، نمایش داده شود.",
+      copy: "کپی کد",
+      attributes: "به جای /sign-out نشانی خروج خود برنامه را بنویسید: ابتدا نشست برنامه و سپس نشست IAM را پایان می‌دهد. اختیاری: hide=\"apps\" یا hide=\"avatar\" یکی از آن دو را پنهان می‌کند، theme=\"light\" یا theme=\"dark\" با حالت رنگ برنامه هماهنگ می‌شود، و signin-href مقصد دکمهٔ ورود را تعیین می‌کند.",
+      subdomainsOnly: "فقط برای برنامه‌ای روی یک زیردامنهٔ سایت IAM کار می‌کند، یعنی همان سایتی که {{origin}} روی آن است. Content-Security-Policy برنامه باید {{origin}} را در script-src و frame-src مجاز کند.",
+    },
     title: "برنامه‌ها",
     subtitle:
       "ثبت و پیکربندی برنامه‌هایی که از این سامانه احراز هویت استفاده می‌کنند.",

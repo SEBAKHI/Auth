@@ -702,6 +702,8 @@ builder.Services.AddScoped<Auth.Application.Common.OrganizationApplicationRoleCh
 // Where an accepted invitation sends the invitee (OI-192): only ever the application's own
 // registration. Scoped, because it reads the issuer through IOptionsSnapshot.
 builder.Services.AddScoped<Auth.Application.Common.ApplicationLaunchTarget>();
+// The tiles a user can open: IAM's Home and a linked application's account bar read one list.
+builder.Services.AddScoped<Auth.Application.Features.Users.GetMyApplications.MyApplicationsList>();
 // Who may read an organization's directory through an application, and with which authority
 // (OI-194): resolved once per request from the database, never from the token's permissions.
 builder.Services.AddScoped<Auth.Application.Features.Organizations.ApplicationDirectory.ApplicationDirectoryAccess>();

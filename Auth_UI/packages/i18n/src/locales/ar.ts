@@ -900,6 +900,13 @@ export const ar: TranslationResources = {
     implicationRemoved: "تمت إزالة التبعة.",
   },
   applications: {
+    accountBar: {
+      title: "شريط الحساب",
+      description: "أضف هذين السطرين إلى ترويسة التطبيق لعرض زر شبكة التطبيقات وصورة الشخص المسجَّل دخوله، كما في تطبيق الحسابات.",
+      copy: "نسخ الشيفرة",
+      attributes: "استبدل /sign-out بعنوان تسجيل الخروج الخاص بالتطبيق: فهو ينهي جلسة التطبيق ثم جلسة IAM. اختياريًّا: hide=\"apps\" أو hide=\"avatar\" يُخفي أحد الاثنين، وtheme=\"light\" أو theme=\"dark\" يطابق وضع ألوان التطبيق، وsignin-href يحدّد وجهة زر تسجيل الدخول.",
+      subdomainsOnly: "يعمل فقط لتطبيق على نطاق فرعي من موقع IAM، أي الموقع نفسه الذي يتبعه {{origin}}. ويجب أن تسمح سياسة أمان المحتوى (Content-Security-Policy) في التطبيق بـ{{origin}} في script-src وframe-src.",
+    },
     title: "التطبيقات",
     subtitle: "تسجيل وتهيئة التطبيقات التي تستخدم نظام المصادقة.",
     newApplication: "تطبيق جديد",

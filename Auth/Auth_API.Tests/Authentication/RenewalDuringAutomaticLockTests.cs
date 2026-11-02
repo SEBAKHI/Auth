@@ -78,6 +78,9 @@ public class RenewalDuringAutomaticLockTests
         // The application directory (OI-194): a token that may no longer renew reads nothing either.
         // The rule moved to the user caller's own step in OI-202; the machine caller has no user.
         "ApplicationDirectoryCaller.cs",
+        // The account bar of linked applications: an account that may no longer renew is shown
+        // as signed out, as authorize would treat it.
+        "GetAccountBarQueryHandler.cs",
     ];
 
     [Fact]

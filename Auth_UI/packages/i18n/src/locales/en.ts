@@ -909,6 +909,15 @@ export const en = {
     implicationRemoved: "Implication removed.",
   },
   applications: {
+    // The card on an application's page with the two lines a linked application adds to
+    // show IAM's account bar (grid button and avatar) in its own header.
+    accountBar: {
+      title: "Account bar",
+      description: "Add these two lines to the application's header to show the applications grid and the signed-in person's avatar, as in the accounts app.",
+      copy: "Copy the code",
+      attributes: "Replace /sign-out with the application's own sign-out address: it ends the application's session and then IAM's. Optional: hide=\"apps\" or hide=\"avatar\" leaves one of the two out, theme=\"light\" or theme=\"dark\" matches the application's colour mode, and signin-href sets where Sign in goes.",
+      subdomainsOnly: "Works only for an application on a subdomain of the IAM site, the same site as {{origin}}. The application's Content-Security-Policy must allow {{origin}} in script-src and frame-src.",
+    },
     title: "Applications",
     subtitle: "Register and configure applications that use this Auth system.",
     newApplication: "New application",
