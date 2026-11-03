@@ -74,7 +74,7 @@ public sealed class KeyIssuingAnswersNoStoreTests : IAsyncLifetime
                     services.AddAuthLocalization();
                     services.AddLogging();
                     services.Configure<IdentityProviderSettings>(_ => { });
-                    services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.Key);
+                    services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.SigningKeys);
                     services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
                     services.AddScoped<IAuthorizationHandler, PermissionRequirementHandler>();
                     services.AddSingleton<IAuthorizationMiddlewareResultHandler, MfaForbiddenResultHandler>();

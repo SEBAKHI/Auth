@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Auth.Application.Configuration;
 using Auth.Infrastructure.Authentication;
+using Auth_API.Common.Authentication;
 using Auth_API.Common.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
@@ -28,7 +29,7 @@ public class SigningKeyHealthCheckTests
         publicOnly.ImportFromPem(keyPair.ExportSubjectPublicKeyInfoPem());
         using var service = new JwtTokenService(Settings, publicOnly);
 
-        var result = await new SigningKeyHealthCheck(service).CheckHealthAsync(new HealthCheckContext());
+        var result = await new SigningKeyHealthCheck(Probe(service)).CheckHealthAsync(new HealthCheckContext());
 
         service.GetPublicKeyPem().Should().NotBeNullOrWhiteSpace(
             "this is why asking for the public key proved nothing");
@@ -40,7 +41,7 @@ public class SigningKeyHealthCheckTests
     {
         using var service = new JwtTokenService(Settings, RSA.Create(2048));
 
-        var result = await new SigningKeyHealthCheck(service).CheckHealthAsync(new HealthCheckContext());
+        var result = await new SigningKeyHealthCheck(Probe(service)).CheckHealthAsync(new HealthCheckContext());
 
         result.Status.Should().Be(HealthStatus.Healthy);
     }
@@ -54,9 +55,10 @@ public class SigningKeyHealthCheckTests
         var publicOnly = RSA.Create();
         publicOnly.ImportFromPem(keyPair.ExportSubjectPublicKeyInfoPem());
         using var service = new JwtTokenService(Settings, publicOnly);
+        var probe = Probe(service);
 
-        var first = Record.Exception(() => service.ProbeSigningKey());
-        var second = Record.Exception(() => service.ProbeSigningKey());
+        var first = Record.Exception(() => probe.ProbeSigningKey());
+        var second = Record.Exception(() => probe.ProbeSigningKey());
 
         first.Should().NotBeNull();
         second.Should().BeSameAs(first, "a second sign attempt would have thrown a new exception");
@@ -66,7 +68,14 @@ public class SigningKeyHealthCheckTests
     public void ProbeSigningKey_AKeyThatSigns_SignsAndValidates()
     {
         using var service = new JwtTokenService(Settings, RSA.Create(2048));
+        var probe = Probe(service);
 
-        service.ProbeSigningKey().IsError.Should().BeFalse();
+        probe.ProbeSigningKey().IsError.Should().BeFalse();
     }
+
+    /// <summary>
+    /// The probe as the API registers it (S12): over the service's key set, validating with the
+    /// platform scheme's parameters.
+    /// </summary>
+    private static SigningKeyProbe Probe(JwtTokenService service) => new(Settings, service.SigningKeys);
 }

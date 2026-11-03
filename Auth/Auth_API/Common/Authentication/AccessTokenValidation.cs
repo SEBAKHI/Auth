@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Auth.Application.Configuration;
 using Auth.Application.Validators.Rules;
 using Auth.Domain.Constants;
+using Auth.Infrastructure.Authentication;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
@@ -14,6 +15,12 @@ namespace Auth_API.Common.Authentication;
 /// Two hand-written copies of these parameters drift: the second one is the copy a key rotation
 /// or an issuer change misses. So every scheme starts from the same base and differs only in the
 /// audience rule and the token types; <see cref="BearerSchemeRegistration"/> is the only caller.
+/// <para>
+/// No profile holds a key. Each resolves the keys of the token in front of it from
+/// <see cref="ISigningKeyMaterial"/> at that moment (S12), so a change of key reaches every scheme,
+/// revocation, introspection and the readiness probe at once, and none can keep trusting a key the
+/// set no longer holds.
+/// </para>
 /// </remarks>
 public static class AccessTokenValidation
 {
@@ -47,9 +54,9 @@ public static class AccessTokenValidation
     /// The platform scheme (the default): tokens issued to the console and the accounts app, whose
     /// audience is <c>Jwt:Audience</c>.
     /// </summary>
-    public static TokenValidationParameters Platform(JwtSettings settings, SecurityKey signingKey)
+    public static TokenValidationParameters Platform(JwtSettings settings, ISigningKeyMaterial signingKeys)
     {
-        var parameters = Common(settings, signingKey);
+        var parameters = Common(settings, signingKeys);
         parameters.ValidAudience = settings.Audience;
         return parameters;
     }
@@ -59,9 +66,9 @@ public static class AccessTokenValidation
     /// <see cref="Platform"/>, but the audience must be exactly one application code, and the
     /// token type one of <see cref="AppAccessTokenTypes"/>.
     /// </summary>
-    public static TokenValidationParameters UserInfo(JwtSettings settings, SecurityKey signingKey)
+    public static TokenValidationParameters UserInfo(JwtSettings settings, ISigningKeyMaterial signingKeys)
     {
-        var parameters = Common(settings, signingKey);
+        var parameters = Common(settings, signingKeys);
         var platformAudience = settings.Audience;
         parameters.AudienceValidator = (audiences, _, _) => IsApplicationAudience(audiences, platformAudience);
         parameters.ValidTypes = AppAccessTokenTypes;
@@ -74,9 +81,9 @@ public static class AccessTokenValidation
     /// the type <c>at+jwt</c>, and the token must name its client: a <c>client_id</c> equal to its
     /// <c>sub</c>, which is not GUID-shaped.
     /// </summary>
-    public static TokenValidationParameters Machine(JwtSettings settings, SecurityKey signingKey)
+    public static TokenValidationParameters Machine(JwtSettings settings, ISigningKeyMaterial signingKeys)
     {
-        var parameters = Common(settings, signingKey);
+        var parameters = Common(settings, signingKeys);
         parameters.AudienceValidator = (audiences, token, _) => IsMachineAudience(audiences, token);
         parameters.ValidTypes = MachineAccessTokenTypes;
         return parameters;
@@ -126,7 +133,19 @@ public static class AccessTokenValidation
             && !string.Equals(audience, platformAudience, StringComparison.Ordinal);
     }
 
-    private static TokenValidationParameters Common(JwtSettings settings, SecurityKey signingKey) => new()
+    /// <summary>
+    /// The keys to try a token against: those of the set whose <c>kid</c> is the token's, or,
+    /// when none is, every key the set accepts now. A token minted before key ids were compared
+    /// (or with none) still verifies against a live key; a key outside the set verifies nothing.
+    /// </summary>
+    private static IEnumerable<SecurityKey> ResolveKeys(ISigningKeyMaterial signingKeys, string? kid, DateTimeOffset now)
+    {
+        var live = signingKeys.VerificationKeys(now);
+        var match = live.Where(key => string.Equals(key.KeyId, kid, StringComparison.Ordinal)).ToArray();
+        return match.Length > 0 ? match : live;
+    }
+
+    private static TokenValidationParameters Common(JwtSettings settings, ISigningKeyMaterial signingKeys) => new()
     {
         ValidateIssuer = true,
         ValidIssuer = settings.Issuer,
@@ -138,6 +157,7 @@ public static class AccessTokenValidation
         ValidateIssuerSigningKey = true,
         // Pin RS256: never accept a token signed under a different algorithm.
         ValidAlgorithms = ["RS256"],
-        IssuerSigningKey = signingKey
+        // Read per token, never captured: the set decides which keys are live now.
+        IssuerSigningKeyResolver = (_, _, kid, _) => ResolveKeys(signingKeys, kid, TimeProvider.System.GetUtcNow())
     };
 }

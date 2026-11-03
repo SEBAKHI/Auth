@@ -1,6 +1,4 @@
-using System.Security.Claims;
 using Auth.Domain.Entities;
-using ErrorOr;
 
 namespace Auth.Application.Interfaces;
 
@@ -82,13 +80,6 @@ public interface IJwtTokenService
     /// never depend on its length or alphabet.
     /// </remarks>
     string GenerateRefreshToken();
-
-    /// <summary>
-    /// Validates an access token and extracts its claims.
-    /// </summary>
-    /// <param name="token">The JWT token to validate.</param>
-    /// <returns>The claims principal or an error.</returns>
-    ErrorOr<ClaimsPrincipal> ValidateAccessToken(string token);
 
     /// <summary>
     /// Gets the token ID (jti) from a token without full validation.

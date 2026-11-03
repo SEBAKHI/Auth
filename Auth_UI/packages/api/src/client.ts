@@ -26,12 +26,14 @@ import {
   getLogoutPendingSession,
   getRefreshToken,
   hasSession,
+  isForcedRefresh,
   isLogoutPending,
   legacyRefreshToken,
+  markForcedRefresh,
   markRefreshPending,
   markRefreshSpending,
   noteCookieMissing,
-  setAccessToken,
+  noteTokenAccepted,
   setTokens,
 } from "@authsystem/api/token-store"
 import type { paths, Schemas } from "./types"
@@ -87,8 +89,60 @@ const FINAL_REFRESH_REJECTIONS = new Set<PublishedErrorCode>([
   "User.AccountLockedUntil",
 ])
 
+/** What a refresh came to. */
+export type RefreshResult =
+  /** A usable access token is stored: refreshed now, or adopted from another tab or request. */
+  | { status: "fresh" }
+  /**
+   * No new token. The session is over only when the server said so with a code
+   * from FINAL_REFRESH_REJECTIONS, which already cleared it (hasSession() is
+   * false then); after anything else it is kept as it was.
+   */
+  | { status: "failed" }
+  /**
+   * The server is rate-limiting refreshes (429). Nothing was spent, ended or
+   * cleared, and the access token this tab holds stays until it expires; the
+   * caller may try again after `retryAfterSeconds`, when the server said.
+   */
+  | { status: "deferred"; retryAfterSeconds: number | null }
+
+export interface RefreshOptions {
+  /**
+   * The access token the server just refused (S12): refresh even though it has
+   * not expired. A token can be refused while unexpired — its signing key was
+   * withdrawn, its session ended, its authority changed — and waiting for its
+   * expiry would leave every request failing until then. `null` when this tab
+   * holds none. The refused value itself is never adopted back, and a value
+   * that a forced refresh produced is not forced again until a request with it
+   * succeeds.
+   */
+  rejected?: string | null
+}
+
+const FRESH: RefreshResult = { status: "fresh" }
+const FAILED: RefreshResult = { status: "failed" }
+
 /** De-duplicates concurrent refreshes within this tab into one lock acquisition. */
-let refreshPromise: Promise<boolean> | null = null
+let refreshPromise: Promise<RefreshResult> | null = null
+
+/**
+ * The wait a 429 asked for, in whole seconds rounded up, from Retry-After as a
+ * number or as a date; null when absent or unreadable. The gateway exposes the
+ * header to the apps' origins.
+ */
+function retryAfterSeconds(response: Response): number | null {
+  const value = response.headers.get("Retry-After")?.trim()
+  if (!value) return null
+  if (/^\d+$/.test(value)) return Number(value)
+  const at = Date.parse(value)
+  return Number.isNaN(at) ? null : Math.max(0, Math.ceil((at - Date.now()) / 1000))
+}
+
+/** The bearer token a request carried, or null when it carried none. */
+function bearerOf(request: Request): string | null {
+  const header = request.headers.get("Authorization")
+  return header?.startsWith("Bearer ") ? header.slice("Bearer ".length) : null
+}
 
 async function finalRejectionCode(response: Response): Promise<PublishedErrorCode | null> {
   const { code } = await readProblem(response)
@@ -156,7 +210,7 @@ async function announceMfaRequirement(failure: Response): Promise<void> {
  *     migration of a session stored before the cookie);
  *   - the sentinel, or storage unreadable: send `{}` and let the cookie ride.
  */
-async function performRefresh(generation: number): Promise<boolean> {
+async function performRefresh(generation: number, forced: boolean): Promise<RefreshResult> {
   const legacyToken = legacyRefreshToken()
   const viaCookie = legacyToken === null
 
@@ -191,9 +245,15 @@ async function performRefresh(generation: number): Promise<boolean> {
   }
 
   // Still no answer: keep the session, fail this refresh.
-  if (!res) return false
+  if (!res) return FAILED
 
   if (!res.ok) {
+    // Rate-limited: the server spent nothing, so neither does this tab. Said as
+    // such, so no caller reads it as a reason to end the session.
+    if (res.status === 429) {
+      return { status: "deferred", retryAfterSeconds: retryAfterSeconds(res) }
+    }
+
     const code = await finalRejectionCode(res)
     if (code) {
       // The first refresh of a cookie sign-in found no cookie: the browser
@@ -201,49 +261,84 @@ async function performRefresh(generation: number): Promise<boolean> {
       if (viaCookie && code === "Auth.RefreshTokenNotFound") noteCookieMissing()
       clearTokens()
     }
-    return false
+    return FAILED
   }
 
   let data: Schemas["TokenResponse"]
   try {
     data = (await res.json()) as Schemas["TokenResponse"]
   } catch {
-    return false
+    return FAILED
   }
-  if (!data?.accessToken || !data?.refreshToken) return false
+  if (!data?.accessToken || !data?.refreshToken) return FAILED
 
   // Drops the result if the session was torn down while we held the lock,
   // rather than resurrecting a session the user just ended. The refresh value
   // is stored as delivered: the sentinel (cookie mode, including a migration
   // that just moved a stored token into the cookie) or a real token (legacy).
-  if (!setTokens(data.accessToken, data.refreshToken, generation)) return false
+  if (!setTokens(data.accessToken, data.refreshToken, generation)) return FAILED
   if (viaCookie && data.refreshToken === REFRESH_SENTINEL) confirmCookie()
 
-  publishAccessToken(data.accessToken)
-  return true
+  if (forced) markForcedRefresh(data.accessToken)
+  publishAccessToken(data.accessToken, forced)
+  return FRESH
 }
 
 /**
- * Refreshes the token pair, serialised across every tab of this origin.
+ * True when this tab holds a usable access token other than `rejected`: one
+ * another tab or request obtained while this caller queued. The refused value
+ * itself never counts, however fresh its expiry says it is.
+ */
+function holdsReplacementFor(rejected: string | null): boolean {
+  const stored = getAccessToken()
+  return stored !== null && stored !== rejected && hasFreshAccessToken()
+}
+
+/**
+ * Refreshes the token pair, serialised across every tab of this origin. The one
+ * refresh primitive: every caller goes through it.
  *
  * The refresh token ROTATES on use and the server treats a second presentation
  * as theft, so callers must never race their own refresh — always go through
  * this. The in-tab promise below collapses a burst of 401s; the lock inside
  * withRefreshLock() collapses the tabs.
+ *
+ * With `rejected` (S12) it refreshes although the access token has not
+ * expired, once per refused value across the origin: whoever holds the lock
+ * first refreshes, and every other caller refused on the same token adopts the
+ * result instead. See RefreshOptions.
  */
-export function sharedRefresh(): Promise<boolean> {
-  if (refreshPromise) return refreshPromise
+export function sharedRefresh(options: RefreshOptions = {}): Promise<RefreshResult> {
+  const forced = options.rejected !== undefined
+  const rejected = options.rejected ?? null
+
+  if (refreshPromise) {
+    // An ordinary caller shares the refresh under way. A forced one waits for it
+    // and decides again: it may have replaced the refused token (adopted below),
+    // or been an ordinary refresh that found that token still "fresh".
+    if (!forced) return refreshPromise
+    return refreshPromise.catch(() => FAILED).then(() => sharedRefresh(options))
+  }
 
   // Captured before queueing so that, once we hold the lock, we can tell
   // whether another context rotated while we waited.
   const observed = getRefreshToken()
   const generation = currentGeneration()
 
-  refreshPromise = withRefreshLock(async () => {
+  refreshPromise = withRefreshLock(async (): Promise<RefreshResult> => {
     // A tab that rotated while we queued broadcasts its access token; adopting
     // it is what makes concurrent tabs cost one network refresh, not N.
-    if (hasFreshAccessToken()) return true
-    if (!hasSession()) return false
+    if (forced) {
+      if (holdsReplacementFor(rejected)) return FRESH
+      // The refused token is itself the product of a forced refresh that no
+      // request has succeeded with: its refusal is not about its age, and
+      // forcing again would spend a refresh per request. The session stays; it
+      // refreshes as usual once that token expires.
+      if (rejected !== null && isForcedRefresh(rejected)) return FAILED
+    } else if (hasFreshAccessToken()) {
+      return FRESH
+    }
+    if (!hasSession()) return FAILED
 
     if (getRefreshToken() !== observed) {
       // Someone rotated under us, so their access token is already in flight.
@@ -252,11 +347,11 @@ export function sharedRefresh(): Promise<boolean> {
       // stored value never changes and the browser always sends the newest
       // cookie in its jar, so this branch is legacy mode's alone.)
       await waitForBroadcastAccessToken()
-      if (hasFreshAccessToken()) return true
-      if (!hasSession()) return false
+      if (forced ? holdsReplacementFor(rejected) : hasFreshAccessToken()) return FRESH
+      if (!hasSession()) return FAILED
     }
 
-    return performRefresh(generation)
+    return performRefresh(generation, forced)
   }).finally(() => {
     refreshPromise = null
   })
@@ -271,34 +366,26 @@ export function sharedRefresh(): Promise<boolean> {
  * For the moment the session changed on the server while its token did not: a
  * second factor proved inside the session (step-up, or switching two-factor on)
  * — the platform authority a withheld token lacks comes back only with a newly
- * minted one. Rides the same serialised refresh as everything else
- * ({@link sharedRefresh}): it waits for a refresh already under way, then drops
- * this tab's token so the lock holder does not answer "still fresh". A token
- * another tab rotated meanwhile is adopted instead, which is right too: it was
- * minted after the change.
+ * minted one. A caller of the one primitive ({@link sharedRefresh}), with the
+ * token this tab holds as the refused one: it waits for a refresh already under
+ * way (whose request may predate the change), then refuses whatever token this
+ * tab holds after it. A token another tab rotated meanwhile is adopted instead,
+ * which is right too: it was minted after the change. The token is never
+ * dropped meanwhile, so the tab is never left without one.
  *
  * A refusal that ends the session ends it here, as a request's would. An
- * unknown outcome (network, 5xx) keeps the session and the token it had, and
- * resolves false: the caller may try again.
+ * unknown outcome (network, 5xx) or a rate limit keeps the session and the
+ * token it had, and resolves false: the caller may try again.
  */
 export async function refreshSessionNow(): Promise<boolean> {
   if (refreshPromise) {
-    await refreshPromise.catch(() => false)
+    await refreshPromise.catch(() => FAILED)
   }
 
-  const previous = getAccessToken()
-  setAccessToken(null)
+  const result = await sharedRefresh({ rejected: getAccessToken() })
+  if (result.status === "fresh") return true
 
-  if (await sharedRefresh()) return true
-
-  if (!hasSession()) {
-    emitSessionExpired()
-    return false
-  }
-
-  // Nothing settled: put back the token this tab had, unless another tab's
-  // newer one arrived while we waited.
-  if (getAccessToken() === null && previous) setAccessToken(previous)
+  if (result.status === "failed" && !hasSession()) emitSessionExpired()
   return false
 }
 
@@ -316,7 +403,7 @@ export async function ensureFreshAccessToken(): Promise<string | null> {
   if (hasFreshAccessToken()) return getAccessToken()
   if (!hasSession()) return null
 
-  if (!(await sharedRefresh())) {
+  if ((await sharedRefresh()).status !== "fresh") {
     emitSessionExpired()
     return null
   }
@@ -492,7 +579,13 @@ const authMiddleware: Middleware = {
   },
 
   async onResponse({ request, response }) {
-    if (response.ok || request.method === "HEAD") return response
+    if (response.ok) {
+      // A token that a forced refresh produced has now been accepted (S12).
+      const presented = bearerOf(request)
+      if (presented) noteTokenAccepted(presented)
+      return response
+    }
+    if (request.method === "HEAD") return response
     const failure = await withTransportStatus(response)
     if (response.status === 403) await announceMfaRequirement(failure)
     if (response.status !== 401 || isAuthFlow(request.url)) return failure
@@ -506,14 +599,17 @@ const authMiddleware: Middleware = {
       return failure
     }
 
-    // The token was rejected (e.g. revoked). Try one refresh so a query retry
-    // succeeds; if refresh is impossible, end the session.
-    if (hasSession()) {
-      const ok = await sharedRefresh()
-      if (!ok) emitSessionExpired()
-    } else {
+    // The token was refused, perhaps before it expired: its signing key was
+    // withdrawn, or its session ended (S12). Force one refresh for that value so
+    // a query retry succeeds. Only the refresh's own answer ends the session —
+    // a final code there has already cleared it; an unknown outcome, a rate
+    // limit, or a refused token this origin already force-refreshed keeps it.
+    if (!hasSession()) {
       emitSessionExpired()
+      return failure
     }
+    const result = await sharedRefresh({ rejected: bearerOf(request) })
+    if (result.status === "failed" && !hasSession()) emitSessionExpired()
     return failure
   },
 }

@@ -81,7 +81,7 @@ public sealed class UserInfoEndpointTests : IAsyncLifetime
                     services.Configure<IdentityProviderSettings>(_ => { });
 
                     // The registrations Program.cs makes for this path.
-                    services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.Key);
+                    services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.SigningKeys);
                     services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
                     services.AddScoped<IAuthorizationHandler, PermissionRequirementHandler>();
                     services.AddSingleton<IAuthorizationMiddlewareResultHandler, MfaForbiddenResultHandler>();

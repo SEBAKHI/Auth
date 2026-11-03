@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -54,6 +55,16 @@ public static class ServiceCollectionExtensions
                 + "Set it to this application's own client id.");
         }
 
+        // A longer interval would let a key the AuthSystem withdrew in an emergency verify forged
+        // tokens here for longer; a shorter one is no fresher than the AuthSystem's own cache.
+        if (options.JwksRefreshInterval < AuthSystemOptions.MinJwksRefreshInterval
+            || options.JwksRefreshInterval > AuthSystemOptions.MaxJwksRefreshInterval)
+        {
+            throw new InvalidOperationException(
+                $"AuthSystemOptions.JwksRefreshInterval is {options.JwksRefreshInterval}. "
+                + $"Set it between {AuthSystemOptions.MinJwksRefreshInterval} and {AuthSystemOptions.MaxJwksRefreshInterval}.");
+        }
+
         services.Configure(configure);
         services.AddSingleton(new AuthSystemRegistration(options));
 
@@ -78,9 +89,16 @@ public static class ServiceCollectionExtensions
         // route, so it needs the request.
         services.AddHttpContextAccessor();
 
-        // Register token management (auto-refresh interceptor)
+        // Register token management (auto-refresh interceptor). The forced-refresh guard lives as
+        // long as the token store it guards: a handler instance is recycled with its HTTP client,
+        // the stored token is not.
         services.AddSingleton<ITokenStore, InMemoryTokenStore>();
-        services.AddTransient<TokenRefreshHandler>();
+        services.AddSingleton<ForcedRefreshGuard>();
+        services.AddTransient(sp => new TokenRefreshHandler(
+            sp.GetRequiredService<ITokenStore>(),
+            sp.GetRequiredService<IOptions<AuthSystemOptions>>(),
+            sp.GetRequiredService<ILogger<TokenRefreshHandler>>(),
+            sp.GetRequiredService<ForcedRefreshGuard>()));
 
         // Register named HTTP client for AuthSystem API calls.
         //
@@ -165,7 +183,12 @@ public static class ServiceCollectionExtensions
         {
             jwtOptions.Authority = options.BaseUrl;
             jwtOptions.MetadataAddress = $"{options.BaseUrl.TrimEnd('/')}/.well-known/openid-configuration";
-            jwtOptions.RequireHttpsMetadata = !options.BaseUrl.Contains("localhost", StringComparison.OrdinalIgnoreCase);
+            // Plain HTTP only to this machine. A host that merely contains "localhost" in its name
+            // (localhost.attacker.example) is anywhere on the internet, and a JWKS fetched from it in
+            // clear could be swapped in transit for one that trusts the attacker's key.
+            jwtOptions.RequireHttpsMetadata = !IsLoopback(options.BaseUrl);
+            // How long a withdrawn key can keep verifying here (SDK 2.1): at most an hour.
+            jwtOptions.AutomaticRefreshInterval = options.JwksRefreshInterval;
 
             jwtOptions.TokenValidationParameters = new TokenValidationParameters
             {
@@ -185,8 +208,24 @@ public static class ServiceCollectionExtensions
             };
         });
 
+        // After JwtBearer's own post-configuration, which builds the configuration manager. With the
+        // last-known-good fallback on, a token the fresh key set refuses would be tried against the
+        // previous set for another hour: exactly the set that still holds a key withdrawn because
+        // it leaked. Refusing it at once costs one refetch when a token carries a new key.
+        services.PostConfigure<JwtBearerOptions>(AuthSystemConstants.BearerScheme, jwtOptions =>
+        {
+            if (jwtOptions.ConfigurationManager is BaseConfigurationManager manager)
+            {
+                manager.UseLastKnownGoodConfiguration = false;
+            }
+        });
+
         return authBuilder;
     }
+
+    /// <summary>True when <paramref name="baseUrl"/> is an absolute address on this machine (localhost, 127.0.0.0/8, ::1).</summary>
+    private static bool IsLoopback(string? baseUrl) =>
+        Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri) && uri.IsLoopback;
 
     /// <summary>
     /// Adds the ApiKey scheme (the <c>X-Api-Key</c> header). The key is validated by the

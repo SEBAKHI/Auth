@@ -24,6 +24,14 @@ namespace Auth_API.Controllers;
 [EnableRateLimiting("public-surface")]
 public class DiscoveryController : ApiController
 {
+    /// <summary>
+    /// How long a JWKS answer may be reused (S12): five minutes, at every cache between here and a
+    /// relying party. Long enough to spare the public-surface limiter a fetch per token; short
+    /// enough that a key added for a scheduled rotation is seen well inside its 24-hour wait, and a
+    /// key withdrawn in an emergency stops being served within five minutes.
+    /// </summary>
+    public const string JwksCacheControl = "public, max-age=300";
+
     private readonly ISender _sender;
     private readonly IdentityProviderSettings _idpSettings;
 
@@ -63,7 +71,12 @@ public class DiscoveryController : ApiController
         var result = await _sender.Send(new GetJwksQuery(), cancellationToken);
 
         return result.Match(
-            jwks => Content(jwks, "application/json"),
+            jwks =>
+            {
+                // On the key set only: a failure is never stored in a cache for five minutes.
+                Response.Headers.CacheControl = JwksCacheControl;
+                return Content(jwks, "application/json");
+            },
             errors => Problem(errors));
     }
 

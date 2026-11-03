@@ -280,8 +280,8 @@ describe("concurrent tabs", () => {
       tabB.client.sharedRefresh(),
     ])
 
-    expect(okA).toBe(true)
-    expect(okB).toBe(true)
+    expect(okA).toEqual({ status: "fresh" })
+    expect(okB).toEqual({ status: "fresh" })
     // The whole point: two contexts, ONE network refresh.
     expect(server.refreshCalls()).toBe(1)
     expect(server.presented).toEqual(["R0"])
@@ -329,8 +329,8 @@ describe("concurrent tabs", () => {
       tabB.client.sharedRefresh(),
     ])
 
-    expect(okA).toBe(true)
-    expect(okB).toBe(true)
+    expect(okA).toEqual({ status: "fresh" })
+    expect(okB).toEqual({ status: "fresh" })
     expect(server.refreshCalls()).toBe(2)
     // The hard invariant: each request carried the token that was current at
     // the moment it was sent. "R0" twice is the production bug.
@@ -348,7 +348,7 @@ describe("concurrent tabs", () => {
       tabs.map((tab) => tab.client.sharedRefresh())
     )
 
-    expect(results).toEqual([true, true, true])
+    expect(results).toEqual([{ status: "fresh" }, { status: "fresh" }, { status: "fresh" }])
     expect(server.reuseDetections()).toBe(0)
     expect(new Set(server.presented).size).toBe(server.presented.length)
   })
@@ -414,7 +414,7 @@ describe("replayed refresh", () => {
     const tab = await openTab()
     const ok = await tab.client.sharedRefresh()
 
-    expect(ok).toBe(false)
+    expect(ok).toEqual({ status: "deferred", retryAfterSeconds: null })
     expect(tab.tokenStore.getRefreshToken()).toBe("R0")
   })
 
@@ -429,7 +429,7 @@ describe("replayed refresh", () => {
 
     const tab = await openTab()
 
-    expect(await tab.client.sharedRefresh()).toBe(false)
+    expect(await tab.client.sharedRefresh()).toEqual({ status: "failed" })
     expect(tab.tokenStore.getRefreshToken()).toBe("R0")
     expect(storage.get(PENDING_KEY)).toBeUndefined()
   })
@@ -607,7 +607,7 @@ describe("when the lock cannot be had", () => {
 
       const tab = await openTab()
 
-      expect(await tab.client.sharedRefresh()).toBe(true)
+      expect(await tab.client.sharedRefresh()).toEqual({ status: "fresh" })
       expect(server.refreshCalls()).toBe(1)
       tab.tabSync.stopTabSync()
     }
@@ -637,7 +637,7 @@ describe("without Web Locks", () => {
 
     const tab = await openTab()
 
-    expect(await tab.client.sharedRefresh()).toBe(true)
+    expect(await tab.client.sharedRefresh()).toEqual({ status: "fresh" })
     expect(server.refreshCalls()).toBe(1)
     expect(server.reuseDetections()).toBe(0)
   })
@@ -989,7 +989,7 @@ describe("cookie mode", () => {
 
     const tab = await openTab()
 
-    expect(await tab.client.sharedRefresh()).toBe(true)
+    expect(await tab.client.sharedRefresh()).toEqual({ status: "fresh" })
     expect(server.bodies).toEqual([{}])
     expect(server.credentials).toEqual(["include"])
     expect(server.jar()).toBe("C1")
@@ -1002,11 +1002,11 @@ describe("cookie mode", () => {
     const server = installCookieServer({ legacyLive: ["R0"] })
 
     const tab = await openTab()
-    expect(await tab.client.sharedRefresh()).toBe(true)
+    expect(await tab.client.sharedRefresh()).toEqual({ status: "fresh" })
     expect(storage.get(REFRESH_KEY)).toBe(SENTINEL)
 
     tab.tokenStore.setAccessToken(null)
-    expect(await tab.client.sharedRefresh()).toBe(true)
+    expect(await tab.client.sharedRefresh()).toEqual({ status: "fresh" })
 
     expect(server.bodies).toEqual([{ refreshToken: "R0" }, {}])
     expect(server.reuseDetections()).toBe(0)
@@ -1039,7 +1039,7 @@ describe("cookie mode", () => {
 
     const tab = await openTab()
 
-    expect(await tab.client.sharedRefresh()).toBe(true)
+    expect(await tab.client.sharedRefresh()).toEqual({ status: "fresh" })
     expect(flaky).toHaveBeenCalledTimes(2)
     expect(server.bodies).toEqual([{}])
     expect(storage.get("auth.refreshSpending")).toBeUndefined()
@@ -1054,7 +1054,7 @@ describe("cookie mode", () => {
 
     const tab = await openTab()
 
-    expect(await tab.client.sharedRefresh()).toBe(false)
+    expect(await tab.client.sharedRefresh()).toEqual({ status: "failed" })
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(storage.get(REFRESH_KEY)).toBe("R0")
   })
@@ -1065,7 +1065,7 @@ describe("cookie mode", () => {
 
     const tab = await openTab()
 
-    expect(await tab.client.sharedRefresh()).toBe(false)
+    expect(await tab.client.sharedRefresh()).toEqual({ status: "failed" })
     expect(storage.has(REFRESH_KEY)).toBe(false)
   })
 
@@ -1107,7 +1107,7 @@ describe("cookie mode", () => {
     installCookieServer({ jar: null })
 
     const tab = await openTab()
-    expect(await tab.client.sharedRefresh()).toBe(false)
+    expect(await tab.client.sharedRefresh()).toEqual({ status: "failed" })
 
     expect(tab.tokenStore.isCookieBlocked()).toBe(false)
     expect(storage.has(REFRESH_KEY)).toBe(false)
@@ -1142,7 +1142,7 @@ describe("cookie mode", () => {
     tab.tokenStore.clearTokens()
     release(json(200, { accessToken: accessToken(1), refreshToken: SENTINEL }))
 
-    expect(await pending).toBe(false)
+    expect(await pending).toEqual({ status: "failed" })
     expect(storage.has(REFRESH_KEY)).toBe(false)
     expect(tab.tokenStore.getAccessToken()).toBeNull()
   })

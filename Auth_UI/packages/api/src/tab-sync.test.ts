@@ -206,7 +206,7 @@ describe("a cookie refresh whose context died mid-flight", () => {
 
     expect(storage.get(REFRESH_KEY)).toBe(SENTINEL)
     expect(storage.has(SPENDING_KEY)).toBe(false)
-    expect(await tab.client.sharedRefresh()).toBe(true)
+    expect(await tab.client.sharedRefresh()).toEqual({ status: "fresh" })
     expect(refreshes).toBe(1)
   })
 
@@ -219,7 +219,7 @@ describe("a cookie refresh whose context died mid-flight", () => {
 
     expect(storage.has(REFRESH_KEY)).toBe(false)
     expect(storage.has(SPENDING_KEY)).toBe(false)
-    expect(await tab.client.sharedRefresh()).toBe(false)
+    expect(await tab.client.sharedRefresh()).toEqual({ status: "failed" })
     expect(refreshes).toBe(0)
   })
 
@@ -251,7 +251,7 @@ describe("a cookie refresh whose context died mid-flight", () => {
         headers: { "content-type": "application/json" },
       })
     )
-    expect(await inFlight).toBe(true)
+    expect(await inFlight).toEqual({ status: "fresh" })
     await booting
     expect(storage.get(REFRESH_KEY)).toBe(SENTINEL)
   })

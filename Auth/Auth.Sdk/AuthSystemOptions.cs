@@ -47,6 +47,25 @@ public class AuthSystemOptions
     /// </summary>
     public int RefreshBufferSeconds { get; set; } = 120;
 
+    /// <summary>The shortest <see cref="JwksRefreshInterval"/> allowed: 5 minutes, the AuthSystem's own cache of its key set.</summary>
+    public static readonly TimeSpan MinJwksRefreshInterval = TimeSpan.FromMinutes(5);
+
+    /// <summary>The longest <see cref="JwksRefreshInterval"/> allowed: 1 hour.</summary>
+    public static readonly TimeSpan MaxJwksRefreshInterval = TimeSpan.FromHours(1);
+
+    /// <summary>
+    /// How often the Bearer scheme fetches the AuthSystem's signing keys (its JWKS) again, even
+    /// when every token still verifies. Default and maximum: 1 hour; minimum: 5 minutes (SDK 2.1).
+    /// </summary>
+    /// <remarks>
+    /// This bounds how long a key the AuthSystem withdrew in an emergency, because it leaked, still
+    /// verifies forged tokens here. The library default is 12 hours, with the last set that worked
+    /// kept as a fallback; the SDK uses this interval and turns that fallback off. A token signed
+    /// with a key this application has not seen yet triggers a fetch on its own, at most every
+    /// 5 minutes, so a scheduled rotation never waits for this interval.
+    /// </remarks>
+    public TimeSpan JwksRefreshInterval { get; set; } = MaxJwksRefreshInterval;
+
     /// <summary>
     /// This application's code, its <c>client_id</c> as a machine client. One of the three machine
     /// options; the machine client is active only when all three are set.

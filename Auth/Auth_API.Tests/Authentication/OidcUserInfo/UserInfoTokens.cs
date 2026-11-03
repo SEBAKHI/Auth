@@ -46,11 +46,15 @@ public sealed class UserInfoTokens : IDisposable
 
     public JwtTokenService Service { get; }
 
-    public SecurityKey Key => Service.GetSecurityKey();
+    /// <summary>The key set the service signs with, as the API's validators read it (S12).</summary>
+    public ISigningKeyMaterial SigningKeys => Service.SigningKeys;
 
-    public TokenValidationParameters UserInfoParameters => AccessTokenValidation.UserInfo(Settings, Key);
+    /// <summary>The key every token here is signed with, for the shapes the service never mints.</summary>
+    public SecurityKey Key => SigningKeys.Current.Key;
 
-    public TokenValidationParameters PlatformParameters => AccessTokenValidation.Platform(Settings, Key);
+    public TokenValidationParameters UserInfoParameters => AccessTokenValidation.UserInfo(Settings, SigningKeys);
+
+    public TokenValidationParameters PlatformParameters => AccessTokenValidation.Platform(Settings, SigningKeys);
 
     /// <summary>The organization every application token here names (org_id, org_name).</summary>
     public static readonly TokenOrganization Organization = new(Guid.NewGuid(), "Customer Co");

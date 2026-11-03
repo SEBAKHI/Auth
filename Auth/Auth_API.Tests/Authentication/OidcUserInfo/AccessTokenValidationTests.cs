@@ -216,7 +216,8 @@ public sealed class AccessTokenValidationTests : IDisposable
         RequireSignedTokens = true,
         ValidateIssuerSigningKey = true,
         ValidAlgorithms = ["RS256"],
-        IssuerSigningKey = _tokens.Key
+        // The one field S12 changed: no fixed key, the keys come from the signer's key set per token.
+        IssuerSigningKeyResolver = (_, _, _, _) => []
     };
 
     [Fact]
@@ -266,7 +267,7 @@ public sealed class AccessTokenValidationTests : IDisposable
         AssertSameParameters(userInfo.TokenValidationParameters, _tokens.UserInfoParameters);
 
         var machine = bearer.Get(AccessTokenValidation.MachineScheme);
-        AssertSameParameters(machine.TokenValidationParameters, AccessTokenValidation.Machine(_tokens.Settings, _tokens.Key));
+        AssertSameParameters(machine.TokenValidationParameters, AccessTokenValidation.Machine(_tokens.Settings, _tokens.SigningKeys));
 
         foreach (var options in new[] { platform, userInfo, machine })
         {
@@ -284,7 +285,7 @@ public sealed class AccessTokenValidationTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.Key);
+        services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.SigningKeys);
         return services.BuildServiceProvider();
     }
 

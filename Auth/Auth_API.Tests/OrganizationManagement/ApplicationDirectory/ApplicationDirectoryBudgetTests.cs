@@ -54,7 +54,7 @@ public sealed class ApplicationDirectoryBudgetTests : IAsyncLifetime
                 {
                     services.AddRouting();
                     services.AddLogging();
-                    services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.Key);
+                    services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.SigningKeys);
                     services.AddAuthorization();
                     services.AddRateLimiter(options =>
                     {

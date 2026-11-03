@@ -1,5 +1,6 @@
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
+using Auth.Infrastructure.Authentication;
 using Auth_API.Common.Errors;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -8,9 +9,9 @@ using Microsoft.IdentityModel.Tokens;
 namespace Auth_API.Common.Authentication;
 
 /// <summary>
-/// Registers the API's three bearer schemes from <see cref="AccessTokenValidation"/>, and the
+/// Registers the API's three bearer schemes from <see cref="AccessTokenValidation"/>, the
 /// revocation endpoint's <see cref="IIssuedAccessTokenValidator"/> from the platform and userinfo
-/// profiles.
+/// profiles, and the readiness probe from the platform profile.
 /// </summary>
 /// <remarks>
 /// The platform scheme is the default, so it is the only one <c>UseAuthentication</c> runs and
@@ -28,18 +29,22 @@ public static class BearerSchemeRegistration
     public static AuthenticationBuilder AddAuthSystemBearerSchemes(
         this IServiceCollection services,
         JwtSettings settings,
-        SecurityKey signingKey)
+        ISigningKeyMaterial signingKeys)
     {
         // The revocation endpoint's test of "a token this server signed": the same two profiles,
         // from the same arguments as the schemes below, so the two cannot drift apart.
         services.AddSingleton<IIssuedAccessTokenValidator>(new IssuedAccessTokenValidator(
-            AccessTokenValidation.Platform(settings, signingKey),
-            AccessTokenValidation.UserInfo(settings, signingKey)));
+            AccessTokenValidation.Platform(settings, signingKeys),
+            AccessTokenValidation.UserInfo(settings, signingKeys)));
 
         // Introspection's test of "an access token issued to one application" (OI-128 PR B): the
         // userinfo scheme's profile, from the same arguments.
         services.AddSingleton<IApplicationAccessTokenValidator>(new ApplicationAccessTokenValidator(
-            AccessTokenValidation.UserInfo(settings, signingKey)));
+            AccessTokenValidation.UserInfo(settings, signingKeys)));
+
+        // The readiness probe (X03): a token signed with the current key must pass the platform
+        // scheme's own parameters, from the same arguments.
+        services.AddSingleton<ISigningKeyProbe>(new SigningKeyProbe(settings, signingKeys));
 
         return services
             .AddAuthentication(options =>
@@ -47,13 +52,13 @@ public static class BearerSchemeRegistration
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
             })
-            .AddJwtBearer(options => Configure(options, AccessTokenValidation.Platform(settings, signingKey)))
+            .AddJwtBearer(options => Configure(options, AccessTokenValidation.Platform(settings, signingKeys)))
             .AddJwtBearer(
                 AccessTokenValidation.UserInfoScheme,
-                options => Configure(options, AccessTokenValidation.UserInfo(settings, signingKey)))
+                options => Configure(options, AccessTokenValidation.UserInfo(settings, signingKeys)))
             .AddJwtBearer(
                 AccessTokenValidation.MachineScheme,
-                options => Configure(options, AccessTokenValidation.Machine(settings, signingKey)));
+                options => Configure(options, AccessTokenValidation.Machine(settings, signingKeys)));
     }
 
     private static void Configure(JwtBearerOptions options, TokenValidationParameters parameters)

@@ -8,8 +8,6 @@ using Auth.Application.Configuration;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
-using Auth.Domain.Errors;
-using ErrorOr;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -21,15 +19,12 @@ namespace Auth.Infrastructure.Authentication;
 /// JWT token service implementation using RS256 (asymmetric) signing.
 /// Supports JWKS endpoint for external token validation.
 /// </summary>
-public class JwtTokenService : IJwtTokenService, ISigningKeyProbe, IDisposable
+public class JwtTokenService : IJwtTokenService, IDisposable
 {
     private readonly JwtSettings _settings;
     private readonly IOptionsMonitor<JwtSettings>? _liveSettings;
     private readonly RSA _rsa;
-    private readonly RsaSecurityKey _securityKey;
-    private readonly SigningCredentials _signingCredentials;
     private readonly JwtSecurityTokenHandler _tokenHandler;
-    private readonly Lazy<ErrorOr<Success>> _signingKeyProbe;
     private bool _disposed;
 
     public JwtTokenService(
@@ -50,13 +45,15 @@ public class JwtTokenService : IJwtTokenService, ISigningKeyProbe, IDisposable
         _settings = settings;
         _liveSettings = liveSettings;
         _rsa = rsa;
-        _securityKey = new RsaSecurityKey(_rsa) { KeyId = _settings.KeyId };
-        _signingCredentials = new SigningCredentials(_securityKey, SecurityAlgorithms.RsaSha256);
+        SigningKeys = new SingleSigningKeyMaterial(_rsa, _settings.KeyId);
         _tokenHandler = new JwtSecurityTokenHandler();
-        // The key is fixed for the life of the process, so the answer is too: signed once, on the
-        // first readiness call, and an anonymous /ready caller never makes the server sign again.
-        _signingKeyProbe = new Lazy<ErrorOr<Success>>(SignAndValidateProbe, LazyThreadSafetyMode.ExecutionAndPublication);
     }
+
+    /// <summary>
+    /// The keys this service signs with and publishes, and the ones every validator resolves its
+    /// keys from (S12): the bearer schemes, revocation, introspection and the readiness probe.
+    /// </summary>
+    public ISigningKeyMaterial SigningKeys { get; }
 
     /// <inheritdoc />
     public string GenerateAccessToken(
@@ -169,7 +166,8 @@ public class JwtTokenService : IJwtTokenService, ISigningKeyProbe, IDisposable
             // Per-app audience for the authorization-code flow; the platform
             // default for direct first-party logins (console/accounts).
             Audience = string.IsNullOrEmpty(audience) ? _settings.Audience : audience,
-            SigningCredentials = _signingCredentials
+            // Read at sign time, never captured: whatever key is current now signs.
+            SigningCredentials = SigningKeys.Current
         };
 
         var token = _tokenHandler.CreateToken(tokenDescriptor);
@@ -206,7 +204,7 @@ public class JwtTokenService : IJwtTokenService, ISigningKeyProbe, IDisposable
                 [JwtClaimNames.Scope] = string.Join(' ', scopes),
                 [JwtClaimNames.JwtId] = Guid.NewGuid().ToString(),
             },
-            SigningCredentials = _signingCredentials
+            SigningCredentials = SigningKeys.Current
         };
 
         // The JSON handler, not _tokenHandler: it writes the typ header from the descriptor, and
@@ -266,60 +264,6 @@ public class JwtTokenService : IJwtTokenService, ISigningKeyProbe, IDisposable
     }
 
     /// <inheritdoc />
-    public ErrorOr<ClaimsPrincipal> ValidateAccessToken(string token)
-    {
-        if (string.IsNullOrEmpty(token))
-        {
-            return AuthErrors.InvalidToken;
-        }
-
-        var validationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = _settings.Issuer,
-            ValidateAudience = true,
-            ValidAudience = _settings.Audience,
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = _securityKey,
-            ValidateLifetime = true,
-            ClockSkew = _settings.ClockSkew,
-            RequireExpirationTime = true,
-            RequireSignedTokens = true
-        };
-
-        try
-        {
-            var principal = _tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
-
-            if (validatedToken is not JwtSecurityToken jwtToken ||
-                !jwtToken.Header.Alg.Equals(SecurityAlgorithms.RsaSha256, StringComparison.OrdinalIgnoreCase))
-            {
-                return AuthErrors.InvalidToken;
-            }
-
-            return principal;
-        }
-        catch (SecurityTokenExpiredException)
-        {
-            return AuthErrors.TokenExpired;
-        }
-        catch (SecurityTokenException)
-        {
-            return AuthErrors.InvalidToken;
-        }
-        catch (ArgumentException)
-        {
-            // A string that is not a JWT at all — the header will not base64url
-            // decode. IdentityModel raises this as an ArgumentException, which
-            // slipped past the SecurityTokenException filter above and escaped
-            // the handler, so an anonymous caller posting "aaa.bbb.ccc" to the
-            // revocation endpoint was answered 400 carrying IdentityModel's own
-            // diagnostic text. Unparseable is simply invalid, and says so.
-            return AuthErrors.InvalidToken;
-        }
-    }
-
-    /// <inheritdoc />
     public string? GetTokenId(string token)
     {
         try
@@ -355,23 +299,32 @@ public class JwtTokenService : IJwtTokenService, ISigningKeyProbe, IDisposable
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Every published key, the current one first. The members, their order and the indented
+    /// format are what relying parties have parsed since the first release: the body of one key is
+    /// byte for byte what it was before the key set (JwksCompatibilityGoldenTests).
+    /// </remarks>
     public string GetJwks()
     {
-        var parameters = _rsa.ExportParameters(false);
-
-        var jwk = new Dictionary<string, object>
-        {
-            ["kty"] = "RSA",
-            ["use"] = "sig",
-            ["alg"] = "RS256",
-            ["kid"] = _settings.KeyId,
-            ["n"] = Base64UrlEncode(parameters.Modulus!),
-            ["e"] = Base64UrlEncode(parameters.Exponent!)
-        };
+        var keys = SigningKeys.PublishedKeys(DateTimeOffset.UtcNow)
+            .Select(key =>
+            {
+                var parameters = PublicParameters(key);
+                return new Dictionary<string, object>
+                {
+                    ["kty"] = "RSA",
+                    ["use"] = "sig",
+                    ["alg"] = "RS256",
+                    ["kid"] = key.KeyId,
+                    ["n"] = Base64UrlEncode(parameters.Modulus!),
+                    ["e"] = Base64UrlEncode(parameters.Exponent!)
+                };
+            })
+            .ToArray();
 
         var jwks = new Dictionary<string, object>
         {
-            ["keys"] = new[] { jwk }
+            ["keys"] = keys
         };
 
         return JsonSerializer.Serialize(jwks, new JsonSerializerOptions
@@ -381,9 +334,14 @@ public class JwtTokenService : IJwtTokenService, ISigningKeyProbe, IDisposable
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// The current key only. A relying party that pins this file breaks when the key changes; the
+    /// JWKS is what lists every key a token may be signed with.
+    /// </remarks>
     public string GetPublicKeyPem()
     {
-        var publicKey = _rsa.ExportRSAPublicKey();
+        using var current = RSA.Create(PublicParameters(SigningKeys.PublishedKeys(DateTimeOffset.UtcNow)[0]));
+        var publicKey = current.ExportRSAPublicKey();
         var base64 = Convert.ToBase64String(publicKey);
         var pem = new StringBuilder();
         pem.AppendLine("-----BEGIN RSA PUBLIC KEY-----");
@@ -412,30 +370,10 @@ public class JwtTokenService : IJwtTokenService, ISigningKeyProbe, IDisposable
         }
     }
 
-    /// <summary>
-    /// Gets the security key used for token signing and validation.
-    /// </summary>
-    public SecurityKey GetSecurityKey() => _securityKey;
-
-    /// <inheritdoc />
-    public ErrorOr<Success> ProbeSigningKey() => _signingKeyProbe.Value;
-
-    private ErrorOr<Success> SignAndValidateProbe()
-    {
-        var now = DateTime.UtcNow;
-        var probe = _tokenHandler.CreateToken(new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity([new Claim(JwtClaimNames.Subject, "signing-key-probe")]),
-            Expires = now.AddMinutes(1),
-            NotBefore = now,
-            IssuedAt = now,
-            Issuer = _settings.Issuer,
-            Audience = _settings.Audience,
-            SigningCredentials = _signingCredentials
-        });
-
-        return ValidateAccessToken(_tokenHandler.WriteToken(probe)).Then(_ => Result.Success);
-    }
+    /// <summary>The public half of <paramref name="key"/>, whether it holds an RSA instance or bare parameters.</summary>
+    private static RSAParameters PublicParameters(RsaSecurityKey key) =>
+        key.Rsa?.ExportParameters(false)
+        ?? new RSAParameters { Modulus = key.Parameters.Modulus, Exponent = key.Parameters.Exponent };
 
     private static string Base64UrlEncode(byte[] input)
     {

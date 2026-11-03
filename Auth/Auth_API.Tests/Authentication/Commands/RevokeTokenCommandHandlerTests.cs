@@ -37,7 +37,7 @@ public sealed class RevokeTokenCommandHandlerTests : IDisposable
         _tokens.Settings.ClockSkewSeconds = 90;
 
         var services = new ServiceCollection();
-        services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.Key);
+        services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.SigningKeys);
         _provider = services.BuildServiceProvider();
 
         _handler = new RevokeTokenCommandHandler(

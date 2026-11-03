@@ -33,6 +33,8 @@
  * Read tab-sync.ts before changing anything below.
  */
 
+import { decodeJwt } from "@authsystem/api/jwt"
+
 const REFRESH_TOKEN_KEY = "auth.refreshToken"
 
 /**
@@ -81,7 +83,25 @@ const LOGOUT_PENDING_KEY = "auth.logoutPending"
  */
 const COOKIE_CHECK_KEY = "auth.cookieCheck"
 
+/**
+ * The access token the last FORCED refresh produced (S12), until a request
+ * carrying it succeeds. A forced refresh answers a token the server refused
+ * before it expired; when its replacement is refused as well, the refusal is
+ * not about the token's age, and forcing again would spend the session's
+ * refresh token on every request. Origin-wide, like the session key: a success
+ * in any tab lifts the guard for all of them. Only the token's `jti` is
+ * written — never the token, which stays in memory (see the header above).
+ */
+const FORCED_REFRESH_KEY = "auth.forcedRefresh"
+
 let accessToken: string | null = null
+
+/**
+ * This tab's copy of the forced-refresh record, for when localStorage cannot be
+ * read. Set by the tab that refreshed and, through the tab channel's `forced`
+ * flag, by every tab that adopted the token (tab-sync.ts).
+ */
+let forcedInMemory: string | null = null
 
 /**
  * Where localStorage cannot be read at all (a locked-down private mode), the
@@ -219,9 +239,55 @@ export function clearTokens(): void {
   generation += 1
   accessToken = null
   memorySession = false
+  forcedInMemory = null
   remove(REFRESH_TOKEN_KEY)
   remove(PENDING_REFRESH_KEY)
   remove(SPENDING_REFRESH_KEY)
+  remove(FORCED_REFRESH_KEY)
+}
+
+/**
+ * What the forced-refresh record holds for `token`: its `jti`, or, for a token
+ * without one, the token itself — kept in memory only, never written.
+ */
+function forcedRecordOf(token: string): { id: string; persist: boolean } {
+  const jti = decodeJwt(token)?.jti
+  return typeof jti === "string" && jti
+    ? { id: `jti:${jti}`, persist: true }
+    : { id: token, persist: false }
+}
+
+/** A forced refresh just produced `token`: record it for every tab of the origin. */
+export function markForcedRefresh(token: string): void {
+  const record = forcedRecordOf(token)
+  forcedInMemory = record.id
+  if (record.persist) write(FORCED_REFRESH_KEY, record.id)
+}
+
+/**
+ * Another tab's forced refresh produced `token`, which this tab adopted. Only
+ * this tab's copy is set: the producer already wrote the origin-wide record, and
+ * writing it again could restore a guard that a success has lifted meanwhile.
+ */
+export function adoptForcedRefresh(token: string): void {
+  forcedInMemory = forcedRecordOf(token).id
+}
+
+/** True when `token` came from a forced refresh and no request with it has succeeded yet. */
+export function isForcedRefresh(token: string): boolean {
+  const record = forcedRecordOf(token)
+  const stored = record.persist ? read(FORCED_REFRESH_KEY) : undefined
+  return stored === undefined ? forcedInMemory === record.id : stored === record.id
+}
+
+/** A request carrying `token` succeeded: a later refusal of it is worth a forced refresh again. */
+export function noteTokenAccepted(token: string): void {
+  const stored = read(FORCED_REFRESH_KEY)
+  if (forcedInMemory === null && !stored) return
+
+  const { id } = forcedRecordOf(token)
+  if (forcedInMemory === id) forcedInMemory = null
+  if (stored === id) remove(FORCED_REFRESH_KEY)
 }
 
 /** LEGACY: records that `token` is being spent right now. */
