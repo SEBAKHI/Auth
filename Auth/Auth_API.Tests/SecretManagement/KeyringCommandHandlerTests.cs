@@ -127,10 +127,9 @@ public sealed class KeyringCommandHandlerTests : IDisposable
         using var plain = new KeyringTestHarness(plainText: true);
         var request = new RequestSecretOperationChallengeCommandHandler(
             plain.Challenges.Service,
-            plain.Service,
+            plain.Approvals,
             TestHelpers.CreateOptions(new SecretManagementSettings { StorageMode = "Certificate" }),
             plain.Publisher.Object,
-            plain.Clock,
             new Mock<ILogger<RequestSecretOperationChallengeCommandHandler>>().Object);
 
         var raised = await request.Handle(
@@ -138,7 +137,7 @@ public sealed class KeyringCommandHandlerTests : IDisposable
             CancellationToken.None);
         var staged = await new StageHmacKeyCommandHandler(plain.Service, new SharedKeyMaterialGenerator()).Handle(
             new StageHmacKeyCommand(null, Guid.NewGuid(), plain.Admin), CancellationToken.None);
-        var read = await new GetHmacKeyringQueryHandler(plain.Service).Handle(new GetHmacKeyringQuery(), CancellationToken.None);
+        var read = await new GetHmacKeyringQueryHandler(plain.Service, plain.SigningService).Handle(new GetHmacKeyringQuery(), CancellationToken.None);
 
         raised.FirstError.Code.Should().Be("Secret.KeyringUnavailable");
         staged.FirstError.Code.Should().Be("Secret.KeyringUnavailable");
@@ -703,7 +702,7 @@ public sealed class KeyringCommandHandlerTests : IDisposable
         await _keyring.StageAsync();
         var ring = _keyring.ReadFileRing();
 
-        var view = await new GetHmacKeyringQueryHandler(_keyring.Service).Handle(new GetHmacKeyringQuery(), CancellationToken.None);
+        var view = await new GetHmacKeyringQueryHandler(_keyring.Service, _keyring.SigningService).Handle(new GetHmacKeyringQuery(), CancellationToken.None);
 
         var json = JsonSerializer.Serialize(view.Value);
         foreach (var key in ring.Keys)
@@ -717,18 +716,16 @@ public sealed class KeyringCommandHandlerTests : IDisposable
 
     private RequestSecretOperationChallengeCommandHandler RequestHandler() => new(
         _keyring.Challenges.Service,
-        _keyring.Service,
+        _keyring.Approvals,
         TestHelpers.CreateOptions(new SecretManagementSettings { StorageMode = "Certificate" }),
         _keyring.Publisher.Object,
-        _keyring.Clock,
         new Mock<ILogger<RequestSecretOperationChallengeCommandHandler>>().Object);
 
     private VerifySecretOperationChallengeCommandHandler VerifyHandler() => new(
         _keyring.Challenges.Service,
-        _keyring.Service,
+        _keyring.Approvals,
         _keyring.Impact.Object,
         TestHelpers.CreateOptions(new JwtSettings()),
-        _keyring.Clock,
         new Mock<ILogger<VerifySecretOperationChallengeCommandHandler>>().Object);
 
     // Key 3, a previous key, replaced in the file and in this process by another key under id 3,
@@ -816,10 +813,8 @@ public sealed class KeyringCommandHandlerTests : IDisposable
         public Task<string?> GetSecretAsync(string key, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task SetSecretAsync(string key, string value, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> RemoveSecretAsync(string key, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<string> GenerateRsaKeyPairAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<string> GenerateGatewayTokenAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<KeyGenerationResult> GenerateMissingKeysAsync(CancellationToken cancellationToken, Action<KeyGenerationResult>? beforeSave = null) => throw new NotSupportedException();
-        public Task ImportRsaKeyPairAsync(string privateKeyPem, string publicKeyPem, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task ImportGatewayTokenAsync(string token, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<SecretStatusResult> GetStatusAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
@@ -856,10 +851,8 @@ public sealed class KeyringCommandHandlerTests : IDisposable
         public Task<string?> GetSecretAsync(string key, CancellationToken cancellationToken) => inner.GetSecretAsync(key, cancellationToken);
         public Task SetSecretAsync(string key, string value, CancellationToken cancellationToken) => inner.SetSecretAsync(key, value, cancellationToken);
         public Task<bool> RemoveSecretAsync(string key, CancellationToken cancellationToken) => inner.RemoveSecretAsync(key, cancellationToken);
-        public Task<string> GenerateRsaKeyPairAsync(CancellationToken cancellationToken) => inner.GenerateRsaKeyPairAsync(cancellationToken);
         public Task<string> GenerateGatewayTokenAsync(CancellationToken cancellationToken) => inner.GenerateGatewayTokenAsync(cancellationToken);
         public Task<KeyGenerationResult> GenerateMissingKeysAsync(CancellationToken cancellationToken, Action<KeyGenerationResult>? beforeSave = null) => inner.GenerateMissingKeysAsync(cancellationToken, beforeSave);
-        public Task ImportRsaKeyPairAsync(string privateKeyPem, string publicKeyPem, CancellationToken cancellationToken) => inner.ImportRsaKeyPairAsync(privateKeyPem, publicKeyPem, cancellationToken);
         public Task ImportGatewayTokenAsync(string token, CancellationToken cancellationToken) => inner.ImportGatewayTokenAsync(token, cancellationToken);
         public Task<SecretStatusResult> GetStatusAsync(CancellationToken cancellationToken) => inner.GetStatusAsync(cancellationToken);
     }

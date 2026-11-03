@@ -42,7 +42,7 @@ public class GatewaySecretProviderFilterTests : IDisposable
         var all = new ConfigurationBuilder().AddDpapiSecrets(_protection, path).Build();
         var gateway = new ConfigurationBuilder().AddDpapiSecrets(_protection, path, DpapiSecretFilters.GatewayTokenOnly).Build();
 
-        Populated(all).Should().Contain(["Jwt:PrivateKeyPem", "Jwt:RefreshTokenHmacKeyPlain", "Keyring:Hmac:Keys:1:Material", "Gateway:Token"],
+        Populated(all).Should().Contain(["Jwt:PrivateKeyPem", "Jwt:RefreshTokenHmacKeyPlain", "Keyring:Hmac:Keys:1:Material", "Keyring:Rsa:CurrentKid", "Gateway:Token"],
             "the unfiltered provider maps the whole file, so the filter below is what keeps the rest out");
         Populated(gateway).Should().Equal("Gateway:Token");
         gateway["Gateway:Token"].Should().Be(all["Gateway:Token"]);

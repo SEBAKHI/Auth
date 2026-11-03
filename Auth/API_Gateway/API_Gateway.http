@@ -223,10 +223,27 @@ Authorization: Bearer your-access-token-here
 
 ###
 
-### Generate RSA Key Pair
-POST {{API_Gateway_HostAddress}}/api/v1/admin/secrets/generate/rsa
+### Stage a signing key (S12): a challenge for GenerateRsaKey with keyringAction Stage first
+POST {{API_Gateway_HostAddress}}/api/v1/admin/secrets/keyring/rsa/stage
 Content-Type: application/json
 Authorization: Bearer your-access-token-here
+
+{
+  "challengeId": "00000000-0000-0000-0000-000000000000",
+  "value": null
+}
+
+###
+
+### Promote the staged signing key: 24 hours after the restart that loaded it
+POST {{API_Gateway_HostAddress}}/api/v1/admin/secrets/keyring/rsa/promote
+Content-Type: application/json
+Authorization: Bearer your-access-token-here
+
+{
+  "challengeId": "00000000-0000-0000-0000-000000000000",
+  "emergency": false
+}
 
 ###
 

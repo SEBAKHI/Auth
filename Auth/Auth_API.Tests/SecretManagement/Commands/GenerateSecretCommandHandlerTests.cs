@@ -25,18 +25,15 @@ public sealed class GenerateSecretCommandHandlerTests : IDisposable
     public GenerateSecretCommandHandlerTests()
     {
         _secretServiceMock
-            .Setup(s => s.GenerateRsaKeyPairAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync("-----BEGIN PUBLIC KEY-----");
-        _secretServiceMock
             .Setup(s => s.GenerateGatewayTokenAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync("new-gateway-token");
     }
 
+    // The RSA regenerate is an alias of a stage and an emergency promote (S12): it runs over a
+    // real secrets file, with the approvals of the keyring harness.
     private GenerateRsaKeyCommandHandler RsaHandler() => new(
-        _secretServiceMock.Object,
-        _challenges.Service,
-        _publisherMock.Object,
-        new Mock<ILogger<GenerateRsaKeyCommandHandler>>().Object);
+        _keyring.SigningService,
+        new Auth.Infrastructure.Security.SharedKeyMaterialGenerator());
 
     public void Dispose() => _keyring.Dispose();
 
@@ -55,19 +52,28 @@ public sealed class GenerateSecretCommandHandlerTests : IDisposable
     [Fact]
     public async Task Rsa_WithApproval_RotatesAndRecordsTheOperation()
     {
+        var before = _keyring.ReadSigningRing();
         var challengeId = Guid.NewGuid();
-        _challenges.WithApproval(challengeId, SecretOperation.GenerateRsaKey, _admin);
+        // Today's digest for a generate: none (the alias keeps a cached console working).
+        _keyring.Challenges.WithApproval(challengeId, SecretOperation.GenerateRsaKey, _keyring.Admin);
 
         var result = await RsaHandler().Handle(
-            new GenerateRsaKeyCommand(challengeId, _admin), CancellationToken.None);
+            new GenerateRsaKeyCommand(challengeId, _keyring.Admin), CancellationToken.None);
 
-        result.IsError.Should().BeFalse();
-        _secretServiceMock.Verify(
-            s => s.GenerateRsaKeyPairAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _publisherMock.Verify(
+        result.IsError.Should().BeFalse(string.Join("; ", result.ErrorsOrEmptyList.Select(e => e.Code)));
+        var after = _keyring.ReadSigningRing();
+        after.Current.Kid.Should().NotBe(before.Current.Kid, "the alias installs a new key at once in the file");
+        after.Current.PublicKeyPem.Should().Be(result.Value, "the answer is the new key's public key, as before");
+        after.Find(before.Current.Kid)!.Compromised.Should().BeTrue("the replaced key is closed, as an emergency closes it");
+        _keyring.SigningKeys.Current.Key.KeyId.Should().Be(before.Current.Kid,
+            "this process never loaded the new key: it signs with it from its next start, as generate/rsa always did");
+        _keyring.Publisher.Verify(
             p => p.Publish(
                 It.Is<SecretOperationExecutedEvent>(e =>
-                    e.Operation == SecretOperation.GenerateRsaKey && e.ExecutedBy == _admin),
+                    e.Operation == SecretOperation.GenerateRsaKey
+                    && e.Action == KeyringAction.PromoteEmergency
+                    && e.KeyId == after.Current.Kid
+                    && e.ExecutedBy == _keyring.Admin),
                 It.IsAny<CancellationToken>()),
             Times.Once,
             "rotating the key that signs every access token must leave an audit trail");
@@ -76,14 +82,15 @@ public sealed class GenerateSecretCommandHandlerTests : IDisposable
     [Fact]
     public async Task Rsa_WithoutApproval_NeverTouchesTheSecretStore()
     {
+        var before = _keyring.ReadSigningRing();
+
         var result = await RsaHandler().Handle(
-            new GenerateRsaKeyCommand(Guid.NewGuid(), _admin), CancellationToken.None);
+            new GenerateRsaKeyCommand(Guid.NewGuid(), _keyring.Admin), CancellationToken.None);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Secret.ChallengeNotApproved");
-        _secretServiceMock.Verify(
-            s => s.GenerateRsaKeyPairAsync(It.IsAny<CancellationToken>()), Times.Never);
-        _publisherMock.Verify(
+        _keyring.ReadSigningRing().Current.Kid.Should().Be(before.Current.Kid);
+        _keyring.Publisher.Verify(
             p => p.Publish(It.IsAny<SecretOperationExecutedEvent>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }

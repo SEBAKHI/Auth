@@ -59,6 +59,23 @@ public class SecretOperationChallengeServiceTests
     }
 
     [Fact]
+    public async Task Issue_NamesASigningKeyringActionInTheEmail()
+    {
+        // S12: the email says which change of the signing key is confirmed, so an emergency is
+        // never mistaken for a scheduled rotation.
+        _context.WithConfirmedAdmin(_admin);
+
+        await _context.Service.IssueAsync(
+            SecretOperation.GenerateRsaKey, "digest", _admin, null, CancellationToken.None, KeyringAction.PromoteEmergency);
+
+        _context.NotificationService.Verify(
+            s => s.SendAsync(
+                It.Is<NotificationRequest>(r => (string)r.Variables["OperationCode"]! == "GenerateRsaKey/PromoteEmergency"),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task Issue_RefusesWhenTheAdministratorHasNoConfirmedAddress()
     {
         _context.WithUnconfirmedAdmin(_admin);

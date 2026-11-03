@@ -430,6 +430,7 @@ export const PUBLISHED_ERROR_CODES = {
   "Secret.KeyringFileInconsistent": "catalog",
   "Secret.KeyringKeyNotFound": "catalog",
   "Secret.KeyringKeyReferenced": "catalog",
+  "Secret.KeyringNextTooYoung": "catalog",
   "Secret.KeyringNoNextKey": "catalog",
   "Secret.KeyringUnavailable": "catalog",
   "Secret.NotFound": "catalog",

@@ -28,10 +28,11 @@ public class SecretConfigurationModelParityTests
     // OI-217: the keys that left the ring, and the highest id in use.
     [InlineData("HmacRemovedKeys")]
     [InlineData("HmacHighestKeyId")]
-    // Empty until S12, present now so a build without S12 does not erase an RSA ring.
+    // The signing keyring (S12): in both models, so a save through either keeps it.
     [InlineData("SigningKeys")]
     [InlineData("SigningCurrentKid")]
     [InlineData("SigningNextKid")]
+    [InlineData("SigningRemovedKeys")]
     public void BothModels_CarryTheKeyrings(string member)
     {
         typeof(ApplicationModel).GetProperty(member).Should().NotBeNull();
@@ -46,9 +47,11 @@ public class SecretConfigurationModelParityTests
         new ApplicationModel().HmacKeys.Should().BeEmpty();
         new ApplicationModel().HmacRemovedKeys.Should().BeEmpty();
         new ApplicationModel().SigningKeys.Should().BeEmpty();
+        new ApplicationModel().SigningRemovedKeys.Should().BeEmpty();
         new SharedModel().HmacKeys.Should().BeEmpty();
         new SharedModel().HmacRemovedKeys.Should().BeEmpty();
         new SharedModel().SigningKeys.Should().BeEmpty();
+        new SharedModel().SigningRemovedKeys.Should().BeEmpty();
     }
 
     /// <summary>

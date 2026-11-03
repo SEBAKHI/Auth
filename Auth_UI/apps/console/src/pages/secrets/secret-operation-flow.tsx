@@ -49,9 +49,10 @@ export type SecretOperationName =
   | "ImportGatewayToken"
 
 /**
- * A change of the HMAC keyring (S11), by the server's enum names, sent the same
- * way as `SecretOperationName`. Each is confirmed with the HMAC step-up, bound
- * to the action and to the key it applies to.
+ * A change of a keyring, by the server's enum names, sent the same way as
+ * `SecretOperationName`: of the HMAC keyring (S11) with an HMAC operation, of the
+ * signing keyring (S12) with an RSA one. Each is confirmed with its ring's step-up,
+ * bound to the action and to the key it applies to.
  */
 export type KeyringActionName =
   | "Stage"
@@ -71,6 +72,16 @@ export interface PendingSecretOperation {
   keyringAction?: KeyringActionName
   /** The key a keyring change applies to, when it names one (shown, and sent for reinstate and retire). */
   keyId?: number
+  /** For the signing keyring: the key (its kid) a change applies to (shown, and sent for retire). */
+  kid?: string
+}
+
+/** Whether a keyring change is of the signing keyring (S12): its operation is an RSA one. */
+function isSigningKeyringChange(pending: PendingSecretOperation): boolean {
+  return (
+    Boolean(pending.keyringAction) &&
+    (pending.operation === "GenerateRsaKey" || pending.operation === "ImportRsaKey")
+  )
 }
 
 /**
@@ -81,6 +92,13 @@ export interface PendingSecretOperation {
 export interface SecretOperationResult {
   value?: string | null
   multiline: boolean
+  /**
+   * A signing keyring change that takes effect only when the API restarts (S12):
+   * a stage loads its key then, and an emergency whose staged key this process
+   * never loaded closes the leaked key then. Said in plain words, never left for
+   * the administrator to infer.
+   */
+  restartNeeded?: "toLoad" | "toClose"
 }
 
 type FlowStep = "confirm" | "challenge" | "impact"
@@ -135,14 +153,66 @@ async function executeKeyringAction(
   return { multiline: false }
 }
 
+/** The signing keyring endpoint of each change (S12); every one answers with the new ring. */
+async function executeSigningKeyringAction(
+  action: KeyringActionName,
+  { value, kid }: PendingSecretOperation,
+  challengeId: string
+): Promise<SecretOperationResult> {
+  switch (action) {
+    case "Stage":
+    case "StageImport":
+      await unwrap(
+        api.POST("/api/v1/admin/Secrets/keyring/rsa/stage", {
+          body: { challengeId, value: action === "StageImport" ? value : null },
+        })
+      )
+      return { multiline: false, restartNeeded: "toLoad" }
+    case "Promote":
+    case "PromoteEmergency": {
+      const ring = await unwrap(
+        api.POST("/api/v1/admin/Secrets/keyring/rsa/promote", {
+          body: { challengeId, emergency: action === "PromoteEmergency" },
+        })
+      )
+      return {
+        multiline: false,
+        restartNeeded:
+          action === "PromoteEmergency" && ring?.changeAppliedInProcess === false
+            ? "toClose"
+            : undefined,
+      }
+    }
+    case "DiscardNext":
+      await unwrap(
+        api.POST("/api/v1/admin/Secrets/keyring/rsa/discard-next", {
+          body: { challengeId },
+        })
+      )
+      return { multiline: false }
+    default:
+      await unwrap(
+        api.POST("/api/v1/admin/Secrets/keyring/rsa/retire/{kid}", {
+          params: { path: { kid: kid ?? "" } },
+          body: { challengeId },
+        })
+      )
+      return { multiline: false }
+  }
+}
+
 async function executeOperation(
   pending: PendingSecretOperation,
   challengeId: string
 ): Promise<SecretOperationResult> {
   const { operation, value, keyringAction } = pending
-  // A keyring change never goes to generate/hmac or import/hmac: those are the
-  // emergency aliases kept for consoles cached before the keyring (S11).
-  if (keyringAction) return executeKeyringAction(keyringAction, pending, challengeId)
+  // A keyring change never goes to the generate or import aliases: those are the
+  // emergency aliases kept for consoles cached before each keyring (S11, S12).
+  if (keyringAction) {
+    return isSigningKeyringChange(pending)
+      ? executeSigningKeyringAction(keyringAction, pending, challengeId)
+      : executeKeyringAction(keyringAction, pending, challengeId)
+  }
 
   switch (operation) {
     case "GenerateRsaKey": {
@@ -194,8 +264,13 @@ async function executeOperation(
 
 function needsKeyId(pending: PendingSecretOperation): boolean {
   return (
-    pending.keyringAction === "Reinstate" || pending.keyringAction === "Retire"
+    !isSigningKeyringChange(pending) &&
+    (pending.keyringAction === "Reinstate" || pending.keyringAction === "Retire")
   )
+}
+
+function needsKid(pending: PendingSecretOperation): boolean {
+  return isSigningKeyringChange(pending) && pending.keyringAction === "Retire"
 }
 
 /**
@@ -288,11 +363,32 @@ export function SecretOperationFlow({
     Retire: t("secrets.keyring.warning.Retire"),
   }
 
+  // Literal keys, as above. A signing keyring change names its action and its kid (S12).
+  const signingLabels: Record<KeyringActionName, string> = {
+    Stage: t("secrets.signingKeyring.action.Stage"),
+    StageImport: t("secrets.signingKeyring.action.StageImport"),
+    Promote: t("secrets.signingKeyring.action.Promote", { kid: pending.kid }),
+    PromoteEmergency: t("secrets.signingKeyring.action.PromoteEmergency", { kid: pending.kid }),
+    DiscardNext: t("secrets.signingKeyring.action.DiscardNext", { kid: pending.kid }),
+    Reinstate: t("secrets.signingKeyring.action.Reinstate"),
+    Retire: t("secrets.signingKeyring.action.Retire", { kid: pending.kid }),
+  }
+  const signingWarnings: Record<KeyringActionName, string> = {
+    Stage: t("secrets.signingKeyring.warning.Stage"),
+    StageImport: t("secrets.signingKeyring.warning.StageImport"),
+    Promote: t("secrets.signingKeyring.warning.Promote"),
+    PromoteEmergency: t("secrets.signingKeyring.warning.PromoteEmergency"),
+    DiscardNext: t("secrets.signingKeyring.warning.DiscardNext"),
+    Reinstate: t("secrets.signingKeyring.warning.Reinstate"),
+    Retire: t("secrets.signingKeyring.warning.Retire"),
+  }
+
+  const signing = isSigningKeyringChange(pending)
   const operationLabel = pending.keyringAction
-    ? keyringLabels[pending.keyringAction]
+    ? (signing ? signingLabels : keyringLabels)[pending.keyringAction]
     : operationLabels[pending.operation]
   const warning = pending.keyringAction
-    ? keyringWarnings[pending.keyringAction]
+    ? (signing ? signingWarnings : keyringWarnings)[pending.keyringAction]
     : t("secrets.rotateWarning")
 
   const requestMutation = useMutation({
@@ -311,6 +407,7 @@ export function SecretOperationFlow({
               | Schemas["KeyringAction"]
               | undefined,
             keyId: needsKeyId(pending) ? pending.keyId : undefined,
+            kid: needsKid(pending) ? pending.kid : undefined,
           },
         })
       ),
@@ -338,6 +435,7 @@ export function SecretOperationFlow({
               | Schemas["KeyringAction"]
               | undefined,
             keyId: needsKeyId(pending) ? pending.keyId : undefined,
+            kid: needsKid(pending) ? pending.kid : undefined,
             value: pending.keyringAction === "StageImport" ? pending.value : undefined,
           },
         })
@@ -365,6 +463,12 @@ export function SecretOperationFlow({
             ? t("secrets.imported")
             : t("secrets.generated")
       )
+      // What still waits for the API to restart, in plain words (S12).
+      if (result.restartNeeded === "toClose") {
+        toast.warning(t("secrets.signingKeyring.closesAtRestart"))
+      } else if (result.restartNeeded === "toLoad") {
+        toast.info(t("secrets.signingKeyring.loadsAtRestart"))
+      }
       onExecuted(result)
       onClose()
     },
@@ -507,7 +611,9 @@ export function SecretOperationFlow({
             </p>
             <p>
               {pending.keyringAction
-                ? t("secrets.keyring.impactNote")
+                ? signing
+                  ? t("secrets.signingKeyring.impactNote")
+                  : t("secrets.keyring.impactNote")
                 : t("secrets.impactIrreversible")}
             </p>
           </AlertDescription>

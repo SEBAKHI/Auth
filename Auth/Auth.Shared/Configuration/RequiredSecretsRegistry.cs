@@ -78,7 +78,8 @@ public static class RequiredSecretsRegistry
             "Jwt:PrivateKeyPem",
             nameof(SecretConfiguration.JwtPrivateKeyPem),
             SecretPermanence.Rotatable,
-            "signs every access token; without it no token can be issued or validated"),
+            "signs every access token: the current key of the signing keyring (S12), which rotates through the ring's " +
+            "overlap without signing anyone out; without it no token can be issued or validated"),
 
         new RequiredSecret(
             "Jwt:RefreshTokenHmacKeyPlain",

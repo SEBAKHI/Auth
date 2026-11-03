@@ -605,7 +605,7 @@ Refusing to start: the AuthDb connection string is still the placeholder
 | ‏مطالبة `aud` في الرمز، وهي تحدّد لمن الرمز. استبدل العنصر النائب بالطريقة نفسها | ‏`Audience` |
 | ‏كم يبقى رمز الوصول صالحاً. والملف يضبطها على 15 | ‏`AccessTokenLifetimeMinutes` |
 | ‏كم يبقى رمز التحديث صالحاً. والملف يضبطها على 7. **وهذه هي القيمة التي تحدّد فعلياً كم تعيش الجلسة** — راجع كتلة `Session` أدناه | ‏`RefreshTokenLifetimeDays` |
-| ‏معرّف المفتاح المنشور في وثيقة مجموعة مفاتيح الويب JSON (JWKS) | ‏`KeyId` |
+| ‏اسم (`kid`) مفتاح التوقيع الوحيد الذي يملكه النشر قبل أن يحفظ أولُ تغيير في حلقة مفاتيح التوقيع الحلقةَ (S12). يُقرأ من هذا الملف أو من البيئة وحدهما: لم يعد إعدادًا من إعدادات النظام. وكل مفتاح يُرحَّل عبر الحلقة يُسمّى ببصمته RFC 7638 بدلًا منه | ‏`KeyId` |
 | ‏حين يكون `true`، فاستخدام رمز التحديث يُصدر رمزاً جديداً ويُحيل القديم على التقاعد | ‏`RotateRefreshTokens` |
 | ‏كم يجوز أن تتباعد ساعتا خادمين قبل أن يُحكم على رمز بأنه منتهٍ | ‏`ClockSkewSeconds` |
 | ‏ملف يُقرأ منه مفتاح التوقيع. والفراغ يعني أن المفتاح يأتي من مخزن الأسرار بدلاً من ذلك | ‏`PrivateKeyPath` |
@@ -1778,6 +1778,7 @@ Request
 | ‏`ConnectionStrings:AuthDb` | ‏سلسلة اتصال قاعدة البيانات |
 | ‏`Password:Pepper:Keys:{id}` و`Password:Pepper:CurrentKeyId` | ‏مادة فلفل كلمات المرور |
 | ‏`Keyring:Hmac:CurrentKeyId` و`Keyring:Hmac:NextKeyId` و`Keyring:Hmac:LegacyCutoverUtc` و`Keyring:Hmac:LegacyVerifyUntilUtc`، و`Keyring:Hmac:Keys:{id}:Material` و`:CreatedAtUtc` و`:VerifyUntilUtc` و`:DemotedAtUtc` و`:Compromised`؛ و`Keyring:Hmac:FileVersion` متى قال `Version` في الملف إن keyring تجاوز key 1 قد وُجد، ولو مُحي | ‏الـ keyring الخاص بمفتاح HMAC لرموز التحديث (أي مجموعة مفاتيحه: المفتاح الحالي ومفاتيح أخرى تبقى صالحة للتحقق)، كل مفتاح وحالته، متى كان الملف يحمل keyring |
+| ‏`Keyring:Rsa:CurrentKid` و`Keyring:Rsa:NextKid`، و`Keyring:Rsa:Keys:{kid}:PrivateKeyPem` (للمفتاح الحالي والمرحَّل وحدهما) و`:PublicKeyPem` و`:CreatedAtUtc` و`:PublishedAtUtc` و`:VerifyUntilUtc` و`:Compromised`. ولا تُربط ذاكرة المفاتيح المُزالة (`SigningRemovedKeys`) | ‏حلقة مفاتيح التوقيع (S12): كل مفتاح توقيع وحالته، متى كان الملف يحمل حلقة |
 | ‏`Secrets:Custom:{key}` | ‏أي سر مخصص |
 
 *‏في الشيفرة:* ‏الملف `Auth/Auth.Shared/Configuration/DpapiSecretConfigurationProvider.cs`.
@@ -2637,17 +2638,21 @@ Retry-After: 43
 | ‏`secrets.manage` | ‏أي الأسرار مهيأة. ولا تعيد قيمها أبداً | ‏`/api/v1/admin/Secrets/status` | ‏GET |
 | ‏`secrets.manage` · `login` | ‏بدء تأكيد مُصعَّد، بإرسال رمز بالبريد | ‏`/api/v1/admin/Secrets/challenges` | ‏POST |
 | ‏`secrets.manage` · `login` | ‏الجواب بذلك الرمز؛ وتعيد ما سيمسّه التغيير | ‏`/api/v1/admin/Secrets/challenges/{challengeId}/verify` | ‏POST |
-| ‏`secrets.manage` | ‏تدوير زوج مفاتيح توقيع الرموز | ‏`/api/v1/admin/Secrets/generate/rsa` | ‏POST |
+| ‏`secrets.manage` | ‏استبدال طارئ لمفتاح توقيع الرموز يسري عند إعادة تشغيل الواجهة البرمجية: ترحيل ثم ترقية طارئة (اسم بديل من S12 حتى SUNSET(S12)) | ‏`/api/v1/admin/Secrets/generate/rsa` | ‏POST |
 | ‏`secrets.manage` | ‏تدوير طارئ لمفتاح HMAC الذي تقوم عليه رموز التحديث وجلسات الدخول الموحّد والروابط والرموز ومفاتيح الويب-هوك: فيدخل الجميع من جديد | ‏`/api/v1/admin/Secrets/generate/hmac` | ‏POST |
 | ‏`secrets.manage` | ‏تدوير رمز البوابة | ‏`/api/v1/admin/Secrets/generate/gateway-token` | ‏POST |
-| ‏`secrets.manage` | ‏تقديم مفتاح توقيعك أنت. تعيد 409 في وضع التخزين PlainText | ‏`/api/v1/admin/Secrets/import/rsa` | ‏POST |
+| ‏`secrets.manage` | ‏استبدال طارئ بمفتاح توقيع تقدّمه أنت، يسري عند إعادة تشغيل الواجهة البرمجية (اسم بديل من S12). تعيد 409 في وضع التخزين PlainText | ‏`/api/v1/admin/Secrets/import/rsa` | ‏POST |
 | ‏`secrets.manage` | ‏تدوير طارئ إلى مفتاح HMAC تقدّمه أنت. 409 في الوضع PlainText | ‏`/api/v1/admin/Secrets/import/hmac` | ‏POST |
-| ‏`secrets.manage` | ‏حلقة مفاتيح HMAC: حالة كل مفتاح وتواريخه ومفاتيح الويب-هوك التي تحته، كما يحملها الملف وهذه العملية. ولا تعيد المادة أبداً | ‏`/api/v1/admin/Secrets/keyring` | ‏GET |
+| ‏`secrets.manage` | ‏حلقة مفاتيح HMAC: حالة كل مفتاح وتواريخه ومفاتيح الويب-هوك التي تحته، كما يحملها الملف وهذه العملية؛ والعضو `rsa` حلقة مفاتيح التوقيع، أو سبب تعذّر إدارتها. ولا تعيد المادة أبداً | ‏`/api/v1/admin/Secrets/keyring` | ‏GET |
 | ‏`secrets.manage` | ‏تجهيز مفتاح HMAC جديد، مولَّد أو مقدَّم: يتحقق ولا يُصدر شيئاً | ‏`/api/v1/admin/Secrets/keyring/hmac/stage` | ‏POST |
 | ‏`secrets.manage` | ‏جعل المفتاح المجهَّز هو الذي يُصدر (`emergency: true`: مفتاح جديد فوراً، ويُرفض كل مفتاح أقدم) | ‏`/api/v1/admin/Secrets/keyring/hmac/promote` | ‏POST |
 | ‏`secrets.manage` | ‏إسقاط المفتاح المجهَّز | ‏`/api/v1/admin/Secrets/keyring/hmac/discard-next` | ‏POST |
 | ‏`secrets.manage` | ‏إعادة مفتاح أقدم إلى الإصدار: التراجع عن ترقية | ‏`/api/v1/admin/Secrets/keyring/hmac/reinstate/{id}` | ‏POST |
 | ‏`secrets.manage` | ‏إزالة مفتاح أقدم من ملف الأسرار ومن نسخته الاحتياطية | ‏`/api/v1/admin/Secrets/keyring/hmac/retire/{id}` | ‏POST |
+| ‏`secrets.manage` | ‏ترحيل مفتاح توقيع جديد، مولَّد أو مقدَّم: يُنشر ويُقبل من إعادة التشغيل التالية، ولا يوقّع شيئًا | ‏`/api/v1/admin/Secrets/keyring/rsa/stage` | ‏POST |
+| ‏`secrets.manage` | ‏جعل مفتاح التوقيع المرحَّل يوقّع: يشترط أن يكون محمَّلًا هنا ومنشورًا منذ 24 ساعة (`emergency: true` يتجاوز الشرطين، ولا يُقبل المفتاح القديم ولا يُنشر) | ‏`/api/v1/admin/Secrets/keyring/rsa/promote` | ‏POST |
+| ‏`secrets.manage` | ‏إزالة مفتاح التوقيع المرحَّل | ‏`/api/v1/admin/Secrets/keyring/rsa/discard-next` | ‏POST |
+| ‏`secrets.manage` | ‏إزالة مفتاح توقيع أقدم، أو سجلّ مخترَق، من ملف الأسرار ومن نسخته الاحتياطية | ‏`/api/v1/admin/Secrets/keyring/rsa/retire/{kid}` | ‏POST |
 | ‏`secrets.manage` | ‏تقديم رمز بوابتك. 409 في الوضع PlainText | ‏`/api/v1/admin/Secrets/import/gateway-token` | ‏POST |
 | ‏`secrets.manage` | ‏نقل كلمة مرور خادم البريد إلى المخزن المعمّى | ‏`/api/v1/admin/Secrets/smtp-password` | ‏PUT |
 | ‏`secrets.manage` | ‏نقل سلسلة اتصال قاعدة البيانات إلى المخزن المعمّى | ‏`/api/v1/admin/Secrets/connection-string` | ‏PUT |
@@ -2761,7 +2766,7 @@ Retry-After: 43
 </div>
 
 
-**‏والقيمة `kid` ليست نصاً ثابتاً.** ‏فهي ما يُضبَط عليه المفتاح `Jwt:KeyId`؛ والقيمة `auth-key-1` ليست إلا ما يُشحَن في `Auth/Auth_API/appsettings.json:23`. وفي المجموعة مفتاح واحد بالضبط — فهذا النظام لا ينشر مفتاحاً ثانياً بجانب تدوير.
+**‏والقيمة `kid` ليست نصاً ثابتاً، والمجموعة ليست مفتاحاً واحداً.** ‏النشر الذي لم يدوّر مفتاح توقيعه قط ينشره باسم `Jwt:KeyId` (`auth-key-1` افتراضياً). وكل مفتاح يُرحَّل عبر حلقة مفاتيح التوقيع (S12) يُسمّى ببصمته RFC 7638. وأثناء التدوير تسرد المجموعة حتى أربعة مفاتيح، أوّلها الذي يوقّع: مفتاحاً مرحَّلاً من إعادة التشغيل التي تلي ترحيله، ومفتاحاً سابقاً نحو يوم بعد الترقية. ولا يُسرد المفتاح الموسوم بالاختراق أبداً. فاختر المفتاح بقيمة `kid` في الرمز، وأعد جلب المجموعة حين يسمّي رمزٌ `kid` ليس عندك؛ ولا تثبّت مفتاحاً واحداً أبداً.
 *‏في الشيفرة:* ‏الملف `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:225-248`.
 
 #### GET `/.well-known/public-key.pem`
@@ -7585,7 +7590,7 @@ grant_type=client_credentials
 
 #### ‏ست من هذه النقاط ترفض أن تعمل حتى تؤكد العملية بالبريد الإلكتروني
 
-**‏تدوير مفتاح أو استبداله مراسمُ من ثلاث خطوات، والنقطة التي تؤدي العمل هي آخرها.** ‏والنقاط الست المدمِّرة — `generate/rsa` و`generate/hmac` و`generate/gateway-token` و`import/rsa` و`import/hmac` و`import/gateway-token` — وتغييرات حلقة مفاتيح HMAC الخمسة، كلٌّ منها تطلب جسماً يسمّي تأكيداً أجبتَ عنه سلفاً:
+**‏تدوير مفتاح أو استبداله مراسمُ من ثلاث خطوات، والنقطة التي تؤدي العمل هي آخرها.** ‏والنقاط الست المدمِّرة — `generate/rsa` و`generate/hmac` و`generate/gateway-token` و`import/rsa` و`import/hmac` و`import/gateway-token` — وتغييرات حلقة مفاتيح HMAC الخمسة وتغييرات حلقة مفاتيح التوقيع الأربعة، كلٌّ منها تطلب جسماً يسمّي تأكيداً أجبتَ عنه سلفاً:
 
 <div dir="ltr">
 
@@ -7727,7 +7732,7 @@ grant_type=client_credentials
 
 #### POST `/api/v1/admin/secrets/generate/rsa`
 
-‏توليد زوج مفاتيح RSA جديد (يستبدل الموجود).
+‏توليد زوج مفاتيح RSA جديد (يستبدل الموجود). ومنذ حلقة مفاتيح التوقيع (S12) صار هذا اسماً بديلاً يبقى حتى SUNSET(S12): يرحّل مفتاحاً مولَّداً ويرقّيه ترقية طارئة في تغيير واحد، يسري عند إعادة تشغيل الواجهة البرمجية كما كان، ويصير المفتاح القديم سجلّاً مخترَقاً. والتدوير الذي لا يُخرج أحداً هو `keyring/rsa/stage` ثم إعادة تشغيل ثم `keyring/rsa/promote` بعد 24 ساعة (انظر دليل النشر، *Rotating the signing key without signing anyone out*).
 
 **‏الصلاحية:** `secrets.manage`
 
@@ -7791,7 +7796,7 @@ grant_type=client_credentials
 
 #### POST `/api/v1/admin/secrets/import/rsa`
 
-‏استيراد مفتاح RSA **خاص** تورّده أنت لتوقيع JWT (مفاتيحك الخاصة — BYOK). يُشتق المفتاح العام المطابق ويُخزَّن تلقائياً.
+‏استيراد مفتاح RSA **خاص** تورّده أنت لتوقيع JWT (مفاتيحك الخاصة — BYOK). يُشتق المفتاح العام المطابق ويُخزَّن تلقائياً. ومنذ حلقة مفاتيح التوقيع (S12) صار هذا اسماً بديلاً يبقى حتى SUNSET(S12): ترحيل للمفتاح المقدَّم ثم ترقيته ترقية طارئة، يسري عند إعادة تشغيل الواجهة البرمجية. ويُرفض مفتاح تحمله الحلقة أو حملته من قبل بـ `409 Secret.KeyringKeyReferenced` قبل أن يُنفَق الرمز.
 
 **‏الصلاحية:** `secrets.manage`
 
@@ -7868,7 +7873,7 @@ grant_type=client_credentials
 
 | ‏متى | ‏الحالة | ‏رمز الخطأ |
 |---|---|---|
-| ‏ترقية أو إسقاط بلا مفتاح مجهَّز، أو ترقية والعملية لم تحمّل المفتاح المجهَّز | ‏409 | ‏`Secret.KeyringNoNextKey` |
+| ‏ترقية أو إسقاط بلا مفتاح مجهَّز، أو ترقية والعملية لم تحمّل المفتاح المجهَّز، أو ترقية مفتاح توقيع مجهَّز نُشر قبل أكثر من 30 يومًا | ‏409 | ‏`Secret.KeyringNoNextKey` |
 | ‏إعادة أو إحالة لمفتاح مجهول أو حالي أو مجهَّز؛ وللإعادة كذلك مفتاح معلَّم مسرَّباً أو تجاوز نافذته | ‏409 | ‏`Secret.KeyringKeyNotFound` |
 | ‏إحالة ما دامت مفاتيح ويب-هوك مخزّنة تحت المفتاح في مهلتها | ‏409 | ‏`Secret.KeyringKeyReferenced` |
 | ‏النشر لا يحفظ أسراره في الملف المعمّى (الوضع PlainText)، فلا حلقة عنده تُغيَّر | ‏409 | ‏`Secret.KeyringUnavailable` |
@@ -9513,7 +9518,7 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 **‏الخطوة 4 — ‏اعرف هل صار التغيير حيّاً. وثمّة نتيجتان بالضبط، وقد أخبرك الحقل في الخطوة 2 أيّهما.**
 
 - **‏والقيمة `restartRequired: false` ‏تعني أن التغيير سارٍ سلفاً.** ‏فالحفظ يعيد تشغيل مزوّد الإعداد القادم من قاعدة البيانات داخل العملية العاملة، فيعيد كل مستهلك ربطه. والمؤقّت ذو الدقائق الخمس شبكة أمان للتغييرات المصنوعة في SQL ‏مباشرة بدل هذه النقطة. وحدود المعدل وأصول CORS ‏المسموح بها ومستويات التسجيل وتفصيل فحص الصحة كلها تعمل هكذا.
-- **‏والقيمة `restartRequired: true` ‏تعني أن شيئاً لم يتغيّر بعد، ولن يتغيّر حتى تُعاد دورة العملية.** ‏فحقل `isPendingRestart` ‏يصير `true`، ‏ويصير معه الحقل الأعلى `restartPending` ‏كذلك، وهذا بالضبط ما تقرؤه لافتة لوحة التحكم. وهذه هي الحقول التي تتطلب إعادة تشغيل: `Jwt:Issuer` ‏و`Jwt:Audience` ‏و`Jwt:KeyId` ‏و`Jwt:ClockSkewSeconds` ‏و`Password:Argon2MemorySize` ‏و`Password:Argon2Iterations` ‏و`Password:Argon2Parallelism` ‏و`Password:Pepper:Enabled` ‏و`IdentityProvider:IdpSessionCookieName` ‏و`GeoIp:Enabled` ‏و`GeoIp:DatabasePath` ‏و`ImageStorage:RequestPath` ‏و`AccountDeletion:RunEncryptionMigration`.
+- **‏والقيمة `restartRequired: true` ‏تعني أن شيئاً لم يتغيّر بعد، ولن يتغيّر حتى تُعاد دورة العملية.** ‏فحقل `isPendingRestart` ‏يصير `true`، ‏ويصير معه الحقل الأعلى `restartPending` ‏كذلك، وهذا بالضبط ما تقرؤه لافتة لوحة التحكم. وهذه هي الحقول التي تتطلب إعادة تشغيل: `Jwt:Issuer` ‏و`Jwt:Audience` ‏و`Jwt:ClockSkewSeconds` ‏و`Password:Argon2MemorySize` ‏و`Password:Argon2Iterations` ‏و`Password:Argon2Parallelism` ‏و`Password:Pepper:Enabled` ‏و`IdentityProvider:IdpSessionCookieName` ‏و`GeoIp:Enabled` ‏و`GeoIp:DatabasePath` ‏و`ImageStorage:RequestPath` ‏و`AccountDeletion:RunEncryptionMigration`.
 
 **‏ولتنفيذ إعادة التشغيل تلك في بيئة التطوير:** ‏اضغط `Ctrl+C` ‏في الطرفية التي تشغّل الواجهة البرمجية، ثم نفّذ هذا من المجلد `Auth/Auth_API/`:
 

@@ -263,5 +263,7 @@ public sealed class KeyringMemoryTests : IDisposable
     private sealed class FixedKeyMaterial(string material) : IKeyMaterialGenerator
     {
         public string GenerateHmacKeyBase64() => material;
+
+        public (string PrivateKeyPem, string PublicKeyPem) GenerateRsaKeyPair() => throw new NotSupportedException();
     }
 }

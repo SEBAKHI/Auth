@@ -1715,6 +1715,103 @@ export const en = {
       impactNote: "This takes effect in this API process as soon as it is saved. Any other API process that shares the secrets file keeps its old keyring until it is recycled: recycle them, at once after an emergency. Back up the secrets file after it.",
       done: "Keyring updated. Back up the secrets file now.",
     },
+    signingKeyring: {
+      title: "Signing keyring",
+      description:
+        "The keys that sign every access token. A scheduled rotation signs nobody out: stage a key, restart the API so it loads and publishes it, wait 24 hours, then promote it. The old key is still accepted for about a day.",
+      unavailableTitle: "The signing keyring cannot be managed on this deployment",
+      failedTitle: "The signing keyring could not be loaded",
+      unavailable: {
+        PlainText:
+          "Secrets are kept in PlainText mode, so the signing key has no keyring. Replacing it needs a restart that signs everyone out.",
+        ExternalSource:
+          "The signing key comes from {{source}}, not from the encrypted secrets file, so it has no keyring. Replacing it needs a restart that signs everyone out; move the key into the secrets file to rotate it without that.",
+        Unreadable:
+          "The keyring in the secrets file cannot be used ({{code}}). The next start will refuse it: restore the most recent copy of the secrets file taken after the last keyring change.",
+      },
+      compromisedAcceptedTitle: "A leaked key is still accepted by this API process",
+      compromisedAcceptedBody:
+        "Key {{kids}} is marked compromised in the secrets file, but this API process loaded no staged key to replace it, so it still accepts tokens signed with it. Restart the API now to close it.",
+      migratedNote:
+        "This deployment has not rotated its signing key yet: key {{kid}} is published under the name it always had, and the secrets file holds no keyring until the first change.",
+      stage: "Stage a key",
+      stageGenerate: "Stage a generated key",
+      stageImport: "Stage a key you supply",
+      stageImportTitle: "Stage a signing key you supply",
+      promote: "Promote",
+      discard: "Discard staged key",
+      emergency: "Emergency promote",
+      retire: "Retire",
+      emergencyAtRestart:
+        "This API process has not loaded the staged key yet. An emergency promote now closes the leaked key only when the API restarts: restart it right after.",
+      reason: {
+        noStaged: "No key is staged.",
+        stageWhileStaged: "A key is already staged: promote it or discard it first.",
+        restartToLoad:
+          "Restart the API so it loads and publishes the staged key; it can be promoted 24 hours after that.",
+        notRecorded:
+          "The API loaded the staged key but could not record when; restart it once more so it records it.",
+        tooYoung:
+          "The staged key can be promoted from {{date}}, once applications have had 24 hours to fetch it.",
+        stagedExpired:
+          "The staged key was published more than 30 days ago and is no longer accepted: discard it, then stage a new one.",
+        emergencyNeedsStaged:
+          "An emergency promotes a staged key: stage a new key first. After a leak of the secrets file, discard any key staged before it and stage a new one.",
+        processOnly: "Only this API process still holds this key; it leaves at the next restart.",
+        processSigns:
+          "This API process still signs with this key: restart it before retiring the key.",
+        current: "Signs every token",
+        next: "Promote or discard",
+      },
+      columns: {
+        kid: "Key ID (kid)",
+        state: "State",
+        createdAtUtc: "Staged",
+        publishedAtUtc: "Published",
+        verifyUntilUtc: "Accepted until",
+        loadedInProcess: "Loaded here",
+      },
+      state: {
+        current: "Current",
+        next: "Staged",
+        previous: "Previous",
+        compromised: "Compromised",
+      },
+      migrated: "Migrated",
+      unknownAge: "Unknown (migrated key)",
+      signing: "Signing",
+      closed: "Closed",
+      rowActions: "Actions for key {{kid}}",
+      action: {
+        Stage: "Stage a new signing key",
+        StageImport: "Stage the signing key you supplied",
+        Promote: "Promote signing key {{kid}}",
+        PromoteEmergency: "Emergency promote of signing key {{kid}}",
+        DiscardNext: "Discard staged signing key {{kid}}",
+        Reinstate: "Reinstate a signing key",
+        Retire: "Retire signing key {{kid}}",
+      },
+      warning: {
+        Stage:
+          "The new key is published and accepted from the next start of the API, and signs nothing until you promote it. Nothing anyone holds stops working. Restart the API after this.",
+        StageImport:
+          "The key you supplied is published and accepted from the next start of the API, and signs nothing until you promote it. Nothing anyone holds stops working. Restart the API after this.",
+        Promote:
+          "The staged key signs every token from now on. The old key is still accepted for about a day, so nobody is signed out.",
+        PromoteEmergency:
+          "For a leaked key. The staged key signs at once and the old key is neither accepted nor published: every application and browser refreshes its token once. If this API process has not loaded the staged key, the old key stays accepted here until the API restarts.",
+        DiscardNext:
+          "The staged key is removed and can never be staged again. Nothing was ever signed with it. An API process that already loaded it keeps accepting it until it restarts.",
+        Reinstate: "Not available for the signing keyring.",
+        Retire:
+          "The key is removed from the secrets file and its backup copy for good. A token it signed is refused from now on.",
+      },
+      impactNote:
+        "A stage or a discard takes effect when the API restarts; a promote and a retire take effect in this API process as soon as they are saved. Any other API process that shares the secrets file keeps its old keys until it is recycled: recycle them, at once after an emergency. Back up the secrets file after it.",
+      closesAtRestart:
+        "Saved. This API process never loaded the staged key, so the leaked key stays accepted until the API restarts: restart it now.",
+      loadsAtRestart: "Saved. Restart the API so it loads and publishes the staged key.",
+    },
     impact: {
       usersWithLiveAccessTokens: "Users holding a live access token",
       usersWithActiveSessions: "Users with an active session",
@@ -2375,9 +2472,6 @@ export const en = {
       refreshTokenLifetimeDays: "Refresh token lifetime (days)",
       refreshTokenLifetimeDaysHint:
         "How long a user can stay signed in without typing a password again. Recommended: 7–30 days; choose the low end for sensitive deployments.",
-      keyId: "Signing key ID",
-      keyIdHint:
-        "The identifier (kid) published with the signing key so client apps can pick the right key. Change only as part of a key rotation.",
       rotateRefreshTokens: "Rotate refresh tokens",
       rotateRefreshTokensHint:
         "Issues a fresh refresh token on every renewal and voids the old one. Recommended: on — a stolen refresh token is then detected and cut off on first reuse.",

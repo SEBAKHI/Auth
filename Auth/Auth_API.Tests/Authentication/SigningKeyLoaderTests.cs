@@ -3,6 +3,7 @@ using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Infrastructure.Authentication;
 using Auth_API.Tests.Helpers;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace Auth_API.Tests.Authentication;
@@ -109,9 +110,11 @@ public class SigningKeyLoaderTests : IDisposable
     }
 
     [Fact]
-    public void JwtTokenService_WithNoKeyConfigured_Refuses()
+    public void TheKeyringLoad_WithNoKeyConfigured_Refuses()
     {
-        var act = () => new JwtTokenService(Options.Create(new JwtSettings()), Mock.Of<IPasswordHasher>());
+        // Since S12 the token service loads no key: the boot step does, through the loader.
+        var act = () => SigningKeyRingConfiguration.Load(
+            new ConfigurationBuilder().Build(), new JwtSettings(), dataProtectionProvider: null, plainText: true);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*no JWT signing key is configured*");

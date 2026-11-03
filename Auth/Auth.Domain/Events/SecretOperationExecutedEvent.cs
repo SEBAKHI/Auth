@@ -13,13 +13,18 @@ namespace Auth.Domain.Events;
 /// <param name="Operation">The operation that ran.</param>
 /// <param name="ExecutedBy">The administrator who ran it.</param>
 /// <param name="Action">
-/// For a change to the HMAC keyring (S11), which one: one operation confirms several
+/// For a change of a keyring (S11, S12), which one: one operation confirms several
 /// keyring actions, and the trail must say which ran. Null for every other operation.
 /// </param>
-/// <param name="Target">The keyring key the action applied to, when it names one.</param>
+/// <param name="Target">The HMAC keyring key the action applied to, when it names one.</param>
+/// <param name="KeyId">
+/// The signing key (its <c>kid</c>) an RSA keyring action applied to (S12). A <c>kid</c> is
+/// public: it names the key and is published in the JWKS. Null for every other operation.
+/// </param>
 public record SecretOperationExecutedEvent(
     Guid ChallengeId,
     SecretOperation Operation,
     Guid ExecutedBy,
     KeyringAction? Action = null,
-    int? Target = null) : IDomainEvent;
+    int? Target = null,
+    string? KeyId = null) : IDomainEvent;

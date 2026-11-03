@@ -1,9 +1,10 @@
 namespace Auth.Domain.Enums;
 
 /// <summary>
-/// One change to the HMAC keyring (S11, KR3). A keyring change is confirmed with the
-/// step-up of <see cref="SecretOperation.GenerateHmacKey"/> (or
-/// <see cref="SecretOperation.ImportHmacKey"/> for <see cref="StageImport"/>), and the
+/// One change to a keyring: the HMAC keyring (S11) or the RSA signing keyring (S12), KR3.
+/// A keyring change is confirmed with the step-up of the ring's generate operation
+/// (<see cref="SecretOperation.GenerateHmacKey"/> or <see cref="SecretOperation.GenerateRsaKey"/>;
+/// the ring's import operation for <see cref="StageImport"/>), and the
 /// confirmation is bound to the action and its target through its payload digest, so
 /// an approval for one action is never spent on another, without a new operation
 /// member (the operation column is pinned to six values by a CHECK constraint).
@@ -24,15 +25,17 @@ public enum KeyringAction
     Promote = 3,
 
     /// <summary>
-    /// Replace the current key at once after a leak: every existing key is marked
+    /// Replace the current key at once after a leak. HMAC: every existing key is marked
     /// compromised and stops verifying, except for webhook keys, which keep their grace.
+    /// RSA: the staged key signs, and the old current key is marked compromised: it is
+    /// neither accepted nor published.
     /// </summary>
     PromoteEmergency = 4,
 
     /// <summary>Remove the staged key before it is promoted.</summary>
     DiscardNext = 5,
 
-    /// <summary>Make a previous key current again (the rollback of a promote).</summary>
+    /// <summary>Make a previous key current again (the rollback of a promote). HMAC only.</summary>
     Reinstate = 6,
 
     /// <summary>Remove a previous key from the ring for good.</summary>

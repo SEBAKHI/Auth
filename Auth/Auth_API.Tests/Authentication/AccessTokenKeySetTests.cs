@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Auth.Application.Configuration;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Infrastructure.Authentication;
 using Auth_API.Common.Authentication;
@@ -126,7 +127,7 @@ public sealed class AccessTokenKeySetTests : IDisposable
     public async Task TheSignersOwnSet_VerifiesWhatItSigns_AndTheSignersKidIsTheConfiguredOne()
     {
         using var rsa = RSA.Create(2048);
-        var set = new SingleSigningKeyMaterial(rsa, "auth-key-1");
+        var set = SigningKeyRing.Single(rsa, "auth-key-1", new SigningKeySource(SigningKeyLoader.PemKey, PlainText: false));
         var handler = new JsonWebTokenHandler();
         var token = handler.CreateToken(Descriptor(Profile.Platform, set.Current));
 
@@ -135,7 +136,80 @@ public sealed class AccessTokenKeySetTests : IDisposable
         (await PassesAsync(token, Parameters(Profile.Platform, set))).Should().BeTrue();
     }
 
+    // --- the signing keyring (S12 PR B) ---
+
+    [Fact]
+    public async Task APreviousKey_IsRefusedOnceItsWindowEnds_WithNoRebuild()
+    {
+        // TS2: the parameters are built once, at start; the ring decides per token what is live.
+        var previous = Auth_API.Tests.SecretManagement.KeyringTestHarness.NewSigningKey();
+        var keys = Holder(previous with { VerifyUntilUtc = DateTime.UtcNow.AddSeconds(2) }, staged: null);
+        var parameters = Parameters(Profile.Platform, keys);
+        var byPrevious = TokenFor(Profile.Platform, Signer(previous));
+
+        (await PassesAsync(byPrevious, parameters)).Should().BeTrue("within its window a previous key is accepted");
+
+        await Task.Delay(TimeSpan.FromSeconds(2.5));
+
+        (await PassesAsync(byPrevious, parameters)).Should().BeFalse("past its window it is refused, with no restart and no new parameters");
+    }
+
+    [Fact]
+    public async Task ACompromisedKey_IsRefusedAtOnce()
+    {
+        var staged = Auth_API.Tests.SecretManagement.KeyringTestHarness.NewSigningKey();
+        var keys = Holder(previous: null, staged);
+        var parameters = Parameters(Profile.Platform, keys);
+        var leaked = TokenFor(Profile.Platform, keys.Current.Key);
+        (await PassesAsync(leaked, parameters)).Should().BeTrue();
+
+        keys.TryApply(ring => ring.PromoteEmergency(DateTime.UtcNow)).Should().BeTrue("this process loaded the staged key");
+
+        (await PassesAsync(leaked, parameters)).Should().BeFalse("an emergency closes the leaked key in this process at once");
+        (await PassesAsync(TokenFor(Profile.Platform, keys.Current.Key), parameters)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TheStagedKey_IsAcceptedBeforeItSigns()
+    {
+        // A token signed by the staged key is accepted from the moment it is loaded, before any
+        // process signs with it: another worker that promoted first is not refused here.
+        var staged = Auth_API.Tests.SecretManagement.KeyringTestHarness.NewSigningKey();
+        var keys = Holder(previous: null, staged);
+        var byStaged = TokenFor(Profile.Platform, Signer(staged));
+
+        keys.Current.Key.KeyId.Should().NotBe(staged.Kid);
+        (await PassesAsync(byStaged, Parameters(Profile.Platform, keys))).Should().BeTrue();
+    }
+
     #region Helpers
+
+    // A loaded signing ring: a current key, and a previous or a staged one.
+    private static SigningKeyRingHolder Holder(Auth.Application.Security.Keyring.SigningKey? previous, Auth.Application.Security.Keyring.SigningKey? staged)
+    {
+        var current = Auth_API.Tests.SecretManagement.KeyringTestHarness.NewSigningKey() with { CreatedAtUtc = DateTime.UtcNow.AddDays(-1) };
+        var keys = new List<Auth.Application.Security.Keyring.SigningKey> { current };
+        if (previous is not null)
+        {
+            keys.Add(previous with { CreatedAtUtc = DateTime.UtcNow.AddDays(-2), PrivateKeyPem = null });
+        }
+
+        if (staged is not null)
+        {
+            keys.Add(staged with { CreatedAtUtc = DateTime.UtcNow, PublishedAtUtc = DateTime.UtcNow });
+        }
+
+        var ring = Auth.Application.Security.Keyring.RsaKeyring.Create(keys, current.Kid, staged?.Kid, removed: null).Value;
+        return new SigningKeyRingHolder(SigningKeyRing.Load(ring, new SigningKeySource(SigningKeyLoader.PemKey, PlainText: false)));
+    }
+
+    // The private half of a ring key, under its kid: what another process signing with it holds.
+    private static RsaSecurityKey Signer(Auth.Application.Security.Keyring.SigningKey key)
+    {
+        var rsa = RSA.Create();
+        rsa.ImportFromPem(key.PrivateKeyPem);
+        return new RsaSecurityKey(rsa) { KeyId = key.Kid };
+    }
 
     private static RsaSecurityKey Key(RSA rsa, string? kid) => new(rsa) { KeyId = kid };
 

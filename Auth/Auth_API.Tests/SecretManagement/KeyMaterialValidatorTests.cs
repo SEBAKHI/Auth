@@ -19,7 +19,7 @@ public class KeyMaterialValidatorTests
     [Fact]
     public void Validate_ValidMaterial_Passes()
     {
-        var act = () => KeyMaterialValidator.Validate(Configuration(), DataProtection, isDevelopment: false);
+        var act = () => KeyMaterialValidator.Validate(Configuration(), DataProtection, isDevelopment: false, plainText: false);
 
         act.Should().NotThrow();
     }
@@ -29,7 +29,7 @@ public class KeyMaterialValidatorTests
     {
         var configuration = Configuration(("Jwt:PrivateKeyPath", @"C:\keys\missing-signing-key.pem"));
 
-        var act = () => KeyMaterialValidator.Validate(configuration, DataProtection, isDevelopment: false);
+        var act = () => KeyMaterialValidator.Validate(configuration, DataProtection, isDevelopment: false, plainText: false);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Jwt:PrivateKeyPath is set to *missing-signing-key.pem', but no file exists there*",
@@ -41,7 +41,7 @@ public class KeyMaterialValidatorTests
     {
         var configuration = Configuration(("Jwt:PrivateKeyPath", @"C:\keys\missing-signing-key.pem"));
 
-        var act = () => KeyMaterialValidator.Validate(configuration, DataProtection, isDevelopment: true);
+        var act = () => KeyMaterialValidator.Validate(configuration, DataProtection, isDevelopment: true, plainText: false);
 
         act.Should().NotThrow("Development keeps today's fall-through");
     }
@@ -52,7 +52,7 @@ public class KeyMaterialValidatorTests
         using var rsa = RSA.Create(2048);
         var configuration = Configuration(("Jwt:PrivateKeyPem", rsa.ExportSubjectPublicKeyInfoPem()));
 
-        var act = () => KeyMaterialValidator.Validate(configuration, DataProtection, isDevelopment: false);
+        var act = () => KeyMaterialValidator.Validate(configuration, DataProtection, isDevelopment: false, plainText: false);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*Jwt:PrivateKeyPem cannot sign tokens*");
     }
@@ -64,7 +64,7 @@ public class KeyMaterialValidatorTests
     {
         var configuration = Configuration(("Gateway:ExpectedToken", token));
 
-        var act = () => KeyMaterialValidator.Validate(configuration, DataProtection, isDevelopment: false);
+        var act = () => KeyMaterialValidator.Validate(configuration, DataProtection, isDevelopment: false, plainText: false);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Gateway:ExpectedToken is unusable*at least 16 characters*",
@@ -76,7 +76,7 @@ public class KeyMaterialValidatorTests
     {
         var configuration = Configuration(("Gateway:ExpectedToken", "sixteen-chars-xx"));
 
-        var act = () => KeyMaterialValidator.Validate(configuration, DataProtection, isDevelopment: false);
+        var act = () => KeyMaterialValidator.Validate(configuration, DataProtection, isDevelopment: false, plainText: false);
 
         act.Should().NotThrow();
     }

@@ -204,6 +204,55 @@ public class SecretFileKeyringRoundTripTests : IDisposable
     }
 
     [Fact]
+    public async Task TheSigningRing_AndWhatItRemembers_SurviveAnUnrelatedSave_AndMapForTheStart()
+    {
+        // S12 (KR1): the RSA ring and its memory are members of both models, so a save that
+        // knows nothing of them (an SMTP password) keeps them, and the provider maps the ring.
+        await _service.GenerateMissingKeysAsync(CancellationToken.None);
+        var secrets = await _service.LoadSecretsAsync(CancellationToken.None);
+        var staged = KeyMaterialGenerator.GenerateRsaKeyPair();
+        var stagedKid = SigningKeyThumbprint.OfPem(staged.PublicKeyPem);
+        var stagedAt = new DateTime(2026, 11, 3, 9, 0, 0, DateTimeKind.Utc);
+        secrets.SigningKeys[stagedKid] = new Auth.Application.Configuration.SigningKeyEntry { PrivateKeyPem = staged.PrivateKeyPem, PublicKeyPem = staged.PublicKeyPem, CreatedAtUtc = stagedAt };
+        secrets.SigningNextKid = stagedKid;
+        secrets.SigningRemovedKeys.Add(new Auth.Application.Configuration.RemovedSigningKeyEntry { Kid = "remembered-thumbprint", RemovedAtUtc = stagedAt, Reason = "Discarded" });
+        await _service.SaveSecretsAsync(secrets, CancellationToken.None);
+
+        await _service.SetSecretAsync("SmtpPassword", "unrelated", CancellationToken.None);
+
+        var after = await _service.LoadSecretsAsync(CancellationToken.None);
+        after.SigningKeys.Keys.Should().BeEquivalentTo(secrets.SigningKeys.Keys);
+        after.SigningNextKid.Should().Be(stagedKid);
+        after.SigningRemovedKeys.Should().ContainSingle(key => key.Kid == "remembered-thumbprint");
+        var configuration = LoadConfiguration();
+        configuration["Keyring:Rsa:NextKid"].Should().Be(stagedKid);
+        configuration[$"Keyring:Rsa:Keys:{stagedKid}:CreatedAtUtc"].Should().Be(stagedAt.ToString("O"));
+        configuration.GetSection("Keyring:Rsa").AsEnumerable().Should().NotContain(pair => pair.Key.Contains("Removed"),
+            "the memory is read by a keyring change only, never mapped");
+        configuration["Keyring:Hmac:FileVersion"].Should().BeNull("the signing ring never raises Version (S11 COR-8)");
+    }
+
+    [Fact]
+    public async Task ThePublicationOfAStagedSigningKey_IsWrittenOnce_AndOnlyForThatKey()
+    {
+        await _service.GenerateMissingKeysAsync(CancellationToken.None);
+        var secrets = await _service.LoadSecretsAsync(CancellationToken.None);
+        var staged = KeyMaterialGenerator.GenerateRsaKeyPair();
+        var kid = SigningKeyThumbprint.OfPem(staged.PublicKeyPem);
+        secrets.SigningKeys[kid] = new Auth.Application.Configuration.SigningKeyEntry { PrivateKeyPem = staged.PrivateKeyPem, PublicKeyPem = staged.PublicKeyPem, CreatedAtUtc = DateTime.UtcNow };
+        secrets.SigningNextKid = kid;
+        await _service.SaveSecretsAsync(secrets, CancellationToken.None);
+        var first = new DateTime(2026, 11, 3, 10, 0, 0, DateTimeKind.Utc);
+
+        (await _service.RecordStagedSigningKeyPublishedAsync(kid, kid, first, CancellationToken.None)).Should().Be(first);
+        (await _service.RecordStagedSigningKeyPublishedAsync(kid, kid, first.AddHours(5), CancellationToken.None))
+            .Should().Be(first, "a second start finds the moment recorded and writes nothing");
+        (await _service.RecordStagedSigningKeyPublishedAsync("another-kid", "another-kid", first, CancellationToken.None))
+            .Should().BeNull("a process that loaded a key no longer staged writes nothing");
+        (await _service.LoadSecretsAsync(CancellationToken.None)).SigningKeys[kid].PublishedAtUtc.Should().Be(first);
+    }
+
+    [Fact]
     public async Task TheProvider_MapsTheRing_AndTheStartupStepLoadsItBack()
     {
         await _service.GenerateMissingKeysAsync(CancellationToken.None);

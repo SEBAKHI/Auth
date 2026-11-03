@@ -5,6 +5,7 @@ using Auth.Application.Security.Keyring;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Secrets;
+using Auth.Infrastructure.Authentication;
 using Auth.Infrastructure.Security;
 using Auth_API.Tests.Helpers;
 using MediatR;
@@ -18,7 +19,9 @@ namespace Auth_API.Tests.SecretManagement;
 /// <summary>
 /// A real secrets file (encrypted with an ephemeral Data Protection key in a temp
 /// folder), the process ring loaded from it, and the keyring change service over them,
-/// with the database edges mocked: what the keyring tests drive end to end.
+/// with the database edges mocked: what the keyring tests drive end to end. The signing
+/// keyring (S12) is loaded from the same file, as the "key material validation" step loads it,
+/// with its own change service; <see cref="Restart"/> loads it again, as an API recycle does.
 /// </summary>
 /// <remarks>
 /// The file is real on purpose: the properties under test (the ring survives a save,
@@ -64,6 +67,10 @@ internal sealed class KeyringTestHarness : IDisposable
             new Mock<ILogger<HmacKeyringChangeService>>().Object);
 
         Challenges.WithConfirmedAdmin(Admin);
+
+        Source = new SigningKeySource(SigningKeyLoader.PemKey, plainText, RsaKeyring.MigratedKidFrom(Jwt.KeyId));
+        SigningKeys = new SigningKeyRingHolder(LoadSigningKeys());
+        SigningService = NewSigningService();
     }
 
     public Guid Admin { get; } = Guid.NewGuid();
@@ -89,6 +96,21 @@ internal sealed class KeyringTestHarness : IDisposable
     public ResolvedSecretStorageMode StorageMode { get; }
 
     public HmacKeyringChangeService Service { get; }
+
+    /// <summary>Where the process took its signing key from: the secrets file, or PlainText.</summary>
+    public SigningKeySource Source { get; }
+
+    /// <summary>The signing keys this process loaded at its last (simulated) start.</summary>
+    public SigningKeyRingHolder SigningKeys { get; private set; }
+
+    /// <summary>The signing keyring's change service over the process's keys.</summary>
+    public RsaKeyringChangeService SigningService { get; private set; }
+
+    /// <summary>The access-token lifetime a promote sizes the previous key's window with.</summary>
+    public JwtSettings Jwt { get; } = new() { KeyId = "auth-key-1", AccessTokenLifetimeMinutes = 15 };
+
+    /// <summary>The step-up bindings of both rings, as the challenge handlers look them up.</summary>
+    public KeyringApprovals Approvals => new([new HmacKeyringApproval(Service, Clock), new RsaKeyringApproval(SigningService, Clock)]);
 
     /// <summary>What the impact repository answers; the latest expiries size a promote's window.</summary>
     public SecretRotationImpactSnapshot Snapshot { get; set; } = new()
@@ -153,6 +175,84 @@ internal sealed class KeyringTestHarness : IDisposable
         promoted.IsError.Should().BeFalse(string.Join("; ", promoted.ErrorsOrEmptyList.Select(e => e.Code)));
         return Holder.Current;
     }
+
+    /// <summary>The signing ring the file holds now.</summary>
+    public RsaKeyring ReadSigningRing() =>
+        RsaKeyringFile.Read(Secrets.LoadSecretsAsync(CancellationToken.None).GetAwaiter().GetResult(), Source.MigratedKid).Value;
+
+    /// <summary>
+    /// Takes the signing ring out of the file, leaving its single key: the file of a deployment
+    /// that never rotated, whose key the next start migrates under <c>Jwt:KeyId</c>.
+    /// </summary>
+    public void RemoveSigningRing() =>
+        Secrets.UpdateAsync<ErrorOr.Success>(
+                secrets =>
+                {
+                    secrets.SigningKeys = new Dictionary<string, SigningKeyEntry>();
+                    secrets.SigningCurrentKid = null;
+                    secrets.SigningNextKid = null;
+                    return ErrorOr.Result.Success;
+                },
+                overwriteBackup: false,
+                CancellationToken.None)
+            .GetAwaiter().GetResult();
+
+    /// <summary>
+    /// What an API recycle does to the signing keys: they are loaded again from the file, and the
+    /// first start that loads a staged key records when it was published.
+    /// </summary>
+    public async Task<SigningKeyPublication.Outcome> RestartAsync()
+    {
+        var (ring, outcome, _) = await SigningKeyPublication.RecordAsync(Secrets, LoadSigningKeys(), Clock.UtcNow, CancellationToken.None);
+        SigningKeys = new SigningKeyRingHolder(ring);
+        SigningService = NewSigningService();
+        return outcome;
+    }
+
+    /// <summary>The same, without awaiting: a test that only needs the keys reloaded.</summary>
+    public void Restart() => RestartAsync().GetAwaiter().GetResult();
+
+    /// <summary>
+    /// A verified approval for a signing keyring <paramref name="action"/>, bound as the request
+    /// handler binds it: to the action and the target the file's ring names now.
+    /// </summary>
+    public Guid ApproveSigning(KeyringAction action, string? kid = null, string? value = null)
+    {
+        var challengeId = Guid.NewGuid();
+        var digest = KeyringStepUp.SigningDigest(action, KeyringStepUp.SigningTargetOf(action, ReadSigningRing(), kid, value), value);
+        Challenges.WithApproval(challengeId, KeyringStepUp.SigningOperationOf(action), Admin, digest);
+        return challengeId;
+    }
+
+    /// <summary>A signing keyring change request of <paramref name="action"/> spending <paramref name="challengeId"/>.</summary>
+    public SigningKeyChangeRequest SigningRequest(KeyringAction action, Guid challengeId, string? kid = null, string? value = null) =>
+        new(action, KeyringStepUp.SigningOperationOf(action), challengeId, Admin, value, kid);
+
+    /// <summary>A new signing key, as the server generates it.</summary>
+    public static SigningKey NewSigningKey() =>
+        RsaKeyringFile.FromPrivateKeyPem(Auth.Shared.Configuration.KeyMaterialGenerator.GenerateRsaKeyPair().PrivateKeyPem).Value;
+
+    private SigningKeyRing LoadSigningKeys()
+    {
+        var secrets = Secrets.LoadSecretsAsync(CancellationToken.None).GetAwaiter().GetResult();
+        if (!Source.HoldsRing)
+        {
+            var rsa = System.Security.Cryptography.RSA.Create();
+            rsa.ImportFromPem(secrets.JwtPrivateKeyPem);
+            return SigningKeyRing.Single(rsa, Source.MigratedKid, Source);
+        }
+
+        return SigningKeyRing.Load(RsaKeyringFile.Read(secrets, Source.MigratedKid).Value, Source);
+    }
+
+    private RsaKeyringChangeService NewSigningService() => new(
+        Secrets,
+        SigningKeys,
+        Challenges.Service,
+        Publisher.Object,
+        new TestHelpers.TestOptions<JwtSettings>(Jwt),
+        Clock,
+        new Mock<ILogger<RsaKeyringChangeService>>().Object);
 
     /// <summary>New key material, as the server generates it.</summary>
     public static string KeyMaterial() => Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();

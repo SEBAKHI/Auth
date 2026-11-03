@@ -35,9 +35,8 @@ public sealed class MachineTokenAtAnSdkApplicationTests : IAsyncLifetime, IDispo
     private const string Issuer = "https://auth.example.com";
     private const string Audience = "SHOP";
 
-    private readonly JwtTokenService _issuer = new(
-        Options.Create(new JwtSettings { Issuer = Issuer, Audience = "auth-platform", KeyId = "test-key", PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem() }),
-        Mock.Of<IPasswordHasher>());
+    private readonly JwtTokenService _issuer = TestSigningKeys.Service(
+        new JwtSettings { Issuer = Issuer, Audience = "auth-platform", KeyId = "test-key", PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem() });
 
     private IHost _host = null!;
     private HttpClient _client = null!;

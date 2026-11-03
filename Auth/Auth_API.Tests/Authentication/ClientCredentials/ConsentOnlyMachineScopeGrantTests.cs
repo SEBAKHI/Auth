@@ -36,7 +36,7 @@ public sealed class ConsentOnlyMachineScopeGrantTests : IDisposable
 
     public ConsentOnlyMachineScopeGrantTests()
     {
-        _tokens = new JwtTokenService(Options.Create(_settings), Mock.Of<IPasswordHasher>());
+        _tokens = TestSigningKeys.Service(_settings);
         _keys.Setup(r => r.GetActiveByKidAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string kid, CancellationToken _) => kid == _credentials.Kid
                 ? new MachineKeyCredential(

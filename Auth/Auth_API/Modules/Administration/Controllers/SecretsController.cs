@@ -8,6 +8,7 @@ using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Application.Features.Secrets.DeleteCustomSecret;
 using Auth.Application.Features.Secrets.DiscardStagedHmacKey;
+using Auth.Application.Features.Secrets.DiscardStagedSigningKey;
 using Auth.Application.Features.Secrets.GenerateGatewayToken;
 using Auth.Application.Features.Secrets.GenerateHmacKey;
 using Auth.Application.Features.Secrets.GenerateRsaKey;
@@ -17,13 +18,16 @@ using Auth.Application.Features.Secrets.ImportGatewayToken;
 using Auth.Application.Features.Secrets.ImportHmacKey;
 using Auth.Application.Features.Secrets.ImportRsaKey;
 using Auth.Application.Features.Secrets.PromoteHmacKey;
+using Auth.Application.Features.Secrets.PromoteSigningKey;
 using Auth.Application.Features.Secrets.ReinstateHmacKey;
 using Auth.Application.Features.Secrets.RequestSecretOperationChallenge;
 using Auth.Application.Features.Secrets.RetireHmacKey;
+using Auth.Application.Features.Secrets.RetireSigningKey;
 using Auth.Application.Features.Secrets.SetConnectionString;
 using Auth.Application.Features.Secrets.SetCustomSecret;
 using Auth.Application.Features.Secrets.SetSmtpPassword;
 using Auth.Application.Features.Secrets.StageHmacKey;
+using Auth.Application.Features.Secrets.StageSigningKey;
 using Auth.Application.Features.Secrets.VerifySecretOperationChallenge;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -105,7 +109,7 @@ public class SecretsController : ApiController
         var userId = GetUserId();
         var result = await _sender.Send(
             new RequestSecretOperationChallengeCommand(
-                request.Operation, request.Value, userId, GetClientIpAddress(), request.KeyringAction, request.KeyId),
+                request.Operation, request.Value, userId, GetClientIpAddress(), request.KeyringAction, request.KeyId, request.Kid),
             cancellationToken);
 
         return result.Match(
@@ -140,7 +144,7 @@ public class SecretsController : ApiController
         var userId = GetUserId();
         var result = await _sender.Send(
             new VerifySecretOperationChallengeCommand(
-                challengeId, request.Code, userId, request.KeyringAction, request.KeyId, request.Value),
+                challengeId, request.Code, userId, request.KeyringAction, request.KeyId, request.Value, request.Kid),
             cancellationToken);
 
         return result.Match(
@@ -149,9 +153,11 @@ public class SecretsController : ApiController
     }
 
     /// <summary>
-    /// Regenerates the RSA key pair used for JWT signing.
-    /// WARNING: This will invalidate ALL existing access tokens once the API
-    /// restarts. Users will need to obtain fresh tokens.
+    /// Regenerates the RSA key pair used for JWT signing: an alias of keyring/rsa/stage and an
+    /// emergency promote, in one change (S12), kept for consoles cached before the signing
+    /// keyring until SUNSET(S12). WARNING: the new key signs once the API restarts, and from then
+    /// on every access token the old key signed is refused; users obtain fresh tokens.
+    /// A rotation that signs nobody out is keyring/rsa/stage, a restart, then keyring/rsa/promote.
     /// Requires a verified confirmation raised for this exact operation.
     /// </summary>
     /// <param name="request">The verified confirmation authorizing the rotation.</param>
@@ -225,7 +231,8 @@ public class SecretsController : ApiController
     /// <summary>
     /// The HMAC keyring (S11): which key issues, which is staged, and how long each
     /// older key keeps verifying, in the secrets file and in this process. Never key
-    /// material.
+    /// material. Its <c>rsa</c> member is the signing keyring (S12): the same, by kid, and
+    /// when it cannot be managed here, why, with the key's source.
     /// </summary>
     /// <response code="200">The keyring</response>
     /// <response code="401">Unauthorized - not authenticated</response>
@@ -399,6 +406,133 @@ public class SecretsController : ApiController
     }
 
     /// <summary>
+    /// Stages a new signing key, generated or supplied (S12): the API publishes and accepts it
+    /// from its next restart, and nothing signs with it until it is promoted, so nothing breaks.
+    /// Restart the API next, so this process loads the key and records when it published it.
+    /// Requires a verified confirmation raised for this action (keyringAction Stage with the
+    /// operation GenerateRsaKey, or StageImport with ImportRsaKey and the value).
+    /// </summary>
+    /// <param name="request">The verified confirmation, and the private key to stage if you supply one.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">The signing keyring after the change</response>
+    /// <response code="400">Invalid key material</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed change</response>
+    /// <response code="409">The key is in use or was used before, or the signing keyring cannot be managed here</response>
+    [HttpPost("keyring/rsa/stage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(typeof(SigningKeyringDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> StageSigningKey(
+        [FromBody] KeyringStageRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new StageSigningKeyCommand(request.Value, request.ChallengeId, GetUserId()), cancellationToken);
+
+        return result.Match(
+            keyring => Ok(keyring),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Promotes the staged signing key (S12). Scheduled: it signs from now on, and the old key is
+    /// still accepted for about a day, so nobody is signed out; it needs the staged key loaded in
+    /// this process (a restart after the stage) and published for 24 hours. Emergency, after a
+    /// leak: it signs at once and the old key is neither accepted nor published; that takes effect
+    /// here at once when this process loaded the staged key, otherwise at the next restart
+    /// (<c>changeAppliedInProcess</c> says which). Requires a verified confirmation raised for this
+    /// action (Promote or PromoteEmergency).
+    /// </summary>
+    /// <param name="request">The verified confirmation, and whether this is an emergency.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">The signing keyring after the change</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed change</response>
+    /// <response code="409">No staged key loaded here, published too recently, or the signing keyring cannot be managed here</response>
+    [HttpPost("keyring/rsa/promote")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(typeof(SigningKeyringDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> PromoteSigningKey(
+        [FromBody] KeyringPromoteRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new PromoteSigningKeyCommand(request.Emergency, request.ChallengeId, GetUserId()), cancellationToken);
+
+        return result.Match(
+            keyring => Ok(keyring),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Removes the staged signing key before it is promoted (S12). Nothing was signed with it.
+    /// An API process that already loaded it keeps publishing and accepting it until it restarts.
+    /// Requires a verified confirmation raised for this action (DiscardNext).
+    /// </summary>
+    /// <param name="request">The verified confirmation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">The signing keyring after the change</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed change</response>
+    /// <response code="409">No staged key, or the signing keyring cannot be managed here</response>
+    [HttpPost("keyring/rsa/discard-next")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(typeof(SigningKeyringDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DiscardStagedSigningKey(
+        [FromBody] ConfirmedSecretOperationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new DiscardStagedSigningKeyCommand(request.ChallengeId, GetUserId()), cancellationToken);
+
+        return result.Match(
+            keyring => Ok(keyring),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Removes a previous signing key, or a compromised record, for good (S12); the secrets file
+    /// is saved twice, so its backup copy loses the key too. A key still in its window stops being
+    /// accepted now. Requires a verified confirmation raised for this action and this key
+    /// (Retire, kid).
+    /// </summary>
+    /// <param name="kid">The key to retire.</param>
+    /// <param name="request">The verified confirmation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">The signing keyring after the change</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed change</response>
+    /// <response code="409">The current or the staged key, no such key, or the signing keyring cannot be managed here</response>
+    [HttpPost("keyring/rsa/retire/{kid}")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(typeof(SigningKeyringDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RetireSigningKey(
+        string kid,
+        [FromBody] ConfirmedSecretOperationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new RetireSigningKeyCommand(kid, request.ChallengeId, GetUserId()), cancellationToken);
+
+        return result.Match(
+            keyring => Ok(keyring),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
     /// Regenerates the gateway token used for inter-service authentication.
     /// WARNING: The API Gateway must be reconfigured with the new token; until it
     /// is, every proxied request is rejected.
@@ -435,10 +569,12 @@ public class SecretsController : ApiController
     }
 
     /// <summary>
-    /// Imports a caller-supplied RSA private key for JWT signing (bring-your-own-keys).
-    /// The matching public key is derived and stored automatically. Only applicable in
+    /// Imports a caller-supplied RSA private key for JWT signing (bring-your-own-keys): an alias of
+    /// keyring/rsa/stage with that key and an emergency promote, in one change (S12), kept until
+    /// SUNSET(S12). The matching public key is derived and stored automatically. Only applicable in
     /// Certificate/Dpapi storage mode (in PlainText mode, edit appsettings.Production.json).
-    /// WARNING: This replaces the current signing key and invalidates ALL existing access tokens.
+    /// A key the signing keyring holds, or held before, is refused.
+    /// WARNING: the key signs once the API restarts, and from then on ALL existing access tokens are refused.
     /// </summary>
     /// <param name="request">The RSA private key in PEM format (PKCS#8 or PKCS#1), plus the verified confirmation.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

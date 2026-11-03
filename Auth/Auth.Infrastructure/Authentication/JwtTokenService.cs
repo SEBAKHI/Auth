@@ -8,7 +8,6 @@ using Auth.Application.Configuration;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -23,30 +22,38 @@ public class JwtTokenService : IJwtTokenService, IDisposable
 {
     private readonly JwtSettings _settings;
     private readonly IOptionsMonitor<JwtSettings>? _liveSettings;
-    private readonly RSA _rsa;
+    private readonly RSA? _ownedRsa;
     private readonly JwtSecurityTokenHandler _tokenHandler;
     private bool _disposed;
 
+    /// <summary>
+    /// Over the keys the "key material validation" step loaded (S12): this service never loads a
+    /// key itself, so what that step checked is exactly what signs, and a keyring change reaches
+    /// the signer through <paramref name="signingKeys"/>.
+    /// </summary>
     public JwtTokenService(
-        IOptions<JwtSettings> settings,
-        IPasswordHasher passwordHasher,
-        IDataProtectionProvider? dataProtectionProvider = null,
+        JwtSettings settings,
+        ISigningKeyMaterial signingKeys,
         IOptionsMonitor<JwtSettings>? liveSettings = null)
-        : this(settings.Value, SigningKeyLoader.Load(settings.Value, dataProtectionProvider), liveSettings)
     {
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(signingKeys);
+
+        _settings = settings;
+        _liveSettings = liveSettings;
+        SigningKeys = signingKeys;
+        _tokenHandler = new JwtSecurityTokenHandler();
     }
 
     /// <summary>
     /// Over an RSA key loaded elsewhere, bypassing <see cref="SigningKeyLoader"/>'s checks: lets a
-    /// test hold a key the loader refuses (a public-only one) and prove the readiness probe fails on it.
+    /// test hold a key the loader refuses (a public-only one) and prove the readiness probe fails
+    /// on it. The service owns <paramref name="rsa"/> and disposes it.
     /// </summary>
     internal JwtTokenService(JwtSettings settings, RSA rsa, IOptionsMonitor<JwtSettings>? liveSettings = null)
+        : this(settings, SigningKeyRing.Single(rsa, settings.KeyId, new SigningKeySource(SigningKeyLoader.PemKey, PlainText: true)), liveSettings)
     {
-        _settings = settings;
-        _liveSettings = liveSettings;
-        _rsa = rsa;
-        SigningKeys = new SingleSigningKeyMaterial(_rsa, _settings.KeyId);
-        _tokenHandler = new JwtSecurityTokenHandler();
+        _ownedRsa = rsa;
     }
 
     /// <summary>
@@ -156,9 +163,10 @@ public class JwtTokenService : IJwtTokenService, IDisposable
             Subject = new ClaimsIdentity(claims),
             Claims = AuthenticationClaims(authentication),
             // Lifetime is read live so a settings change applies to the next
-            // issued token without a restart. Issuer/audience/keys stay on
-            // the startup snapshot: validation captured them at boot, and
-            // issuing with newer values would break every new token.
+            // issued token without a restart. Issuer/audience stay on the
+            // startup snapshot: validation captured them at boot, and issuing
+            // with newer values would break every new token. The key is the
+            // key set's current one at this moment (S12).
             Expires = DateTime.UtcNow.Add((_liveSettings?.CurrentValue ?? _settings).AccessTokenLifetime),
             NotBefore = DateTime.UtcNow,
             IssuedAt = DateTime.UtcNow,
@@ -190,8 +198,8 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         var descriptor = new SecurityTokenDescriptor
         {
             TokenType = MachineAccessTokenType,
-            // Issuer and key from the startup snapshot, as for every other access token: the
-            // schemes captured them at boot.
+            // Issuer from the startup snapshot, as for every other access token: the schemes
+            // captured it at boot. The key is the key set's current one, read at sign time.
             Issuer = _settings.Issuer,
             Audience = MachineClients.Audience,
             IssuedAt = now,
@@ -395,7 +403,9 @@ public class JwtTokenService : IJwtTokenService, IDisposable
     {
         if (!_disposed)
         {
-            _rsa.Dispose();
+            // The loaded keys live as long as the process; only a key handed to the test
+            // constructor belongs to this service.
+            _ownedRsa?.Dispose();
             _disposed = true;
         }
         GC.SuppressFinalize(this);

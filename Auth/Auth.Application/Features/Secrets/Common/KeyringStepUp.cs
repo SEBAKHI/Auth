@@ -9,9 +9,10 @@ namespace Auth.Application.Features.Secrets.Common;
 
 /// <summary>
 /// How a keyring change is confirmed with the step-up of the secret operations, with
-/// no new <see cref="SecretOperation"/> member (KR3): the operation is the HMAC one
-/// (generate, or import for a staged import), and the approval's payload digest binds
-/// it to the action and to the key the action applies to.
+/// no new <see cref="SecretOperation"/> member (KR3): the operation is the ring's own
+/// (generate, or import for a staged import: HMAC for the HMAC keyring of S11, RSA for the
+/// signing keyring of S12), and the approval's payload digest binds it to the ring, the
+/// action and the key the action applies to.
 /// </summary>
 /// <remarks>
 /// The target of every action is read by the server from the secrets file, when the
@@ -20,7 +21,8 @@ namespace Auth.Application.Features.Secrets.Common;
 /// Reinstate and retire take their key's id from the request; every key is named by its id
 /// and the moment it was created, so a key that left the ring and another that came to carry
 /// its id (in a file older than OI-217, which reused ids) is not the key that was approved
-/// (SEC-B8).
+/// (SEC-B8). A signing key is named by its thumbprint, which no other key can have, so its
+/// <c>kid</c> alone is the target.
 /// </remarks>
 public static class KeyringStepUp
 {
@@ -33,6 +35,62 @@ public static class KeyringStepUp
         Condition Precondition);
 
     private static readonly Condition Always = (_, _, _, _) => Result.Success;
+
+    // The signing keyring's rules (S12). A precondition reads the ring the file holds, the ring
+    // this process holds, the kid a retire names, and the thumbprint of a key being imported.
+    private delegate ErrorOr<Success> SigningCondition(
+        RsaKeyring fileRing, RsaKeyring processRing, string? kid, string? thumbprint, DateTime nowUtc);
+
+    private sealed record SigningRule(
+        SecretOperation Operation,
+        Func<RsaKeyring, string?, string?, string> Target,
+        SigningCondition Precondition);
+
+    private static readonly SigningCondition SigningAlways = (_, _, _, _, _) => Result.Success;
+
+    private static readonly SigningCondition NeedsStagedSigningKey =
+        (file, _, _, _, _) => file.Next is null ? SecretErrors.KeyringNoNextKey : Result.Success;
+
+    // A scheduled promote needs the staged key loaded in this process, which then signs with
+    // it at once, and published long enough for every application to have fetched it (KR3,
+    // W_publish). A staged key past its 30 days is no longer accepted, so it cannot sign either.
+    // A loaded key whose publication the file does not record is promoted after the restart
+    // that records it.
+    private static readonly SigningCondition StagedSigningKeyReady = (file, process, _, _, now) =>
+        file.Next is not { } next || !RsaKeyringFile.SameKey(next, process.Next) ? SecretErrors.KeyringNoNextKey
+        : file.NextAcceptedUntil is { } acceptedUntil && now > acceptedUntil ? SecretErrors.KeyringNoNextKey
+        : file.PromoteAvailableAtUtc is not { } available ? SecretErrors.KeyringNoNextKey
+        : now < available ? SecretErrors.KeyringNextTooYoung(available)
+        : Result.Success;
+
+    // A staged import: the staged key itself is staged already; any other key is refused while one
+    // is staged, and so is a key the ring holds or remembers.
+    private static readonly SigningCondition ImportableSigningKey = (file, _, _, thumbprint, _) =>
+        thumbprint is null
+            ? SecretErrors.InvalidKeyMaterial("The value is not a valid RSA private key in PEM format (expected PKCS#8 or PKCS#1).")
+            : file.Next is { } staged
+                ? string.Equals(staged.Thumbprint, thumbprint, StringComparison.Ordinal)
+                    ? Result.Success
+                    : SecretErrors.KeyringKeyReferenced(staged.Kid)
+                : file.AcceptsNewKey(thumbprint);
+
+    // A key this process still signs with stays until the process restarts: another process
+    // promoted, this one was never recycled, and the file would lose the key it signs with.
+    private static readonly SigningCondition RetirableSigningKey = (file, process, kid, _, _) =>
+        kid is null ? SecretErrors.KeyringKeyNotFound(string.Empty)
+        : file.CanRetire(kid) is { IsError: true } refused ? refused.Errors
+        : RsaKeyringFile.SameKey(file.Find(kid), process.Current) ? SecretErrors.KeyringKeyReferenced(kid)
+        : Result.Success;
+
+    private static readonly FrozenDictionary<KeyringAction, SigningRule> SigningRules = new Dictionary<KeyringAction, SigningRule>
+    {
+        [KeyringAction.Stage] = new(SecretOperation.GenerateRsaKey, (ring, _, _) => ring.Current.Kid, SigningAlways),
+        [KeyringAction.StageImport] = new(SecretOperation.ImportRsaKey, (_, _, thumbprint) => thumbprint ?? string.Empty, ImportableSigningKey),
+        [KeyringAction.Promote] = new(SecretOperation.GenerateRsaKey, (ring, _, _) => ring.Next?.Kid ?? string.Empty, StagedSigningKeyReady),
+        [KeyringAction.PromoteEmergency] = new(SecretOperation.GenerateRsaKey, (ring, _, _) => ring.Next?.Kid ?? string.Empty, NeedsStagedSigningKey),
+        [KeyringAction.DiscardNext] = new(SecretOperation.GenerateRsaKey, (ring, _, _) => ring.Next?.Kid ?? string.Empty, NeedsStagedSigningKey),
+        [KeyringAction.Retire] = new(SecretOperation.GenerateRsaKey, (ring, kid, _) => ring.Find(kid)?.Kid ?? kid ?? string.Empty, RetirableSigningKey),
+    }.ToFrozenDictionary();
 
     private static readonly Condition NeedsStagedKey =
         (file, _, _, _) => file.Next is null ? SecretErrors.KeyringNoNextKey : Result.Success;
@@ -95,14 +153,60 @@ public static class KeyringStepUp
     /// approval to stage a key can never be spent on the emergency import of another.
     /// </summary>
     public static string Digest(KeyringAction action, string target, string? value) =>
-        SecretPayloadDigest.Compute($"keyring:hmac/{action}/{target}\n{value ?? string.Empty}")!;
+        RingDigest("hmac", action, target, value);
 
     /// <summary>
     /// Whether <paramref name="operation"/> is the step-up operation of
-    /// <paramref name="action"/>; false for an action outside the table.
+    /// <paramref name="action"/> on either ring; false for an action outside both tables.
     /// </summary>
     public static bool Confirms(KeyringAction action, SecretOperation operation) =>
-        Rules.TryGetValue(action, out var rule) && rule.Operation == operation;
+        (Rules.TryGetValue(action, out var rule) && rule.Operation == operation)
+        || (SigningRules.TryGetValue(action, out var signing) && signing.Operation == operation);
+
+    /// <summary>The operation whose step-up confirms <paramref name="action"/> on the signing keyring.</summary>
+    public static SecretOperation SigningOperationOf(KeyringAction action) => SigningRuleOf(action).Operation;
+
+    /// <summary>
+    /// The signing key <paramref name="action"/> applies to, as <paramref name="fileRing"/> names
+    /// it: the current key for a stage, the imported key's thumbprint for a staged import, the
+    /// staged key for a promote or a discard, and the key a retire names. Empty when there is none.
+    /// </summary>
+    /// <param name="action">The change.</param>
+    /// <param name="fileRing">The ring the secrets file holds.</param>
+    /// <param name="kid">The key a retire names; null otherwise.</param>
+    /// <param name="value">The private key a staged import supplies; null otherwise.</param>
+    public static string SigningTargetOf(KeyringAction action, RsaKeyring fileRing, string? kid, string? value) =>
+        SigningRuleOf(action).Target(fileRing, kid, ThumbprintOf(value));
+
+    /// <summary>
+    /// Whether the ring the file holds, and the ring this process holds, let
+    /// <paramref name="action"/> run on the signing keyring, checked before a code is emailed and
+    /// again before a confirmation is spent.
+    /// </summary>
+    public static ErrorOr<Success> SigningPrecondition(
+        KeyringAction action, RsaKeyring fileRing, RsaKeyring processRing, string? kid, string? value, DateTime nowUtc) =>
+        SigningRuleOf(action).Precondition(fileRing, processRing, kid, ThumbprintOf(value), nowUtc);
+
+    /// <summary>
+    /// The payload digest an approval for <paramref name="action"/> on the signing key
+    /// <paramref name="target"/> is bound to: <c>keyring:rsa/{action}/{target}</c>, a line break,
+    /// and the imported value (empty for the others). Another ring's prefix than the HMAC
+    /// digest's, so an approval for one ring is never spent on the other.
+    /// </summary>
+    public static string SigningDigest(KeyringAction action, string target, string? value) =>
+        RingDigest("rsa", action, target, value);
+
+    private static string RingDigest(string ring, KeyringAction action, string target, string? value) =>
+        SecretPayloadDigest.Compute($"keyring:{ring}/{action}/{target}\n{value ?? string.Empty}")!;
+
+    private static SigningRule SigningRuleOf(KeyringAction action) =>
+        SigningRules.TryGetValue(action, out var rule)
+            ? rule
+            : throw new ArgumentOutOfRangeException(nameof(action), action, "No step-up rule for this signing keyring action.");
+
+    // The thumbprint of a supplied private key, or null when there is none or it is not one.
+    private static string? ThumbprintOf(string? value) =>
+        value is not null && RsaKeyringFile.FromPrivateKeyPem(value) is { IsError: false } key ? key.Value.Thumbprint : null;
 
     private static Rule RuleOf(KeyringAction action) =>
         Rules.TryGetValue(action, out var rule)

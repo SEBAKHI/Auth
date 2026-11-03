@@ -9557,6 +9557,8 @@ export interface paths {
                     max_age?: string;
                     scope?: string;
                     create_organization?: string;
+                    ui_locales?: string;
+                    ui_theme?: string;
                 };
                 header?: never;
                 path?: never;
@@ -9721,6 +9723,8 @@ export interface paths {
                     state?: string;
                     post_logout_redirect_uri?: string;
                     plr?: string;
+                    ui_locales?: string;
+                    ui_theme?: string;
                 };
                 header?: never;
                 path?: never;
@@ -16813,6 +16817,289 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/Secrets/keyring/rsa/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["KeyringStageRequest"];
+                    "text/json": components["schemas"]["KeyringStageRequest"];
+                    "application/*+json": components["schemas"]["KeyringStageRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SigningKeyringDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/Secrets/keyring/rsa/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["KeyringPromoteRequest"];
+                    "text/json": components["schemas"]["KeyringPromoteRequest"];
+                    "application/*+json": components["schemas"]["KeyringPromoteRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SigningKeyringDto"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/Secrets/keyring/rsa/discard-next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "text/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "application/*+json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SigningKeyringDto"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/Secrets/keyring/rsa/retire/{kid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    kid: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "text/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "application/*+json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SigningKeyringDto"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/Secrets/generate/gateway-token": {
         parameters: {
             query?: never;
@@ -18362,6 +18649,7 @@ export interface components {
             grant_types_supported?: string[];
             code_challenge_methods_supported?: null | string[];
             prompt_values_supported?: null | string[];
+            ui_locales_supported?: null | string[];
         };
         DraftTranslationRequest: {
             languageCode: string;
@@ -18557,6 +18845,7 @@ export interface components {
             /** Format: date-time */
             legacyCutoverUtc?: null | string;
             keys: components["schemas"]["HmacKeyringEntryDto"][];
+            rsa?: null | components["schemas"]["SigningKeyringDto"];
         };
         HmacKeyringEntryDto: {
             /** Format: int32 */
@@ -19930,6 +20219,7 @@ export interface components {
             keyringAction?: null | components["schemas"]["KeyringAction"];
             /** Format: int32 */
             keyId?: null | number | string;
+            kid?: null | string;
         };
         SecretRotationImpactDto: {
             operation: components["schemas"]["SecretOperation"];
@@ -20048,6 +20338,38 @@ export interface components {
             /** Format: int32 */
             sendsRemaining: number | string;
         };
+        SigningKeyringDto: {
+            available: boolean;
+            unavailableReason?: null | string;
+            keySource: string;
+            errorCode?: null | string;
+            currentKid?: null | string;
+            processCurrentKid: string;
+            nextKid?: null | string;
+            processNextKid?: null | string;
+            persisted?: null | boolean;
+            /** Format: date-time */
+            promoteAvailableAtUtc?: null | string;
+            inSync: boolean;
+            changeAppliedInProcess?: null | boolean;
+            keys: components["schemas"]["SigningKeyringEntryDto"][];
+        };
+        SigningKeyringEntryDto: {
+            kid: string;
+            state: components["schemas"]["SigningKeyState"];
+            migrated: boolean;
+            /** Format: date-time */
+            createdAtUtc?: null | string;
+            /** Format: date-time */
+            publishedAtUtc?: null | string;
+            /** Format: date-time */
+            verifyUntilUtc?: null | string;
+            compromised: boolean;
+            inFile: boolean;
+            loadedInProcess: boolean;
+            acceptedInProcess: boolean;
+        };
+        SigningKeyState: number;
         SignInWithEmailCodeRequest: {
             pendingId?: string;
             otp?: string;
@@ -20613,6 +20935,7 @@ export interface components {
             keyringAction?: null | components["schemas"]["KeyringAction"];
             /** Format: int32 */
             keyId?: null | number | string;
+            kid?: null | string;
             value?: null | string;
         };
         WebhookKeyDto: {

@@ -21,25 +21,22 @@ public class VerifySecretOperationChallengeCommandHandler
     : IRequestHandler<VerifySecretOperationChallengeCommand, ErrorOr<SecretRotationImpactDto>>
 {
     private readonly SecretOperationChallengeService _challengeService;
-    private readonly HmacKeyringChangeService _keyring;
+    private readonly KeyringApprovals _keyrings;
     private readonly ISecretRotationImpactRepository _impactRepository;
     private readonly JwtSettings _jwtSettings;
-    private readonly TimeProvider _timeProvider;
     private readonly ILogger<VerifySecretOperationChallengeCommandHandler> _logger;
 
     public VerifySecretOperationChallengeCommandHandler(
         SecretOperationChallengeService challengeService,
-        HmacKeyringChangeService keyring,
+        KeyringApprovals keyrings,
         ISecretRotationImpactRepository impactRepository,
         IOptionsSnapshot<JwtSettings> jwtSettings,
-        TimeProvider timeProvider,
         ILogger<VerifySecretOperationChallengeCommandHandler> logger)
     {
         _challengeService = challengeService;
-        _keyring = keyring;
+        _keyrings = keyrings;
         _impactRepository = impactRepository;
         _jwtSettings = jwtSettings.Value;
-        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -52,7 +49,7 @@ public class VerifySecretOperationChallengeCommandHandler
         // holds now, and a claim of another action, key or value is refused before the
         // approval opens, so the confirmation stays unverified and nothing is spendable,
         // the action it was raised for included (SEC-B5).
-        DateTime? issuedBefore = null;
+        var scope = new KeyringImpactScope(IssuedBefore: null);
         Func<SecretOperationChallenge, CancellationToken, Task<ErrorOr<Success>>>? keyringBinding = null;
         if (request.Action is { } action)
         {
@@ -64,7 +61,7 @@ public class VerifySecretOperationChallengeCommandHandler
                     return bound.Errors;
                 }
 
-                issuedBefore = bound.Value;
+                scope = bound.Value;
                 return Result.Success;
             };
         }
@@ -86,10 +83,10 @@ public class VerifySecretOperationChallengeCommandHandler
             TimeSpan.FromMinutes(_jwtSettings.AccessTokenLifetimeMinutes) + _jwtSettings.ClockSkew;
 
         var snapshot = await _impactRepository.GetImpactAsync(
-            accessTokenLifetime, issuedBefore, PurposeLimitedOverlap.LegacyCap, cancellationToken);
+            accessTokenLifetime, scope.IssuedBefore, PurposeLimitedOverlap.LegacyCap, cancellationToken);
 
         var impact = SecretRotationImpact.Build(
-            challenge.Operation, request.Action, snapshot, challenge.ApprovalExpiresAt!.Value);
+            challenge.Operation, request.Action, snapshot, challenge.ApprovalExpiresAt!.Value, scope.KeyStillAccepted);
 
         _logger.LogWarning(
             "Secret operation {Operation} costed for {UserId}: {AffectedUsers} users affected",
@@ -98,41 +95,22 @@ public class VerifySecretOperationChallengeCommandHandler
         return impact;
     }
 
-    // Checks the claimed keyring action against the confirmation, and answers which
-    // credentials the change can stop: for a retire, those issued while the key still
-    // issued, or none once its window has closed (DateTime.MinValue counts nothing).
-    private async Task<ErrorOr<DateTime?>> KeyringBindingAsync(
+    // Checks the claimed keyring action against the confirmation, through the binding of the
+    // ring the confirmation's operation belongs to, and answers which credentials the change
+    // can stop.
+    private async Task<ErrorOr<KeyringImpactScope>> KeyringBindingAsync(
         KeyringAction action,
         VerifySecretOperationChallengeCommand request,
         SecretOperation operation,
         string? payloadHash,
         CancellationToken cancellationToken)
     {
-        if (!KeyringStepUp.Confirms(action, operation))
+        if (!KeyringStepUp.Confirms(action, operation) || _keyrings.For(operation) is not { } keyring)
         {
             return SecretErrors.ChallengeNotApproved;
         }
 
-        var ring = await _keyring.ReadFileRingAsync(cancellationToken);
-        if (ring.IsError)
-        {
-            return ring.Errors;
-        }
-
-        var digest = KeyringStepUp.Digest(action, KeyringStepUp.TargetOf(action, ring.Value, request.KeyId), request.Value);
-        if (!string.Equals(digest, payloadHash, StringComparison.Ordinal))
-        {
-            return SecretErrors.ChallengeNotApproved;
-        }
-
-        if (action != KeyringAction.Retire || request.KeyId is not { } keyId || ring.Value.Find(keyId) is not { } key)
-        {
-            return (DateTime?)null;
-        }
-
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
-        return ring.Value.BoundedVerifyUntil(key) is { } until && until >= now
-            ? key.DemotedAtUtc ?? now
-            : DateTime.MinValue;
+        return await keyring.BindAsync(
+            action, new KeyringTarget(request.KeyId, request.Kid), request.Value, payloadHash, cancellationToken);
     }
 }

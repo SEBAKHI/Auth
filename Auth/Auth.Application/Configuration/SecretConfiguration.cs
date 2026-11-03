@@ -128,16 +128,28 @@ public class SecretConfiguration
     public int HmacHighestKeyId { get; set; }
 
     /// <summary>
-    /// The RSA signing keyring, keyed by kid. Empty, and not mapped, until S12 uses it. Present
-    /// now so a build that predates S12 does not erase it from the file on its first save.
+    /// The RSA signing keyring (S12), keyed by kid. Empty until the first keyring change: an
+    /// empty ring means the single <see cref="JwtPrivateKeyPem"/> is the current key, named by
+    /// <c>Jwt:KeyId</c>. When it is not empty, <see cref="JwtPrivateKeyPem"/> and
+    /// <see cref="JwtPublicKeyPem"/> mirror the current key on every save. Mirrors the model in
+    /// Auth.Shared, and SecretConfigurationModelParityTests holds them equal. Mapped to
+    /// configuration as <c>Keyring:Rsa:Keys:{kid}:*</c>.
     /// </summary>
     public Dictionary<string, SigningKeyEntry> SigningKeys { get; set; } = new();
 
-    /// <summary>The kid of the signing key in use (S12).</summary>
+    /// <summary>The kid of the signing key in use (S12). <c>Keyring:Rsa:CurrentKid</c>.</summary>
     public string? SigningCurrentKid { get; set; }
 
-    /// <summary>The kid of a staged signing key (S12).</summary>
+    /// <summary>The kid of a staged signing key, or null when none is staged (S12). <c>Keyring:Rsa:NextKid</c>.</summary>
     public string? SigningNextKid { get; set; }
+
+    /// <summary>
+    /// What the RSA signing keyring remembers of every key that left it, retired or
+    /// discarded (S12): the key's RFC 7638 thumbprint, which is public, never its material,
+    /// so the key is refused if it is offered again. Never trimmed. Not mapped: only a
+    /// keyring change reads it.
+    /// </summary>
+    public List<RemovedSigningKeyEntry> SigningRemovedKeys { get; set; } = new();
 
     /// <summary>
     /// Connection strings that contain sensitive credentials.
@@ -220,6 +232,27 @@ public class SigningKeyEntry
     public DateTime? VerifyUntilUtc { get; set; }
 
     /// <summary>The key leaked; it is neither published nor accepted.</summary>
+    public bool Compromised { get; set; }
+}
+
+/// <summary>
+/// A key that left the RSA signing keyring, as the secrets file remembers it (S12).
+/// </summary>
+public class RemovedSigningKeyEntry
+{
+    /// <summary>
+    /// The key's RFC 7638 thumbprint: its kid, except for the key migrated from the single
+    /// signing key, whose kid was <c>Jwt:KeyId</c>. Public, like every kid.
+    /// </summary>
+    public string Kid { get; set; } = string.Empty;
+
+    /// <summary>When the key left the ring.</summary>
+    public DateTime? RemovedAtUtc { get; set; }
+
+    /// <summary>How it left: <c>Retired</c> or <c>Discarded</c>.</summary>
+    public string? Reason { get; set; }
+
+    /// <summary>The key had been marked leaked.</summary>
     public bool Compromised { get; set; }
 }
 

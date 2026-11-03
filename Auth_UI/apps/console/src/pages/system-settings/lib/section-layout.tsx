@@ -152,7 +152,6 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
       kind: "group",
       key: "keyMaterial",
       claims: [
-        "KeyId",
         "PrivateKeyPath",
         "PrivateKeyPem",
         "PrivateKeyEncrypted",

@@ -17,14 +17,16 @@ namespace Auth.Application.Features.Secrets.RequestSecretOperationChallenge;
 /// <param name="RequestedBy">The administrator requesting the operation.</param>
 /// <param name="IpAddress">The requesting client address, recorded for audit.</param>
 /// <param name="Action">
-/// For a change of the HMAC keyring (S11), which one: the approval is then bound to the
-/// action and to the key it applies to, and spends on nothing else. Null otherwise.
+/// For a change of a keyring (S11, S12), which one: the approval is then bound to the ring,
+/// the action and the key it applies to, and spends on nothing else. Null otherwise.
 /// </param>
-/// <param name="KeyId">The key a reinstate or a retire names; null for every other action.</param>
+/// <param name="KeyId">The HMAC key a reinstate or a retire names; null for every other action.</param>
+/// <param name="Kid">The signing key a retire names (S12); null for every other action.</param>
 public record RequestSecretOperationChallengeCommand(
     SecretOperation Operation,
     string? Value,
     Guid RequestedBy,
     string? IpAddress,
     KeyringAction? Action = null,
-    int? KeyId = null) : IRequest<ErrorOr<SecretOperationChallengeDto>>;
+    int? KeyId = null,
+    string? Kid = null) : IRequest<ErrorOr<SecretOperationChallengeDto>>;

@@ -33,13 +33,16 @@ public static class SystemSettingsRegistry
             Editable: true,
             Fields:
             [
-                // Issuer/Audience/KeyId/ClockSkew are baked into the JWT
-                // bearer TokenValidationParameters at startup.
+                // Issuer/Audience/ClockSkew are baked into the JWT bearer
+                // TokenValidationParameters at startup. KeyId is not a setting since
+                // the signing keyring (S12): every key is named by its thumbprint, and
+                // Jwt:KeyId stays only as the name of the key a deployment never rotated,
+                // read from the settings file or the environment until the first keyring
+                // change saves it.
                 new SettingFieldDefinition("Issuer", SettingKind.String, RestartRequired: true),
                 new SettingFieldDefinition("Audience", SettingKind.String, RestartRequired: true),
                 new SettingFieldDefinition("AccessTokenLifetimeMinutes", SettingKind.Int, Min: 1, Max: 1440, DefaultValue: 15),
                 new SettingFieldDefinition("RefreshTokenLifetimeDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 7),
-                new SettingFieldDefinition("KeyId", SettingKind.String, RestartRequired: true, DefaultValue: "auth-key-1"),
                 new SettingFieldDefinition("RotateRefreshTokens", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("ClockSkewSeconds", SettingKind.Int, RestartRequired: true, Min: 0, Max: 300, DefaultValue: 60),
                 // Read per request through IOptionsSnapshot. Only ever applies to a

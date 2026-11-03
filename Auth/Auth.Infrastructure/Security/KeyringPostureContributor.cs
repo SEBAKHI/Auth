@@ -28,6 +28,13 @@ namespace Auth.Infrastructure.Security;
 /// <item><c>keyring.key-age</c>: a current key older than 365 days (never key 1 when its
 /// age is unknown).</item>
 /// </list>
+/// The same lines cover the RSA signing keyring (S12), from the ring the file holds and the
+/// ring this process signs under: <c>keyring.process-ring</c> when this process signs with a key
+/// the file has demoted, or still accepts one the file marks compromised (an emergency that
+/// waits for a restart); <c>keyring.previous-past-window</c>; <c>keyring.next-staged-too-long</c>;
+/// and <c>keyring.key-age</c>, never for the key migrated from the single signing key, whose age
+/// is unknown. A staged key this process has not loaded yet is the normal state between a stage
+/// and the restart, and is not reported.
 /// </summary>
 /// <remarks>
 /// Re-evaluated at startup and after every configuration reload, so its day counts move
@@ -67,9 +74,26 @@ public sealed class KeyringPostureContributor : ISecurityPostureContributor
         "keyring.next-staged-too-long: HMAC key {KeyId} has been staged since {StagedAt:u}; promote it or discard it";
     private const string KeyAgeTemplate =
         "keyring.key-age: the current HMAC key {KeyId} is {AgeDays} days old; rotate it";
+    private const string SigningUnreadableTemplate =
+        "keyring: the signing keyring in the secrets file cannot be read ({Reason}); the next start will refuse it";
+    private const string SigningExternalTemplate =
+        "keyring: the signing key comes from {Source}, so it has no keyring and is replaced only by a restart, signing everyone out";
+    private const string SigningProcessRingTemplate =
+        "keyring.process-ring: this API process signs with signing key {ProcessKid}, which the secrets file no longer has as its " +
+        "current key (the file signs with {FileKid}); another process promoted, or the file was replaced. Recycle this process";
+    private const string SigningCompromisedTrustedTemplate =
+        "keyring.process-ring: this API process still accepts signing keys {Kids}, which the secrets file marks compromised: " +
+        "the emergency closes them here only at the next start. Recycle this process now";
+    private const string SigningPastWindowTemplate =
+        "keyring.previous-past-window: signing keys {Kids} are accepted no more; retire them";
+    private const string SigningStagedTooLongTemplate =
+        "keyring.next-staged-too-long: signing key {Kid} has been staged since {StagedAt:u}; promote it or discard it";
+    private const string SigningKeyAgeTemplate =
+        "keyring.key-age: the current signing key {Kid} is {AgeDays} days old; rotate it";
 
     private readonly IDpapiSecretService _secretService;
     private readonly HmacKeyringHolder _holder;
+    private readonly ISigningKeyRing _signingKeys;
     private readonly ResolvedSecretStorageMode _storageMode;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly TimeProvider _timeProvider;
@@ -77,12 +101,14 @@ public sealed class KeyringPostureContributor : ISecurityPostureContributor
     public KeyringPostureContributor(
         IDpapiSecretService secretService,
         HmacKeyringHolder holder,
+        ISigningKeyRing signingKeys,
         ResolvedSecretStorageMode storageMode,
         IServiceScopeFactory scopeFactory,
         TimeProvider timeProvider)
     {
         _secretService = secretService;
         _holder = holder;
+        _signingKeys = signingKeys;
         _storageMode = storageMode;
         _scopeFactory = scopeFactory;
         _timeProvider = timeProvider;
@@ -99,10 +125,20 @@ public sealed class KeyringPostureContributor : ISecurityPostureContributor
             return Posture([new Item("keyring", LogLevel.Information, PlainTextTemplate, [_storageMode.Name], "plaintext")]);
         }
 
-        var file = HmacKeyringFile.Read(await _secretService.LoadSecretsAsync(cancellationToken));
+        var secrets = await _secretService.LoadSecretsAsync(cancellationToken);
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+
+        var items = new List<Item>(await HmacItemsAsync(secrets, now, cancellationToken));
+        items.AddRange(SigningItems(secrets, _signingKeys, now));
+        return Posture(items);
+    }
+
+    private async Task<IReadOnlyList<Item>> HmacItemsAsync(SecretConfiguration secrets, DateTime now, CancellationToken cancellationToken)
+    {
+        var file = HmacKeyringFile.Read(secrets);
         if (file.IsError)
         {
-            return Posture([new Item("keyring", LogLevel.Critical, UnreadableTemplate, [file.FirstError.Code], "unreadable:" + file.FirstError.Code)]);
+            return [new Item("keyring", LogLevel.Critical, UnreadableTemplate, [file.FirstError.Code], "unreadable:" + file.FirstError.Code)];
         }
 
         IReadOnlyDictionary<int, int> webhookKeys;
@@ -112,7 +148,6 @@ public sealed class KeyringPostureContributor : ISecurityPostureContributor
                 .CountLiveByHmacKeyAsync(cancellationToken);
         }
 
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
         var ring = file.Value;
 
         var items = new List<Item> { LegacyDerivation(ring, _holder.Current, now) };
@@ -121,8 +156,77 @@ public sealed class KeyringPostureContributor : ISecurityPostureContributor
         items.AddRange(WebhookKeysOnOldKey(ring, webhookKeys));
         items.AddRange(NextStagedTooLong(ring, now));
         items.AddRange(KeyAge(ring, now));
+        return items;
+    }
 
-        return Posture(items);
+    // The signing keyring's lines (S12). States carry an "rsa" prefix, so a change in either ring
+    // is a change of the posture's state, and the two rings' lines never read as one.
+    private static IEnumerable<Item> SigningItems(SecretConfiguration secrets, ISigningKeyRing signingKeys, DateTime now)
+    {
+        var process = signingKeys.Current;
+        if (!signingKeys.Source.HoldsRing)
+        {
+            yield return new Item("keyring", LogLevel.Information, SigningExternalTemplate, [signingKeys.Source.Setting],
+                "rsa:external:" + signingKeys.Source.Setting);
+            yield break;
+        }
+
+        var file = RsaKeyringFile.Read(secrets, signingKeys.Source.MigratedKid);
+        if (file.IsError)
+        {
+            yield return new Item("keyring", LogLevel.Critical, SigningUnreadableTemplate, [file.FirstError.Code],
+                "rsa:unreadable:" + file.FirstError.Code);
+            yield break;
+        }
+
+        var ring = file.Value;
+
+        // A process that signs with a key the file no longer has as current: another process
+        // promoted (its tokens are accepted here only until that key's window ends), or the file
+        // was replaced.
+        if (!RsaKeyringFile.SameKey(ring.Current, process.Current))
+        {
+            yield return new Item("keyring.process-ring", LogLevel.Critical, SigningProcessRingTemplate,
+                [process.Current.Kid, ring.Current.Kid], $"rsa:signs:{process.Current.Kid}:{ring.Current.Kid}");
+        }
+
+        var trusted = ring.Keys
+            .Where(key => key.Compromised)
+            .Where(key => process.Find(key.Kid) is { } held && RsaKeyringFile.SameKey(held, key) && process.Verifies(held, now))
+            .Select(key => key.Kid)
+            .OrderBy(kid => kid, StringComparer.Ordinal)
+            .ToList();
+        if (trusted.Count > 0)
+        {
+            yield return new Item("keyring.process-ring", LogLevel.Critical, SigningCompromisedTrustedTemplate,
+                [string.Join(", ", trusted)], "rsa:trusts-compromised:" + string.Join(",", trusted));
+        }
+
+        var spent = ring.Keys
+            .Where(key => !key.Compromised && !ring.IsCurrent(key) && !ring.IsNext(key) && !ring.Verifies(key, now))
+            .Select(key => key.Kid)
+            .OrderBy(kid => kid, StringComparer.Ordinal)
+            .ToList();
+        if (spent.Count > 0)
+        {
+            yield return new Item("keyring.previous-past-window", LogLevel.Warning, SigningPastWindowTemplate,
+                [string.Join(", ", spent)], "rsa:past:" + string.Join(",", spent));
+        }
+
+        if (ring.Next is { CreatedAtUtc: { } stagedAt } next && now - stagedAt > StagedTooLongAfter)
+        {
+            yield return new Item("keyring.next-staged-too-long", LogLevel.Warning, SigningStagedTooLongTemplate,
+                [next.Kid, stagedAt], $"rsa:staged:{next.Kid}");
+        }
+
+        // The migrated key has no CreatedAtUtc: its age is unknown, and a warning on a guess would
+        // only teach the administrator to ignore this line.
+        if (ring.Current.CreatedAtUtc is { } createdAt && now - createdAt > KeyAgeLimit)
+        {
+            var ageDays = (int)Math.Floor((now - createdAt).TotalDays);
+            yield return new Item("keyring.key-age", LogLevel.Warning, SigningKeyAgeTemplate,
+                [ring.Current.Kid, ageDays], $"rsa:age:{ring.Current.Kid}:{ageDays}");
+        }
     }
 
     private static IEnumerable<Item> ProcessRing(HmacKeyring file, HmacKeyring process)

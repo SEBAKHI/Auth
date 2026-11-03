@@ -1452,19 +1452,22 @@
     <value>L'API d'administration des secrets est désactivée.</value>
   </data>
   <data name="Secret.KeyringNoNextKey" xml:space="preserve">
-    <value>Aucune clé HMAC préparée n'est chargée dans ce processus. Préparez d'abord une clé, ou redémarrez l'API pour qu'elle charge la clé préparée dans le fichier des secrets.</value>
+    <value>Aucune clé préparée ne peut être promue dans ce processus. Préparez d'abord une clé. Si une clé est préparée dans le fichier des secrets mais que ce processus ne l'a pas chargée, redémarrez l'API. Si la clé de signature préparée a été publiée il y a plus de 30 jours, abandonnez-la et préparez-en une nouvelle.</value>
   </data>
   <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
-    <value>Le trousseau HMAC ne contient aucune clé précédente {0} à laquelle cette action s'applique.</value>
+    <value>Le trousseau ne contient aucune clé {0} à laquelle cette action s'applique.</value>
   </data>
   <data name="Secret.KeyringKeyReferenced" xml:space="preserve">
-    <value>La clé HMAC {0} vérifie encore {1} clé(s) webhook active(s) jusqu'au {2}. Attendez cette date, ou renouvelez ces clés webhook, avant de la retirer.</value>
+    <value>La clé {0} est encore utilisée, ce changement est donc impossible : c'est la clé actuelle ou la clé préparée, une clé que le trousseau détient ou a détenue, ou une clé HMAC dont des clés webhook actives ont encore besoin. Le panneau du trousseau indique laquelle.</value>
   </data>
   <data name="Secret.KeyringUnavailable" xml:space="preserve">
-    <value>Le trousseau HMAC ne peut être géré qu'en mode de stockage Certificate ou Dpapi, avec la clé HMAC conservée dans le fichier des secrets chiffré. Ce déploiement fonctionne en mode PlainText ou prend la clé d'une autre source.</value>
+    <value>Ce trousseau ne peut être géré qu'en mode de stockage Certificate ou Dpapi, avec sa clé conservée dans le fichier des secrets chiffré. Ce déploiement fonctionne en mode PlainText ou prend la clé d'une autre source, que le panneau du trousseau nomme.</value>
   </data>
   <data name="Secret.KeyringFileInconsistent" xml:space="preserve">
-    <value>Le trousseau HMAC du fichier des secrets ne peut pas être utilisé en l'état : {0}</value>
+    <value>Le trousseau du fichier des secrets ne peut pas être utilisé en l'état : {0}</value>
+  </data>
+  <data name="Secret.KeyringNextTooYoung" xml:space="preserve">
+    <value>La clé de signature préparée n'est pas encore publiée depuis 24 heures, les applications ne l'ont donc peut-être pas récupérée. Elle peut être promue à partir du {0} (UTC). Seule une promotion d'urgence évite cette attente.</value>
   </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>Le code de vérification doit comporter 6 chiffres.</value>

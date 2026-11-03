@@ -19,25 +19,22 @@ public class RequestSecretOperationChallengeCommandHandler
     : IRequestHandler<RequestSecretOperationChallengeCommand, ErrorOr<SecretOperationChallengeDto>>
 {
     private readonly SecretOperationChallengeService _challengeService;
-    private readonly HmacKeyringChangeService _keyring;
+    private readonly KeyringApprovals _keyrings;
     private readonly SecretManagementSettings _settings;
     private readonly IPublisher _publisher;
-    private readonly TimeProvider _timeProvider;
     private readonly ILogger<RequestSecretOperationChallengeCommandHandler> _logger;
 
     public RequestSecretOperationChallengeCommandHandler(
         SecretOperationChallengeService challengeService,
-        HmacKeyringChangeService keyring,
+        KeyringApprovals keyrings,
         IOptions<SecretManagementSettings> settings,
         IPublisher publisher,
-        TimeProvider timeProvider,
         ILogger<RequestSecretOperationChallengeCommandHandler> logger)
     {
         _challengeService = challengeService;
-        _keyring = keyring;
+        _keyrings = keyrings;
         _settings = settings.Value;
         _publisher = publisher;
-        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -119,27 +116,21 @@ public class RequestSecretOperationChallengeCommandHandler
     }
 
     // The digest the approval of a keyring change is bound to, from the ring the secrets
-    // file holds now. Everything that would refuse the change is refused here, before a
-    // code is emailed: a storage mode with no file to keep the ring in, a ring the action
-    // cannot apply to.
+    // file holds now, by the binding of the ring the operation confirms changes of.
+    // Everything that would refuse the change is refused there, before a code is emailed: a
+    // storage mode with no file to keep the ring in, a ring the action cannot apply to.
     private async Task<ErrorOr<string>> KeyringDigestAsync(
         KeyringAction action,
         RequestSecretOperationChallengeCommand request,
         CancellationToken cancellationToken)
     {
-        var ring = await _keyring.ReadFileRingAsync(cancellationToken);
-        if (ring.IsError)
+        if (_keyrings.For(request.Operation) is not { } keyring)
         {
-            return ring.Errors;
+            return SecretErrors.OperationInvalid;
         }
 
-        var possible = _keyring.Allows(action, ring.Value, request.KeyId, _timeProvider.GetUtcNow().UtcDateTime);
-        if (possible.IsError)
-        {
-            return possible.Errors;
-        }
-
-        return KeyringStepUp.Digest(action, KeyringStepUp.TargetOf(action, ring.Value, request.KeyId), request.Value);
+        return await keyring.DigestAsync(
+            action, new KeyringTarget(request.KeyId, request.Kid), request.Value, cancellationToken);
     }
 
     private static ErrorOr<Success> ValidateMaterial(SecretOperation operation, string value) => operation switch

@@ -78,6 +78,16 @@ describe.each(Object.entries(locales))("locale %s", (_name, locale) => {
   })
 })
 
+describe("Jwt:KeyId (S12)", () => {
+  it("has no label in any language: every signing key is named by its thumbprint, never by a setting", () => {
+    for (const tree of [en as Tree, ...Object.values(locales)]) {
+      const keys = new Set(collectKeys(tree))
+      expect(keys.has("systemSettings.jwt.keyId")).toBe(false)
+      expect(keys.has("systemSettings.jwt.keyIdHint")).toBe(false)
+    }
+  })
+})
+
 describe("translation key usage", () => {
   it("defines every literal key passed to t() in application source", () => {
     const knownKeys = new Set(enKeys)

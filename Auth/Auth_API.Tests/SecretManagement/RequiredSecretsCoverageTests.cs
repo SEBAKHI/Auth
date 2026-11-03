@@ -184,6 +184,44 @@ public class RequiredSecretsCoverageTests : IDisposable
     }
 
     [Fact]
+    public async Task EncryptedFileGenerator_WritesTheSigningKeyring_UnderTheKeysThumbprint_MirroringTheSingleKey()
+    {
+        // S12 (KR5 items 3 and 4): a new file starts with its signing keyring written out, the
+        // key named by its RFC 7638 thumbprint, so nothing is ever migrated on this deployment.
+        var service = CreateEncryptedFileService(out _);
+
+        await service.GenerateMissingKeysAsync(CancellationToken.None);
+        var secrets = await service.LoadSecretsAsync(CancellationToken.None);
+
+        var kid = Auth.Application.Security.Keyring.SigningKeyThumbprint.OfPem(secrets.JwtPrivateKeyPem!);
+        secrets.SigningCurrentKid.Should().Be(kid);
+        secrets.SigningNextKid.Should().BeNull();
+        secrets.SigningKeys.Should().ContainSingle().Which.Key.Should().Be(kid);
+        secrets.SigningKeys[kid].PrivateKeyPem.Should().Be(secrets.JwtPrivateKeyPem);
+        secrets.SigningKeys[kid].CreatedAtUtc.Should().NotBeNull();
+        Auth.Application.Security.Keyring.RsaKeyringFile.Read(secrets, "auth-key-1").Value.Persisted.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task EncryptedFileGenerator_NeverWritesASigningRing_IntoAFileThatHasTheSingleKey()
+    {
+        // An existing deployment keeps its key under Jwt:KeyId until its first keyring change:
+        // a ring written on boot would rename the key, and every token's kid with it (TS1).
+        var service = CreateEncryptedFileService(out _);
+        var existing = new SecretFile { JwtPrivateKeyPem = KeyMaterialGenerator.GenerateRsaKeyPair().PrivateKeyPem };
+        await service.SaveSecretsAsync(existing, CancellationToken.None);
+
+        await service.GenerateMissingKeysAsync(CancellationToken.None);
+
+        var secrets = await service.LoadSecretsAsync(CancellationToken.None);
+        secrets.JwtPrivateKeyPem.Should().Be(existing.JwtPrivateKeyPem);
+        secrets.SigningKeys.Should().BeEmpty();
+        var migrated = Auth.Application.Security.Keyring.RsaKeyringFile.Read(secrets, "auth-key-1").Value;
+        migrated.Current.Kid.Should().Be("auth-key-1");
+        migrated.Persisted.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task EncryptedFileGenerator_NeverWritesARing_IntoAFileThatHasTheSingleKey()
     {
         // An existing deployment's file has no ring; the generator must not invent one on

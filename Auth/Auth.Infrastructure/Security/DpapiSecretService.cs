@@ -441,24 +441,6 @@ public class DpapiSecretService : IDpapiSecretService
     // Key Generation Operations
     // ═══════════════════════════════════════════════════════════════
 
-    public async Task<string> GenerateRsaKeyPairAsync(CancellationToken cancellationToken)
-    {
-        var (privateKeyPem, publicKeyPem) = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateRsaKeyPair();
-
-        await UpdateAsync<Success>(
-            secrets =>
-            {
-                secrets.JwtPrivateKeyPem = privateKeyPem;
-                secrets.JwtPublicKeyPem = publicKeyPem;
-                return Result.Success;
-            },
-            overwriteBackup: false,
-            cancellationToken);
-
-        _logger.LogWarning("Generated new RSA-{KeySize} key pair - all existing access tokens are now invalid", RsaKeySizeBits);
-        return publicKeyPem;
-    }
-
     public async Task<string> GenerateGatewayTokenAsync(CancellationToken cancellationToken)
     {
         var token = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateGatewayToken();
@@ -556,6 +538,62 @@ public class DpapiSecretService : IDpapiSecretService
         return written.Value;
     }
 
+    /// <summary>
+    /// Records when the staged signing key <paramref name="kid"/> was first published (S12): the
+    /// first process start that loads it writes <paramref name="publishedAtUtc"/>, once. Written
+    /// only while the file still stages that same key and records no moment for it, so two
+    /// processes starting together never both write, and a key staged since by another process
+    /// is left alone.
+    /// </summary>
+    /// <returns>
+    /// The moment the file records after the call (this one, or one another process wrote
+    /// first); null when the file no longer stages <paramref name="kid"/> with that key.
+    /// </returns>
+    public async Task<DateTime?> RecordStagedSigningKeyPublishedAsync(
+        string kid,
+        string thumbprint,
+        DateTime publishedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        var recorded = await UpdateCoreAsync<DateTime?>(
+            secrets =>
+            {
+                if (!string.Equals(secrets.SigningNextKid, kid, StringComparison.Ordinal)
+                    || secrets.SigningKeys is null
+                    || !secrets.SigningKeys.TryGetValue(kid, out var entry)
+                    || entry?.PrivateKeyPem is not { } staged
+                    || SecretKeyMaterialThumbprint(staged) != thumbprint)
+                {
+                    return ((DateTime?)null, false);
+                }
+
+                if (entry.PublishedAtUtc is { } already)
+                {
+                    return (already, false);
+                }
+
+                entry.PublishedAtUtc = publishedAtUtc;
+                return (publishedAtUtc, true);
+            },
+            overwriteBackup: false,
+            cancellationToken);
+
+        return recorded.Value;
+    }
+
+    // The thumbprint of a stored private key, or null when it does not parse.
+    private static string? SecretKeyMaterialThumbprint(string privateKeyPem)
+    {
+        try
+        {
+            return SigningKeyThumbprint.OfPem(privateKeyPem);
+        }
+        catch (Exception ex) when (ex is ArgumentException or CryptographicException)
+        {
+            return null;
+        }
+    }
+
     // Fills in every missing key of a loaded file and answers whether anything changed.
     private bool GenerateMissingKeys(SecretConfiguration secrets, KeyGenerationResult result)
     {
@@ -567,6 +605,27 @@ public class DpapiSecretService : IDpapiSecretService
             var (privateKeyPem, publicKeyPem) = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateRsaKeyPair();
             secrets.JwtPrivateKeyPem = privateKeyPem;
             secrets.JwtPublicKeyPem = publicKeyPem;
+
+            // A new file starts with its signing keyring written out (S12, KR5 (4)): the key is
+            // current under its thumbprint, so nothing is ever migrated on this deployment. An
+            // existing file is never given one here: an empty ring already means the single key is
+            // the current key, under Jwt:KeyId, and renaming it would change every token's kid.
+            if (secrets.SigningKeys is not { Count: > 0 })
+            {
+                var kid = SigningKeyThumbprint.OfPem(publicKeyPem);
+                secrets.SigningKeys = new Dictionary<string, SigningKeyEntry>
+                {
+                    [kid] = new SigningKeyEntry
+                    {
+                        PrivateKeyPem = privateKeyPem,
+                        PublicKeyPem = publicKeyPem,
+                        CreatedAtUtc = DateTime.UtcNow
+                    }
+                };
+                secrets.SigningCurrentKid = kid;
+                secrets.SigningNextKid = null;
+            }
+
             result.RsaKeyGenerated = true;
             result.PublicKeyPem = secrets.JwtPublicKeyPem;
             result.GeneratedKeys.Add("JwtPrivateKeyPem");
@@ -654,21 +713,6 @@ public class DpapiSecretService : IDpapiSecretService
     // ═══════════════════════════════════════════════════════════════
     // Key Import Operations (bring-your-own-keys)
     // ═══════════════════════════════════════════════════════════════
-
-    public async Task ImportRsaKeyPairAsync(string privateKeyPem, string publicKeyPem, CancellationToken cancellationToken)
-    {
-        await UpdateAsync<Success>(
-            secrets =>
-            {
-                secrets.JwtPrivateKeyPem = privateKeyPem;
-                secrets.JwtPublicKeyPem = publicKeyPem;
-                return Result.Success;
-            },
-            overwriteBackup: false,
-            cancellationToken);
-
-        _logger.LogWarning("Imported caller-supplied RSA signing key - all existing access tokens are now invalid");
-    }
 
     public async Task ImportGatewayTokenAsync(string token, CancellationToken cancellationToken)
     {

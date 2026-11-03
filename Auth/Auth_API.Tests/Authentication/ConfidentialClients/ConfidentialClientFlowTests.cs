@@ -297,11 +297,11 @@ public sealed class ConfidentialClientFlowTests : IDisposable
     [Fact]
     public async Task TB3_ASignInKey_GetsNoMachineToken()
     {
-        using var settings = new JwtTokenService(Options.Create(new JwtSettings
+        using var settings = TestSigningKeys.Service(new JwtSettings
         {
             Issuer = MachineCredentials.Issuer, Audience = "authsystem-api", KeyId = "test-key",
             PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem()
-        }), Mock.Of<IPasswordHasher>());
+        });
         var handler = new ClientCredentialsCommandHandler(
             Authenticator(), _keys.Object, Mock.Of<IApplicationRepository>(), settings, NullLogger<ClientCredentialsCommandHandler>.Instance);
 

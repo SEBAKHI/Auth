@@ -1452,19 +1452,22 @@
     <value>密钥管理的管理员API已禁用。</value>
   </data>
   <data name="Secret.KeyringNoNextKey" xml:space="preserve">
-    <value>此进程中未加载已暂存的 HMAC 密钥。请先暂存一个密钥，或重启 API 以加载密钥文件中暂存的密钥。</value>
+    <value>此进程中没有可升级的已暂存密钥。请先暂存一个密钥。如果密钥文件中已暂存密钥但此进程尚未加载它，请重启 API。如果已暂存的签名密钥发布已超过 30 天，请丢弃它并暂存一个新密钥。</value>
   </data>
   <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
-    <value>HMAC 密钥环中没有此操作适用的旧密钥 {0}。</value>
+    <value>密钥环中没有此操作适用的密钥 {0}。</value>
   </data>
   <data name="Secret.KeyringKeyReferenced" xml:space="preserve">
-    <value>HMAC 密钥 {0} 在 {2} 之前仍在验证 {1} 个有效的 webhook 密钥。请等到那时，或先轮换这些 webhook 密钥，再将其停用。</value>
+    <value>密钥 {0} 仍在使用，因此无法进行此更改：它是当前密钥或已暂存的密钥，是密钥环持有或曾经持有的密钥，或是有效 webhook 密钥仍需要的 HMAC 密钥。密钥环面板会显示是哪一种。</value>
   </data>
   <data name="Secret.KeyringUnavailable" xml:space="preserve">
-    <value>只有在 Certificate 或 Dpapi 存储模式下、且 HMAC 密钥保存在加密的密钥文件中时，才能管理 HMAC 密钥环。此部署以 PlainText 模式运行，或从其他来源获取密钥。</value>
+    <value>只有在 Certificate 或 Dpapi 存储模式下、且其密钥保存在加密的密钥文件中时，才能管理此密钥环。此部署以 PlainText 模式运行，或从其他来源获取密钥，密钥环面板会列出该来源。</value>
   </data>
   <data name="Secret.KeyringFileInconsistent" xml:space="preserve">
-    <value>密钥文件中的 HMAC 密钥环无法按现状使用：{0}</value>
+    <value>密钥文件中的密钥环无法按现状使用：{0}</value>
+  </data>
+  <data name="Secret.KeyringNextTooYoung" xml:space="preserve">
+    <value>已暂存的签名密钥发布尚未满 24 小时，应用程序可能尚未获取它。可从 {0}（UTC）起将其升级。只有紧急升级可以跳过此等待。</value>
   </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>验证码必须为 6 位数字。</value>
