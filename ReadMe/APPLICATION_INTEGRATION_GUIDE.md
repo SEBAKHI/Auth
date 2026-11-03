@@ -1184,7 +1184,10 @@ your application within that hour; restart the application to end it at once. Th
 application can reach AuthSystem: a refetch that fails leaves the key set it already holds in use, so at an
 application cut off from AuthSystem a withdrawn key keeps verifying past the hour, until a refetch succeeds or
 the application restarts. A token whose `kid` the SDK has not seen yet triggers a fetch on its own, so a
-scheduled key change never waits for the interval. `/.well-known/public-key.pem` is the current key only: a copy pinned in your
+scheduled key change never waits for the interval. A scheduled change publishes the new key at least 24 hours before
+any token is signed with it, and keeps the old key listed for about a day after, so a relying party that caches the key
+set for up to 12 hours never meets an unknown key; an emergency withdraws the old key at once.
+`/.well-known/public-key.pem` is the current key only: a copy pinned in your
 configuration stops matching at the next key change.
 *In code:* `Auth/Auth_API/Controllers/DiscoveryController.cs:33`, `:77`; `ServiceCollectionExtensions.cs:182-224`.
 

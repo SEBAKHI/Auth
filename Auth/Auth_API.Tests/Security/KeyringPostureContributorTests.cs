@@ -35,13 +35,15 @@ public sealed class KeyringPostureContributorTests : IDisposable
             .AddSingleton(h.WebhookKeys.Object)
             .BuildServiceProvider()
             .GetRequiredService<IServiceScopeFactory>();
-        return new KeyringPostureContributor(h.Secrets, h.Holder, h.StorageMode, scopes, h.Clock);
+        return new KeyringPostureContributor(h.Secrets, h.Holder, h.SigningKeys, h.StorageMode, scopes, h.Clock);
     }
 
     private async Task<SecurityPosture> EvaluateAsync() => await Contributor().EvaluateAsync(CancellationToken.None);
 
+    // The HMAC keyring's line of an item; the signing keyring's lines (S12) share the item names.
     private static SecurityPostureLine Line(SecurityPosture posture, string item) =>
-        posture.Lines.Should().ContainSingle(line => line.MessageTemplate.StartsWith(item + ":", StringComparison.Ordinal)).Which;
+        posture.Lines.Should().ContainSingle(line => line.MessageTemplate.StartsWith(item + ":", StringComparison.Ordinal)
+            && !line.MessageTemplate.Contains("signing key", StringComparison.Ordinal)).Which;
 
     [Fact]
     public async Task BeforeAnyRotation_SaysSo_AtInformation()
@@ -189,7 +191,8 @@ public sealed class KeyringPostureContributorTests : IDisposable
         await _keyring.PromoteAsync();
 
         _keyring.Clock.Advance(TimeSpan.FromDays(365));
-        (await EvaluateAsync()).Lines.Should().NotContain(line => line.MessageTemplate.StartsWith("keyring.key-age", StringComparison.Ordinal));
+        (await EvaluateAsync()).Lines.Should().NotContain(line => line.MessageTemplate.StartsWith("keyring.key-age", StringComparison.Ordinal)
+            && line.MessageTemplate.Contains("HMAC", StringComparison.Ordinal), "the signing keyring has its own key-age line (S12)");
 
         _keyring.Clock.Advance(TimeSpan.FromDays(1));
         Line(await EvaluateAsync(), "keyring.key-age").Arguments.Should().Equal(2, 366);
@@ -213,7 +216,8 @@ public sealed class KeyringPostureContributorTests : IDisposable
             overwriteBackup: false,
             CancellationToken.None);
 
-        (await EvaluateAsync()).Lines.Should().NotContain(line => line.MessageTemplate.StartsWith("keyring.key-age", StringComparison.Ordinal));
+        (await EvaluateAsync()).Lines.Should().NotContain(line => line.MessageTemplate.StartsWith("keyring.key-age", StringComparison.Ordinal)
+            && line.MessageTemplate.Contains("HMAC", StringComparison.Ordinal), "the signing keyring has its own key-age line (S12)");
     }
 
     [Fact]
@@ -226,6 +230,132 @@ public sealed class KeyringPostureContributorTests : IDisposable
 
         Line(await EvaluateAsync(), "keyring.previous-past-window").Arguments.Should().Equal("1");
     }
+
+    // --- the signing keyring (S12) ---
+
+    [Fact]
+    public async Task ASigningKeyStagedMoreThanSevenDays_IsAWarning_NotAtSeven()
+    {
+        var staged = await StageSigningKeyAsync();
+
+        _keyring.Clock.Advance(TimeSpan.FromDays(7));
+        (await EvaluateAsync()).Lines.Should().NotContain(line => line.MessageTemplate.StartsWith("keyring.next-staged-too-long", StringComparison.Ordinal)
+            && line.MessageTemplate.Contains("signing key", StringComparison.Ordinal));
+
+        _keyring.Clock.Advance(TimeSpan.FromMinutes(1));
+        var line = SigningLine(await EvaluateAsync(), "keyring.next-staged-too-long");
+        line.Level.Should().Be(LogLevel.Warning);
+        line.Arguments[0].Should().Be(staged);
+    }
+
+    [Fact]
+    public async Task TheCurrentSigningKey_IsTooOldAt366Days_NamedByItsKid()
+    {
+        // The key was written by the harness just before the clock stood still.
+        var kid = _keyring.SigningKeys.Current.Key.KeyId;
+
+        _keyring.Clock.Advance(TimeSpan.FromDays(365) - TimeSpan.FromMinutes(1));
+        (await EvaluateAsync()).Lines.Should().NotContain(line => line.MessageTemplate.StartsWith("keyring.key-age", StringComparison.Ordinal)
+            && line.MessageTemplate.Contains("signing key", StringComparison.Ordinal));
+
+        _keyring.Clock.Advance(TimeSpan.FromDays(1) + TimeSpan.FromMinutes(2));
+        SigningLine(await EvaluateAsync(), "keyring.key-age").Arguments.Should().Equal(kid, 366);
+    }
+
+    [Fact]
+    public async Task TheMigratedSigningKey_HasNoAge_SoNoKeyAgeWarning()
+    {
+        // A file that never had a signing ring: the one key, under Jwt:KeyId, of unknown age.
+        await _keyring.Secrets.UpdateAsync<Success>(
+            secrets =>
+            {
+                secrets.SigningKeys = new Dictionary<string, SigningKeyEntry>();
+                secrets.SigningCurrentKid = null;
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            CancellationToken.None);
+        _keyring.Restart();
+        _keyring.SigningKeys.Current.Key.KeyId.Should().Be("auth-key-1");
+
+        _keyring.Clock.Advance(TimeSpan.FromDays(4000));
+
+        (await EvaluateAsync()).Lines.Should().NotContain(line => line.MessageTemplate.StartsWith("keyring.key-age", StringComparison.Ordinal)
+            && line.MessageTemplate.Contains("signing key", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AProcessSigningWithAKeyTheFileDemoted_IsCritical()
+    {
+        // Another worker promoted: this process still signs with the key the file calls previous.
+        await StageSigningKeyAsync();
+        _keyring.Restart();
+        var mine = _keyring.SigningKeys.Current.Key.KeyId;
+        await _keyring.Secrets.UpdateAsync<Success>(
+            secrets =>
+            {
+                var ring = RsaKeyringFile.Read(secrets, "auth-key-1").Value;
+                RsaKeyringFile.Write(ring.Promote(DateTime.UtcNow, DateTime.UtcNow.AddDays(1)).Value, secrets);
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            CancellationToken.None);
+
+        var line = SigningLine(await EvaluateAsync(), "keyring.process-ring");
+
+        line.Level.Should().Be(LogLevel.Critical);
+        line.Arguments[0].Should().Be(mine);
+    }
+
+    [Fact]
+    public async Task AProcessThatStillAcceptsACompromisedKey_IsCritical_UntilItRestarts()
+    {
+        // An emergency whose staged key this process never loaded is saved, and waits for the restart.
+        var leaked = _keyring.SigningKeys.Current.Key.KeyId;
+        await StageSigningKeyAsync();
+        (await _keyring.SigningService.ChangeAsync(
+            _keyring.SigningRequest(KeyringAction.PromoteEmergency, _keyring.ApproveSigning(KeyringAction.PromoteEmergency)),
+            newKey: null,
+            (ring, change) => ring.PromoteEmergency(change.NowUtc),
+            Auth.Application.Features.Secrets.Common.RsaKeyringChangeService.WithStagedKeyLoaded((ring, change) => ring.PromoteEmergency(change.NowUtc)),
+            CancellationToken.None)).Value.ChangeAppliedInProcess.Should().BeFalse();
+
+        (await EvaluateAsync()).Lines.Should().Contain(line => line.Level == LogLevel.Critical
+            && line.MessageTemplate.StartsWith("keyring.process-ring", StringComparison.Ordinal)
+            && line.MessageTemplate.Contains("marks compromised", StringComparison.Ordinal)
+            && Equals(line.Arguments[0], leaked));
+
+        _keyring.Restart();
+        (await EvaluateAsync()).Lines.Should().NotContain(line => line.MessageTemplate.StartsWith("keyring.process-ring", StringComparison.Ordinal)
+            && line.MessageTemplate.Contains("signing key", StringComparison.Ordinal), "the restart closed it");
+    }
+
+    [Fact]
+    public async Task AStagedSigningKeyThisProcessHasNotLoadedYet_IsNotAProcessRingFinding()
+    {
+        // The normal state between a stage and the restart that loads it.
+        await StageSigningKeyAsync();
+
+        (await EvaluateAsync()).Lines.Should().NotContain(line => line.MessageTemplate.StartsWith("keyring.process-ring", StringComparison.Ordinal)
+            && line.MessageTemplate.Contains("signing key", StringComparison.Ordinal));
+    }
+
+    private async Task<string> StageSigningKeyAsync()
+    {
+        var staged = await _keyring.SigningService.ChangeAsync(
+            _keyring.SigningRequest(KeyringAction.Stage, _keyring.ApproveSigning(KeyringAction.Stage)),
+            KeyringTestHarness.NewSigningKey(),
+            (ring, change) => ring.Stage(change.NewKey!, change.NowUtc),
+            applyInProcess: null,
+            CancellationToken.None);
+        staged.IsError.Should().BeFalse();
+        return staged.Value.NextKid!;
+    }
+
+    // The signing keyring's line of an item.
+    private static SecurityPostureLine SigningLine(SecurityPosture posture, string item) =>
+        posture.Lines.Should().ContainSingle(line => line.MessageTemplate.StartsWith(item + ":", StringComparison.Ordinal)
+            && line.MessageTemplate.Contains("signing key", StringComparison.Ordinal)).Which;
 
     [Fact]
     public async Task PlainText_SaysTheKeyringCannotBeRotated()

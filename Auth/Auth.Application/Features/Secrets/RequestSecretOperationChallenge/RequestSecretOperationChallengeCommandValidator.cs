@@ -26,14 +26,21 @@ public class RequestSecretOperationChallengeCommandValidator
                 or SecretOperation.ImportHmacKey
                 or SecretOperation.ImportGatewayToken);
 
-        // A keyring action is one of the known ones, confirmed by its own operation, and
-        // a reinstate or a retire names the key it applies to.
+        // A keyring action is one of the known ones, confirmed by its own ring's operation,
+        // and a reinstate or a retire names the key it applies to: an HMAC key by id, a
+        // signing key by kid (S12).
         RuleFor(x => x.Action)
             .Must((command, action) => action is null || KeyringStepUp.Confirms(action.Value, command.Operation))
             .WithErrorCode(SecretErrors.OperationInvalid.Code);
 
         RuleFor(x => x.KeyId)
             .NotNull().WithErrorCode(SecretErrors.OperationInvalid.Code)
-            .When(x => x.Action is KeyringAction.Reinstate or KeyringAction.Retire);
+            .When(x => x.Action is KeyringAction.Reinstate or KeyringAction.Retire
+                && x.Operation is SecretOperation.GenerateHmacKey or SecretOperation.ImportHmacKey);
+
+        RuleFor(x => x.Kid)
+            .NotEmpty().WithErrorCode(SecretErrors.OperationInvalid.Code)
+            .When(x => x.Action is KeyringAction.Retire
+                && x.Operation is SecretOperation.GenerateRsaKey or SecretOperation.ImportRsaKey);
     }
 }

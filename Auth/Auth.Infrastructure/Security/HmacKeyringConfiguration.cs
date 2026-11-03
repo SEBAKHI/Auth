@@ -123,40 +123,15 @@ public static class HmacKeyringConfiguration
 
     private static void EnsureRingComesOnlyFromTheSecretFile(IConfiguration configuration)
     {
-        if (configuration is not IConfigurationRoot root)
-        {
-            throw new InvalidOperationException(
+        var foreign = SecretFileOnlySection.ForeignValues(configuration, SectionName)
+            ?? throw new InvalidOperationException(
                 "The HMAC keyring's configuration sources cannot be inspected, so the ring cannot be shown to come only from the secrets file.");
-        }
-
-        var foreign = root.Providers
-            .Where(provider => provider is not DpapiSecretConfigurationProvider)
-            .SelectMany(provider => ValuedKeys(provider, SectionName).Select(key => $"{key} ({provider})"))
-            .ToList();
 
         if (foreign.Count > 0)
         {
             throw new InvalidOperationException(
                 $"The HMAC keyring may only come from the encrypted secrets file, but [{string.Join(", ", foreign)}] " +
                 "set it from another source. Remove those values (an environment variable, a settings file), then start again.");
-        }
-    }
-
-    // Every key under parentPath that the provider itself holds a non-empty value for.
-    private static IEnumerable<string> ValuedKeys(IConfigurationProvider provider, string parentPath)
-    {
-        foreach (var child in provider.GetChildKeys([], parentPath).Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            var path = ConfigurationPath.Combine(parentPath, child);
-            if (provider.TryGet(path, out var value) && !string.IsNullOrWhiteSpace(value))
-            {
-                yield return path;
-            }
-
-            foreach (var nested in ValuedKeys(provider, path))
-            {
-                yield return nested;
-            }
         }
     }
 

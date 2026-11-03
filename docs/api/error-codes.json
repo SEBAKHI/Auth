@@ -2352,6 +2352,11 @@
       "source": "catalog"
     },
     {
+      "code": "Secret.KeyringNextTooYoung",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
       "code": "Secret.KeyringNoNextKey",
       "status": 409,
       "source": "catalog"

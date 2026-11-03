@@ -40,15 +40,14 @@ public sealed class LoginResponseBuilderMethodTests : IDisposable
     private readonly List<UserSession> _sessionRows = [];
     private readonly List<IdpSession> _idpRows = [];
 
-    private readonly JwtTokenService _service = new(
-        Options.Create(new JwtSettings
+    private readonly JwtTokenService _service = TestSigningKeys.Service(
+        new JwtSettings
         {
             Issuer = "https://auth.example.com",
             Audience = "auth-platform",
             KeyId = "test-key",
             PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem()
-        }),
-        Mock.Of<IPasswordHasher>());
+        });
 
     public LoginResponseBuilderMethodTests()
     {

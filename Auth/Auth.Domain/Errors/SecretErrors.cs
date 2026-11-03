@@ -118,18 +118,20 @@ public static class SecretErrors
         code: "Secret.AdminApiDisabled",
         description: "Secret management admin API is disabled.");
 
-    // The HMAC keyring (S11, KR3). Each is a state the ring is in, not a fault, so
-    // each is a Conflict the administrator can act on.
+    // The two keyrings: HMAC (S11) and RSA signing (S12), KR3. Each is a state the ring
+    // is in, not a fault, so each is a Conflict the administrator can act on. The codes
+    // are shared by both rings, so their sentences name neither; the description, which
+    // the logs carry, does.
 
     /// <summary>
     /// A promote or a discard needs a staged key, and either none is staged or the
     /// running process has not loaded the one the secrets file stages (another worker
-    /// staged it): promoting a key this process cannot verify under would leave it
-    /// rejecting what it issues.
+    /// staged it, or the API was not restarted since): promoting a key this process
+    /// cannot verify under would leave it rejecting what it issues.
     /// </summary>
     public static readonly Error KeyringNoNextKey = Error.Conflict(
         code: "Secret.KeyringNoNextKey",
-        description: "No staged HMAC key is loaded in this process. Stage a key first, or restart the API so it loads the key staged in the secrets file.");
+        description: "No staged key is loaded in this process. Stage a key first; if one is already staged in the secrets file, restart the API so this process loads it, then try again.");
 
     /// <summary>
     /// The key a reinstate or a retire names is not a previous key the action applies
@@ -140,6 +142,12 @@ public static class SecretErrors
         code: "Secret.KeyringKeyNotFound",
         description: $"The HMAC keyring has no previous key {keyId} that this action applies to.",
         metadata: new() { ["args"] = new object[] { keyId } });
+
+    /// <summary>The signing key a retire names is not in the RSA keyring (S12).</summary>
+    public static Error KeyringKeyNotFound(string kid) => Error.Conflict(
+        code: "Secret.KeyringKeyNotFound",
+        description: $"The signing keyring has no key {kid} that this action applies to.",
+        metadata: new() { ["args"] = new object[] { kid } });
 
     /// <summary>
     /// A retire would strand live webhook keys: their stored fingerprints were computed
@@ -152,14 +160,26 @@ public static class SecretErrors
         metadata: new() { ["args"] = new object[] { keyId, webhookKeys, graceEndsUtc.ToString("u") } });
 
     /// <summary>
-    /// The keyring can only be changed where this process keeps it: the encrypted
-    /// secrets file. In PlainText mode, or when the HMAC key comes from somewhere else
-    /// (a settings file, an environment variable), there is no file to save a ring to.
+    /// The signing key a change names is still in use (S12): a retire of the current or the
+    /// staged key, or a staged import of a key the ring holds in any state, of one it once
+    /// held (it may have leaked), or while another key is staged.
+    /// </summary>
+    public static Error KeyringKeyReferenced(string kid) => Error.Conflict(
+        code: "Secret.KeyringKeyReferenced",
+        description: $"Signing key {kid} is the current or the staged key, is still held by the keyring, or was held by it before; " +
+                     "it cannot be retired or staged again. Discard the staged key first, or use another key.",
+        metadata: new() { ["args"] = new object[] { kid } });
+
+    /// <summary>
+    /// A keyring can only be changed where this process keeps it: the encrypted secrets
+    /// file. In PlainText mode, or when the key comes from somewhere else (a settings file,
+    /// an environment variable, <c>Jwt:PrivateKeyPath</c> or <c>Jwt:PrivateKeyEncrypted</c>
+    /// for the signing key), there is no file to save a ring to.
     /// </summary>
     public static readonly Error KeyringUnavailable = Error.Conflict(
         code: "Secret.KeyringUnavailable",
-        description: "The HMAC keyring can only be managed in Certificate or Dpapi storage mode, with the HMAC key kept in the encrypted secrets file. " +
-                     "This deployment runs in PlainText mode or takes the key from another source.");
+        description: "This keyring can only be managed in Certificate or Dpapi storage mode, with its key kept in the encrypted secrets file. " +
+                     "This deployment runs in PlainText mode or takes the key from another source, which the keyring panel names.");
 
     /// <summary>
     /// The keyring the secrets file holds cannot be used as it is: the file no longer holds a
@@ -170,8 +190,19 @@ public static class SecretErrors
     /// </summary>
     public static Error KeyringFileInconsistent(string detail) => Error.Conflict(
         code: "Secret.KeyringFileInconsistent",
-        description: $"The HMAC keyring in the secrets file cannot be used as it is: {detail}",
+        description: $"The keyring in the secrets file cannot be used as it is: {detail}",
         metadata: new() { ["args"] = new object[] { detail } });
+
+    /// <summary>
+    /// A scheduled promote of the staged signing key before it has been published for 24
+    /// hours (S12, W_publish): an application that cached the key set just before the key
+    /// appeared would reject every token signed with it until its next fetch.
+    /// </summary>
+    public static Error KeyringNextTooYoung(DateTime availableAtUtc) => Error.Conflict(
+        code: "Secret.KeyringNextTooYoung",
+        description: $"The staged signing key has not been published for 24 hours yet, so applications may not have fetched it. " +
+                     $"It can be promoted from {availableAtUtc:u}. Only an emergency promote skips this wait.",
+        metadata: new() { ["args"] = new object[] { availableAtUtc.ToString("u") } });
 
     // Request-validation rules (ADR 0001): validators declare these with
     // WithErrorCode, and the validation behavior carries the offending property.

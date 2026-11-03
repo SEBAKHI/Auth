@@ -156,7 +156,7 @@ public sealed class MachineTokenProviderTests : IDisposable
     public async Task RoundTrip_TheServersOwnHandlerAcceptsTheSdkAssertion_AndTheTokenIsAMachineToken()
     {
         var settings = new JwtSettings { Issuer = Issuer, Audience = "platform", KeyId = "server-key", PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem() };
-        using var tokens = new JwtTokenService(Options.Create(settings), Mock.Of<IPasswordHasher>());
+        using var tokens = TestSigningKeys.Service(settings);
         ServerAnswersWithItsRealHandler(tokens);
         var client = Build().GetRequiredService<AuthSystemClient>();
 

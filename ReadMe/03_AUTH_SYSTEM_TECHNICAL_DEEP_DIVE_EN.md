@@ -1603,7 +1603,7 @@ None of these is configured in this repository.
 |-----------|--------------|-----------|-----------|
 | **Database** | SQL Server full + differential backup | Full: daily; differential: every 6 hours | 30 days |
 | **Configuration** | **Manual, out of band.** Only the base and Development `appsettings` files are in git. `appsettings.Production.json`, both `web.config` files, `appsettings.*.local.json` and every publish profile are deliberately git-ignored because they hold secrets — nothing in the repository backs them up for you | On every change | Indefinite, encrypted |
-| **Secret store** | The encrypted `secrets.dpapi` file plus the Data Protection key ring, plus the `.pfx` in Certificate mode; or `appsettings.Production.json` in PlainText mode. The file holds the whole HMAC keyring (every key, its dates, which one issues) | After every key change: each HMAC keyring stage, promote, reinstate, retire or emergency rotation, and each RSA or gateway import | Keep each copy taken after a keyring change until every *Verifies until* date in the keyring panel has passed: an older copy may lack the key that credentials issued since are fingerprinted under. See also the permanence note in section 15 |
+| **Secret store** | The encrypted `secrets.dpapi` file plus the Data Protection key ring, plus the `.pfx` in Certificate mode; or `appsettings.Production.json` in PlainText mode. The file holds the whole HMAC keyring (every key, its dates, which one issues) and the signing keyring (S12) | After every key change: each HMAC keyring stage, promote, reinstate, retire or emergency rotation; each signing keyring stage, promote, retire or emergency; and each gateway import | Keep each copy taken after a keyring change until every *Verifies until* and *Accepted until* date in the keyring panels has passed: an older copy may lack the key that credentials issued since are fingerprinted under. Destroy every copy older than a signing key promote once its window has passed: it still holds the demoted private key. See also the permanence note in section 15 |
 | **Audit logs** | Database backup, plus optional CSV export from the console | Daily | Per compliance requirement (typically 1–7 years) |
 
 ### Recovery objectives (recommended targets)
@@ -1826,9 +1826,12 @@ an administrator holding `secrets.manage`, with `SecretManagement:EnableAdminApi
    `.../generate/gateway-token`, `.../import/rsa`, `.../import/hmac`, `.../import/gateway-token`.
    Success: the response confirms the new material was stored. For the HMAC key, use the keyring
    instead (`keyring/hmac/stage`, then `keyring/hmac/promote`): `generate/hmac` and `import/hmac`
-   sign everyone out.
-4. **Verify the result.** Fetch `GET /.well-known/jwks.json` and confirm the published key changed. Then
-   sign in once and confirm you receive a working token.
+   sign everyone out. For the signing key, use the signing keyring (`keyring/rsa/stage`, a restart of
+   the API, then `keyring/rsa/promote` 24 hours later): `generate/rsa` and `import/rsa` are its
+   emergency, effective at the restart, and every token the old key signed is refused from then on.
+4. **Verify the result.** Fetch `GET /.well-known/jwks.json` and confirm the published key changed (after
+   a signing keyring promote, the new key is listed first and the previous one after it for about a
+   day). Then sign in once and confirm you receive a working token.
 
 **One command-line escape hatch exists** for the case where the API cannot start. Run it from the
 `Auth/Auth_API` directory; it prints an encrypted value and exits without starting the server:
@@ -1996,7 +1999,7 @@ are given, because the class default is what runs if the key is deleted.
 | `Jwt:Audience` | The `aud` claim and the accepted audience | placeholder | **restart** |
 | `Jwt:AccessTokenLifetimeMinutes` | Access-token lifetime | `15` | hot |
 | `Jwt:RefreshTokenLifetimeDays` | Refresh-token lifetime — **and the real session length** | `7` | hot |
-| `Jwt:KeyId` | The `kid` published in the key set | `auth-key-1` | **restart** |
+| `Jwt:KeyId` | The `kid` of the one key a deployment has before its first signing keyring change; not a system setting since S12 (settings file or environment only). Every staged key is named by its RFC 7638 thumbprint | `auth-key-1` | **restart** |
 | `Jwt:RotateRefreshTokens` | Issue a new refresh token on each refresh | `true` | hot |
 | `Jwt:ClockSkewSeconds` | Validation clock tolerance | `60` | **restart** |
 | `Jwt:PrivateKeyPath` | RSA PEM file — signing-key source, priority 1 | empty | restart |
@@ -2073,7 +2076,7 @@ no longer exist**; there is no general API rate limit, by design.
 Changing any of these in the console has no effect until the process restarts, and the console shows a
 pending-restart state for them:
 
-`Jwt:Issuer`, `Jwt:Audience`, `Jwt:KeyId`, `Jwt:ClockSkewSeconds`, `Password:Argon2MemorySize`,
+`Jwt:Issuer`, `Jwt:Audience`, `Jwt:ClockSkewSeconds`, `Password:Argon2MemorySize`,
 `Password:Argon2Iterations`, `Password:Argon2Parallelism`, `Password:Pepper:Enabled`,
 `IdentityProvider:IdpSessionCookieName`, `GeoIp:Enabled`, `GeoIp:DatabasePath`,
 `ImageStorage:RequestPath`, `AccountDeletion:RunEncryptionMigration`.

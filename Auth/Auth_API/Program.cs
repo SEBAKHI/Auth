@@ -439,17 +439,68 @@ StartupStep.Run(
 // Whenever secrets live in the encrypted file, the ring is taken from that file alone:
 // a Keyring:Hmac value from any other source stops the boot here (S11 SEC-1).
 // The same step proves the signing key can sign (a private part, at least 2048 bits) and the
-// gateway token is long enough (X03), instead of the first sign-in finding out.
+// gateway token is long enough (X03), instead of the first sign-in finding out. It loads the
+// signing keyring there, once (S12): the token service, every validator and the JWKS read the
+// keys this step checked, and a keyring change swaps them in one place.
 HmacKeyring? hmacKeyring = null;
+SigningKeyRing? signingKeyRing = null;
 StartupStep.Run(
     "key material validation",
     () =>
     {
         hmacKeyring = HmacKeyringConfiguration.Load(
             builder.Configuration, secretFileOnly: storageMode != SecretStorageMode.PlainText);
-        KeyMaterialValidator.Validate(builder.Configuration, bootDataProtection, builder.Environment.IsDevelopment());
+        signingKeyRing = KeyMaterialValidator.Validate(
+            builder.Configuration, bootDataProtection, builder.Environment.IsDevelopment(),
+            plainText: storageMode == SecretStorageMode.PlainText);
+
+        // The first start that loads a staged signing key records when it was published: a
+        // scheduled promote waits 24 hours from then (S12).
+        var (recordedRing, publication, publicationError) = SigningKeyPublication.RecordAsync(
+                new DpapiSecretService(
+                    bootDataProtection,
+                    Options.Create(secretManagementSettings),
+                    new Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>()),
+                signingKeyRing,
+                DateTime.UtcNow,
+                CancellationToken.None)
+            .GetAwaiter().GetResult();
+        signingKeyRing = recordedRing;
+
+        if (publication == SigningKeyPublication.Outcome.Failed)
+        {
+            Log.Warning(
+                publicationError,
+                "The staged signing key {Kid} is published, but the secrets file could not record when: a promote " +
+                "stays refused until a later start records it. Restart the API once the secrets file can be written.",
+                signingKeyRing.Ring.Next?.Kid);
+        }
+        else if (publication == SigningKeyPublication.Outcome.StagedKeyChanged)
+        {
+            Log.Warning(
+                "The staged signing key {Kid} this process loaded is no longer staged in the secrets file: another " +
+                "API process changed the keyring. Restart this process.",
+                signingKeyRing.Ring.Next?.Kid);
+        }
+
+        // Until the first keyring change saves the ring, the one key keeps the name it has always
+        // been published under. A database override of Jwt:KeyId is no longer read (S12), so this
+        // line is what to compare with the JWKS saved before the deploy.
+        if (signingKeyRing.Source.HoldsRing && !signingKeyRing.Ring.Persisted)
+        {
+            Log.Information(
+                "Signing key {Kid} from {Source} is not yet in a saved keyring; it is published under that kid until the first keyring change.",
+                signingKeyRing.Ring.Current.Kid, signingKeyRing.Source.Setting);
+        }
     });
 builder.Services.AddSingleton(new HmacKeyringHolder(hmacKeyring!));
+
+// The process's signing keys (S12): one holder behind the material every validator reads and the
+// ring the keyring commands change.
+var signingKeys = new SigningKeyRingHolder(signingKeyRing!);
+builder.Services.AddSingleton(signingKeys);
+builder.Services.AddSingleton<ISigningKeyMaterial>(signingKeys);
+builder.Services.AddSingleton<ISigningKeyRing>(signingKeys);
 
 // The mode this process actually runs in, not the configured one (Development without a
 // certificate falls back to PlainText): the keyring commands refuse on this one (S11).
@@ -676,20 +727,18 @@ builder.Services.AddSingleton<IPasswordHasher>(passwordHasher);
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
     ?? new JwtSettings();
 
-// Build a temporary service provider to get IDataProtectionProvider for decrypting RSA keys
+// Build a temporary service provider for the live JWT settings below
 var tempServiceProvider = builder.Services.BuildServiceProvider();
-var jwtDataProtectionProvider = tempServiceProvider.GetRequiredService<IDataProtectionProvider>();
 
 // liveSettings makes token LIFETIMES hot (read per issue); issuer/audience/
 // keys stay on the startup snapshot to match the validation parameters below.
-// The constructor loads the signing key and refuses one that cannot sign (X03).
+// It signs with the keys "key material validation" loaded and checked (S12); it loads none itself.
 JwtTokenService jwtTokenService = null!;
 StartupStep.Run(
     "signing key load",
     () => jwtTokenService = new JwtTokenService(
-        Options.Create(jwtSettings),
-        passwordHasher,
-        jwtDataProtectionProvider,
+        jwtSettings,
+        signingKeys,
         tempServiceProvider.GetRequiredService<IOptionsMonitor<JwtSettings>>()));
 builder.Services.AddSingleton<IJwtTokenService>(jwtTokenService);
 
@@ -825,6 +874,12 @@ builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.Dele
 builder.Services.AddScoped<Auth.Application.Features.Secrets.Common.SecretOperationChallengeService>();
 // The HMAC keyring's changes (S11): read the file's ring, spend the confirmation, save, swap.
 builder.Services.AddScoped<Auth.Application.Features.Secrets.Common.HmacKeyringChangeService>();
+// The signing keyring's changes (S12): the same steps, swapped into this process only over keys it loaded.
+builder.Services.AddScoped<Auth.Application.Features.Secrets.Common.RsaKeyringChangeService>();
+// The step-up binding of each keyring, looked up by the operation that confirms its changes.
+builder.Services.AddScoped<Auth.Application.Features.Secrets.Common.IKeyringApproval, Auth.Application.Features.Secrets.Common.HmacKeyringApproval>();
+builder.Services.AddScoped<Auth.Application.Features.Secrets.Common.IKeyringApproval, Auth.Application.Features.Secrets.Common.RsaKeyringApproval>();
+builder.Services.AddScoped<Auth.Application.Features.Secrets.Common.KeyringApprovals>();
 builder.Services.AddSingleton<IKeyMaterialGenerator, SharedKeyMaterialGenerator>();
 // One-shot, config-gated (AccountDeletion:RunEncryptionMigration) re-encryption
 // of TOTP secrets and phone numbers under per-user DEKs.

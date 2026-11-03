@@ -39,7 +39,7 @@ public sealed class UserInfoTokens : IDisposable
             KeyId = "test-key",
             PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem()
         };
-        Service = new JwtTokenService(Options.Create(Settings), Mock.Of<IPasswordHasher>());
+        Service = TestSigningKeys.Service(Settings);
     }
 
     public JwtSettings Settings { get; }

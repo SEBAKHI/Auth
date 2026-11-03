@@ -172,6 +172,7 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
         }
 
         MapHmacKeyring(secrets);
+        MapSigningKeyring(secrets);
 
         // Account-deletion identifier HMAC key (permanent; never rotated) for IdentifierHasher
         if (!string.IsNullOrEmpty(secrets.AccountDeletionIdentifierHmacKey))
@@ -296,6 +297,61 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
 
         SetDate("Keyring:Hmac:LegacyCutoverUtc", secrets.HmacLegacyCutoverUtc);
         SetDate("Keyring:Hmac:LegacyVerifyUntilUtc", secrets.HmacLegacyVerifyUntilUtc);
+    }
+
+    /// <summary>
+    /// The RSA signing keyring (S12) -> Keyring:Rsa:*. Every key is mapped, the current one
+    /// included, so the startup step can refuse a file whose single key (Jwt:PrivateKeyPem) no
+    /// longer matches the ring's current key. Nothing is mapped for an empty ring: the single key
+    /// is then the current key, named by Jwt:KeyId. The memory of removed keys is not mapped:
+    /// only a keyring change reads it. Never raises or maps Version: a version marker is the HMAC
+    /// keyring's alone (SecretFileVersions).
+    /// </summary>
+    private void MapSigningKeyring(SecretConfiguration secrets)
+    {
+        if (secrets.SigningKeys is not { Count: > 0 })
+        {
+            return;
+        }
+
+        foreach (var (kid, entry) in secrets.SigningKeys)
+        {
+            if (entry is null || string.IsNullOrWhiteSpace(kid))
+            {
+                // A hand-edited null entry: left unmapped, so the startup step reports the
+                // keyring as inconsistent instead of the provider failing silently.
+                continue;
+            }
+
+            var prefix = "Keyring:Rsa:Keys:" + kid + ":";
+            if (!string.IsNullOrEmpty(entry.PrivateKeyPem))
+            {
+                Data[prefix + "PrivateKeyPem"] = entry.PrivateKeyPem;
+            }
+
+            if (!string.IsNullOrEmpty(entry.PublicKeyPem))
+            {
+                Data[prefix + "PublicKeyPem"] = entry.PublicKeyPem;
+            }
+
+            SetDate(prefix + "CreatedAtUtc", entry.CreatedAtUtc);
+            SetDate(prefix + "PublishedAtUtc", entry.PublishedAtUtc);
+            SetDate(prefix + "VerifyUntilUtc", entry.VerifyUntilUtc);
+            if (entry.Compromised)
+            {
+                Data[prefix + "Compromised"] = "true";
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(secrets.SigningCurrentKid))
+        {
+            Data["Keyring:Rsa:CurrentKid"] = secrets.SigningCurrentKid;
+        }
+
+        if (!string.IsNullOrWhiteSpace(secrets.SigningNextKid))
+        {
+            Data["Keyring:Rsa:NextKid"] = secrets.SigningNextKid;
+        }
     }
 
     private void SetDate(string key, DateTime? value)

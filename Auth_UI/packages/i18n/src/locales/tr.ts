@@ -1702,6 +1702,101 @@ export const tr: TranslationResources = {
       impactNote: "Bu, kaydedilir kaydedilmez bu API işleminde geçerli olur. Gizli bilgiler dosyasını paylaşan diğer her API işlemi, yeniden başlatılana kadar eski anahtarlığını korur: bunları yeniden başlatın, acil döndürmeden sonra hemen. Ardından gizli bilgiler dosyasını yedekleyin.",
       done: "Anahtarlık güncellendi. Şimdi gizli bilgiler dosyasını yedekleyin.",
     },
+    signingKeyring: {
+      title: "İmzalama anahtarlığı",
+      description:
+        "Her erişim belirtecini imzalayan anahtarlar. Planlı bir yenileme kimsenin oturumunu kapatmaz: bir anahtar hazırlayın, yüklemesi ve yayınlaması için API'yi yeniden başlatın, 24 saat bekleyin, sonra yükseltin. Eski anahtar yaklaşık bir gün daha kabul edilir.",
+      unavailableTitle: "İmzalama anahtarlığı bu kurulumda yönetilemez",
+      failedTitle: "İmzalama anahtarlığı yüklenemedi",
+      unavailable: {
+        PlainText:
+          "Gizli bilgiler PlainText modunda tutuluyor, bu yüzden imzalama anahtarının anahtarlığı yok. Değiştirmek herkesin oturumunu kapatan bir yeniden başlatma gerektirir.",
+        ExternalSource:
+          "İmzalama anahtarı şifreli gizli bilgiler dosyasından değil {{source}} kaynağından geliyor, bu yüzden anahtarlığı yok. Değiştirmek herkesin oturumunu kapatan bir yeniden başlatma gerektirir; bunu yaşamadan yenilemek için anahtarı gizli bilgiler dosyasına taşıyın.",
+        Unreadable:
+          "Gizli bilgiler dosyasındaki anahtarlık kullanılamıyor ({{code}}). Sonraki başlatma onu reddedecek: son anahtarlık değişikliğinden sonra alınan en yeni gizli bilgiler dosyası kopyasını geri yükleyin.",
+      },
+      compromisedAcceptedTitle: "Bu API işlemi sızdırılmış bir anahtarı hâlâ kabul ediyor",
+      compromisedAcceptedBody:
+        "{{kids}} anahtarı gizli bilgiler dosyasında ele geçirilmiş olarak işaretli, ancak bu API işlemi yerine geçecek hazırlanmış bir anahtar yüklemedi; bu yüzden onunla imzalanmış belirteçleri hâlâ kabul ediyor. Kapatmak için API'yi şimdi yeniden başlatın.",
+      migratedNote:
+        "Bu kurulum imzalama anahtarını henüz yenilemedi: {{kid}} anahtarı her zaman taşıdığı adla yayınlanıyor ve gizli bilgiler dosyası ilk değişikliğe kadar anahtarlık içermiyor.",
+      stage: "Anahtar hazırla",
+      stageGenerate: "Üretilmiş anahtar hazırla",
+      stageImport: "Sağladığınız anahtarı hazırla",
+      stageImportTitle: "Sağladığınız imzalama anahtarını hazırla",
+      promote: "Yükselt",
+      discard: "Hazırlanan anahtarı at",
+      emergency: "Acil yükseltme",
+      retire: "Kaldır",
+      emergencyAtRestart:
+        "Bu API işlemi hazırlanan anahtarı henüz yüklemedi. Şimdi yapılan acil yükseltme, sızdırılmış anahtarı yalnızca API yeniden başladığında kapatır: hemen ardından yeniden başlatın.",
+      reason: {
+        noStaged: "Hazırlanmış anahtar yok.",
+        stageWhileStaged: "Zaten hazırlanmış bir anahtar var: önce yükseltin ya da atın.",
+        restartToLoad:
+          "Hazırlanan anahtarı yüklemesi ve yayınlaması için API'yi yeniden başlatın; bundan 24 saat sonra yükseltilebilir.",
+        notRecorded:
+          "API hazırlanan anahtarı yükledi ancak zamanını kaydedemedi; kaydetmesi için bir kez daha yeniden başlatın.",
+        tooYoung:
+          "Hazırlanan anahtar, uygulamaların onu almak için 24 saati olduktan sonra, {{date}} tarihinden itibaren yükseltilebilir.",
+        emergencyNeedsStaged:
+          "Acil yükseltme hazırlanmış bir anahtarı yükseltir: önce yeni bir anahtar hazırlayın. Gizli bilgiler dosyası sızdıysa ondan önce hazırlanan anahtarı atın ve yenisini hazırlayın.",
+        processOnly:
+          "Bu anahtarı yalnızca bu API işlemi hâlâ tutuyor; sonraki yeniden başlatmada gider.",
+        current: "Her belirteci imzalar",
+        next: "Yükseltin ya da atın",
+      },
+      columns: {
+        kid: "Anahtar kimliği (kid)",
+        state: "Durum",
+        createdAtUtc: "Hazırlandı",
+        publishedAtUtc: "Yayınlandı",
+        verifyUntilUtc: "Kabul bitişi",
+        loadedInProcess: "Burada yüklü",
+      },
+      state: {
+        current: "Geçerli",
+        next: "Hazırlandı",
+        previous: "Önceki",
+        compromised: "Ele geçirilmiş",
+      },
+      migrated: "Taşınmış",
+      unknownAge: "Bilinmiyor (taşınmış anahtar)",
+      signing: "İmzalıyor",
+      closed: "Kapalı",
+      rowActions: "{{kid}} anahtarı için işlemler",
+      action: {
+        Stage: "Yeni bir imzalama anahtarı hazırla",
+        StageImport: "Sağladığınız imzalama anahtarını hazırla",
+        Promote: "{{kid}} imzalama anahtarını yükselt",
+        PromoteEmergency: "{{kid}} imzalama anahtarının acil yükseltmesi",
+        DiscardNext: "Hazırlanan {{kid}} imzalama anahtarını at",
+        Reinstate: "Bir imzalama anahtarını geri al",
+        Retire: "{{kid}} imzalama anahtarını kaldır",
+      },
+      warning: {
+        Stage:
+          "Yeni anahtar API'nin bir sonraki başlatılmasından itibaren yayınlanır ve kabul edilir, siz yükseltene kadar hiçbir şey imzalamaz. Kimsenin elindeki hiçbir şey çalışmayı bırakmaz. Ardından API'yi yeniden başlatın.",
+        StageImport:
+          "Sağladığınız anahtar API'nin bir sonraki başlatılmasından itibaren yayınlanır ve kabul edilir, siz yükseltene kadar hiçbir şey imzalamaz. Kimsenin elindeki hiçbir şey çalışmayı bırakmaz. Ardından API'yi yeniden başlatın.",
+        Promote:
+          "Hazırlanan anahtar bundan sonra her belirteci imzalar. Eski anahtar yaklaşık bir gün daha kabul edilir, bu yüzden kimsenin oturumu kapanmaz.",
+        PromoteEmergency:
+          "Sızdırılmış bir anahtar için. Hazırlanan anahtar hemen imzalamaya başlar, eski anahtar ne kabul edilir ne yayınlanır: her uygulama ve tarayıcı belirtecini bir kez yeniler. Bu API işlemi hazırlanan anahtarı yüklemediyse eski anahtar API yeniden başlayana kadar burada kabul edilmeye devam eder.",
+        DiscardNext:
+          "Hazırlanan anahtar kaldırılır ve bir daha asla hazırlanamaz. Onunla hiçbir şey imzalanmadı. Onu zaten yüklemiş bir API işlemi yeniden başlayana kadar kabul etmeye devam eder.",
+        Reinstate: "İmzalama anahtarlığı için kullanılamaz.",
+        Retire:
+          "Anahtar gizli bilgiler dosyasından ve yedek kopyasından kalıcı olarak kaldırılır. İmzaladığı bir belirteç bundan sonra reddedilir.",
+      },
+      impactNote:
+        "Hazırlama veya atma API yeniden başladığında etkili olur; yükseltme ve kaldırma kaydedilir kaydedilmez bu API işleminde etkili olur. Gizli bilgiler dosyasını paylaşan diğer API işlemleri yeniden başlatılana kadar eski anahtarlarını korur: onları yeniden başlatın, acil durumdan sonra hemen. Ardından gizli bilgiler dosyasını yedekleyin.",
+      closesAtRestart:
+        "Kaydedildi. Bu API işlemi hazırlanan anahtarı hiç yüklemedi, bu yüzden sızdırılmış anahtar API yeniden başlayana kadar kabul edilmeye devam eder: şimdi yeniden başlatın.",
+      loadsAtRestart:
+        "Kaydedildi. Hazırlanan anahtarı yüklemesi ve yayınlaması için API'yi yeniden başlatın.",
+    },
     impact: {
       usersWithLiveAccessTokens: "Geçerli erişim jetonu taşıyan kullanıcılar",
       usersWithActiveSessions: "Aktif oturumu olan kullanıcılar",
@@ -2353,9 +2448,6 @@ export const tr: TranslationResources = {
       refreshTokenLifetimeDays: "Yenileme jetonu ömrü (gün)",
       refreshTokenLifetimeDaysHint:
         "Bir kullanıcının parolayı yeniden yazmadan ne kadar süre oturumda kalabileceği. Önerilen: 7–30 gün; hassas kurulumlarda alt sınırı seçin.",
-      keyId: "İmzalama anahtarı kimliği",
-      keyIdHint:
-        "İstemci uygulamaların doğru anahtarı seçebilmesi için imzalama anahtarıyla birlikte yayımlanan tanımlayıcı (kid). Yalnızca anahtar rotasyonunun bir parçası olarak değiştirin.",
       rotateRefreshTokens: "Yenileme jetonu rotasyonu",
       rotateRefreshTokensHint:
         "Her yenilemede yeni bir yenileme jetonu verir ve eskisini geçersiz kılar. Önerilen: açık — çalınan bir yenileme jetonu böylece ilk yeniden kullanımda tespit edilip kesilir.",

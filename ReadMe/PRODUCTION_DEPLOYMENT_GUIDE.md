@@ -1957,15 +1957,21 @@ All key operations live under `…/api/v1/admin/secrets/` and are gated four way
 | `POST secrets/challenges/{challengeId}/verify` | Answers the confirmation with the code | The blast radius of the pending operation |
 | `POST secrets/generate/rsa` \| `/hmac` \| `/gateway-token` | The system mints a fresh random key | Public key, token, or a message |
 | `POST secrets/import/rsa` \| `/hmac` \| `/gateway-token` | Stores a value **you** supply, encrypted | Derived public key, or a message |
-| `GET  secrets/keyring` | The HMAC keyring: each key's state, dates and webhook keys. Never the material. | The keyring |
+| `GET  secrets/keyring` | The HMAC keyring: each key's state, dates and webhook keys; its `rsa` member is the signing keyring. Never the material. | The keyring |
 | `POST secrets/keyring/hmac/stage` | Adds a new HMAC key, generated or supplied, that verifies and issues nothing | The keyring |
 | `POST secrets/keyring/hmac/promote` | Makes the staged key the one that issues (`emergency: true`: a fresh key at once, every older key refused) | The keyring |
 | `POST secrets/keyring/hmac/discard-next` | Removes the staged key | The keyring |
 | `POST secrets/keyring/hmac/reinstate/{id}` | Makes an older key issue again: the rollback of a promote | The keyring |
 | `POST secrets/keyring/hmac/retire/{id}` | Removes an older key from the file and from its backup copy | The keyring |
+| `POST secrets/keyring/rsa/stage` | Adds a new signing key, generated or supplied (`value`), published and accepted from the next restart, signing nothing | The signing keyring |
+| `POST secrets/keyring/rsa/promote` | Makes the staged signing key sign (`emergency: true`: the old key is neither accepted nor published) | The signing keyring |
+| `POST secrets/keyring/rsa/discard-next` | Removes the staged signing key | The signing keyring |
+| `POST secrets/keyring/rsa/retire/{kid}` | Removes an older signing key, or a compromised record, from the file and its backup copy | The signing keyring |
 
 `generate/hmac` and `import/hmac` remain for scripts and for consoles loaded before the keyring:
-each is now an **emergency rotation** (every user signs in again). The routine rotation is the
+each is now an **emergency rotation** (every user signs in again). `generate/rsa` and `import/rsa`
+remain the same way until SUNSET(S12): each stages its key and promotes it as an emergency, effective
+when the API restarts, as before. The routine rotation is the
 keyring's stage and promote — see
 [Rotating the HMAC key without signing anyone out](#rotating-the-hmac-key-without-signing-anyone-out).
 
@@ -1997,22 +2003,28 @@ The `operation` value in the confirmation request is one of these names:
 
 | Name | Rotates |
 |---|---|
-| `GenerateRsaKey` | The RSA key pair that signs access tokens |
+| `GenerateRsaKey` | The RSA key pair that signs access tokens. With `keyringAction`, the signing keyring change it names; without, the `generate/rsa` alias |
 | `GenerateHmacKey` | The HMAC key that fingerprints refresh tokens, SSO sessions, links, emailed codes and webhook keys. With `keyringAction`, the keyring change it names; without, an emergency rotation |
 | `GenerateGatewayToken` | The shared gateway token |
-| `ImportRsaKey` | Same as above, with key material you supply |
+| `ImportRsaKey` | With `keyringAction: "StageImport"`, stages the signing key you supply; without, the `import/rsa` alias |
 | `ImportHmacKey` | With `keyringAction: "StageImport"`, stages the key you supply; without, an emergency rotation to it |
 | `ImportGatewayToken` | Same |
 
 A keyring change also names itself: the confirmation request carries `keyringAction` (`Stage`,
 `StageImport`, `Promote`, `PromoteEmergency`, `DiscardNext`, `Reinstate` or `Retire`), and `keyId`
-for `Reinstate` and `Retire`; the verify request repeats them, with `value` for `StageImport`. The
+for an HMAC `Reinstate` or `Retire`, or `kid` for a signing key `Retire`; the verify request repeats
+them, with `value` for `StageImport`. The operation names the ring: an HMAC operation for the HMAC
+keyring, an RSA one for the signing keyring (there is no `Reinstate` for signing keys). The
 approval is bound to the action and to the key the secrets file names for it, so an approval to
 promote the staged key cannot be spent on an emergency, or on a key staged after it.
 
-**Importing replaces the current key.** For the RSA key and the gateway token: if the value differs
-from what is stored, every existing token signed with the old one is invalidated, and re-importing
-the *same* value is a safe no-op. **The HMAC key is different since the keyring (S11):**
+**Importing replaces the current key.** For the gateway token: if the value differs from what is
+stored, the old one stops working, and re-importing the *same* value is a safe no-op. **The signing
+key is different since its keyring (S12):** `import/rsa` stages the supplied key and promotes it as an
+emergency, effective when the API restarts: every token the old key signed is refused from then on,
+and a key the keyring holds or once held is refused (`Secret.KeyringKeyReferenced`) before your code
+is spent. To bring your own signing key without signing anyone out, stage it (`keyring/rsa/stage`
+with `value`) and promote it 24 hours after the restart, as below. **The HMAC key is different since the keyring (S11):**
 `import/hmac` makes the supplied key current at once *as an emergency* — every older key stops
 verifying, and everyone signs in again — and a value the keyring already holds is refused with
 `Secret.InvalidKeyMaterial` before your code is spent. To bring your own HMAC key without signing
@@ -2134,6 +2146,108 @@ stands, and the API log says at Error which `.bak` to overwrite or delete by han
 > `Auth/Auth.Application/Features/Secrets/Common/HmacKeyringChangeService.cs` (confirmation, save,
 > then the process swap); `Auth/Auth.Application/Security/Keyring/CredentialOverlapRule.cs` (the
 > windows); `Auth/Auth.Infrastructure/Security/KeyringPostureContributor.cs` (the posture lines).
+
+### Rotating the signing key without signing anyone out
+
+One RSA key signs every access token, and every application that validates the tokens reads its
+public key from the JWKS (`/.well-known/jwks.json`). Replacing it the old way (`generate/rsa`)
+refuses every token it signed: every browser and application refreshes its token once, and an
+application that cached the JWKS fails until it fetches it again. The **signing keyring** rotates it
+in three steps instead:
+
+* **Stage** a new key. Nothing changes until the API restarts.
+* **Restart the API.** The restart loads the staged key and publishes it in the JWKS beside the
+  current one; tokens it would sign are accepted from then on. The first restart that loads it
+  records when it was published.
+* **Promote** it, at least **24 hours** after that restart, so every application has fetched the new
+  JWKS (a JWKS client caches it for up to 12 hours by default). The new key signs every token from
+  then on, and the old key is still accepted for **about a day**: `max(1440 minutes, the access-token
+  lifetime) + 5 minutes` from the promote, long enough for every token it signed to expire.
+
+Every key is named by its **RFC 7638 thumbprint** (its `kid`). A deployment that never rotated keeps
+its key under the name it has always published (`Jwt:KeyId`, `auth-key-1` by default): the JWKS and
+the PEM it serves are unchanged by this release, and the secrets file holds no keyring until the
+first change saves it (the panel says *not yet saved*, and the API logs that `kid` at Information on
+each start until then). `Jwt:KeyId` is no longer a system setting: it is read from the settings file
+or the environment, and only for that first key.
+
+**Before you start:** email works (every change takes an emailed code, see above), you hold
+`secrets.manage`, and you have a fresh backup of `secrets.dpapi`, the DataProtection key folder (and
+its `.pfx` in Certificate mode), and the database. The key must live in the secrets file: a key
+from `Jwt:PrivateKeyPath` or `Jwt:PrivateKeyEncrypted`, or a PlainText deployment, has no keyring,
+and the panel says where the key comes from.
+
+**The routine rotation.** In the console: **System Settings → Secret management → Manage secrets**,
+the **Signing keyring** panel. Each change asks for the code emailed to you, shows its cost, and runs
+once you type your address.
+
+1. Set `SecretManagement:EnableAdminApi` to `true` in `appsettings.Production.json` (there only;
+   validate the JSON before saving, and keep the last good copy). No restart:
+   `GET …/api/v1/admin/Secrets/status` answers **200** on the next request.
+2. **Stage a key** (generate one, or stage your own). Then **back up `secrets.dpapi`.**
+3. **Recycle the API.** Check the staged key's row says **Loaded here: Yes** and shows a *Published*
+   time. The panel names the time a promote opens; until then the button is disabled with that
+   reason.
+4. Set `EnableAdminApi` back to `false`; `GET …/admin/Secrets/status` answers **403**.
+5. **24 hours later:** `EnableAdminApi` to `true` again (check the 200), **Promote**, then **back up
+   `secrets.dpapi`**, then `EnableAdminApi` to `false` (check the 403). No restart.
+6. Check: a session signed in before the promote continues; the JWKS lists the current key first and
+   the previous one after it; the panel no longer says *not yet saved*.
+
+The promote is refused (`409`) while this API process has not loaded the staged key
+(`Secret.KeyringNoNextKey`: recycle the API) and before 24 hours of publication
+(`Secret.KeyringNextTooYoung`, naming the time). A staged key that is not promoted within 30 days of
+its publication stops being accepted: discard it and stage another.
+
+**More than one API process.** A promote moves the signer in the process that made it, at once.
+Another process that shares the secrets file (a web garden, a second server) keeps signing with the
+old key until it is recycled; its tokens are accepted everywhere only until the old key's window
+ends (about a day), and the posture line `keyring.process-ring` reports it at Critical. **With more
+than one worker process, recycle the API after every promote, and at once after an emergency.**
+Make every keyring change from one API process.
+
+**Rolling back.** Before the promote: **Discard the staged key**, then recycle (a process that loaded
+it keeps publishing and accepting it until it restarts). After the promote, roll forward only: there
+is no reinstate for signing keys. Do not roll the API back to a build without the signing keyring once
+a key has been promoted: it would publish the current key under `Jwt:KeyId` and refuse every token
+the previous key signed.
+
+**A leaked key: the emergency promote.** The emergency promotes a staged key at once, without the
+restart and the 24 hours: the old key becomes a **compromised** record (its public key only), neither
+accepted nor published, and every browser and application refreshes its token once. It needs a
+staged key, and **if the secrets file itself leaked, the staged key leaked with it**: discard it and
+stage a new key first (two confirmations). Then:
+
+* If this API process loaded the staged key (a restart happened since the stage), the leaked key is
+  closed here at once. The answer and the panel say so.
+* If it did not, the change is saved but the leaked key is **still accepted here until the API
+  restarts**; the answer says so, the panel shows a red *A leaked key is still accepted* alert, and
+  the posture line `keyring.process-ring` is Critical. **Recycle the API at once.**
+
+Either way, recycle every other API process that shares the file, then back up `secrets.dpapi`. The
+emergency overwrites `secrets.dpapi.bak` too, so the backup copy no longer holds the leaked private
+key; every backup you took before still does: destroy or quarantine those. An application that uses
+the SDK accepts a forged token until it fetches the JWKS again (at most one hour with SDK 2.1.0), or
+until it restarts: ask its owners to restart it. `generate/rsa` and `import/rsa` are this emergency
+with a key of their own, effective at the restart, as they always were.
+
+**Retiring an old key.** After a previous key's *Accepted until* time has passed, **Retire** removes it
+from `secrets.dpapi` and `secrets.dpapi.bak`; a compromised record is retired the same way. The
+keyring remembers every key it retires or discards by its thumbprint and refuses it if it is staged
+or imported again (`Secret.KeyringKeyReferenced`). Then destroy every outside copy of
+`secrets.dpapi` older than the promote: they still hold the old private key.
+
+**Backups.** Back up `secrets.dpapi` after the stage, after the promote and after the retire, and keep
+the copy from after each change until every *Accepted until* time in the panel has passed. A promote,
+an emergency, a discard and a retire overwrite `secrets.dpapi.bak` too, so it never holds a private
+key the change removed; if that second write fails, the change still stands, and the API log says at
+Error which `.bak` to overwrite or delete by hand.
+
+> *In code:* `Auth/Auth.Application/Security/Keyring/RsaKeyring.cs` and `RsaKeyringTransitions.cs`
+> (the ring and its changes); `Auth/Auth.Application/Features/Secrets/Common/RsaKeyringChangeService.cs`
+> (confirmation, save, then the process swap); `Auth/Auth.Application/Security/Keyring/SigningKeyOverlap.cs`
+> (the window); `Auth/Auth.Infrastructure/Authentication/SigningKeyRingConfiguration.cs` (the start);
+> `Auth/Auth.Infrastructure/Security/KeyringPostureContributor.cs` (the posture lines).
 
 ### Generate the material yourself — the formats the system expects
 

@@ -327,8 +327,13 @@ describe("SecretsPage — storing the credential secrets", () => {
         name: "Replace",
       })
     )
+    // S12: the signing key is never replaced at once from here; both items stage.
+    expect(
+      await screen.findByRole("menuitem", { name: "Stage a generated key" })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("menuitem", { name: "Generate RSA key" })).toBeNull()
     await user.click(
-      await screen.findByRole("menuitem", { name: "Import RSA key" })
+      await screen.findByRole("menuitem", { name: "Stage a signing key you supply" })
     )
 
     expect(

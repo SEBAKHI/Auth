@@ -2,32 +2,28 @@ using System.Security.Cryptography;
 using Auth.Application.Configuration;
 using Auth.Application.Features.Secrets.Common;
 using Auth.Application.Features.Secrets.ImportRsaKey;
-using Auth.Application.Interfaces;
+using Auth.Application.Security.Keyring;
 using Auth.Domain.Enums;
+using Auth.Domain.Events;
 using Auth_API.Tests.Helpers;
-using MediatR;
-using Microsoft.Extensions.Logging;
 
 namespace Auth_API.Tests.SecretManagement.Commands;
 
 /// <summary>
-/// Unit tests for ImportRsaKeyCommandHandler (bring-your-own-keys RSA import).
+/// ImportRsaKeyCommandHandler (bring-your-own-keys RSA import). Since the signing keyring (S12)
+/// it is an alias of a staged import of the key and its emergency promote, over the real secrets
+/// file; its confirmation is still bound to a digest of the exact key material.
 /// </summary>
-public class ImportRsaKeyCommandHandlerTests
+public sealed class ImportRsaKeyCommandHandlerTests : IDisposable
 {
-    private readonly SecretChallengeTestContext _challenges = new();
-    private readonly Mock<IDpapiSecretService> _secretServiceMock = new();
-    private readonly Mock<IPublisher> _publisherMock = new();
-    private readonly Mock<ILogger<ImportRsaKeyCommandHandler>> _loggerMock = new();
-    private readonly Guid _admin = Guid.NewGuid();
+    private readonly KeyringTestHarness _keyring = new();
+
+    public void Dispose() => _keyring.Dispose();
 
     private ImportRsaKeyCommandHandler CreateHandler(string storageMode = "Dpapi") =>
         new(
-            _secretServiceMock.Object,
-            _challenges.Service,
-            TestHelpers.CreateOptions(new SecretManagementSettings { StorageMode = storageMode }),
-            _publisherMock.Object,
-            _loggerMock.Object);
+            _keyring.SigningService,
+            TestHelpers.CreateOptions(new SecretManagementSettings { StorageMode = storageMode }));
 
     private static string CreateRsaPrivateKeyPem(int keySizeBits = 2048)
     {
@@ -35,14 +31,14 @@ public class ImportRsaKeyCommandHandlerTests
         return rsa.ExportPkcs8PrivateKeyPem();
     }
 
-    /// <summary>Arranges a live approval bound to this exact key material.</summary>
+    /// <summary>Arranges a live approval bound to this exact key material, as before the keyring.</summary>
     private Guid ApprovalFor(string privateKeyPem)
     {
         var challengeId = Guid.NewGuid();
-        _challenges.WithApproval(
+        _keyring.Challenges.WithApproval(
             challengeId,
             SecretOperation.ImportRsaKey,
-            _admin,
+            _keyring.Admin,
             SecretPayloadDigest.Compute(privateKeyPem));
         return challengeId;
     }
@@ -50,128 +46,121 @@ public class ImportRsaKeyCommandHandlerTests
     [Fact]
     public async Task Handle_ValidKey_ImportsAndReturnsDerivedPublicKey()
     {
-        // Arrange
+        var before = _keyring.ReadSigningRing();
         var privateKeyPem = CreateRsaPrivateKeyPem();
-        var handler = CreateHandler();
-        var command = new ImportRsaKeyCommand(privateKeyPem, ApprovalFor(privateKeyPem), _admin);
 
-        // Act
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await CreateHandler().Handle(
+            new ImportRsaKeyCommand(privateKeyPem, ApprovalFor(privateKeyPem), _keyring.Admin), CancellationToken.None);
 
-        // Assert
-        Assert.False(result.IsError);
-        Assert.Contains("BEGIN PUBLIC KEY", result.Value);
-        _secretServiceMock.Verify(
-            s => s.ImportRsaKeyPairAsync(privateKeyPem, It.IsAny<string>(), It.IsAny<CancellationToken>()),
+        result.IsError.Should().BeFalse(string.Join("; ", result.ErrorsOrEmptyList.Select(e => e.Code)));
+        result.Value.Should().Contain("BEGIN PUBLIC KEY");
+        var after = _keyring.ReadSigningRing();
+        after.Current.Kid.Should().Be(SigningKeyThumbprint.OfPem(privateKeyPem), "the imported key is current, named by its thumbprint");
+        after.Find(before.Current.Kid)!.Compromised.Should().BeTrue("the replaced key is closed, as an emergency closes it");
+        _keyring.Publisher.Verify(
+            p => p.Publish(
+                It.Is<SecretOperationExecutedEvent>(e => e.Operation == SecretOperation.ImportRsaKey && e.Action == KeyringAction.PromoteEmergency),
+                It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
     [Fact]
     public async Task Handle_PlainTextMode_ReturnsConflictAndDoesNotImport()
     {
-        // Arrange
+        var before = _keyring.ReadSigningRing();
         var privateKeyPem = CreateRsaPrivateKeyPem();
-        var handler = CreateHandler(storageMode: "PlainText");
-        var command = new ImportRsaKeyCommand(privateKeyPem, ApprovalFor(privateKeyPem), _admin);
 
-        // Act
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await CreateHandler(storageMode: "PlainText").Handle(
+            new ImportRsaKeyCommand(privateKeyPem, ApprovalFor(privateKeyPem), _keyring.Admin), CancellationToken.None);
 
-        // Assert
-        Assert.True(result.IsError);
-        Assert.Equal("Secret.ImportNotSupportedInPlainText", result.FirstError.Code);
-        _secretServiceMock.Verify(
-            s => s.ImportRsaKeyPairAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Secret.ImportNotSupportedInPlainText");
+        _keyring.ReadSigningRing().Current.Kid.Should().Be(before.Current.Kid);
     }
 
     [Fact]
     public async Task Handle_NotAPem_ReturnsInvalidKeyMaterial()
     {
-        // Arrange
-        var handler = CreateHandler();
-        var command = new ImportRsaKeyCommand("not-a-pem", ApprovalFor("not-a-pem"), _admin);
+        var result = await CreateHandler().Handle(
+            new ImportRsaKeyCommand("not-a-pem", ApprovalFor("not-a-pem"), _keyring.Admin), CancellationToken.None);
 
-        // Act
-        var result = await handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        Assert.True(result.IsError);
-        Assert.Equal("Secret.InvalidKeyMaterial", result.FirstError.Code);
-        _secretServiceMock.Verify(
-            s => s.ImportRsaKeyPairAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Secret.InvalidKeyMaterial");
     }
 
     [Fact]
     public async Task Handle_KeyBelowMinimumSize_ReturnsInvalidKeyMaterial()
     {
-        // Arrange
         var privateKeyPem = CreateRsaPrivateKeyPem(keySizeBits: 1024);
-        var handler = CreateHandler();
-        var command = new ImportRsaKeyCommand(privateKeyPem, ApprovalFor(privateKeyPem), _admin);
 
-        // Act
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await CreateHandler().Handle(
+            new ImportRsaKeyCommand(privateKeyPem, ApprovalFor(privateKeyPem), _keyring.Admin), CancellationToken.None);
 
-        // Assert
-        Assert.True(result.IsError);
-        Assert.Equal("Secret.InvalidKeyMaterial", result.FirstError.Code);
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Secret.InvalidKeyMaterial");
     }
 
     [Fact]
     public async Task Handle_PublicKeyOnly_ReturnsInvalidKeyMaterial()
     {
-        // Arrange - supplying a public key PEM (no private component) must be rejected.
+        // Supplying a public key PEM (no private component) must be rejected.
         using var rsa = RSA.Create(2048);
         var publicKeyOnlyPem = rsa.ExportSubjectPublicKeyInfoPem();
-        var handler = CreateHandler();
-        var command = new ImportRsaKeyCommand(
-            publicKeyOnlyPem, ApprovalFor(publicKeyOnlyPem), _admin);
 
-        // Act
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await CreateHandler().Handle(
+            new ImportRsaKeyCommand(publicKeyOnlyPem, ApprovalFor(publicKeyOnlyPem), _keyring.Admin), CancellationToken.None);
 
-        // Assert
-        Assert.True(result.IsError);
-        Assert.Equal("Secret.InvalidKeyMaterial", result.FirstError.Code);
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Secret.InvalidKeyMaterial");
     }
 
     [Fact]
     public async Task Handle_WithoutApproval_DoesNotImport()
     {
-        // Arrange
-        var handler = CreateHandler();
-        var command = new ImportRsaKeyCommand(CreateRsaPrivateKeyPem(), Guid.NewGuid(), _admin);
+        var before = _keyring.ReadSigningRing();
 
-        // Act
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await CreateHandler().Handle(
+            new ImportRsaKeyCommand(CreateRsaPrivateKeyPem(), Guid.NewGuid(), _keyring.Admin), CancellationToken.None);
 
-        // Assert
-        Assert.True(result.IsError);
-        Assert.Equal("Secret.ChallengeNotApproved", result.FirstError.Code);
-        _secretServiceMock.Verify(
-            s => s.ImportRsaKeyPairAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Secret.ChallengeNotApproved");
+        _keyring.ReadSigningRing().Current.Kid.Should().Be(before.Current.Kid);
     }
 
     [Fact]
     public async Task Handle_KeyMaterialSwappedAfterConfirmation_DoesNotImport()
     {
-        // Arrange - the administrator confirmed one key and submitted another.
+        // The administrator confirmed one key and submitted another.
+        var before = _keyring.ReadSigningRing();
         var confirmedKey = CreateRsaPrivateKeyPem();
         var swappedKey = CreateRsaPrivateKeyPem();
-        var handler = CreateHandler();
-        var command = new ImportRsaKeyCommand(swappedKey, ApprovalFor(confirmedKey), _admin);
 
-        // Act
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await CreateHandler().Handle(
+            new ImportRsaKeyCommand(swappedKey, ApprovalFor(confirmedKey), _keyring.Admin), CancellationToken.None);
 
-        // Assert
-        Assert.True(result.IsError);
-        Assert.Equal("Secret.ChallengeNotApproved", result.FirstError.Code);
-        _secretServiceMock.Verify(
-            s => s.ImportRsaKeyPairAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Secret.ChallengeNotApproved");
+        _keyring.ReadSigningRing().Current.Kid.Should().Be(before.Current.Kid);
+    }
+
+    [Fact]
+    public async Task Handle_TheKeyItReplaced_IsNeverImportedAgain()
+    {
+        // The key a leak closed is remembered: brought back, it would sign again with nothing
+        // to say it leaked (S12, T6). Refused before the approval is spent.
+        var leaked = CreateRsaPrivateKeyPem();
+        (await CreateHandler().Handle(new ImportRsaKeyCommand(leaked, ApprovalFor(leaked), _keyring.Admin), CancellationToken.None))
+            .IsError.Should().BeFalse();
+        var replacement = CreateRsaPrivateKeyPem();
+        (await CreateHandler().Handle(new ImportRsaKeyCommand(replacement, ApprovalFor(replacement), _keyring.Admin), CancellationToken.None))
+            .IsError.Should().BeFalse();
+        var approval = ApprovalFor(leaked);
+
+        var again = await CreateHandler().Handle(new ImportRsaKeyCommand(leaked, approval, _keyring.Admin), CancellationToken.None);
+
+        again.FirstError.Code.Should().Be("Secret.KeyringKeyReferenced");
+        _keyring.Challenges.ChallengeRepository.Verify(
+            r => r.TryConsumeAsync(approval, It.IsAny<CancellationToken>()), Times.Never,
+            "a refusal never spends the administrator's code");
     }
 }

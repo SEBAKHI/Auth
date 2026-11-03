@@ -531,7 +531,7 @@ For development you do not need to touch this: `appsettings.Development.json` al
 | `Audience` | The token's `aud` claim, identifying who the token is for. Replace the placeholder the same way |
 | `AccessTokenLifetimeMinutes` | How long an access token stays valid. The file sets 15 |
 | `RefreshTokenLifetimeDays` | How long a refresh token stays valid. The file sets 7. **This is the value that actually determines how long a session lives** — see the `Session` block below |
-| `KeyId` | The key identifier published in the JSON Web Key Set (JWKS) document |
+| `KeyId` | The `kid` of the one signing key a deployment has before its first signing keyring change saves the ring (S12). Read from this file or the environment only: it is no longer a system setting. Every key staged through the keyring is named by its RFC 7638 thumbprint instead |
 | `RotateRefreshTokens` | When `true`, using a refresh token issues a new one and retires the old one |
 | `ClockSkewSeconds` | How far apart two servers' clocks may be before a token is judged expired |
 | `PrivateKeyPath` | A file to read the signing key from. Empty means the key comes from the secret store instead |
@@ -1538,6 +1538,7 @@ The full explanation of what is generated, when, and where it lands is in [3.3 F
 | Database connection string | `ConnectionStrings:AuthDb` |
 | Password pepper material | `Password:Pepper:Keys:{id}` and `Password:Pepper:CurrentKeyId` |
 | The HMAC keyring the refresh-token HMAC key belongs to: every key and its state, when the file holds a keyring | `Keyring:Hmac:CurrentKeyId`, `Keyring:Hmac:NextKeyId`, `Keyring:Hmac:LegacyCutoverUtc`, `Keyring:Hmac:LegacyVerifyUntilUtc` and `Keyring:Hmac:Keys:{id}:Material`, `:CreatedAtUtc`, `:VerifyUntilUtc`, `:DemotedAtUtc`, `:Compromised`; and `Keyring:Hmac:FileVersion` whenever the file's `Version` says a keyring beyond key 1 existed, even if it is gone |
+| The signing keyring (S12): every signing key and its state, when the file holds a ring | `Keyring:Rsa:CurrentKid`, `Keyring:Rsa:NextKid` and `Keyring:Rsa:Keys:{kid}:PrivateKeyPem` (the current and the staged key only), `:PublicKeyPem`, `:CreatedAtUtc`, `:PublishedAtUtc`, `:VerifyUntilUtc`, `:Compromised`. The memory of removed keys (`SigningRemovedKeys`) is not mapped |
 | Any custom secret | `Secrets:Custom:{key}` |
 
 *In code:* `Auth/Auth.Shared/Configuration/DpapiSecretConfigurationProvider.cs`.
@@ -2384,17 +2385,21 @@ All nineteen require the permission `secrets.manage` — **note the dot, which i
 | GET | `/api/v1/admin/Secrets/status` | Which secrets are configured. Never their values | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/challenges` | Start a step-up confirmation, emailing a code | `secrets.manage` · `login` |
 | POST | `/api/v1/admin/Secrets/challenges/{challengeId}/verify` | Answer with that code; returns what the change would affect | `secrets.manage` · `login` |
-| POST | `/api/v1/admin/Secrets/generate/rsa` | Rotate the token-signing key pair | `secrets.manage` |
+| POST | `/api/v1/admin/Secrets/generate/rsa` | Emergency replacement of the token-signing key, effective when the API restarts: a stage and an emergency promote (S12 alias, until SUNSET(S12)) | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/generate/hmac` | Emergency rotation of the HMAC key behind refresh tokens, SSO sessions, links, codes and webhook keys: everyone signs in again | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/generate/gateway-token` | Rotate the gateway token | `secrets.manage` |
-| POST | `/api/v1/admin/Secrets/import/rsa` | Supply your own signing key. Returns 409 in PlainText storage mode | `secrets.manage` |
+| POST | `/api/v1/admin/Secrets/import/rsa` | Emergency replacement by a signing key you supply, effective when the API restarts (S12 alias). 409 in PlainText storage mode | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/import/hmac` | Emergency rotation to an HMAC key you supply. 409 in PlainText mode | `secrets.manage` |
-| GET | `/api/v1/admin/Secrets/keyring` | The HMAC keyring: each key's state, dates and webhook keys, as the file and this process hold it. Never the material | `secrets.manage` |
+| GET | `/api/v1/admin/Secrets/keyring` | The HMAC keyring: each key's state, dates and webhook keys, as the file and this process hold it; the `rsa` member is the signing keyring, or why it cannot be managed. Never the material | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/keyring/hmac/stage` | Stage a new HMAC key, generated or supplied: it verifies and issues nothing | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/keyring/hmac/promote` | Make the staged key issue (`emergency: true`: a fresh key at once, every older key refused) | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/keyring/hmac/discard-next` | Remove the staged key | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/keyring/hmac/reinstate/{id}` | Make an older key issue again: the rollback of a promote | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/keyring/hmac/retire/{id}` | Remove an older key from the secrets file and its backup copy | `secrets.manage` |
+| POST | `/api/v1/admin/Secrets/keyring/rsa/stage` | Stage a new signing key, generated or supplied: published and accepted from the next restart, signing nothing | `secrets.manage` |
+| POST | `/api/v1/admin/Secrets/keyring/rsa/promote` | Make the staged signing key sign: needs it loaded here and published 24 hours (`emergency: true` skips both; the old key is neither accepted nor published) | `secrets.manage` |
+| POST | `/api/v1/admin/Secrets/keyring/rsa/discard-next` | Remove the staged signing key | `secrets.manage` |
+| POST | `/api/v1/admin/Secrets/keyring/rsa/retire/{kid}` | Remove an older signing key, or a compromised record, from the secrets file and its backup copy | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/import/gateway-token` | Supply your own gateway token. 409 in PlainText mode | `secrets.manage` |
 | PUT | `/api/v1/admin/Secrets/smtp-password` | Move the mail-server password into the encrypted store | `secrets.manage` |
 | PUT | `/api/v1/admin/Secrets/connection-string` | Move the database connection string into the encrypted store | `secrets.manage` |
@@ -2498,8 +2503,8 @@ Returns the JSON Web Key Set — the public half of the signing key, in the form
 }
 ```
 
-**`kid` is not a fixed string.** It is whatever `Jwt:KeyId` is set to; `auth-key-1` is only the value shipped in `Auth/Auth_API/appsettings.json:23`. There is exactly one key in the set — this system does not publish a second key alongside a rotation.
-*In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:225-248`.
+**`kid` is not a fixed string, and the set is not one key.** A deployment that never rotated its signing key publishes it under `Jwt:KeyId` (`auth-key-1` by default). Every key staged through the signing keyring (S12) is named by its RFC 7638 thumbprint. During a rotation the set lists up to four keys, the one that signs first: a staged key from the restart after its stage, and a previous key for about a day after a promote. A key marked compromised is never listed. Select the key by the token's `kid`, and fetch the set again when a token names a `kid` you do not have; never pin one key.
+*In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs` (`GetJwks`); `Auth/Auth.Application/Security/Keyring/RsaKeyring.cs` (`Published`).
 
 #### GET `/.well-known/public-key.pem`
 
@@ -6661,7 +6666,7 @@ Get the status of all system secrets (no values exposed).
 
 #### Six of these endpoints refuse to run until you have confirmed the operation by email
 
-**Rotating or replacing a key is a ceremony in three steps, and the endpoint that does the work is the last of them.** The six destructive endpoints — `generate/rsa`, `generate/hmac`, `generate/gateway-token`, `import/rsa`, `import/hmac` and `import/gateway-token` — and the five HMAC keyring changes each require a body naming a confirmation you have already answered:
+**Rotating or replacing a key is a ceremony in three steps, and the endpoint that does the work is the last of them.** The six destructive endpoints — `generate/rsa`, `generate/hmac`, `generate/gateway-token`, `import/rsa`, `import/hmac` and `import/gateway-token` — the five HMAC keyring changes and the four signing keyring changes each require a body naming a confirmation you have already answered:
 
 ```json
 {
@@ -6778,7 +6783,7 @@ For an HMAC keyring change, repeat `keyringAction`, `keyId` and, for `StageImpor
 
 #### POST `/api/v1/admin/secrets/generate/rsa`
 
-Generate a new RSA key pair (replaces existing).
+Generate a new RSA key pair (replaces existing). Since the signing keyring (S12) this is an alias, kept until SUNSET(S12): it stages a generated key and promotes it as an emergency in one change, effective when the API restarts, as before; the old key becomes a compromised record. A rotation that signs nobody out is `keyring/rsa/stage`, a restart, then `keyring/rsa/promote` 24 hours later (see the deployment guide, *Rotating the signing key without signing anyone out*).
 
 **Permission:** `secrets.manage`
 
@@ -6827,7 +6832,7 @@ Generate a new gateway token.
 
 #### POST `/api/v1/admin/secrets/import/rsa`
 
-Import a caller-supplied RSA **private** key for JWT signing (bring-your-own-keys). The matching public key is derived and stored automatically.
+Import a caller-supplied RSA **private** key for JWT signing (bring-your-own-keys). The matching public key is derived and stored automatically. Since the signing keyring (S12) this is an alias, kept until SUNSET(S12): a staged import of the key and its emergency promote, effective when the API restarts. A key the keyring holds or once held is refused with `409 Secret.KeyringKeyReferenced` before your code is spent.
 
 **Permission:** `secrets.manage`
 
@@ -8335,7 +8340,7 @@ Four things about publishing are easy to get wrong from the endpoint name alone.
 **Step 4 — Find out whether the change is live. There are exactly two outcomes, and the field told you which in Step 2.**
 
 - **`restartRequired: false` — the change is already in force.** Saving re-runs the database configuration provider inside the running process and every consumer rebinds. A five-minute timer is the safety net for changes made straight in SQL rather than through this endpoint. Rate limits, allowed CORS origins, logging levels and health-check detail all work this way.
-- **`restartRequired: true` — nothing has changed yet, and will not until the process is recycled.** The field's `isPendingRestart` turns true and the top-level `restartPending` turns true with it, which is exactly what the console's banner is reading. These are the restart-required fields: `Jwt:Issuer`, `Jwt:Audience`, `Jwt:KeyId`, `Jwt:ClockSkewSeconds`, `Password:Argon2MemorySize`, `Password:Argon2Iterations`, `Password:Argon2Parallelism`, `Password:Pepper:Enabled`, `IdentityProvider:IdpSessionCookieName`, `GeoIp:Enabled`, `GeoIp:DatabasePath`, `ImageStorage:RequestPath` and `AccountDeletion:RunEncryptionMigration`.
+- **`restartRequired: true` — nothing has changed yet, and will not until the process is recycled.** The field's `isPendingRestart` turns true and the top-level `restartPending` turns true with it, which is exactly what the console's banner is reading. These are the restart-required fields: `Jwt:Issuer`, `Jwt:Audience`, `Jwt:ClockSkewSeconds`, `Password:Argon2MemorySize`, `Password:Argon2Iterations`, `Password:Argon2Parallelism`, `Password:Pepper:Enabled`, `IdentityProvider:IdpSessionCookieName`, `GeoIp:Enabled`, `GeoIp:DatabasePath`, `ImageStorage:RequestPath` and `AccountDeletion:RunEncryptionMigration`.
 
 **To perform that restart in development:** press `Ctrl+C` in the terminal running the API, then, from `Auth/Auth_API/`, run it again:
 

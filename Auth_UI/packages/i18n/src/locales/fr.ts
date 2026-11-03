@@ -1727,6 +1727,100 @@ export const fr: TranslationResources = {
       impactNote: "Cela prend effet dans ce processus d'API dès l'enregistrement. Tout autre processus d'API qui partage le fichier des secrets garde son ancien trousseau jusqu'à son recyclage : recyclez-les, immédiatement après une rotation d'urgence. Sauvegardez ensuite le fichier des secrets.",
       done: "Trousseau mis à jour. Sauvegardez maintenant le fichier des secrets.",
     },
+    signingKeyring: {
+      title: "Trousseau de signature",
+      description:
+        "Les clés qui signent chaque jeton d'accès. Une rotation planifiée ne déconnecte personne : préparez une clé, redémarrez l'API pour qu'elle la charge et la publie, attendez 24 heures, puis promouvez-la. L'ancienne clé reste acceptée environ un jour.",
+      unavailableTitle: "Le trousseau de signature ne peut pas être géré sur ce déploiement",
+      failedTitle: "Le trousseau de signature n'a pas pu être chargé",
+      unavailable: {
+        PlainText:
+          "Les secrets sont conservés en mode PlainText : la clé de signature n'a pas de trousseau. La remplacer exige un redémarrage qui déconnecte tout le monde.",
+        ExternalSource:
+          "La clé de signature provient de {{source}}, pas du fichier des secrets chiffré : elle n'a pas de trousseau. La remplacer exige un redémarrage qui déconnecte tout le monde ; placez la clé dans le fichier des secrets pour la renouveler sans cela.",
+        Unreadable:
+          "Le trousseau du fichier des secrets est inutilisable ({{code}}). Le prochain démarrage le refusera : restaurez la copie la plus récente du fichier des secrets prise après le dernier changement du trousseau.",
+      },
+      compromisedAcceptedTitle: "Ce processus de l'API accepte encore une clé divulguée",
+      compromisedAcceptedBody:
+        "La clé {{kids}} est marquée compromise dans le fichier des secrets, mais ce processus de l'API n'a chargé aucune clé préparée pour la remplacer : il accepte encore les jetons signés avec elle. Redémarrez l'API maintenant pour la fermer.",
+      migratedNote:
+        "Ce déploiement n'a pas encore renouvelé sa clé de signature : la clé {{kid}} est publiée sous le nom qu'elle a toujours eu, et le fichier des secrets ne contient aucun trousseau avant le premier changement.",
+      stage: "Préparer une clé",
+      stageGenerate: "Préparer une clé générée",
+      stageImport: "Préparer une clé fournie",
+      stageImportTitle: "Préparer une clé de signature fournie",
+      promote: "Promouvoir",
+      discard: "Abandonner la clé préparée",
+      emergency: "Promotion d'urgence",
+      retire: "Retirer",
+      emergencyAtRestart:
+        "Ce processus de l'API n'a pas encore chargé la clé préparée. Une promotion d'urgence maintenant ne ferme la clé divulguée qu'au redémarrage de l'API : redémarrez-la juste après.",
+      reason: {
+        noStaged: "Aucune clé n'est préparée.",
+        stageWhileStaged: "Une clé est déjà préparée : promouvez-la ou abandonnez-la d'abord.",
+        restartToLoad:
+          "Redémarrez l'API pour qu'elle charge et publie la clé préparée ; elle pourra être promue 24 heures plus tard.",
+        notRecorded:
+          "L'API a chargé la clé préparée mais n'a pas pu en enregistrer l'heure ; redémarrez-la encore une fois pour qu'elle l'enregistre.",
+        tooYoung:
+          "La clé préparée peut être promue à partir du {{date}}, quand les applications auront eu 24 heures pour la récupérer.",
+        emergencyNeedsStaged:
+          "Une urgence promeut une clé préparée : préparez d'abord une nouvelle clé. Après une fuite du fichier des secrets, abandonnez toute clé préparée avant elle et préparez-en une nouvelle.",
+        processOnly:
+          "Seul ce processus de l'API détient encore cette clé ; elle disparaît au prochain redémarrage.",
+        current: "Signe chaque jeton",
+        next: "Promouvoir ou abandonner",
+      },
+      columns: {
+        kid: "ID de clé (kid)",
+        state: "État",
+        createdAtUtc: "Préparée",
+        publishedAtUtc: "Publiée",
+        verifyUntilUtc: "Acceptée jusqu'au",
+        loadedInProcess: "Chargée ici",
+      },
+      state: {
+        current: "Actuelle",
+        next: "Préparée",
+        previous: "Précédente",
+        compromised: "Compromise",
+      },
+      migrated: "Migrée",
+      unknownAge: "Inconnue (clé migrée)",
+      signing: "Signe",
+      closed: "Fermée",
+      rowActions: "Actions pour la clé {{kid}}",
+      action: {
+        Stage: "Préparer une nouvelle clé de signature",
+        StageImport: "Préparer la clé de signature fournie",
+        Promote: "Promouvoir la clé de signature {{kid}}",
+        PromoteEmergency: "Promotion d'urgence de la clé de signature {{kid}}",
+        DiscardNext: "Abandonner la clé de signature préparée {{kid}}",
+        Reinstate: "Rétablir une clé de signature",
+        Retire: "Retirer la clé de signature {{kid}}",
+      },
+      warning: {
+        Stage:
+          "La nouvelle clé est publiée et acceptée dès le prochain démarrage de l'API, et ne signe rien avant que vous la promouviez. Rien de ce que détient quiconque ne cesse de fonctionner. Redémarrez l'API ensuite.",
+        StageImport:
+          "La clé fournie est publiée et acceptée dès le prochain démarrage de l'API, et ne signe rien avant que vous la promouviez. Rien de ce que détient quiconque ne cesse de fonctionner. Redémarrez l'API ensuite.",
+        Promote:
+          "La clé préparée signe chaque jeton dès maintenant. L'ancienne clé reste acceptée environ un jour : personne n'est déconnecté.",
+        PromoteEmergency:
+          "Pour une clé divulguée. La clé préparée signe immédiatement et l'ancienne n'est plus ni acceptée ni publiée : chaque application et chaque navigateur renouvelle son jeton une fois. Si ce processus de l'API n'a pas chargé la clé préparée, l'ancienne reste acceptée ici jusqu'au redémarrage de l'API.",
+        DiscardNext:
+          "La clé préparée est supprimée et ne peut plus jamais être préparée. Rien n'a jamais été signé avec elle. Un processus de l'API qui l'a déjà chargée continue de l'accepter jusqu'à son redémarrage.",
+        Reinstate: "Indisponible pour le trousseau de signature.",
+        Retire:
+          "La clé est supprimée définitivement du fichier des secrets et de sa copie de sauvegarde. Un jeton qu'elle a signé est refusé dès maintenant.",
+      },
+      impactNote:
+        "Une préparation ou un abandon prend effet au redémarrage de l'API ; une promotion et un retrait prennent effet dans ce processus dès leur enregistrement. Tout autre processus de l'API qui partage le fichier des secrets garde ses anciennes clés jusqu'à son recyclage : recyclez-les, immédiatement après une urgence. Sauvegardez ensuite le fichier des secrets.",
+      closesAtRestart:
+        "Enregistré. Ce processus de l'API n'a jamais chargé la clé préparée : la clé divulguée reste acceptée jusqu'au redémarrage de l'API. Redémarrez-la maintenant.",
+      loadsAtRestart: "Enregistré. Redémarrez l'API pour qu'elle charge et publie la clé préparée.",
+    },
     impact: {
       usersWithLiveAccessTokens:
         "Utilisateurs détenant un jeton d'accès encore valide",
@@ -2395,9 +2489,6 @@ export const fr: TranslationResources = {
         "Durée de vie du jeton de rafraîchissement (jours)",
       refreshTokenLifetimeDaysHint:
         "Durée pendant laquelle un utilisateur peut rester connecté sans ressaisir son mot de passe. Recommandé : 7–30 jours ; choisissez la valeur basse pour les déploiements sensibles.",
-      keyId: "ID de la clé de signature",
-      keyIdHint:
-        "L'identifiant (kid) publié avec la clé de signature pour que les applications clientes choisissent la bonne clé. À modifier uniquement dans le cadre d'une rotation de clé.",
       rotateRefreshTokens: "Rotation des jetons de rafraîchissement",
       rotateRefreshTokensHint:
         "Émet un nouveau jeton de rafraîchissement à chaque renouvellement et invalide l'ancien. Recommandé : activé — un jeton de rafraîchissement volé est alors détecté et bloqué dès sa première réutilisation.",

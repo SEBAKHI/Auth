@@ -19,11 +19,15 @@ public record SecretOperationChallengeRequest
     public string? Value { get; init; }
 
     /// <summary>
-    /// For a change of the HMAC keyring, which one (S11): the approval is then bound to
-    /// that action and to the key it applies to. Omit for every other operation.
+    /// For a change of a keyring, which one: the HMAC keyring with the HMAC operations (S11),
+    /// the signing keyring with the RSA operations (S12). The approval is then bound to that
+    /// ring, that action and the key it applies to. Omit for every other operation.
     /// </summary>
     public KeyringAction? KeyringAction { get; init; }
 
-    /// <summary>The key a reinstate or a retire names; omit for every other action.</summary>
+    /// <summary>The HMAC key a reinstate or a retire names; omit for every other action.</summary>
     public int? KeyId { get; init; }
+
+    /// <summary>The signing key (its kid) a retire names (S12); omit for every other action.</summary>
+    public string? Kid { get; init; }
 }

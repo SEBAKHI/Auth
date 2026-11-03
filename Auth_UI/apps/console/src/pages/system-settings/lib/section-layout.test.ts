@@ -274,3 +274,13 @@ describe("requiredCredentials", () => {
     ).toEqual(["B"])
   })
 })
+
+describe("Jwt:KeyId (S12)", () => {
+  it("is claimed by no block: every signing key is named by its thumbprint, never by a setting", () => {
+    const claims = (SECTION_BLOCKS.Jwt ?? []).flatMap((block) =>
+      "claims" in block ? block.claims : []
+    )
+    expect(claims.length).toBeGreaterThan(0)
+    expect(claims).not.toContain("KeyId")
+  })
+})

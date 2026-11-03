@@ -179,4 +179,48 @@ public class SecretRotationImpactTests
             "the running process captured the old key at boot, so nothing changes for users until it recycles");
         impact.Details.Should().NotBeEmpty();
     }
+
+    // --- the signing keyring (S12) ---
+
+    [Theory]
+    [InlineData(KeyringAction.Stage, SecretOperation.GenerateRsaKey)]
+    [InlineData(KeyringAction.StageImport, SecretOperation.ImportRsaKey)]
+    [InlineData(KeyringAction.DiscardNext, SecretOperation.GenerateRsaKey)]
+    public void ASigningKeyStageOrDiscard_BreaksNothing_AndNeedsARestart(KeyringAction action, SecretOperation operation)
+    {
+        var impact = SecretRotationImpact.Build(operation, action, Snapshot, ApprovalExpiry);
+
+        impact.AffectedUsers.Should().Be(0);
+        impact.Details.Should().BeEmpty();
+        impact.RequiresApiRestart.Should().BeTrue("the staged key is loaded, or dropped, at the next start");
+    }
+
+    [Fact]
+    public void AScheduledSigningKeyPromote_BreaksNothing()
+    {
+        var impact = SecretRotationImpact.Build(SecretOperation.GenerateRsaKey, KeyringAction.Promote, Snapshot, ApprovalExpiry);
+
+        impact.AffectedUsers.Should().Be(0, "the old key is still accepted for a day");
+        impact.RequiresApiRestart.Should().BeFalse("the signer moves in this process at once");
+    }
+
+    [Fact]
+    public void ASigningKeyEmergency_CostsWhatAReplacedKeyAlwaysCost()
+    {
+        var impact = SecretRotationImpact.Build(SecretOperation.GenerateRsaKey, KeyringAction.PromoteEmergency, Snapshot, ApprovalExpiry);
+
+        impact.AffectedUsers.Should().Be(42);
+        impact.Details.Select(d => d.Code).Should().Equal(
+            SecretRotationImpactCodes.UsersWithLiveAccessTokens, SecretRotationImpactCodes.UsersWithActiveSessions);
+        impact.RequiresApiRestart.Should().BeTrue("other processes, and this one without the staged key loaded, close it at their restart");
+    }
+
+    [Fact]
+    public void ARetireOfASigningKey_CostsTodaysImpactInsideItsWindow_AndNothingAfter()
+    {
+        SecretRotationImpact.Build(SecretOperation.GenerateRsaKey, KeyringAction.Retire, Snapshot, ApprovalExpiry, retiredKeyStillAccepted: true)
+            .AffectedUsers.Should().Be(42);
+        SecretRotationImpact.Build(SecretOperation.GenerateRsaKey, KeyringAction.Retire, Snapshot, ApprovalExpiry, retiredKeyStillAccepted: false)
+            .AffectedUsers.Should().Be(0);
+    }
 }

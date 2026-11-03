@@ -1454,19 +1454,22 @@
     <value>Secret management admin API is disabled.</value>
   </data>
   <data name="Secret.KeyringNoNextKey" xml:space="preserve">
-    <value>No staged HMAC key is loaded in this process. Stage a key first, or restart the API so it loads the key staged in the secrets file.</value>
+    <value>No staged key is loaded in this process. Stage a key first; if one is already staged in the secrets file, restart the API so this process loads it, then try again.</value>
   </data>
   <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
-    <value>The HMAC keyring has no previous key {0} that this action applies to.</value>
+    <value>The keyring has no key {0} that this action applies to.</value>
   </data>
   <data name="Secret.KeyringKeyReferenced" xml:space="preserve">
-    <value>HMAC key {0} still verifies {1} active webhook key(s) until {2}. Wait until then, or rotate those webhook keys, before retiring it.</value>
+    <value>Key {0} is still in use, so this change cannot be made: it is the current or the staged key, a key the keyring holds or held before, or an HMAC key that live webhook keys still need. The keyring panel shows which.</value>
   </data>
   <data name="Secret.KeyringUnavailable" xml:space="preserve">
-    <value>The HMAC keyring can only be managed in Certificate or Dpapi storage mode, with the HMAC key kept in the encrypted secrets file. This deployment runs in PlainText mode or takes the key from another source.</value>
+    <value>This keyring can only be managed in Certificate or Dpapi storage mode, with its key kept in the encrypted secrets file. This deployment runs in PlainText mode or takes the key from another source, which the keyring panel names.</value>
   </data>
   <data name="Secret.KeyringFileInconsistent" xml:space="preserve">
-    <value>The HMAC keyring in the secrets file cannot be used as it is: {0}</value>
+    <value>The keyring in the secrets file cannot be used as it is: {0}</value>
+  </data>
+  <data name="Secret.KeyringNextTooYoung" xml:space="preserve">
+    <value>The staged signing key has not been published for 24 hours yet, so applications may not have fetched it. It can be promoted from {0} (UTC). Only an emergency promote skips this wait.</value>
   </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>Verification code must be 6 digits.</value>

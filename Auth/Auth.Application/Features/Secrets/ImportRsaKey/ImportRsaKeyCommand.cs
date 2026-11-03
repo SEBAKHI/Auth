@@ -6,7 +6,8 @@ namespace Auth.Application.Features.Secrets.ImportRsaKey;
 /// <summary>
 /// Command to import a caller-supplied RSA private key for JWT signing (bring-your-own-keys).
 /// The matching public key is derived from the private key and stored automatically.
-/// WARNING: This replaces the current signing key and invalidates ALL existing access tokens.
+/// An alias of a staged import and an emergency promote (S12), kept until SUNSET(S12).
+/// WARNING: from the next start of the API, this key signs and ALL existing access tokens are refused.
 /// Requires a verified <see cref="Domain.Entities.SecretOperationChallenge"/> bound to
 /// a digest of this exact key material.
 /// </summary>

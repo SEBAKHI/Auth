@@ -13,13 +13,16 @@ public record VerifySecretOperationChallengeRequest
     public string Code { get; init; } = string.Empty;
 
     /// <summary>
-    /// For a change of the HMAC keyring (S11), the action the confirmation was raised for,
+    /// For a change of a keyring (S11, S12), the action the confirmation was raised for,
     /// so its live cost is returned; checked against the confirmation. Omit otherwise.
     /// </summary>
     public KeyringAction? KeyringAction { get; init; }
 
-    /// <summary>The key a reinstate or a retire names.</summary>
+    /// <summary>The HMAC key a reinstate or a retire names.</summary>
     public int? KeyId { get; init; }
+
+    /// <summary>The signing key (its kid) a retire names (S12).</summary>
+    public string? Kid { get; init; }
 
     /// <summary>The key material of a staged import.</summary>
     public string? Value { get; init; }

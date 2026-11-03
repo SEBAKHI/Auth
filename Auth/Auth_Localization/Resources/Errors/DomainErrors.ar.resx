@@ -1454,19 +1454,22 @@
     <value>واجهة إدارة الأسرار معطّلة.</value>
   </data>
   <data name="Secret.KeyringNoNextKey" xml:space="preserve">
-    <value>لا يوجد في هذه العملية مفتاح HMAC مُرحَّل (staged) محمَّل. رحِّل مفتاحًا أولًا، أو أعد تشغيل الواجهة البرمجية لتحمِّل المفتاح المرحَّل في ملف الأسرار.</value>
+    <value>لا يوجد في هذه العملية مفتاح مُرحَّل (staged) محمَّل. رحِّل مفتاحًا أولًا؛ وإن كان في ملف الأسرار مفتاح مرحَّل، فأعد تشغيل الواجهة البرمجية لتحمِّله هذه العملية، ثم أعد المحاولة.</value>
   </data>
   <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
-    <value>لا تحوي حلقة مفاتيح HMAC مفتاحًا سابقًا رقمه {0} ينطبق عليه هذا الإجراء.</value>
+    <value>لا تحوي حلقة المفاتيح مفتاحًا {0} ينطبق عليه هذا الإجراء.</value>
   </data>
   <data name="Secret.KeyringKeyReferenced" xml:space="preserve">
-    <value>ما زال مفتاح HMAC رقم {0} يتحقق من {1} من مفاتيح webhook النشطة حتى {2}. انتظر حتى ذلك الحين، أو دوِّر مفاتيح webhook تلك، قبل سحبه.</value>
+    <value>المفتاح {0} ما زال مستعمَلًا، فلا يمكن إجراء هذا التغيير: هو المفتاح الحالي أو المرحَّل، أو مفتاح تحمله حلقة المفاتيح أو حملته من قبل، أو مفتاح HMAC ما زالت مفاتيح webhook نشطة تحتاجه. وتبيّن لوحة حلقة المفاتيح أيّها.</value>
   </data>
   <data name="Secret.KeyringUnavailable" xml:space="preserve">
-    <value>لا تُدار حلقة مفاتيح HMAC إلا في وضع التخزين Certificate أو Dpapi، ومفتاح HMAC محفوظ في ملف الأسرار المشفَّر. وهذا النشر يعمل في وضع PlainText أو يأخذ المفتاح من مصدر آخر.</value>
+    <value>لا تُدار حلقة المفاتيح هذه إلا في وضع التخزين Certificate أو Dpapi، ومفتاحها محفوظ في ملف الأسرار المشفَّر. وهذا النشر يعمل في وضع PlainText أو يأخذ المفتاح من مصدر آخر تسمّيه لوحة حلقة المفاتيح.</value>
   </data>
   <data name="Secret.KeyringFileInconsistent" xml:space="preserve">
-    <value>لا يمكن استعمال حلقة مفاتيح HMAC التي في ملف الأسرار على حالتها: {0}</value>
+    <value>لا يمكن استعمال حلقة المفاتيح التي في ملف الأسرار على حالتها: {0}</value>
+  </data>
+  <data name="Secret.KeyringNextTooYoung" xml:space="preserve">
+    <value>لم يمضِ على نشر مفتاح التوقيع المرحَّل 24 ساعة بعد، فقد لا تكون التطبيقات جلبته. ويمكن ترقيته ابتداءً من {0} (UTC). ووحدها الترقية الطارئة تتجاوز هذا الانتظار.</value>
   </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>يجب أن يتكون رمز التحقق من 6 أرقام.</value>

@@ -32,15 +32,14 @@ public sealed class OrganizationClaimTokenTests : IDisposable
     private readonly User _user = TestHelpers.CreateUser(email: "customer@example.com");
     private readonly Mock<ITokenClaimsResolver> _claims = new();
 
-    private readonly JwtTokenService _service = new(
-        Options.Create(new JwtSettings
+    private readonly JwtTokenService _service = TestSigningKeys.Service(
+        new JwtSettings
         {
             Issuer = "https://auth.example.com",
             Audience = "auth-platform",
             KeyId = "test-key",
             PrivateKeyPem = TestSigningKeys.NewPrivateKeyPem()
-        }),
-        Mock.Of<IPasswordHasher>());
+        });
 
     public OrganizationClaimTokenTests(ITestOutputHelper output) => _output = output;
 

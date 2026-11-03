@@ -1085,7 +1085,7 @@ Handler    -> Dapper directly (bypassing the repository)
 |---|---|---|---|
 | ‏30 يوماً | ‏كامل: يومياً؛ وتفاضلي: كل 6 ساعات | ‏نسخ احتياطي كامل وتفاضلي لـSQL Server | ‏**قاعدة البيانات** |
 | ‏دائم، ومشفَّر | ‏عند كل تغيير | ‏**يدوي وخارج المسار المعتاد.** فليس في git إلا ملف `appsettings` الأساسي وملف بيئة التطوير. أما `appsettings.Production.json` وملفا `web.config` وملفات `appsettings.*.local.json` وكل ملفات تعريف النشر فمستبعَدة من git عن قصد لأنها تحمل أسراراً — ولا شيء في المستودع ينسخها احتياطياً نيابةً عنك | ‏**الإعدادات** |
-| ‏احتفظ بكل نسخة أُخذت بعد تغيير في حلقة HMAC إلى أن تمضي كل تواريخ «يتحقق حتى» في لوحة الحلقة، فالنسخة الأقدم قد تخلو من المفتاح الذي بُصمت به اعتمادات صدرت بعدها. وراجع أيضًا ملاحظة الدوام في القسم 15 | ‏بعد كل تغيير في المفاتيح: كل تجهيز (stage) أو ترقية (promote) أو إعادة (reinstate) أو إحالة (retire) أو تدوير طارئ في حلقة HMAC، وكل استيراد لمفتاح RSA أو رمز البوابة | ‏ملف `secrets.dpapi` المشفَّر، مع حلقة مفاتيح حماية البيانات، ومعهما ملف `.pfx` في وضع Certificate؛ أو `appsettings.Production.json` في وضع PlainText. والملف يحمل حلقة مفاتيح HMAC كلها: كل مفتاح وتواريخه وأيّها يُصدر | ‏**مخزن الأسرار** |
+| ‏احتفظ بكل نسخة أُخذت بعد تغيير في إحدى الحلقتين إلى أن تمضي كل تواريخ «يتحقق حتى» و«مقبول حتى» في لوحتي الحلقتين، فالنسخة الأقدم قد تخلو من المفتاح الذي بُصمت به اعتمادات صدرت بعدها. وأتلِف كل نسخة أقدم من ترقية مفتاح توقيع متى مضت نافذته، فهي ما زالت تحمل المفتاح الخاص المُنزَل. وراجع أيضًا ملاحظة الدوام في القسم 15 | ‏بعد كل تغيير في المفاتيح: كل تجهيز (stage) أو ترقية (promote) أو إعادة (reinstate) أو إحالة (retire) أو تدوير طارئ في حلقة HMAC؛ وكل ترحيل أو ترقية أو سحب أو طارئ في حلقة مفاتيح التوقيع؛ وكل استيراد لرمز البوابة | ‏ملف `secrets.dpapi` المشفَّر، مع حلقة مفاتيح حماية البيانات، ومعهما ملف `.pfx` في وضع Certificate؛ أو `appsettings.Production.json` في وضع PlainText. والملف يحمل حلقة مفاتيح HMAC كلها: كل مفتاح وتواريخه وأيّها يُصدر، وحلقة مفاتيح التوقيع (S12) | ‏**مخزن الأسرار** |
 | ‏حسب متطلبات الامتثال (عادةً من سنة إلى 7 سنوات) | ‏يومياً | ‏نسخ قاعدة البيانات الاحتياطي، مع تصدير CSV اختياري من الكونسول | ‏**سجلات التدقيق** |
 
 ### أهداف الاسترداد (مستهدفات موصى بها)
@@ -1247,8 +1247,8 @@ Handler    -> Dapper directly (bypassing the repository)
 
 1. **اطلب تحدياً.** ‏`POST /api/v1/admin/Secrets/challenges` — وسمِّ فيه العملية التي تنوي تنفيذها. والنجاح يبدو هكذا: معرّف تحدٍّ في الاستجابة، ورمز من 6 أرقام يصل إلى بريد ذلك المسؤول.
 2. **تحقّق من التحدي.** ‏`POST /api/v1/admin/Secrets/challenges/{id}/verify` مع الرمز. والنجاح يبدو هكذا: تأكيد بأن التحدي مُعتمَد. **ولديك الآن 5 دقائق.**
-3. **‏نفّذ العملية.** واحدة من `POST .../generate/rsa` أو `.../generate/hmac` أو `.../generate/gateway-token` أو `.../import/rsa` أو `.../import/hmac` أو `.../import/gateway-token`. والنجاح يبدو هكذا: استجابة تؤكد تخزين المادة الجديدة. ولمفتاح HMAC استعمل الحلقة بدلًا من ذلك (`keyring/hmac/stage` ثم `keyring/hmac/promote`)، لأن `generate/hmac` و`import/hmac` يُخرجان الجميع.
-4. **تحقّق من النتيجة.** اجلب `GET /.well-known/jwks.json` وأكّد أن المفتاح المنشور قد تغيّر. ثم سجّل الدخول مرة واحدة وأكّد أنك تستلم رمزاً صالحاً.
+3. **‏نفّذ العملية.** واحدة من `POST .../generate/rsa` أو `.../generate/hmac` أو `.../generate/gateway-token` أو `.../import/rsa` أو `.../import/hmac` أو `.../import/gateway-token`. والنجاح يبدو هكذا: استجابة تؤكد تخزين المادة الجديدة. ولمفتاح HMAC استعمل الحلقة بدلًا من ذلك (`keyring/hmac/stage` ثم `keyring/hmac/promote`)، لأن `generate/hmac` و`import/hmac` يُخرجان الجميع. ولمفتاح التوقيع استعمل حلقة مفاتيح التوقيع (`keyring/rsa/stage` ثم إعادة تشغيل الواجهة البرمجية ثم `keyring/rsa/promote` بعد 24 ساعة)، لأن `generate/rsa` و`import/rsa` هما الطارئ منها، يسري عند إعادة التشغيل، ويُرفض بعده كل رمز وقّعه المفتاح القديم.
+4. **تحقّق من النتيجة.** اجلب `GET /.well-known/jwks.json` وأكّد أن المفتاح المنشور قد تغيّر (بعد ترقية في حلقة مفاتيح التوقيع يُسرد المفتاح الجديد أولًا والسابق بعده نحو يوم). ثم سجّل الدخول مرة واحدة وأكّد أنك تستلم رمزاً صالحاً.
 
 **‏ويوجد مخرج اضطراري واحد من سطر الأوامر** للحالة التي تعجز فيها واجهة API عن بدء التشغيل. نفّذه من المجلد `Auth/Auth_API`؛ وهو يطبع قيمة مشفَّرة ثم يخرج دون تشغيل الخادم:
 
@@ -1419,7 +1419,7 @@ newly minted pepper material, in memory (only on the boot that mints it)
 | ‏**إعادة تشغيل** | ‏عنصر نائب | ‏مطالبة `aud` والجمهور المقبول | ‏`Jwt:Audience` |
 | ‏ساخن | ‏`15` | ‏مدة رمز الوصول | ‏`Jwt:AccessTokenLifetimeMinutes` |
 | ‏ساخن | ‏`7` | ‏مدة رمز التحديث — **وهي طول الجلسة الحقيقي** | ‏`Jwt:RefreshTokenLifetimeDays` |
-| ‏**إعادة تشغيل** | ‏`auth-key-1` | ‏قيمة `kid` المنشورة في مجموعة المفاتيح | ‏`Jwt:KeyId` |
+| ‏**إعادة تشغيل** | ‏`auth-key-1` | ‏قيمة `kid` للمفتاح الوحيد الذي يملكه النشر قبل أول تغيير في حلقة مفاتيح التوقيع؛ وليس إعدادًا من إعدادات النظام منذ S12 (ملف الإعدادات أو البيئة وحدهما). وكل مفتاح مرحَّل يُسمّى ببصمته RFC 7638 | ‏`Jwt:KeyId` |
 | ‏ساخن | ‏`true` | ‏إصدار رمز تحديث جديد مع كل عملية تحديث | ‏`Jwt:RotateRefreshTokens` |
 | ‏**إعادة تشغيل** | ‏`60` | ‏تسامح انحراف الساعة عند التحقق | ‏`Jwt:ClockSkewSeconds` |
 | ‏إعادة تشغيل | ‏فارغ | ‏ملف RSA بصيغة PEM — مصدر مفتاح التوقيع، الأولوية 1 | ‏`Jwt:PrivateKeyPath` |
@@ -1486,7 +1486,7 @@ newly minted pepper material, in memory (only on the boot that mints it)
 
 تغيير أيٍّ من هذه المفاتيح من تطبيق الكونسول لا يُحدث أثراً حتى تُعاد العملية، والكونسول يعرض لها حالة «بانتظار إعادة التشغيل»:
 
-`Jwt:Issuer` و`Jwt:Audience` و`Jwt:KeyId` و`Jwt:ClockSkewSeconds` و`Password:Argon2MemorySize` و`Password:Argon2Iterations` و`Password:Argon2Parallelism` و`Password:Pepper:Enabled` و`IdentityProvider:IdpSessionCookieName` و`GeoIp:Enabled` و`GeoIp:DatabasePath` و`ImageStorage:RequestPath` و`AccountDeletion:RunEncryptionMigration`.
+`Jwt:Issuer` و`Jwt:Audience` و`Jwt:ClockSkewSeconds` و`Password:Argon2MemorySize` و`Password:Argon2Iterations` و`Password:Argon2Parallelism` و`Password:Pepper:Enabled` و`IdentityProvider:IdpSessionCookieName` و`GeoIp:Enabled` و`GeoIp:DatabasePath` و`ImageStorage:RequestPath` و`AccountDeletion:RunEncryptionMigration`.
 
 وكل ما عدا ذلك في سجل الإعدادات ساخن.
 

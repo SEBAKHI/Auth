@@ -11,8 +11,8 @@ namespace Auth.Infrastructure.Authentication;
 /// <remarks>
 /// A second place that holds a key is the copy a rotation misses: the validator that still trusts
 /// the old key, or the signer that still uses it. So nothing else captures a key; each reads it
-/// here when it needs it. Today this holds the one loaded key (<see cref="SingleSigningKeyMaterial"/>);
-/// the signing ring replaces the implementation, not the callers.
+/// here when it needs it. The implementation is the signing keyring (<see cref="SigningKeyRingHolder"/>),
+/// whose snapshot a keyring change swaps whole, so the next token signed or checked uses the new keys.
 /// </remarks>
 public interface ISigningKeyMaterial
 {

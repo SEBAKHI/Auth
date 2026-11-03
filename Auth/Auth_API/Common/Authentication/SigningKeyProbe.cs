@@ -16,26 +16,61 @@ namespace Auth_API.Common.Authentication;
 /// (<see cref="AccessTokenValidation.Platform"/>). Never issued to anyone.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Validating with the scheme's parameters, not a copy of them (S12), is what makes a Healthy
 /// answer mean "a token signed now is accepted by every validator", whichever keys the set holds.
-/// The set holds one fixed key for the life of the process, so the answer is computed once, on the
-/// first readiness call: an anonymous <c>/ready</c> caller never makes the server sign again.
+/// </para>
+/// <para>
+/// The current key changes when a promote runs in this process (S12), so a success is kept for
+/// the key it was computed with, by its <c>kid</c>: the next readiness call after a promote probes
+/// the new key, and an anonymous <c>/ready</c> caller still makes the server sign at most once per
+/// key. A failure is never kept, so a key that recovers (or is replaced) reads Healthy at the next
+/// call instead of after a restart (OI-265 (b)).
+/// </para>
 /// </remarks>
 public sealed class SigningKeyProbe : ISigningKeyProbe
 {
-    private readonly Lazy<ErrorOr<Success>> _result;
+    private readonly JwtSettings _settings;
+    private readonly ISigningKeyMaterial _signingKeys;
+    private readonly Lock _gate = new();
+    private string? _succeededFor;
 
     public SigningKeyProbe(JwtSettings settings, ISigningKeyMaterial signingKeys)
     {
-        _result = new Lazy<ErrorOr<Success>>(
-            () => SignAndValidate(settings, signingKeys),
-            LazyThreadSafetyMode.ExecutionAndPublication);
+        _settings = settings;
+        _signingKeys = signingKeys;
     }
 
     /// <inheritdoc />
-    public ErrorOr<Success> ProbeSigningKey() => _result.Value;
+    public ErrorOr<Success> ProbeSigningKey()
+    {
+        var current = _signingKeys.Current;
+        var kid = current.Key.KeyId;
+        if (kid is not null && string.Equals(Volatile.Read(ref _succeededFor), kid, StringComparison.Ordinal))
+        {
+            return Result.Success;
+        }
 
-    private static ErrorOr<Success> SignAndValidate(JwtSettings settings, ISigningKeyMaterial signingKeys)
+        // One probe at a time: callers arriving together for a key not yet proven wait for one
+        // signature instead of each making one.
+        lock (_gate)
+        {
+            if (kid is not null && string.Equals(_succeededFor, kid, StringComparison.Ordinal))
+            {
+                return Result.Success;
+            }
+
+            var result = SignAndValidate(_settings, _signingKeys, current);
+            if (!result.IsError)
+            {
+                Volatile.Write(ref _succeededFor, kid);
+            }
+
+            return result;
+        }
+    }
+
+    private static ErrorOr<Success> SignAndValidate(JwtSettings settings, ISigningKeyMaterial signingKeys, SigningCredentials current)
     {
         var handler = new JwtSecurityTokenHandler();
         var now = DateTime.UtcNow;
@@ -47,7 +82,7 @@ public sealed class SigningKeyProbe : ISigningKeyProbe
             IssuedAt = now,
             Issuer = settings.Issuer,
             Audience = settings.Audience,
-            SigningCredentials = signingKeys.Current
+            SigningCredentials = current
         }));
 
         try

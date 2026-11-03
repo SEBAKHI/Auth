@@ -170,6 +170,9 @@ public class SystemSettingsDefaultParityTests
     public void ApplicationReplayGrace_IsRegisteredFromZeroToSixty_AndTheHandlerNeverReadsMore()
     {
         var section = SystemSettingsRegistry.Sections.Single(s => s.Key == "Jwt");
+        // S12: the signing key's name is its thumbprint, never a setting; Jwt:KeyId is read from
+        // the settings file alone, for the key a deployment never rotated.
+        SystemSettingsRegistry.TryGetField(section, "KeyId").Should().BeNull();
         var field = section.Fields.SingleOrDefault(f => f.Path == "ApplicationRefreshReplayGraceSeconds");
 
         field.Should().NotBeNull("Jwt:ApplicationRefreshReplayGraceSeconds must be editable from the console");

@@ -44,12 +44,18 @@ public static class SecretRotationImpact
     /// <param name="action">The keyring action it confirms; null for every other confirmation and for the aliases.</param>
     /// <param name="snapshot">Live counts read in one round trip.</param>
     /// <param name="approvalExpiresAt">When the confirmation stops being spendable.</param>
+    /// <param name="retiredKeyStillAccepted">For a retire of a signing key, whether the key is still accepted now (S12).</param>
     public static SecretRotationImpactDto Build(
         SecretOperation operation,
         KeyringAction? action,
         SecretRotationImpactSnapshot snapshot,
-        DateTime approvalExpiresAt) => (operation, action) switch
+        DateTime approvalExpiresAt,
+        bool retiredKeyStillAccepted = true) => (operation, action) switch
         {
+            // The signing keyring (S12) first: its actions cost differently from the HMAC ones.
+            (SecretOperation.GenerateRsaKey or SecretOperation.ImportRsaKey, { } signing) =>
+                ForSigningKeyring(operation, signing, snapshot, approvalExpiresAt, retiredKeyStillAccepted),
+
             (_, KeyringAction.Stage or KeyringAction.StageImport or KeyringAction.DiscardNext) => new SecretRotationImpactDto
             {
                 // A staged key only verifies, and a discarded one never issued: nothing
@@ -117,6 +123,65 @@ public static class SecretRotationImpact
             _ => BuildForOtherKeys(operation, snapshot, approvalExpiresAt)
         };
 
+    // A change of the signing keyring (S12). A stage or a discard breaks nothing and needs the
+    // API restarted to take effect here; a scheduled promote breaks nothing, since the old key is
+    // still accepted for a day; an emergency, and the retire of a key still in its window, refuse
+    // every token the old key signed, as a replaced key always did.
+    private static SecretRotationImpactDto ForSigningKeyring(
+        SecretOperation operation,
+        KeyringAction action,
+        SecretRotationImpactSnapshot snapshot,
+        DateTime approvalExpiresAt,
+        bool retiredKeyStillAccepted) => action switch
+        {
+            KeyringAction.Stage or KeyringAction.StageImport or KeyringAction.DiscardNext =>
+                NothingBreaks(operation, approvalExpiresAt, requiresApiRestart: true),
+            KeyringAction.Promote =>
+                NothingBreaks(operation, approvalExpiresAt, requiresApiRestart: false),
+            KeyringAction.Retire when !retiredKeyStillAccepted =>
+                NothingBreaks(operation, approvalExpiresAt, requiresApiRestart: false),
+            KeyringAction.Retire =>
+                SigningKeyReplaced(operation, snapshot, approvalExpiresAt, requiresApiRestart: false),
+            _ => SigningKeyReplaced(operation, snapshot, approvalExpiresAt, requiresApiRestart: true)
+        };
+
+    private static SecretRotationImpactDto NothingBreaks(
+        SecretOperation operation, DateTime approvalExpiresAt, bool requiresApiRestart) => new()
+        {
+            Operation = operation,
+            ApprovalExpiresAt = approvalExpiresAt,
+            AffectedUsers = 0,
+            Details = [],
+            RequiresApiRestart = requiresApiRestart,
+            RequiresGatewayReconfiguration = false
+        };
+
+    // Every token the old signing key signed is refused: everyone holding one meets a rejected
+    // request and refreshes. Refresh tokens are opaque and unsigned, so nobody is signed out.
+    private static SecretRotationImpactDto SigningKeyReplaced(
+        SecretOperation operation,
+        SecretRotationImpactSnapshot snapshot,
+        DateTime approvalExpiresAt,
+        bool requiresApiRestart) => new()
+        {
+            Operation = operation,
+            ApprovalExpiresAt = approvalExpiresAt,
+            // The blast radius is everyone with a live session: each of them
+            // meets at least one rejected request before the session ends.
+            AffectedUsers = snapshot.UsersWithActiveSessions,
+            Details =
+            [
+                new SecretRotationImpactItemDto(
+                    SecretRotationImpactCodes.UsersWithLiveAccessTokens,
+                    snapshot.UsersWithLiveAccessTokens),
+                new SecretRotationImpactItemDto(
+                    SecretRotationImpactCodes.UsersWithActiveSessions,
+                    snapshot.UsersWithActiveSessions)
+            ],
+            RequiresApiRestart = requiresApiRestart,
+            RequiresGatewayReconfiguration = false
+        };
+
     // Every credential class computed under the HMAC keyring, except webhook keys.
     private static IReadOnlyList<SecretRotationImpactItemDto> EveryHmacCredential(SecretRotationImpactSnapshot snapshot) =>
     [
@@ -131,31 +196,16 @@ public static class SecretRotationImpact
             snapshot.PendingAuthorizationCodes + snapshot.PendingAuthorizationRequests)
     ];
 
-    // The RSA key and the gateway token: their impact does not depend on a keyring action.
+    // The RSA key's aliases and the gateway token: their impact does not depend on a keyring action.
     private static SecretRotationImpactDto BuildForOtherKeys(
         SecretOperation operation,
         SecretRotationImpactSnapshot snapshot,
         DateTime approvalExpiresAt) => operation switch
         {
-            SecretOperation.GenerateRsaKey or SecretOperation.ImportRsaKey => new SecretRotationImpactDto
-            {
-                Operation = operation,
-                ApprovalExpiresAt = approvalExpiresAt,
-                // The blast radius is everyone with a live session: each of them
-                // meets at least one rejected request before the session ends.
-                AffectedUsers = snapshot.UsersWithActiveSessions,
-                Details =
-                [
-                    new SecretRotationImpactItemDto(
-                        SecretRotationImpactCodes.UsersWithLiveAccessTokens,
-                        snapshot.UsersWithLiveAccessTokens),
-                    new SecretRotationImpactItemDto(
-                        SecretRotationImpactCodes.UsersWithActiveSessions,
-                        snapshot.UsersWithActiveSessions)
-                ],
-                RequiresApiRestart = true,
-                RequiresGatewayReconfiguration = false
-            },
+            // The generate/rsa and import/rsa aliases (S12): a stage and an emergency, effective
+            // at the next restart, as a replaced key always was.
+            SecretOperation.GenerateRsaKey or SecretOperation.ImportRsaKey =>
+                SigningKeyReplaced(operation, snapshot, approvalExpiresAt, requiresApiRestart: true),
 
             // Gateway token: no user credential is invalidated, but the API stops
             // accepting proxied traffic until the gateway carries the same value,

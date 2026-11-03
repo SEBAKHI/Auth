@@ -101,14 +101,6 @@ public interface IDpapiSecretService
     // ═══════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Generates a new RSA-2048 key pair and stores in secret configuration.
-    /// WARNING: This invalidates all existing access tokens.
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The public key PEM for external use.</returns>
-    Task<string> GenerateRsaKeyPairAsync(CancellationToken cancellationToken);
-
-    /// <summary>
     /// Generates a secure random gateway token and stores it.
     /// WARNING: The API Gateway will need to be reconfigured with the new token.
     /// </summary>
@@ -134,17 +126,6 @@ public interface IDpapiSecretService
     // ═══════════════════════════════════════════════════════════════
     // Key Import Operations (bring-your-own-keys)
     // ═══════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Stores a caller-supplied RSA private key (and its derived public key) for JWT signing,
-    /// encrypting them into the secrets file. Use when migrating a server: re-import the same key
-    /// material you hold to reproduce identical, still-valid tokens on a new machine.
-    /// WARNING: replaces the current signing key - all existing access tokens become invalid.
-    /// </summary>
-    /// <param name="privateKeyPem">The RSA private key in PEM format (PKCS#8 or PKCS#1).</param>
-    /// <param name="publicKeyPem">The matching public key in SubjectPublicKeyInfo PEM format.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    Task ImportRsaKeyPairAsync(string privateKeyPem, string publicKeyPem, CancellationToken cancellationToken);
 
     /// <summary>
     /// Stores a caller-supplied gateway token for inter-service authentication, encrypting it into

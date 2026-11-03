@@ -32,6 +32,12 @@ public record HmacKeyringDto
 
     /// <summary>The keys, by id.</summary>
     public required IReadOnlyList<HmacKeyringEntryDto> Keys { get; init; }
+
+    /// <summary>
+    /// The RSA signing keyring (S12), on the keyring read only; null on the answer to an HMAC
+    /// keyring change. Additive: the HMAC members above are unchanged.
+    /// </summary>
+    public SigningKeyringDto? Rsa { get; init; }
 }
 
 /// <summary>One key of the HMAC keyring, without its material.</summary>

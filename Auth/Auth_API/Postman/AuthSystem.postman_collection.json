@@ -2412,23 +2412,6 @@
 							}
 						},
 						{
-							"name": "Generate RSA Key",
-							"request": {
-								"method": "POST",
-								"header": [{ "key": "Content-Type", "value": "application/json" }],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"challengeId\": \"{{secretChallengeId}}\"\n}"
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/admin/secrets/generate/rsa",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "admin", "secrets", "generate", "rsa"]
-								},
-								"description": "Step 3. Generates a new RSA key pair used for JWT signing. Requires a verified confirmation raised for this exact operation; the approval is spent on use, so a replay returns 403 Secret.ChallengeNotApproved. Takes effect for users only after the API process restarts."
-							}
-						},
-						{
 							"name": "Generate HMAC Key",
 							"request": {
 								"method": "POST",
@@ -2460,23 +2443,6 @@
 									"path": ["api", "v1", "admin", "secrets", "generate", "gateway-token"]
 								},
 								"description": "Step 3. Generates a new gateway authentication token. Requires a verified confirmation raised for this exact operation. Invalidates no user credential, but the API rejects all proxied traffic until the gateway carries the same value."
-							}
-						},
-						{
-							"name": "Import RSA Key (BYOK)",
-							"request": {
-								"method": "POST",
-								"header": [{ "key": "Content-Type", "value": "application/json" }],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"value\": \"{{importRsaPrivateKeyPem}}\",\n    \"challengeId\": \"{{secretChallengeId}}\"\n}"
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/admin/secrets/import/rsa",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "admin", "secrets", "import", "rsa"]
-								},
-								"description": "Imports a caller-supplied RSA private key (PKCS#8 or PKCS#1 PEM, at least 2048-bit). Certificate or Dpapi mode only (returns 409 in PlainText). Requires a verified confirmation raised for ImportRsaKey with this byte-identical value; submitting different material returns 403 Secret.ChallengeNotApproved. Replaces the JWT signing key and invalidates existing access tokens. Set importRsaPrivateKeyPem to the PEM with line breaks escaped."
 							}
 						},
 						{
@@ -2677,6 +2643,135 @@
 									]
 								},
 								"description": "Removes an older key from the secrets file and from its backup copy, for good: anything still fingerprinted under it stops working. Refused (Secret.KeyringKeyReferenced) while webhook keys stored under it are in their grace. Confirmation: keyringAction Retire with this keyId."
+							}
+						},
+						{
+							"name": "Signing keyring: Stage a signing key",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"challengeId\": \"{{secretChallengeId}}\",\n    \"value\": null\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/keyring/rsa/stage",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"admin",
+										"secrets",
+										"keyring",
+										"rsa",
+										"stage"
+									]
+								},
+								"description": "Stages a new signing key (S12): published and accepted from the next restart of the API, signing nothing until it is promoted. value null generates the key (confirmation: GenerateRsaKey, keyringAction Stage); a PEM private key stages yours (confirmation: ImportRsaKey, keyringAction StageImport, the same value); a key the keyring holds or once held is refused (409 Secret.KeyringKeyReferenced). Back up the secrets file, then recycle the API so it loads and publishes the key."
+							}
+						},
+						{
+							"name": "Signing keyring: Promote the staged signing key",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"challengeId\": \"{{secretChallengeId}}\",\n    \"emergency\": false\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/keyring/rsa/promote",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"admin",
+										"secrets",
+										"keyring",
+										"rsa",
+										"promote"
+									]
+								},
+								"description": "Makes the staged signing key sign (confirmation: GenerateRsaKey, keyringAction Promote, or PromoteEmergency for emergency true). Scheduled: refused while this process has not loaded the staged key (409 Secret.KeyringNoNextKey: recycle the API) and before 24 hours of publication (409 Secret.KeyringNextTooYoung, naming the time); the old key is accepted for about a day. Emergency: the old key is neither accepted nor published; changeAppliedInProcess false means it closes only when the API restarts. Back up the secrets file afterwards."
+							}
+						},
+						{
+							"name": "Signing keyring: Discard the staged signing key",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"challengeId\": \"{{secretChallengeId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/keyring/rsa/discard-next",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"admin",
+										"secrets",
+										"keyring",
+										"rsa",
+										"discard-next"
+									]
+								},
+								"description": "Removes the staged signing key (confirmation: GenerateRsaKey, keyringAction DiscardNext). It is never staged again; a process that already loaded it keeps accepting it until it restarts."
+							}
+						},
+						{
+							"name": "Signing keyring: Retire a signing key",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"challengeId\": \"{{secretChallengeId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/keyring/rsa/retire/{{signingKid}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"admin",
+										"secrets",
+										"keyring",
+										"rsa",
+										"retire",
+										"{{signingKid}}"
+									]
+								},
+								"description": "Removes a previous signing key, or a compromised record, from the secrets file and its backup copy (confirmation: GenerateRsaKey, keyringAction Retire, kid). The current and the staged key are refused (409 Secret.KeyringKeyReferenced)."
 							}
 						},
 						{

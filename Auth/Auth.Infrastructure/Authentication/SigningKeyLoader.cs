@@ -34,6 +34,28 @@ public static class SigningKeyLoader
     /// <exception cref="InvalidOperationException">No source, or a key that is not a usable RSA private key.</exception>
     public static RSA Load(JwtSettings settings, IDataProtectionProvider? dataProtectionProvider)
     {
+        var winner = Read(settings, dataProtectionProvider);
+
+        var rsa = RSA.Create();
+        try
+        {
+            rsa.ImportFromPem(winner.PrivateKeyPem);
+            return rsa;
+        }
+        catch
+        {
+            rsa.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// The winning source and its key, checked: the one place that decides where the signing key
+    /// comes from, so the keyring (S12) learns its source here and never works it out again.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">No source, or a key that is not a usable RSA private key.</exception>
+    public static WinningSigningKey Read(JwtSettings settings, IDataProtectionProvider? dataProtectionProvider)
+    {
         var (source, pem) = ReadWinningSource(settings, dataProtectionProvider);
 
         var validated = SecretKeyMaterial.ValidateRsaPrivateKey(pem);
@@ -45,17 +67,7 @@ public static class SigningKeyLoader
                 ".bak) that held the key, then restart.");
         }
 
-        var rsa = RSA.Create();
-        try
-        {
-            rsa.ImportFromPem(pem);
-            return rsa;
-        }
-        catch
-        {
-            rsa.Dispose();
-            throw;
-        }
+        return new WinningSigningKey(source, pem);
     }
 
     private static (string Source, string Pem) ReadWinningSource(
@@ -96,3 +108,8 @@ public static class SigningKeyLoader
             $"Certificate/Dpapi mode), {EncryptedKey} or {PathKey}.");
     }
 }
+
+/// <summary>The signing key the loader chose, and the setting it came from.</summary>
+/// <param name="Source">The setting: <see cref="SigningKeyLoader.PathKey"/>, <see cref="SigningKeyLoader.EncryptedKey"/> or <see cref="SigningKeyLoader.PemKey"/>.</param>
+/// <param name="PrivateKeyPem">The key, checked to be a usable RSA private key of at least 2048 bits.</param>
+public sealed record WinningSigningKey(string Source, string PrivateKeyPem);

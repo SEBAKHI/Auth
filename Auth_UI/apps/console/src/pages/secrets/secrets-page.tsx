@@ -54,6 +54,7 @@ import { formatDateTime, secretStatusMeta } from "@authsystem/ui/format"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { KeyringPanel } from "./keyring-panel"
+import { SigningKeyringPanel } from "./signing-keyring-panel"
 import {
   SecretOperationFlow,
   type KeyringActionName,
@@ -74,10 +75,12 @@ interface KeyMaterialSpec {
   generate: SecretOperationName
   import: SecretOperationName
   /**
-   * For the HMAC key, the keyring change an import is (S11): the key is staged,
+   * For a keyring key, the keyring change an import is (S11, S12): the key is staged,
    * never put in place at once, so supplying one signs nobody out.
    */
   importAction?: KeyringActionName
+  /** For the signing key, the keyring change a generate is (S12): a stage, never a replacement. */
+  generateAction?: KeyringActionName
   generateLabelKey: string
   importLabelKey: string
   /** Names the exact encoding the server will validate the pasted value against. */
@@ -88,8 +91,10 @@ const KEY_MATERIAL: Record<ImportKind, KeyMaterialSpec> = {
   rsa: {
     generate: "GenerateRsaKey",
     import: "ImportRsaKey",
-    generateLabelKey: "secrets.generateRsa",
-    importLabelKey: "secrets.importRsa",
+    generateAction: "Stage",
+    importAction: "StageImport",
+    generateLabelKey: "secrets.signingKeyring.stageGenerate",
+    importLabelKey: "secrets.signingKeyring.stageImportTitle",
     valueLabelKey: "secrets.rsaPem",
   },
   hmac: {
@@ -706,6 +711,7 @@ export function SecretsPage() {
                                 onClick={() =>
                                   setPendingOperation({
                                     operation: material.generate,
+                                    keyringAction: material.generateAction,
                                   })
                                 }
                               >
@@ -759,6 +765,12 @@ export function SecretsPage() {
         busy={Boolean(pendingOperation)}
         onChange={setPendingOperation}
         onStageImport={() => setImportKind("hmac")}
+      />
+
+      <SigningKeyringPanel
+        busy={Boolean(pendingOperation)}
+        onChange={setPendingOperation}
+        onStageImport={() => setImportKind("rsa")}
       />
 
       {/* Keyed so opening a dialog mounts a fresh one and the initial state IS

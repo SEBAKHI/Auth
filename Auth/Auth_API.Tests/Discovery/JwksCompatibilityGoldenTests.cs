@@ -5,6 +5,7 @@ using Auth.Application.Configuration;
 using Auth.Application.Features.Discovery.GetJwks;
 using Auth.Application.Features.Discovery.GetPublicKey;
 using Auth.Application.Interfaces;
+using Auth.Application.Security.Keyring;
 using Auth.Infrastructure.Authentication;
 using Auth_API.Controllers;
 using ErrorOr;
@@ -121,6 +122,64 @@ public sealed class JwksCacheControlTests : IDisposable
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Headers.CacheControl.Should().BeNull();
+    }
+
+    [Fact]
+    public void TheMigratedRing_ReadFromTheSecretsFile_PublishesExactlyWhatTheOneKeySetPublishes()
+    {
+        // S12 PR B, TS1: a deployment that never rotated loads its one key as the migrated ring,
+        // through the file reader the start uses. Its bodies are those of the one-key set, whose
+        // bytes the tests above hold to the golden files.
+        using var rsa = RSA.Create(2048);
+        var pem = rsa.ExportPkcs8PrivateKeyPem();
+        var migrated = RsaKeyringFile.FromEntries(null, null, null, pem, [], RsaKeyring.MigratedKeyId).Value;
+        var settings = new JwtSettings { Issuer = "https://auth.example.com", Audience = "authsystem-api", KeyId = RsaKeyring.MigratedKeyId };
+
+        using var fromTheRing = new JwtTokenService(settings, SigningKeyRing.Load(migrated, new SigningKeySource(SigningKeyLoader.PemKey, PlainText: false)));
+        using var fromOneKey = new JwtTokenService(settings, SigningKeyRing.Single(rsa, RsaKeyring.MigratedKeyId, new SigningKeySource(SigningKeyLoader.PemKey, PlainText: true)));
+
+        migrated.Persisted.Should().BeFalse();
+        fromTheRing.GetJwks().Should().Be(fromOneKey.GetJwks());
+        fromTheRing.GetPublicKeyPem().Should().Be(fromOneKey.GetPublicKeyPem());
+    }
+
+    [Fact]
+    public void WithFourKeys_TheCurrentKeyComesFirst_AndNoPrivateMemberIsPublished()
+    {
+        var now = DateTime.UtcNow;
+        var keys = Enumerable.Range(0, 4).Select(_ => Auth_API.Tests.SecretManagement.KeyringTestHarness.NewSigningKey() with { CreatedAtUtc = now.AddDays(-1) }).ToList();
+        var ring = RsaKeyring.Create(
+            [
+                keys[0],
+                keys[1] with { PublishedAtUtc = now },
+                keys[2] with { PrivateKeyPem = null, VerifyUntilUtc = now.AddHours(10) },
+                keys[3] with { PrivateKeyPem = null, VerifyUntilUtc = now.AddHours(20) }
+            ],
+            keys[0].Kid,
+            keys[1].Kid,
+            removed: null).Value;
+        using var service = new JwtTokenService(
+            new JwtSettings { Issuer = "https://auth.example.com", Audience = "authsystem-api" },
+            SigningKeyRing.Load(ring, new SigningKeySource(SigningKeyLoader.PemKey, PlainText: false)));
+
+        using var jwks = System.Text.Json.JsonDocument.Parse(service.GetJwks());
+        var published = jwks.RootElement.GetProperty("keys").EnumerateArray().ToList();
+
+        published.Select(key => key.GetProperty("kid").GetString())
+            .Should().Equal(keys[0].Kid, keys[1].Kid, keys[3].Kid, keys[2].Kid);
+        published.Should().OnlyContain(key =>
+            key.EnumerateObject().Select(member => member.Name).SequenceEqual(new[] { "kty", "use", "alg", "kid", "n", "e" }),
+            "the members, in today's order, and never d, p, q, dp, dq or qi");
+        service.GetPublicKeyPem().Should().Be(PublicPem(keys[0]), "the PEM is the current key");
+    }
+
+    private static string PublicPem(SigningKey key)
+    {
+        using var rsa = RSA.Create();
+        rsa.ImportFromPem(key.PublicKeyPem);
+        var body = Convert.ToBase64String(rsa.ExportRSAPublicKey());
+        var lines = Enumerable.Range(0, (body.Length + 63) / 64).Select(i => body.Substring(i * 64, Math.Min(64, body.Length - i * 64)));
+        return string.Concat(new[] { "-----BEGIN RSA PUBLIC KEY-----" }.Concat(lines).Append("-----END RSA PUBLIC KEY-----").Select(line => line + Environment.NewLine));
     }
 }
 

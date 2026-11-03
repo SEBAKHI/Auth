@@ -11,4 +11,7 @@ public sealed class SharedKeyMaterialGenerator : IKeyMaterialGenerator
 {
     /// <inheritdoc />
     public string GenerateHmacKeyBase64() => KeyMaterialGenerator.GenerateHmacKeyBase64();
+
+    /// <inheritdoc />
+    public (string PrivateKeyPem, string PublicKeyPem) GenerateRsaKeyPair() => KeyMaterialGenerator.GenerateRsaKeyPair();
 }

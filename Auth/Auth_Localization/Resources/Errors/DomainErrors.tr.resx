@@ -1452,19 +1452,22 @@
     <value>Gizli bilgi yönetimi yönetici API'si devre dışı.</value>
   </data>
   <data name="Secret.KeyringNoNextKey" xml:space="preserve">
-    <value>Bu işlemde yüklenmiş, hazırlanmış bir HMAC anahtarı yok. Önce bir anahtar hazırlayın veya gizli bilgiler dosyasında hazırlanan anahtarı yüklemesi için API'yi yeniden başlatın.</value>
+    <value>Bu işlemde yüklenmiş, hazırlanmış bir anahtar yok. Önce bir anahtar hazırlayın; gizli bilgiler dosyasında hazırlanmış bir anahtar varsa bu işlemin onu yüklemesi için API'yi yeniden başlatın, sonra tekrar deneyin.</value>
   </data>
   <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
-    <value>HMAC anahtarlığında bu işlemin uygulanabileceği {0} numaralı önceki bir anahtar yok.</value>
+    <value>Anahtarlıkta bu işlemin uygulanabileceği {0} anahtarı yok.</value>
   </data>
   <data name="Secret.KeyringKeyReferenced" xml:space="preserve">
-    <value>{0} numaralı HMAC anahtarı {2} tarihine kadar hâlâ {1} etkin webhook anahtarını doğruluyor. Kaldırmadan önce o tarihi bekleyin veya bu webhook anahtarlarını yenileyin.</value>
+    <value>{0} anahtarı hâlâ kullanımda, bu yüzden bu değişiklik yapılamaz: geçerli ya da hazırlanmış anahtardır, anahtarlığın tuttuğu ya da daha önce tuttuğu bir anahtardır veya etkin webhook anahtarlarının hâlâ ihtiyaç duyduğu bir HMAC anahtarıdır. Hangisi olduğunu anahtarlık paneli gösterir.</value>
   </data>
   <data name="Secret.KeyringUnavailable" xml:space="preserve">
-    <value>HMAC anahtarlığı yalnızca Certificate veya Dpapi depolama modunda, HMAC anahtarı şifreli gizli bilgiler dosyasında tutulurken yönetilebilir. Bu kurulum PlainText modunda çalışıyor veya anahtarı başka bir kaynaktan alıyor.</value>
+    <value>Bu anahtarlık yalnızca Certificate veya Dpapi depolama modunda, anahtarı şifreli gizli bilgiler dosyasında tutulurken yönetilebilir. Bu kurulum PlainText modunda çalışıyor veya anahtarı, anahtarlık panelinin adını verdiği başka bir kaynaktan alıyor.</value>
   </data>
   <data name="Secret.KeyringFileInconsistent" xml:space="preserve">
-    <value>Gizli bilgiler dosyasındaki HMAC anahtarlığı bu haliyle kullanılamaz: {0}</value>
+    <value>Gizli bilgiler dosyasındaki anahtarlık bu haliyle kullanılamaz: {0}</value>
+  </data>
+  <data name="Secret.KeyringNextTooYoung" xml:space="preserve">
+    <value>Hazırlanan imzalama anahtarı henüz 24 saattir yayında değil, bu yüzden uygulamalar onu almamış olabilir. {0} (UTC) tarihinden itibaren yükseltilebilir. Bu beklemeyi yalnızca acil yükseltme atlar.</value>
   </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>Doğrulama kodu 6 haneli olmalıdır.</value>
