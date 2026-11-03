@@ -74,16 +74,38 @@ function renderProvider() {
   )
 }
 
+/** The icon link both apps' built HTML carries (favicon-link.ts). */
+const STABLE_ICON = "https://api.test/uploads/images/platform-favicon.png"
+const STABLE_ICON_LINK = `<link rel="icon" type="image/png" href="${STABLE_ICON}" />`
+
 describe("BrandingProvider", () => {
   beforeEach(() => {
-    document.head.innerHTML =
-      '<link rel="icon" type="image/svg+xml" href="/vite.svg" />'
+    document.head.innerHTML = STABLE_ICON_LINK
     document.title = "Accounts"
     get.mockReset()
   })
 
   afterEach(() => {
     document.head.innerHTML = ""
+  })
+
+  const icon = () => document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.href
+
+  // The HTML names the stable icon; the provider only follows an upload made while the page is
+  // open. Break: fall back to a template icon when there is no favicon nor logo.
+  it("keeps the stable icon without a favicon or logo, and shows an uploaded one", async () => {
+    stubLocalStorage()
+    get.mockResolvedValue({ data: { platformName: "Acme", logoUrl: null, faviconUrl: null } })
+    const { unmount } = renderProvider()
+    await waitFor(() => expect(document.title).toBe("Acme"))
+    expect(icon()).toBe(STABLE_ICON)
+    unmount()
+
+    get.mockResolvedValue({
+      data: { platformName: "Acme", faviconUrl: "https://cdn.test/favicon.webp" },
+    })
+    renderProvider()
+    await waitFor(() => expect(icon()).toBe("https://cdn.test/favicon.webp"))
   })
 
   it("asserts nothing about the brand before the answer arrives", async () => {
@@ -280,7 +302,7 @@ describe("BrandingProvider — the platform appearance", () => {
   }
 
   beforeEach(() => {
-    document.head.innerHTML = '<link rel="icon" type="image/svg+xml" href="/vite.svg" />'
+    document.head.innerHTML = STABLE_ICON_LINK
     get.mockReset()
   })
 
@@ -419,7 +441,7 @@ describe("BrandingProvider — an application's own appearance", () => {
   const APP_RADIUS = "--radius:0.45rem;"
 
   beforeEach(() => {
-    document.head.innerHTML = '<link rel="icon" type="image/svg+xml" href="/vite.svg" />'
+    document.head.innerHTML = STABLE_ICON_LINK
     get.mockReset()
     get.mockResolvedValue({ data: { platformName: "Acme", theme: platform } })
   })

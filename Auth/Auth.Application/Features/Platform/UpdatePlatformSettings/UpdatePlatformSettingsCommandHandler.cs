@@ -20,6 +20,7 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
     private readonly IImageStorageService _imageStorage;
     private readonly ImageReferenceGuard _imageReferenceGuard;
     private readonly EmailLogoRenditions _emailLogoRenditions;
+    private readonly PlatformTabIcon _tabIcon;
     private readonly IPublisher _publisher;
     private readonly ILogger<UpdatePlatformSettingsCommandHandler> _logger;
 
@@ -30,6 +31,7 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
         IImageStorageService imageStorage,
         ImageReferenceGuard imageReferenceGuard,
         EmailLogoRenditions emailLogoRenditions,
+        PlatformTabIcon tabIcon,
         IPublisher publisher,
         ILogger<UpdatePlatformSettingsCommandHandler> logger)
     {
@@ -39,6 +41,7 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
         _imageStorage = imageStorage;
         _imageReferenceGuard = imageReferenceGuard;
         _emailLogoRenditions = emailLogoRenditions;
+        _tabIcon = tabIcon;
         _publisher = publisher;
         _logger = logger;
     }
@@ -103,6 +106,10 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
         // card colour in use, built here — at admin time, on a thread that can afford it —
         // rather than on the send path. Best-effort: a storage fault does not fail the update.
         await _emailLogoRenditions.RebuildAllAsync(settings, cancellationToken);
+
+        // The tab icon sits at the stable URL both applications' HTML names, so it follows the
+        // favicon (or the logo) here. Best-effort, like the email renditions.
+        await _tabIcon.RebuildAsync(settings, cancellationToken);
 
         _logger.LogInformation(
             "Platform settings updated by {UpdatedBy}: name '{OldName}' -> '{NewName}'",

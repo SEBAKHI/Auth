@@ -169,6 +169,7 @@ public class UpdatePlatformSettingsCommandHandlerTests
                 new Mock<INotificationLayoutRepository>().Object,
                 _imageStorageMock.Object,
                 new Mock<ILogger<EmailLogoRenditions>>().Object),
+            new PlatformTabIcon(_imageStorageMock.Object, new Mock<ILogger<PlatformTabIcon>>().Object),
             _publisherMock.Object,
             new Mock<ILogger<UpdatePlatformSettingsCommandHandler>>().Object);
     }
@@ -227,6 +228,40 @@ public class UpdatePlatformSettingsCommandHandlerTests
         result.IsError.Should().BeFalse();
         _uploadedImagesMock.Verify(
             r => r.TryClaimAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    /// <summary>
+    /// Both applications' HTML names the tab icon's stable file, so a save rebuilds it from the
+    /// favicon, else the light logo, else the default mark (null). Break: drop the rebuild from
+    /// the handler, or build it from FaviconUrl alone.
+    /// </summary>
+    [Theory]
+    [InlineData("favicon.webp", "favicon.webp")]
+    [InlineData(null, "logo.webp")]
+    public async Task Handle_RebuildsTheTabIconFromTheFaviconElseTheLogo(string? favicon, string expectedSource)
+    {
+        SetupExisting();
+
+        var result = await _handler.Handle(
+            new UpdatePlatformSettingsCommand("Auth Console", "logo.webp", "logo-dark.webp", favicon, Guid.NewGuid()),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _imageStorageMock.Verify(
+            s => s.EnsureTabIconRenditionAsync(expectedSource, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_NoFaviconNorLogo_RebuildsTheTabIconAsTheDefaultMark()
+    {
+        SetupExisting(logoUrl: "logo.webp");
+
+        await _handler.Handle(
+            new UpdatePlatformSettingsCommand("Auth Console", null, null, null, Guid.NewGuid()),
+            CancellationToken.None);
+
+        _imageStorageMock.Verify(
+            s => s.EnsureTabIconRenditionAsync(null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private void SetupExisting(string? logoUrl = null, string? logoUrlDark = null, string? faviconUrl = null)

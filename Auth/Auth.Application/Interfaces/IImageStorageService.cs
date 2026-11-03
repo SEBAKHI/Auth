@@ -120,4 +120,17 @@ public interface IImageStorageService
     /// mail sent with it still shows it.
     /// </summary>
     Task<IReadOnlyList<EmailLogoBackground>> GetBuiltEmailLogoBackgroundsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Builds (or rebuilds) the tab icon at its stable URL from a stored image, or the product's
+    /// default mark when there is none (no key, an externally hosted absolute URL, a missing or
+    /// undecodable source file). Returns false when the file could not be written.
+    /// </summary>
+    /// <remarks>
+    /// Both applications' HTML names this file, so the browser shows the platform's icon from
+    /// its first parse of the page: before any script, on a first visit, and in browsers that
+    /// ignore an icon a script swaps in afterwards. Admin- and startup-time only, like the
+    /// email renditions.
+    /// </remarks>
+    Task<bool> EnsureTabIconRenditionAsync(string? sourceKey, CancellationToken cancellationToken);
 }

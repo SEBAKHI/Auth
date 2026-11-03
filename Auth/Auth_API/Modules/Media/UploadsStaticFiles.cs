@@ -37,12 +37,12 @@ public static class UploadsStaticFiles
         }
 
         // Uploads are content-addressed by a random key, so they are immutable and cache
-        // hard. The email logo renditions are the exception: they sit at a STABLE filename
-        // that is overwritten whenever branding changes, precisely so that mail already
-        // delivered picks up the new logo. A long TTL there would defeat the point, so they
-        // get a short one and must be revalidated.
-        var isEmailRendition = fileName.StartsWith("platform-email-", StringComparison.OrdinalIgnoreCase);
-        headers["Cache-Control"] = isEmailRendition
+        // hard. The renditions are the exception: the email logos and the tab icon sit at a
+        // STABLE filename (platform-*) that is overwritten whenever branding changes, precisely
+        // so that mail already delivered and pages already deployed pick up the new image. A
+        // long TTL there would defeat the point, so they get a short one and must be revalidated.
+        var isRendition = fileName.StartsWith("platform-", StringComparison.OrdinalIgnoreCase);
+        headers["Cache-Control"] = isRendition
             ? "public, max-age=3600, must-revalidate"
             : "public, max-age=86400";
     }
