@@ -1,6 +1,7 @@
 import { ensureFreshAccessToken, sharedRefresh } from "@authsystem/api/client"
 import { prepareImageForUpload } from "@authsystem/api/image-downscale"
-import { hasSession } from "@authsystem/api/token-store"
+import { emitSessionExpired } from "@authsystem/api/tab-sync"
+import { hasSession, noteTokenAccepted } from "@authsystem/api/token-store"
 import { API_BASE_URL } from "@authsystem/api/env"
 import { readProblem } from "@authsystem/api/errors"
 import i18n from "@authsystem/i18n"
@@ -10,7 +11,8 @@ import i18n from "@authsystem/i18n"
  * composed URL. Uses a raw multipart request (so the browser sets the boundary)
  * with the current bearer token. Because this bypasses the openapi-fetch
  * middleware, it must mirror its handling itself: refresh a stale token before
- * sending, retry once if the server still rejects it (e.g. revoked), and throw a
+ * sending, force one refresh and retry once if the server still refuses the
+ * token it carried (revoked, or its signing key withdrawn: S12), and throw a
  * failure as the same problem the middleware would ({@link readProblem}), so
  * `getErrorMessage` shows the API's sentence (Image.FileTooLarge,
  * Image.QuotaExceeded) rather than generic copy.
@@ -46,18 +48,25 @@ export async function uploadImage(
       body,
     })
 
-  const token = await ensureFreshAccessToken()
-  let res = await send(token)
+  let presented = await ensureFreshAccessToken()
+  let res = await send(presented)
 
   // Retry only when we actually presented a token. A 401 on a request that
   // carried none is a foregone conclusion, and refreshing here would spend the
   // same dead refresh token a second time — which the server reports as reuse
   // and answers by revoking every session the account has.
-  if (res.status === 401 && token && hasSession() && (await sharedRefresh())) {
-    res = await send(await ensureFreshAccessToken())
+  if (res.status === 401 && presented && hasSession()) {
+    const result = await sharedRefresh({ rejected: presented })
+    if (result.status === "fresh") {
+      presented = await ensureFreshAccessToken()
+      res = await send(presented)
+    } else if (result.status === "failed" && !hasSession()) {
+      emitSessionExpired()
+    }
   }
 
   if (!res.ok) throw await readProblem(res)
+  if (presented) noteTokenAccepted(presented)
 
   return (await res.json()) as { key: string; url: string }
 }

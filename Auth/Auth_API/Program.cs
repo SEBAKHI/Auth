@@ -692,8 +692,6 @@ StartupStep.Run(
         jwtDataProtectionProvider,
         tempServiceProvider.GetRequiredService<IOptionsMonitor<JwtSettings>>()));
 builder.Services.AddSingleton<IJwtTokenService>(jwtTokenService);
-// The readiness check asks it to sign and validate a probe token (X03).
-builder.Services.AddSingleton<ISigningKeyProbe>(jwtTokenService);
 
 // Token blacklist: one singleton behind both the interface and the concrete
 // type (the background service needs the concrete LoadSnapshot for rehydration),
@@ -1018,8 +1016,9 @@ builder.Services.AddApiVersioning(options =>
 });
 
 // JWT Authentication: the platform scheme (the default) and the userinfo scheme, both built
-// by AccessTokenValidation so the two can never drift apart (X11).
-builder.Services.AddAuthSystemBearerSchemes(jwtSettings, jwtTokenService.GetSecurityKey());
+// by AccessTokenValidation so the two can never drift apart (X11). They, revocation,
+// introspection and the readiness probe (X03) read their keys from the signer's key set (S12).
+builder.Services.AddAuthSystemBearerSchemes(jwtSettings, jwtTokenService.SigningKeys);
 
 builder.Services.AddAuthorization();
 

@@ -171,7 +171,7 @@ public class UserInfoSchemeIsolationGuardTests
             .Should().ContainSingle("one base set, from which both profiles start");
 
         var program = Source("Program.cs");
-        program.Should().Contain("builder.Services.AddAuthSystemBearerSchemes(jwtSettings, jwtTokenService.GetSecurityKey());");
+        program.Should().Contain("builder.Services.AddAuthSystemBearerSchemes(jwtSettings, jwtTokenService.SigningKeys);");
         program.Should().NotContain("AddAuthentication(", "the registration owns it");
     }
 

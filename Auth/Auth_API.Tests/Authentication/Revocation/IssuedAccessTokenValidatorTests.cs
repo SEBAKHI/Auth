@@ -28,7 +28,7 @@ public sealed class IssuedAccessTokenValidatorTests : IDisposable
     public IssuedAccessTokenValidatorTests()
     {
         var services = new ServiceCollection();
-        services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.Key);
+        services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.SigningKeys);
         _provider = services.BuildServiceProvider();
         _validator = _provider.GetRequiredService<IIssuedAccessTokenValidator>();
     }

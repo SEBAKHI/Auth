@@ -34,7 +34,7 @@ public sealed class MachineSchemeIsolationTests : IAsyncLifetime
     private IHost _host = null!;
     private HttpClient _client = null!;
 
-    private TokenValidationParameters MachineParameters => AccessTokenValidation.Machine(_tokens.Settings, _tokens.Key);
+    private TokenValidationParameters MachineParameters => AccessTokenValidation.Machine(_tokens.Settings, _tokens.SigningKeys);
 
     private string MachineToken() => _tokens.Service.GenerateMachineAccessToken("shop", MachineClients.Scopes.All);
 
@@ -170,7 +170,7 @@ public sealed class MachineSchemeIsolationTests : IAsyncLifetime
                 {
                     services.AddRouting();
                     services.AddLogging();
-                    services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.Key);
+                    services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.SigningKeys);
                     services.AddAuthorization();
                     services.AddSingleton(_blacklist.Object);
                 })

@@ -261,6 +261,9 @@ ClientBin/
 # TLS material. The dev servers read a locally trusted cert/key whose paths live
 # in .env.development.local; nothing of the sort ever belongs in the repo.
 *.pem
+# Public test keys the JWKS golden test reads (S12); no private key is ever here.
+!/Auth/Auth_API.Tests/Discovery/Golden/signing-key.public.pem
+!/Auth/Auth_API.Tests/Discovery/Golden/public-key.golden.pem
 *.key
 *.crt
 orleans.codegen.cs

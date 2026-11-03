@@ -36,6 +36,7 @@
 
 import { decodeJwt, isTokenExpired } from "@authsystem/api/jwt"
 import {
+  adoptForcedRefresh,
   clearRefreshPending,
   clearRefreshSpending,
   clearTokens,
@@ -44,6 +45,7 @@ import {
   getRefreshSpendingSince,
   getRefreshToken,
   hasSession,
+  isForcedRefresh,
   setAccessToken,
 } from "@authsystem/api/token-store"
 
@@ -81,8 +83,13 @@ export const SPENDING_MARKER_MAX_AGE_MS = 10_000
 export const SESSION_EXPIRED_EVENT = "auth:session-expired"
 
 type TabMessage =
-  /** A context rotated the token pair and is publishing the new access token. */
-  | { kind: "access"; token: string }
+  /**
+   * A context rotated the token pair and is publishing the new access token.
+   * `forced` (S12): a forced refresh produced it, so no tab forces another one
+   * for it until a request with it succeeds. Absent from older bundles, which
+   * is read as false.
+   */
+  | { kind: "access"; token: string; forced?: boolean }
   /** A freshly opened context asking whether anyone holds a live access token. */
   | { kind: "hello" }
   /** A context ended the session. */
@@ -108,9 +115,12 @@ function publish(message: TabMessage): void {
   }
 }
 
-/** Publishes a freshly rotated access token to the other tabs of this origin. */
-export function publishAccessToken(token: string): void {
-  publish({ kind: "access", token })
+/**
+ * Publishes a freshly rotated access token to the other tabs of this origin,
+ * saying whether a forced refresh produced it.
+ */
+export function publishAccessToken(token: string, forced = false): void {
+  publish(forced ? { kind: "access", token, forced: true } : { kind: "access", token })
 }
 
 function resolveAccessTokenWaiters(token: string | null): void {
@@ -255,12 +265,17 @@ function handleMessage(message: TabMessage): void {
   switch (message.kind) {
     case "access":
       setAccessToken(message.token)
+      if (message.forced === true) adoptForcedRefresh(message.token)
       resolveAccessTokenWaiters(message.token)
       break
     case "hello":
       // Answer only with a token that is actually usable, so a newly opened tab
-      // can skip its startup refresh instead of rotating the shared token.
-      if (hasFreshAccessToken()) publishAccessToken(getAccessToken() as string)
+      // can skip its startup refresh instead of rotating the shared token. The
+      // forced flag goes with it, or the new tab could force the refresh again.
+      if (hasFreshAccessToken()) {
+        const token = getAccessToken() as string
+        publishAccessToken(token, isForcedRefresh(token))
+      }
       break
     case "cleared":
       emitSessionExpired({ broadcast: false })

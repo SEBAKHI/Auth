@@ -146,7 +146,11 @@ public sealed class AuthSystemClient : IDisposable
 
     /// <summary>
     /// Introspects a token (RFC 7662), as this application: <c>active</c> only for an access or
-    /// refresh token issued to this application and still valid. Null when no answer could be had
+    /// refresh token issued to this application and still valid. An active answer about a token
+    /// issued to another application (its <c>aud</c> or <c>client_id</c> is not
+    /// <see cref="AuthSystemOptions.Audience"/>) is turned inactive here too (SDK 2.1): the
+    /// AuthSystem already answers so, and a token another application received must never pass
+    /// for one of this application's on the word of one check. Null when no answer could be had
     /// (the AuthSystem was throttling, failing or unreachable, or refused this application's
     /// machine credential). An inactive answer is held for <see cref="InvalidResultCacheDuration"/>,
     /// since an inactive token never becomes active again; an active one is never held, because the
@@ -191,12 +195,34 @@ public sealed class AuthSystemClient : IDisposable
             return null;
         }
 
+        if (result is { Active: true } && !IssuedToThisApplication(result))
+        {
+            _logger.LogWarning("Token introspection answered active for another application's token; treated as inactive");
+            result.Active = false;
+        }
+
         if (result is { Active: false })
         {
             Remember(_invalidResults, cacheKey, true, InvalidResultCacheDuration);
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// True when the answer names this application as the token's audience: <c>aud</c> for an
+    /// access token, <c>client_id</c> for a refresh token (which carries no <c>aud</c>), and both
+    /// when both are present. Compared as the AuthSystem compares application codes, ignoring case.
+    /// </summary>
+    private bool IssuedToThisApplication(TokenIntrospectionResult result)
+    {
+        if (result.Aud is null && result.ClientId is null)
+        {
+            return false;
+        }
+
+        return (result.Aud is null || string.Equals(result.Aud, _options.Audience, StringComparison.OrdinalIgnoreCase))
+            && (result.ClientId is null || string.Equals(result.ClientId, _options.Audience, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

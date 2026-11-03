@@ -33,6 +33,8 @@
  * Read tab-sync.ts before changing anything below.
  */
 
+import { decodeJwt } from "@authsystem/api/jwt"
+
 const REFRESH_TOKEN_KEY = "auth.refreshToken"
 
 /**
@@ -81,7 +83,49 @@ const LOGOUT_PENDING_KEY = "auth.logoutPending"
  */
 const COOKIE_CHECK_KEY = "auth.cookieCheck"
 
+/**
+ * The access token the last FORCED refresh produced (S12), until a request
+ * carrying it succeeds. A forced refresh answers a token the server refused
+ * before it expired; when its replacement is refused as well, the refusal is
+ * not about the token's age, and forcing again would spend the session's
+ * refresh token on every request. Origin-wide, like the session key: a success
+ * in any tab lifts the guard for all of them. Only the token's `jti` is
+ * written — never the token, which stays in memory (see the header above).
+ */
+const FORCED_REFRESH_KEY = "auth.forcedRefresh"
+
+/**
+ * A refused access token whose forced refresh did not produce a new one (S12):
+ * the refresh failed without ending the session, or the server asked to wait
+ * (429). Without it, every request still carrying that token would meet its 401
+ * and spend another forced refresh — one /refresh per failing request, exactly
+ * when the server is busiest. Origin-wide like FORCED_REFRESH_KEY, holding the
+ * token's `jti` and never the token; cleared with the session and by any newly
+ * stored pair.
+ */
+const REFUSED_REFRESH_KEY = "auth.refusedRefresh"
+
 let accessToken: string | null = null
+
+/**
+ * This tab's copy of the forced-refresh record, for when localStorage cannot be
+ * read. Set by the tab that refreshed and, through the tab channel's `forced`
+ * flag, by every tab that adopted the token (tab-sync.ts).
+ */
+let forcedInMemory: string | null = null
+
+/** What a refused token's forced refresh came to, as REFUSED_REFRESH_KEY records it. */
+export type RefusedRefresh =
+  /** The refresh failed without ending the session: no further forced attempt for this token. */
+  | { outcome: "failed" }
+  /**
+   * The server asked to wait: one more forced attempt is allowed from
+   * `notBefore` (epoch ms), unless `retried` says it was already made.
+   */
+  | { outcome: "deferred"; notBefore: number; retried: boolean }
+
+/** This tab's copy of the refused-refresh record, for when localStorage cannot be read. */
+let refusedInMemory: string | null = null
 
 /**
  * Where localStorage cannot be read at all (a locked-down private mode), the
@@ -212,6 +256,9 @@ export function setTokens(
   accessToken = access
   memorySession = true
   write(REFRESH_TOKEN_KEY, refresh)
+  // A new pair: whatever was recorded about a refused token is over.
+  refusedInMemory = null
+  remove(REFUSED_REFRESH_KEY)
   return true
 }
 
@@ -219,9 +266,84 @@ export function clearTokens(): void {
   generation += 1
   accessToken = null
   memorySession = false
+  forcedInMemory = null
+  refusedInMemory = null
   remove(REFRESH_TOKEN_KEY)
   remove(PENDING_REFRESH_KEY)
   remove(SPENDING_REFRESH_KEY)
+  remove(FORCED_REFRESH_KEY)
+  remove(REFUSED_REFRESH_KEY)
+}
+
+/**
+ * What the forced-refresh record holds for `token`: its `jti`, or, for a token
+ * without one, the token itself — kept in memory only, never written.
+ */
+function forcedRecordOf(token: string): { id: string; persist: boolean } {
+  const jti = decodeJwt(token)?.jti
+  return typeof jti === "string" && jti
+    ? { id: `jti:${jti}`, persist: true }
+    : { id: token, persist: false }
+}
+
+/** A forced refresh just produced `token`: record it for every tab of the origin. */
+export function markForcedRefresh(token: string): void {
+  const record = forcedRecordOf(token)
+  forcedInMemory = record.id
+  if (record.persist) write(FORCED_REFRESH_KEY, record.id)
+}
+
+/**
+ * Another tab's forced refresh produced `token`, which this tab adopted. Only
+ * this tab's copy is set: the producer already wrote the origin-wide record, and
+ * writing it again could restore a guard that a success has lifted meanwhile.
+ */
+export function adoptForcedRefresh(token: string): void {
+  forcedInMemory = forcedRecordOf(token).id
+}
+
+/** True when `token` came from a forced refresh and no request with it has succeeded yet. */
+export function isForcedRefresh(token: string): boolean {
+  const record = forcedRecordOf(token)
+  const stored = record.persist ? read(FORCED_REFRESH_KEY) : undefined
+  return stored === undefined ? forcedInMemory === record.id : stored === record.id
+}
+
+/** Records what the forced refresh of the refused `token` came to, for every tab of the origin. */
+export function recordRefusedRefresh(token: string, refusal: RefusedRefresh): void {
+  const record = forcedRecordOf(token)
+  const value = JSON.stringify({ id: record.id, ...refusal })
+  refusedInMemory = value
+  if (record.persist) write(REFUSED_REFRESH_KEY, value)
+}
+
+/** What was recorded about the forced refresh of the refused `token`, or null. */
+export function getRefusedRefresh(token: string): RefusedRefresh | null {
+  const record = forcedRecordOf(token)
+  const stored = record.persist ? read(REFUSED_REFRESH_KEY) : undefined
+  const value = stored === undefined ? refusedInMemory : stored
+  if (!value) return null
+  try {
+    const parsed = JSON.parse(value) as { id?: unknown } & Partial<RefusedRefresh>
+    if (parsed.id !== record.id) return null
+    if (parsed.outcome === "failed") return { outcome: "failed" }
+    if (parsed.outcome === "deferred" && typeof parsed.notBefore === "number") {
+      return { outcome: "deferred", notBefore: parsed.notBefore, retried: parsed.retried === true }
+    }
+  } catch {
+    /* unreadable: nothing recorded */
+  }
+  return null
+}
+
+/** A request carrying `token` succeeded: a later refusal of it is worth a forced refresh again. */
+export function noteTokenAccepted(token: string): void {
+  const stored = read(FORCED_REFRESH_KEY)
+  if (forcedInMemory === null && !stored) return
+
+  const { id } = forcedRecordOf(token)
+  if (forcedInMemory === id) forcedInMemory = null
+  if (stored === id) remove(FORCED_REFRESH_KEY)
 }
 
 /** LEGACY: records that `token` is being spent right now. */

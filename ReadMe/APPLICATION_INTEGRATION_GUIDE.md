@@ -92,7 +92,7 @@ your own code.
 refreshing is `static`. In a multi-user web application, one user calling `LoginAsync` overwrites the
 tokens for everybody, and every outbound call the SDK makes then carries that one user's token. This is a
 design for a service identity, not for end users.
-*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:82`;
+*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:95`;
 `Auth/Auth.Sdk/TokenManagement/InMemoryTokenStore.cs`; `Auth/Auth.Sdk/TokenManagement/TokenRefreshHandler.cs:16`.
 **What to do today:** never sign your end users in with `LoginAsync`. Send them through the browser flow
 in [Step 2](#step-2-how-a-person-actually-signs-in). Use `LoginAsync` only for a single machine identity,
@@ -112,8 +112,8 @@ two-factor properly in the accounts application.
 The refresh code comments that it will "send with current (possibly expired) token", but it returns before
 the line that attaches the header. The request goes out completely unauthenticated, and you get a 401 that
 looks like an expired session rather than a failed refresh.
-*In code:* `Auth/Auth.Sdk/TokenManagement/TokenRefreshHandler.cs:52-56` returns before the header is
-attached at `:60`.
+*In code:* `Auth/Auth.Sdk/TokenManagement/TokenRefreshHandler.cs:76-82` returns before the header is
+attached at `:86`.
 **What to do today:** watch your logs for the SDK's "Token refresh failed with status" warning; that
 warning, not the 401, is the real cause.
 
@@ -939,7 +939,8 @@ it yourself in Step 5.
     "ApiKeyCacheDuration": "00:01:00",
     "WebhookKeyCacheDuration": "00:05:00",
     "EnableAutoRefresh": true,
-    "RefreshBufferSeconds": 120
+    "RefreshBufferSeconds": 120,
+    "JwksRefreshInterval": "01:00:00"
   }
 }
 ```
@@ -962,6 +963,7 @@ application's upper-case Code for `Audience`.
 | `MachinePrivateKeyPem` | string | null | For the key schemes and introspection | The machine key's private key, PKCS#8 PEM, P-256. A secret: load it from your secret store. |
 | `EnableAutoRefresh` | bool | `true` | No | Whether outgoing calls on the SDK's named HTTP client refresh a stored access token automatically. |
 | `RefreshBufferSeconds` | int | `120` | No | How many seconds before expiry to refresh proactively. `0` switches the early refresh off: the SDK then refreshes only once the token has actually expired, or after a 401 response. |
+| `JwksRefreshInterval` | TimeSpan | 1 hour | No | SDK 2.1. How often the Bearer scheme fetches AuthSystem's signing keys again although every token still verifies. Between 5 minutes and 1 hour; registration throws outside that range. It bounds how long a key AuthSystem withdrew in an emergency keeps verifying forged tokens in your application. |
 
 **A key the auth server called invalid is remembered for 30 seconds**
 (`AuthSystemClient.InvalidResultCacheDuration`), so a repeated bad key is refused locally. Both result
@@ -990,7 +992,7 @@ Step 5 explains.
 *In code:* the per-application audience is set at
 `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:144`
 and applied at `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:139`; the SDK's single
-`ValidAudience` is `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:175`.
+`ValidAudience` is `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:198`.
 
 ### Where the gateway token comes from
 
@@ -1114,12 +1116,12 @@ not, token validation will fail with an issuer mismatch and no amount of correct
 | `AddAuthSystemApiKey()` → `AddScheme<…, ApiKeyAuthenticationHandler>("ApiKey", …)` | — | The `X-Api-Key` scheme, added only when you call it. |
 | `AddAuthSystemWebhookKey()` → `AddScheme<…, WebhookKeyAuthenticationHandler>("WebhookKey", …)` | — | The `?whk=` scheme, added only when you call it. |
 
-*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:38-215`.
+*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:39-226`.
 
 **These are unconditional registrations, not "add if missing".** The SDK uses `AddSingleton` and
 `AddScoped`, and `TryAdd` only for `TimeProvider` (yours wins). If you want your own `ITokenStore`,
 register it **after** this call or it will be overwritten.
-*In code:* `ServiceCollectionExtensions.cs:62,73,74,82,83,153`.
+*In code:* `ServiceCollectionExtensions.cs:73,84,85,95,97,171`.
 
 **Exclude the two machine clients from any application-wide retry handler.** A
 `ConfigureHttpClientDefaults` resilience handler reaches every named client, these included. A retried
@@ -1147,29 +1149,44 @@ signatures in your own process. After the first fetch there is no call to the au
 **One thing to watch behind a reverse proxy.** The `jwks_uri` is built from the server's configured
 `IdentityProvider:PublicBaseUrl`, so it can point at a different origin than your `BaseUrl`. Your
 application host must be able to reach whatever that document advertises.
-*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:166-167`;
+*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:184-185`;
 `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:34`;
 `Auth/Auth.Application/Configuration/IdentityProviderSettings.cs:36-37`.
 
 | Validation setting | Value the SDK uses |
 |---|---|
 | Metadata address | `{BaseUrl}/.well-known/openid-configuration` |
-| Require HTTPS metadata | `true`, unless `BaseUrl` contains the text `localhost` |
+| Require HTTPS metadata | `true`, unless `BaseUrl`'s host is this machine (`localhost`, `127.0.0.0/8`, `::1`) |
 | Validate issuer / audience / lifetime / signing key | all `true` |
 | Permitted signing algorithms | `RS256` only |
 | Clock skew allowance | 30 seconds |
 | Role claim type | `roles` |
 | Name claim type | `sub` |
+| Signing keys fetched again | every `JwksRefreshInterval` (1 hour at most), and at once, at most every 5 minutes, when a token names a `kid` the SDK does not hold |
+| Last-known-good fallback | not used: the library uses it only when `ValidateWithLKG` is set, which the SDK never does; the SDK also switches it off on the configuration manager, as a second guard |
 
-*In code:* `ServiceCollectionExtensions.cs:170-185`. The server signs with RS256 and publishes a key whose
+*In code:* `ServiceCollectionExtensions.cs:182-224`. The server signs with RS256 and publishes a key whose
 identifier defaults to `auth-key-1`.
-*In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:47`;
+*In code:* `Auth/Auth.Infrastructure/Authentication/SingleSigningKeyMaterial.cs:17`;
 `Auth/Auth.Application/Configuration/JwtSettings.cs:51`.
 
-**The HTTPS check is a substring test on the whole `BaseUrl`, not a hostname comparison.** A production
-host named `https://auth.localhost.example.com` silently disables HTTPS metadata enforcement. Do not name
-a real host anything containing `localhost`.
-*In code:* `ServiceCollectionExtensions.cs:168`.
+**The HTTPS check compares the host, since SDK 2.1.** Plain HTTP is allowed only when `BaseUrl` names this
+machine. Up to SDK 2.0 it was a substring test on the whole `BaseUrl`, so a host such as
+`http://localhost.example.com` switched HTTPS metadata enforcement off, and the signing keys could be fetched
+in clear from a machine anywhere on the internet. SDK 2.1 refuses that configuration when the scheme is built.
+*In code:* `ServiceCollectionExtensions.cs:189`, `:229-230`.
+
+**Read the key set as a list, and never pin one key.** `/.well-known/jwks.json` holds one key today, and up to
+four while AuthSystem changes its signing key; each token names its key in its `kid` header. AuthSystem lets
+the answer be cached for 5 minutes at most (`Cache-Control: public, max-age=300`), and the SDK fetches it
+again at most every `JwksRefreshInterval` (1 hour). So a key withdrawn because it leaked stops verifying in
+your application within that hour; restart the application to end it at once. That hour holds only while your
+application can reach AuthSystem: a refetch that fails leaves the key set it already holds in use, so at an
+application cut off from AuthSystem a withdrawn key keeps verifying past the hour, until a refetch succeeds or
+the application restarts. A token whose `kid` the SDK has not seen yet triggers a fetch on its own, so a
+scheduled key change never waits for the interval. `/.well-known/public-key.pem` is the current key only: a copy pinned in your
+configuration stops matching at the next key change.
+*In code:* `Auth/Auth_API/Controllers/DiscoveryController.cs:33`, `:77`; `ServiceCollectionExtensions.cs:182-224`.
 
 **The SDK does not turn off inbound claim-type mapping, and the AuthSystem API does.** The API sets
 `MapInboundClaims = false` with the comment "Disable claim type mapping to preserve original JWT claim
@@ -1177,7 +1194,7 @@ names"; the SDK never sets it at all. If mapping is on in your host, the standar
 `name`, `given_name` and `family_name` are rewritten to long WS-\* URIs before your code sees them, and
 `User.FindFirst("sub")` returns `null`. The custom claims — `permissions`, `roles`, `org_perm`, `sid`,
 `locale`, `timezone`, `theme` — are not in the standard map and survive either way.
-*In code:* `Auth/Auth_API/Program.cs:725-726`; the SDK's options block is `ServiceCollectionExtensions.cs:164-186`.
+*In code:* `Auth/Auth_API/Program.cs:725-726`; the SDK's options block is `ServiceCollectionExtensions.cs:182-209`.
 
 **What to do:** set the option yourself, on the same named options the SDK already configured, in a
 separate call placed **after** `AddAuthSystemAuthentication`. Configuration callbacks for one named
@@ -1617,6 +1634,11 @@ returns `null` when it had no answer, and `LoginAsync` returns `false` for any f
 path, and introspection exists for the case where you want the server's live opinion about one of your
 own tokens. See [introspection](#introspection-is-this-token-still-active).
 
+**Since SDK 2.1 it answers active only for a token issued to your application.** An active answer whose
+`aud` (an access token) or `client_id` (a refresh token, which carries no `aud`) is not your `Audience`
+comes back inactive. AuthSystem already answers so; the SDK no longer takes the answer's word alone.
+*In code:* `AuthSystemClient.cs:198-226`.
+
 **`LoginAsync`'s `applicationId` argument goes nowhere.** The SDK sends it, but the server's login request
 contract declares only `Email`, `Password` and `DeviceId`, so the value is discarded. Conversely the SDK
 never sends `deviceId`.
@@ -1630,18 +1652,24 @@ and refresh them without you asking. Four facts describe the whole behaviour.
 
 - It refreshes **proactively** when the access token is within `RefreshBufferSeconds` of expiry, before
   sending your request.
-- It refreshes **reactively**, once, when a response comes back 401, and then replays the request.
+- It refreshes **reactively**, once, when a response comes back 401, and then replays the request. Since SDK
+  2.1 it does so whatever the token's expiry says: a token can be refused before it expires (its signing key
+  was withdrawn, its session ended), and 2.0 replayed the refused token itself. Requests refused on the same
+  token share one refresh. One refresh per refused token: when that refresh produces nothing (AuthSystem
+  failed, was unreachable, or asked to wait), the token is not refreshed again for a refusal, and the refresh
+  at its expiry takes over; and a token such a refresh produced is not refreshed again for a refusal until a
+  request carrying it has succeeded.
 - It calls `POST /api/v1/auth/refresh`, which is an anonymous endpoint — no bearer token needed to refresh.
 - A 401 from that refresh call clears the store, so the next request goes out unauthenticated.
 
-*In code:* `Auth/Auth.Sdk/TokenManagement/TokenRefreshHandler.cs:36-125`;
+*In code:* `Auth/Auth.Sdk/TokenManagement/TokenRefreshHandler.cs:58-181`;
 `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:194-195`.
 
 Two implementation details are worth knowing because they will show up in production diagnostics. A failed
 refresh sends your request with **no** `Authorization` header, not with the stale one (limitation 7). And
 each refresh creates a brand-new `HttpClient` rather than using the injected factory, which is the classic
 socket-exhaustion and stale-DNS pattern.
-*In code:* `TokenRefreshHandler.cs:52-56,111`.
+*In code:* `TokenRefreshHandler.cs:76-82,55,218`.
 
 ---
 
@@ -2472,13 +2500,17 @@ Rules for your server, one for every answer:
 *In code:* `Auth/Auth.Application/Features/Authentication/ServerSignOut/ServerSignOutCommandHandler.cs`;
 the decision record is `docs/adr/0004-server-side-sign-out.md`.
 
-**`GET /.well-known/jwks.json`** returns the public signing keys, one entry, shaped
-`{"kty":"RSA","use":"sig","alg":"RS256","kid":"<key id>","n":"…","e":"…"}`.
-*In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:229-242`.
+**`GET /.well-known/jwks.json`** returns the public signing keys, the current one first, each entry shaped
+`{"kty":"RSA","use":"sig","alg":"RS256","kid":"<key id>","n":"…","e":"…"}`. It holds one key today, and up to
+four while the signing key changes: pick the key by the token's `kid`. The answer may be cached for 5 minutes
+(`Cache-Control: public, max-age=300`).
+*In code:* `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:307-337`;
+`Auth/Auth_API/Controllers/DiscoveryController.cs:77`.
 
-**`GET /.well-known/public-key.pem`** returns the same public key as `text/plain`, in a
-`-----BEGIN RSA PUBLIC KEY-----` block, for tooling that wants PEM rather than JWKS.
-*In code:* `JwtTokenService.cs:251-264`.
+**`GET /.well-known/public-key.pem`** returns the current signing key as `text/plain`, in a
+`-----BEGIN RSA PUBLIC KEY-----` block, for tooling that wants PEM rather than JWKS. It changes when the
+signing key changes, and a copy pinned in configuration then stops matching: prefer the JWKS.
+*In code:* `JwtTokenService.cs:341-356`.
 
 ---
 
@@ -2665,8 +2697,9 @@ does over the wire is standard.
    supports it. Point the library at `https://<your auth host>/.well-known/openid-configuration` and it
    will discover the rest.
 2. **Validate the access tokens** yourself. They are RS256-signed JWTs. Fetch
-   `/.well-known/jwks.json`, cache the keys, and verify the signature, the `iss` claim, the `aud` claim
-   and the expiry. Read authorization out of the `permissions` and `roles` claims as described in the
+   `/.well-known/jwks.json`, cache the keys for an hour at most (fetch again at once when a token names a
+   `kid` you do not hold, and keep no fallback to an older set), and verify the signature, the `iss` claim,
+   the `aud` claim and the expiry. Read authorization out of the `permissions` and `roles` claims as described in the
    [claims reference](#claims-reference).
 3. **Read the user's profile** from `GET /api/v1/auth/userinfo` with the user's access token in the
    `Authorization` header: see [UserInfo](#reading-the-users-profile-userinfo).

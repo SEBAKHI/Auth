@@ -84,7 +84,7 @@ public sealed class AppTokenRevocationEndToEndTests : IAsyncLifetime
                     services.Configure<IdentityProviderSettings>(_ => { });
 
                     // The registrations Program.cs makes for these two paths.
-                    services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.Key);
+                    services.AddAuthSystemBearerSchemes(_tokens.Settings, _tokens.SigningKeys);
                     services.AddAuthorization();
                     services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<GetOidcUserInfoQueryHandler>());
                     services.AddSingleton<ITokenBlacklistService>(_blacklist);

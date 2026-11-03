@@ -163,7 +163,7 @@ public sealed class MachineTokenProviderTests : IDisposable
         var token = await client.GetMachineAccessTokenAsync();
 
         var validation = await new JsonWebTokenHandler { MapInboundClaims = false }
-            .ValidateTokenAsync(token, AccessTokenValidation.Machine(settings, tokens.GetSecurityKey()));
+            .ValidateTokenAsync(token, AccessTokenValidation.Machine(settings, tokens.SigningKeys));
         validation.IsValid.Should().BeTrue(validation.Exception?.Message);
         new JsonWebToken(token).GetPayloadValue<string>("client_id").Should().Be(ClientId);
     }

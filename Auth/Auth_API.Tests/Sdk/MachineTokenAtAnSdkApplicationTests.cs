@@ -61,7 +61,7 @@ public sealed class MachineTokenAtAnSdkApplicationTests : IAsyncLifetime, IDispo
                     services.Configure<JwtBearerOptions>(AuthSystemConstants.BearerScheme, jwt =>
                     {
                         var configuration = new OpenIdConnectConfiguration { Issuer = Issuer };
-                        configuration.SigningKeys.Add(_issuer.GetSecurityKey());
+                        configuration.SigningKeys.Add(_issuer.SigningKeys.Current.Key);
                         jwt.Configuration = configuration;
                     });
                 })

@@ -46,7 +46,7 @@ rather than described.
 
     <!-- Package Identity -->
     <PackageId>AuthSystem.Sdk</PackageId>
-    <Version>2.0.0</Version>
+    <Version>2.1.0</Version>
     <Authors>AuthSystem Contributors</Authors>
     <Company>AuthSystem</Company>
     <Description>SDK for integrating external .NET applications with the AuthSystem. Provides JWT, API Key, and Webhook Key authentication handlers with permission-based authorization.</Description>
@@ -80,7 +80,7 @@ rather than described.
 </Project>
 ```
 
-**Package metadata that is present today.** `PackageId` is `AuthSystem.Sdk`, `Version` is `2.0.0`,
+**Package metadata that is present today.** `PackageId` is `AuthSystem.Sdk`, `Version` is `2.1.0`,
 `Authors` is `AuthSystem Contributors`, `Company` is `AuthSystem`, and there is a `Description`,
 `PackageTags`, and `RepositoryType`. The license is `MIT` (`PackageLicenseExpression`), and both
 `RepositoryUrl` and `PackageProjectUrl` point at `https://github.com/SEBAKHI/Auth`.
@@ -411,6 +411,7 @@ beneath that prefix.
 | `WebhookKeyCacheDuration` | `TimeSpan` | 5 minutes | No |
 | `EnableAutoRefresh` | `bool` | `true` | No |
 | `RefreshBufferSeconds` | `int` | `120` | No — `0` turns the early refresh off, leaving refresh-on-expiry and refresh-after-401 |
+| `JwksRefreshInterval` | `TimeSpan` | 1 hour | No — between 5 minutes and 1 hour; registration throws outside that range |
 
 ## Known limits
 
@@ -530,7 +531,7 @@ it from documentation.
 The version is one line in `Auth/Auth.Sdk/Auth.Sdk.csproj`:
 
 ```xml
-<Version>2.0.0</Version>
+<Version>2.1.0</Version>
 ```
 
 Changing that single value changes the package version, the assembly version, and the file version
@@ -574,6 +575,22 @@ with the AuthSystem release that carries the new endpoints:
   `ApplicationCode` and `AllowedIps`; `WebhookKeyValidationResult` gains `ApplicationCode`.
 - `AuthSystemClient` is sealed, owns its result caches (the host's `IMemoryCache` is neither used nor
   registered), and its constructor changed; `IMachineTokenProvider` gains `Invalidate`.
+
+2.1.0 (2026-11, S12 PR A), additive: no code that compiled against 2.0 needs a change.
+- `AuthSystemOptions.JwksRefreshInterval` (default and maximum 1 hour, minimum 5 minutes): the Bearer
+  scheme fetches the signing keys again on that interval instead of the library's 12 hours, so a key the
+  AuthSystem withdrew stops verifying within the interval while the application can reach the AuthSystem
+  (a refetch that fails keeps the key set already held, until a refetch succeeds or a restart). The
+  configuration manager's last-known-good switch is also turned off, as a second guard: the library uses
+  that set only when `ValidateWithLKG` is true, which the SDK never sets.
+- HTTPS metadata is required unless `BaseUrl`'s host is this machine. 2.0 exempted any `BaseUrl` that
+  contained the text `localhost`; an application configured with plain HTTP to another machine now fails
+  when the scheme is built, where 2.0 fetched its keys in clear.
+- A 401 on a stored token is answered by one refresh whatever the token's expiry says (2.0 replayed the
+  refused token), shared by concurrent requests, and never repeated for the same refused token: not
+  when that refresh produced nothing (the refresh at expiry takes over), and not for a token such a
+  refresh produced until a request with it succeeds.
+- `IntrospectTokenAsync` turns an active answer about another application's token inactive.
 
 **Once published, the SDK follows Semantic Versioning 2.0.0 — "SemVer" for short.** The scheme is three
 numbers and an optional label:

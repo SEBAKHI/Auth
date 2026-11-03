@@ -128,7 +128,7 @@ public sealed class ClientCredentialsCommandHandlerTests : IDisposable
 
         // And the machine scheme, built from the same settings and key, accepts it.
         var validation = await new JsonWebTokenHandler { MapInboundClaims = false }
-            .ValidateTokenAsync(response.AccessToken, AccessTokenValidation.Machine(_settings, _tokens.GetSecurityKey()));
+            .ValidateTokenAsync(response.AccessToken, AccessTokenValidation.Machine(_settings, _tokens.SigningKeys));
         validation.IsValid.Should().BeTrue(validation.Exception?.Message);
     }
 
