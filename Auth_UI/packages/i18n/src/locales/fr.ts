@@ -1765,6 +1765,8 @@ export const fr: TranslationResources = {
           "L'API a chargé la clé préparée mais n'a pas pu en enregistrer l'heure ; redémarrez-la encore une fois pour qu'elle l'enregistre.",
         tooYoung:
           "La clé préparée peut être promue à partir du {{date}}, quand les applications auront eu 24 heures pour la récupérer.",
+        stagedExpired:
+          "La clé préparée a été publiée il y a plus de 30 jours et n'est plus acceptée : abandonnez-la, puis préparez-en une nouvelle.",
         emergencyNeedsStaged:
           "Une urgence promeut une clé préparée : préparez d'abord une nouvelle clé. Après une fuite du fichier des secrets, abandonnez toute clé préparée avant elle et préparez-en une nouvelle.",
         processOnly:

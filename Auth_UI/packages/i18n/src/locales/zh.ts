@@ -1659,6 +1659,7 @@ export const zh: TranslationResources = {
         restartToLoad: "请重启 API 以加载并发布已暂存的密钥；之后 24 小时即可升级。",
         notRecorded: "API 已加载暂存的密钥，但未能记录时间；请再重启一次以记录。",
         tooYoung: "已暂存的密钥可从 {{date}} 起升级，届时应用程序已有 24 小时来获取它。",
+        stagedExpired: "已暂存的密钥发布已超过 30 天，不再被接受：请丢弃它，然后暂存一个新密钥。",
         emergencyNeedsStaged: "紧急升级会升级一个已暂存的密钥：请先暂存一个新密钥。若密钥文件已泄露，请丢弃泄露前暂存的密钥并暂存新密钥。",
         processOnly: "只有此 API 进程仍持有此密钥；下次重启后将消失。",
         processSigns: "此 API 进程仍在用此密钥签名；请先重启它，再停用此密钥。",

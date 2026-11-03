@@ -37,7 +37,13 @@ public interface ISigningKeyRing
 /// </summary>
 /// <param name="Setting">The configuration key the loader took the key from (<c>Jwt:PrivateKeyPath</c>, <c>Jwt:PrivateKeyEncrypted</c> or <c>Jwt:PrivateKeyPem</c>).</param>
 /// <param name="PlainText">Whether secrets are kept in PlainText mode, where <c>Jwt:PrivateKeyPem</c> comes from a settings file.</param>
-public sealed record SigningKeySource(string Setting, bool PlainText)
+/// <param name="MigratedKid">
+/// The kid this process publishes the single key under while the file holds no ring
+/// (<see cref="RsaKeyring.MigratedKidFrom"/> of <c>Jwt:KeyId</c>, read once at start). A change
+/// that first saves the ring saves that key under this name, so an edit of <c>Jwt:KeyId</c> after
+/// the start never renames the key this process publishes.
+/// </param>
+public sealed record SigningKeySource(string Setting, bool PlainText, string MigratedKid = RsaKeyring.MigratedKeyId)
 {
     /// <summary>The setting the secrets file supplies the signing key through.</summary>
     public const string SecretsFileSetting = "Jwt:PrivateKeyPem";

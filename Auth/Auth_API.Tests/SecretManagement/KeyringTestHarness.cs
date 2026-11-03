@@ -68,7 +68,7 @@ internal sealed class KeyringTestHarness : IDisposable
 
         Challenges.WithConfirmedAdmin(Admin);
 
-        Source = new SigningKeySource(SigningKeyLoader.PemKey, plainText);
+        Source = new SigningKeySource(SigningKeyLoader.PemKey, plainText, RsaKeyring.MigratedKidFrom(Jwt.KeyId));
         SigningKeys = new SigningKeyRingHolder(LoadSigningKeys());
         SigningService = NewSigningService();
     }
@@ -178,7 +178,24 @@ internal sealed class KeyringTestHarness : IDisposable
 
     /// <summary>The signing ring the file holds now.</summary>
     public RsaKeyring ReadSigningRing() =>
-        RsaKeyringFile.Read(Secrets.LoadSecretsAsync(CancellationToken.None).GetAwaiter().GetResult(), Jwt.KeyId).Value;
+        RsaKeyringFile.Read(Secrets.LoadSecretsAsync(CancellationToken.None).GetAwaiter().GetResult(), Source.MigratedKid).Value;
+
+    /// <summary>
+    /// Takes the signing ring out of the file, leaving its single key: the file of a deployment
+    /// that never rotated, whose key the next start migrates under <c>Jwt:KeyId</c>.
+    /// </summary>
+    public void RemoveSigningRing() =>
+        Secrets.UpdateAsync<ErrorOr.Success>(
+                secrets =>
+                {
+                    secrets.SigningKeys = new Dictionary<string, SigningKeyEntry>();
+                    secrets.SigningCurrentKid = null;
+                    secrets.SigningNextKid = null;
+                    return ErrorOr.Result.Success;
+                },
+                overwriteBackup: false,
+                CancellationToken.None)
+            .GetAwaiter().GetResult();
 
     /// <summary>
     /// What an API recycle does to the signing keys: they are loaded again from the file, and the
@@ -222,10 +239,10 @@ internal sealed class KeyringTestHarness : IDisposable
         {
             var rsa = System.Security.Cryptography.RSA.Create();
             rsa.ImportFromPem(secrets.JwtPrivateKeyPem);
-            return SigningKeyRing.Single(rsa, Jwt.KeyId, Source);
+            return SigningKeyRing.Single(rsa, Source.MigratedKid, Source);
         }
 
-        return SigningKeyRing.Load(RsaKeyringFile.Read(secrets, Jwt.KeyId).Value, Source);
+        return SigningKeyRing.Load(RsaKeyringFile.Read(secrets, Source.MigratedKid).Value, Source);
     }
 
     private RsaKeyringChangeService NewSigningService() => new(

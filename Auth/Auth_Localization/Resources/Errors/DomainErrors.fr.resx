@@ -1452,7 +1452,7 @@
     <value>L'API d'administration des secrets est désactivée.</value>
   </data>
   <data name="Secret.KeyringNoNextKey" xml:space="preserve">
-    <value>Aucune clé préparée n'est chargée dans ce processus. Préparez d'abord une clé ; si une clé est déjà préparée dans le fichier des secrets, redémarrez l'API pour que ce processus la charge, puis réessayez.</value>
+    <value>Aucune clé préparée ne peut être promue dans ce processus. Préparez d'abord une clé. Si une clé est préparée dans le fichier des secrets mais que ce processus ne l'a pas chargée, redémarrez l'API. Si la clé de signature préparée a été publiée il y a plus de 30 jours, abandonnez-la et préparez-en une nouvelle.</value>
   </data>
   <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
     <value>Le trousseau ne contient aucune clé {0} à laquelle cette action s'applique.</value>

@@ -47,15 +47,17 @@ public static class SigningKeyRingConfiguration
         bool plainText)
     {
         var winner = SigningKeyLoader.Read(settings, dataProtectionProvider);
-        var source = new SigningKeySource(winner.Source, plainText);
-        var migratedKid = string.IsNullOrWhiteSpace(settings.KeyId) ? RsaKeyring.MigratedKeyId : settings.KeyId.Trim();
+
+        // Jwt:KeyId is read here once: every later reader of the migrated key's name reads it
+        // from the source, so an edit of the setting after the start renames nothing.
+        var source = new SigningKeySource(winner.Source, plainText, RsaKeyring.MigratedKidFrom(settings.KeyId));
 
         if (!source.HoldsRing)
         {
             // The process's one key for its whole life: nothing disposes it.
             var rsa = RSA.Create();
             rsa.ImportFromPem(winner.PrivateKeyPem);
-            return SigningKeyRing.Single(rsa, migratedKid, source);
+            return SigningKeyRing.Single(rsa, source.MigratedKid, source);
         }
 
         var foreign = SecretFileOnlySection.ForeignValues(configuration, SectionName)
@@ -69,13 +71,25 @@ public static class SigningKeyRingConfiguration
         }
 
         var section = configuration.GetSection(SectionName);
+        var entries = ReadEntries(section);
+
+        // No ring in the file: the one key is named by Jwt:KeyId, so a name the ring refuses is
+        // that setting's fault, and no copy of the secrets file would help.
+        if (entries.Count == 0 && !RsaKeyring.IsValidKid(source.MigratedKid))
+        {
+            throw new InvalidOperationException(
+                $"Refusing to start: Jwt:KeyId '{source.MigratedKid}' cannot name the signing key, because a kid has at most " +
+                $"{RsaKeyring.MaxKidLength} characters and holds no ':'. Set Jwt:KeyId to the kid the JWKS published until now; " +
+                "if that kid breaks the rule too, choose a new one that follows it, which changes the published kid. Then start again.");
+        }
+
         var ring = RsaKeyringFile.FromEntries(
-            ReadEntries(section),
+            entries,
             Blank(section["CurrentKid"]),
             Blank(section["NextKid"]),
             winner.PrivateKeyPem,
             removed: [],
-            migratedKid);
+            source.MigratedKid);
 
         if (ring.IsError)
         {

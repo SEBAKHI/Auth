@@ -124,14 +124,15 @@ public static class SecretErrors
     // the logs carry, does.
 
     /// <summary>
-    /// A promote or a discard needs a staged key, and either none is staged or the
+    /// A promote or a discard needs a staged key, and either none is staged, the
     /// running process has not loaded the one the secrets file stages (another worker
-    /// staged it, or the API was not restarted since): promoting a key this process
-    /// cannot verify under would leave it rejecting what it issues.
+    /// staged it, or the API was not restarted since), or the staged signing key was
+    /// published more than 30 days ago and is no longer accepted: promoting a key this
+    /// process cannot verify under would leave it rejecting what it issues.
     /// </summary>
     public static readonly Error KeyringNoNextKey = Error.Conflict(
         code: "Secret.KeyringNoNextKey",
-        description: "No staged key is loaded in this process. Stage a key first; if one is already staged in the secrets file, restart the API so this process loads it, then try again.");
+        description: "No staged key can be promoted in this process. Stage a key first. If one is staged in the secrets file but this process has not loaded it, restart the API. If the staged signing key was published more than 30 days ago, discard it and stage a new one.");
 
     /// <summary>
     /// The key a reinstate or a retire names is not a previous key the action applies

@@ -1452,7 +1452,7 @@
     <value>密钥管理的管理员API已禁用。</value>
   </data>
   <data name="Secret.KeyringNoNextKey" xml:space="preserve">
-    <value>此进程中未加载已暂存的密钥。请先暂存一个密钥；如果密钥文件中已暂存密钥，请重启 API 让此进程加载它，然后重试。</value>
+    <value>此进程中没有可升级的已暂存密钥。请先暂存一个密钥。如果密钥文件中已暂存密钥但此进程尚未加载它，请重启 API。如果已暂存的签名密钥发布已超过 30 天，请丢弃它并暂存一个新密钥。</value>
   </data>
   <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
     <value>密钥环中没有此操作适用的密钥 {0}。</value>

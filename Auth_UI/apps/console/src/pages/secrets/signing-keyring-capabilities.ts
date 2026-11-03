@@ -42,17 +42,21 @@ export function signingKeyringCapabilities(
 
   return {
     stage: staged ? t("secrets.signingKeyring.reason.stageWhileStaged") : null,
+    // A staged key loaded here but no longer accepted is past its 30 days: no
+    // restart brings it back, only a discard and a new stage.
     promote: !staged
       ? noStaged
       : !staged.loadedInProcess
         ? t("secrets.signingKeyring.reason.restartToLoad")
-        : !keyring.promoteAvailableAtUtc
-          ? t("secrets.signingKeyring.reason.notRecorded")
-          : new Date(keyring.promoteAvailableAtUtc).getTime() > now.getTime()
-            ? t("secrets.signingKeyring.reason.tooYoung", {
-                date: formatDateTime(keyring.promoteAvailableAtUtc),
-              })
-            : null,
+        : !staged.acceptedInProcess
+          ? t("secrets.signingKeyring.reason.stagedExpired")
+          : !keyring.promoteAvailableAtUtc
+            ? t("secrets.signingKeyring.reason.notRecorded")
+            : new Date(keyring.promoteAvailableAtUtc).getTime() > now.getTime()
+              ? t("secrets.signingKeyring.reason.tooYoung", {
+                  date: formatDateTime(keyring.promoteAvailableAtUtc),
+                })
+              : null,
     discard: staged ? null : noStaged,
     // An emergency promotes the staged key: stage one first, after a leak a new
     // one (a key staged before the leak leaked with the file).

@@ -171,7 +171,7 @@ public sealed class KeyringPostureContributor : ISecurityPostureContributor
             yield break;
         }
 
-        var file = RsaKeyringFile.Read(secrets, process.Persisted ? RsaKeyring.MigratedKeyId : process.Current.Kid);
+        var file = RsaKeyringFile.Read(secrets, signingKeys.Source.MigratedKid);
         if (file.IsError)
         {
             yield return new Item("keyring", LogLevel.Critical, SigningUnreadableTemplate, [file.FirstError.Code],

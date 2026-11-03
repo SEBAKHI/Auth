@@ -1454,7 +1454,7 @@
     <value>Secret management admin API is disabled.</value>
   </data>
   <data name="Secret.KeyringNoNextKey" xml:space="preserve">
-    <value>No staged key is loaded in this process. Stage a key first; if one is already staged in the secrets file, restart the API so this process loads it, then try again.</value>
+    <value>No staged key can be promoted in this process. Stage a key first. If one is staged in the secrets file but this process has not loaded it, restart the API. If the staged signing key was published more than 30 days ago, discard it and stage a new one.</value>
   </data>
   <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
     <value>The keyring has no key {0} that this action applies to.</value>

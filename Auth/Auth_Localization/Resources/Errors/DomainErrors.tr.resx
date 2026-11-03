@@ -1452,7 +1452,7 @@
     <value>Gizli bilgi yönetimi yönetici API'si devre dışı.</value>
   </data>
   <data name="Secret.KeyringNoNextKey" xml:space="preserve">
-    <value>Bu işlemde yüklenmiş, hazırlanmış bir anahtar yok. Önce bir anahtar hazırlayın; gizli bilgiler dosyasında hazırlanmış bir anahtar varsa bu işlemin onu yüklemesi için API'yi yeniden başlatın, sonra tekrar deneyin.</value>
+    <value>Bu işlemde yükseltilebilecek hazırlanmış bir anahtar yok. Önce bir anahtar hazırlayın. Gizli bilgiler dosyasında hazırlanmış bir anahtar varsa ama bu işlem onu yüklemediyse API'yi yeniden başlatın. Hazırlanan imzalama anahtarı 30 günden uzun süre önce yayımlandıysa onu atın ve yeni bir anahtar hazırlayın.</value>
   </data>
   <data name="Secret.KeyringKeyNotFound" xml:space="preserve">
     <value>Anahtarlıkta bu işlemin uygulanabileceği {0} anahtarı yok.</value>

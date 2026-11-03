@@ -94,6 +94,28 @@ public sealed class SigningKeyRingTests : IDisposable
     }
 
     [Fact]
+    public void TheMigratedKey_IsPublishedUnderJwtKeyIdAsItIs_AndUnderAuthKey1WhenItNamesNone()
+    {
+        RemoveTheRing();
+
+        Load(keyId: "custom-key-7 ").PublishedKeys(DateTimeOffset.UtcNow).Should().ContainSingle().Which.KeyId.Should().Be(
+            "custom-key-7 ", "the single-key build published Jwt:KeyId untrimmed, so a trim would rename the key at deploy (TS1)");
+        Load(keyId: " ").Source.MigratedKid.Should().Be(RsaKeyring.MigratedKeyId);
+    }
+
+    [Fact]
+    public void TheStart_RefusesAJwtKeyIdThatCannotNameTheMigratedKey_NamingTheSettingAndItsRule()
+    {
+        RemoveTheRing();
+
+        var act = () => Load(keyId: "a:b");
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Jwt:KeyId 'a:b' cannot name the signing key*at most 128 characters and holds no ':'*")
+            .Which.Message.Should().NotContain("secrets file", "the file is not at fault, and no copy of it would help");
+    }
+
+    [Fact]
     public void ACompromisedRecord_Boots_AndIsNeitherAcceptedNorPublished()
     {
         var compromised = New();
@@ -219,12 +241,7 @@ public sealed class SigningKeyRingTests : IDisposable
         return act.Should().Throw<InvalidOperationException>().Which.Message;
     }
 
-    private void RemoveTheRing() => WriteRaw(secrets =>
-    {
-        secrets.SigningKeys = new Dictionary<string, SigningKeyEntry>();
-        secrets.SigningCurrentKid = null;
-        secrets.SigningNextKid = null;
-    });
+    private void RemoveTheRing() => _keyring.RemoveSigningRing();
 
     private void WriteRing(Func<RsaKeyringBuilder, RsaKeyringBuilder> edit) => WriteRaw(secrets =>
     {

@@ -30,6 +30,9 @@ public sealed partial class RsaKeyring
     /// </summary>
     public const string MigratedKeyId = "auth-key-1";
 
+    /// <summary>The longest kid a key may have: a kid is a configuration key segment (<c>Keyring:Rsa:Keys:{kid}</c>) and a JWT header value.</summary>
+    public const int MaxKidLength = 128;
+
     /// <summary>
     /// How long the staged key is published before a scheduled promote (W_publish): twice the
     /// 12 hours a JWKS client caches the key set for by default, so every application has fetched
@@ -39,9 +42,6 @@ public sealed partial class RsaKeyring
 
     /// <summary>How long a staged key is accepted, from the moment it was published, without being promoted.</summary>
     public static readonly TimeSpan NextAcceptedFor = TimeSpan.FromDays(30);
-
-    // A kid is a configuration key segment (Keyring:Rsa:Keys:{kid}) and a JWT header value.
-    private const int MaxKidLength = 128;
 
     private readonly Dictionary<string, SigningKey> _keys;
 
@@ -92,6 +92,17 @@ public sealed partial class RsaKeyring
     public DateTime? PromoteAvailableAtUtc => Next?.PublishedAtUtc + PublishWait;
 
     /// <summary>
+    /// The kid the single signing key is published under until the ring is first saved:
+    /// <c>Jwt:KeyId</c> exactly as configured, as the single-key build published it (no trim), or
+    /// <see cref="MigratedKeyId"/> when it names none.
+    /// </summary>
+    public static string MigratedKidFrom(string? keyId) => string.IsNullOrWhiteSpace(keyId) ? MigratedKeyId : keyId;
+
+    /// <summary>Whether <paramref name="kid"/> can name a key of the ring: not empty, at most <see cref="MaxKidLength"/> characters, no ':'.</summary>
+    public static bool IsValidKid(string? kid) =>
+        !string.IsNullOrWhiteSpace(kid) && kid.Length <= MaxKidLength && !kid.Contains(':');
+
+    /// <summary>
     /// Builds a ring and refuses one no change could have written (KR8): no key, a kid that is
     /// empty, too long or holds a ':', two keys under one kid (kids compare without case, as
     /// configuration keys do), one key under two kids, a kid that is not its key's thumbprint
@@ -111,7 +122,7 @@ public sealed partial class RsaKeyring
 
         foreach (var key in keys)
         {
-            if (string.IsNullOrWhiteSpace(key.Kid) || key.Kid.Length > MaxKidLength || key.Kid.Contains(':'))
+            if (!IsValidKid(key.Kid))
             {
                 return Inconsistent($"A signing key has the kid '{key.Kid}', which is empty, longer than {MaxKidLength} characters, or holds a ':'.");
             }

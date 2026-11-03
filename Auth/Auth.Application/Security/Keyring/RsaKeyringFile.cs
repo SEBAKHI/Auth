@@ -77,7 +77,7 @@ public static class RsaKeyringFile
 
             // The deployment never changed the ring: its one key is the current key, under the
             // name it has always been published with (KR2), until the first change saves it.
-            var kid = string.IsNullOrWhiteSpace(migratedKid) ? RsaKeyring.MigratedKeyId : migratedKid.Trim();
+            var kid = RsaKeyring.MigratedKidFrom(migratedKid);
             var (thumbprint, publicKeyPem) = single.Value;
             return RsaKeyring.Create(
                 [new SigningKey(kid, thumbprint, publicKeyPem, singlePrivateKeyPem, null, null, null, false)],

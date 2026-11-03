@@ -1753,6 +1753,8 @@ export const en = {
           "The API loaded the staged key but could not record when; restart it once more so it records it.",
         tooYoung:
           "The staged key can be promoted from {{date}}, once applications have had 24 hours to fetch it.",
+        stagedExpired:
+          "The staged key was published more than 30 days ago and is no longer accepted: discard it, then stage a new one.",
         emergencyNeedsStaged:
           "An emergency promotes a staged key: stage a new key first. After a leak of the secrets file, discard any key staged before it and stage a new one.",
         processOnly: "Only this API process still holds this key; it leaves at the next restart.",

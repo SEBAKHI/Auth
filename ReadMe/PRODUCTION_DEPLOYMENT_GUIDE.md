@@ -1971,7 +1971,9 @@ All key operations live under `…/api/v1/admin/secrets/` and are gated four way
 `generate/hmac` and `import/hmac` remain for scripts and for consoles loaded before the keyring:
 each is now an **emergency rotation** (every user signs in again). `generate/rsa` and `import/rsa`
 remain the same way until SUNSET(S12): each stages its key and promotes it as an emergency, effective
-when the API restarts, as before. The routine rotation is the
+when the API restarts, as before. Where there is no signing keyring (PlainText mode, or a key read
+from `Jwt:PrivateKeyPath` or `Jwt:PrivateKeyEncrypted`), both answer `409 Secret.KeyringUnavailable`;
+before S12 they wrote a key that nothing loaded. The routine rotation is the
 keyring's stage and promote — see
 [Rotating the HMAC key without signing anyone out](#rotating-the-hmac-key-without-signing-anyone-out).
 
@@ -2197,7 +2199,8 @@ once you type your address.
 The promote is refused (`409`) while this API process has not loaded the staged key
 (`Secret.KeyringNoNextKey`: recycle the API) and before 24 hours of publication
 (`Secret.KeyringNextTooYoung`, naming the time). A staged key that is not promoted within 30 days of
-its publication stops being accepted: discard it and stage another.
+its publication stops being accepted, and its promote is refused with `Secret.KeyringNoNextKey`,
+which no restart clears: discard it and stage another.
 
 **More than one API process.** A promote moves the signer in the process that made it, at once.
 Another process that shares the secrets file (a web garden, a second server) keeps signing with the

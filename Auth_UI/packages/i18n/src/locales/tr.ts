@@ -1740,6 +1740,8 @@ export const tr: TranslationResources = {
           "API hazırlanan anahtarı yükledi ancak zamanını kaydedemedi; kaydetmesi için bir kez daha yeniden başlatın.",
         tooYoung:
           "Hazırlanan anahtar, uygulamaların onu almak için 24 saati olduktan sonra, {{date}} tarihinden itibaren yükseltilebilir.",
+        stagedExpired:
+          "Hazırlanan anahtar 30 günden uzun süre önce yayımlandı ve artık kabul edilmiyor: onu atın, sonra yeni bir anahtar hazırlayın.",
         emergencyNeedsStaged:
           "Acil yükseltme hazırlanmış bir anahtarı yükseltir: önce yeni bir anahtar hazırlayın. Gizli bilgiler dosyası sızdıysa ondan önce hazırlanan anahtarı atın ve yenisini hazırlayın.",
         processOnly:

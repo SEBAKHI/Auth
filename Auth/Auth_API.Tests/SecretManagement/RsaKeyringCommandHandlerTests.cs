@@ -102,6 +102,23 @@ public sealed class RsaKeyringCommandHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task APromote_OfAStagedKeyPublished31DaysAgo_IsRefused_SayingToDiscardIt_WithoutSpendingTheApproval()
+    {
+        await StagePublishAndWaitAsync();
+        _keyring.Clock.Advance(TimeSpan.FromDays(30));
+        var approval = _keyring.ApproveSigning(KeyringAction.Promote);
+
+        var result = await Promote(approval);
+
+        result.FirstError.Code.Should().Be("Secret.KeyringNoNextKey", "a staged key past its 30 days is no longer accepted");
+        result.FirstError.Description.Should().Contain("more than 30 days ago, discard it",
+            "a restart does not bring the key back, so the sentence names the way out");
+        NotSpent(approval);
+        (await View()).Keys.Single(key => key.State == SigningKeyState.Next).AcceptedInProcess.Should().BeFalse(
+            "the console reads this to give promote its own reason");
+    }
+
+    [Fact]
     public async Task AScheduledPromote_MovesTheSignerHere_AndTheOldKeyIsAcceptedForADayAndFiveMinutes()
     {
         var old = _keyring.SigningKeys.Current.Key.KeyId!;
@@ -214,6 +231,34 @@ public sealed class RsaKeyringCommandHandlerTests : IDisposable
         _keyring.SigningKeys.PublishedKeys(DateTimeOffset.UtcNow).Select(key => key.KeyId).Should().Contain(staged);
         _keyring.ReadSigningRing().Next!.PublishedAtUtc.Should().Be(_keyring.Clock.UtcNow);
         (await View()).PromoteAvailableAtUtc.Should().Be(_keyring.Clock.UtcNow.AddHours(24));
+    }
+
+    [Fact]
+    public async Task TheFirstStage_SavesTheMigratedKeyUnderTheNameThisProcessPublishes_ThoughJwtKeyIdWasEditedSince()
+    {
+        // A deployment that never rotated, started with Jwt:KeyId auth-key-1; the setting is edited
+        // afterwards, before the first change. The first save keeps the name the JWKS publishes.
+        _keyring.RemoveSigningRing();
+        await _keyring.RestartAsync();
+        var renamed = new Auth.Application.Features.Secrets.Common.RsaKeyringChangeService(
+            _keyring.Secrets,
+            _keyring.SigningKeys,
+            _keyring.Challenges.Service,
+            _keyring.Publisher.Object,
+            new TestHelpers.TestOptions<JwtSettings>(new JwtSettings { KeyId = "renamed", AccessTokenLifetimeMinutes = 15 }),
+            _keyring.Clock,
+            new Mock<ILogger<Auth.Application.Features.Secrets.Common.RsaKeyringChangeService>>().Object);
+
+        var staged = await new StageSigningKeyCommandHandler(renamed, new SharedKeyMaterialGenerator()).Handle(
+            new StageSigningKeyCommand(null, _keyring.ApproveSigning(KeyringAction.Stage), _keyring.Admin), CancellationToken.None);
+
+        staged.IsError.Should().BeFalse(Codes(staged));
+        var saved = _keyring.ReadSigningRing();
+        saved.Persisted.Should().BeTrue();
+        saved.Current.Kid.Should().Be("auth-key-1", "the migrated key is saved under the name this process publishes");
+        await _keyring.RestartAsync();
+        _keyring.SigningKeys.PublishedKeys(DateTimeOffset.UtcNow).Select(key => key.KeyId).Should().Contain("auth-key-1")
+            .And.NotContain("renamed");
     }
 
     [Fact]

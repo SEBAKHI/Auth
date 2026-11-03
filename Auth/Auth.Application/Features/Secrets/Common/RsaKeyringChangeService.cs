@@ -70,6 +70,8 @@ public sealed class RsaKeyringChangeService
     private readonly ISigningKeyRing _process;
     private readonly SecretOperationChallengeService _challengeService;
     private readonly IPublisher _publisher;
+
+    // Read live for the access-token lifetime only (T12); never for the migrated key's name.
     private readonly IOptionsMonitor<JwtSettings> _jwtSettings;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<RsaKeyringChangeService> _logger;
@@ -329,8 +331,9 @@ public sealed class RsaKeyringChangeService
             ? transition(process, change)
             : SecretErrors.KeyringNoNextKey;
 
-    // The kid the ring is published under while it is not saved: Jwt:KeyId, as at start.
-    private string MigratedKid => _jwtSettings.CurrentValue.KeyId;
+    // The kid the ring is published under while it is not saved: Jwt:KeyId as this process read
+    // it at start, never as edited since, so the first save keeps the name the JWKS publishes.
+    private string MigratedKid => _process.Source.MigratedKid;
 
     private static string? DigestOf(SigningKeyChangeRequest request, string target) =>
         !request.AliasDigest ? KeyringStepUp.SigningDigest(request.Action, target, request.Value)

@@ -6889,7 +6889,7 @@ An emergency rotation to a caller-supplied HMAC key (BYOK): the same effect as `
 
 | Error code | Status | When |
 |---|---|---|
-| `Secret.KeyringNoNextKey` | 409 | A promote or a discard with no staged key, or a promote while this process has not loaded the staged key |
+| `Secret.KeyringNoNextKey` | 409 | A promote or a discard with no staged key, a promote while this process has not loaded the staged key, or a promote of a staged signing key published more than 30 days ago |
 | `Secret.KeyringKeyNotFound` | 409 | A reinstate or retire of a key that is unknown, current or staged; for a reinstate, also a key marked compromised or past its window |
 | `Secret.KeyringKeyReferenced` | 409 | A retire while webhook keys stored under the key are in their grace |
 | `Secret.KeyringUnavailable` | 409 | The deployment does not keep its secrets in the encrypted file (PlainText mode), so it has no keyring to change |

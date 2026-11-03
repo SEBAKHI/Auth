@@ -137,6 +137,19 @@ describe("SigningKeyringPanel", () => {
     expect(screen.getByRole("button", { name: "Promote" })).toBeDisabled()
   })
 
+  it("disables promote for a staged key past its 30 days, says to discard it, and keeps discard", async () => {
+    const expired: Entry = { ...staged(true, PAST), acceptedInProcess: false }
+    get.mockResolvedValue(read([current(), expired], { promoteAvailableAtUtc: PAST }))
+    renderPanel()
+
+    expect(
+      await screen.findByText(/published more than 30 days ago and is no longer accepted: discard it/)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Restart the API/)).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Promote" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Discard staged key" })).toBeEnabled()
+  })
+
   it("enables promote once the staged key is loaded and published for 24 hours, and sends its kid", async () => {
     get.mockResolvedValue(read([current(), staged(true, PAST)], { promoteAvailableAtUtc: PAST }))
     const { onChange } = renderPanel()
