@@ -389,21 +389,9 @@ public sealed partial class FileSystemImageStorageService : IImageStorageService
             return null;
         }
 
-        var tempPath = $"{renditionPath}.{Guid.NewGuid():N}.tmp";
         try
         {
-            Directory.CreateDirectory(root);
-
-            // Write to a sibling temp file, then swap it in. The rendition sits at a STABLE
-            // URL that recipients fetch at unpredictable times, so writing in place would let
-            // a reader see a half-written PNG - a broken logo caused by the act of fixing it.
-            // File.Move with overwrite is atomic within a volume.
-            using (var fs = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            {
-                data.SaveTo(fs);
-            }
-
-            File.Move(tempPath, renditionPath, overwrite: true);
+            ReplaceStableFile(root, renditionPath, data);
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
@@ -412,7 +400,39 @@ public sealed partial class FileSystemImageStorageService : IImageStorageService
                 "rendition, or fall back to the text wordmark if there is none. Verify the " +
                 "app-pool identity has write permission on ImageStorage:PhysicalPath.",
                 renditionPath);
+            return null;
+        }
 
+        return new EmailLogoRendition(renditionKey, CssWidth, CssHeight);
+    }
+
+    #endregion
+
+    /// <summary>
+    /// Writes a file that sits at a STABLE URL (a rendition), throwing the storage fault after
+    /// removing its partial write.
+    /// </summary>
+    /// <remarks>
+    /// Written to a sibling temp file, then swapped in. A stable URL is fetched at unpredictable
+    /// times (a mail client, a browser tab), so writing in place would let a reader see a
+    /// half-written PNG - a broken image caused by the act of fixing it. File.Move with
+    /// overwrite is atomic within a volume.
+    /// </remarks>
+    private static void ReplaceStableFile(string root, string path, SKData data)
+    {
+        var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            Directory.CreateDirectory(root);
+            using (var fs = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                data.SaveTo(fs);
+            }
+
+            File.Move(tempPath, path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
             try
             {
                 if (File.Exists(tempPath))
@@ -422,16 +442,12 @@ public sealed partial class FileSystemImageStorageService : IImageStorageService
             }
             catch
             {
-                // Best-effort cleanup of the partial file; the failure above is what matters.
+                // Best-effort cleanup of the partial file; the failure is what matters.
             }
 
-            return null;
+            throw;
         }
-
-        return new EmailLogoRendition(renditionKey, CssWidth, CssHeight);
     }
-
-    #endregion
 
     private static string ResolvedRoot(ImageStorageSettings settings) =>
         Path.IsPathRooted(settings.PhysicalPath)

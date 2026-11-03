@@ -47,6 +47,12 @@ public class PlatformSettings : EntityBase
     public string? FaviconUrl { get; private set; }
 
     /// <summary>
+    /// Gets the image key the browser tab shows: the favicon, else the light-mode logo, or null
+    /// for neither (the product's default mark).
+    /// </summary>
+    public string? TabIconKey => FaviconUrl ?? LogoUrl;
+
+    /// <summary>
     /// Gets the platform's appearance: base colour, theme, chart colour,
     /// radius and menu accent, as chosen in shadcn's theme builder.
     /// </summary>

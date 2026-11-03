@@ -722,6 +722,7 @@ builder.Services.AddSingleton<INotificationDispatchSignal, NotificationDispatchS
 builder.Services.AddHostedService<NotificationTemplateStartupCheck>();
 builder.Services.AddHostedService<NotificationOutboxDispatcher>();
 builder.Services.AddHostedService<EmailLogoRenditionStartupTask>();
+builder.Services.AddHostedService<PlatformTabIconStartupTask>();
 builder.Services.AddSingleton<IImageStorageService, FileSystemImageStorageService>();
 // The platform's fonts: WOFF2 files kept as uploaded, in the same uploads volume (fonts/).
 builder.Services.AddSingleton<IFontStorageService, FileSystemFontStorageService>();
@@ -761,6 +762,7 @@ builder.Services.AddScoped<Auth.Application.Features.ApiKeys.Common.ApiKeyScopeP
 // application page's invitation and every grant at an application's scope.
 builder.Services.AddScoped<Auth.Application.Common.ApplicationAccessWriter>();
 builder.Services.AddScoped<Auth.Application.Common.EmailLogoRenditions>();
+builder.Services.AddScoped<Auth.Application.Common.PlatformTabIcon>();
 // Sign-in page designs: which design a page shows (the application's active one, else the
 // platform's), the scope check every design endpoint starts with, and the sandboxed renderer
 // with the save gate.

@@ -6,6 +6,7 @@ import { defineConfig } from "vite"
 import { accountBarInputs } from "../../account-bar-embed"
 import { apiPreconnect } from "../../api-preconnect"
 import { devHttps } from "../../dev-https"
+import { faviconLink } from "../../favicon-link"
 import { assetsCors, htmlInputs } from "../../login-design-frame"
 import { themeBoot } from "../../theme-boot"
 import { vendorChunk } from "../../vendor-chunks"
@@ -14,7 +15,8 @@ import { vendorChunk } from "../../vendor-chunks"
 export default defineConfig((config) => ({
   // themeBoot: the colour mode on <html> before the first paint (theme-boot.ts).
   // apiPreconnect: the connection to the API opens while the scripts download.
-  plugins: [themeBoot({ hints: true }), react(), tailwindcss(), assetsCors(), apiPreconnect()],
+  // faviconLink: the platform's tab icon, named in the HTML itself (favicon-link.ts).
+  plugins: [themeBoot({ hints: true }), react(), tailwindcss(), assetsCors(), apiPreconnect(), faviconLink()],
   server: {
     // The console dev server owns 5173; accounts runs alongside it.
     port: 5174,

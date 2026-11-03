@@ -445,6 +445,73 @@ public class FileSystemImageStorageServiceTests : IDisposable
 
     #endregion
 
+    #region Tab icon
+
+    /// <summary>
+    /// The stored image becomes a square PNG at the stable key, shown whole: a wide image
+    /// keeps its aspect, centred between transparent bands. Break: write the WebP source, or
+    /// stretch it to the square.
+    /// </summary>
+    [Fact]
+    public async Task EnsureTabIcon_FromASource_WritesASquarePngShowingItWhole()
+    {
+        var service = CreateService();
+        var sourceKey = await StoreAsync(MakePng(400, 200));
+
+        var built = await service.EnsureTabIconRenditionAsync(sourceKey, CancellationToken.None);
+
+        built.Should().BeTrue();
+        var path = Path.Combine(_tempRoot, FileSystemImageStorageService.TabIconKey);
+        using (var codec = SKCodec.Create(path))
+        {
+            codec.EncodedFormat.Should().Be(SKEncodedImageFormat.Png);
+            codec.Info.Width.Should().Be(codec.Info.Height);
+        }
+
+        using var icon = SKBitmap.Decode(path);
+        icon.GetPixel(icon.Width / 2, 2).Alpha.Should().Be(0, "a wide image leaves the top band empty");
+        icon.GetPixel(icon.Width / 2, icon.Height / 2).Should().Be(SKColors.CornflowerBlue);
+    }
+
+    /// <summary>
+    /// Without an image (or with one that is gone) the stable key still holds an icon: the
+    /// product's default mark, never nothing. Break: return early when there is no source.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("missing.webp")]
+    [InlineData("https://cdn.example.com/icon.png")]
+    public async Task EnsureTabIcon_WithoutAStoredImage_WritesTheDefaultMark(string? sourceKey)
+    {
+        var service = CreateService();
+
+        var built = await service.EnsureTabIconRenditionAsync(sourceKey, CancellationToken.None);
+
+        built.Should().BeTrue();
+        using var icon = SKBitmap.Decode(Path.Combine(_tempRoot, FileSystemImageStorageService.TabIconKey));
+        icon.Should().NotBeNull();
+        // The tile fills the edge midpoints; its rounded corners stay transparent.
+        icon!.GetPixel(2, icon.Height / 2).Should().Be(new SKColor(0x17, 0x17, 0x17));
+        icon.GetPixel(0, 0).Alpha.Should().Be(0);
+    }
+
+    /// <summary>A new favicon replaces the file at the same key. Break: write only when missing.</summary>
+    [Fact]
+    public async Task EnsureTabIcon_ASecondBuild_ReplacesTheFirst()
+    {
+        var service = CreateService();
+        await service.EnsureTabIconRenditionAsync(null, CancellationToken.None);
+        var sourceKey = await StoreAsync(MakePng(64, 64));
+
+        await service.EnsureTabIconRenditionAsync(sourceKey, CancellationToken.None);
+
+        using var icon = SKBitmap.Decode(Path.Combine(_tempRoot, FileSystemImageStorageService.TabIconKey));
+        icon.GetPixel(2, icon.Height / 2).Should().Be(SKColors.CornflowerBlue);
+        Directory.GetFiles(_tempRoot, "*.tmp").Should().BeEmpty();
+    }
+
+    #endregion
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))

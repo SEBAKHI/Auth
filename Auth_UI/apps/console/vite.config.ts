@@ -5,6 +5,7 @@ import { defineConfig } from "vite"
 
 import { apiPreconnect } from "../../api-preconnect"
 import { devHttps } from "../../dev-https"
+import { faviconLink } from "../../favicon-link"
 import { assetsCors, htmlInputs } from "../../login-design-frame"
 import { themeBoot } from "../../theme-boot"
 import { vendorChunk } from "../../vendor-chunks"
@@ -13,7 +14,8 @@ import { vendorChunk } from "../../vendor-chunks"
 export default defineConfig((config) => ({
   // themeBoot: the colour mode on <html> before the first paint (theme-boot.ts).
   // apiPreconnect: the connection to the API opens while the scripts download.
-  plugins: [themeBoot({ hints: false }), react(), tailwindcss(), assetsCors(), apiPreconnect()],
+  // faviconLink: the platform's tab icon, named in the HTML itself (favicon-link.ts).
+  plugins: [themeBoot({ hints: false }), react(), tailwindcss(), assetsCors(), apiPreconnect(), faviconLink()],
   server: {
     // Pinned rather than left to the default: accounts owns 5174 and the API's
     // CORS allow-list names both ports, so a silent fallback port fails CORS.

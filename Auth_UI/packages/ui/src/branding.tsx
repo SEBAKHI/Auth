@@ -9,6 +9,7 @@ import { pickLogo } from "@authsystem/ui/theme/pick-logo"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import { API_BASE_URL } from "@authsystem/api/env"
+import { platformFaviconUrl } from "@authsystem/api/platform-favicon"
 import type { Schemas } from "@authsystem/api/types"
 import { readCachedBranding, writeCachedBranding } from "@authsystem/ui/branding-cache"
 import { applyPlan, type ThemePlan } from "@authsystem/ui/theme/theme-plan"
@@ -18,7 +19,11 @@ import { toThemeConfig, type ThemeConfig } from "@authsystem/ui/theme/theme-conf
 
 export const BRANDING_QUERY_KEY = ["platform-branding"] as const
 
-const DEFAULT_FAVICON = "/vite.svg"
+/**
+ * The icon the HTML already names: the API's stable copy of the favicon, or of the product's
+ * default mark when there is none.
+ */
+const STABLE_FAVICON = platformFaviconUrl(API_BASE_URL)
 
 /** Which design a sign-in page shows in its panel: its id, its version, its logo choice. */
 export type LoginDesignRef = Schemas["LoginDesignRefDto"]
@@ -267,18 +272,17 @@ export function BrandingProvider({
     document.title = name
   }, [name, isPending])
 
+  // The HTML names the icon already (favicon-link.ts), so the first paint is right. This
+  // follows a change made while the page is open: the uploaded image by its own address,
+  // which a new upload changes, where the stable copy may sit in the browser's cache for an hour.
   React.useEffect(() => {
     if (isPending) return
     const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
-    if (!link) return
-    if (faviconUrl) {
-      // Uploaded images are raster (webp); drop the svg type of the default icon.
-      link.removeAttribute("type")
-      link.href = faviconUrl
-    } else {
-      link.type = "image/svg+xml"
-      link.href = DEFAULT_FAVICON
-    }
+    const href = faviconUrl ?? STABLE_FAVICON
+    if (!link || !href) return
+    // Uploaded images are WebP, the stable copy PNG: the browser reads the type from the file.
+    link.removeAttribute("type")
+    if (link.href !== href) link.href = href
   }, [faviconUrl, isPending])
 
   const staySignedInOffered = query.data

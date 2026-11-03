@@ -24,6 +24,14 @@ import {
 const console_ = parseWebConfig(consoleWebConfig, "apps/console/public/web.config")
 const accounts = parseWebConfig(accountsWebConfig, "apps/accounts/public/web.config")
 
+/** Both apps' /favicon.ico: the API's stable tab icon, the origin sealed at build time. */
+const FAVICON_REDIRECT = {
+  type: "Redirect",
+  url: "https://auth.example.com/uploads/images/platform-favicon.png",
+  status: 302,
+  appendQueryString: true,
+}
+
 /** The CSP attribute exactly as the file writes it, read without the model. */
 function cspAttribute(xml: string) {
   const match = /<add name="Content-Security-Policy" value="([^"]*)"/.exec(xml)
@@ -46,9 +54,10 @@ const PRIVACY_FILES = ["/privacy/index.html", "/privacy/ar.html", "/privacy/v202
 const PRIVACY_DIRECTORIES = ["/privacy", "/privacy/v2026.09"]
 
 describe("web.config model: console", () => {
-  it("has one SPA Fallback rule with four conditions", () => {
-    expect(console_.rules.map((rule) => rule.name)).toEqual(["SPA Fallback"])
-    const [fallback] = console_.rules
+  it("sends /favicon.ico to the tab icon, then has one SPA Fallback rule with four conditions", () => {
+    expect(console_.rules.map((rule) => rule.name)).toEqual(["Favicon", "SPA Fallback"])
+    const [favicon, fallback] = console_.rules
+    expect(favicon.action).toEqual(FAVICON_REDIRECT)
     expect(fallback.stopProcessing).toBe(true)
     expect(fallback.conditions).toEqual([
       { input: "{REQUEST_FILENAME}", matchType: "IsFile", negate: true, ignoreCase: true },
@@ -102,6 +111,8 @@ describe("web.config model: accounts", () => {
       "Privacy Unknown Document",
       // Nothing under /embed is the SPA: it would be framable there (the account bar).
       "Embed Unknown Path",
+      // The SPA answered /favicon.ico with index.html.
+      "Favicon",
       "SPA Fallback",
     ])
     expect(accounts.rules.map((rule) => rule.action.type)).toEqual([
@@ -116,8 +127,10 @@ describe("web.config model: accounts", () => {
       "None",
       "CustomResponse",
       "CustomResponse",
+      "Redirect",
       "Rewrite",
     ])
+    expect(accounts.rules[11].action).toEqual(FAVICON_REDIRECT)
     expect(accounts.rules[9].action).toMatchObject({ type: "CustomResponse", status: 404 })
     expect(accounts.rules[10].action).toMatchObject({ type: "CustomResponse", status: 404 })
   })
