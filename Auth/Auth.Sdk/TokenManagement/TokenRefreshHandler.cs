@@ -14,9 +14,9 @@ namespace Auth.Sdk.TokenManagement;
 /// <remarks>
 /// A token can be refused before it expires: its signing key was withdrawn, or its session ended.
 /// So a 401 is answered by one refresh whatever the token's expiry says (SDK 2.1), once per refused
-/// value: concurrent requests refused on the same token share one refresh, and a token that a forced
-/// refresh produced is not force-refreshed again until a request with it succeeds
-/// (<see cref="ForcedRefreshGuard"/>).
+/// value: concurrent requests refused on the same token share one refresh, a refused token whose
+/// refresh produced nothing is not refreshed again for a refusal, and a token that a forced refresh
+/// produced is not force-refreshed again until a request with it succeeds (<see cref="ForcedRefreshGuard"/>).
 /// </remarks>
 public class TokenRefreshHandler : DelegatingHandler
 {
@@ -155,10 +155,21 @@ public class TokenRefreshHandler : DelegatingHandler
                 return null;
             }
 
+            // Its forced refresh already produced nothing: one per refused value. The refresh at
+            // the token's expiry takes over.
+            if (_forcedRefreshes.RefreshFailedFor(refused))
+            {
+                return null;
+            }
+
             var refreshed = await RefreshAsync(current.RefreshToken, cancellationToken);
             if (refreshed is not null)
             {
                 _forcedRefreshes.Produced(refreshed.AccessToken);
+            }
+            else
+            {
+                _forcedRefreshes.RefreshFailed(refused);
             }
 
             return refreshed;

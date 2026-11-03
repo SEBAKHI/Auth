@@ -92,7 +92,7 @@ your own code.
 refreshing is `static`. In a multi-user web application, one user calling `LoginAsync` overwrites the
 tokens for everybody, and every outbound call the SDK makes then carries that one user's token. This is a
 design for a service identity, not for end users.
-*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:82`;
+*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:95`;
 `Auth/Auth.Sdk/TokenManagement/InMemoryTokenStore.cs`; `Auth/Auth.Sdk/TokenManagement/TokenRefreshHandler.cs:16`.
 **What to do today:** never sign your end users in with `LoginAsync`. Send them through the browser flow
 in [Step 2](#step-2-how-a-person-actually-signs-in). Use `LoginAsync` only for a single machine identity,
@@ -992,7 +992,7 @@ Step 5 explains.
 *In code:* the per-application audience is set at
 `Auth/Auth.Application/Features/Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:144`
 and applied at `Auth/Auth.Infrastructure/Authentication/JwtTokenService.cs:139`; the SDK's single
-`ValidAudience` is `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:175`.
+`ValidAudience` is `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:198`.
 
 ### Where the gateway token comes from
 
@@ -1116,12 +1116,12 @@ not, token validation will fail with an issuer mismatch and no amount of correct
 | `AddAuthSystemApiKey()` → `AddScheme<…, ApiKeyAuthenticationHandler>("ApiKey", …)` | — | The `X-Api-Key` scheme, added only when you call it. |
 | `AddAuthSystemWebhookKey()` → `AddScheme<…, WebhookKeyAuthenticationHandler>("WebhookKey", …)` | — | The `?whk=` scheme, added only when you call it. |
 
-*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:38-215`.
+*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:39-226`.
 
 **These are unconditional registrations, not "add if missing".** The SDK uses `AddSingleton` and
 `AddScoped`, and `TryAdd` only for `TimeProvider` (yours wins). If you want your own `ITokenStore`,
 register it **after** this call or it will be overwritten.
-*In code:* `ServiceCollectionExtensions.cs:62,73,74,82,83,153`.
+*In code:* `ServiceCollectionExtensions.cs:73,84,85,95,97,171`.
 
 **Exclude the two machine clients from any application-wide retry handler.** A
 `ConfigureHttpClientDefaults` resilience handler reaches every named client, these included. A retried
@@ -1149,7 +1149,7 @@ signatures in your own process. After the first fetch there is no call to the au
 **One thing to watch behind a reverse proxy.** The `jwks_uri` is built from the server's configured
 `IdentityProvider:PublicBaseUrl`, so it can point at a different origin than your `BaseUrl`. Your
 application host must be able to reach whatever that document advertises.
-*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:166-167`;
+*In code:* `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:184-185`;
 `Auth/Auth.Application/Features/Discovery/GetDiscoveryDocument/GetDiscoveryDocumentQueryHandler.cs:34`;
 `Auth/Auth.Application/Configuration/IdentityProviderSettings.cs:36-37`.
 
@@ -1163,9 +1163,9 @@ application host must be able to reach whatever that document advertises.
 | Role claim type | `roles` |
 | Name claim type | `sub` |
 | Signing keys fetched again | every `JwksRefreshInterval` (1 hour at most), and at once, at most every 5 minutes, when a token names a `kid` the SDK does not hold |
-| Last-known-good fallback | off: a token the fresh key set refuses is refused |
+| Last-known-good fallback | not used: the library uses it only when `ValidateWithLKG` is set, which the SDK never does; the SDK also switches it off on the configuration manager, as a second guard |
 
-*In code:* `ServiceCollectionExtensions.cs:186-222`. The server signs with RS256 and publishes a key whose
+*In code:* `ServiceCollectionExtensions.cs:182-224`. The server signs with RS256 and publishes a key whose
 identifier defaults to `auth-key-1`.
 *In code:* `Auth/Auth.Infrastructure/Authentication/SingleSigningKeyMaterial.cs:17`;
 `Auth/Auth.Application/Configuration/JwtSettings.cs:51`.
@@ -1174,17 +1174,19 @@ identifier defaults to `auth-key-1`.
 machine. Up to SDK 2.0 it was a substring test on the whole `BaseUrl`, so a host such as
 `http://localhost.example.com` switched HTTPS metadata enforcement off, and the signing keys could be fetched
 in clear from a machine anywhere on the internet. SDK 2.1 refuses that configuration when the scheme is built.
-*In code:* `ServiceCollectionExtensions.cs:189`, `:227-228`.
+*In code:* `ServiceCollectionExtensions.cs:189`, `:229-230`.
 
 **Read the key set as a list, and never pin one key.** `/.well-known/jwks.json` holds one key today, and up to
 four while AuthSystem changes its signing key; each token names its key in its `kid` header. AuthSystem lets
 the answer be cached for 5 minutes at most (`Cache-Control: public, max-age=300`), and the SDK fetches it
-again at most every `JwksRefreshInterval` (1 hour), with no last-known-good fallback. So a key withdrawn
-because it leaked stops verifying in your application within that hour; restart the application to end it
-at once. A token whose `kid` the SDK has not seen yet triggers a fetch on its own, so a scheduled key change
-never waits for the interval. `/.well-known/public-key.pem` is the current key only: a copy pinned in your
+again at most every `JwksRefreshInterval` (1 hour). So a key withdrawn because it leaked stops verifying in
+your application within that hour; restart the application to end it at once. That hour holds only while your
+application can reach AuthSystem: a refetch that fails leaves the key set it already holds in use, so at an
+application cut off from AuthSystem a withdrawn key keeps verifying past the hour, until a refetch succeeds or
+the application restarts. A token whose `kid` the SDK has not seen yet triggers a fetch on its own, so a
+scheduled key change never waits for the interval. `/.well-known/public-key.pem` is the current key only: a copy pinned in your
 configuration stops matching at the next key change.
-*In code:* `Auth/Auth_API/Controllers/DiscoveryController.cs:33`, `:77`; `ServiceCollectionExtensions.cs:186-222`.
+*In code:* `Auth/Auth_API/Controllers/DiscoveryController.cs:33`, `:77`; `ServiceCollectionExtensions.cs:182-224`.
 
 **The SDK does not turn off inbound claim-type mapping, and the AuthSystem API does.** The API sets
 `MapInboundClaims = false` with the comment "Disable claim type mapping to preserve original JWT claim
@@ -1192,7 +1194,7 @@ names"; the SDK never sets it at all. If mapping is on in your host, the standar
 `name`, `given_name` and `family_name` are rewritten to long WS-\* URIs before your code sees them, and
 `User.FindFirst("sub")` returns `null`. The custom claims — `permissions`, `roles`, `org_perm`, `sid`,
 `locale`, `timezone`, `theme` — are not in the standard map and survive either way.
-*In code:* `Auth/Auth_API/Program.cs:725-726`; the SDK's options block is `ServiceCollectionExtensions.cs:164-186`.
+*In code:* `Auth/Auth_API/Program.cs:725-726`; the SDK's options block is `ServiceCollectionExtensions.cs:182-209`.
 
 **What to do:** set the option yourself, on the same named options the SDK already configured, in a
 separate call placed **after** `AddAuthSystemAuthentication`. Configuration callbacks for one named
@@ -1653,19 +1655,21 @@ and refresh them without you asking. Four facts describe the whole behaviour.
 - It refreshes **reactively**, once, when a response comes back 401, and then replays the request. Since SDK
   2.1 it does so whatever the token's expiry says: a token can be refused before it expires (its signing key
   was withdrawn, its session ended), and 2.0 replayed the refused token itself. Requests refused on the same
-  token share one refresh, and a token such a refresh produced is not refreshed again for a refusal until a
+  token share one refresh. One refresh per refused token: when that refresh produces nothing (AuthSystem
+  failed, was unreachable, or asked to wait), the token is not refreshed again for a refusal, and the refresh
+  at its expiry takes over; and a token such a refresh produced is not refreshed again for a refusal until a
   request carrying it has succeeded.
 - It calls `POST /api/v1/auth/refresh`, which is an anonymous endpoint — no bearer token needed to refresh.
 - A 401 from that refresh call clears the store, so the next request goes out unauthenticated.
 
-*In code:* `Auth/Auth.Sdk/TokenManagement/TokenRefreshHandler.cs:58-170`;
+*In code:* `Auth/Auth.Sdk/TokenManagement/TokenRefreshHandler.cs:58-181`;
 `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:194-195`.
 
 Two implementation details are worth knowing because they will show up in production diagnostics. A failed
 refresh sends your request with **no** `Authorization` header, not with the stale one (limitation 7). And
 each refresh creates a brand-new `HttpClient` rather than using the injected factory, which is the classic
 socket-exhaustion and stale-DNS pattern.
-*In code:* `TokenRefreshHandler.cs:76-82,55,207`.
+*In code:* `TokenRefreshHandler.cs:76-82,55,218`.
 
 ---
 

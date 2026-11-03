@@ -100,6 +100,20 @@ public sealed class TokenRefreshHandlerForcedRefreshTests : IDisposable
         (await _store.GetAsync()).Should().BeNull("a refused refresh token ends the stored session, as before");
     }
 
+    [Fact]
+    public async Task ARefusedTokenWhoseRefreshFailed_IsNotRefreshedAgainOnTheNextRefusal()
+    {
+        _api.Refuse("access-0");
+        _refresh.FailWith = HttpStatusCode.ServiceUnavailable;
+
+        (await _client.GetAsync("/orders")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await _client.GetAsync("/orders")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await _client.GetAsync("/orders")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        _refresh.Calls.Should().Be(1, "one forced refresh per refused value: a busy AuthSystem is not asked again per request");
+        (await _store.GetAsync())!.AccessToken.Should().Be("access-0", "the session is kept for the refresh at expiry");
+    }
+
     /// <summary>The protected API: refuses the listed tokens, answers 200 to any other.</summary>
     private sealed class ScriptedApi : HttpMessageHandler
     {
@@ -162,6 +176,9 @@ public sealed class TokenRefreshHandlerForcedRefreshTests : IDisposable
 
         public bool RefuseNext { get; set; }
 
+        /// <summary>When set, every refresh fails with this status and stores nothing.</summary>
+        public HttpStatusCode? FailWith { get; set; }
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             request.RequestUri!.AbsolutePath.Should().Be("/api/v1/auth/refresh");
@@ -175,6 +192,11 @@ public sealed class TokenRefreshHandlerForcedRefreshTests : IDisposable
             if (RefuseNext)
             {
                 return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+            }
+
+            if (FailWith is { } status)
+            {
+                return new HttpResponseMessage(status);
             }
 
             var n = Interlocked.Increment(ref _issued);

@@ -332,6 +332,124 @@ describe("a 429 on a forced refresh", () => {
   })
 })
 
+describe("one forced refresh per refused value", () => {
+  /** Moves Date.now() forward by `ms` from now on; the timers stay real. */
+  function advanceClock(ms: number) {
+    const now = Date.now()
+    vi.spyOn(Date, "now").mockImplementation(() => now + ms)
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("after a forced refresh that failed, a second 401 on the same token costs no /refresh", async () => {
+    const server = installServer()
+    const tab = await openTab()
+    server.refused.add(accessToken(0))
+    server.refreshAnswers.push(() => json(500, { code: "Http.InternalError" }))
+
+    await me(tab)
+    await me(tab)
+    await me(tab)
+
+    expect(server.refreshes()).toBe(1)
+    expect(server.presented).toEqual([accessToken(0), accessToken(0), accessToken(0)])
+    expect(tab.tokenStore.getAccessToken()).toBe(accessToken(0))
+    expect(tab.expired()).toBe(0)
+  })
+
+  it("after a 429, waits out Retry-After, then allows one more forced refresh", async () => {
+    const server = installServer()
+    const tab = await openTab()
+    server.refused.add(accessToken(0))
+    server.refreshAnswers.push(() => json(429, { code: "Http.RateLimited" }, { "Retry-After": "7" }))
+
+    await me(tab)
+    await me(tab)
+    expect(server.refreshes()).toBe(1)
+    expect(await tab.client.sharedRefresh({ rejected: accessToken(0) })).toEqual({
+      status: "deferred",
+      retryAfterSeconds: 7,
+    })
+    expect(server.refreshes()).toBe(1)
+
+    advanceClock(7_500)
+    await me(tab)
+
+    expect(server.refreshes()).toBe(2)
+    expect(tab.tokenStore.getAccessToken()).toBe(accessToken(1))
+  })
+
+  it("after a 429 with no wait named, holds off for 30 seconds", async () => {
+    const server = installServer()
+    const tab = await openTab()
+    server.refused.add(accessToken(0))
+    server.refreshAnswers.push(() => json(429, { code: "Http.RateLimited" }))
+
+    await me(tab)
+    advanceClock(29_000)
+    await me(tab)
+    expect(server.refreshes()).toBe(1)
+
+    advanceClock(30_500)
+    await me(tab)
+    expect(server.refreshes()).toBe(2)
+  })
+
+  it("allows exactly one more forced refresh after a 429, not one per wait", async () => {
+    const server = installServer()
+    const tab = await openTab()
+    server.refused.add(accessToken(0))
+    server.refreshAnswers.push(
+      () => json(429, { code: "Http.RateLimited" }, { "Retry-After": "7" }),
+      () => json(429, { code: "Http.RateLimited" }, { "Retry-After": "7" })
+    )
+
+    await me(tab)
+    advanceClock(7_500)
+    await me(tab)
+    advanceClock(15_500)
+    await me(tab)
+    advanceClock(60_000)
+    await me(tab)
+
+    expect(server.refreshes()).toBe(2)
+    expect(tab.tokenStore.getAccessToken()).toBe(accessToken(0))
+    expect(storage.get(REFRESH_KEY)).toBe(SENTINEL)
+    expect(tab.expired()).toBe(0)
+  })
+
+  it("a tab refused on the value another tab's failed forced refresh recorded sends no /refresh", async () => {
+    const server = installServer()
+    const tabA = await openTab()
+    const tabB = await openTab()
+    server.refused.add(accessToken(0))
+    server.refreshAnswers.push(() => json(500, { code: "Http.InternalError" }))
+
+    await me(tabA)
+    await me(tabB)
+
+    expect(server.refreshes()).toBe(1)
+    expect(tabB.tokenStore.getAccessToken()).toBe(accessToken(0))
+  })
+
+  it("a new pair clears the record, so step-up is never held by it", async () => {
+    const server = installServer()
+    const tab = await openTab()
+    server.refused.add(accessToken(0))
+    server.refreshAnswers.push(() => json(500, { code: "Http.InternalError" }))
+
+    await me(tab)
+    expect(storage.has("auth.refusedRefresh")).toBe(true)
+
+    // Step-up refuses the token itself and is not held by the record.
+    expect(await tab.client.refreshSessionNow()).toBe(true)
+    expect(server.refreshes()).toBe(2)
+    expect(storage.has("auth.refusedRefresh")).toBe(false)
+  })
+})
+
 describe("across tabs", () => {
   it("costs one /refresh when two tabs are refused on the same token", async () => {
     const server = installServer()

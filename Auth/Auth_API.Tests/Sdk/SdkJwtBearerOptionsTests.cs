@@ -12,7 +12,7 @@ namespace Auth_API.Tests.Sdk;
 /// <summary>
 /// SDK 2.1 (S12, TS8): how the Bearer scheme fetches the AuthSystem's signing keys, read off the
 /// options JwtBearer actually builds. The key set is fetched over HTTPS unless the AuthSystem is on
-/// this machine, again at most every hour, and never answered from the last set that worked:
+/// this machine, and again at most every hour; the last-known-good switch is off as a second guard:
 /// together they bound how long a key withdrawn because it leaked keeps verifying forged tokens in
 /// an application.
 /// </summary>
@@ -51,7 +51,7 @@ public class SdkJwtBearerOptionsTests
         options.RequireHttpsMetadata.Should().BeTrue();
         manager.AutomaticRefreshInterval.Should().Be(TimeSpan.FromHours(1), "the library default is 12 hours");
         manager.UseLastKnownGoodConfiguration.Should().BeFalse(
-            "the last set that worked is the one that still holds a withdrawn key");
+            "defence in depth: the last set that worked is the one that still holds a withdrawn key");
     }
 
     [Fact]

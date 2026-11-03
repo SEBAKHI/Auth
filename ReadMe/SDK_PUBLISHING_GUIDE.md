@@ -578,14 +578,18 @@ with the AuthSystem release that carries the new endpoints:
 
 2.1.0 (2026-11, S12 PR A), additive: no code that compiled against 2.0 needs a change.
 - `AuthSystemOptions.JwksRefreshInterval` (default and maximum 1 hour, minimum 5 minutes): the Bearer
-  scheme fetches the signing keys again on that interval instead of the library's 12 hours, and its
-  last-known-good fallback is off, so a key the AuthSystem withdrew stops verifying within the interval.
+  scheme fetches the signing keys again on that interval instead of the library's 12 hours, so a key the
+  AuthSystem withdrew stops verifying within the interval while the application can reach the AuthSystem
+  (a refetch that fails keeps the key set already held, until a refetch succeeds or a restart). The
+  configuration manager's last-known-good switch is also turned off, as a second guard: the library uses
+  that set only when `ValidateWithLKG` is true, which the SDK never sets.
 - HTTPS metadata is required unless `BaseUrl`'s host is this machine. 2.0 exempted any `BaseUrl` that
   contained the text `localhost`; an application configured with plain HTTP to another machine now fails
   when the scheme is built, where 2.0 fetched its keys in clear.
 - A 401 on a stored token is answered by one refresh whatever the token's expiry says (2.0 replayed the
-  refused token), shared by concurrent requests, and not repeated for a token such a refresh produced
-  until a request with it succeeds.
+  refused token), shared by concurrent requests, and never repeated for the same refused token: not
+  when that refresh produced nothing (the refresh at expiry takes over), and not for a token such a
+  refresh produced until a request with it succeeds.
 - `IntrospectTokenAsync` turns an active answer about another application's token inactive.
 
 **Once published, the SDK follows Semantic Versioning 2.0.0 — "SemVer" for short.** The scheme is three

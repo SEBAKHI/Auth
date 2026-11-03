@@ -59,8 +59,9 @@ public class AuthSystemOptions
     /// </summary>
     /// <remarks>
     /// This bounds how long a key the AuthSystem withdrew in an emergency, because it leaked, still
-    /// verifies forged tokens here. The library default is 12 hours, with the last set that worked
-    /// kept as a fallback; the SDK uses this interval and turns that fallback off. A token signed
+    /// verifies forged tokens here: the library default is 12 hours. It holds while the AuthSystem
+    /// can be reached: a refetch that fails leaves the key set already held in use, so a withdrawn
+    /// key keeps verifying here until a refetch succeeds or the application restarts. A token signed
     /// with a key this application has not seen yet triggers a fetch on its own, at most every
     /// 5 minutes, so a scheduled rotation never waits for this interval.
     /// </remarks>

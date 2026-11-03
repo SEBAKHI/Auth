@@ -25,6 +25,7 @@ import {
   getAccessToken,
   getLogoutPendingSession,
   getRefreshToken,
+  getRefusedRefresh,
   hasSession,
   isForcedRefresh,
   isLogoutPending,
@@ -34,6 +35,7 @@ import {
   markRefreshSpending,
   noteCookieMissing,
   noteTokenAccepted,
+  recordRefusedRefresh,
   setTokens,
 } from "@authsystem/api/token-store"
 import type { paths, Schemas } from "./types"
@@ -121,6 +123,42 @@ export interface RefreshOptions {
 
 const FRESH: RefreshResult = { status: "fresh" }
 const FAILED: RefreshResult = { status: "failed" }
+
+/** How long a 429 on a forced refresh holds the next attempt off when it names no wait. */
+const DEFAULT_RETRY_AFTER_SECONDS = 30
+
+/**
+ * The outcome recorded for a refused token whose forced refresh already failed
+ * or was deferred, or null when a forced refresh may go ahead (S12, one forced
+ * refresh per refused value). After a failure, none: the ordinary refresh at
+ * the token's expiry takes over. After a 429, exactly one more, no earlier than
+ * the wait the server asked for.
+ */
+function recordedRefusal(rejected: string, now = Date.now()): RefreshResult | null {
+  const record = getRefusedRefresh(rejected)
+  if (!record) return null
+  if (record.outcome === "failed") return FAILED
+  if (now < record.notBefore) {
+    return { status: "deferred", retryAfterSeconds: Math.ceil((record.notBefore - now) / 1000) }
+  }
+  return record.retried ? { status: "deferred", retryAfterSeconds: null } : null
+}
+
+/** Records what a forced refresh of `rejected` came to, when it produced no new token. */
+function recordForcedOutcome(rejected: string, result: RefreshResult, now = Date.now()): void {
+  // A final refusal cleared the session, and the record with it.
+  if (!hasSession()) return
+  if (result.status === "failed") {
+    recordRefusedRefresh(rejected, { outcome: "failed" })
+  } else if (result.status === "deferred") {
+    const previous = getRefusedRefresh(rejected)
+    recordRefusedRefresh(rejected, {
+      outcome: "deferred",
+      notBefore: now + (result.retryAfterSeconds ?? DEFAULT_RETRY_AFTER_SECONDS) * 1000,
+      retried: previous?.outcome === "deferred",
+    })
+  }
+}
 
 /** De-duplicates concurrent refreshes within this tab into one lock acquisition. */
 let refreshPromise: Promise<RefreshResult> | null = null
@@ -309,6 +347,15 @@ function holdsReplacementFor(rejected: string | null): boolean {
  * result instead. See RefreshOptions.
  */
 export function sharedRefresh(options: RefreshOptions = {}): Promise<RefreshResult> {
+  return refreshFor(options, true)
+}
+
+/**
+ * The body of {@link sharedRefresh}. `honourRecord` false is step-up's: it
+ * neither reads nor writes the record of refused tokens, so a step-up the
+ * server could not answer can be tried again at once, as before.
+ */
+function refreshFor(options: RefreshOptions, honourRecord: boolean): Promise<RefreshResult> {
   const forced = options.rejected !== undefined
   const rejected = options.rejected ?? null
 
@@ -317,7 +364,7 @@ export function sharedRefresh(options: RefreshOptions = {}): Promise<RefreshResu
     // and decides again: it may have replaced the refused token (adopted below),
     // or been an ordinary refresh that found that token still "fresh".
     if (!forced) return refreshPromise
-    return refreshPromise.catch(() => FAILED).then(() => sharedRefresh(options))
+    return refreshPromise.catch(() => FAILED).then(() => refreshFor(options, honourRecord))
   }
 
   // Captured before queueing so that, once we hold the lock, we can tell
@@ -335,6 +382,12 @@ export function sharedRefresh(options: RefreshOptions = {}): Promise<RefreshResu
       // forcing again would spend a refresh per request. The session stays; it
       // refreshes as usual once that token expires.
       if (rejected !== null && isForcedRefresh(rejected)) return FAILED
+      // One forced refresh per refused value: this one already failed or was
+      // deferred, in this tab or another. Answered as it was, with no request.
+      if (honourRecord && rejected !== null) {
+        const recorded = recordedRefusal(rejected)
+        if (recorded) return recorded
+      }
     } else if (hasFreshAccessToken()) {
       return FRESH
     }
@@ -351,7 +404,9 @@ export function sharedRefresh(options: RefreshOptions = {}): Promise<RefreshResu
       if (!hasSession()) return FAILED
     }
 
-    return performRefresh(generation, forced)
+    const result = await performRefresh(generation, forced)
+    if (forced && honourRecord && rejected !== null) recordForcedOutcome(rejected, result)
+    return result
   }).finally(() => {
     refreshPromise = null
   })
@@ -382,7 +437,7 @@ export async function refreshSessionNow(): Promise<boolean> {
     await refreshPromise.catch(() => FAILED)
   }
 
-  const result = await sharedRefresh({ rejected: getAccessToken() })
+  const result = await refreshFor({ rejected: getAccessToken() }, false)
   if (result.status === "fresh") return true
 
   if (result.status === "failed" && !hasSession()) emitSessionExpired()

@@ -208,10 +208,12 @@ public static class ServiceCollectionExtensions
             };
         });
 
-        // After JwtBearer's own post-configuration, which builds the configuration manager. With the
-        // last-known-good fallback on, a token the fresh key set refuses would be tried against the
-        // previous set for another hour: exactly the set that still holds a key withdrawn because
-        // it leaked. Refusing it at once costs one refetch when a token carries a new key.
+        // After JwtBearer's own post-configuration, which builds the configuration manager. Defence
+        // in depth: the library tries the last-known-good key set only when
+        // TokenValidationParameters.ValidateWithLKG is true, which this SDK never sets. Should that
+        // ever change, a token the fresh key set refuses must not be tried against the previous set,
+        // the one that still holds a key withdrawn because it leaked. The bound itself is
+        // AutomaticRefreshInterval, set above.
         services.PostConfigure<JwtBearerOptions>(AuthSystemConstants.BearerScheme, jwtOptions =>
         {
             if (jwtOptions.ConfigurationManager is BaseConfigurationManager manager)

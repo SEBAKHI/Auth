@@ -94,6 +94,17 @@ const COOKIE_CHECK_KEY = "auth.cookieCheck"
  */
 const FORCED_REFRESH_KEY = "auth.forcedRefresh"
 
+/**
+ * A refused access token whose forced refresh did not produce a new one (S12):
+ * the refresh failed without ending the session, or the server asked to wait
+ * (429). Without it, every request still carrying that token would meet its 401
+ * and spend another forced refresh — one /refresh per failing request, exactly
+ * when the server is busiest. Origin-wide like FORCED_REFRESH_KEY, holding the
+ * token's `jti` and never the token; cleared with the session and by any newly
+ * stored pair.
+ */
+const REFUSED_REFRESH_KEY = "auth.refusedRefresh"
+
 let accessToken: string | null = null
 
 /**
@@ -102,6 +113,19 @@ let accessToken: string | null = null
  * flag, by every tab that adopted the token (tab-sync.ts).
  */
 let forcedInMemory: string | null = null
+
+/** What a refused token's forced refresh came to, as REFUSED_REFRESH_KEY records it. */
+export type RefusedRefresh =
+  /** The refresh failed without ending the session: no further forced attempt for this token. */
+  | { outcome: "failed" }
+  /**
+   * The server asked to wait: one more forced attempt is allowed from
+   * `notBefore` (epoch ms), unless `retried` says it was already made.
+   */
+  | { outcome: "deferred"; notBefore: number; retried: boolean }
+
+/** This tab's copy of the refused-refresh record, for when localStorage cannot be read. */
+let refusedInMemory: string | null = null
 
 /**
  * Where localStorage cannot be read at all (a locked-down private mode), the
@@ -232,6 +256,9 @@ export function setTokens(
   accessToken = access
   memorySession = true
   write(REFRESH_TOKEN_KEY, refresh)
+  // A new pair: whatever was recorded about a refused token is over.
+  refusedInMemory = null
+  remove(REFUSED_REFRESH_KEY)
   return true
 }
 
@@ -240,10 +267,12 @@ export function clearTokens(): void {
   accessToken = null
   memorySession = false
   forcedInMemory = null
+  refusedInMemory = null
   remove(REFRESH_TOKEN_KEY)
   remove(PENDING_REFRESH_KEY)
   remove(SPENDING_REFRESH_KEY)
   remove(FORCED_REFRESH_KEY)
+  remove(REFUSED_REFRESH_KEY)
 }
 
 /**
@@ -278,6 +307,33 @@ export function isForcedRefresh(token: string): boolean {
   const record = forcedRecordOf(token)
   const stored = record.persist ? read(FORCED_REFRESH_KEY) : undefined
   return stored === undefined ? forcedInMemory === record.id : stored === record.id
+}
+
+/** Records what the forced refresh of the refused `token` came to, for every tab of the origin. */
+export function recordRefusedRefresh(token: string, refusal: RefusedRefresh): void {
+  const record = forcedRecordOf(token)
+  const value = JSON.stringify({ id: record.id, ...refusal })
+  refusedInMemory = value
+  if (record.persist) write(REFUSED_REFRESH_KEY, value)
+}
+
+/** What was recorded about the forced refresh of the refused `token`, or null. */
+export function getRefusedRefresh(token: string): RefusedRefresh | null {
+  const record = forcedRecordOf(token)
+  const stored = record.persist ? read(REFUSED_REFRESH_KEY) : undefined
+  const value = stored === undefined ? refusedInMemory : stored
+  if (!value) return null
+  try {
+    const parsed = JSON.parse(value) as { id?: unknown } & Partial<RefusedRefresh>
+    if (parsed.id !== record.id) return null
+    if (parsed.outcome === "failed") return { outcome: "failed" }
+    if (parsed.outcome === "deferred" && typeof parsed.notBefore === "number") {
+      return { outcome: "deferred", notBefore: parsed.notBefore, retried: parsed.retried === true }
+    }
+  } catch {
+    /* unreadable: nothing recorded */
+  }
+  return null
 }
 
 /** A request carrying `token` succeeded: a later refusal of it is worth a forced refresh again. */
