@@ -23,7 +23,7 @@ public class DiscardStagedHmacKeyCommandHandler : IRequestHandler<DiscardStagedH
                 KeyringStepUp.OperationOf(KeyringAction.DiscardNext),
                 request.ChallengeId,
                 request.RequestedBy),
-            (ring, _) => ring.DiscardNext(),
+            (ring, change) => ring.DiscardNext(change.NowUtc),
             precheck: null,
             cancellationToken);
 }

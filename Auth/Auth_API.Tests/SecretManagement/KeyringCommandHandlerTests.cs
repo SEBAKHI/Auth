@@ -19,6 +19,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Events;
 using Auth.Infrastructure.Security;
+using Auth_API.Common.Errors;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using Microsoft.AspNetCore.DataProtection;
@@ -86,8 +87,8 @@ public sealed class KeyringCommandHandlerTests : IDisposable
     public async Task TheTarget_IsReadFromTheFile_SoARingThatMovedRefusesTheApproval()
     {
         // Approved while the file staged key 2; by the time it is spent, key 2 was discarded
-        // and another key staged in its place, under the same id: promoting "the staged key"
-        // now would promote what was never approved.
+        // and another key staged in its place (under the same id before OI-217, under key 3
+        // since): promoting "the staged key" now would promote what was never approved.
         await _keyring.StageAsync();
         var approvedForKey2 = _keyring.Approve(KeyringAction.Promote);
         await new DiscardStagedHmacKeyCommandHandler(_keyring.Service).Handle(
@@ -219,6 +220,62 @@ public sealed class KeyringCommandHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task Verify_WithAnotherAction_LeavesTheConfirmationUnverified_SoNothingIsSpendable()
+    {
+        // SEC-B5: a Promote confirmation answered with its right code, but claimed as a Stage.
+        await _keyring.StageAsync();
+        var target = KeyringStepUp.TargetOf(KeyringAction.Promote, _keyring.ReadFileRing(), null);
+        var challengeId = OpenChallenge(KeyringStepUp.Digest(KeyringAction.Promote, target, null));
+
+        var claimedStage = await VerifyHandler().Handle(
+            new VerifySecretOperationChallengeCommand(challengeId, SecretChallengeTestContext.CorrectCode, _keyring.Admin, KeyringAction.Stage),
+            CancellationToken.None);
+        claimedStage.FirstError.Code.Should().Be("Secret.ChallengeNotApproved");
+
+        var promoted = await Promote().Handle(new PromoteHmacKeyCommand(false, challengeId, _keyring.Admin), CancellationToken.None);
+
+        promoted.FirstError.Code.Should().Be("Secret.ChallengeNotApproved", "a refused claim opens no approval, for any action");
+        _keyring.ReadFileRing().Current.Id.Should().Be(1);
+        _keyring.Challenges.ChallengeRepository.Verify(
+            r => r.MarkVerifiedAsync(challengeId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        var asPromote = await VerifyHandler().Handle(
+            new VerifySecretOperationChallengeCommand(challengeId, SecretChallengeTestContext.CorrectCode, _keyring.Admin, KeyringAction.Promote),
+            CancellationToken.None);
+        asPromote.IsError.Should().BeFalse("the code still confirms the action it was raised for");
+    }
+
+    [Theory]
+    [InlineData(KeyringAction.Retire)]
+    [InlineData(KeyringAction.Reinstate)]
+    public async Task AStaleApproval_IsRefused_WhenItsKeyIdNowNamesAnotherKey(KeyringAction action)
+    {
+        // SEC-B8. Since OI-217 no id names two keys, so the reuse is forged here, as a build
+        // that reused ids could have left it: key 3 replaced by another key 3.
+        await _keyring.StageAsync();
+        await _keyring.PromoteAsync();
+        await _keyring.StageAsync();
+        await _keyring.PromoteAsync();
+        (await new ReinstateHmacKeyCommandHandler(_keyring.Service).Handle(
+            new ReinstateHmacKeyCommand(2, _keyring.Approve(KeyringAction.Reinstate, keyId: 2), _keyring.Admin),
+            CancellationToken.None)).IsError.Should().BeFalse();
+        var approvedForTheOldKey3 = _keyring.Approve(action, keyId: 3);
+        _keyring.Clock.Advance(TimeSpan.FromMinutes(1));
+        await ReplaceKey3();
+
+        var result = action == KeyringAction.Retire
+            ? await new RetireHmacKeyCommandHandler(_keyring.Service, _keyring.WebhookKeys.Object).Handle(
+                new RetireHmacKeyCommand(3, approvedForTheOldKey3, _keyring.Admin), CancellationToken.None)
+            : await new ReinstateHmacKeyCommandHandler(_keyring.Service).Handle(
+                new ReinstateHmacKeyCommand(3, approvedForTheOldKey3, _keyring.Admin), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Secret.ChallengeNotApproved", "the approval names the key 3 that was, not this one");
+        _keyring.ReadFileRing().Current.Id.Should().Be(2);
+        _keyring.ReadFileRing().Find(3).Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task TheExecutedEvent_NamesTheActionAndTheKey()
     {
         await _keyring.StageAsync();
@@ -313,6 +370,7 @@ public sealed class KeyringCommandHandlerTests : IDisposable
             new StageHmacKeyCommand(older, approval, _keyring.Admin), CancellationToken.None);
 
         result.FirstError.Code.Should().Be("Secret.InvalidKeyMaterial");
+        ErrorStatusMap.ToStatusCode(result.FirstError).Should().Be(400, "material the administrator supplied keeps its 400 (OI-217)");
         result.FirstError.Description.Should().Contain("already HMAC key 1");
         _keyring.Challenges.ChallengeRepository.Verify(
             r => r.TryConsumeAsync(approval, It.IsAny<CancellationToken>()), Times.Never,
@@ -333,7 +391,8 @@ public sealed class KeyringCommandHandlerTests : IDisposable
         var result = await new StageHmacKeyCommandHandler(_keyring.Service, new SharedKeyMaterialGenerator()).Handle(
             new StageHmacKeyCommand(null, approval, _keyring.Admin), CancellationToken.None);
 
-        result.FirstError.Code.Should().Be("Secret.InvalidKeyMaterial");
+        result.FirstError.Code.Should().Be("Secret.KeyringFileInconsistent");
+        ErrorStatusMap.ToStatusCode(result.FirstError).Should().Be(409, "the administrator supplied nothing wrong (OI-217, F-14)");
         result.FirstError.Description.Should().Contain("no longer holds HMAC key 2")
             .And.Contain("restart this one", "the usual cause is another process; restart before any copy")
             .And.Contain("never one from before a retire or an emergency");
@@ -367,7 +426,8 @@ public sealed class KeyringCommandHandlerTests : IDisposable
 
         var view = await _keyring.Service.ViewAsync(CancellationToken.None);
 
-        view.FirstError.Code.Should().Be("Secret.InvalidKeyMaterial");
+        view.FirstError.Code.Should().Be("Secret.KeyringFileInconsistent");
+        ErrorStatusMap.ToStatusCode(view.FirstError).Should().Be(409, "a file ring that fails to read is the server's state (OI-217, F-14)");
         view.FirstError.Description.Should().Contain("no longer has one");
         SecretConfiguration.VersionWithRingBeyondKey1.Should().Be(
             Auth.Shared.Configuration.SecretFileVersions.HmacKeyringBeyondKey1,
@@ -670,6 +730,34 @@ public sealed class KeyringCommandHandlerTests : IDisposable
         TestHelpers.CreateOptions(new JwtSettings()),
         _keyring.Clock,
         new Mock<ILogger<VerifySecretOperationChallengeCommandHandler>>().Object);
+
+    // Key 3, a previous key, replaced in the file and in this process by another key under id 3,
+    // created later: what a build that reused ids could leave behind.
+    private async Task ReplaceKey3()
+    {
+        var file = _keyring.ReadFileRing();
+        var old = file.Find(3)!;
+        var replaced = HmacKeyring.Create(
+            file.Keys.Where(key => key.Id != 3).Append(new HmacKey(
+                3,
+                Convert.FromBase64String(KeyringTestHarness.KeyMaterial()),
+                createdAtUtc: _keyring.Clock.UtcNow,
+                verifyUntilUtc: old.VerifyUntilUtc,
+                demotedAtUtc: _keyring.Clock.UtcNow)),
+            file.Current.Id,
+            file.Next?.Id,
+            file.LegacyCutoverUtc,
+            file.LegacyVerifyUntilUtc).Value;
+        await _keyring.Secrets.UpdateAsync<Success>(
+            secrets =>
+            {
+                HmacKeyringFile.Write(replaced, secrets);
+                return Result.Success;
+            },
+            overwriteBackup: false,
+            CancellationToken.None);
+        _keyring.Holder.Replace(replaced);
+    }
 
     // An unanswered challenge bound to a keyring digest, answered with the correct code.
     private Guid OpenChallenge(string payloadHash)

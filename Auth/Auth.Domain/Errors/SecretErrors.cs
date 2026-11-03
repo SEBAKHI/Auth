@@ -161,6 +161,18 @@ public static class SecretErrors
         description: "The HMAC keyring can only be managed in Certificate or Dpapi storage mode, with the HMAC key kept in the encrypted secrets file. " +
                      "This deployment runs in PlainText mode or takes the key from another source.");
 
+    /// <summary>
+    /// The keyring the secrets file holds cannot be used as it is: the file no longer holds a
+    /// key this process still verifies under, or its ring does not read as one any change could
+    /// have written. A state of the server that the request did nothing to cause, so never the
+    /// 400 of <see cref="InvalidKeyMaterial"/>, which is for material an administrator supplied
+    /// (OI-217).
+    /// </summary>
+    public static Error KeyringFileInconsistent(string detail) => Error.Conflict(
+        code: "Secret.KeyringFileInconsistent",
+        description: $"The HMAC keyring in the secrets file cannot be used as it is: {detail}",
+        metadata: new() { ["args"] = new object[] { detail } });
+
     // Request-validation rules (ADR 0001): validators declare these with
     // WithErrorCode, and the validation behavior carries the offending property.
 

@@ -20,7 +20,7 @@ public class StartupStepCoverageTests
         { "secrets file load", "() => Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(" },
         { "plain-text secret generation", "PlainTextSecretInitializer.EnsureSecrets(" },
         { "first-start key generation", ".GenerateMissingKeysAsync(" },
-        { "identifier-key top-up", "existingSecrets.AccountDeletionIdentifierHmacKey = mintedIdentifierKey" },
+        { "identifier-key top-up", ".ProvisionIdentifierKeyAsync(mintedIdentifierKey" },
         { "required-secrets check", "RequiredSecretsGuard.EnsureAllPresent(" },
         { "key material validation", "HmacKeyringConfiguration.Load(" },
         { "key material validation", "KeyMaterialValidator.Validate(" },
@@ -96,7 +96,7 @@ public class StartupStepCoverageTests
     }
 
     [Theory]
-    [InlineData("identifier-key top-up", "topUpService.UpdateAsync<")]
+    [InlineData("identifier-key top-up", ".ProvisionIdentifierKeyAsync(")]
     [InlineData("password pepper provisioning", "KeyMaterialGenerator.GeneratePepperBase64()")]
     public void Program_TheChecksThatRunInProgram_ComeBeforeTheWrite(string step, string write)
     {

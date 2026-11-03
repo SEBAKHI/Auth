@@ -195,7 +195,7 @@ public class CredentialHashCandidatesTests
         var ring = HmacKeyring.Create(ids.Select(id => Key(id)), current, next, legacyCutoverUtc: T, legacyVerifyUntilUtc: null);
 
         ring.IsError.Should().BeTrue();
-        ring.FirstError.Code.Should().Be("Secret.InvalidKeyMaterial");
+        ring.FirstError.Code.Should().Be("Secret.KeyringFileInconsistent", "a ring's shape is the server's state, never supplied material (OI-217)");
         ring.FirstError.Description.Should().Contain(reason);
     }
 

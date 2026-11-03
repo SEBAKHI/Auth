@@ -198,6 +198,21 @@ public class WebhookKeyRepository : IWebhookKeyRepository
         return WebhookKeyHashFormat.CountByKey(hashes);
     }
 
+    /// <inheritdoc />
+    public async Task<int> GetHighestHmacKeyIdAsync(CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Every row, revoked and expired ones included: a stored fingerprint names its key for
+        // as long as the row exists. Read in C# by WebhookKeyHashFormat, the one reader of the
+        // stored shape.
+        var hashes = await connection.QueryAsync<string>(new CommandDefinition(@"
+            SELECT [KeyHash]
+            FROM [dbo].[WebhookKeys]", cancellationToken: cancellationToken));
+
+        return WebhookKeyHashFormat.HighestKeyId(hashes);
+    }
+
     private record WebhookKeyDto
     {
         public Guid Id { get; init; }

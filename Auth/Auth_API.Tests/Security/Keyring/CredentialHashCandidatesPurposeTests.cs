@@ -56,4 +56,21 @@ public class CredentialHashCandidatesPurposeTests
         FakeCredentialHasher.CandidatesOf(CredentialPurpose.WebhookKey, "a", "b")
             .Should().Be(FakeCredentialHasher.CandidatesOf("a", "b"));
     }
+
+    [Fact]
+    public void TheFingerprintsUnchecked_AreSeenByTheTestsAlone_NeverByARepository()
+    {
+        // SEC-B7, F-12 (OI-217): a repository that read Values would skip the purpose check of
+        // ValuesFor. Internal, with the tests as the Domain's only friend, the read does not compile
+        // in Auth.Infrastructure or anywhere else.
+        var values = typeof(Auth.Domain.ValueObjects.CredentialHashCandidates).GetProperty(
+            "Values", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)!;
+
+        values.GetMethod!.IsAssembly.Should().BeTrue("internal, not public");
+        typeof(Auth.Domain.ValueObjects.CredentialHashCandidates).Assembly
+            .GetCustomAttributes(typeof(System.Runtime.CompilerServices.InternalsVisibleToAttribute), inherit: false)
+            .Cast<System.Runtime.CompilerServices.InternalsVisibleToAttribute>()
+            .Select(friend => friend.AssemblyName)
+            .Should().Equal(["Auth_API.Tests"]);
+    }
 }

@@ -1465,6 +1465,9 @@
   <data name="Secret.KeyringUnavailable" xml:space="preserve">
     <value>لا تُدار حلقة مفاتيح HMAC إلا في وضع التخزين Certificate أو Dpapi، ومفتاح HMAC محفوظ في ملف الأسرار المشفَّر. وهذا النشر يعمل في وضع PlainText أو يأخذ المفتاح من مصدر آخر.</value>
   </data>
+  <data name="Secret.KeyringFileInconsistent" xml:space="preserve">
+    <value>لا يمكن استعمال حلقة مفاتيح HMAC التي في ملف الأسرار على حالتها: {0}</value>
+  </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>يجب أن يتكون رمز التحقق من 6 أرقام.</value>
   </data>

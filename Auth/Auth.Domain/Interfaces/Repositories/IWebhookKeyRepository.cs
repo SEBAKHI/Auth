@@ -65,4 +65,12 @@ public interface IWebhookKeyRepository
     /// key 1 for the unprefixed legacy form. A malformed fingerprint is not counted.
     /// </summary>
     Task<IReadOnlyDictionary<int, int>> CountLiveByHmacKeyAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The highest HMAC key id any stored webhook fingerprint names, revoked and expired keys
+    /// included: <c>hk{id}$</c> names key {id}, the unprefixed legacy form key 1; 0 when no
+    /// stored fingerprint names a key. A new HMAC key never takes an id at or below it, so a
+    /// fingerprint stored under an old key is never counted against a new one (OI-217).
+    /// </summary>
+    Task<int> GetHighestHmacKeyIdAsync(CancellationToken cancellationToken);
 }

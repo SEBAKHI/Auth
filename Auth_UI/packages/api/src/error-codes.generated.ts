@@ -427,6 +427,7 @@ export const PUBLISHED_ERROR_CODES = {
   "Secret.KeyInvalidFormat": "catalog",
   "Secret.KeyRequired": "catalog",
   "Secret.KeyTooLong": "catalog",
+  "Secret.KeyringFileInconsistent": "catalog",
   "Secret.KeyringKeyNotFound": "catalog",
   "Secret.KeyringKeyReferenced": "catalog",
   "Secret.KeyringNoNextKey": "catalog",

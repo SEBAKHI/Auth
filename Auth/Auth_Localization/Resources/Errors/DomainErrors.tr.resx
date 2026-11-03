@@ -1463,6 +1463,9 @@
   <data name="Secret.KeyringUnavailable" xml:space="preserve">
     <value>HMAC anahtarlığı yalnızca Certificate veya Dpapi depolama modunda, HMAC anahtarı şifreli gizli bilgiler dosyasında tutulurken yönetilebilir. Bu kurulum PlainText modunda çalışıyor veya anahtarı başka bir kaynaktan alıyor.</value>
   </data>
+  <data name="Secret.KeyringFileInconsistent" xml:space="preserve">
+    <value>Gizli bilgiler dosyasındaki HMAC anahtarlığı bu haliyle kullanılamaz: {0}</value>
+  </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>Doğrulama kodu 6 haneli olmalıdır.</value>
   </data>

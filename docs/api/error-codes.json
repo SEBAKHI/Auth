@@ -2337,6 +2337,11 @@
       "pointer": null
     },
     {
+      "code": "Secret.KeyringFileInconsistent",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
       "code": "Secret.KeyringKeyNotFound",
       "status": 409,
       "source": "catalog"

@@ -25,6 +25,9 @@ public class SecretConfigurationModelParityTests
     [InlineData("HmacNextKeyId")]
     [InlineData("HmacLegacyCutoverUtc")]
     [InlineData("HmacLegacyVerifyUntilUtc")]
+    // OI-217: the keys that left the ring, and the highest id in use.
+    [InlineData("HmacRemovedKeys")]
+    [InlineData("HmacHighestKeyId")]
     // Empty until S12, present now so a build without S12 does not erase an RSA ring.
     [InlineData("SigningKeys")]
     [InlineData("SigningCurrentKid")]
@@ -41,8 +44,10 @@ public class SecretConfigurationModelParityTests
         // A collection initialized with content would be appended to by the binder, not
         // replaced (project_config_array_binder_append); empty also means "no ring".
         new ApplicationModel().HmacKeys.Should().BeEmpty();
+        new ApplicationModel().HmacRemovedKeys.Should().BeEmpty();
         new ApplicationModel().SigningKeys.Should().BeEmpty();
         new SharedModel().HmacKeys.Should().BeEmpty();
+        new SharedModel().HmacRemovedKeys.Should().BeEmpty();
         new SharedModel().SigningKeys.Should().BeEmpty();
     }
 

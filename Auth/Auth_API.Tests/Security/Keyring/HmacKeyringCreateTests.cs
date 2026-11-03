@@ -26,7 +26,7 @@ public class HmacKeyringCreateTests
             legacyVerifyUntilUtc: null);
 
         result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be("Secret.InvalidKeyMaterial");
+        result.FirstError.Code.Should().Be("Secret.KeyringFileInconsistent", "a ring's shape is the server's state, never supplied material (OI-217)");
         result.FirstError.Description.Should().Contain("compromised");
     }
 

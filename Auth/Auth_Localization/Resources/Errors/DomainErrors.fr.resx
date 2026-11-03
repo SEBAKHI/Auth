@@ -1463,6 +1463,9 @@
   <data name="Secret.KeyringUnavailable" xml:space="preserve">
     <value>Le trousseau HMAC ne peut être géré qu'en mode de stockage Certificate ou Dpapi, avec la clé HMAC conservée dans le fichier des secrets chiffré. Ce déploiement fonctionne en mode PlainText ou prend la clé d'une autre source.</value>
   </data>
+  <data name="Secret.KeyringFileInconsistent" xml:space="preserve">
+    <value>Le trousseau HMAC du fichier des secrets ne peut pas être utilisé en l'état : {0}</value>
+  </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>Le code de vérification doit comporter 6 chiffres.</value>
   </data>

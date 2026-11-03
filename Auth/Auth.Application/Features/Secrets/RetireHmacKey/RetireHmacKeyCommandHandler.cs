@@ -33,7 +33,7 @@ public class RetireHmacKeyCommandHandler : IRequestHandler<RetireHmacKeyCommand,
                 request.ChallengeId,
                 request.RequestedBy,
                 KeyId: request.KeyId),
-            (ring, _) => ring.Retire(request.KeyId),
+            (ring, change) => ring.Retire(request.KeyId, change.NowUtc),
             precheck: (ring, now, token) => EnsureNoWebhookKeyNeedsItAsync(ring, request.KeyId, now, token),
             cancellationToken);
 

@@ -2,6 +2,7 @@ using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Secrets.Common;
 using Auth.Application.Security.Keyring;
+using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -46,8 +47,30 @@ public class VerifySecretOperationChallengeCommandHandler
         VerifySecretOperationChallengeCommand request,
         CancellationToken cancellationToken)
     {
+        // A keyring change is costed for its action, and only for the action the
+        // confirmation was raised for: the digest is recomputed from the ring the file
+        // holds now, and a claim of another action, key or value is refused before the
+        // approval opens, so the confirmation stays unverified and nothing is spendable,
+        // the action it was raised for included (SEC-B5).
+        DateTime? issuedBefore = null;
+        Func<SecretOperationChallenge, CancellationToken, Task<ErrorOr<Success>>>? keyringBinding = null;
+        if (request.Action is { } action)
+        {
+            keyringBinding = async (pending, token) =>
+            {
+                var bound = await KeyringBindingAsync(action, request, pending.Operation, pending.PayloadHash, token);
+                if (bound.IsError)
+                {
+                    return bound.Errors;
+                }
+
+                issuedBefore = bound.Value;
+                return Result.Success;
+            };
+        }
+
         var verified = await _challengeService.VerifyAsync(
-            request.ChallengeId, request.Code, request.RequestedBy, cancellationToken);
+            request.ChallengeId, request.Code, request.RequestedBy, cancellationToken, keyringBinding);
 
         if (verified.IsError)
         {
@@ -55,21 +78,6 @@ public class VerifySecretOperationChallengeCommandHandler
         }
 
         var challenge = verified.Value;
-
-        // A keyring change is costed for its action, and only for the action the
-        // confirmation was raised for: the digest is recomputed from the ring the file
-        // holds now, and a claim of another action, key or value is refused.
-        DateTime? issuedBefore = null;
-        if (request.Action is { } action)
-        {
-            var bound = await KeyringBindingAsync(action, request, challenge.Operation, challenge.PayloadHash, cancellationToken);
-            if (bound.IsError)
-            {
-                return bound.Errors;
-            }
-
-            issuedBefore = bound.Value;
-        }
 
         // An access token is only "live" for its lifetime plus the validation
         // clock skew — past that, the holder is getting a new one anyway and was

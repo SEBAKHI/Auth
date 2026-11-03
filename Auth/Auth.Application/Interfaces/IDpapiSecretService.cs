@@ -33,14 +33,17 @@ public interface IDpapiSecretService
 
     /// <summary>
     /// Changes the secrets file in one step: loads it, applies <paramref name="change"/>,
-    /// and saves the result, all under the one lock every other change takes, so two
-    /// changes never interleave and a save never writes back a file older than the
-    /// last change (KR1). An error from <paramref name="change"/> saves nothing.
+    /// and saves the result, all under the locks every other change takes, in this process
+    /// and across the API processes that share the file (OI-217), so two changes never
+    /// interleave and a save never writes back a file older than the last change (KR1). An
+    /// error from <paramref name="change"/> saves nothing.
     /// </summary>
     /// <remarks>
     /// Every read-modify-write of the file goes through here. A load and a save under
     /// two separate lock acquisitions let an SMTP save that loaded before a keyring
-    /// promote write the old ring back after it.
+    /// promote write the old ring back after it. A change another process is making is
+    /// waited for, up to 30 seconds; past that, an <see cref="IOException"/> names the lock
+    /// file and nothing is written.
     /// </remarks>
     /// <param name="change">Edits the loaded file in place and returns its result, or the reason to save nothing.</param>
     /// <param name="overwriteBackup">

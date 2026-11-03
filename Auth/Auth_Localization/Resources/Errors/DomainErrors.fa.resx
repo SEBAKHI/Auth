@@ -1463,6 +1463,9 @@
   <data name="Secret.KeyringUnavailable" xml:space="preserve">
     <value>حلقهٔ کلیدهای HMAC فقط در حالت ذخیره‌سازی Certificate یا Dpapi و با نگهداری کلید HMAC در فایل رازهای رمزگذاری‌شده قابل مدیریت است. این استقرار در حالت PlainText اجرا می‌شود یا کلید را از منبع دیگری می‌گیرد.</value>
   </data>
+  <data name="Secret.KeyringFileInconsistent" xml:space="preserve">
+    <value>حلقهٔ کلیدهای HMAC در فایل رازها را نمی‌توان به همین شکل به کار برد: {0}</value>
+  </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>کد تأیید باید ۶ رقم باشد.</value>
   </data>

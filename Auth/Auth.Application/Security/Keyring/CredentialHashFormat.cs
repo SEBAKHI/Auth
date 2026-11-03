@@ -99,4 +99,11 @@ public sealed class WebhookKeyHashFormat : ICredentialHashFormat
 
         return counts;
     }
+
+    /// <summary>
+    /// The highest HMAC key id <paramref name="stored"/> fingerprints name, read as
+    /// <see cref="CountByKey"/> reads them; 0 when none names a key (OI-217).
+    /// </summary>
+    public static int HighestKeyId(IEnumerable<string?> stored) =>
+        CountByKey(stored).Keys.DefaultIfEmpty(0).Max();
 }

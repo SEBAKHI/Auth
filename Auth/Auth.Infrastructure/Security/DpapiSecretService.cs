@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -20,11 +21,23 @@ public class DpapiSecretService : IDpapiSecretService
     private readonly IDataProtectionProvider _dataProtectionProvider;
     private readonly SecretManagementSettings _settings;
     private readonly ILogger<DpapiSecretService> _logger;
-    private readonly SemaphoreSlim _fileLock = new(1, 1);
+
+    // Serializes this instance's reads and writes. Another instance, or another process, is
+    // kept out of a write by the lock file instead (AcquireFileLockAsync).
+    private readonly SemaphoreSlim _processLock = new(1, 1);
 
     private const string ProtectorPurpose = "AuthSystem.SecretManagement.v1";
     private const int RsaKeySizeBits = 2048;
     private const int HmacKeySizeBytes = 32;
+
+    // The id the boot gives the first password pepper (Password:Pepper:Keys:1).
+    private const int FirstPepperKeyId = 1;
+
+    // Windows reports a file held open without sharing as a sharing or lock violation.
+    private const int SharingViolationHResult = unchecked((int)0x80070020);
+    private const int LockViolationHResult = unchecked((int)0x80070021);
+
+    private static readonly TimeSpan FileLockPollInterval = TimeSpan.FromMilliseconds(50);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -43,6 +56,14 @@ public class DpapiSecretService : IDpapiSecretService
         _logger = logger;
     }
 
+    /// <summary>
+    /// How long a write waits for another API process to finish its own (OI-217): a constant,
+    /// not a setting. A test shortens it.
+    /// </summary>
+    internal TimeSpan FileLockTimeout { get; init; } = TimeSpan.FromSeconds(30);
+
+    private string LockFilePath => $"{_settings.SecretFilePath}.lock";
+
     // ═══════════════════════════════════════════════════════════════
     // File Operations
     // ═══════════════════════════════════════════════════════════════
@@ -53,14 +74,14 @@ public class DpapiSecretService : IDpapiSecretService
 
     public async Task<SecretConfiguration> LoadSecretsAsync(CancellationToken cancellationToken)
     {
-        await _fileLock.WaitAsync(cancellationToken);
+        await _processLock.WaitAsync(cancellationToken);
         try
         {
             return await ReadUnlockedAsync(cancellationToken);
         }
         finally
         {
-            _fileLock.Release();
+            _processLock.Release();
         }
     }
 
@@ -80,7 +101,7 @@ public class DpapiSecretService : IDpapiSecretService
             onSaved);
     }
 
-    // The one read-modify-write of the file. The lock is held from the read to the end
+    // The one read-modify-write of the file. Both locks are held from the read to the end
     // of the write: SemaphoreSlim is not re-entrant, so the read and the write called
     // here are the unlocked halves, never the public methods that take the lock again.
     private async Task<ErrorOr<T>> UpdateCoreAsync<T>(
@@ -89,9 +110,11 @@ public class DpapiSecretService : IDpapiSecretService
         CancellationToken cancellationToken,
         Action<T>? onSaved = null)
     {
-        await _fileLock.WaitAsync(cancellationToken);
+        await _processLock.WaitAsync(cancellationToken);
         try
         {
+            await using var fileLock = await AcquireFileLockAsync(cancellationToken);
+
             var isNewFile = !SecretFileExists();
             var secrets = await ReadUnlockedAsync(cancellationToken);
 
@@ -103,6 +126,19 @@ public class DpapiSecretService : IDpapiSecretService
 
             if (changed.Value.Save)
             {
+                // A writer that takes no lock (a process of an older build, during a deploy) may
+                // have created the file since this change found it missing. Writing over it would
+                // leave that process using keys the file no longer holds: stop instead, so the next
+                // start loads its file (X03). The existence compared is the one this change read,
+                // never a fresh look, which would take a file created after the read for one that
+                // was there all along.
+                if (isNewFile && SecretFileExists())
+                {
+                    throw new IOException(
+                        $"Another process created the secrets file at {_settings.SecretFilePath} after this one found it " +
+                        $"missing, without taking its lock {LockFilePath}. Nothing was written; restart to load that file.");
+                }
+
                 if (isNewFile)
                 {
                     secrets.CreatedAt = DateTime.UtcNow;
@@ -124,9 +160,55 @@ public class DpapiSecretService : IDpapiSecretService
         }
         finally
         {
-            _fileLock.Release();
+            _processLock.Release();
         }
     }
+
+    /// <summary>
+    /// The lock every write of the file takes across processes (OI-217), inside this instance's
+    /// semaphore and released before it: an open handle on <c>{file}.lock</c> that shares nothing.
+    /// </summary>
+    /// <remarks>
+    /// The handle is the lock, not the file. The system closes the handles of a process that
+    /// dies, so a crash leaves nothing that blocks the next writer. The file is never deleted:
+    /// a writer that deleted it would let the next two each lock a different file of that name.
+    /// It holds nothing, in the folder the process already writes its temporary files to.
+    /// Readers take no lock, since every write replaces the file in one step. The caller's token
+    /// ends the wait; it never stops a write.
+    /// </remarks>
+    /// <exception cref="IOException">Another process held the lock for the whole wait.</exception>
+    private async Task<FileStream> AcquireFileLockAsync(CancellationToken cancellationToken)
+    {
+        EnsureSecretsDirectory();
+
+        var waited = Stopwatch.StartNew();
+        while (true)
+        {
+            try
+            {
+                return new FileStream(LockFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException ex) when (IsHeldElsewhere(ex))
+            {
+                if (waited.Elapsed >= FileLockTimeout)
+                {
+                    throw new IOException(
+                        $"Another API process holds the secrets file lock {LockFilePath}: it has been changing the secrets " +
+                        $"file for more than {FileLockTimeout.TotalSeconds:0} seconds. Nothing was written; try again once it has finished.",
+                        ex);
+                }
+
+                await Task.Delay(FileLockPollInterval, cancellationToken);
+            }
+        }
+    }
+
+    // Elsewhere than Windows, .NET emulates FileShare.None with an advisory lock and reports
+    // the conflict as a plain IOException.
+    private static bool IsHeldElsewhere(IOException ex) =>
+        OperatingSystem.IsWindows()
+            ? ex.HResult is SharingViolationHResult or LockViolationHResult
+            : ex.GetType() == typeof(IOException);
 
     // The second write of a change that must leave the backup too. The first write is the
     // change and stands whatever happens here: a failure is logged for the operator, never
@@ -264,14 +346,15 @@ public class DpapiSecretService : IDpapiSecretService
     /// </summary>
     public async Task SaveSecretsAsync(SecretConfiguration secrets, CancellationToken cancellationToken)
     {
-        await _fileLock.WaitAsync(cancellationToken);
+        await _processLock.WaitAsync(cancellationToken);
         try
         {
+            await using var fileLock = await AcquireFileLockAsync(cancellationToken);
             await WriteUnlockedAsync(secrets, cancellationToken);
         }
         finally
         {
-            _fileLock.Release();
+            _processLock.Release();
         }
     }
 
@@ -287,13 +370,7 @@ public class DpapiSecretService : IDpapiSecretService
         var protector = _dataProtectionProvider.CreateProtector(ProtectorPurpose);
         var encryptedData = protector.Protect(Encoding.UTF8.GetBytes(json));
 
-        // Ensure directory exists
-        var directory = Path.GetDirectoryName(_settings.SecretFilePath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-            _logger.LogInformation("Created secrets directory: {Directory}", directory);
-        }
+        EnsureSecretsDirectory();
 
         await WriteAtomicallyAsync(_settings.SecretFilePath, encryptedData, cancellationToken);
 
@@ -301,6 +378,16 @@ public class DpapiSecretService : IDpapiSecretService
             "Saved secrets to {Path}, version {Version}",
             _settings.SecretFilePath,
             secrets.Version);
+    }
+
+    private void EnsureSecretsDirectory()
+    {
+        var directory = Path.GetDirectoryName(_settings.SecretFilePath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+            _logger.LogInformation("Created secrets directory: {Directory}", directory);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -393,28 +480,19 @@ public class DpapiSecretService : IDpapiSecretService
         CancellationToken cancellationToken,
         Action<KeyGenerationResult>? beforeSave = null)
     {
+        // Under both locks, a process that starts on the same missing file as another (a web
+        // garden, two sites sharing the folder) waits for that one's write, then finds the keys
+        // in the file and generates nothing.
         var generated = await UpdateCoreAsync<KeyGenerationResult>(
             secrets =>
             {
                 var result = new KeyGenerationResult();
-                var existedBefore = SecretFileExists();
                 var modified = GenerateMissingKeys(secrets, result);
 
                 // Inside the change, so a refusal thrown here aborts before the write.
                 if (modified)
                 {
                     beforeSave?.Invoke(result);
-
-                    // The lock above holds within this process only. Another process starting on the
-                    // same missing file (a web garden, two sites sharing the folder) may have written
-                    // it while the check ran; writing over it would leave that process signing with
-                    // keys no longer in the file. Stop instead: the next start loads that file.
-                    if (!existedBefore && SecretFileExists())
-                    {
-                        throw new IOException(
-                            $"Another process created the secrets file at {_settings.SecretFilePath} while this one " +
-                            "was generating keys. Nothing was written; restart to load that file.");
-                    }
                 }
 
                 return (result, modified);
@@ -423,6 +501,59 @@ public class DpapiSecretService : IDpapiSecretService
             cancellationToken);
 
         return generated.Value;
+    }
+
+    /// <summary>
+    /// Writes <paramref name="minted"/> as the account-deletion identifier key while the file holds
+    /// none (OI-217). Another API process may have written one since this one loaded the file: that
+    /// key stays and nothing is written, since the key is permanent and replacing it would orphan
+    /// every reservation the other process already derived from it.
+    /// </summary>
+    /// <returns>True when this call wrote <paramref name="minted"/>; false when the file kept its own key.</returns>
+    public async Task<bool> ProvisionIdentifierKeyAsync(string minted, CancellationToken cancellationToken)
+    {
+        var written = await UpdateCoreAsync<bool>(
+            secrets =>
+            {
+                if (!string.IsNullOrWhiteSpace(secrets.AccountDeletionIdentifierHmacKey))
+                {
+                    return (false, false);
+                }
+
+                secrets.AccountDeletionIdentifierHmacKey = minted;
+                return (true, true);
+            },
+            overwriteBackup: false,
+            cancellationToken);
+
+        return written.Value;
+    }
+
+    /// <summary>
+    /// Writes <paramref name="minted"/> as the first password pepper while the file names none
+    /// (OI-217). Another API process may have written one since this one loaded the file: that
+    /// pepper stays and nothing is written, or every password the other process hashed with it
+    /// would stop verifying at its next start.
+    /// </summary>
+    /// <returns>True when this call wrote <paramref name="minted"/>; false when the file kept its own pepper.</returns>
+    public async Task<bool> ProvisionPasswordPepperAsync(string minted, CancellationToken cancellationToken)
+    {
+        var written = await UpdateCoreAsync<bool>(
+            secrets =>
+            {
+                if (secrets.PasswordPepperCurrentKeyId > 0)
+                {
+                    return (false, false);
+                }
+
+                secrets.PasswordPeppers[FirstPepperKeyId] = minted;
+                secrets.PasswordPepperCurrentKeyId = FirstPepperKeyId;
+                return (true, true);
+            },
+            overwriteBackup: false,
+            cancellationToken);
+
+        return written.Value;
     }
 
     // Fills in every missing key of a loaded file and answers whether anything changed.

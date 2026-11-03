@@ -125,7 +125,7 @@ public sealed class KeyringPostureContributorTests : IDisposable
         await _keyring.Secrets.UpdateAsync<Success>(
             secrets =>
             {
-                HmacKeyringFile.Write(HmacKeyringFile.Read(secrets).Value.Retire(1).Value, secrets);
+                HmacKeyringFile.Write(HmacKeyringFile.Read(secrets).Value.Retire(1, _keyring.Clock.UtcNow).Value, secrets);
                 return Result.Success;
             },
             overwriteBackup: false,
