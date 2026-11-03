@@ -1744,6 +1744,8 @@ export const tr: TranslationResources = {
           "Acil yükseltme hazırlanmış bir anahtarı yükseltir: önce yeni bir anahtar hazırlayın. Gizli bilgiler dosyası sızdıysa ondan önce hazırlanan anahtarı atın ve yenisini hazırlayın.",
         processOnly:
           "Bu anahtarı yalnızca bu API işlemi hâlâ tutuyor; sonraki yeniden başlatmada gider.",
+        processSigns:
+          "Bu API işlemi hâlâ bu anahtarla imzalıyor; anahtarı kaldırmadan önce işlemi yeniden başlatın.",
         current: "Her belirteci imzalar",
         next: "Yükseltin ya da atın",
       },

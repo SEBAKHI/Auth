@@ -280,6 +280,7 @@ export function SigningKeyringPanel({
                 <SigningKeyringRow
                   key={`${entry.kid}-${entry.inFile}`}
                   entry={entry}
+                  processCurrentKid={keyring.processCurrentKid}
                   busy={busy}
                   onChange={onChange}
                 />
@@ -294,16 +295,18 @@ export function SigningKeyringPanel({
 
 function SigningKeyringRow({
   entry,
+  processCurrentKid,
   busy,
   onChange,
 }: {
   entry: SigningKeyringEntry
+  processCurrentKid: string | null | undefined
   busy: boolean
   onChange: (pending: PendingSecretOperation) => void
 }) {
   const { t } = useTranslation()
   const state = signingStateOf(entry)
-  const row = signingKeyringRowCapabilities(entry, t)
+  const row = signingKeyringRowCapabilities(entry, t, processCurrentKid)
 
   const stateLabels: Record<SigningKeyState, string> = {
     Current: t("secrets.signingKeyring.state.current"),

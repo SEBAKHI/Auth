@@ -271,6 +271,34 @@ public sealed class RsaKeyringCommandHandlerTests : IDisposable
         _keyring.SigningKeys.VerificationKeys(DateTimeOffset.UtcNow).Select(key => key.KeyId).Should().NotContain(old);
     }
 
+    [Fact]
+    public async Task ARetire_OfAKeyThisProcessStillSignsWith_IsRefused_ThoughAnotherProcessDemotedIt()
+    {
+        // Two API processes share the file: the one that restarted promoted; this one started
+        // before the stage, was never recycled, and still signs with the key the promote demoted.
+        // Retiring it from here would take out of the file the key this process signs with.
+        var old = _keyring.SigningKeys.Current.Key.KeyId!;
+        var stale = new Auth.Application.Features.Secrets.Common.RsaKeyringChangeService(
+            _keyring.Secrets,
+            _keyring.SigningKeys,
+            _keyring.Challenges.Service,
+            _keyring.Publisher.Object,
+            new TestHelpers.TestOptions<JwtSettings>(_keyring.Jwt),
+            _keyring.Clock,
+            new Mock<ILogger<Auth.Application.Features.Secrets.Common.RsaKeyringChangeService>>().Object);
+        await StagePublishAndWaitAsync();
+        (await Promote(_keyring.ApproveSigning(KeyringAction.Promote))).IsError.Should().BeFalse();
+        var approval = _keyring.ApproveSigning(KeyringAction.Retire, kid: old);
+
+        var result = await new RetireSigningKeyCommandHandler(stale).Handle(
+            new RetireSigningKeyCommand(old, approval, _keyring.Admin), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be("Secret.KeyringKeyReferenced");
+        NotSpent(approval);
+        _keyring.ReadSigningRing().Find(old).Should().NotBeNull("the file keeps the key a running process signs with");
+        (await Retire(old)).IsError.Should().BeFalse("the process that promoted no longer signs with it");
+    }
+
     // --- where the ring cannot be kept ---
 
     [Fact]

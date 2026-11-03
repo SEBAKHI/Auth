@@ -181,4 +181,17 @@ describe("SigningKeyringPanel", () => {
     expect(await screen.findByText(/The signing key comes from Jwt:PrivateKeyPath/)).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Stage a key" })).not.toBeInTheDocument()
   })
+
+  it("a previous key this API process still signs with offers no retire, and says to restart first", async () => {
+    const demoted: Entry = { ...current(CURRENT), state: "Previous", verifyUntilUtc: FUTURE }
+    get.mockResolvedValue(read([current(STAGED), demoted], { processCurrentKid: CURRENT }))
+    renderPanel()
+
+    const reason = "This API process still signs with this key: restart it before retiring the key."
+    expect(await screen.findByText(reason)).toBeInTheDocument()
+    expect(within(rowOf(CURRENT)).getByText(reason)).toBeInTheDocument()
+    expect(
+      within(rowOf(CURRENT)).queryByRole("button", { name: `Actions for key ${CURRENT}` })
+    ).not.toBeInTheDocument()
+  })
 })

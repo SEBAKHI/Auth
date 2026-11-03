@@ -68,7 +68,8 @@ export interface SigningKeyringRowCapabilities {
 
 export function signingKeyringRowCapabilities(
   entry: SigningKeyringEntry,
-  t: Translate
+  t: Translate,
+  processCurrentKid?: string | null
 ): SigningKeyringRowCapabilities {
   if (!entry.inFile) {
     return { retire: null, note: t("secrets.signingKeyring.reason.processOnly") }
@@ -80,6 +81,11 @@ export function signingKeyringRowCapabilities(
   }
   if (state === "Next") {
     return { retire: null, note: t("secrets.signingKeyring.reason.next") }
+  }
+  // Another API process promoted and this one was never recycled: it still signs
+  // with this key, which the API refuses to retire until this process restarts.
+  if (entry.kid === processCurrentKid) {
+    return { retire: null, note: t("secrets.signingKeyring.reason.processSigns") }
   }
   return { retire: null, note: null }
 }

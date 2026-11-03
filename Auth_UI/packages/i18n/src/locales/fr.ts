@@ -1769,6 +1769,8 @@ export const fr: TranslationResources = {
           "Une urgence promeut une clé préparée : préparez d'abord une nouvelle clé. Après une fuite du fichier des secrets, abandonnez toute clé préparée avant elle et préparez-en une nouvelle.",
         processOnly:
           "Seul ce processus de l'API détient encore cette clé ; elle disparaît au prochain redémarrage.",
+        processSigns:
+          "Ce processus de l'API signe encore avec cette clé : redémarrez-le avant de la retirer.",
         current: "Signe chaque jeton",
         next: "Promouvoir ou abandonner",
       },

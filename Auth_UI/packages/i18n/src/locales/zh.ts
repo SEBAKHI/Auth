@@ -1661,6 +1661,7 @@ export const zh: TranslationResources = {
         tooYoung: "已暂存的密钥可从 {{date}} 起升级，届时应用程序已有 24 小时来获取它。",
         emergencyNeedsStaged: "紧急升级会升级一个已暂存的密钥：请先暂存一个新密钥。若密钥文件已泄露，请丢弃泄露前暂存的密钥并暂存新密钥。",
         processOnly: "只有此 API 进程仍持有此密钥；下次重启后将消失。",
+        processSigns: "此 API 进程仍在用此密钥签名；请先重启它，再停用此密钥。",
         current: "为每个令牌签名",
         next: "升级或丢弃",
       },

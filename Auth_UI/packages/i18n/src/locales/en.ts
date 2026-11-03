@@ -1756,6 +1756,8 @@ export const en = {
         emergencyNeedsStaged:
           "An emergency promotes a staged key: stage a new key first. After a leak of the secrets file, discard any key staged before it and stage a new one.",
         processOnly: "Only this API process still holds this key; it leaves at the next restart.",
+        processSigns:
+          "This API process still signs with this key: restart it before retiring the key.",
         current: "Signs every token",
         next: "Promote or discard",
       },

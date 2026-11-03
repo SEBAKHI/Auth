@@ -74,9 +74,12 @@ public static class KeyringStepUp
                     : SecretErrors.KeyringKeyReferenced(staged.Kid)
                 : file.AcceptsNewKey(thumbprint);
 
-    private static readonly SigningCondition RetirableSigningKey = (file, _, kid, _, _) =>
+    // A key this process still signs with stays until the process restarts: another process
+    // promoted, this one was never recycled, and the file would lose the key it signs with.
+    private static readonly SigningCondition RetirableSigningKey = (file, process, kid, _, _) =>
         kid is null ? SecretErrors.KeyringKeyNotFound(string.Empty)
         : file.CanRetire(kid) is { IsError: true } refused ? refused.Errors
+        : RsaKeyringFile.SameKey(file.Find(kid), process.Current) ? SecretErrors.KeyringKeyReferenced(kid)
         : Result.Success;
 
     private static readonly FrozenDictionary<KeyringAction, SigningRule> SigningRules = new Dictionary<KeyringAction, SigningRule>
