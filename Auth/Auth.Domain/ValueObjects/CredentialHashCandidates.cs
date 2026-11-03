@@ -54,8 +54,12 @@ public sealed class CredentialHashCandidates : IEquatable<CredentialHashCandidat
     /// <summary>The purpose the fingerprints were computed for.</summary>
     public CredentialPurpose Purpose { get; }
 
-    /// <summary>The fingerprints, in the keyring's order: current, next, previous, legacy.</summary>
-    public IReadOnlyList<string> Values => _values;
+    /// <summary>
+    /// The fingerprints, in the keyring's order: current, next, previous, legacy. Internal
+    /// (SEC-B7, F-12): a repository reads them only through <see cref="ValuesFor"/>, which
+    /// checks the purpose; only the test project sees them unchecked.
+    /// </summary>
+    internal IReadOnlyList<string> Values => _values;
 
     /// <summary>
     /// The fingerprints, for a lookup in a column that holds <paramref name="expected"/>.

@@ -14,12 +14,13 @@ namespace Auth.Application.Features.Secrets.Common;
 /// it to the action and to the key the action applies to.
 /// </summary>
 /// <remarks>
-/// The target of every action but reinstate and retire is read by the server from the
-/// secrets file, when the confirmation is requested and again when it is spent: a ring
-/// that moved in between (another administrator promoted) gives another digest, and the
-/// approval is refused. The staged key is named by its id and the moment it was staged, so
-/// a key discarded and replaced under the same id is not the key that was approved. Only
-/// reinstate and retire name their key, from the request.
+/// The target of every action is read by the server from the secrets file, when the
+/// confirmation is requested and again when it is spent: a ring that moved in between
+/// (another administrator promoted) gives another digest, and the approval is refused.
+/// Reinstate and retire take their key's id from the request; every key is named by its id
+/// and the moment it was created, so a key that left the ring and another that came to carry
+/// its id (in a file older than OI-217, which reused ids) is not the key that was approved
+/// (SEC-B8).
 /// </remarks>
 public static class KeyringStepUp
 {
@@ -53,13 +54,13 @@ public static class KeyringStepUp
         [KeyringAction.DiscardNext] = new(SecretOperation.GenerateHmacKey, (ring, _) => Staged(ring), NeedsStagedKey),
         [KeyringAction.Reinstate] = new(
             SecretOperation.GenerateHmacKey,
-            (_, keyId) => Id(keyId),
+            Named,
             (ring, _, keyId, now) => keyId is { } id && ring.CanReinstate(id, now)
                 ? Result.Success
                 : SecretErrors.KeyringKeyNotFound(keyId ?? 0)),
         [KeyringAction.Retire] = new(
             SecretOperation.GenerateHmacKey,
-            (_, keyId) => Id(keyId),
+            Named,
             (ring, _, keyId, _) => keyId is { } id && ring.CanRetire(id)
                 ? Result.Success
                 : SecretErrors.KeyringKeyNotFound(keyId ?? 0)),
@@ -69,9 +70,9 @@ public static class KeyringStepUp
     public static SecretOperation OperationOf(KeyringAction action) => RuleOf(action).Operation;
 
     /// <summary>
-    /// The key <paramref name="action"/> applies to: read from <paramref name="fileRing"/>,
-    /// or <paramref name="keyId"/> for the actions that name their key. Empty when there
-    /// is none (a promote with nothing staged).
+    /// The key <paramref name="action"/> applies to, as <paramref name="fileRing"/> names it:
+    /// for the actions that name their key, the key <paramref name="keyId"/> is there. Empty
+    /// when there is none (a promote with nothing staged).
     /// </summary>
     public static string TargetOf(KeyringAction action, HmacKeyring fileRing, int? keyId) =>
         RuleOf(action).Target(fileRing, keyId);
@@ -113,7 +114,14 @@ public static class KeyringStepUp
     // The staged key, by id and by the moment it was staged: a key discarded and another
     // staged under the same id in between is not the key that was approved.
     private static string Staged(HmacKeyring ring) =>
-        ring.Next is { } next
-            ? string.Concat(Id(next.Id), "@", next.CreatedAtUtc?.ToString("O", CultureInfo.InvariantCulture))
-            : string.Empty;
+        ring.Next is { } next ? Dated(next.Id, next.CreatedAtUtc) : string.Empty;
+
+    // The key a reinstate or a retire names, by the id the request carries and the moment the
+    // file says that key was created; "{id}@" for a key with no date (key 1, from before the
+    // keyring) or one the ring does not hold, which the precondition refuses anyway.
+    private static string Named(HmacKeyring ring, int? keyId) =>
+        keyId is { } id ? Dated(id, ring.Find(id)?.CreatedAtUtc) : string.Empty;
+
+    private static string Dated(int keyId, DateTime? createdAtUtc) =>
+        string.Concat(Id(keyId), "@", createdAtUtc?.ToString("O", CultureInfo.InvariantCulture));
 }

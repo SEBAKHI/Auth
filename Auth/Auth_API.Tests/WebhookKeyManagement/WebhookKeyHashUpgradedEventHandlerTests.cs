@@ -51,6 +51,19 @@ public class WebhookKeyHashUpgradedEventHandlerTests
     }
 
     [Fact]
+    public async Task TheHighestHmacKeyId_ReadsEveryRow_RevokedAndExpiredIncluded()
+    {
+        // OI-217: a revoked webhook key still names its HMAC key, which no new key may become.
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => new { KeyHash = "hk5$bGVnYWN5LWZvcm0tbWFjLXZhbHVlLTMyLWJ5dGVzLWxvbmc=" });
+
+        var highest = await new WebhookKeyRepository(db).GetHighestHmacKeyIdAsync(CancellationToken.None);
+
+        highest.Should().Be(5);
+        db.LastCommand!.CommandText.Should().Contain("FROM [dbo].[WebhookKeys]")
+            .And.NotContain("WHERE", "a revoked or expired row names its key as much as a live one");
+    }
+
+    [Fact]
     public async Task ARowThatChangedFirst_IsLeftAlone()
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 0);

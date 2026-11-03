@@ -105,6 +105,19 @@ public class SecretConfiguration
     public DateTime? HmacLegacyVerifyUntilUtc { get; set; }
 
     /// <summary>
+    /// What the HMAC keyring remembers of every key that left it, retired or discarded
+    /// (OI-217): a fingerprint of its material, never the material. Never trimmed. Not
+    /// mapped. Mirrors the model in Auth.Application, so a save through either keeps it.
+    /// </summary>
+    public List<RemovedHmacKeyEntry> HmacRemovedKeys { get; set; } = new();
+
+    /// <summary>
+    /// The highest HMAC key id in use when the file was saved (OI-217): a new key takes an id
+    /// above it. 0 in a file no build with it has saved. Not mapped.
+    /// </summary>
+    public int HmacHighestKeyId { get; set; }
+
+    /// <summary>
     /// The RSA signing keyring, keyed by kid. Empty, and not mapped, until S12 uses it. Present
     /// now so a build that predates S12 does not erase it from the file on its first save.
     /// </summary>
@@ -152,6 +165,27 @@ public class HmacKeyEntry
     public DateTime? DemotedAtUtc { get; set; }
 
     /// <summary>The key leaked; it verifies nothing but webhook keys.</summary>
+    public bool Compromised { get; set; }
+}
+
+/// <summary>
+/// A key that left the HMAC keyring, as the secrets file remembers it (OI-217).
+/// </summary>
+public class RemovedHmacKeyEntry
+{
+    /// <summary>The id the key had.</summary>
+    public int Id { get; set; }
+
+    /// <summary>SHA-256 over a fixed prefix and the key's material, base64; never the material.</summary>
+    public string Fingerprint { get; set; } = string.Empty;
+
+    /// <summary>When the key left the ring.</summary>
+    public DateTime? RemovedAtUtc { get; set; }
+
+    /// <summary>How it left: <c>Retired</c> or <c>Discarded</c>.</summary>
+    public string? Reason { get; set; }
+
+    /// <summary>The key had been marked leaked.</summary>
     public bool Compromised { get; set; }
 }
 

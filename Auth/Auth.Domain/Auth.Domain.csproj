@@ -11,4 +11,10 @@
     <PackageReference Include="MediatR.Contracts" Version="2.0.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- CredentialHashCandidates.Values is internal so a repository reads candidates only
+         through ValuesFor, which checks the purpose (SEC-B7); the tests still read them. -->
+    <InternalsVisibleTo Include="Auth_API.Tests" />
+  </ItemGroup>
+
 </Project>

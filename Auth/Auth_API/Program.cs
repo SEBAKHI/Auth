@@ -325,7 +325,19 @@ else
                             builder.Configuration.GetConnectionString("AuthDb")))
                     .GetAwaiter().GetResult();
 
-                Log.Information("Generated keys: {Keys}", string.Join(", ", keyGenResult.GeneratedKeys));
+                if (keyGenResult.GeneratedKeys.Count == 0)
+                {
+                    // Every write waits for any other process's write (OI-217): one that started on
+                    // the same missing file wrote it first, and this process generated nothing.
+                    Log.Information(
+                        "Another API process created the secrets file at {Path} after this one found it missing; " +
+                        "this process loaded that file and generated nothing.",
+                        secretManagementSettings.SecretFilePath);
+                }
+                else
+                {
+                    Log.Information("Generated keys: {Keys}", string.Join(", ", keyGenResult.GeneratedKeys));
+                }
 
                 if (keyGenResult.PublicKeyPem != null)
                 {
@@ -383,25 +395,32 @@ else
                         [GeneratedSecret.IdentifierKey], builder.Configuration.GetConnectionString("AuthDb"));
 
                     var mintedIdentifierKey = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
-                    topUpService.UpdateAsync<ErrorOr.Success>(
-                        existingSecrets =>
-                        {
-                            existingSecrets.AccountDeletionIdentifierHmacKey = mintedIdentifierKey;
-                            return ErrorOr.Result.Success;
-                        },
-                        overwriteBackup: false,
-                        CancellationToken.None).GetAwaiter().GetResult();
 
-                    // Re-layer so this process uses the key it just wrote.
+                    // Written only while the file still has no key: another API process may have
+                    // provisioned one since this one loaded the file, and that key stays (OI-217).
+                    var wroteIdentifierKey = topUpService
+                        .ProvisionIdentifierKeyAsync(mintedIdentifierKey, CancellationToken.None).GetAwaiter().GetResult();
+
+                    // Re-layer so this process uses the key the file holds.
                     Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(
                         builder.Configuration, dpapiProvider, secretManagementSettings.SecretFilePath);
 
-                    Log.Warning(
-                        "Provisioned the missing account-deletion identifier HMAC key into the existing secrets " +
-                        "file (fingerprint {Fingerprint}). This key is PERMANENT: back it up with the secrets file " +
-                        "and never rotate it. If this message appears on a later restart, the secrets file is not " +
-                        "persisting.",
-                        KeyRegenerationGuard.Fingerprint(mintedIdentifierKey));
+                    if (wroteIdentifierKey)
+                    {
+                        Log.Warning(
+                            "Provisioned the missing account-deletion identifier HMAC key into the existing secrets " +
+                            "file (fingerprint {Fingerprint}). This key is PERMANENT: back it up with the secrets file " +
+                            "and never rotate it. If this message appears on a later restart, the secrets file is not " +
+                            "persisting.",
+                            KeyRegenerationGuard.Fingerprint(mintedIdentifierKey));
+                    }
+                    else
+                    {
+                        Log.Information(
+                            "Another API process provisioned the account-deletion identifier HMAC key first; this process " +
+                            "loaded it from the secrets file (fingerprint {Fingerprint}).",
+                            KeyRegenerationGuard.Fingerprint(builder.Configuration["AccountDeletion:IdentifierHmacKeyPlain"]!));
+                    }
                 });
         }
     }
@@ -612,6 +631,9 @@ if (PepperIsMissing())
                         $"Password peppering is enabled but the generated pepper could not be persisted: {pepperPersistError}. " +
                         "Refusing to start with an ephemeral pepper (it would lock out all users on restart).");
                 }
+
+                builder.Configuration.AddInMemoryCollection(pepperConfig);
+                Log.Information("Generated and persisted Argon2id password pepper (peppering enabled).");
             }
             else
             {
@@ -621,19 +643,25 @@ if (PepperIsMissing())
                     Options.Create(secretManagementSettings),
                     Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>.Instance);
 
-                pepperSecretService.UpdateAsync<ErrorOr.Success>(
-                    pepperSecrets =>
-                    {
-                        pepperSecrets.PasswordPeppers[1] = pepperValue;
-                        pepperSecrets.PasswordPepperCurrentKeyId = 1;
-                        return ErrorOr.Result.Success;
-                    },
-                    overwriteBackup: false,
-                    CancellationToken.None).GetAwaiter().GetResult();
-            }
+                // Written only while the file still names no pepper: another API process may have
+                // provisioned one since this one loaded the file, and that pepper stays (OI-217).
+                var wrotePepper = pepperSecretService
+                    .ProvisionPasswordPepperAsync(pepperValue, CancellationToken.None).GetAwaiter().GetResult();
 
-            builder.Configuration.AddInMemoryCollection(pepperConfig);
-            Log.Information("Generated and persisted Argon2id password pepper (peppering enabled).");
+                // Re-layer so this process hashes with the pepper the file holds.
+                Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(
+                    builder.Configuration, bootDataProtection, secretManagementSettings.SecretFilePath);
+
+                if (wrotePepper)
+                {
+                    Log.Information("Generated and persisted Argon2id password pepper (peppering enabled).");
+                }
+                else
+                {
+                    Log.Information(
+                        "Another API process provisioned the Argon2id password pepper first; this process loaded it from the secrets file.");
+                }
+            }
         });
 }
 

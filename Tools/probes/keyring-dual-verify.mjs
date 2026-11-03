@@ -45,7 +45,10 @@
  *   - against a localhost API and a local SQL Server (LocalDB included);
  *   - with PROBE_KEYRING_THROWAWAY=yes, which states that the API runs on a
  *     throwaway secrets file and a throwaway database;
- *   - on a ring that never rotated (else INCONCLUSIVE, nothing changed).
+ *   - on a ring that never rotated. Else INCONCLUSIVE, and the keyring is
+ *     untouched; but without PROBE_ADMIN_EMAIL and PROBE_ADMIN_PASSWORD the probe
+ *     has already made its own administrator (below), which stays in the
+ *     throwaway database with the Super Administrator role.
  * An account is a confirmed row with no password, written to the throwaway
  * database, that takes its first password through the API's own "forgot password"
  * and reset (registration/start refuses while email is off, OI-215). Without

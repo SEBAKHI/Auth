@@ -2493,7 +2493,7 @@
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "v1", "admin", "secrets", "import", "hmac"]
 								},
-								"description": "An emergency rotation to a caller-supplied HMAC key (Base64, at least 32 bytes). Certificate or Dpapi mode only (returns 409 in PlainText). Requires a verified confirmation raised for ImportHmacKey, without keyringAction, with this byte-identical value. Everyone signs in again; webhook keys keep 90 days. A key the keyring already holds is refused (Secret.InvalidKeyMaterial) before the confirmation is spent. To bring your own key without signing anyone out, use \"Keyring: Stage HMAC Key\" with value."
+								"description": "An emergency rotation to a caller-supplied HMAC key (Base64, at least 32 bytes). Certificate or Dpapi mode only (returns 409 in PlainText). Requires a verified confirmation raised for ImportHmacKey, without keyringAction, with this byte-identical value. Everyone signs in again; webhook keys keep 90 days. A key the keyring holds, or once held (retired or discarded), is refused (Secret.InvalidKeyMaterial) before the confirmation is spent. To bring your own key without signing anyone out, use \"Keyring: Stage HMAC Key\" with value."
 							}
 						},
 						{
@@ -2546,7 +2546,7 @@
 										"stage"
 									]
 								},
-								"description": "Stages a new HMAC key: it verifies from now on and issues nothing, so nothing anyone holds changes. value null generates the key (confirmation: GenerateHmacKey, keyringAction Stage); a Base64 value stages yours (confirmation: ImportHmacKey, keyringAction StageImport, the same value). Back up the secrets file afterwards."
+								"description": "Stages a new HMAC key: it verifies from now on and issues nothing, so nothing anyone holds changes. value null generates the key (confirmation: GenerateHmacKey, keyringAction Stage); a Base64 value stages yours (confirmation: ImportHmacKey, keyringAction StageImport, the same value); a key the keyring holds, or once held (retired or discarded), is refused (Secret.InvalidKeyMaterial). Back up the secrets file afterwards."
 							}
 						},
 						{

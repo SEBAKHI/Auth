@@ -23,6 +23,16 @@ public class WebhookKeyHashFormatTests
             "an unprefixed row is key 1's, so a retire of key 1 sees it");
     }
 
+    [Fact]
+    public void HighestKeyId_ReadsTheStoredShapeAsCountByKeyReadsIt()
+    {
+        // OI-217: the id floor a new HMAC key must stay above.
+        WebhookKeyHashFormat.HighestKeyId([Mac, "hk2$" + Mac, "hk10$" + Mac, "hk99x$" + Mac, null]).Should().Be(10);
+        WebhookKeyHashFormat.HighestKeyId([Mac]).Should().Be(1, "the legacy form names key 1");
+        WebhookKeyHashFormat.HighestKeyId(["zz$" + Mac, ""]).Should().Be(0, "a malformed value names no key");
+        WebhookKeyHashFormat.HighestKeyId([]).Should().Be(0);
+    }
+
     [Theory]
     [InlineData("hk2$" + Mac, 2)]
     [InlineData("hk17$" + Mac, 17)]

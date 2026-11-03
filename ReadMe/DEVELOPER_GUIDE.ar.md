@@ -7860,7 +7860,7 @@ grant_type=client_credentials
 </div>
 
 
-> ‏وضعا Certificate/Dpapi فقط (`409` في PlainText). والمفتاح الذي تحمله الحلقة سلفاً يُرفض بـ`Secret.InvalidKeyMaterial` قبل أن يُنفَق التأكيد.
+> ‏وضعا Certificate/Dpapi فقط (`409` في PlainText). والمفتاح الذي تحمله الحلقة، أو حملته من قبل (مُحالاً أو مُسقَطاً)، يُرفض بـ`Secret.InvalidKeyMaterial` قبل أن يُنفَق التأكيد.
 
 #### ‏حلقة مفاتيح HMAC: GET `keyring` وPOST `keyring/hmac/*`
 
@@ -7872,6 +7872,8 @@ grant_type=client_credentials
 | ‏إعادة أو إحالة لمفتاح مجهول أو حالي أو مجهَّز؛ وللإعادة كذلك مفتاح معلَّم مسرَّباً أو تجاوز نافذته | ‏409 | ‏`Secret.KeyringKeyNotFound` |
 | ‏إحالة ما دامت مفاتيح ويب-هوك مخزّنة تحت المفتاح في مهلتها | ‏409 | ‏`Secret.KeyringKeyReferenced` |
 | ‏النشر لا يحفظ أسراره في الملف المعمّى (الوضع PlainText)، فلا حلقة عنده تُغيَّر | ‏409 | ‏`Secret.KeyringUnavailable` |
+| ‏ملف الأسرار لم يعد يحمل مفتاحاً ما زالت هذه العملية تتحقق به (أحالته عملية API أخرى: أعد تشغيل هذه)، أو حلقته لا تُقرأ حلقةً يمكن أن يكتبها أي تغيير. حالة الخادم لا حالة الطلب | ‏409 | ‏`Secret.KeyringFileInconsistent` |
+| ‏مادة مفتاح مقدَّمة غير صالحة، أو تحملها الحلقة أو حملتها من قبل: المفتاح المُحال أو المُسقَط لا يعود أبداً، والرسالة تسمّيه وتذكر هل كان مسرَّباً | ‏400 | ‏`Secret.InvalidKeyMaterial` |
 
 ‏وإجراء المشغّل (النسخ الاحتياطية، ومفتاح واجهة الإدارة، والتراجع، والتدوير الطارئ) في [PRODUCTION_DEPLOYMENT_GUIDE.md](PRODUCTION_DEPLOYMENT_GUIDE.md#rotating-the-hmac-key-without-signing-anyone-out).
 *‏في الشيفرة:* ‏الملفات `Auth/Auth_API/Modules/Administration/Controllers/SecretsController.cs` و`Auth/Auth.Application/Features/Secrets/Common/HmacKeyringChangeService.cs` و`Auth/Auth.Application/Security/Keyring/HmacKeyringTransitions.cs`.

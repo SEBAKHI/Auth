@@ -18,11 +18,12 @@ namespace Auth.Application.Security.Keyring;
 /// </remarks>
 public static class HmacKeyringFile
 {
-    /// <summary>The ring the file holds.</summary>
+    /// <summary>The ring the file holds, with what the file remembers of keys that left it.</summary>
     /// <returns>
     /// The ring; <see cref="SecretErrors.KeyringUnavailable"/> when the file holds no HMAC
-    /// key at all (the process takes it from another source); or the reason the file's
-    /// ring cannot be trusted.
+    /// key at all (the process takes it from another source); or, as
+    /// <see cref="SecretErrors.KeyringFileInconsistent"/>, the reason the file's ring cannot
+    /// be trusted.
     /// </returns>
     public static ErrorOr<HmacKeyring> Read(SecretConfiguration secrets)
     {
@@ -40,6 +41,8 @@ public static class HmacKeyringFile
             return single.Errors;
         }
 
+        var removed = ReadRemoved(secrets);
+
         if (entries.Count == 0)
         {
             // The same marker the boot reads (HmacKeyringConfiguration): a file that once
@@ -48,12 +51,12 @@ public static class HmacKeyringFile
             // was a derivation key, and lose every key the ring held.
             if (secrets.Version >= SecretConfiguration.VersionWithRingBeyondKey1)
             {
-                return SecretErrors.InvalidKeyMaterial(
+                return SecretErrors.KeyringFileInconsistent(
                     "The secrets file had an HMAC keyring beyond key 1 and no longer has one: a build without the " +
                     "keyring saved it. Restore the most recent copy of the secrets file taken after the last keyring change.");
             }
 
-            return HmacKeyring.FromSingleKey(single.Value);
+            return HmacKeyring.FromSingleKey(single.Value, removed, secrets.HmacHighestKeyId);
         }
 
         var keys = new List<HmacKey>();
@@ -61,7 +64,7 @@ public static class HmacKeyringFile
         {
             if (entry is null || string.IsNullOrWhiteSpace(entry.Material))
             {
-                return SecretErrors.InvalidKeyMaterial($"HMAC key {id} in the secrets file has no material.");
+                return SecretErrors.KeyringFileInconsistent($"HMAC key {id} in the secrets file has no material.");
             }
 
             var material = Decode(entry.Material, $"HMAC key {id}");
@@ -72,7 +75,7 @@ public static class HmacKeyringFile
 
             if (id < 1)
             {
-                return SecretErrors.InvalidKeyMaterial($"The secrets file holds an HMAC key with the invalid id {id}.");
+                return SecretErrors.KeyringFileInconsistent($"The secrets file holds an HMAC key with the invalid id {id}.");
             }
 
             keys.Add(new HmacKey(
@@ -89,7 +92,9 @@ public static class HmacKeyringFile
             secrets.HmacCurrentKeyId,
             secrets.HmacNextKeyId > 0 ? secrets.HmacNextKeyId : null,
             Utc(secrets.HmacLegacyCutoverUtc),
-            Utc(secrets.HmacLegacyVerifyUntilUtc));
+            Utc(secrets.HmacLegacyVerifyUntilUtc),
+            removed,
+            secrets.HmacHighestKeyId);
         if (ring.IsError)
         {
             return ring.Errors;
@@ -97,7 +102,7 @@ public static class HmacKeyringFile
 
         if (!ring.Value.Current.Material.SequenceEqual(single.Value))
         {
-            return SecretErrors.InvalidKeyMaterial(
+            return SecretErrors.KeyringFileInconsistent(
                 $"The single HMAC key is not the keyring's current key {ring.Value.Current.Id}. " +
                 "Restore the most recent copy of the secrets file taken after the last keyring change.");
         }
@@ -107,7 +112,8 @@ public static class HmacKeyringFile
 
     /// <summary>
     /// Writes <paramref name="ring"/> into <paramref name="secrets"/>, the single key
-    /// included (it mirrors the current key, KR1). Nothing else in the file changes.
+    /// included (it mirrors the current key, KR1), with what the ring remembers of keys
+    /// that left it and the highest id in use (OI-217). Nothing else in the file changes.
     /// </summary>
     public static void Write(HmacKeyring ring, SecretConfiguration secrets)
     {
@@ -129,7 +135,31 @@ public static class HmacKeyringFile
         secrets.HmacLegacyCutoverUtc = ring.LegacyCutoverUtc;
         secrets.HmacLegacyVerifyUntilUtc = ring.LegacyVerifyUntilUtc;
         secrets.RefreshTokenHmacKey = Convert.ToBase64String(ring.Current.Material);
+        secrets.HmacRemovedKeys = ring.Removed
+            .Select(key => new RemovedHmacKeyEntry
+            {
+                Id = key.Id,
+                Fingerprint = key.Fingerprint,
+                RemovedAtUtc = key.RemovedAtUtc,
+                Reason = key.Reason.ToString(),
+                Compromised = key.Compromised
+            })
+            .ToList();
+        secrets.HmacHighestKeyId = ring.HighestKeyId;
     }
+
+    // A file no build with the memory has saved has none. An entry that names no reason the
+    // build knows reads as a retire: either way its material is refused.
+    private static List<RemovedHmacKey> ReadRemoved(SecretConfiguration secrets) =>
+        (secrets.HmacRemovedKeys ?? [])
+            .Where(entry => entry is not null)
+            .Select(entry => new RemovedHmacKey(
+                entry.Id,
+                entry.Fingerprint ?? string.Empty,
+                Utc(entry.RemovedAtUtc),
+                Enum.TryParse<HmacKeyRemoval>(entry.Reason, out var reason) && Enum.IsDefined(reason) ? reason : HmacKeyRemoval.Retired,
+                entry.Compromised))
+            .ToList();
 
     /// <summary>
     /// Whether two rings would issue and verify the same: the same current and staged
@@ -184,7 +214,7 @@ public static class HmacKeyringFile
         if (valid.IsError)
         {
             // The description names the rule broken, never the value.
-            return SecretErrors.InvalidKeyMaterial($"{what} is invalid: {valid.FirstError.Description}");
+            return SecretErrors.KeyringFileInconsistent($"{what} is invalid: {valid.FirstError.Description}");
         }
 
         return Convert.FromBase64String(base64);

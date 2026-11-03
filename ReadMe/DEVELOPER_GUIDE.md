@@ -6876,7 +6876,7 @@ An emergency rotation to a caller-supplied HMAC key (BYOK): the same effect as `
 }
 ```
 
-> Certificate/Dpapi mode only (`409` in PlainText). A key the keyring already holds is refused with `Secret.InvalidKeyMaterial` before the confirmation is spent.
+> Certificate/Dpapi mode only (`409` in PlainText). A key the keyring holds, or once held (retired or discarded), is refused with `Secret.InvalidKeyMaterial` before the confirmation is spent.
 
 #### The HMAC keyring: GET `keyring` and POST `keyring/hmac/*`
 
@@ -6888,6 +6888,8 @@ An emergency rotation to a caller-supplied HMAC key (BYOK): the same effect as `
 | `Secret.KeyringKeyNotFound` | 409 | A reinstate or retire of a key that is unknown, current or staged; for a reinstate, also a key marked compromised or past its window |
 | `Secret.KeyringKeyReferenced` | 409 | A retire while webhook keys stored under the key are in their grace |
 | `Secret.KeyringUnavailable` | 409 | The deployment does not keep its secrets in the encrypted file (PlainText mode), so it has no keyring to change |
+| `Secret.KeyringFileInconsistent` | 409 | The secrets file no longer holds a key this process still verifies under (another API process retired it: restart this one), or its keyring does not read as one any change could have written. The server's state, not the request's |
+| `Secret.InvalidKeyMaterial` | 400 | Supplied key material that is not valid, or that the keyring holds or once held: a retired or discarded key is never taken back, and the message names it and whether it was compromised |
 
 The operator's procedure (backups, the admin-API switch, rollback, the emergency) is in [PRODUCTION_DEPLOYMENT_GUIDE.md](PRODUCTION_DEPLOYMENT_GUIDE.md#rotating-the-hmac-key-without-signing-anyone-out).
 *In code:* `Auth/Auth_API/Modules/Administration/Controllers/SecretsController.cs`; `Auth/Auth.Application/Features/Secrets/Common/HmacKeyringChangeService.cs`; `Auth/Auth.Application/Security/Keyring/HmacKeyringTransitions.cs`.

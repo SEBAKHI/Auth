@@ -1463,6 +1463,9 @@
   <data name="Secret.KeyringUnavailable" xml:space="preserve">
     <value>HMAC کی رنگ کا انتظام صرف Certificate یا Dpapi اسٹوریج موڈ میں ہو سکتا ہے، جب HMAC کلید خفیہ کردہ سیکرٹس فائل میں رکھی گئی ہو۔ یہ تنصیب PlainText موڈ میں چل رہی ہے یا کلید کسی اور ذریعے سے لیتی ہے۔</value>
   </data>
+  <data name="Secret.KeyringFileInconsistent" xml:space="preserve">
+    <value>سیکرٹس فائل میں موجود HMAC کی رنگ اپنی موجودہ حالت میں استعمال نہیں کی جا سکتی: {0}</value>
+  </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>تصدیقی کوڈ 6 ہندسوں پر مشتمل ہونا چاہیے۔</value>
   </data>

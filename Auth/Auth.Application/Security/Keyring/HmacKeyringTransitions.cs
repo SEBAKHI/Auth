@@ -103,20 +103,24 @@ public sealed partial class HmacKeyring
         return Rebuild(keys, newId, nextKeyId: null, nowUtc, verifyUntilUtc: nowUtc, closeLegacyNow: true);
     }
 
-    /// <summary>Removes the staged key before it is promoted.</summary>
-    public ErrorOr<HmacKeyring> DiscardNext()
+    /// <summary>
+    /// Removes the staged key before it is promoted. The ring remembers it (OI-217): its
+    /// material is refused if offered again, and its id is never given to another key.
+    /// </summary>
+    public ErrorOr<HmacKeyring> DiscardNext(DateTime nowUtc)
     {
         if (Next is not { } next)
         {
             return SecretErrors.KeyringNoNextKey;
         }
 
-        return Create(
+        return Successor(
             _keys.Values.Where(key => key.Id != next.Id),
             Current.Id,
             nextKeyId: null,
             LegacyCutoverUtc,
-            LegacyVerifyUntilUtc);
+            LegacyVerifyUntilUtc,
+            leaving: RemovedHmacKey.Of(next, nowUtc, HmacKeyRemoval.Discarded));
     }
 
     /// <summary>
@@ -162,21 +166,24 @@ public sealed partial class HmacKeyring
 
     /// <summary>
     /// Removes a previous key for good. Whether live webhook keys still need it is a
-    /// question for the database, asked by the caller before this runs.
+    /// question for the database, asked by the caller before this runs. The ring
+    /// remembers it (OI-217): its material is refused if offered again, compromised or
+    /// not, and its id is never given to another key.
     /// </summary>
-    public ErrorOr<HmacKeyring> Retire(int keyId)
+    public ErrorOr<HmacKeyring> Retire(int keyId, DateTime nowUtc)
     {
         if (!CanRetire(keyId))
         {
             return SecretErrors.KeyringKeyNotFound(keyId);
         }
 
-        return Create(
+        return Successor(
             _keys.Values.Where(key => key.Id != keyId),
             Current.Id,
             Next?.Id,
             LegacyCutoverUtc,
-            LegacyVerifyUntilUtc);
+            LegacyVerifyUntilUtc,
+            leaving: RemovedHmacKey.Of(_keys[keyId], nowUtc, HmacKeyRemoval.Retired));
     }
 
     /// <summary>
@@ -190,19 +197,50 @@ public sealed partial class HmacKeyring
             .Select(purpose => AcceptedUntil(key, purpose))
             .Max();
 
-    /// <summary>The id the next new key takes: one above every id the ring holds.</summary>
-    private int NextFreeId => _keys.Keys.Max() + 1;
+    /// <summary>
+    /// The id the next new key takes: one above every id in use, so a retired or discarded
+    /// key's id never names another key (OI-217). Counts, approvals and stored webhook
+    /// fingerprints name keys by id.
+    /// </summary>
+    private int NextFreeId => HighestKeyId + 1;
 
     /// <summary>
     /// Whether <paramref name="material"/> may join the ring as a new key: refused when
-    /// the ring already holds it under any id. The same material under two ids would
-    /// leave a retired key verifying under the other, and a re-import of the current key
-    /// as an emergency would mark the key it keeps compromised.
+    /// the ring already holds it under any id, or once held it (OI-217). The same material
+    /// under two ids would leave a retired key verifying under the other, a re-import of
+    /// the current key as an emergency would mark the key it keeps compromised, and a key
+    /// taken back would issue again with nothing left to say it was retired, perhaps
+    /// because it leaked.
     /// </summary>
-    public ErrorOr<Success> AcceptsNewMaterial(ReadOnlySpan<byte> material) =>
-        ContainsMaterial(material) is { } existing
-            ? SecretErrors.InvalidKeyMaterial($"This key is already HMAC key {existing} of the keyring.")
-            : Result.Success;
+    public ErrorOr<Success> AcceptsNewMaterial(ReadOnlySpan<byte> material)
+    {
+        if (ContainsMaterial(material) is { } existing)
+        {
+            return SecretErrors.InvalidKeyMaterial($"This key is already HMAC key {existing} of the keyring.");
+        }
+
+        // The message names the key, never the material.
+        if (RemovedWith(material) is { } removed)
+        {
+            return SecretErrors.InvalidKeyMaterial(
+                $"This key was HMAC key {removed.Id} of the keyring, {removed.Reason.ToString().ToLowerInvariant()}" +
+                (removed.Compromised ? " after it was marked compromised" : string.Empty) +
+                ". A key that left the keyring is never taken back: generate a new key, or import another.");
+        }
+
+        return Result.Success;
+    }
+
+    private RemovedHmacKey? RemovedWith(ReadOnlySpan<byte> material)
+    {
+        if (Removed.Count == 0)
+        {
+            return null;
+        }
+
+        var fingerprint = RemovedHmacKey.FingerprintOf(material);
+        return Removed.FirstOrDefault(key => string.Equals(key.Fingerprint, fingerprint, StringComparison.Ordinal));
+    }
 
     private int? ContainsMaterial(ReadOnlySpan<byte> material)
     {
@@ -226,13 +264,32 @@ public sealed partial class HmacKeyring
         }
 
         var newId = NextFreeId;
-        return Create(
+        return Successor(
             _keys.Values.Append(new HmacKey(newId, material, createdAtUtc: nowUtc)),
             Current.Id,
             newId,
             LegacyCutoverUtc,
             LegacyVerifyUntilUtc);
     }
+
+    // Every transition builds its ring here, so what the ring remembers goes with it: the
+    // keys that left it, the key leaving now included, and the highest id in use, which a
+    // new key raises (OI-217).
+    private ErrorOr<HmacKeyring> Successor(
+        IEnumerable<HmacKey> keys,
+        int currentKeyId,
+        int? nextKeyId,
+        DateTime? legacyCutoverUtc,
+        DateTime? legacyVerifyUntilUtc,
+        RemovedHmacKey? leaving = null) =>
+        Create(
+            keys,
+            currentKeyId,
+            nextKeyId,
+            legacyCutoverUtc,
+            legacyVerifyUntilUtc,
+            leaving is null ? Removed : Removed.Append(leaving),
+            HighestKeyId);
 
     // The ring after the current key changed to newCurrentId. When the key that stopped
     // issuing is key 1, that moment is the cutover from the legacy form, recorded here
@@ -253,7 +310,7 @@ public sealed partial class HmacKeyring
             ? verifyUntilUtc
             : closeLegacyNow && LegacyCutoverUtc is not null ? nowUtc : LegacyVerifyUntilUtc;
 
-        return Create(
+        return Successor(
             keys,
             newCurrentId,
             nextKeyId,

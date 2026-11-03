@@ -1465,6 +1465,9 @@
   <data name="Secret.KeyringUnavailable" xml:space="preserve">
     <value>The HMAC keyring can only be managed in Certificate or Dpapi storage mode, with the HMAC key kept in the encrypted secrets file. This deployment runs in PlainText mode or takes the key from another source.</value>
   </data>
+  <data name="Secret.KeyringFileInconsistent" xml:space="preserve">
+    <value>The HMAC keyring in the secrets file cannot be used as it is: {0}</value>
+  </data>
   <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
     <value>Verification code must be 6 digits.</value>
   </data>

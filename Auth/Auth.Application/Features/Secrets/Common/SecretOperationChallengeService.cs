@@ -180,11 +180,18 @@ public class SecretOperationChallengeService
     /// <param name="code">The six-digit code the administrator typed.</param>
     /// <param name="requestedBy">The administrator answering, for actor binding.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="beforeApproval">
+    /// Run once the code is known to be right and before the approval window opens, with the
+    /// challenge: an error from it is the answer, and the challenge stays unverified, so nothing
+    /// becomes spendable (SEC-B5: a keyring change claimed for another action, key or value
+    /// than the one the challenge was raised for).
+    /// </param>
     public async Task<ErrorOr<SecretOperationChallenge>> VerifyAsync(
         Guid challengeId,
         string code,
         Guid requestedBy,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<SecretOperationChallenge, CancellationToken, Task<ErrorOr<Success>>>? beforeApproval = null)
     {
         var challenge = await _challengeRepository.GetByIdAsync(challengeId, cancellationToken);
 
@@ -222,6 +229,15 @@ public class SecretOperationChallengeService
                 challenge.Operation, requestedBy, challenge.AttemptCount, SecretOperationChallenge.MaxAttempts);
 
             return SecretErrors.InvalidChallengeCode;
+        }
+
+        if (beforeApproval is not null)
+        {
+            var allowed = await beforeApproval(challenge, cancellationToken);
+            if (allowed.IsError)
+            {
+                return allowed.Errors;
+            }
         }
 
         var verified = challenge.MarkVerified();

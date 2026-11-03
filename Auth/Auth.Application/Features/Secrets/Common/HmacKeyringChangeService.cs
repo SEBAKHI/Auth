@@ -139,8 +139,9 @@ public sealed class HmacKeyringChangeService
 
     // Restart first: the usual cause is another API process that retired the key. A copy
     // of the file is the answer only to a file replaced by mistake, and never one taken
-    // before a retire or an emergency, which would bring that key back.
-    private static Error FileLostKey(int keyId) => SecretErrors.InvalidKeyMaterial(
+    // before a retire or an emergency, which would bring that key back. The state of the
+    // server, not of the request: a 409, never the 400 of supplied material (OI-217).
+    private static Error FileLostKey(int keyId) => SecretErrors.KeyringFileInconsistent(
         $"The secrets file no longer holds HMAC key {keyId}, which this process still verifies under. If another API " +
         "process changed the keyring (a retire), restart this one. Only if the file itself was replaced by mistake (an " +
         "older copy, or a save by a build without the keyring), put back the most recent copy taken after the last " +
@@ -198,8 +199,9 @@ public sealed class HmacKeyringChangeService
             return approvable.Errors;
         }
 
-        // A supplied key the ring already holds is refused here, before the approval is
-        // spent, rather than by the transition after it: the administrator keeps the code.
+        // A supplied key the ring already holds, or once held (OI-217), is refused here, before
+        // the approval is spent, rather than by the transition after it: the administrator
+        // keeps the code.
         if (request.Material is { } material)
         {
             var fresh = before.Value.AcceptsNewMaterial(Convert.FromBase64String(material));
@@ -221,6 +223,11 @@ public sealed class HmacKeyringChangeService
         // Every read the change needs happens before the approval is spent: a database
         // that fails here leaves the administrator's code unspent.
         var verifyUntil = await DemotedKeyVerifyUntilAsync(request.Action, now, cancellationToken);
+
+        // The highest key id a stored webhook fingerprint names, revoked keys included: a new
+        // key never takes it, even when the file forgot that key (OI-217). Read here, never
+        // under the file lock, which other API processes may be waiting for.
+        var webhookKeyIdInUse = await _webhookKeyRepository.GetHighestHmacKeyIdAsync(cancellationToken);
 
         var approval = await _challengeService.ConsumeAsync(
             request.ChallengeId,
@@ -264,7 +271,7 @@ public sealed class HmacKeyringChangeService
                         return FileLostKey(lost);
                     }
 
-                    var changed = apply(current.Value, context);
+                    var changed = apply(current.Value.WithKeyIdInUse(webhookKeyIdInUse), context);
                     if (changed.IsError)
                     {
                         return changed.Errors;

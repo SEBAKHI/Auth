@@ -47,6 +47,9 @@ internal sealed class KeyringTestHarness : IDisposable
         WebhookKeys
             .Setup(r => r.CountLiveByHmacKeyAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => WebhookCounts);
+        WebhookKeys
+            .Setup(r => r.GetHighestHmacKeyIdAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => HighestWebhookKeyId);
 
         StorageMode = new ResolvedSecretStorageMode(plainText ? "PlainText" : "Certificate", plainText);
         Service = new HmacKeyringChangeService(
@@ -101,6 +104,9 @@ internal sealed class KeyringTestHarness : IDisposable
 
     /// <summary>What the webhook repository answers for live keys by HMAC key.</summary>
     public IReadOnlyDictionary<int, int> WebhookCounts { get; set; } = new Dictionary<int, int>();
+
+    /// <summary>The highest HMAC key id a stored webhook fingerprint names, revoked keys included (OI-217).</summary>
+    public int HighestWebhookKeyId { get; set; }
 
     /// <summary>The ring the file holds now.</summary>
     public HmacKeyring ReadFileRing() =>

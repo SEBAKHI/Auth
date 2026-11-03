@@ -2073,10 +2073,14 @@ was issued with for life, and a refresh token is re-fingerprinted only when it i
 Another process that shares the secrets file (a web garden, a second server) keeps the keyring it
 loaded until it is recycled, and logs the posture line `keyring.process-ring` at Critical at its next
 configuration reload. Recycle the others after every change, and **at once after an emergency**:
-until then they still accept the leaked keys. The file is not yet locked across processes: make
-every keyring change from one API process, and run no other secret change (the SMTP password, the
-connection string, the gateway token) on another process at the same time, or one of two saves can
-be lost.
+until then they still accept the leaked keys. Every save of the secrets file takes a lock file
+beside it (`secrets.dpapi.lock`, empty, never deleted) that every API process of this build waits
+for, so two saves at the same moment no longer lose one of them. Still make every keyring change
+from one API process: the others keep the ring they loaded, and a promote is refused on a process
+that has not loaded the staged key. A build that predates the lock ignores it, so while one still
+runs beside this one (the overlapped recycle of a deploy), change no secret. A build that predates
+the keyring's memory of removed keys drops that memory and the highest key id when it saves the
+file (see the warning below).
 
 **Rolling back.** Before the promote: **Discard the staged key**. After it: **Reinstate** the
 previous key (row menu → *Reinstate (roll back to this key)*), while its window is open. It issues
@@ -2092,15 +2096,20 @@ next use, because a leaked HMAC key cannot forge a random webhook key. `generate
 `secrets.dpapi`. The emergency overwrites `secrets.dpapi.bak` as well, so the backup copy no
 longer holds the ring in which the leaked keys are healthy; every backup you took before still
 does: destroy or quarantine those, as for a retired key. If the emergency is refused because the
-file no longer holds a key this process verifies under (another process changed the ring, or the
-file was replaced), restart the API first, then run the emergency.
+file no longer holds a key this process verifies under (`409 Secret.KeyringFileInconsistent`:
+another process changed the ring, or the file was replaced), restart the API first, then run the
+emergency.
 
 **Retiring an old key.** Once an older key's *Verifies until* date has passed and no webhook key
 still validates under it, **Retire this key** removes it from `secrets.dpapi` and from
 `secrets.dpapi.bak`. While webhook keys stored under it are in their grace, the panel says how many
 and until when, and the retire is refused. A retired key is still in every backup you took before;
-if it leaked, destroy those copies. The keyring forgets a retired key entirely, compromised or not,
-so **never stage or import a key that was retired**: nothing would recognize it as leaked.
+if it leaked, destroy those copies. The keyring remembers every key it retires or discards, by a
+fingerprint of its material (never the material), and refuses that material if it is staged,
+imported or used for an emergency again (`Secret.InvalidKeyMaterial`, naming the old key and
+whether it was compromised); no id is ever given to a second key either. A key retired by a build
+that predates this memory is not remembered, so **never stage or import a key that was retired**:
+for such a key, nothing would recognize it as leaked.
 
 **Backups.** Keep a backup of `secrets.dpapi` from after each change until every *Verifies until*
 date in the panel has passed: an older copy may lack the key that credentials issued since are
@@ -2114,6 +2123,12 @@ stands, and the API log says at Error which `.bak` to overwrite or delete by han
 > the secrets file erases the ring; the next start of a current build then refuses to boot and names
 > the backup to restore. Roll the API back to S11 PR A's build or later. The keyring needs no
 > database change, so the database is never the reason to roll back past it.
+>
+> A build that predates the keyring's memory of removed keys (OI-217) reads the file but not that
+> memory: its first save drops the list of retired and discarded keys and the highest key id. The
+> older build itself behaves as it always did; once a current build runs again, it refuses only the
+> material of keys the file still holds, and gives a new key an id above those keys and above every
+> id a stored webhook key names. Nothing else is lost.
 >
 > *In code:* `Auth/Auth.Application/Security/Keyring/HmacKeyringTransitions.cs` (the changes);
 > `Auth/Auth.Application/Features/Secrets/Common/HmacKeyringChangeService.cs` (confirmation, save,

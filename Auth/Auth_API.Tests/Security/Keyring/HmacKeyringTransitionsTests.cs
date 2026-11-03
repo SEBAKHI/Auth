@@ -160,11 +160,11 @@ public class HmacKeyringTransitionsTests
     [Fact]
     public void DiscardNext_RemovesTheStagedKey_AndWithoutOneIsRefused()
     {
-        var ring = Staged().DiscardNext().Value;
+        var ring = Staged().DiscardNext(T0).Value;
 
         ring.Next.Should().BeNull();
         ring.Keys.Select(k => k.Id).Should().Equal([1]);
-        ring.DiscardNext().FirstError.Code.Should().Be("Secret.KeyringNoNextKey");
+        ring.DiscardNext(T0).FirstError.Code.Should().Be("Secret.KeyringNoNextKey");
     }
 
     [Fact]
@@ -213,10 +213,10 @@ public class HmacKeyringTransitionsTests
     {
         var ring = Staged().Promote(T0, T0.AddDays(7)).Value.Stage(Material(200), T0.AddDays(1)).Value;
 
-        ring.Retire(2).FirstError.Code.Should().Be("Secret.KeyringKeyNotFound");
-        ring.Retire(3).FirstError.Code.Should().Be("Secret.KeyringKeyNotFound");
+        ring.Retire(2, T0.AddDays(2)).FirstError.Code.Should().Be("Secret.KeyringKeyNotFound");
+        ring.Retire(3, T0.AddDays(2)).FirstError.Code.Should().Be("Secret.KeyringKeyNotFound");
 
-        var retired = ring.Retire(1).Value;
+        var retired = ring.Retire(1, T0.AddDays(2)).Value;
         retired.Keys.Select(k => k.Id).Should().BeEquivalentTo([2, 3]);
         retired.Accepted(CredentialPurpose.RefreshToken, T0.AddDays(2)).Should().NotContain(d => d.IsLegacy);
     }
@@ -253,5 +253,62 @@ public class HmacKeyringTransitionsTests
                 }
             }
         }
+    }
+
+    [Fact]
+    public void ADiscardedKey_IsRemembered_AndEveryTransitionThatTakesNewMaterial_RefusesIt()
+    {
+        // OI-217: key 2 is staged, then discarded. The ring keeps a fingerprint of it, never
+        // its material, and the memory outlives every later transition.
+        var ring = Staged().DiscardNext(T0.AddHours(1)).Value
+            .Stage(Material(200), T0.AddHours(2)).Value
+            .Promote(T0.AddHours(3), T0.AddDays(7)).Value;
+
+        var removed = ring.Removed.Should().ContainSingle().Which;
+        removed.Should().BeEquivalentTo(new { Id = 2, Reason = HmacKeyRemoval.Discarded, Compromised = false, RemovedAtUtc = (DateTime?)T0.AddHours(1) });
+        removed.Fingerprint.Should().Be(RemovedHmacKey.FingerprintOf(Material(100)));
+        removed.Fingerprint.Should().NotBe(Convert.ToBase64String(Material(100)), "the ring never keeps the material");
+
+        foreach (var offered in new[]
+                 {
+                     ring.Stage(Material(100), T0.AddDays(1)),
+                     ring.StageImport(Material(100), T0.AddDays(1)),
+                     ring.PromoteEmergency(Material(100), T0.AddDays(1)),
+                 })
+        {
+            offered.FirstError.Code.Should().Be("Secret.InvalidKeyMaterial");
+            offered.FirstError.Description.Should().Contain("HMAC key 2").And.Contain("discarded")
+                .And.NotContain(Convert.ToBase64String(Material(100)));
+        }
+    }
+
+    [Fact]
+    public void ARetiredCompromisedKey_IsRemembered_AsLeaked()
+    {
+        var ring = KeyringTestRings.Rotated(key1Compromised: true).Retire(1, T0).Value;
+
+        ring.Removed.Should().ContainSingle(key => key.Id == 1 && key.Reason == HmacKeyRemoval.Retired && key.Compromised);
+        ring.StageImport(KeyringTestRings.Key1Material, T0).FirstError.Description
+            .Should().Contain("HMAC key 1").And.Contain("retired after it was marked compromised");
+    }
+
+    [Fact]
+    public void ANewKey_TakesAnIdAboveEveryIdInUse_NeverOneAKeyHadBefore()
+    {
+        // OI-217: key 2 is discarded, then key 3 retired; the next key is 4, never 2 or 3.
+        var discarded = Staged().DiscardNext(T0.AddHours(1)).Value;
+        discarded.Stage(Material(200), T0.AddHours(2)).Value.Next!.Id.Should().Be(3);
+
+        var retired = Staged().Promote(T0, T0.AddDays(7)).Value
+            .Stage(Material(200), T0.AddHours(1)).Value
+            .Promote(T0.AddHours(2), T0.AddDays(7)).Value
+            .Reinstate(2, T0.AddHours(3), T0.AddDays(7)).Value
+            .Retire(3, T0.AddHours(4)).Value;
+        retired.Keys.Select(key => key.Id).Should().BeEquivalentTo([1, 2]);
+        retired.Stage(Material(300), T0.AddHours(5)).Value.Next!.Id.Should().Be(4);
+
+        // An id used outside the ring (a stored webhook fingerprint, hk5$) is never taken either.
+        retired.WithKeyIdInUse(5).PromoteEmergency(Material(300), T0.AddHours(5)).Value.Current.Id.Should().Be(6);
+        retired.WithKeyIdInUse(2).Should().BeSameAs(retired, "an id the ring already counts changes nothing");
     }
 }
