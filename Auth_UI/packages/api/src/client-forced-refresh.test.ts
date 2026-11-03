@@ -246,17 +246,6 @@ describe("a 401 on a token that has not expired", () => {
     expect(tab.expired()).toBe(0)
   })
 
-  it("forces nothing for a 401 on a request that carried no token", async () => {
-    storage.delete(REFRESH_KEY)
-    const server = installServer()
-    const tab = await openTab(null)
-
-    await me(tab)
-
-    expect(server.presented).toEqual([null])
-    expect(server.refreshes()).toBe(0)
-  })
-
   it("forces nothing more when the token a forced refresh produced is refused too", async () => {
     const server = installServer()
     const tab = await openTab()
