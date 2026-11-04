@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
+import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 import { api, refreshSessionNow } from "@authsystem/api/client"
@@ -16,10 +17,151 @@ import { FieldDescription, FieldGroup } from "@authsystem/ui/field"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { useAuth } from "../auth-context"
+import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
 import { ReauthenticateDialog } from "../reauthenticate-dialog"
 import { markRecoveryCodeSignIn } from "../recovery-code-notice"
+import { toAccountsSearch, validateReturnToUrl } from "../return-to"
+import { requestFullProof } from "../sign-in-method"
 import { TwoFactorEnrollment } from "../two-factor-enrollment"
+
+/** Router state of the application mode, as the completion rule writes it. */
+interface ApplicationModeState {
+  mode?: unknown
+  returnTo?: string | null
+}
+
+/**
+ * One route, two modes (T-B5). The platform mode is the page as S08 built it.
+ * The application mode (S23) is entered only through the completion rule, with
+ * the pending authorize request in router state: an application that requires
+ * two-step verification found no authenticator on the account. The request is
+ * re-validated here like at every hop; without a valid one this is the
+ * platform page.
+ */
+export function TwoFactorRequiredPage() {
+  const location = useLocation()
+  const state = location.state as ApplicationModeState | null
+  const applicationReturnTo =
+    state?.mode === "application" ? validateReturnToUrl(state.returnTo) : null
+
+  return applicationReturnTo ? (
+    <ApplicationTwoFactorRequired returnTo={applicationReturnTo} />
+  ) : (
+    <PlatformTwoFactorRequired />
+  )
+}
+
+/**
+ * The application mode (S23, AM8 (8-3)): set up an authenticator app, then
+ * continue to the application. It never completes by itself and ignores the
+ * platform requirement, which is "none" for every application user.
+ *
+ * - The account already has an authenticator (set up in another tab): it says
+ *   so, and "Continue" resumes the request; the server then asks for the
+ *   second step, which is progress, not a loop.
+ * - Otherwise the Enroll step the platform mode uses: the emailed proof before
+ *   the first factor (X02), an emailed-code factor replaced (S24), the recovery
+ *   codes shown once. Then the request resumes.
+ * - "Cancel" resumes it too, unmet: the server ends the request with
+ *   `access_denied`, which the application shows. That is the way out, not a
+ *   dead end.
+ * - A demand to sign in again does not sign out, which would lose the request:
+ *   the sign-in page opens with the request and the reason, and the sign-in
+ *   comes back here.
+ *
+ * Every exit is the completion every sign-in uses. Router state here holds the
+ * request without its reason, so that completion resumes the application.
+ */
+function ApplicationTwoFactorRequired({ returnTo }: { returnTo: string }) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const { complete } = useLoginCompletion()
+  const { layout: appHeader } = useFlowBranding({ returnTo })
+  const {
+    data: me,
+    isPending,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => unwrap(api.GET("/api/v1/Users/me")),
+  })
+
+  // One resume: a second click landing before the navigation would send the
+  // request again. Set synchronously, in the handler.
+  const resuming = React.useRef(false)
+  const resume = React.useCallback(async () => {
+    if (resuming.current) return
+    resuming.current = true
+    complete({})
+  }, [complete])
+
+  const signInAgain = React.useCallback(() => {
+    // A sign-in by code from there proves the password too, where the account
+    // has one, as after the "sign in again" dialog (OI-215).
+    requestFullProof()
+    navigate(
+      {
+        pathname: "/login",
+        search: toAccountsSearch(returnTo, {
+          reason: "mfa_enroll",
+          method: null,
+        }),
+      },
+      { replace: true }
+    )
+  }, [navigate, returnTo])
+
+  return (
+    <AuthLayout
+      title={t("auth.mfaRequiredTitle")}
+      subtitle={t("auth.mfaAppRequiredSubtitle")}
+      footer={
+        <Button
+          variant="link"
+          className="text-muted-foreground"
+          onClick={() => void resume()}
+        >
+          {t("common.cancel")}
+        </Button>
+      }
+      {...appHeader}
+    >
+      {isPending ? (
+        <div className="flex justify-center">
+          <Spinner />
+        </div>
+      ) : isError ? (
+        <Alert variant="destructive">
+          <AlertTitle>{t("auth.mfaRequiredCheckFailedTitle")}</AlertTitle>
+          <AlertDescription>
+            <p>{t("auth.mfaRequiredCheckFailed")}</p>
+            <Button variant="secondary" size="sm" onClick={() => void refetch()}>
+              {t("common.retry")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : me.qualifyingMfa === true ? (
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">
+            {t("auth.mfaAppAlreadyEnrolled")}
+          </p>
+          <Button className="w-full" onClick={() => void resume()}>
+            {t("auth.mfaAppContinue")}
+          </Button>
+        </div>
+      ) : (
+        <EnrollStep
+          account={{ id: user?.id, email: user?.email }}
+          onDone={resume}
+          onReauthenticationRequired={signInAgain}
+        />
+      )}
+    </AuthLayout>
+  )
+}
 
 /**
  * The page between a platform administrator and the console while the server
@@ -43,7 +185,7 @@ import { TwoFactorEnrollment } from "../two-factor-enrollment"
  * a requirement the page can no longer trust — never a spinner that waits for
  * nothing. A session that is really over still ends through the client.
  */
-export function TwoFactorRequiredPage() {
+function PlatformTwoFactorRequired() {
   const { t } = useTranslation()
   const { user, mfaRequirement, rereadUser, logout } = useAuth()
   const { complete } = useLoginCompletion()
@@ -140,9 +282,12 @@ function TwoFactorRequiredStep({
 function EnrollStep({
   account,
   onDone,
+  onReauthenticationRequired,
 }: {
   account: { id?: string | null; email?: string | null }
   onDone: () => Promise<void>
+  /** The application mode's answer to a demand to sign in again; the dialog otherwise. */
+  onReauthenticationRequired?: () => void
 }) {
   const { t } = useTranslation()
   const [recoveryCodes, setRecoveryCodes] = React.useState<string>()
@@ -169,6 +314,7 @@ function EnrollStep({
         key={replacesEmailCode ? "replaces-email-code" : "first-factor"}
         account={account}
         replacesEmailCode={replacesEmailCode}
+        onReauthenticationRequired={onReauthenticationRequired}
         onEnabled={(codes) => {
           // The codes are shown once; the console waits until they are saved.
           if (codes.length) setRecoveryCodes(codes.join("\n"))

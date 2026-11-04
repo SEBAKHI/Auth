@@ -452,8 +452,8 @@ What the requirement does depends on one server-wide setting, `IdentityProvider:
 - **`Monitor`, the default.** Nothing changes for your users. The server logs, under the event code
   `app-mfa.would-require`, each sign-in it would have stopped, so an operator can see who would be
   affected before switching to `Enforce`.
-- **`Enforce`.** Each of the three places below applies it. `Enforce` is offered together with the
-  sign-in pages that guide a person through setting up an authenticator; until then only `Monitor` is.
+- **`Enforce`.** Each of the three places below applies it, and the sign-in pages guide the person
+  through it (below).
 
 Under `Enforce`, your client meets it in three places:
 
@@ -464,6 +464,22 @@ Under `Enforce`, your client meets it in three places:
   `error_description=application_requires_two_step_verification` and your `state`. Tell the person that
   your application requires two-factor authentication, and let them start again. An ASP.NET Core
   OpenID Connect handler sends `access_denied` to its `AccessDeniedPath`.
+
+  What the person sees between your authorize request and your `redirect_uri`, all on AuthSystem's
+  pages:
+
+  - **An account with an authenticator app:** the sign-in page says your application needs their second
+    factor. They sign in, enter the authenticator code, and come back to you with a code.
+  - **An account without one:** the page says your application requires two-factor authentication. They
+    sign in, set up an authenticator app (with a code emailed to their address first, while the server
+    sends email), save their recovery codes, and come back to you with a code. **Cancel** on that page
+    brings them back with `access_denied` instead.
+  - **A sign-in that does not count** (for example one made with an emailed code alone): the page asks
+    them to sign in again, with their second factor.
+
+  The page puts first the method the account signs in with (its password, or a code by email). That
+  word, like the reason, travels only between AuthSystem's pages: your client never sends or receives
+  it, and AuthSystem decides again, from the new sign-in, what your request needs.
 - **With `prompt=none`.** Every such case answers `login_required`, as for a session that does not exist.
   Start an interactive authorize.
 - **At the token endpoint.** Exchanging a code, or refreshing a token, whose sign-in did not prove two

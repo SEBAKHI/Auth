@@ -112,6 +112,7 @@ export function TwoFactorEnrollment({
   replacesEmailCode = false,
   onEnabled,
   onStale,
+  onReauthenticationRequired,
 }: {
   account: TwoFactorEnrollmentAccount
   /** The account's second factor is the emailed code, which the app replaces. */
@@ -120,6 +121,12 @@ export function TwoFactorEnrollment({
   onEnabled: (recoveryCodes: string[]) => void
   /** The caller's picture of two-factor is out of date: refetch it. */
   onStale?: () => void
+  /**
+   * The server wants a fresher sign-in. By default a dialog offers to sign out
+   * and back in; a caller that must not sign out (an application's pending
+   * request would be lost, S23) answers it instead.
+   */
+  onReauthenticationRequired?: () => void
 }) {
   const { t } = useTranslation()
 
@@ -185,7 +192,8 @@ export function TwoFactorEnrollment({
   const onTwoFactorError = (error: unknown) => {
     const codes = getErrorCodes(error)
     if (codes.includes("Auth.ReauthenticationRequired")) {
-      setReauthenticateOpen(true)
+      if (onReauthenticationRequired) onReauthenticationRequired()
+      else setReauthenticateOpen(true)
       return
     }
 

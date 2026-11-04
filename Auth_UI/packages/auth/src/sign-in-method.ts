@@ -46,15 +46,19 @@ function writeLastSignInMethod(method: SignInMethod): void {
 }
 
 /**
- * The method the page puts first: the remembered one while the options still
- * offer it, otherwise the deployment's.
+ * The method the page puts first: the one the server named for the account
+ * when an application's two-step requirement sent the person back (S23,
+ * D-S23-3 (c)), else the remembered one, else the deployment's — each only
+ * while the options offer code sign-in at all. The person's own click, which
+ * beats all three, is the caller's.
  */
 export function primarySignInMethod(
   options: SignInOptions,
-  remembered: SignInMethod | null
+  remembered: SignInMethod | null,
+  serverNamed: SignInMethod | null = null
 ): SignInMethod {
   if (!options.codeSignInOffered) return "password"
-  return remembered ?? options.primaryMethod
+  return serverNamed ?? remembered ?? options.primaryMethod
 }
 
 export function requestFullProof(): void {

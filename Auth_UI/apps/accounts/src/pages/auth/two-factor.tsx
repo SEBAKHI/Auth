@@ -19,8 +19,8 @@ export function AccountsTwoFactorPage() {
   // pending authorize request is read from the same place the verify page
   // reads it and put back into the query for the sign-up screens, which carry
   // it that way. Built from the validated value, not the raw state.
-  const { returnTo } = useLoginCompletion({ resumePending: true })
-  const search = toAccountsSearch(returnTo)
+  const { returnTo, reason } = useLoginCompletion({ resumePending: true })
+  const search = toAccountsSearch(returnTo, reason)
   return (
     <TwoFactorVerifyPage
       footer={

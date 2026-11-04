@@ -502,6 +502,15 @@ export const tr: TranslationResources = {
     mfaRequiredReauthenticateBody: "Oturumu kapatın ve parolanız ile doğrulayıcı kodunuzla yeniden oturum açın. Gitmek istediğiniz sayfaya geri döneceksiniz.",
     mfaRequiredCheckFailedTitle: "Oturumunuz denetlenemedi",
     mfaRequiredCheckFailed: "Sunucu yanıt vermedi. Bağlantınızı kontrol edip yeniden deneyin ya da oturumu kapatın.",
+    signInReasonStepUpTitle: "İkinci faktörünüz gerekli",
+    signInReasonStepUpBody: "Bu uygulama iki faktörlü kimlik doğrulama (2FA) gerektiriyor: oturum açmanıza ek olarak doğrulayıcı uygulamanızdan bir kod. Oturum açın, ardından kodu girin.",
+    signInReasonEnrollTitle: "İki faktörlü doğrulamayı kurun",
+    signInReasonEnrollBody: "Bu uygulama iki faktörlü kimlik doğrulama (2FA) gerektiriyor ve hesabınızda henüz bir doğrulayıcı uygulama yok. Oturum açın, sonraki sayfada bir tane kurun; ardından uygulamaya devam edersiniz.",
+    signInReasonReauthenticateTitle: "Yeniden oturum açın",
+    signInReasonReauthenticateBody: "Bu uygulama iki faktörlü kimlik doğrulama (2FA) gerektiriyor ve mevcut oturum açmanız bunun için sayılmıyor. Yeniden oturum açın, ardından doğrulayıcı uygulamanızdaki kodu girin.",
+    mfaAppRequiredSubtitle: "Bu uygulama iki faktörlü kimlik doğrulama (2FA) gerektiriyor. Doğrulayıcı uygulamanız kurulduğunda uygulamaya devam edersiniz.",
+    mfaAppAlreadyEnrolled: "Hesabınızda zaten bir doğrulayıcı uygulama var. Uygulamaya devam edin; bir kod istenirse o uygulamadaki kodu girin.",
+    mfaAppContinue: "Uygulamaya devam et",
     authenticatorAppsHint:
       "Herhangi bir doğrulayıcı uygulama çalışır. Henüz yoksa, bunlar ücretsizdir ve kodlarınızı yedekleyebilir:",
     noAuthenticatorApp: "Doğrulayıcı uygulamanız yok mu?",
@@ -2893,9 +2902,10 @@ export const tr: TranslationResources = {
         "Bir uygulamanın oturumu, başladığı çoklu oturum açma (SSO) oturumuna bağlıdır: o oturum sona erdiğinde (çıkış, uzun süre kullanılmama veya üst sınır), uygulamanın bir sonraki yenilemesi reddedilir ve kişi yeniden oturum açar. Uygulamayı kullanmak SSO oturumunu kullanmak sayılır; bu yüzden uygulamada çalışan kişinin oturumu açık kalır. Böylece “Oturumu açık tut” işaretlenmeden açılan oturum, hareketsizlik sınırı boyunca kullanılmazsa ve kullanılıyor olsa bile tarayıcı oturumu üst sınırında sona erer. Varsayılan olarak açıktır. Kapatmak geri dönüştür: uygulama oturumu o zaman yalnızca bir çıkışla (tek noktadan çıkış açıkken) ya da kendi süresi dolunca sona erer.",
       applicationMfaEnforcement: "Uygulama iki faktörlü zorlaması",
       applicationMfaEnforcementHint:
-        "Bir uygulama iki faktörlü kimlik doğrulama gerektirdiğinde ve oturum açma bunu kanıtlamadığında sunucunun ne yaptığı. İzleme: kimse durdurulmaz; sunucu kimin durdurulacağını kaydeder (app-mfa.would-require). Zorlama, kişilere yol gösteren oturum açma sayfaları yayımlandığında sunulur.",
+        "Bir uygulama iki faktörlü kimlik doğrulama (2FA) gerektirdiğinde ve oturum açma bunu kanıtlamadığında sunucunun ne yaptığı. Yalnızca yöneticisinin “İki adımlı doğrulama zorunlu” seçeneğini işaretlediği uygulamalar etkilenir. İzleme: kimse durdurulmaz; sunucu kimin durdurulacağını kaydeder (app-mfa.would-require). Zorlama: kişi ikinci faktörüyle oturum açmaya geri gönderilir ya da hesabında doğrulayıcı uygulama yoksa bir tane kuran sayfaya (/two-factor/required) gider ve ardından uygulamaya devam eder; bunu hiç kanıtlamamış bir uygulama oturumu bir sonraki yenilemede sona erer. Geri alma yolu İzleme'dir.",
       applicationMfaEnforcementOptions: {
         Monitor: "İzleme (yalnızca kayıt)",
+        Enforce: "Zorlama",
       },
     },
     email: {

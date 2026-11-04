@@ -6,10 +6,16 @@ import { currentMfaRequirement } from "@authsystem/api/mfa-requirement"
 import { launchApplication } from "./launch-application"
 import {
   getPendingReturnTo,
+  getPendingSignInReason,
   setPendingReturnTo,
   type TwoFactorMethod,
 } from "./pending-challenge"
 import { getValidReturnTo, validateReturnToUrl } from "./return-to"
+import {
+  readSignInReason,
+  validateSignInReason,
+  type SignInReason,
+} from "./sign-in-reason"
 
 /**
  * Router state understood by every screen that can end an authentication.
@@ -21,6 +27,8 @@ import { getValidReturnTo, validateReturnToUrl } from "./return-to"
 interface CompletionState {
   from?: { pathname?: string; search?: string } | string | null
   returnTo?: string | null
+  /** Why the pending request's sign-in was asked for (S23); validated on read. */
+  reason?: unknown
 }
 
 function resolveFrom(
@@ -53,6 +61,11 @@ export interface CompletionOptions {
 export interface LoginCompletion {
   /** The validated pending authorize request, or null for a plain sign-in. */
   returnTo: string | null
+  /**
+   * Why an application's two-step requirement sent the person back to sign in
+   * (S23), read from the same place as `returnTo`; null without a request.
+   */
+  reason: SignInReason | null
   /** Where a plain first-party sign-in should land. */
   from: string
   /** Every successful authentication ends here. */
@@ -109,14 +122,26 @@ export function useLoginCompletion(
   const from = resolveFrom(state?.from, options.defaultFrom ?? "/")
 
   // Router state is re-validated rather than trusted: one rule decides what is
-  // a legal destination, and it is the same rule at every hop.
-  const returnTo = React.useMemo(
-    () =>
-      getValidReturnTo(location.search) ??
-      validateReturnToUrl(state?.returnTo) ??
-      (options.resumePending ? validateReturnToUrl(getPendingReturnTo()) : null),
-    [location.search, state?.returnTo, options.resumePending]
-  )
+  // a legal destination, and it is the same rule at every hop. The sign-in
+  // reason (S23) comes from the same place as the request it belongs to, never
+  // from another: a reason left behind by an earlier request is not this one's.
+  const { returnTo, reason } = React.useMemo(() => {
+    const fromQuery = getValidReturnTo(location.search)
+    if (fromQuery) {
+      return { returnTo: fromQuery, reason: readSignInReason(location.search) }
+    }
+    const fromState = validateReturnToUrl(state?.returnTo)
+    if (fromState) {
+      return { returnTo: fromState, reason: validateSignInReason(state?.reason) }
+    }
+    const fromStore = options.resumePending
+      ? validateReturnToUrl(getPendingReturnTo())
+      : null
+    if (fromStore) {
+      return { returnTo: fromStore, reason: getPendingSignInReason() }
+    }
+    return { returnTo: null, reason: null }
+  }, [location.search, state?.returnTo, state?.reason, options.resumePending])
 
   const complete = React.useCallback(
     (
@@ -131,12 +156,27 @@ export function useLoginCompletion(
         // not: the person lands on `destination` once the password is changed.
         navigate("/force-password-change", {
           replace: true,
-          state: { from: destination, returnTo },
+          state: { from: destination, returnTo, reason },
         })
         return
       }
 
       if (returnTo) {
+        // An application that requires two-step verification found no
+        // authenticator on this account (S23): it is set up here first, on the
+        // page that then resumes the request. The reason is spent here: not
+        // carried on, so that page's own completion goes to the application,
+        // and dropped from the in-memory store, so a later sign-in in this tab
+        // does not open the page again. The server decides again on the
+        // resume; the word only chose the page.
+        if (reason?.reason === "mfa_enroll") {
+          setPendingReturnTo(null)
+          navigate("/two-factor/required", {
+            replace: true,
+            state: { mode: "application", returnTo, from: destination },
+          })
+          return
+        }
         // A top-level navigation, deliberately, not a router transition: the
         // IdP session cookie is SameSite=Lax and rides along with nothing else,
         // so the authorize endpoint would not recognize the browser.
@@ -165,18 +205,24 @@ export function useLoginCompletion(
 
       navigate(destination, { replace: true })
     },
-    [navigate, from, returnTo]
+    [navigate, from, returnTo, reason]
   )
 
   const challenge = React.useCallback(
     (challengeToken: string, methods?: readonly TwoFactorMethod[] | null) => {
-      setPendingReturnTo(returnTo)
+      setPendingReturnTo(returnTo, reason)
       navigate("/two-factor", {
         replace: true,
-        state: { challengeToken, methods: methods ?? null, from, returnTo },
+        state: {
+          challengeToken,
+          methods: methods ?? null,
+          from,
+          returnTo,
+          reason,
+        },
       })
     },
-    [navigate, from, returnTo]
+    [navigate, from, returnTo, reason]
   )
 
   const interstitial = React.useCallback(
@@ -187,11 +233,11 @@ export function useLoginCompletion(
     ) => {
       navigate(path, {
         replace: options?.replace ?? false,
-        state: { ...extraState, from, returnTo },
+        state: { ...extraState, from, returnTo, reason },
       })
     },
-    [navigate, from, returnTo]
+    [navigate, from, returnTo, reason]
   )
 
-  return { returnTo, from, complete, challenge, interstitial }
+  return { returnTo, reason, from, complete, challenge, interstitial }
 }

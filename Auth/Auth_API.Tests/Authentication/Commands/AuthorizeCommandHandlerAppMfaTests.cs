@@ -106,7 +106,7 @@ public class AuthorizeCommandHandlerAppMfaTests
         return application;
     }
 
-    private void Session(AuthenticationMethods methods, bool hasFactor = true, TimeSpan? age = null)
+    private void Session(AuthenticationMethods methods, bool hasFactor = true, TimeSpan? age = null, bool hasPassword = true)
     {
         _userId = Guid.NewGuid();
         var createdAt = _clock.UtcNow - (age ?? TimeSpan.Zero);
@@ -118,7 +118,7 @@ public class AuthorizeCommandHandlerAppMfaTests
         _idpSessions.Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("idp-hash"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(_session);
         _users.Setup(r => r.GetByIdAsync(_userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestHelpers.CreateUser(id: _userId));
+            .ReturnsAsync(TestHelpers.CreateUser(id: _userId, passwordHash: hasPassword ? "TestPasswordHash" : null));
         _factors.Setup(s => s.HasEnabledFactorAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(hasFactor);
     }
 
@@ -163,7 +163,7 @@ public class AuthorizeCommandHandlerAppMfaTests
 
         result.IsError.Should().BeFalse();
         result.Value.RedirectUrl.Should().StartWith("https://accounts.example.com/login?returnTo=");
-        result.Value.RedirectUrl.Should().EndWith($"&reason={word}");
+        result.Value.RedirectUrl.Should().EndWith($"&reason={word}&method=password");
         result.Value.IsLoginRedirect.Should().BeTrue();
         ReasonOf(result.Value.AppMfaTicketToSet).Should().Be(expected);
         result.Value.StepUpTicketToSet.Should().BeNull("the requirement raises no step-up demand");
@@ -279,7 +279,7 @@ public class AuthorizeCommandHandlerAppMfaTests
 
         var result = await _handler.Handle(Command(appMfaTicket: Ticket(ApplicationMfaRequirement.Enroll)), CancellationToken.None);
 
-        result.Value.RedirectUrl.Should().EndWith("&reason=mfa_step_up");
+        result.Value.RedirectUrl.Should().EndWith("&reason=mfa_step_up&method=password");
         ReasonOf(result.Value.AppMfaTicketToSet).Should().Be(ApplicationMfaRequirement.StepUp);
     }
 
@@ -293,7 +293,7 @@ public class AuthorizeCommandHandlerAppMfaTests
         var result = await _handler.Handle(
             Command(appMfaTicket: Ticket(ApplicationMfaRequirement.StepUp, challenge: OtherChallenge)), CancellationToken.None);
 
-        result.Value.RedirectUrl.Should().EndWith("&reason=mfa_step_up");
+        result.Value.RedirectUrl.Should().EndWith("&reason=mfa_step_up&method=password");
         ReasonOf(result.Value.AppMfaTicketToSet).Should().Be(ApplicationMfaRequirement.StepUp);
     }
 
@@ -336,7 +336,7 @@ public class AuthorizeCommandHandlerAppMfaTests
 
         var result = await _handler.Handle(Command(), CancellationToken.None);
 
-        result.Value.RedirectUrl.Should().EndWith("&reason=mfa_step_up");
+        result.Value.RedirectUrl.Should().EndWith("&reason=mfa_step_up&method=password");
         _access.Verify(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -423,8 +423,81 @@ public class AuthorizeCommandHandlerAppMfaTests
         var result = await _handler.Handle(Command(), CancellationToken.None);
 
         result.Value.RedirectUrl.Should().MatchRegex(
-            @"^https://accounts\.example\.com/login\?client_id=CRM&auth_request=[^&]+&reason=mfa_enroll$");
+            @"^https://accounts\.example\.com/login\?client_id=CRM&auth_request=[^&]+&reason=mfa_enroll&method=password$");
         result.Value.RedirectUrl.Split('?')[1].Should().NotContain("://", "a firewall reads an address in a parameter as an inclusion (OI-145)");
         stored.Should().NotBeNull("the request is stored under the handle; the reason is not part of it");
+    }
+
+    // ── the method word beside the reason (S23 PR B, D-S23-3 (c)) ────────────
+
+    private static System.Collections.Specialized.NameValueCollection QueryOf(string url) =>
+        System.Web.HttpUtility.ParseQueryString(new Uri(url).Query);
+
+    [Theory]
+    [InlineData(true, false, "password")]
+    [InlineData(false, false, "code")]
+    [InlineData(true, true, "password")]
+    [InlineData(false, true, "code")]
+    public async Task Handle_TheMethodWord_FollowsWhetherTheAccountHasAPassword_InBothShapes(
+        bool hasPassword, bool handles, string method)
+    {
+        _settings.AuthorizationRequestHandlesEnabled = handles;
+        AuthorizationRequest? stored = null;
+        _requests.Setup(r => r.CreateAsync(It.IsAny<AuthorizationRequest>(), It.IsAny<CancellationToken>()))
+            .Callback((AuthorizationRequest r, CancellationToken _) => stored = r)
+            .Returns(Task.CompletedTask);
+        Application();
+        // What each kind of account's sign-in records: a password, or the emailed code as
+        // the first proof of an account that has none (D-215-1).
+        Session(
+            hasPassword ? PasswordOnly : AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false),
+            hasFactor: false,
+            hasPassword: hasPassword);
+
+        var result = await _handler.Handle(Command(), CancellationToken.None);
+
+        var url = result.Value.RedirectUrl;
+        url.Should().StartWith(handles
+            ? "https://accounts.example.com/login?client_id=CRM&auth_request="
+            : "https://accounts.example.com/login?returnTo=");
+        url.Should().EndWith($"&reason=mfa_enroll&method={method}", "the method word follows the reason, nothing between them");
+        QueryOf(url).GetValues("method").Should().Equal(method);
+        if (handles)
+        {
+            // The stored request has no field for either word, and a field added later
+            // must not start holding them: the resume decides again from the session.
+            stored.Should().NotBeNull();
+            typeof(AuthorizationRequest).GetProperties()
+                .Where(p => p.PropertyType == typeof(string))
+                .Select(p => (string?)p.GetValue(stored))
+                .Should().NotContain(value => value != null &&
+                    (value.Contains("mfa_", StringComparison.Ordinal) || value.Contains("method", StringComparison.Ordinal)));
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Handle_ASignInRedirectWithoutAReason_CarriesNoMethodWord(bool satisfiedSessionWithPromptLogin)
+    {
+        Application();
+        AuthorizeCommand command;
+        if (satisfiedSessionWithPromptLogin)
+        {
+            // The freshness check's own redirect: nothing about the application's requirement.
+            Session(PasswordAndTotp);
+            command = Command(prompt: "login");
+        }
+        else
+        {
+            // No SSO session at all: the ordinary sign-in redirect.
+            command = Command();
+        }
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.Value.RedirectUrl.Should().StartWith("https://accounts.example.com/login?");
+        var query = QueryOf(result.Value.RedirectUrl);
+        query.AllKeys.Should().NotContain("reason").And.NotContain("method");
     }
 }

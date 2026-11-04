@@ -495,6 +495,15 @@ export const zh: TranslationResources = {
     mfaRequiredReauthenticateBody: "请退出后使用密码和验证器应用中的验证码重新登录。您将返回到原本要去的页面。",
     mfaRequiredCheckFailedTitle: "无法检查您的会话",
     mfaRequiredCheckFailed: "服务器没有响应。请检查网络连接后重试，或退出登录。",
+    signInReasonStepUpTitle: "需要您的第二因素",
+    signInReasonStepUpBody: "此应用程序要求双重认证（2FA）：除登录外，还需要验证器应用中的验证码。请先登录，然后输入验证码。",
+    signInReasonEnrollTitle: "设置双重认证",
+    signInReasonEnrollBody: "此应用程序要求双重认证（2FA），而您的账户尚未设置验证器应用。请先登录，在下一页设置一个，然后即可继续进入该应用程序。",
+    signInReasonReauthenticateTitle: "请重新登录",
+    signInReasonReauthenticateBody: "此应用程序要求双重认证（2FA），而您当前的登录不满足此要求。请重新登录，然后输入验证器应用中的验证码。",
+    mfaAppRequiredSubtitle: "此应用程序要求双重认证（2FA）。设置好验证器应用后，您将继续进入该应用程序。",
+    mfaAppAlreadyEnrolled: "您的账户已设置验证器应用。请继续进入该应用程序；如被要求输入验证码，请输入该应用中的验证码。",
+    mfaAppContinue: "继续进入应用程序",
     authenticatorAppsHint:
       "任何验证器应用都可以使用。如果你还没有，以下这些免费且可备份你的验证码：",
     noAuthenticatorApp: "没有你的验证器应用？",
@@ -2743,9 +2752,10 @@ export const zh: TranslationResources = {
         "应用的登录与其所源自的单点登录（SSO）会话绑定：该会话结束时（登出、长时间未使用或达到最长时限），应用的下一次续期会被拒绝，用户需重新登录。使用应用即计为使用 SSO 会话，因此正在应用中工作的人会保持登录。因此，未勾选“保持登录”的登录在闲置时限内未被使用时结束，即使在使用中也会在浏览器会话最长时限时结束。默认开启。关闭即为回退：应用的登录将只在登出（单点登出开启时）或其自身过期时结束。",
       applicationMfaEnforcement: "应用程序双因素强制",
       applicationMfaEnforcementHint:
-        "当应用程序要求双因素身份验证而登录未证明时，服务器的做法。监视：不阻止任何人；服务器记录本会被阻止的人（app-mfa.would-require）。引导用户完成验证的登录页面发布后，将提供“强制”选项。",
+        "当应用程序要求双因素身份验证（2FA）而登录未证明时，服务器的做法。仅影响管理员勾选了“强制双重认证”的应用程序。监视：不阻止任何人；服务器记录本会被阻止的人（app-mfa.would-require）。强制：用户会被送回以第二因素登录；如果账户没有验证器应用，则先进入设置页面（/two-factor/required），然后继续进入该应用程序；从未证明过这一点的应用程序会话将在下次续期时结束。“监视”即回滚方式。",
       applicationMfaEnforcementOptions: {
         Monitor: "监视（仅记录）",
+        Enforce: "强制",
       },
     },
     email: {

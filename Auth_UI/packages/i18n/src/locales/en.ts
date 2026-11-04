@@ -507,6 +507,15 @@ export const en = {
     mfaRequiredReauthenticateBody: "Sign out and sign back in with your password and your authenticator code. You will come back to the page you were going to.",
     mfaRequiredCheckFailedTitle: "We could not check your session",
     mfaRequiredCheckFailed: "The server did not answer. Check your connection and try again, or sign out.",
+    signInReasonStepUpTitle: "Your second factor is needed",
+    signInReasonStepUpBody: "This application requires two-factor authentication (2FA): a code from your authenticator app as well as your sign-in. Sign in, then enter the code.",
+    signInReasonEnrollTitle: "Set up two-factor authentication",
+    signInReasonEnrollBody: "This application requires two-factor authentication (2FA), and your account has no authenticator app yet. Sign in, set one up on the next page, and you will continue to the application.",
+    signInReasonReauthenticateTitle: "Sign in again",
+    signInReasonReauthenticateBody: "This application requires two-factor authentication (2FA), and your current sign-in does not count for it. Sign in again, then enter the code from your authenticator app.",
+    mfaAppRequiredSubtitle: "This application requires two-factor authentication (2FA). Once your authenticator app is set up, you continue to the application.",
+    mfaAppAlreadyEnrolled: "Your account already has an authenticator app. Continue to the application; if you are asked for a code, enter the one from that app.",
+    mfaAppContinue: "Continue to the application",
     authenticatorAppsHint:
       "Any authenticator app works. If you do not have one yet, these are free and can back up your codes:",
     noAuthenticatorApp: "Don't have your authenticator app?",
@@ -2907,9 +2916,10 @@ export const en = {
         "An application’s sign-in is tied to the single sign-on (SSO) session it began from: once that session ends (a sign-out, too long without use, or its maximum), the application’s next renewal is refused and the person signs in again. Using the application counts as using the SSO session, so a person at work in it stays signed in. A sign-in without “Stay signed in” therefore ends after the inactivity limit without use, and at the browser session maximum even in use. On by default. Turning it off is the rollback: an application’s sign-in then ends only at a sign-out (with single logout on) or at its own expiry.",
       applicationMfaEnforcement: "Application two-factor enforcement",
       applicationMfaEnforcementHint:
-        "What the server does when an application requires two-factor authentication and a sign-in did not prove it. Monitor: nobody is stopped; the server logs who would be (app-mfa.would-require). Enforce is offered once the sign-in pages that guide people through it ship.",
+        "What the server does when an application requires two-factor authentication (2FA) and a sign-in did not prove it. Only applications whose administrator ticked “Require two-factor” are affected. Monitor: nobody is stopped; the server logs who would be (app-mfa.would-require). Enforce: the person is sent back to sign in with their second factor or, when the account has no authenticator app, to a page that sets one up (/two-factor/required) and then continues to the application; an application sign-in that never proved it ends at its next renewal. Monitor is the rollback.",
       applicationMfaEnforcementOptions: {
         Monitor: "Monitor (log only)",
+        Enforce: "Enforce",
       },
     },
     email: {

@@ -3034,6 +3034,46 @@ to show anything: with it off, an account without a factor signs in normally.
    A failure looks like: the "Set up two-factor" page still shows after a sign-out and sign-in (the
    value did not save, or the API has not read its settings — see the warning above).
 
+### K.6 Applications that require two-factor authentication (`IdentityProvider:ApplicationMfaEnforcement`)
+
+An application's administrator can tick **Require two-factor** on it in the console. It is their
+choice, per application, and off by default; nothing here recommends ticking it. One server-wide setting
+decides what the tick does, and it ships as `Monitor`:
+
+- **`Monitor`.** Nobody is stopped. Each sign-in to a ticked application that did not prove two factors
+  logs a line starting `app-mfa.would-require`, at authorize and at the code exchange.
+- **`Enforce`.** The person is sent back to the sign-in page with a short reason it shows ("Your second
+  factor is needed", "Set up two-factor authentication", "Sign in again"), and the method their account
+  signs in with put first. An account with no authenticator app signs in, then sets one up on
+  `/two-factor/required` (with a code emailed to its address first, while email is on), sees its
+  recovery codes, and continues to the application. **Cancel** there ends at the application with
+  `access_denied`. A token request for a sign-in that never proved two factors is refused
+  (`Application.TwoFactorRequired`), and an application session that never proved it ends at its next
+  refresh.
+
+**On each existing deployment, in this order:**
+
+1. Deploy the API, then the accounts app, then the console of the same release (the database project
+   of the release goes first, as always). Check that `/ready` answers Healthy and that the accounts app
+   served is the new one: an older sign-in page still cached in a browser ignores the reason and cannot
+   guide anyone, so the accounts app must be live before `Enforce`.
+2. Stay on `Monitor` and read, for at least a few days: the `app-mfa.would-require` lines, and for each
+   ticked application the console's line under **Require two-factor** ("Without an authenticator app:
+   N"). Tell the owners of those applications what will change.
+3. Switch to `Enforce` within 14 days of the deploy, **in both layers**: **System settings → Identity
+   provider (SSO) → Application two-factor enforcement**, and
+   `"IdentityProvider": { "ApplicationMfaEnforcement": "Enforce" }` in the server's
+   `appsettings.Production.json` (a database read that fails at a cold start keeps the file's value).
+   It takes effect without a restart.
+4. **Check it** with a test application that has the tick: a sign-in with the password alone is sent
+   back with a reason; an account without an authenticator app sets one up and reaches the
+   application; **Cancel** reaches the application with `access_denied`.
+5. **Back off:** `Monitor` in both layers, without a restart.
+
+Once a week while it runs, search the API log for `app-mfa.refused` and `app-mfa.guard-denied`
+([Reference §I](#i-logs--where-they-are-and-how-to-find-them)): the first is a refused code or refresh,
+the second a person who came back without completing what the page asked.
+
 ## L. Refresh tokens: the application replay grace and the session row
 
 A refresh token is single-use. Presenting one that was already spent is treated as theft: every session

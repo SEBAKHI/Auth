@@ -53,7 +53,7 @@ export function VerifyEmailPage() {
   const state = location.state as LocationState | null
 
   const email = state?.email ?? ""
-  const { returnTo, from, complete, challenge } = useLoginCompletion({
+  const { returnTo, reason, from, complete, challenge } = useLoginCompletion({
     defaultFrom: "/profile",
   })
   const { layout: appHeader } = useFlowBranding({ returnTo })
@@ -148,7 +148,7 @@ export function VerifyEmailPage() {
         <Link
           to={{
             pathname: "/login",
-            search: toAccountsSearch(returnTo),
+            search: toAccountsSearch(returnTo, reason),
           }}
           state={{ from }}
           className="underline-offset-4 hover:underline"

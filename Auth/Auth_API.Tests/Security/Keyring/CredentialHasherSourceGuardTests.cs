@@ -28,9 +28,9 @@ public class CredentialHasherSourceGuardTests
         // S24: the challenge a recovery's emailed code is checked against needs a unique
         // fingerprint in TokenHash; its token is never handed to anyone.
         App + "AccountDeletion/Common/AccountDeletionRecoverer.cs:227 Hash TwoFactorChallenge",
-        App + "Authentication/Authorize/AuthorizeCommandHandler.cs:437 Hash AuthorizationCode",
-        App + "Authentication/Authorize/AuthorizeCommandHandler.cs:714 Hash AuthorizationRequestHandle",
-        App + "Authentication/Authorize/AuthorizeCommandHandler.cs:756 Candidates AuthorizationRequestHandle",
+        App + "Authentication/Authorize/AuthorizeCommandHandler.cs:440 Hash AuthorizationCode",
+        App + "Authentication/Authorize/AuthorizeCommandHandler.cs:730 Hash AuthorizationRequestHandle",
+        App + "Authentication/Authorize/AuthorizeCommandHandler.cs:772 Candidates AuthorizationRequestHandle",
         // S24 PR B: the challenges of switching the emailed code on and off are answered
         // by the signed-in account; their TokenHash, like a recovery's, is a unique
         // fingerprint whose token is never handed to anyone. One site opens both.

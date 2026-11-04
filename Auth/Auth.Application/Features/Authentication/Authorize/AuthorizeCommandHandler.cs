@@ -357,7 +357,10 @@ public class AuthorizeCommandHandler :
                 return new AuthorizeResult
                 {
                     RedirectUrl = await AccountsRedirectAsync(
-                        "login", request, pending, cancellationToken, ApplicationMfaReason.For(appMfa)),
+                        "login", request, pending, cancellationToken,
+                        new SignInReason(
+                            ApplicationMfaReason.For(appMfa),
+                            ApplicationMfaReason.MethodFor(accountHasPassword: user.PasswordHash is not null))),
                     IsLoginRedirect = true,
                     // The step-up ticket stays: it is spent at the code (ARR-0749).
                     AppMfaTicketToSet = _appMfaTicketService.Issue(
@@ -658,15 +661,16 @@ public class AuthorizeCommandHandler :
     /// <param name="cancellationToken">The request's cancellation token.</param>
     /// <param name="reason">
     /// Why the sign-in page is shown again, when an application's two-step requirement
-    /// sent the person there (S23): a short word, in either shape, never stored with the
-    /// request. The resume decides again from the session.
+    /// sent the person there (S23), and the method the page puts first: two short words,
+    /// in either shape, never stored with the request. The resume decides again from the
+    /// session.
     /// </param>
     private async Task<string> AccountsRedirectAsync(
         string page,
         AuthorizeCommand request,
         PendingContext pending,
         CancellationToken cancellationToken,
-        string? reason = null)
+        SignInReason? reason = null)
     {
         var accountsBase = _idpSettings.AccountsBaseUrl.TrimEnd('/');
 
@@ -691,8 +695,20 @@ public class AuthorizeCommandHandler :
             pending.Hints);
     }
 
-    private static string WithReason(string url, string? reason) =>
-        reason is null ? url : RelyingPartyRedirect.AppendQuery(url, ApplicationMfaReason.QueryName, reason);
+    // The method word only ever follows the reason: one value carries both.
+    private static string WithReason(string url, SignInReason? reason) =>
+        reason is not { } words
+            ? url
+            : RelyingPartyRedirect.AppendQuery(
+                RelyingPartyRedirect.AppendQuery(url, ApplicationMfaReason.QueryName, words.Word),
+                ApplicationMfaReason.MethodQueryName,
+                words.Method);
+
+    /// <summary>
+    /// The two display words of a sign-in an application's two-step requirement asked
+    /// for (S23): the <see cref="ApplicationMfaReason"/> word and the method word.
+    /// </summary>
+    private readonly record struct SignInReason(string Word, string Method);
 
     /// <summary>
     /// Stores the validated request under a new handle and returns the handle.

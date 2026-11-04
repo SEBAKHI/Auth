@@ -193,6 +193,28 @@ public class SystemSettingsRegistryTests
         field.DefaultValue.Should().Be(0);
     }
 
+    /// <summary>
+    /// S23 PR B: the console offers both modes of an application's two-step requirement,
+    /// each one a name the settings class reads as itself (a value it read as Monitor
+    /// would look like Enforce in the console and enforce nothing), and the default
+    /// stays Monitor (the file and the class agree: SystemSettingsDefaultParityTests).
+    /// </summary>
+    [Fact]
+    public void ApplicationMfaEnforcement_OffersMonitorAndEnforce_EachReadAsItself_DefaultMonitor()
+    {
+        var section = SystemSettingsRegistry.TryGet("IdentityProvider");
+        var field = SystemSettingsRegistry.TryGetField(section!, "ApplicationMfaEnforcement");
+
+        field.Should().NotBeNull();
+        field!.Kind.Should().Be(SettingKind.Enum);
+        field.AllowedValues.Should().Equal("Monitor", "Enforce");
+        field.DefaultValue.Should().Be("Monitor");
+        field.AllowedValues!.Select(value =>
+                new Auth.Application.Configuration.IdentityProviderSettings { ApplicationMfaEnforcement = value }
+                    .ApplicationMfaEnforcementInForce.ToString())
+            .Should().Equal(field.AllowedValues);
+    }
+
     [Fact]
     public void EnumFields_AlwaysCarryAllowedValues()
     {

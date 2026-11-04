@@ -86,6 +86,24 @@ describe("the remembered sign-in method", () => {
     expect(primarySignInMethod(emailOff, null)).toBe("password")
   })
 
+  // S23, D-S23-3 (c): the word the server named for the account comes before
+  // the remembered one, in both directions; the person's click beats both (the
+  // page's, tested there).
+  it("puts the server's word before the remembered one", () => {
+    expect(primarySignInMethod(OPTIONS, "password", "code")).toBe("code")
+    expect(primarySignInMethod(OPTIONS, "code", "password")).toBe("password")
+    expect(primarySignInMethod({ ...OPTIONS, primaryMethod: "code" }, null, "password")).toBe(
+      "password"
+    )
+    expect(primarySignInMethod(OPTIONS, "password", null)).toBe("password")
+  })
+
+  it("ignores the server's code where no code can be sent", () => {
+    const emailOff = { ...OPTIONS, codeSignInOffered: false }
+
+    expect(primarySignInMethod(emailOff, null, "code")).toBe("password")
+  })
+
   it("stores one word and nothing about the account", () => {
     signInEnded("code")
 
