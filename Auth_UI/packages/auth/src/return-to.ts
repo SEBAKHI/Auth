@@ -1,5 +1,7 @@
 import { API_BASE_URL } from "@authsystem/api/env"
 
+import { signInReasonQuery, type SignInReason } from "./sign-in-reason"
+
 /**
  * The pending authorize request, and the one module that knows its shapes.
  *
@@ -173,21 +175,29 @@ export function getValidReturnTo(search: string): string | null {
  *
  * `skip_organization` is never written: the resume that receives it persists the
  * choice in the stored request before any page could need it again.
+ *
+ * The sign-in reason (S23), when the link's page holds one, follows the request
+ * in either shape: the next page shows the same message. Never without a request.
  */
-export function toAccountsSearch(returnTo: string | null | undefined): string {
+export function toAccountsSearch(
+  returnTo: string | null | undefined,
+  reason?: SignInReason | null
+): string {
   const valid = validateReturnToUrl(returnTo)
   if (!valid) return ""
 
   const url = new URL(valid)
   if (RESUME_PATH_RE.test(url.pathname)) {
     // Validated above: both are present, and the handle is 64 hex.
-    return handleQuery(
-      url.searchParams.get(CLIENT_ID_PARAM)!,
-      url.searchParams.get(HANDLE_PARAM)!
+    return (
+      handleQuery(
+        url.searchParams.get(CLIENT_ID_PARAM)!,
+        url.searchParams.get(HANDLE_PARAM)!
+      ) + signInReasonQuery(reason)
     )
   }
 
-  return `?${LEGACY_PARAM}=${encodeURIComponent(valid)}`
+  return `?${LEGACY_PARAM}=${encodeURIComponent(valid)}${signInReasonQuery(reason)}`
 }
 
 /**

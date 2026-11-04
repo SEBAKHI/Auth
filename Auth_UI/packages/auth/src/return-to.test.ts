@@ -12,6 +12,7 @@ import {
   validateReturnToUrl,
   withoutOrganizationRequest,
 } from "./return-to"
+import { readSignInReason } from "./sign-in-reason"
 
 const AUTHORIZE = "https://api.example.com/api/v1/auth/authorize"
 
@@ -275,6 +276,36 @@ describe("toAccountsSearch", () => {
     expect(
       toAccountsSearch("https://evil.example.com/api/v1/auth/authorize")
     ).toBe("")
+  })
+
+  // S23: the sign-in reason follows the request it belongs to, in either shape.
+  const ENROLL = { reason: "mfa_enroll", method: "code" } as const
+
+  it("writes the sign-in reason after the request, in both shapes", () => {
+    expect(toAccountsSearch(RESUME, ENROLL)).toBe(
+      `${HANDLE_SEARCH}&reason=mfa_enroll&method=code`
+    )
+    const legacy = `${AUTHORIZE}?client_id=app`
+    expect(toAccountsSearch(legacy, ENROLL)).toBe(
+      `?returnTo=${encodeURIComponent(legacy)}&reason=mfa_enroll&method=code`
+    )
+  })
+
+  it("round-trips the reason with the request", () => {
+    const written = toAccountsSearch(RESUME, ENROLL)
+    expect(getValidReturnTo(written)).toBe(RESUME)
+    expect(readSignInReason(written)).toEqual(ENROLL)
+  })
+
+  it("writes no reason without a request, and none it does not allow", () => {
+    expect(toAccountsSearch(null, ENROLL)).toBe("")
+    expect(
+      toAccountsSearch("https://evil.example.com/api/v1/auth/authorize", ENROLL)
+    ).toBe("")
+    expect(
+      toAccountsSearch(RESUME, { reason: "mfa_passkey", method: "code" } as never)
+    ).toBe(HANDLE_SEARCH)
+    expect(toAccountsSearch(RESUME, null)).toBe(HANDLE_SEARCH)
   })
 })
 

@@ -2,6 +2,7 @@ import type * as React from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { MfaRequirement } from "@authsystem/api/mfa-requirement"
@@ -28,6 +29,8 @@ const mocks = vi.hoisted(() => ({
   },
 }))
 
+vi.mock("@authsystem/api/env", () => ({ API_BASE_URL: "https://api.example.com" }))
+
 vi.mock("@authsystem/api/client", () => ({
   api: { POST: mocks.post, GET: mocks.get },
   refreshSessionNow: mocks.refreshSessionNow,
@@ -45,15 +48,18 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 vi.mock("@authsystem/ui/auth-layout", () => ({
   AuthLayout: ({
     title,
+    subtitle,
     children,
     footer,
   }: {
     title: string
+    subtitle?: string
     children: React.ReactNode
     footer?: React.ReactNode
   }) => (
     <div>
       <h1>{title}</h1>
+      {subtitle ? <p>{subtitle}</p> : null}
       {children}
       {footer}
     </div>
@@ -70,13 +76,29 @@ vi.mock("../login-completion", () => ({
   useLoginCompletion: () => ({ complete: mocks.complete }),
 }))
 
+// The application's header is flow-branding.test.tsx's; the mode is what is under test.
+vi.mock("../flow-branding", () => ({
+  useFlowBranding: () => ({ appBranding: null, layout: {} }),
+}))
+
 import { TwoFactorRequiredPage } from "./two-factor-required"
 
-function renderPage() {
+/** Where the page sent the browser, for the application mode's sign-in demand. */
+function SignIn() {
+  const location = useLocation()
+  return <p data-testid="sign-in">{location.pathname + location.search}</p>
+}
+
+function renderPage(state?: unknown) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <TwoFactorRequiredPage />
+      <MemoryRouter initialEntries={[{ pathname: "/two-factor/required", state }]}>
+        <Routes>
+          <Route path="/two-factor/required" element={<TwoFactorRequiredPage />} />
+          <Route path="/login" element={<SignIn />} />
+        </Routes>
+      </MemoryRouter>
     </QueryClientProvider>
   )
 }
@@ -259,5 +281,99 @@ describe("TwoFactorRequiredPage", () => {
     await user.click(await screen.findByRole("button", { name: "common.signOut" }))
 
     expect(mocks.auth.logout).toHaveBeenCalled()
+  })
+})
+
+// ── S23: the application mode ────────────────────────────────────────────────
+
+describe("TwoFactorRequiredPage in application mode (S23)", () => {
+  const HANDLE = "0123456789abcdef".repeat(4)
+  const RESUME = `https://api.example.com/api/v1/auth/authorize/resume?client_id=app&auth_request=${HANDLE}`
+  const APPLICATION = { mode: "application", returnTo: RESUME, from: "/" }
+
+  beforeEach(() => {
+    window.sessionStorage.clear()
+    mocks.get.mockResolvedValue({ data: { id: "u-1", qualifyingMfa: false }, error: undefined })
+  })
+
+  it("never completes by itself, though the platform requires nothing", async () => {
+    mocks.auth.mfaRequirement = "none"
+    renderPage(APPLICATION)
+
+    expect(await screen.findByText("auth.mfaRequiredEnroll")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "profile.enableTwoFactor" })).toBeInTheDocument()
+    expect(screen.getByText("auth.mfaAppRequiredSubtitle")).toBeInTheDocument()
+    expect(mocks.complete).not.toHaveBeenCalled()
+    // The platform's check is not this mode's: nothing refreshed, nothing re-read.
+    expect(mocks.calls).toEqual([])
+  })
+
+  it("offers Continue to an account that already has an authenticator", async () => {
+    mocks.get.mockResolvedValue({ data: { id: "u-1", qualifyingMfa: true }, error: undefined })
+    const user = userEvent.setup()
+    renderPage(APPLICATION)
+
+    expect(await screen.findByText("auth.mfaAppAlreadyEnrolled")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "profile.enableTwoFactor" })).toBeNull()
+    // Twice, fast: the request resumes once.
+    await user.dblClick(screen.getByRole("button", { name: "auth.mfaAppContinue" }))
+
+    expect(mocks.complete).toHaveBeenCalledTimes(1)
+    expect(mocks.complete).toHaveBeenCalledWith({})
+  })
+
+  it("resumes the application once the authenticator is on", async () => {
+    mocks.post.mockImplementation(async (path: string) =>
+      path === "/api/v1/auth/2fa/setup"
+        ? { data: { secret: "S", qrCodeUri: "otpauth://totp/x?secret=S", manualEntryKey: "S" }, error: undefined }
+        : { data: { recoveryCodes: [] }, error: undefined }
+    )
+    const user = userEvent.setup()
+    renderPage(APPLICATION)
+
+    await user.click(await screen.findByRole("button", { name: "profile.enableTwoFactor" }))
+    await user.type(await screen.findByLabelText("auth.twoFactorCode"), "123456")
+    await user.click(screen.getByRole("button", { name: "auth.verify" }))
+
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledTimes(1))
+    expect(mocks.complete).toHaveBeenCalledWith({})
+    expect(mocks.post).toHaveBeenCalledWith("/api/v1/auth/2fa/enable", expect.anything())
+  })
+
+  it("lets the person cancel back to the application", async () => {
+    const user = userEvent.setup()
+    renderPage(APPLICATION)
+
+    await screen.findByText("auth.mfaRequiredEnroll")
+    await user.click(screen.getByRole("button", { name: "common.cancel" }))
+
+    expect(mocks.complete).toHaveBeenCalledTimes(1)
+    expect(mocks.complete).toHaveBeenCalledWith({})
+    expect(screen.queryByRole("button", { name: "common.signOut" })).toBeNull()
+  })
+
+  it("answers a demand to sign in again with the sign-in page, never a sign-out", async () => {
+    mocks.post.mockResolvedValue({
+      error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
+    })
+    const user = userEvent.setup()
+    renderPage(APPLICATION)
+
+    await user.click(await screen.findByRole("button", { name: "profile.enableTwoFactor" }))
+
+    expect(await screen.findByTestId("sign-in")).toHaveTextContent(
+      `/login?client_id=app&auth_request=${HANDLE}&reason=mfa_enroll`
+    )
+    expect(mocks.auth.logout).not.toHaveBeenCalled()
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+    // A sign-in by code from there proves the password too (OI-215).
+    expect(window.sessionStorage.getItem("auth.signIn.fullProof")).toBe("1")
+  })
+
+  it("is the platform page when the request in state is not a legal one", async () => {
+    renderPage({ mode: "application", returnTo: "https://evil.example.com/api/v1/auth/authorize" })
+
+    expect(await screen.findByLabelText("auth.twoFactorCode")).toBeInTheDocument()
+    expect(mocks.calls).toEqual(["refresh", "me"])
   })
 })

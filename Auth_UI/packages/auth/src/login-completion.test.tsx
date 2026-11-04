@@ -20,6 +20,7 @@ import {
 import {
   clearPendingTwoFactorChallenge,
   getPendingReturnTo,
+  getPendingSignInReason,
   setPendingReturnTo,
 } from "./pending-challenge"
 import { setAccessToken } from "@authsystem/api/token-store"
@@ -60,6 +61,7 @@ function renderCompletion(
         <button onClick={() => act(completion)}>act</button>
         <span data-testid="returnTo">{completion.returnTo ?? "none"}</span>
         <span data-testid="from">{completion.from}</span>
+        <span data-testid="reason">{JSON.stringify(completion.reason)}</span>
       </>
     )
   }
@@ -306,7 +308,7 @@ describe("complete, with an accepted invitation's launch address (OI-192)", () =
 
     expect(assign).not.toHaveBeenCalled()
     expect(screen.getByTestId("landing")).toHaveTextContent(
-      `/force-password-change|{"from":"${ORGANIZATION}","returnTo":null}`
+      `/force-password-change|{"from":"${ORGANIZATION}","returnTo":null,"reason":null}`
     )
   })
 
@@ -398,5 +400,177 @@ describe("complete, for a platform administrator still owing a second factor (S0
     await act()
 
     expect(screen.getByTestId("landing")).toHaveTextContent("/users|null")
+  })
+})
+
+// ── S23: the sign-in reason travels with the pending request ─────────────────
+
+describe("the sign-in reason (S23)", () => {
+  const HANDLE = "a".repeat(64)
+  const RESUME = `https://api.example.com/api/v1/auth/authorize/resume?client_id=app&auth_request=${HANDLE}`
+  const STEP_UP = { reason: "mfa_step_up", method: "password" }
+  const ENROLL = { reason: "mfa_enroll", method: "code" }
+
+  function reasonEntry(search: string, state?: unknown): InitialEntry {
+    return { pathname: "/login", search, state } as InitialEntry
+  }
+
+  it("is read from the query beside the request, in both shapes", () => {
+    renderCompletion(
+      reasonEntry(`?client_id=app&auth_request=${HANDLE}&reason=mfa_step_up&method=password`),
+      () => {}
+    )
+    expect(screen.getByTestId("reason")).toHaveTextContent(JSON.stringify(STEP_UP))
+  })
+
+  it("is read from the legacy shape too", () => {
+    renderCompletion(
+      reasonEntry(`?returnTo=${encodeURIComponent(AUTHORIZE)}&reason=mfa_enroll&method=code`),
+      () => {}
+    )
+    expect(screen.getByTestId("returnTo")).toHaveTextContent(AUTHORIZE)
+    expect(screen.getByTestId("reason")).toHaveTextContent(JSON.stringify(ENROLL))
+  })
+
+  it("is ignored without a request, and never borrowed from another source", () => {
+    // A reason in the query, a request from router state: they were not written
+    // together, so the request goes on without it.
+    renderCompletion(
+      reasonEntry("?reason=mfa_enroll&method=code", { returnTo: AUTHORIZE }),
+      () => {}
+    )
+    expect(screen.getByTestId("returnTo")).toHaveTextContent(AUTHORIZE)
+    expect(screen.getByTestId("reason")).toHaveTextContent("null")
+  })
+
+  it("is read from router state with the request, validated", () => {
+    renderCompletion(
+      {
+        pathname: "/two-factor",
+        state: { returnTo: AUTHORIZE, reason: { reason: "mfa_passkey", method: "code" } },
+      } as InitialEntry,
+      () => {}
+    )
+    // mfa_passkey is not a reason this page reads before S20 (T-B3).
+    expect(screen.getByTestId("reason")).toHaveTextContent("null")
+  })
+
+  it("is read from the in-memory store only where the request may be", () => {
+    setPendingReturnTo(AUTHORIZE, { reason: "mfa_step_up", method: "password" })
+
+    renderCompletion({ pathname: "/two-factor" } as InitialEntry, () => {}, {
+      resumePending: true,
+    })
+
+    expect(screen.getByTestId("reason")).toHaveTextContent(JSON.stringify(STEP_UP))
+  })
+
+  it("is handed to the 2FA screen by challenge(), in state and in the store", async () => {
+    function Challenge() {
+      const completion = useLoginCompletion()
+      return <button onClick={() => completion.challenge("challenge-token")}>act</button>
+    }
+    render(
+      <MemoryRouter
+        initialEntries={[reasonEntry(`?client_id=app&auth_request=${HANDLE}&reason=mfa_step_up&method=password`)]}
+      >
+        <Routes>
+          <Route path="/login" element={<Challenge />} />
+          <Route path="/two-factor" element={<Landing />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await userEvent.click(screen.getByText("act"))
+
+    expect(screen.getByTestId("landing")).toHaveTextContent(`"reason":${JSON.stringify(STEP_UP)}`)
+    expect(getPendingReturnTo()).toBe(RESUME)
+    expect(getPendingSignInReason()).toEqual(STEP_UP)
+  })
+
+  it("rides through a forced password change", async () => {
+    const { act } = renderCompletion(
+      reasonEntry(`?client_id=app&auth_request=${HANDLE}&reason=mfa_enroll&method=code`),
+      (c) => c.complete({ requiresPasswordChange: true })
+    )
+
+    await act()
+
+    const landing = screen.getByTestId("landing")
+    expect(landing).toHaveTextContent("/force-password-change")
+    expect(landing).toHaveTextContent(`"reason":${JSON.stringify(ENROLL)}`)
+    expect(assign).not.toHaveBeenCalled()
+  })
+
+  it("rides through an interstitial", async () => {
+    const { act } = renderCompletion(
+      reasonEntry(`?client_id=app&auth_request=${HANDLE}&reason=mfa_step_up&method=password`),
+      (c) => c.interstitial("/verify-email", { email: "user@example.com" })
+    )
+
+    await act()
+
+    const landing = screen.getByTestId("landing")
+    expect(landing).toHaveTextContent("/verify-email")
+    expect(landing).toHaveTextContent(`"reason":${JSON.stringify(STEP_UP)}`)
+  })
+
+  it.each(["mfa_step_up", "mfa_reauthenticate"])(
+    "%s resumes the application at once",
+    async (word) => {
+      const { act } = renderCompletion(
+        reasonEntry(`?client_id=app&auth_request=${HANDLE}&reason=${word}&method=password`),
+        (c) => c.complete({ requiresPasswordChange: false })
+      )
+
+      await act()
+
+      expect(assign).toHaveBeenCalledTimes(1)
+      expect(assign).toHaveBeenCalledWith(RESUME)
+    }
+  )
+
+  it("mfa_enroll opens the application-mode screen, whose own completion resumes once", async () => {
+    setPendingReturnTo(RESUME, { reason: "mfa_enroll", method: "code" })
+
+    // The screen's own completion: the request in router state, the reason gone.
+    function Screen() {
+      const location = useLocation()
+      const completion = useLoginCompletion()
+      return (
+        <>
+          <div data-testid="screen">{JSON.stringify(location.state)}</div>
+          <button onClick={() => completion.complete({})}>finish</button>
+        </>
+      )
+    }
+    function Login() {
+      const completion = useLoginCompletion()
+      return <button onClick={() => completion.complete({})}>act</button>
+    }
+    render(
+      <MemoryRouter
+        initialEntries={[reasonEntry(`?client_id=app&auth_request=${HANDLE}&reason=mfa_enroll&method=code`)]}
+      >
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/two-factor/required" element={<Screen />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await userEvent.click(screen.getByText("act"))
+
+    expect(assign).not.toHaveBeenCalled()
+    const state = JSON.parse(screen.getByTestId("screen").textContent ?? "null")
+    expect(state).toEqual({ mode: "application", returnTo: RESUME, from: "/" })
+    // Spent: a later sign-in in this tab does not open the screen again.
+    expect(getPendingReturnTo()).toBeNull()
+    expect(getPendingSignInReason()).toBeNull()
+
+    await userEvent.click(screen.getByText("finish"))
+
+    expect(assign).toHaveBeenCalledTimes(1)
+    expect(assign).toHaveBeenCalledWith(RESUME)
   })
 })

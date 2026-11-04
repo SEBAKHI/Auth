@@ -508,6 +508,15 @@ export const fr: TranslationResources = {
     mfaRequiredReauthenticateBody: "Déconnectez-vous puis reconnectez-vous avec votre mot de passe et le code de votre application d'authentification. Vous reviendrez à la page où vous alliez.",
     mfaRequiredCheckFailedTitle: "Impossible de vérifier votre session",
     mfaRequiredCheckFailed: "Le serveur n'a pas répondu. Vérifiez votre connexion et réessayez, ou déconnectez-vous.",
+    signInReasonStepUpTitle: "Votre second facteur est requis",
+    signInReasonStepUpBody: "Cette application exige l'authentification à deux facteurs (2FA) : un code de votre application d'authentification en plus de votre connexion. Connectez-vous, puis saisissez le code.",
+    signInReasonEnrollTitle: "Configurez un second facteur",
+    signInReasonEnrollBody: "Cette application exige l'authentification à deux facteurs (2FA), et votre compte n'a pas encore d'application d'authentification. Connectez-vous, configurez-en une à la page suivante, puis vous continuerez vers l'application.",
+    signInReasonReauthenticateTitle: "Reconnectez-vous",
+    signInReasonReauthenticateBody: "Cette application exige l'authentification à deux facteurs (2FA), et votre connexion actuelle ne compte pas pour elle. Reconnectez-vous, puis saisissez le code de votre application d'authentification.",
+    mfaAppRequiredSubtitle: "Cette application exige l'authentification à deux facteurs (2FA). Une fois votre application d'authentification configurée, vous continuez vers l'application.",
+    mfaAppAlreadyEnrolled: "Votre compte a déjà une application d'authentification. Continuez vers l'application ; si un code vous est demandé, saisissez celui de cette application.",
+    mfaAppContinue: "Continuer vers l'application",
     authenticatorAppsHint:
       "N'importe quelle application d'authentification convient. Si vous n'en avez pas encore, celles-ci sont gratuites et peuvent sauvegarder vos codes :",
     noAuthenticatorApp:
@@ -2943,9 +2952,10 @@ export const fr: TranslationResources = {
       applicationMfaEnforcement:
         "Application de l’authentification à deux facteurs",
       applicationMfaEnforcementHint:
-        "Ce que fait le serveur quand une application exige l’authentification à deux facteurs et qu’une connexion ne l’a pas prouvée. Surveillance : personne n’est bloqué ; le serveur enregistre qui le serait (app-mfa.would-require). L’application stricte sera proposée quand les pages de connexion qui guident les personnes seront livrées.",
+        "Ce que fait le serveur quand une application exige l’authentification à deux facteurs (2FA) et qu’une connexion ne l’a pas prouvée. Seules les applications dont l’administrateur a coché « Exiger deux facteurs » sont concernées. Surveillance : personne n’est bloqué ; le serveur enregistre qui le serait (app-mfa.would-require). Application stricte : la personne est renvoyée se connecter avec son second facteur ou, si son compte n’a pas d’application d’authentification, vers une page qui en configure une (/two-factor/required), puis continue vers l’application ; une session d’application qui ne l’a jamais prouvée prend fin à son prochain renouvellement. La surveillance est le retour arrière.",
       applicationMfaEnforcementOptions: {
         Monitor: "Surveillance (journal seulement)",
+        Enforce: "Application stricte",
       },
     },
     email: {

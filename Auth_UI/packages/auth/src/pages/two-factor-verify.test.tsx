@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
   apiPost: vi.fn(),
   returnTo: "https://api.example.com/api/v1/auth/authorize?client_id=app",
+  reason: null as { reason: string; method: string | null } | null,
 }))
 
 // The emailed code's send (S24): the page's one API call of its own.
@@ -34,6 +35,7 @@ vi.mock("@authsystem/auth/auth-context", () => ({
 vi.mock("../login-completion", () => ({
   useLoginCompletion: () => ({
     returnTo: mocks.returnTo,
+    reason: mocks.reason,
     complete: mocks.complete,
   }),
 }))
@@ -417,5 +419,71 @@ describe("TwoFactorVerifyPage with the methods the server named", () => {
       "href",
       `/login${LOGIN_SEARCH}`
     )
+  })
+})
+
+/**
+ * S23: an application's two-step requirement sent the person to sign in. Every
+ * way back to the sign-in page from here keeps the request and its reason, so
+ * the page there says the same thing.
+ */
+describe("TwoFactorVerifyPage under a sign-in reason (S23)", () => {
+  const HANDLE = "0123456789abcdef".repeat(4)
+  const WITH_REASON = `?client_id=app&auth_request=${HANDLE}&reason=mfa_step_up&method=password`
+
+  function LoginProbe() {
+    const location = useLocation()
+    return <p data-testid="login-search">{location.search}</p>
+  }
+
+  beforeEach(() => {
+    mocks.completeTwoFactor.mockReset()
+    mocks.apiPost.mockReset()
+    mocks.returnTo = `https://api.example.com/api/v1/auth/authorize/resume?client_id=app&auth_request=${HANDLE}`
+    mocks.reason = { reason: "mfa_step_up", method: "password" }
+  })
+
+  afterEach(() => {
+    mocks.reason = null
+  })
+
+  it("at the limit, the forgot-password link carries the request and the reason", async () => {
+    mocks.completeTwoFactor.mockRejectedValue(
+      problem(403, "TwoFactor.LockedAdminResetRequired")
+    )
+    renderPage()
+
+    await submitRecoveryCode()
+
+    expect(
+      await screen.findByRole("link", { name: "auth.forgotPassword" })
+    ).toHaveAttribute("href", `/forgot-password${WITH_REASON}`)
+  })
+
+  it("an expired challenge goes back to sign in with the request and the reason", async () => {
+    mocks.apiPost.mockResolvedValue({
+      data: undefined,
+      error: problem(401, "TwoFactor.ChallengeInvalid"),
+    })
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: "/two-factor",
+            state: { challengeToken: "challenge-1", methods: ["email", "recovery"] },
+          },
+        ]}
+      >
+        <Routes>
+          <Route path="/two-factor" element={<TwoFactorVerifyPage />} />
+          <Route path="/login" element={<LoginProbe />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await user.click(screen.getByRole("button", { name: "auth.emailMeACode" }))
+
+    expect(await screen.findByTestId("login-search")).toHaveTextContent(WITH_REASON)
   })
 })

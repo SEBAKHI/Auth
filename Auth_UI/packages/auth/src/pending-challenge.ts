@@ -14,6 +14,9 @@
  * rule needs, and pulling the context in for it would drag the API client, the
  * query cache and the whole session lifecycle behind it.
  */
+import type { SignInReason } from "./sign-in-reason"
+
+
 /**
  * The ways a sign-in's second step may be completed, as the server names them
  * (S24: `twoFactorMethods` on a challenged sign-in). Absent means a server that
@@ -36,6 +39,7 @@ export interface EmailCodeSentOnChallenge {
 
 let pendingTwoFactorChallenge: string | null = null
 let pendingReturnTo: string | null = null
+let pendingSignInReason: SignInReason | null = null
 let pendingStaySignedIn = false
 let pendingMethods: readonly TwoFactorMethod[] | null = null
 let pendingEmailCode: EmailCodeSentOnChallenge | null = null
@@ -46,6 +50,11 @@ export function getPendingTwoFactorChallenge(): string | null {
 
 export function getPendingReturnTo(): string | null {
   return pendingReturnTo
+}
+
+/** Why the pending request's sign-in was asked for (S23); null with no request. */
+export function getPendingSignInReason(): SignInReason | null {
+  return pendingSignInReason
 }
 
 /**
@@ -98,9 +107,17 @@ export function getPendingStaySignedIn(challengeToken: string): boolean {
   return pendingTwoFactorChallenge === challengeToken && pendingStaySignedIn
 }
 
-/** Remembers where to resume once the challenge is satisfied. */
-export function setPendingReturnTo(returnTo: string | null): void {
+/**
+ * Remembers where to resume once the challenge is satisfied, and why that
+ * sign-in was asked for (S23). The pair is set and cleared together: a reason
+ * never outlives its request.
+ */
+export function setPendingReturnTo(
+  returnTo: string | null,
+  reason: SignInReason | null = null
+): void {
   pendingReturnTo = returnTo
+  pendingSignInReason = returnTo ? reason : null
 }
 
 /**
@@ -112,6 +129,7 @@ export function setPendingReturnTo(returnTo: string | null): void {
 export function clearPendingTwoFactorChallenge(): void {
   pendingTwoFactorChallenge = null
   pendingReturnTo = null
+  pendingSignInReason = null
   pendingStaySignedIn = false
   pendingMethods = null
   pendingEmailCode = null

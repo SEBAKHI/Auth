@@ -104,9 +104,14 @@ export function TwoFactorVerifyPage({
   const methods =
     state?.methods ??
     (challengeToken ? getPendingTwoFactorMethods(challengeToken) : null)
-  const { returnTo, complete } = useLoginCompletion({ resumePending: true })
+  const { returnTo, reason, complete } = useLoginCompletion({
+    resumePending: true,
+  })
   const { layout: appHeader } = useFlowBranding({ returnTo })
-  const signInAgain = { pathname: "/login", search: toAccountsSearch(returnTo) }
+  const signInAgain = {
+    pathname: "/login",
+    search: toAccountsSearch(returnTo, reason),
+  }
 
   const offersEmail = methods?.includes("email") === true
   const offersTotp = methods === null || methods.includes("totp")
@@ -363,7 +368,7 @@ export function TwoFactorVerifyPage({
               <Link
                 to={{
                   pathname: "/forgot-password",
-                  search: toAccountsSearch(returnTo),
+                  search: toAccountsSearch(returnTo, reason),
                 }}
                 className="underline underline-offset-4"
                 onClick={clearPendingTwoFactorChallenge}

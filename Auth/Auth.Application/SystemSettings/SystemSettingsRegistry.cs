@@ -589,11 +589,12 @@ public static class SystemSettingsRegistry
                 // refresh; turning it off is the rollback.
                 new SettingFieldDefinition("ApplicationSessionsEndWithSsoSession", SettingKind.Bool, DefaultValue: true),
                 // S23, hot through IOptionsSnapshot: what an application's two-step
-                // requirement does. Monitor only logs who would be stopped. Enforce is
-                // not offered yet: its "set up an authenticator" screen ships with the
-                // sign-in journey (S23 PR B), and without it a person with no
-                // authenticator would meet a refusal with no way forward.
-                new SettingFieldDefinition("ApplicationMfaEnforcement", SettingKind.Enum, AllowedValues: ["Monitor"], DefaultValue: "Monitor")
+                // requirement does. Monitor only logs who would be stopped. Enforce sends
+                // the person back to sign in with their second step, or to set up an
+                // authenticator first (the sign-in journey of S23 PR B), and applies only
+                // to applications whose administrator ticked the requirement. Monitor
+                // stays the default and the rollback.
+                new SettingFieldDefinition("ApplicationMfaEnforcement", SettingKind.Enum, AllowedValues: ["Monitor", "Enforce"], DefaultValue: "Monitor")
             ]),
 
         new SettingSectionDefinition(

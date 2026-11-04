@@ -20,6 +20,21 @@ public static class ApplicationMfaReason
     public const string QueryName = "reason";
 
     /// <summary>
+    /// The second display word, beside <see cref="QueryName"/> only (S23 PR B, D-S23-3 (c)):
+    /// the method the sign-in page puts first, so a person without a password is not
+    /// shown a password field first, and a person with one is not sent to the emailed code.
+    /// </summary>
+    public const string MethodQueryName = "method";
+
+    /// <summary>
+    /// The method word for an account: <c>password</c> when it has one, <c>code</c> when it
+    /// signs in by an emailed code only. A preference for the page, never a rule: the
+    /// page ignores a word the deployment does not offer, and the server decides again
+    /// on the resume.
+    /// </summary>
+    public static string MethodFor(bool accountHasPassword) => accountHasPassword ? "password" : "code";
+
+    /// <summary>
     /// The <c>error_description</c> of the loop guard's <c>access_denied</c> (D-T4 A): a
     /// relying party's OpenID Connect handler sends it to its access-denied page.
     /// </summary>

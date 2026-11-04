@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Info } from "lucide-react"
+import { Info, ShieldCheck } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -7,7 +7,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { Alert, AlertDescription } from "@authsystem/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
 import { Button } from "@authsystem/ui/button"
 import { Checkbox } from "@authsystem/ui/checkbox"
 import {
@@ -38,6 +38,7 @@ import { isAbsoluteUrl } from "../external/recovery-navigation"
 import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
 import { toAccountsSearch } from "../return-to"
+import type { SignInReasonWord } from "../sign-in-reason"
 import {
   isFullProofRequested,
   primarySignInMethod,
@@ -58,6 +59,22 @@ const EmailCodeFlow = React.lazy(() =>
 )
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** What the page says for each sign-in reason (S23): a short title, then why. */
+const REASON_TEXT: Record<SignInReasonWord, { title: string; body: string }> = {
+  mfa_step_up: {
+    title: "auth.signInReasonStepUpTitle",
+    body: "auth.signInReasonStepUpBody",
+  },
+  mfa_enroll: {
+    title: "auth.signInReasonEnrollTitle",
+    body: "auth.signInReasonEnrollBody",
+  },
+  mfa_reauthenticate: {
+    title: "auth.signInReasonReauthenticateTitle",
+    body: "auth.signInReasonReauthenticateBody",
+  },
+}
 
 interface LocationState {
   email?: string
@@ -118,7 +135,8 @@ export function LoginPage({
 
   // Pending OAuth authorize request (hosted-login flow): strictly validated —
   // only the auth origin's authorize endpoint is ever a legal destination.
-  const { returnTo, complete, challenge, interstitial } = useLoginCompletion()
+  const { returnTo, reason, complete, challenge, interstitial } =
+    useLoginCompletion()
   // The last session ended at its first refresh because the browser withheld
   // the sign-in cookie from the API host. Without saying so, "you were signed
   // out" would repeat on every sign-in with nothing to act on.
@@ -129,7 +147,10 @@ export function LoginPage({
   const { staySignedInOffered, signInOptions } = useBranding()
   // OI-215. Before the code, only what the visitor already knows decides the
   // page: the deployment's options, the method that last worked on this
-  // browser, and their own click. Never anything about the address.
+  // browser, and their own click. Never anything about the address. When an
+  // application's two-step requirement sent the person back (S23), the
+  // server's word for the account comes before the remembered one
+  // (D-S23-3 (c)); it is all the page knows about the account.
   const options = signInOptions ?? null
   const codeOffered = options?.codeSignInOffered === true
   const [remembered] = React.useState(readLastSignInMethod)
@@ -138,9 +159,16 @@ export function LoginPage({
   )
   const method: SignInMethod =
     options && codeOffered
-      ? (chosen ?? primarySignInMethod(options, remembered))
+      ? (chosen ??
+        primarySignInMethod(options, remembered, reason?.method ?? null))
       : "password"
-  const [fullProof] = React.useState(isFullProofRequested)
+  // Full proof: a sign-in by code proves the password too where the account
+  // has one. Asked by the "sign in again" dialog, and under every sign-in
+  // reason (S23): a password account that takes the code link must not come
+  // back with the same requirement unmet. An account without a password is
+  // never asked, so a forged reason costs its forger a password prompt.
+  const [fullProofAsked] = React.useState(isFullProofRequested)
+  const fullProof = fullProofAsked || reason !== null
   const [step, setStep] = React.useState<Step>({ kind: "credentials" })
 
   const passwordToFinish = step.kind === "password"
@@ -323,6 +351,17 @@ export function LoginPage({
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <FieldGroup>
+            {reason ? (
+              // Why the application sent the person back (S23). The words
+              // say what to do next; the server decides again on the resume.
+              <Alert data-testid="sign-in-reason">
+                <ShieldCheck />
+                <AlertTitle>{t(REASON_TEXT[reason.reason].title)}</AlertTitle>
+                <AlertDescription>
+                  {t(REASON_TEXT[reason.reason].body)}
+                </AlertDescription>
+              </Alert>
+            ) : null}
             {cookieBlocked ? (
               <Alert data-testid="cookies-blocked-note">
                 <Info />
@@ -371,12 +410,13 @@ export function LoginPage({
                     <div className="flex items-center justify-between">
                       <FormLabel>{t("auth.password")}</FormLabel>
                       {/* The pending authorize request rides along, so the
-                          request page keeps the application's header; nothing
-                          else of the query string does. */}
+                          request page keeps the application's header, and so
+                          does its sign-in reason; nothing else of the query
+                          string does. */}
                       <Link
                         to={{
                           pathname: "/forgot-password",
-                          search: toAccountsSearch(returnTo),
+                          search: toAccountsSearch(returnTo, reason),
                         }}
                         className="text-xs text-muted-foreground underline-offset-4 hover:underline"
                       >
