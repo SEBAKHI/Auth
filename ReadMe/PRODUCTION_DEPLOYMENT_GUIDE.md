@@ -3056,7 +3056,9 @@ decides what the tick does, and it ships as `Monitor`:
 1. Deploy the API, then the accounts app, then the console of the same release (the database project
    of the release goes first, as always). Check that `/ready` answers Healthy and that the accounts app
    served is the new one: an older sign-in page still cached in a browser ignores the reason and cannot
-   guide anyone, so the accounts app must be live before `Enforce`.
+   guide anyone, so the accounts app must be live before `Enforce`. It must also be a release with the
+   single sign-in before set-up (OI-275): an older one makes a person who has just signed in sign in a
+   second time before the set-up page.
 2. Stay on `Monitor` and read, for at least a few days: the `app-mfa.would-require` lines, and for each
    ticked application the console's line under **Require two-factor** ("Without an authenticator app:
    N"). Tell the owners of those applications what will change.
@@ -3066,8 +3068,9 @@ decides what the tick does, and it ships as `Monitor`:
    `appsettings.Production.json` (a database read that fails at a cold start keeps the file's value).
    It takes effect without a restart.
 4. **Check it** with a test application that has the tick: a sign-in with the password alone is sent
-   back with a reason; an account without an authenticator app sets one up and reaches the
-   application; **Cancel** reaches the application with `access_denied`.
+   back with a reason; an account without an authenticator app and without an AuthSystem session types
+   its password once, sets one up and reaches the application; **Cancel** reaches the application with
+   `access_denied`.
 5. **Back off:** `Monitor` in both layers, without a restart.
 
 Once a week while it runs, search the API log for `app-mfa.refused` and `app-mfa.guard-denied`

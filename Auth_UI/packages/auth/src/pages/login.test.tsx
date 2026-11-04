@@ -1,5 +1,5 @@
 import type * as React from "react"
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -119,6 +119,13 @@ describe("LoginPage: Stay signed in", () => {
     await signIn(user)
 
     expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", false)
+    // The password proved the first step (OI-275: kept with the resume marker).
+    await waitFor(() =>
+      expect(mocks.complete).toHaveBeenCalledWith(
+        { status: "authenticated", requiresPasswordChange: false },
+        { proof: "password" }
+      )
+    )
   })
 
   it("signs in to stay signed in once ticked", async () => {

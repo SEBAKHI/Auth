@@ -487,3 +487,38 @@ describe("TwoFactorVerifyPage under a sign-in reason (S23)", () => {
     expect(await screen.findByTestId("login-search")).toHaveTextContent(WITH_REASON)
   })
 })
+
+describe("TwoFactorVerifyPage and the proof of the first step (OI-275)", () => {
+  beforeEach(() => {
+    mocks.completeTwoFactor.mockReset()
+    mocks.complete.mockReset()
+    mocks.completeTwoFactor.mockResolvedValue({ requiresPasswordChange: false })
+    clearPendingTwoFactorChallenge()
+  })
+
+  it("hands the completion the method the sign-in page recorded for this challenge", async () => {
+    const { rememberMethodForChallenge } = await import("../sign-in-method")
+    rememberMethodForChallenge("challenge-1", "password")
+    renderPage()
+
+    await submitRecoveryCode()
+
+    expect(mocks.complete).toHaveBeenCalledWith(
+      { requiresPasswordChange: false },
+      { proof: "password" }
+    )
+  })
+
+  it("hands it nothing for a challenge that did not start on the sign-in page", async () => {
+    const { rememberMethodForChallenge } = await import("../sign-in-method")
+    rememberMethodForChallenge("another-challenge", "password")
+    renderPage()
+
+    await submitRecoveryCode()
+
+    expect(mocks.complete).toHaveBeenCalledWith(
+      { requiresPasswordChange: false },
+      { proof: undefined }
+    )
+  })
+})

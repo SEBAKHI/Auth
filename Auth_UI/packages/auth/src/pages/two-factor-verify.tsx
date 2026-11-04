@@ -31,6 +31,7 @@ import {
   type TwoFactorMethod,
 } from "../pending-challenge"
 import { toAccountsSearch } from "../return-to"
+import { methodForChallenge } from "../sign-in-method"
 
 const CODE_LENGTH = 6
 
@@ -244,9 +245,12 @@ export function TwoFactorVerifyPage({
     if (!value || submitting || locked || sendingRef.current) return
     setSubmitting(true)
     try {
+      // How the sign-in page proved the first step, read before the challenge
+      // ends and spends it (OI-275); nothing when it did not start there.
+      const proof = methodForChallenge(challengeToken) ?? undefined
       const result = await completeTwoFactor(challengeToken, value, method)
       toast.success(t("auth.welcomeBack"))
-      complete(result)
+      complete(result, { proof })
     } catch (error) {
       const codes = getErrorCodes(error)
       if (codes.includes("TwoFactor.ChallengeInvalid")) {

@@ -183,7 +183,7 @@ export function GoogleSignIn({
           return
         }
         toast.success(t("auth.welcomeBack"))
-        complete(result)
+        complete(result, { proof: "external" })
       } catch (error) {
         // Pending deletion (the ID token itself was valid): carry the still-
         // fresh credential to the recovery screen so restoring is one click.

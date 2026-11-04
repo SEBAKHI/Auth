@@ -142,7 +142,7 @@ export function EmailCodeFlow({
       onEnded?.()
       signInEnded("code")
       toast.success(welcome)
-      complete(result, completionOptions)
+      complete(result, { ...completionOptions, proof: "code" })
       return
     }
     await follow(otp, result.nextStep)

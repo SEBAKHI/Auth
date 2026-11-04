@@ -5,8 +5,11 @@ import { Spinner } from "@authsystem/ui/spinner"
 import { useAuth } from "./auth-context"
 import { getValidReturnTo } from "./return-to"
 
-/** Full-screen loading state shown while the session is being established. */
-function FullScreenLoader() {
+/**
+ * Full-screen loading state shown while the session is being established, and
+ * while the sign-in page hands a skipped sign-in over to the set-up page.
+ */
+export function FullScreenLoader() {
   return (
     <div className="flex min-h-svh items-center justify-center">
       <Spinner className="size-6 text-muted-foreground" />

@@ -12,6 +12,11 @@ import {
 } from "./pending-challenge"
 import { getValidReturnTo, validateReturnToUrl } from "./return-to"
 import {
+  clearSignInMarker,
+  writeSignInMarker,
+  type SignInProof,
+} from "./sign-in-marker"
+import {
   readSignInReason,
   validateSignInReason,
   type SignInReason,
@@ -56,6 +61,13 @@ export interface CompletionOptions {
    * registration just joined). Carried through the interstitials like `from`.
    */
   from?: string
+  /**
+   * What proved this sign-in's first step, from the screen that ended it
+   * (OI-275): kept with the marker a resume leaves, so that the sign-in page
+   * the server may send the person back to can skip its form only when the
+   * set-up will accept this sign-in. Absent is unknown, and unknown never skips.
+   */
+  proof?: SignInProof
 }
 
 export interface LoginCompletion {
@@ -168,9 +180,12 @@ export function useLoginCompletion(
         // carried on, so that page's own completion goes to the application,
         // and dropped from the in-memory store, so a later sign-in in this tab
         // does not open the page again. The server decides again on the
-        // resume; the word only chose the page.
+        // resume; the word only chose the page. The sign-in marker (OI-275) is
+        // spent here too, whether this sign-in ended on the form or skipped it:
+        // a set-up the server refuses comes back to the form, never here again.
         if (reason?.reason === "mfa_enroll") {
           setPendingReturnTo(null)
+          clearSignInMarker()
           navigate("/two-factor/required", {
             replace: true,
             state: { mode: "application", returnTo, from: destination },
@@ -180,6 +195,11 @@ export function useLoginCompletion(
         // A top-level navigation, deliberately, not a router transition: the
         // IdP session cookie is SameSite=Lax and rides along with nothing else,
         // so the authorize endpoint would not recognize the browser.
+        //
+        // Before it, the marker (OI-275): if the server sends the person back
+        // to set up an authenticator for this request, the sign-in page skips
+        // the sign-in it saw here. Read from the token just stored.
+        writeSignInMarker(returnTo, options?.proof)
         window.location.assign(returnTo)
         return
       }

@@ -24,6 +24,7 @@ import {
   setPendingReturnTo,
 } from "./pending-challenge"
 import { setAccessToken } from "@authsystem/api/token-store"
+import { SIGN_IN_MARKER_KEY } from "./sign-in-marker"
 
 const AUTHORIZE =
   "https://api.example.com/api/v1/auth/authorize?client_id=app&state=xyz"
@@ -572,5 +573,100 @@ describe("the sign-in reason (S23)", () => {
 
     expect(assign).toHaveBeenCalledTimes(1)
     expect(assign).toHaveBeenCalledWith(RESUME)
+  })
+})
+
+// ── OI-275: the marker a resume leaves for the sign-in page ──────────────────
+
+describe("the sign-in marker (OI-275)", () => {
+  const HANDLE = "b".repeat(64)
+  const RESUME = `https://api.example.com/api/v1/auth/authorize/resume?client_id=app&auth_request=${HANDLE}`
+  const PENDING = `?client_id=app&auth_request=${HANDLE}`
+  const entry = (search: string) => ({ pathname: "/login", search }) as InitialEntry
+  const stored = () => window.sessionStorage.getItem(SIGN_IN_MARKER_KEY)
+
+  beforeEach(() => {
+    assign.mockReset()
+    window.sessionStorage.clear()
+    setAccessToken(tokenWith({ sub: "user-1", sid: "session-1" }))
+  })
+
+  it("is written before the resume, with the request, the account, the session, the time and the proof", async () => {
+    let atNavigation: string | null = "not navigated"
+    assign.mockImplementation(() => {
+      atNavigation = stored()
+    })
+    const before = Date.now()
+    const { act } = renderCompletion(entry(PENDING), (c) =>
+      c.complete({}, { proof: "password" })
+    )
+
+    await act()
+
+    expect(assign).toHaveBeenCalledWith(RESUME)
+    const marker = JSON.parse(atNavigation ?? "null") as Record<string, unknown>
+    expect(marker).toEqual({
+      request: RESUME,
+      sub: "user-1",
+      sid: "session-1",
+      at: expect.any(Number),
+      proof: "password",
+    })
+    expect(marker.at as number).toBeGreaterThanOrEqual(before)
+    expect(marker.at as number).toBeLessThanOrEqual(Date.now())
+  })
+
+  it("records an unknown proof as null when the screen names none", async () => {
+    const { act } = renderCompletion(entry(PENDING), (c) => c.complete({}))
+
+    await act()
+
+    expect(JSON.parse(stored() ?? "null")).toMatchObject({ request: RESUME, proof: null })
+  })
+
+  it("is not written from a token without sub or sid, and an older one is dropped", async () => {
+    window.sessionStorage.setItem(SIGN_IN_MARKER_KEY, "left over")
+    setAccessToken(tokenWith({ sub: "user-1" }))
+    const { act } = renderCompletion(entry(PENDING), (c) =>
+      c.complete({}, { proof: "password" })
+    )
+
+    await act()
+
+    expect(assign).toHaveBeenCalledWith(RESUME)
+    expect(stored()).toBeNull()
+  })
+
+  it("is not written by a plain sign-in", async () => {
+    const plain = renderCompletion(entry(""), (c) => c.complete({}, { proof: "password" }))
+    await plain.act()
+    expect(stored()).toBeNull()
+  })
+
+  it("is not written before a forced password change", async () => {
+    const { act } = renderCompletion(entry(PENDING), (c) =>
+      c.complete({ requiresPasswordChange: true }, { proof: "password" })
+    )
+
+    await act()
+
+    expect(assign).not.toHaveBeenCalled()
+    expect(stored()).toBeNull()
+  })
+
+  it("is spent where mfa_enroll opens the set-up page", async () => {
+    window.sessionStorage.setItem(
+      SIGN_IN_MARKER_KEY,
+      JSON.stringify({ request: RESUME, sub: "user-1", sid: "session-1", at: Date.now(), proof: "password" })
+    )
+    const { act } = renderCompletion(entry(`${PENDING}&reason=mfa_enroll&method=password`), (c) =>
+      c.complete({}, { proof: "password" })
+    )
+
+    await act()
+
+    expect(assign).not.toHaveBeenCalled()
+    expect(screen.getByTestId("landing")).toHaveTextContent("/two-factor/required")
+    expect(stored()).toBeNull()
   })
 })

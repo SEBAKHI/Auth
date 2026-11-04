@@ -472,8 +472,10 @@ Under `Enforce`, your client meets it in three places:
     factor. They sign in, enter the authenticator code, and come back to you with a code.
   - **An account without one:** the page says your application requires two-factor authentication. They
     sign in, set up an authenticator app (with a code emailed to their address first, while the server
-    sends email), save their recovery codes, and come back to you with a code. **Cancel** on that page
-    brings them back with `access_denied` instead.
+    sends email), save their recovery codes, and come back to you with a code. They sign in once: when
+    they had just signed in on AuthSystem's page for this same request, in the same browser tab, it goes
+    straight to the set-up; otherwise (an older AuthSystem session, for example) it shows the sign-in
+    form first. **Cancel** on that page brings them back with `access_denied` instead.
   - **A sign-in that does not count** (for example one made with an emailed code alone): the page asks
     them to sign in again, with their second factor.
 

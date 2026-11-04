@@ -208,6 +208,11 @@ describe("EmailCodeFlow", () => {
     await typeCode()
 
     await waitFor(() => expect(mocks.complete).toHaveBeenCalled())
+    // The code proved the first step (OI-275: kept with the resume marker).
+    expect(mocks.complete).toHaveBeenCalledWith(
+      { status: "authenticated", requiresPasswordChange: false },
+      { proof: "code" }
+    )
     expect(mocks.signInWithEmailCode).toHaveBeenCalledWith({
       pendingId: "handle-1",
       otp: "123456",
