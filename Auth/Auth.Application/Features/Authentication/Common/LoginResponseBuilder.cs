@@ -197,8 +197,10 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             ? null
             : UserKnownDevice.ComputeHash(null, parsedAgent.Browser, parsedAgent.Os);
 
-        // amr and auth_time for platform tokens only: an application token claims no
-        // authentication it cannot show (the exchange does not carry it yet).
+        // amr and auth_time for platform tokens only. An application's access token
+        // never carries them (S23, AM10, D-T5 A): it stays the same across refreshes,
+        // which cannot re-prove anything. The methods the exchange passes are still
+        // recorded on the session row below, where the refresh reads them (AM6).
         var authentication = applicationId is null
             ? new AccessTokenAuthentication(authenticationMethods, now, mfa.Requirement)
             : AccessTokenAuthentication.Unrecorded;

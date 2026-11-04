@@ -68,6 +68,8 @@ public static class CredentialPurposePolicy
             // TwoFactor:EmailCodeLifetimeMinutes, Max 10: each send sets the challenge's
             // expiry to the send plus that lifetime.
             [CredentialPurpose.TwoFactorEmailCode] = Bounded("AuthSystem/credential-hash/TwoFactorEmailCode/v1", TimeSpan.FromMinutes(10)),
+            // The application two-step ticket's fixed lifetime (AppMfaTicketService.Lifetime, S23).
+            [CredentialPurpose.AppMfaTicket] = Bounded("AuthSystem/credential-hash/AppMfaTicket/v1", TimeSpan.FromMinutes(15)),
         }.ToFrozenDictionary();
 
     /// <summary>Every purpose the table covers.</summary>

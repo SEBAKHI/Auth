@@ -312,6 +312,9 @@
   <data name="Application.AccessDenied" xml:space="preserve">
     <value>Vous n'avez pas accès à cette application.</value>
   </data>
+  <data name="Application.TwoFactorRequired" xml:space="preserve">
+    <value>Cette application exige l'authentification à deux facteurs. Reconnectez-vous depuis l'application.</value>
+  </data>
   <data name="Application.UserAccessAlreadyGranted" xml:space="preserve">
     <value>L'utilisateur « {0} » a déjà accès à cette application.</value>
   </data>

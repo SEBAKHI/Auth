@@ -298,6 +298,15 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 return ApplicationErrors.AccessDenied;
             }
 
+            // The application's two-step requirement (S23, AM6, D-T10 C): under Enforce a
+            // session that never proved two steps ends at its next refresh, so a sign-in made
+            // before the requirement was switched on does not outlive it.
+            if (await RefuseWithoutTwoStepsAsync(storedToken, application, request.IpAddress, cancellationToken)
+                is { } twoStepsRequired)
+            {
+                return twoStepsRequired;
+            }
+
             audience = application.Code;
 
             // The stored grant, narrowed to what the application is allowed now:
@@ -441,6 +450,83 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             Scope = scope,
             UserId = user.Id
         };
+    }
+
+    /// <summary>
+    /// The refusal of an application's refresh whose session did not prove the two steps the
+    /// application requires (S23, AM6), or null when the refresh may go on. Under
+    /// <c>Monitor</c> it is never a refusal: one <c>app-mfa.would-require</c> line, and the
+    /// session row read as every refresh reads it (M5).
+    /// </summary>
+    /// <remarks>
+    /// Under <c>Enforce</c> the read IS the decision, so it is not guarded: a failure fails
+    /// this refresh and ends nothing, and the next one decides (fail closed, ARR-0751). The
+    /// row is read whatever its <c>EndedAt</c> or <c>ExpiresAt</c> say: what the session
+    /// proved does not change when the row is swept, and every rotated token of the chain
+    /// shares it. No row, or no session id, proved nothing. A refusal ends this session
+    /// only, never the person's other applications.
+    /// </remarks>
+    private async Task<Error?> RefuseWithoutTwoStepsAsync(
+        RefreshTokenEntity storedToken,
+        Auth.Domain.Entities.Application application,
+        string? ipAddress,
+        CancellationToken cancellationToken)
+    {
+        if (!application.RequireTwoFactor)
+        {
+            return null;
+        }
+
+        var enforce = _idpSettings.ApplicationMfaEnforcementInForce == ApplicationMfaEnforcementMode.Enforce;
+        var session = enforce
+            ? storedToken.SessionId is { } sessionId
+                ? await _sessionRepository.GetByIdAsync(sessionId, cancellationToken)
+                : null
+            : await ReadSessionAsync(storedToken, cancellationToken);
+        var methods = session is not null && session.UserId == storedToken.UserId
+            ? session.Methods
+            : AuthenticationMethods.Unknown;
+
+        if (application.AdmitsSessionThatProved(methods))
+        {
+            return null;
+        }
+
+        if (!enforce)
+        {
+            _logger.LogInformation(
+                "{EventCode}: client {ClientId} requires two-step verification; the session {SessionId} of user {UserId} would be refused at {Path}",
+                AppMfaSignalCodes.WouldRequire, application.Code, storedToken.SessionId, storedToken.UserId, "refresh");
+            return null;
+        }
+
+        _logger.LogWarning(
+            "{EventCode}: client {ClientId} requires two-step verification; the session {SessionId} of user {UserId} never proved it and ends at {Path}. IP: {IpAddress}",
+            AppMfaSignalCodes.Refused, application.Code, storedToken.SessionId, storedToken.UserId, "refresh", ipAddress);
+
+        // Best effort, like every ending on this path: the refusal stands either way, and a
+        // token left alive is refused again at its next refresh.
+        try
+        {
+            if (storedToken.SessionId is { } endedSessionId)
+            {
+                await _credentialRevocation.TerminateSessionAsync(
+                    endedSessionId, null, TokenRevocationReasons.ApplicationMfaRequired, CancellationToken.None);
+            }
+            else
+            {
+                storedToken.Revoke(revokedBy: null, reason: TokenRevocationReasons.ApplicationMfaRequired);
+                await _refreshTokenRepository.UpdateAsync(storedToken, CancellationToken.None);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to end the session {SessionId} of user {UserId} refused for application {ApplicationId}'s two-step requirement",
+                storedToken.SessionId, storedToken.UserId, application.Id);
+        }
+
+        return ApplicationErrors.TwoFactorRequired;
     }
 
     /// <summary>

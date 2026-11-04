@@ -209,6 +209,7 @@ public class InitiateLoginUriTests
             ApplicationTestImages.Composer(),
             ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
             Mock.Of<MediatR.IPublisher>(),
+            new Auth.Infrastructure.MediatRDomainEventDispatcher(Mock.Of<MediatR.IPublisher>()),
             new Mock<ILogger<CreateApplicationCommandHandler>>().Object);
 
     private static async Task<(ErrorOr<ApplicationDto> Result, ApplicationEntity Saved)> UpdateWith(string? submitted)
@@ -229,6 +230,7 @@ public class InitiateLoginUriTests
             new Auth.Application.Common.PermissionGrantGuard(permissions.Object),
             ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
             Mock.Of<MediatR.IPublisher>(),
+            new Auth.Infrastructure.MediatRDomainEventDispatcher(Mock.Of<MediatR.IPublisher>()),
             new Mock<ILogger<UpdateApplicationCommandHandler>>().Object);
 
         var result = await handler.Handle(

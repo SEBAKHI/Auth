@@ -824,6 +824,9 @@ builder.Services.AddScoped<ICredentialRevocationService, CredentialRevocationSer
 // The server's own signed memory of a prompt=login demand, so re-authentication
 // is proved rather than assumed from the client having dropped the parameter.
 builder.Services.AddSingleton<IStepUpTicketService, StepUpTicketService>();
+// Its sibling for an application's two-step requirement (S23): the record of a
+// redirect, which lets authorize end a loop. Its own keyring purpose and cookie.
+builder.Services.AddSingleton<IAppMfaTicketService, AppMfaTicketService>();
 // The one rule binding a provider sign-in's nonce to the browser it was issued
 // to, shared by both anonymous endpoints that accept a provider ID token.
 builder.Services.AddScoped<Auth.Application.Features.Authentication.Common.ExternalNonceGuard>();
@@ -984,6 +987,9 @@ builder.Services.AddScoped<ITokenClaimsResolver, TokenClaimsResolver>();
 // TwoFactor:EnforceForPlatformAdmins, read at every mint (sign-in and refresh),
 // so it is hot. The one decision both mint sites call.
 builder.Services.AddScoped<IPlatformMfaPolicy, PlatformMfaPolicy>();
+// What an application that requires two-step verification asks of a session (S23,
+// AM2): read at authorize; the account's factor only when the flag is on.
+builder.Services.AddScoped<IApplicationMfaPolicy, ApplicationMfaPolicy>();
 // One "enforced because the settings are not loaded" warning per process, not per request.
 builder.Services.AddSingleton<EnforcedSettingsWarning>();
 builder.Services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();

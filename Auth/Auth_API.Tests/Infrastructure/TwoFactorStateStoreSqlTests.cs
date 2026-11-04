@@ -63,9 +63,13 @@ public class TwoFactorStateStoreSqlTests
         "UPDATE dbo.UserSessions SET AuthMethods = ISNULL(AuthMethods, 0) | @Method "
         + "WHERE Id = @SessionId AND UserId = @UserId AND EndedAt IS NULL";
 
+    // OI-96: and only the SSO session the caller's own sign-in was minted with, as its
+    // refresh tokens name it; the cookie alone could name another live session of the user.
     private const string ExpectedIdpSessionUpgrade =
         "UPDATE dbo.IdpSessions SET AuthMethods = ISNULL(AuthMethods, 0) | @Method "
-        + "WHERE TokenHash IN (@IdpHashes1) AND UserId = @UserId AND RevokedAt IS NULL";
+        + "WHERE TokenHash IN (@IdpHashes1) AND UserId = @UserId AND RevokedAt IS NULL "
+        + "AND Id IN ( SELECT rt.IdpSessionId FROM dbo.RefreshTokens rt "
+        + "WHERE rt.SessionId = @SessionId AND rt.UserId = @UserId)";
 
     private const string ExpectedHasEnabledFactor =
         "SELECT CAST(CASE WHEN EXISTS ( SELECT 1 FROM dbo.TwoFactorAuth WHERE UserId = @UserId AND IsEnabled = 1) THEN 1 ELSE 0 END AS BIT)";
@@ -496,6 +500,25 @@ public class TwoFactorStateStoreSqlTests
         Sql(db.Commands[2]).Should().Be(ExpectedIdpSessionUpgrade);
         db.Commands[2].Parameters["IdpHashes1"].Should().Be("idp-hash");
         db.LastTransaction!.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task StepUp_UpgradesOnlyTheSsoSessionOfTheCallersOwnSignIn()
+    {
+        // OI-96: the cookie is not __Host-, so it can name another live SSO session of the
+        // same user. The statement also requires the session the caller's own refresh
+        // tokens were minted with, bound to the caller's session id: a planted cookie of
+        // another session of the user matches nothing, and nothing is upgraded.
+        var userId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        await StepUp(new TwoFactorStateStore(db), userId, SecondFactorProof.Totp(Step));
+
+        var upgrade = db.Commands.Should().ContainSingle(command => Writes(command, "IdpSessions")).Subject;
+        Sql(upgrade).Should().Contain(
+            "AND Id IN ( SELECT rt.IdpSessionId FROM dbo.RefreshTokens rt WHERE rt.SessionId = @SessionId AND rt.UserId = @UserId)");
+        upgrade.Parameters["SessionId"].Should().Be(StepUpSession, "the caller's own session, never one the cookie names");
+        upgrade.Parameters["UserId"].Should().Be(userId);
     }
 
     [Fact]

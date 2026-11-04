@@ -208,7 +208,7 @@ public class SignInOriginPersistenceTests
 
             var session = await read(new IdpSessionRepository(db));
 
-            db.LastCommand!.CommandText.Should().MatchRegex(@"\[LastActivityAt\],\s*\[DeviceId\]\s+FROM", name);
+            db.LastCommand!.CommandText.Should().MatchRegex(@"\[LastActivityAt\],\s*\[DeviceId\],\s*\[AuthMethods\]\s+FROM", name);
             session!.DeviceId.Should().Be(Device, name);
         }
     }

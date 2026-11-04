@@ -1,5 +1,6 @@
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using Auth.Domain.Primitives;
 using Auth.Domain.ValueObjects;
 using ErrorOr;
@@ -92,9 +93,25 @@ public class Application : AggregateRoot
     public bool AllowSelfRegistration { get; private set; }
 
     /// <summary>
-    /// Gets whether the application requires two-factor authentication.
+    /// Gets whether the application requires two-step verification (S23). The administrator's
+    /// choice, off by default: when on, the identity provider applies it at the authorize
+    /// endpoint, at the code exchange and at every refresh of this application's tokens. A
+    /// session that did not prove a first factor and an authenticator-app or recovery code
+    /// is sent to sign in again, or to set up an authenticator first, and its refresh is
+    /// refused. While <c>IdentityProvider:ApplicationMfaEnforcement</c> is <c>Monitor</c>
+    /// the server only logs who would be stopped. A change raises
+    /// <see cref="ApplicationTwoFactorRequirementChangedEvent"/>.
     /// </summary>
     public bool RequireTwoFactor { get; private set; }
+
+    /// <summary>
+    /// Whether this application admits a session that proved <paramref name="methods"/>: it
+    /// does not require two steps, or the session proved two factors (S23, AM5 and AM6).
+    /// Nothing recorded (<see cref="AuthenticationMethods.Unknown"/>) proves nothing, and an
+    /// emailed code is never a second factor.
+    /// </summary>
+    public bool AdmitsSessionThatProved(AuthenticationMethods methods) =>
+        !RequireTwoFactor || methods.IsMfaSatisfied;
 
     /// <summary>
     /// Gets whether the application requires email verification before login.
@@ -376,12 +393,26 @@ public class Application : AggregateRoot
         ContactEmail = contactEmail;
         AccessMode = accessMode;
         AllowSelfRegistration = allowSelfRegistration;
+        var twoFactorRequirementChanged = RequireTwoFactor != requireTwoFactor;
         RequireTwoFactor = requireTwoFactor;
         RequireEmailVerification = requireEmailVerification;
         SessionTimeoutMinutes = sessionTimeoutMinutes;
         MaxConcurrentSessions = maxConcurrentSessions;
         ReauthenticationMaxAgeMinutes = reauthenticationMaxAgeMinutes;
         SetModified(modifiedBy);
+
+        // Who may sign in depends on it, so a change is recorded on its own (S23, AM11).
+        // Only a change: a save that resends the value it read records nothing.
+        if (twoFactorRequirementChanged)
+        {
+            RaiseDomainEvent(new ApplicationTwoFactorRequirementChangedEvent(
+                Guid.NewGuid(),
+                Id,
+                Code,
+                RequireTwoFactor,
+                modifiedBy,
+                new DateTimeOffset(ModifiedAt!.Value, TimeSpan.Zero)));
+        }
     }
 
     /// <summary>

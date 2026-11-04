@@ -1017,7 +1017,16 @@ export const tr: TranslationResources = {
     sessionTimeoutHint:
       "Oturumun herhangi bir etkinlik olmadan ne kadar geçerli kalacağı.",
     requireTwoFactorHint:
-      "Her kullanıcı oturum açmak için ikinci bir doğrulama adımını geçmelidir.",
+      "Açık olduğunda bu uygulamaya oturum açmak ikinci bir adım, bir kimlik doğrulayıcı uygulama kodu ister; kodu olmayan kişiden önce bir tane kurması istenir. Uygulama iki faktörlü zorlaması ayarının (Sistem ayarları) İzleme modunda henüz kimse durdurulmaz: sunucu yalnızca kimin durdurulacağını kaydeder.",
+    mfaReadiness:
+      "Son {{days}} gün: {{active}} kişi bu uygulamaya oturum açtı; {{without}} kişinin kimlik doğrulayıcı uygulaması yok.",
+    mfaRequireConfirmTitle:
+      "{{name}} için iki faktörlü kimlik doğrulama zorunlu kılınsın mı?",
+    mfaRequireConfirmBody:
+      "Son {{days}} günde oturum açan {{active}} kişiden {{without}} kişinin kimlik doğrulayıcı uygulaması yok. Zorunluluk uygulandığında, bu uygulamaya yeniden oturum açmadan önce bir tane kurmaları istenir.",
+    mfaRequireConfirmBodyNoCount:
+      "Kimlik doğrulayıcı uygulaması olmayan kişi sayısı okunamadı. Zorunluluk uygulandığında, uygulaması olmayanlardan bu uygulamaya yeniden oturum açmadan önce bir tane kurmaları istenir.",
+    mfaRequireConfirmAction: "Zorunlu kıl",
     requireEmailVerificationHint:
       "Kullanıcılar oturum açmadan önce e-posta adreslerini onaylamalıdır.",
     allowOrganizationCreation: "Bu uygulamadan organizasyon oluşturma",
@@ -1500,6 +1509,8 @@ export const tr: TranslationResources = {
       applicationLaunchAddressesChanged: "Uygulama başlatma adresleri değiştirildi",
       applicationAppearanceChanged: "Uygulama görünümü değiştirildi",
       applicationLogoHeightChanged: "Uygulama logo boyutu değiştirildi",
+      applicationTwoFactorRequirementChanged:
+        "Uygulama iki faktörlü zorunluluğu değiştirildi",
       organizationOwnershipTransferInitiated:
         "Organizasyon sahipliği devri başlatıldı",
       organizationOwnershipTransferred: "Organizasyon sahipliği devredildi",
@@ -2880,6 +2891,12 @@ export const tr: TranslationResources = {
       applicationSessionsEndWithSsoSession: "Uygulama oturumları SSO oturumuyla sona erer",
       applicationSessionsEndWithSsoSessionHint:
         "Bir uygulamanın oturumu, başladığı çoklu oturum açma (SSO) oturumuna bağlıdır: o oturum sona erdiğinde (çıkış, uzun süre kullanılmama veya üst sınır), uygulamanın bir sonraki yenilemesi reddedilir ve kişi yeniden oturum açar. Uygulamayı kullanmak SSO oturumunu kullanmak sayılır; bu yüzden uygulamada çalışan kişinin oturumu açık kalır. Böylece “Oturumu açık tut” işaretlenmeden açılan oturum, hareketsizlik sınırı boyunca kullanılmazsa ve kullanılıyor olsa bile tarayıcı oturumu üst sınırında sona erer. Varsayılan olarak açıktır. Kapatmak geri dönüştür: uygulama oturumu o zaman yalnızca bir çıkışla (tek noktadan çıkış açıkken) ya da kendi süresi dolunca sona erer.",
+      applicationMfaEnforcement: "Uygulama iki faktörlü zorlaması",
+      applicationMfaEnforcementHint:
+        "Bir uygulama iki faktörlü kimlik doğrulama gerektirdiğinde ve oturum açma bunu kanıtlamadığında sunucunun ne yaptığı. İzleme: kimse durdurulmaz; sunucu kimin durdurulacağını kaydeder (app-mfa.would-require). Zorlama, kişilere yol gösteren oturum açma sayfaları yayımlandığında sunulur.",
+      applicationMfaEnforcementOptions: {
+        Monitor: "İzleme (yalnızca kayıt)",
+      },
     },
     email: {
       title: "E-posta (SMTP)",

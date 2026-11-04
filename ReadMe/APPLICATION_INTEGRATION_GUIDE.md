@@ -438,6 +438,47 @@ its own session, not necessarily by a fresh sign-in (see *An external provider a
 `Auth/Auth.Application/Configuration/IdentityProviderSettings.cs`; the organization step's check is
 `Auth/Auth.Application/Features/Organizations/OrganizationSetup/OrganizationSetupSession.cs`.
 
+### When your application requires two-factor authentication
+
+An administrator can tick **Require two-factor** on your application in the console. It is their choice,
+per application, and off by default. With it on, AuthSystem itself decides whether a sign-in may reach your
+application: the sign-in must have proved two factors, a first one (the password, an external provider, or
+the emailed code of an account that has no password) and a code from an authenticator app or a recovery
+code. An emailed code is never the second factor. You do not check anything yourself, and you cannot:
+your tokens carry neither `amr` nor `auth_time`.
+
+What the requirement does depends on one server-wide setting, `IdentityProvider:ApplicationMfaEnforcement`:
+
+- **`Monitor`, the default.** Nothing changes for your users. The server logs, under the event code
+  `app-mfa.would-require`, each sign-in it would have stopped, so an operator can see who would be
+  affected before switching to `Enforce`.
+- **`Enforce`.** Each of the three places below applies it. `Enforce` is offered together with the
+  sign-in pages that guide a person through setting up an authenticator; until then only `Monitor` is.
+
+Under `Enforce`, your client meets it in three places:
+
+- **At authorize.** A person whose session did not prove two factors is sent to the sign-in page, with a
+  short reason the page shows, and comes back to you with a code once they have signed in with their
+  second factor. If they come back without doing what the page asked (they cancelled), your
+  `redirect_uri` receives `error=access_denied` with
+  `error_description=application_requires_two_step_verification` and your `state`. Tell the person that
+  your application requires two-factor authentication, and let them start again. An ASP.NET Core
+  OpenID Connect handler sends `access_denied` to its `AccessDeniedPath`.
+- **With `prompt=none`.** Every such case answers `login_required`, as for a session that does not exist.
+  Start an interactive authorize.
+- **At the token endpoint.** Exchanging a code, or refreshing a token, whose sign-in did not prove two
+  factors is refused with **403 `Application.TwoFactorRequired`**, in the usual problem shape (not an OAuth
+  `error=invalid_grant` member: the API has one error shape, [ADR 0001](../docs/adr/0001-error-contract.md)).
+  The code is spent, and a refused refresh ends that sign-in's session. Start a new authorize: it sends the
+  person to sign in with their second factor. A refresh is refused this way even for a sign-in made before
+  the requirement was switched on, so plan for it in your refresh handling. The person's sign-ins to other
+  applications are not touched.
+
+*In code:* the rule is
+`Auth/Auth.Application/Features/Authentication/Common/ApplicationMfaPolicy.cs`; it is applied in
+`AuthorizeCommandHandler.cs`, `ExchangeAuthorizationCodeCommandHandler.cs` and
+`RefreshTokenCommandHandler.cs` under `Auth/Auth.Application/Features/Authentication/`.
+
 ### How long the AuthSystem session lasts
 
 The AuthSystem session (single sign-on, SSO) is the browser's sign-in to AuthSystem itself: while it

@@ -152,6 +152,7 @@ public class ConfidentialRedirectUrisTests
                     new Auth.Application.Common.PermissionGrantGuard(permissions.Object),
                     ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
                     Publisher.Object,
+                    new Auth.Infrastructure.MediatRDomainEventDispatcher(Publisher.Object),
                     new Mock<ILogger<UpdateApplicationCommandHandler>>().Object)
                 .Handle(command, CancellationToken.None);
         }
@@ -162,6 +163,7 @@ public class ConfidentialRedirectUrisTests
                     ApplicationTestImages.Composer(),
                     ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
                     Publisher.Object,
+                    new Auth.Infrastructure.MediatRDomainEventDispatcher(Publisher.Object),
                     new Mock<ILogger<CreateApplicationCommandHandler>>().Object)
                 .Handle(command, CancellationToken.None);
     }

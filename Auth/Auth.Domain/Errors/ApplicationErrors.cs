@@ -44,6 +44,17 @@ public static class ApplicationErrors
         code: "Application.AccessDenied",
         description: "You do not have access to this application.");
 
+    /// <summary>
+    /// The application requires two-step verification, and the sign-in behind this code
+    /// exchange or refresh did not prove it (S23, AM5 and AM6). Raised only while
+    /// <c>IdentityProvider:ApplicationMfaEnforcement</c> is <c>Enforce</c>. The client
+    /// starts a new authorization: the authorize endpoint sends the person to sign in with
+    /// their second step. It names no user and no factor.
+    /// </summary>
+    public static Error TwoFactorRequired => Error.Forbidden(
+        code: "Application.TwoFactorRequired",
+        description: "This application requires two-factor authentication. Sign in again from the application.");
+
     public static Error UserAccessAlreadyGranted(Guid userId) => Error.Conflict(
         code: "Application.UserAccessAlreadyGranted",
         description: $"User '{userId}' already has access to this application.",

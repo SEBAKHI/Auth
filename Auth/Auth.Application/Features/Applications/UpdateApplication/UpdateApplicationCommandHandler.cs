@@ -23,6 +23,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
     private readonly PermissionGrantGuard _grantGuard;
     private readonly ImageReferenceGuard _imageReferenceGuard;
     private readonly IPublisher _publisher;
+    private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<UpdateApplicationCommandHandler> _logger;
 
     public UpdateApplicationCommandHandler(
@@ -33,6 +34,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         PermissionGrantGuard grantGuard,
         ImageReferenceGuard imageReferenceGuard,
         IPublisher publisher,
+        IDomainEventDispatcher eventDispatcher,
         ILogger<UpdateApplicationCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
@@ -42,6 +44,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         _grantGuard = grantGuard;
         _imageReferenceGuard = imageReferenceGuard;
         _publisher = publisher;
+        _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
 
@@ -54,11 +57,17 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             return ApplicationErrors.NotFound(request.Id);
         }
 
+        // An omitted mode or two-step requirement leaves it as it is (S23, AM11): this
+        // is a full replacement for every other field, and a body that forgot one of
+        // these used to close the application down or switch the requirement off.
+        var accessMode = request.AccessMode ?? application.AccessMode;
+        var requireTwoFactor = request.RequireTwoFactor ?? application.RequireTwoFactor;
+
         // Read the mode BEFORE Update overwrites it: closing an application down
         // to its invitation list is what makes the two checks below necessary,
         // and after the call there is nothing left to compare against.
         var wasOpenToEveryone = application.AccessMode == ApplicationAccessMode.Everyone;
-        var closingDown = wasOpenToEveryone && request.AccessMode == ApplicationAccessMode.Restricted;
+        var closingDown = wasOpenToEveryone && accessMode == ApplicationAccessMode.Restricted;
 
         if (closingDown)
         {
@@ -113,11 +122,11 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             _imageUrlComposer.Decompose(requestedLogoUrlDark),
             request.ContactEmail,
             request.AllowSelfRegistration,
-            request.RequireTwoFactor,
+            requireTwoFactor,
             request.RequireEmailVerification,
             request.SessionTimeoutMinutes,
             request.MaxConcurrentSessions,
-            request.AccessMode,
+            accessMode,
             request.ModifiedBy,
             request.ReauthenticationMaxAgeMinutes);
 
@@ -194,6 +203,10 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
         }
 
         await _applicationRepository.UpdateAsync(application, cancellationToken);
+
+        // What the application raised while it changed (its two-step requirement), after
+        // the save: an audit row never records a change that was not kept.
+        await _eventDispatcher.DispatchEventsAsync(application, CancellationToken.None);
 
         if (closingDown)
         {

@@ -240,6 +240,25 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             SELECT CAST(CASE WHEN " + string.Format(CultureInfo.InvariantCulture, EnabledFactorOf, "@UserId") + @"
                 THEN 1 ELSE 0 END AS BIT)";
 
+    // An application's recent users and how many have a factor (S23): the distinct live
+    // accounts that started a session in it since @Since, each flagged by the one
+    // definition above. The flag is computed per user in a derived table: SQL Server
+    // refuses an aggregate over an expression holding a subquery.
+    private static readonly string ApplicationMfaReadinessSql = @"
+            SELECT
+                COUNT(*) AS [ActiveUsers],
+                ISNULL(SUM(u.[HasFactor]), 0) AS [WithQualifyingFactor]
+            FROM (
+                SELECT CASE WHEN " + string.Format(CultureInfo.InvariantCulture, EnabledFactorOf, "a.[UserId]") + @"
+                    THEN 1 ELSE 0 END AS [HasFactor]
+                FROM (
+                    SELECT DISTINCT s.[UserId]
+                    FROM [dbo].[UserSessions] s
+                    INNER JOIN [dbo].[Users] usr ON usr.[Id] = s.[UserId] AND usr.[IsDeleted] = 0
+                    WHERE s.[ApplicationId] = @ApplicationId
+                      AND s.[StartedAt] >= @Since) a
+            ) u";
+
     // A platform holder of the role — the predicates the platform token reads
     // (PermissionRepository's platform query; the pre-switch inventory) — whose
     // account has no enabled factor. Accounts waiting for deletion count too: one
@@ -335,13 +354,23 @@ public class TwoFactorStateStore : ITwoFactorStateStore
               AND [EndedAt] IS NULL";
 
     // The SSO session the request's cookie names, when it carried one: the next
-    // authorization from this browser then knows the factor was proved.
+    // authorization from this browser then knows the factor was proved. Only the
+    // SSO session the caller's own sign-in was minted with (OI-96): its refresh
+    // tokens name it (RefreshTokens.IdpSessionId, OI-154), the same on every token
+    // of the chain. The cookie alone is not enough: it is not a __Host- cookie, so
+    // another live session of the same user could be planted under it, and the
+    // factor proved here would then upgrade a browser that never proved it. A
+    // caller with no link (a sign-in without an Origin, or one older than OI-154)
+    // upgrades none; its next authorization asks for the factor once more.
     private const string UpgradeIdpSessionSql = @"
             UPDATE [dbo].[IdpSessions] SET
                 [AuthMethods] = ISNULL([AuthMethods], 0) | @Method
             WHERE [TokenHash] IN @IdpHashes
               AND [UserId] = @UserId
-              AND [RevokedAt] IS NULL";
+              AND [RevokedAt] IS NULL
+              AND [Id] IN (
+                  SELECT rt.[IdpSessionId] FROM [dbo].[RefreshTokens] rt
+                  WHERE rt.[SessionId] = @SessionId AND rt.[UserId] = @UserId)";
 
     // A recovery code is spent by replacing the stored set, and only while the
     // row still holds the exact text the code was checked against. Two sign-ins
@@ -516,6 +545,22 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             new { UserId = userId },
             cancellationToken: cancellationToken));
     }
+
+    /// <inheritdoc />
+    public async Task<ApplicationMfaReadiness> GetApplicationMfaReadinessAsync(
+        Guid applicationId, DateTime sinceUtc, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var row = await connection.QuerySingleAsync<ReadinessRow>(new CommandDefinition(
+            ApplicationMfaReadinessSql,
+            new { ApplicationId = applicationId, Since = sinceUtc },
+            cancellationToken: cancellationToken));
+
+        return new ApplicationMfaReadiness(row.ActiveUsers, row.WithQualifyingFactor);
+    }
+
+    private sealed record ReadinessRow(int ActiveUsers, int WithQualifyingFactor);
 
     /// <inheritdoc />
     public async Task<bool> HasPlatformRoleHolderWithoutFactorAsync(Guid roleId, CancellationToken cancellationToken)
@@ -1350,7 +1395,13 @@ public class TwoFactorStateStore : ITwoFactorStateStore
 
         return await connection.ExecuteAsync(new CommandDefinition(
             UpgradeIdpSessionSql,
-            new { IdpHashes = sessionUpgrade.IdpHashes.ValuesFor(CredentialPurpose.IdpSession), UserId = userId, Method = sessionUpgrade.Method.Value },
+            new
+            {
+                IdpHashes = sessionUpgrade.IdpHashes.ValuesFor(CredentialPurpose.IdpSession),
+                UserId = userId,
+                SessionId = sessionUpgrade.SessionId,
+                Method = sessionUpgrade.Method.Value
+            },
             transaction,
             cancellationToken: cancellationToken));
     }
@@ -1376,7 +1427,9 @@ public class TwoFactorStateStore : ITwoFactorStateStore
                 "TwoFactor.IdpSessionNotUpgraded: {Change} for user {UserId} committed, but no live SSO session matched ({Reason})",
                 change,
                 userId,
-                sessionUpgrade.IdpHashes is null ? "the request carried no SSO cookie" : "the cookie's session is gone");
+                sessionUpgrade.IdpHashes is null
+                    ? "the request carried no SSO cookie"
+                    : "the cookie's session is gone, or is not the one this sign-in was minted with");
         }
     }
 

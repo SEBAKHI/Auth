@@ -1001,7 +1001,16 @@ export const ar: TranslationResources = {
     logoUrlHint: "عنوان صورة عام يظهر في شاشة تسجيل الدخول لهذا التطبيق.",
     contactEmailHint: "العنوان الذي يُوجَّه إليه المستخدمون لطلب المساعدة.",
     sessionTimeoutHint: "المدة التي تبقى فيها الجلسة صالحة دون أي نشاط.",
-    requireTwoFactorHint: "إلزام كل مستخدم بخطوة تحقق ثانية عند تسجيل الدخول.",
+    requireTwoFactorHint:
+      "عند التشغيل، يطلب الدخول إلى هذا التطبيق خطوة ثانية هي رمز من تطبيق المصادقة، ومن لا يملكه يُطلب منه إعداده أولًا. وفي وضع المراقبة من إعداد «فرض المصادقة الثنائية للتطبيقات» (إعدادات النظام) لا يُوقَف أحد بعد: يسجّل الخادم فقط من كان سيُوقَف.",
+    mfaReadiness:
+      "من سجّلوا الدخول إلى هذا التطبيق في آخر {{days}} يومًا: {{active}}. ومن لا يملكون منهم تطبيق مصادقة: {{without}}.",
+    mfaRequireConfirmTitle: "اشتراط المصادقة الثنائية في {{name}}؟",
+    mfaRequireConfirmBody:
+      "من سجّلوا الدخول خلال آخر {{days}} يومًا: {{active}}. ومن لا يملكون منهم تطبيق مصادقة: {{without}}. وحين يُفرض الاشتراط يُطلب ممن لا يملكه إعداده قبل أن يدخل إلى هذا التطبيق مرة أخرى.",
+    mfaRequireConfirmBodyNoCount:
+      "تعذّرت قراءة عدد من لا يملكون تطبيق مصادقة. وحين يُفرض الاشتراط يُطلب ممن لا يملكه إعداده قبل أن يدخل إلى هذا التطبيق مرة أخرى.",
+    mfaRequireConfirmAction: "اشتراطها",
     requireEmailVerificationHint:
       "إلزام المستخدمين بتأكيد بريدهم الإلكتروني قبل تسجيل الدخول.",
     allowOrganizationCreation: "إنشاء المنظمات من هذا التطبيق",
@@ -1478,6 +1487,8 @@ export const ar: TranslationResources = {
       applicationLaunchAddressesChanged: "تغيير عناوين الإطلاق لتطبيق",
       applicationAppearanceChanged: "تغيير مظهر تطبيق",
       applicationLogoHeightChanged: "تغيير حجم شعار تطبيق",
+      applicationTwoFactorRequirementChanged:
+        "تغيير اشتراط المصادقة الثنائية لتطبيق",
       organizationOwnershipTransferInitiated: "بدء نقل ملكية مؤسسة",
       organizationOwnershipTransferred: "نقل ملكية مؤسسة",
       organizationProvisionedForApplication: "إعداد مؤسسة من تطبيق",
@@ -2824,6 +2835,12 @@ export const ar: TranslationResources = {
       applicationSessionsEndWithSsoSession: "دخول التطبيقات ينتهي بانتهاء جلسة SSO",
       applicationSessionsEndWithSsoSessionHint:
         "دخولُ التطبيق مربوطٌ بجلسة الدخول الموحّد (SSO) التي بدأ منها: إذا انتهت تلك الجلسة (بالخروج، أو بطول عدم الاستعمال، أو ببلوغ حدّها الأقصى) رُفض التجديد التالي للتطبيق، فيدخل الشخص من جديد. واستعمال التطبيق يُحتسب استعمالًا لجلسة SSO، فمن يعمل فيه يبقى داخلًا. لذا ينتهي الدخول بلا «ابقَ مسجَّلًا» بعد حدّ عدم الاستعمال إن لم يُستعمل، وعند الحدّ الأقصى لجلسة المتصفّح ولو كان قيد الاستعمال. مُشغَّل افتراضيًّا، وإيقافه هو التراجع: لا ينتهي دخول التطبيق حينها إلا بالخروج (مع تشغيل الخروج من كل التطبيقات معًا) أو بانتهاء صلاحيته هو.",
+      applicationMfaEnforcement: "فرض المصادقة الثنائية للتطبيقات",
+      applicationMfaEnforcementHint:
+        "ما يفعله الخادم حين يشترط تطبيقٌ المصادقة الثنائية ولم يُثبتها الدخول. المراقبة: لا يُوقَف أحد، ويسجّل الخادم من كان سيُوقَف (app-mfa.would-require). ويُتاح الفرض حين تُشحن صفحات الدخول التي ترشد الناس خلاله.",
+      applicationMfaEnforcementOptions: {
+        Monitor: "المراقبة (تسجيل فقط)",
+      },
     },
     email: {
       title: "البريد الإلكتروني (SMTP)",

@@ -548,7 +548,8 @@ public class AuthController : ApiController
             createOrganization ?? (Request.Query.ContainsKey("create_organization") ? string.Empty : null),
             GetUserAgent(),
             uiLocales,
-            uiTheme);
+            uiTheme,
+            AppMfaCookie.Read(Request));
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -562,8 +563,8 @@ public class AuthController : ApiController
     /// request runs again from the stored values, through every check.
     /// </summary>
     /// <remarks>
-    /// Anonymous like <see cref="Authorize"/>, and reads the same two cookies,
-    /// both <c>Path=/</c>. An unknown, expired or malformed handle, or a client id
+    /// Anonymous like <see cref="Authorize"/>, and reads the same three cookies,
+    /// all <c>Path=/</c>. An unknown, expired or malformed handle, or a client id
     /// that is not the stored one, redirects to the accounts page that says the
     /// request expired. Rate-limited by the gateway's <c>auth</c> policy, through
     /// the same route as <see cref="Authorize"/>.
@@ -586,7 +587,8 @@ public class AuthController : ApiController
             IdpSessionCookie.Read(Request, _idpSettings),
             StepUpCookie.Read(Request, _idpSettings),
             GetClientIpAddress(),
-            GetUserAgent());
+            GetUserAgent(),
+            AppMfaCookie.Read(Request));
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -594,9 +596,9 @@ public class AuthController : ApiController
     }
 
     /// <summary>
-    /// The 302 an authorize decision ends in, with the step-up cookie written or
-    /// expired as the handler decided. Cookie writes belong to this layer; the
-    /// handler only decides.
+    /// The 302 an authorize decision ends in, with the step-up cookie and the
+    /// application two-step cookie (S23) written or expired as the handler decided.
+    /// Cookie writes belong to this layer; the handler only decides.
     /// </summary>
     private IActionResult AuthorizeRedirect(AuthorizeResult response)
     {
@@ -607,6 +609,15 @@ public class AuthController : ApiController
         else if (response.ClearStepUpTicket)
         {
             StepUpCookie.Delete(Response, _idpSettings);
+        }
+
+        if (response.AppMfaTicketToSet is { } appMfaTicket)
+        {
+            AppMfaCookie.Apply(Response, appMfaTicket);
+        }
+        else if (response.ClearAppMfaTicket)
+        {
+            AppMfaCookie.Delete(Response);
         }
 
         return Redirect(response.RedirectUrl);

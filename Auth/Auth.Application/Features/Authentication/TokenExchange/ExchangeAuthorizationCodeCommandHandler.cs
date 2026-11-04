@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
@@ -11,6 +12,7 @@ using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Auth.Domain.ValueObjects;
 
 namespace Auth.Application.Features.Authentication.TokenExchange;
@@ -66,6 +68,7 @@ public class ExchangeAuthorizationCodeCommandHandler
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IClientAuthenticator _clientAuthenticator;
+    private readonly IdentityProviderSettings _idpSettings;
     private readonly ILogger<ExchangeAuthorizationCodeCommandHandler> _logger;
 
     public ExchangeAuthorizationCodeCommandHandler(
@@ -78,6 +81,7 @@ public class ExchangeAuthorizationCodeCommandHandler
         ILoginResponseBuilder loginResponseBuilder,
         ICredentialRevocationService credentialRevocation,
         IClientAuthenticator clientAuthenticator,
+        IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         ILogger<ExchangeAuthorizationCodeCommandHandler> logger)
     {
         _authorizationCodeRepository = authorizationCodeRepository;
@@ -89,6 +93,7 @@ public class ExchangeAuthorizationCodeCommandHandler
         _loginResponseBuilder = loginResponseBuilder;
         _credentialRevocation = credentialRevocation;
         _clientAuthenticator = clientAuthenticator;
+        _idpSettings = idpSettings.Value;
         _logger = logger;
     }
 
@@ -237,13 +242,38 @@ public class ExchangeAuthorizationCodeCommandHandler
         // and redeemed just after would otherwise start one the sign-out never saw. Revoked or
         // missing is refused; the code stays consumed. A code issued before codes recorded their
         // session (OI-154) carries none and is redeemed as before.
-        if (code.IdpSessionId is { } idpSessionId &&
-            await _idpSessionRepository.GetByIdAsync(idpSessionId, cancellationToken) is not { IsRevoked: false })
+        var idpSession = code.IdpSessionId is { } idpSessionId
+            ? await _idpSessionRepository.GetByIdAsync(idpSessionId, cancellationToken)
+            : null;
+        if (code.IdpSessionId is not null && idpSession is not { IsRevoked: false })
         {
             _logger.LogWarning(
                 "Authorization code of application {ApplicationId} for user {UserId} redeemed after its IdP session {IdpSessionId} ended; nothing is issued",
-                application.Id, user.Id, idpSessionId);
+                application.Id, user.Id, code.IdpSessionId);
             return AuthErrors.AuthorizationCodeInvalid;
+        }
+
+        // What the sign-in behind the code proved: the SSO session's methods, which only
+        // grow, so the exchange sees nothing that browser did not prove (S23, D-S23-2 (a)).
+        // A code without a session (issued before OI-154) proves nothing.
+        var methods = idpSession?.Methods ?? AuthenticationMethods.Unknown;
+
+        // The application's two-step requirement (S23, AM5), after the entitlement and the
+        // session check. The code is spent either way: the client starts a new authorize,
+        // which sends the person to sign in with their second step.
+        if (!application.AdmitsSessionThatProved(methods))
+        {
+            if (_idpSettings.ApplicationMfaEnforcementInForce == ApplicationMfaEnforcementMode.Enforce)
+            {
+                _logger.LogWarning(
+                    "{EventCode}: client {ClientId} requires two-step verification; the code of user {UserId} was refused at {Path}",
+                    AppMfaSignalCodes.Refused, clientId, user.Id, "exchange");
+                return ApplicationErrors.TwoFactorRequired;
+            }
+
+            _logger.LogInformation(
+                "{EventCode}: client {ClientId} requires two-step verification; the code of user {UserId} would be refused at {Path}",
+                AppMfaSignalCodes.WouldRequire, clientId, user.Id, "exchange");
         }
 
         // No browser is on this call, so no IdP session cookie is minted here —
@@ -261,11 +291,12 @@ public class ExchangeAuthorizationCodeCommandHandler
         var origin = code.OriginFor(
             new SignInOrigin(request.IpAddress, request.UserAgent, request.DeviceId),
             clientAuthenticated: client is not null);
-        // Unknown: the code does not carry how the IdP session behind it signed in
-        // yet, and an application token carries no platform authority to protect.
-        // A renewal proves nothing about the password, so it lifts no lock (G8).
+        // The session row records what the sign-in proved, so the application's refreshes
+        // can ask it (AM6); the application token itself carries no amr or auth_time
+        // (LoginResponseBuilder, AM10). A redemption proves nothing about the password
+        // now, whatever the methods say, so it lifts no lock (G8, ARR-0776).
         var built = await _loginResponseBuilder.BuildAsync(
-            user, origin.IpAddress, origin.UserAgent, origin.DeviceId, AuthenticationMethods.Unknown,
+            user, origin.IpAddress, origin.UserAgent, origin.DeviceId, methods,
             passwordProven: false, cancellationToken,
             establishIdpSession: false, audience: application.Code, applicationId: application.Id,
             scope: grantedScopes.Value,

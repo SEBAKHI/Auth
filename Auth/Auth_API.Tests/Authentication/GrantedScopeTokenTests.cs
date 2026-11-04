@@ -155,6 +155,7 @@ public sealed class GrantedScopeTokenTests : IDisposable
         var handler = new Auth.Application.Features.Authentication.TokenExchange.ExchangeAuthorizationCodeCommandHandler(
             codes.Object, applications.Object, access.Object, users.Object, Mock.Of<IIdpSessionRepository>(), keys,
             CreateBuilder(), new Mock<ICredentialRevocationService>().Object, Mock.Of<IClientAuthenticator>(),
+            TestAppMfa.Settings(),
             new Mock<ILogger<Auth.Application.Features.Authentication.TokenExchange.ExchangeAuthorizationCodeCommandHandler>>().Object);
 
         var result = await handler.Handle(

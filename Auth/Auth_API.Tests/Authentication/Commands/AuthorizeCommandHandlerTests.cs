@@ -76,6 +76,8 @@ public class AuthorizeCommandHandlerTests
             _jwtTokenServiceMock.Object,
             _refreshTokenKeyServiceMock,
             _stepUpTicketService,
+            TestAppMfa.Tickets(),
+            TestAppMfa.Policy(),
             _organizationRepositoryMock.Object,
             new Auth.Application.Common.OrganizationCreatorRoleCheck(
                 _roleRepositoryMock.Object, _permissionRepositoryMock.Object),

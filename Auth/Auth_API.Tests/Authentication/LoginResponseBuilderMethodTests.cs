@@ -243,6 +243,24 @@ public sealed class LoginResponseBuilderMethodTests : IDisposable
     }
 
     [Fact]
+    public async Task BuildAsync_ApplicationExchange_RecordsTwoFactorsOnTheRow_AndClaimsNoneInTheToken()
+    {
+        // S23, ARR-0777 (a), the exchange path: the exchange now passes what the IdP session
+        // proved. The session row keeps it for the application's refreshes (AM6); the token
+        // still carries no amr and no auth_time, whatever was proved (AM10, D-T5 A).
+        // Deliberate break: record the authentication for an application token too.
+        Resolves(new TokenClaims([], [], []));
+
+        var response = await SignIn(
+            AuthenticationMethods.Password.With(AuthenticationMethods.Totp), applicationId: Guid.NewGuid());
+
+        var payload = DecodePayload(response.Token!.AccessToken);
+        payload.TryGetProperty("amr", out _).Should().BeFalse();
+        payload.TryGetProperty("auth_time", out _).Should().BeFalse();
+        _sessionRows.Should().ContainSingle().Which.AuthMethods.Should().Be(9, "Password (1) | Totp (8), for the refresh to read");
+    }
+
+    [Fact]
     public async Task BuildAsync_OrgPermOnly_UnderEnforcement_IsUntouched()
     {
         Resolves(PlainClaims);

@@ -201,7 +201,7 @@ public sealed class ServerSignOutTests : IDisposable
     private AuthorizeCommandHandler AuthorizeHandler() => new(
         _applications.Object, _access.Object, Reader(), _codes,
         new Mock<IAuthorizationRequestRepository>(MockBehavior.Strict).Object, _users.Object, _jwt.Object, _hashes,
-        new StepUpTicketService(_hashes), new Mock<IOrganizationRepository>().Object,
+        new StepUpTicketService(_hashes), TestAppMfa.Tickets(), TestAppMfa.Policy(), new Mock<IOrganizationRepository>().Object,
         new Auth.Application.Common.OrganizationCreatorRoleCheck(
             new Mock<IRoleRepository>().Object, new Mock<IPermissionRepository>().Object),
         TestHelpers.CreateOptions(_idpSettings), TimeProvider.System, NullLogger<AuthorizeCommandHandler>.Instance);
@@ -237,6 +237,7 @@ public sealed class ServerSignOutTests : IDisposable
         var exchanged = await new ExchangeAuthorizationCodeCommandHandler(
                 _codes, _applications.Object, _access.Object, _users.Object, _idpSessionRepository.Object, _hashes, Builder(),
                 new Mock<ICredentialRevocationService>().Object, Authenticator(),
+                TestAppMfa.Settings(),
                 NullLogger<ExchangeAuthorizationCodeCommandHandler>.Instance)
             .Handle(new ExchangeAuthorizationCodeCommand(
                     code, ServerSideUri, MachineCredentials.ClientId, Verifier, ServerAddress, "crm-server/2.1", null,

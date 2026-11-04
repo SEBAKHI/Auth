@@ -587,7 +587,13 @@ public static class SystemSettingsRegistry
                 // default: an application's refresh is refused once the SSO
                 // session it was born from is no longer live. Read on every
                 // refresh; turning it off is the rollback.
-                new SettingFieldDefinition("ApplicationSessionsEndWithSsoSession", SettingKind.Bool, DefaultValue: true)
+                new SettingFieldDefinition("ApplicationSessionsEndWithSsoSession", SettingKind.Bool, DefaultValue: true),
+                // S23, hot through IOptionsSnapshot: what an application's two-step
+                // requirement does. Monitor only logs who would be stopped. Enforce is
+                // not offered yet: its "set up an authenticator" screen ships with the
+                // sign-in journey (S23 PR B), and without it a person with no
+                // authenticator would meet a refusal with no way forward.
+                new SettingFieldDefinition("ApplicationMfaEnforcement", SettingKind.Enum, AllowedValues: ["Monitor"], DefaultValue: "Monitor")
             ]),
 
         new SettingSectionDefinition(

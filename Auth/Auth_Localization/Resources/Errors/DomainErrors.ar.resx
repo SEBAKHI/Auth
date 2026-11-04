@@ -312,6 +312,9 @@
   <data name="Application.AccessDenied" xml:space="preserve">
     <value>ليس لديك صلاحية الوصول إلى هذا التطبيق.</value>
   </data>
+  <data name="Application.TwoFactorRequired" xml:space="preserve">
+    <value>يتطلّب هذا التطبيق المصادقة الثنائية. سجّل الدخول من جديد من التطبيق.</value>
+  </data>
   <data name="Application.UserAccessAlreadyGranted" xml:space="preserve">
     <value>المستخدم '{0}' لديه بالفعل حق الوصول إلى هذا التطبيق.</value>
   </data>

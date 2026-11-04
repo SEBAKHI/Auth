@@ -7,6 +7,7 @@ using Auth.Application.Features.Applications.CreateApplication;
 using Auth.Application.Features.Applications.DeleteApplication;
 using Auth.Application.Features.Applications.GetApplicationAccessGrants;
 using Auth.Application.Features.Applications.GetApplicationById;
+using Auth.Application.Features.Applications.GetApplicationMfaReadiness;
 using Auth.Application.Features.Applications.GrantApplicationAccess;
 using Auth.Application.Features.Applications.RevokeApplicationAccess;
 using Auth.Application.Features.Applications.SetApplicationActive;
@@ -136,6 +137,27 @@ public class ApplicationsController : ApiController
 
         return result.Match(
             application => Ok(application),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// How ready the application's recent users are for its two-step requirement (S23):
+    /// of the users who started a session in it in the last 30 days, how many already have
+    /// an authenticator app. The console shows it before an administrator switches the
+    /// requirement on. Reads only; names no user.
+    /// </summary>
+    [HttpGet("{id:guid}/mfa-readiness")]
+    [RequirePermission(PermissionCodes.Applications.Read)]
+    [ProducesResponseType(typeof(ApplicationMfaReadinessDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetApplicationMfaReadiness(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetApplicationMfaReadinessQuery(id), cancellationToken);
+
+        return result.Match(
+            readiness => Ok(readiness),
             errors => Problem(errors));
     }
 

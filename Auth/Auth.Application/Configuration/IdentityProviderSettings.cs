@@ -97,6 +97,18 @@ public class IdentityProviderSettings
     public string StaySignedInMode { get; set; } = nameof(StaySignedInPolicy.PersonChooses);
 
     /// <summary>
+    /// Gets or sets what the server does about an application that requires two-step
+    /// verification when a sign-in did not prove it (S23): <c>Monitor</c>, the default,
+    /// logs <c>app-mfa.would-require</c> and lets it through exactly as before; <c>Enforce</c>
+    /// sends the person to sign in with their second step, refuses the code exchange and
+    /// ends the session at its next refresh. Hot, read on every request. Bound as text for
+    /// the reason <see cref="StaySignedInMode"/> is, and read through
+    /// <see cref="ApplicationMfaEnforcementInForce"/>, which never throws. Temporary: it
+    /// is removed once <c>Enforce</c> has held (SUNSET(S23)).
+    /// </summary>
+    public string ApplicationMfaEnforcement { get; set; } = nameof(ApplicationMfaEnforcementMode.Monitor);
+
+    /// <summary>
     /// Gets or sets the exact origins of this platform's own browser apps (the
     /// console and the accounts app), e.g. https://accounts.example.com. Kept
     /// apart from <c>Cors:AllowedOrigins</c> on purpose: CORS decides which pages
@@ -349,6 +361,36 @@ public class IdentityProviderSettings
         StaySignedInPolicy.AlwaysStaySignedIn => true,
         _ => personTicked
     };
+
+    /// <summary>
+    /// The <see cref="ApplicationMfaEnforcement"/> in force. A name is matched ignoring
+    /// case and surrounding spaces; anything else, a number included, reads as
+    /// <see cref="ApplicationMfaEnforcementMode.Monitor"/>, the behaviour before S23: a
+    /// typo must not start refusing every sign-in to the applications that require two
+    /// steps. The console offers only the valid names.
+    /// </summary>
+    public ApplicationMfaEnforcementMode ApplicationMfaEnforcementInForce =>
+        Enum.TryParse<ApplicationMfaEnforcementMode>(ApplicationMfaEnforcement?.Trim(), ignoreCase: true, out var mode)
+        && Enum.IsDefined(mode)
+        && !int.TryParse(ApplicationMfaEnforcement, out _)
+            ? mode
+            : ApplicationMfaEnforcementMode.Monitor;
+}
+
+/// <summary>
+/// What the server does about an application that requires two-step verification when a
+/// sign-in did not prove it: the values of <see cref="IdentityProviderSettings.ApplicationMfaEnforcement"/>.
+/// </summary>
+public enum ApplicationMfaEnforcementMode
+{
+    /// <summary>Log <c>app-mfa.would-require</c> and let the sign-in through, as before S23.</summary>
+    Monitor = 0,
+
+    /// <summary>
+    /// Ask for the second step at authorize, refuse the code exchange, and end the
+    /// application's session at its next refresh.
+    /// </summary>
+    Enforce = 1
 }
 
 /// <summary>

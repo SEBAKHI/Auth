@@ -142,6 +142,8 @@ public class IdpSessionIdleTimelineTests
             new Mock<IAuthorizationRequestRepository>(MockBehavior.Strict).Object,
             _users.Object, _jwt.Object, _keys,
             new Auth.Infrastructure.Authentication.StepUpTicketService(_keys),
+            TestAppMfa.Tickets(),
+            TestAppMfa.Policy(),
             new Mock<IOrganizationRepository>().Object,
             new OrganizationCreatorRoleCheck(new Mock<IRoleRepository>().Object, new Mock<IPermissionRepository>().Object),
             TestHelpers.CreateOptions(_settings), _clock, NullLogger<AuthorizeCommandHandler>.Instance)

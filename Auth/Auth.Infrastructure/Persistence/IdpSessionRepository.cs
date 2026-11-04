@@ -66,7 +66,7 @@ public class IdpSessionRepository : IIdpSessionRepository
             SELECT
                 [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
                 [CreatedAt], [IpAddress], [DeviceInfo],
-                [IsPersistent], [LastActivityAt], [DeviceId]
+                [IsPersistent], [LastActivityAt], [DeviceId], [AuthMethods]
             FROM [dbo].[IdpSessions]
             WHERE [TokenHash] IN @Hashes
               AND [RevokedAt] IS NULL",
@@ -86,7 +86,7 @@ public class IdpSessionRepository : IIdpSessionRepository
             SELECT
                 [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
                 [CreatedAt], [IpAddress], [DeviceInfo],
-                [IsPersistent], [LastActivityAt], [DeviceId]
+                [IsPersistent], [LastActivityAt], [DeviceId], [AuthMethods]
             FROM [dbo].[IdpSessions]
             WHERE [TokenHash] IN @Hashes",
             new { Hashes = candidates.ValuesFor(CredentialPurpose.IdpSession) });
@@ -103,7 +103,7 @@ public class IdpSessionRepository : IIdpSessionRepository
             SELECT
                 [Id], [UserId], [TokenHash], [ExpiresAt], [RevokedAt],
                 [CreatedAt], [IpAddress], [DeviceInfo],
-                [IsPersistent], [LastActivityAt], [DeviceId]
+                [IsPersistent], [LastActivityAt], [DeviceId], [AuthMethods]
             FROM [dbo].[IdpSessions]
             WHERE [Id] = @Id",
             new { Id = id });
@@ -240,6 +240,7 @@ public class IdpSessionRepository : IIdpSessionRepository
         public bool? IsPersistent { get; init; }
         public DateTime? LastActivityAt { get; init; }
         public string? DeviceId { get; init; }
+        public int? AuthMethods { get; init; }
 
         // NULL IsPersistent is a row recorded before the column existed: a
         // browser session, so it idles out like a new unticked sign-in.
@@ -254,6 +255,7 @@ public class IdpSessionRepository : IIdpSessionRepository
             DeviceInfo,
             IsPersistent ?? false,
             LastActivityAt,
-            DeviceId);
+            DeviceId,
+            AuthMethods);
     }
 }
