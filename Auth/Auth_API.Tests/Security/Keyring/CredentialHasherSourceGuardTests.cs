@@ -28,17 +28,17 @@ public class CredentialHasherSourceGuardTests
         // S24: the challenge a recovery's emailed code is checked against needs a unique
         // fingerprint in TokenHash; its token is never handed to anyone.
         App + "AccountDeletion/Common/AccountDeletionRecoverer.cs:227 Hash TwoFactorChallenge",
-        App + "Authentication/Authorize/AuthorizeCommandHandler.cs:365 Hash AuthorizationCode",
-        App + "Authentication/Authorize/AuthorizeCommandHandler.cs:623 Hash AuthorizationRequestHandle",
-        App + "Authentication/Authorize/AuthorizeCommandHandler.cs:665 Candidates AuthorizationRequestHandle",
+        App + "Authentication/Authorize/AuthorizeCommandHandler.cs:437 Hash AuthorizationCode",
+        App + "Authentication/Authorize/AuthorizeCommandHandler.cs:714 Hash AuthorizationRequestHandle",
+        App + "Authentication/Authorize/AuthorizeCommandHandler.cs:756 Candidates AuthorizationRequestHandle",
         // S24 PR B: the challenges of switching the emailed code on and off are answered
         // by the signed-in account; their TokenHash, like a recovery's, is a unique
         // fingerprint whose token is never handed to anyone. One site opens both.
         App + "Authentication/Common/AccountEmailCodeChallenge.cs:46 Hash TwoFactorChallenge",
         App + "Authentication/Common/ExternalNonceGuard.cs:64 Verify ExternalNonce",
         App + "Authentication/Common/IdpSessionReader.cs:58 Candidates IdpSession",
-        App + "Authentication/Common/LoginResponseBuilder.cs:211 Hash RefreshToken",
-        App + "Authentication/Common/LoginResponseBuilder.cs:411 Hash IdpSession",
+        App + "Authentication/Common/LoginResponseBuilder.cs:213 Hash RefreshToken",
+        App + "Authentication/Common/LoginResponseBuilder.cs:413 Hash IdpSession",
         App + "Authentication/Common/TwoFactorChallengeService.cs:79 Hash TwoFactorChallenge",
         App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:272 Candidates IdpSession",
         App + "Authentication/ExternalLogin/IssueExternalNonceCommandHandler.cs:34 Hash ExternalNonce",
@@ -47,7 +47,7 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/Logout/LogoutCommandHandler.cs:73 Candidates RefreshToken",
         App + "Authentication/LogoutWithRefreshCookie/LogoutWithRefreshCookieCommandHandler.cs:48 Candidates RefreshToken",
         App + "Authentication/RefreshToken/RefreshTokenCommandHandler.cs:79 Candidates RefreshToken",
-        App + "Authentication/RefreshToken/RefreshTokenCommandHandler.cs:351 Hash RefreshToken",
+        App + "Authentication/RefreshToken/RefreshTokenCommandHandler.cs:360 Hash RefreshToken",
         App + "Authentication/ResetPassword/ResetPasswordCommandHandler.cs:74 Candidates PasswordReset",
         App + "Authentication/RevokeToken/RevokeTokenCommandHandler.cs:180 Candidates RefreshToken",
         // S24: the anonymous send of an emailed second-factor code, which finds its sign-in
@@ -55,7 +55,7 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/SendSignInEmailCode/SendSignInEmailCodeCommandHandler.cs:65 Candidates TwoFactorChallenge",
         App + "Authentication/ServerSignOut/ServerSignOutCommandHandler.cs:94 Candidates RefreshToken",
         App + "Authentication/StepUpTwoFactor/StepUpTwoFactorCommandHandler.cs:117 Candidates IdpSession",
-        App + "Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:132 Candidates AuthorizationCode",
+        App + "Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:137 Candidates AuthorizationCode",
         App + "Authentication/VerifyTwoFactorLogin/VerifyTwoFactorLoginCommandHandler.cs:76 Candidates TwoFactorChallenge",
         App + "Organizations/AcceptInvitation/AcceptInvitationCommandHandler.cs:57 Candidates Invitation",
         App + "Organizations/GetInvitationByToken/GetInvitationByTokenQueryHandler.cs:49 Candidates Invitation",
@@ -75,6 +75,9 @@ public class CredentialHasherSourceGuardTests
         Infra + "Authentication/HmacOtpHasher.cs:94 Verify PurposeOf(scope)",
         Infra + "Authentication/StepUpTicketService.cs:60 Hash StepUpTicket",
         Infra + "Authentication/StepUpTicketService.cs:109 Verify StepUpTicket",
+        // S23: the application two-step ticket, signed and checked under its own purpose.
+        Infra + "Authentication/AppMfaTicketService.cs:66 Hash AppMfaTicket",
+        Infra + "Authentication/AppMfaTicketService.cs:135 Verify AppMfaTicket",
         Infra + "Security/PendingRegistrationHandle.cs:38 Hash PendingRegistrationHandle",
         Infra + "Security/WebhookKeyGenerator.cs:37 Hash WebhookKey",
     ];
@@ -85,6 +88,7 @@ public class CredentialHasherSourceGuardTests
         "Auth.Application/Features/Authentication/Common/ExternalNonceGuard.cs",
         "Auth.Infrastructure/Authentication/StepUpTicketService.cs",
         "Auth.Infrastructure/Authentication/HmacOtpHasher.cs",
+        "Auth.Infrastructure/Authentication/AppMfaTicketService.cs",
     ];
 
     /// <summary>

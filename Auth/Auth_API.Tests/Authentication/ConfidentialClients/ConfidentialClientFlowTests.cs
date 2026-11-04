@@ -151,6 +151,7 @@ public sealed class ConfidentialClientFlowTests : IDisposable
         new ExchangeAuthorizationCodeCommandHandler(
                 _codes, _applications.Object, _access.Object, _users.Object, Mock.Of<IIdpSessionRepository>(), _hashes,
                 _builder, _revocation.Object, Authenticator(),
+                TestAppMfa.Settings(),
                 NullLogger<ExchangeAuthorizationCodeCommandHandler>.Instance)
             .Handle(
                 new ExchangeAuthorizationCodeCommand(

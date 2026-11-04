@@ -52,6 +52,11 @@ namespace Auth.Application.Features.Authentication.Authorize;
 /// The <c>ui_theme</c> parameter: <c>light</c>, <c>dark</c> or <c>system</c>, the
 /// colour mode of the accounts pages. Any other value is dropped.
 /// </param>
+/// <param name="AppMfaTicket">
+/// The <c>__Host-auth_appmfa</c> cookie value, if present: the server's signed record of
+/// having sent this person to sign in for an application's two-step requirement, read
+/// by the loop guard (S23, AM7 (7-4)).
+/// </param>
 public record AuthorizeCommand(
     string? ResponseType,
     string? ClientId,
@@ -69,7 +74,8 @@ public record AuthorizeCommand(
     string? CreateOrganization = null,
     string? UserAgent = null,
     string? UiLocales = null,
-    string? UiTheme = null) : IRequest<ErrorOr<AuthorizeResult>>;
+    string? UiTheme = null,
+    string? AppMfaTicket = null) : IRequest<ErrorOr<AuthorizeResult>>;
 
 /// <summary>
 /// Where the authorize endpoint should send the browser (always a 302).
@@ -105,4 +111,17 @@ public record AuthorizeResult
     /// demand has been answered so the same ticket cannot answer a later one.
     /// </summary>
     public bool ClearStepUpTicket { get; init; }
+
+    /// <summary>
+    /// Gets the application two-step ticket the API layer must write to the
+    /// <c>__Host-auth_appmfa</c> cookie, set when this response sends the person to sign in
+    /// for an application's two-step requirement (S23).
+    /// </summary>
+    public string? AppMfaTicketToSet { get; init; }
+
+    /// <summary>
+    /// Gets whether the API layer should expire the <c>__Host-auth_appmfa</c> cookie: the
+    /// request that raised its ticket is over, with a code or a final error.
+    /// </summary>
+    public bool ClearAppMfaTicket { get; init; }
 }

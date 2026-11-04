@@ -62,6 +62,7 @@ public class ApplicationLaunchAddressAuditTests
                     new Auth.Application.Common.PermissionGrantGuard(permissions.Object),
                     ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
                     Publisher.Object,
+                    new Auth.Infrastructure.MediatRDomainEventDispatcher(Publisher.Object),
                     new Mock<ILogger<UpdateApplicationCommandHandler>>().Object)
                 .Handle(
                     new UpdateApplicationCommand(Application.Id, "CRM", BaseUrl: baseUrl, InitiateLoginUri: initiateLoginUri)
@@ -77,6 +78,7 @@ public class ApplicationLaunchAddressAuditTests
                     ApplicationTestImages.Composer(),
                     ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
                     Publisher.Object,
+                    new Auth.Infrastructure.MediatRDomainEventDispatcher(Publisher.Object),
                     new Mock<ILogger<CreateApplicationCommandHandler>>().Object)
                 .Handle(
                     new CreateApplicationCommand("CRM", "CRM", BaseUrl: baseUrl, InitiateLoginUri: initiateLoginUri)

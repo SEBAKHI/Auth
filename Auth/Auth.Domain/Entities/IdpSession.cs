@@ -51,11 +51,17 @@ public class IdpSession : EntityBase
     /// Gets the authentication methods this SSO session proved, in their stored
     /// form (<see cref="AuthenticationMethods"/> flags); null for a session
     /// recorded before the column existed. Written at sign-in and raised when a
-    /// second factor is proved in a session that presented this cookie. Not read
-    /// back yet: nothing decides on it until the authorization-code path carries
-    /// it to the application session.
+    /// second factor is proved in the sign-in this session was minted with (OI-96).
+    /// Read by the authorize endpoint and the code exchange of an application that
+    /// requires two-step verification (S23), through <see cref="Methods"/>.
     /// </summary>
     public int? AuthMethods { get; private set; }
+
+    /// <summary>
+    /// Gets what this SSO session proved; <see cref="AuthenticationMethods.Unknown"/> for
+    /// a session recorded before the column existed.
+    /// </summary>
+    public AuthenticationMethods Methods => AuthenticationMethods.FromStored(AuthMethods);
 
     /// <summary>
     /// Gets whether the person asked to stay signed in on this browser ("Stay
@@ -107,7 +113,8 @@ public class IdpSession : EntityBase
         string? deviceInfo,
         bool isPersistent = false,
         DateTime? lastActivityAt = null,
-        string? deviceId = null) : base(id)
+        string? deviceId = null,
+        int? authMethods = null) : base(id)
     {
         UserId = userId;
         TokenHash = tokenHash;
@@ -119,6 +126,7 @@ public class IdpSession : EntityBase
         IsPersistent = isPersistent;
         LastActivityAt = lastActivityAt;
         DeviceId = deviceId;
+        AuthMethods = authMethods;
     }
 
     /// <summary>

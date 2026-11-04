@@ -67,6 +67,7 @@ export const PUBLISHED_ERROR_CODES = {
   "Application.RedirectUrisTooMany": "#/redirectUris",
   "Application.RestrictedCannotBeEnabledForOrganization": "catalog",
   "Application.SessionTimeoutNotPositive": "#/sessionTimeoutMinutes",
+  "Application.TwoFactorRequired": "catalog",
   "Application.UserAccessAlreadyGranted": "catalog",
   "Application.UserAccessNotFound": "catalog",
   "AuditLog.DateRangeInvalid": "#/toDate",

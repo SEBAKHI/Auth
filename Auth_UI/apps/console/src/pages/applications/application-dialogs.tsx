@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { z } from "zod"
 
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { FormDialog } from "@authsystem/ui/common/form-dialog"
 import { PresetField } from "@authsystem/ui/common/preset-field"
 import { FieldConstraints } from "@authsystem/ui/common/field-constraints"
@@ -39,7 +40,7 @@ import { Switch } from "@authsystem/ui/switch"
 import { Textarea } from "@authsystem/ui/textarea"
 import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
-import { unwrap } from "@authsystem/api/helpers"
+import { toNumber, unwrap } from "@authsystem/api/helpers"
 import { accessMode } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
 
@@ -875,6 +876,28 @@ export function ApplicationEditDialog({
   })
   const detail = detailQuery.data
 
+  // How many of the application's recent users already have an authenticator
+  // app (S23): shown under the two-factor switch, and named by the confirmation
+  // that switches it on. Same "applications" prefix, so a save refreshes it.
+  const readinessQuery = useQuery({
+    queryKey: ["applications", application.id, "mfa-readiness"],
+    enabled: open && Boolean(application.id),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/Applications/{id}/mfa-readiness", {
+          params: { path: { id: application.id as string } },
+        })
+      ),
+  })
+  const readiness = readinessQuery.data
+    ? {
+        days: toNumber(readinessQuery.data.windowDays),
+        active: toNumber(readinessQuery.data.activeUsers),
+        without: toNumber(readinessQuery.data.withoutQualifyingFactor),
+      }
+    : null
+  const [confirmRequireOpen, setConfirmRequireOpen] = React.useState(false)
+
   // Active roles, plus the stored one whatever its state: a Select whose value
   // matches no item reports "" as a change, which would silently replace the
   // stored role. An inactive or deleted one is shown as such, and the server
@@ -1355,17 +1378,48 @@ export function ApplicationEditDialog({
               <FieldContent>
                 <FormLabel className="font-normal">{item.label}</FormLabel>
                 <FormDescription>{item.hint}</FormDescription>
+                {item.name === "requireTwoFactor" && readiness ? (
+                  <FormDescription>
+                    {t("applications.mfaReadiness", readiness)}
+                  </FormDescription>
+                ) : null}
               </FieldContent>
               <FormControl>
                 <Switch
                   checked={field.value}
-                  onCheckedChange={field.onChange}
+                  onCheckedChange={(checked) =>
+                    // Switching the requirement on, where it was off, names
+                    // who it would stop first. Off, and back on to what was
+                    // saved, change nobody's sign-in and ask nothing.
+                    item.name === "requireTwoFactor" &&
+                    checked &&
+                    !detail?.requireTwoFactor
+                      ? setConfirmRequireOpen(true)
+                      : field.onChange(checked)
+                  }
                 />
               </FormControl>
             </FormItem>
           )}
         />
       ))}
+      <ConfirmDialog
+        open={confirmRequireOpen}
+        onOpenChange={setConfirmRequireOpen}
+        title={t("applications.mfaRequireConfirmTitle", {
+          name: application.name,
+        })}
+        description={
+          readiness
+            ? t("applications.mfaRequireConfirmBody", readiness)
+            : t("applications.mfaRequireConfirmBodyNoCount")
+        }
+        confirmLabel={t("applications.mfaRequireConfirmAction")}
+        onConfirm={() => {
+          form.setValue("requireTwoFactor", true, { shouldDirty: true })
+          setConfirmRequireOpen(false)
+        }}
+      />
     </FormDialog>
   )
 }

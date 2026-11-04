@@ -14007,6 +14007,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Applications/{id}/mfa-readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ApplicationMfaReadinessDto"];
+                        "application/json": components["schemas"]["ApplicationMfaReadinessDto"];
+                        "text/json": components["schemas"]["ApplicationMfaReadinessDto"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Applications/{id}/roles": {
         parameters: {
             query?: never;
@@ -18252,6 +18324,16 @@ export interface components {
             /** Format: int32 */
             logoHeightPx?: null | number | string;
         };
+        ApplicationMfaReadinessDto: {
+            /** Format: int32 */
+            activeUsers?: number | string;
+            /** Format: int32 */
+            withQualifyingFactor?: number | string;
+            /** Format: int32 */
+            withoutQualifyingFactor?: number | string;
+            /** Format: int32 */
+            windowDays?: number | string;
+        };
         ApplicationOrganizationDto: {
             /** Format: uuid */
             organizationId?: string;
@@ -20553,8 +20635,7 @@ export interface components {
             contactEmail?: null | string;
             /** @default false */
             allowSelfRegistration: boolean;
-            /** @default false */
-            requireTwoFactor: boolean;
+            requireTwoFactor?: null | boolean;
             /** @default false */
             requireEmailVerification: boolean;
             /**
@@ -20570,7 +20651,7 @@ export interface components {
             redirectUris?: null | string[];
             /** Format: int32 */
             reauthenticationMaxAgeMinutes?: null | number | string;
-            accessMode?: components["schemas"]["ApplicationAccessMode"];
+            accessMode?: null | components["schemas"]["ApplicationAccessMode"];
             allowedScopes?: null | string[];
             allowOrganizationCreation?: null | boolean;
             /** Format: uuid */

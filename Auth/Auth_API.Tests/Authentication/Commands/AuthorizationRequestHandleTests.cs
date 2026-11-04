@@ -87,6 +87,8 @@ public class AuthorizationRequestHandleTests
             _tokens.Object,
             _keys,
             _stepUp,
+            TestAppMfa.Tickets(),
+            TestAppMfa.Policy(),
             _organizations.Object,
             new Auth.Application.Common.OrganizationCreatorRoleCheck(_roles.Object, _permissions.Object),
             TestHelpers.CreateOptions(_settings),

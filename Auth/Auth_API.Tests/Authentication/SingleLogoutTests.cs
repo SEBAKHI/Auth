@@ -959,6 +959,7 @@ public class SingleLogoutTests
         var exchange = new ExchangeAuthorizationCodeCommandHandler(
             codes.Object, applications.Object, access.Object, users.Object, _idpSessions, _keys,
             builder.Object, Revocation(), Mock.Of<IClientAuthenticator>(),
+            TestAppMfa.Settings(),
             NullLogger<ExchangeAuthorizationCodeCommandHandler>.Instance);
 
         var result = await exchange.Handle(

@@ -54,5 +54,8 @@ public enum CredentialPurpose
     WebhookKey = 13,
 
     /// <summary>The code emailed as a second factor (TwoFactorChallenges.EmailCodeHash).</summary>
-    TwoFactorEmailCode = 14
+    TwoFactorEmailCode = 14,
+
+    /// <summary>The signature of an application two-step ticket (the <c>__Host-auth_appmfa</c> cookie, S23).</summary>
+    AppMfaTicket = 15
 }

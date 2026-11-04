@@ -312,6 +312,9 @@
   <data name="Application.AccessDenied" xml:space="preserve">
     <value>شما به این برنامه دسترسی ندارید.</value>
   </data>
+  <data name="Application.TwoFactorRequired" xml:space="preserve">
+    <value>این برنامه به احراز هویت دو مرحله‌ای نیاز دارد. دوباره از طریق برنامه وارد شوید.</value>
+  </data>
   <data name="Application.UserAccessAlreadyGranted" xml:space="preserve">
     <value>کاربر «{0}» از قبل به این برنامه دسترسی دارد.</value>
   </data>

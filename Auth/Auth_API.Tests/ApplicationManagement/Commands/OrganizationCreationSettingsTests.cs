@@ -53,6 +53,7 @@ public class OrganizationCreationSettingsTests
         new PermissionGrantGuard(_permissions.Object),
         ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
         Mock.Of<MediatR.IPublisher>(),
+        new Auth.Infrastructure.MediatRDomainEventDispatcher(Mock.Of<MediatR.IPublisher>()),
         new Mock<ILogger<UpdateApplicationCommandHandler>>().Object);
 
     private UpdateApplicationCommand Update(bool? allow, Guid? roleId, string name = "SHOP") =>
@@ -186,6 +187,7 @@ public class OrganizationCreationSettingsTests
         var handler = new CreateApplicationCommandHandler(
             applications.Object, ApplicationTestImages.Composer(),
             ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()), Mock.Of<MediatR.IPublisher>(),
+            new Auth.Infrastructure.MediatRDomainEventDispatcher(Mock.Of<MediatR.IPublisher>()),
             new Mock<ILogger<CreateApplicationCommandHandler>>().Object);
 
         var result = await handler.Handle(
@@ -204,6 +206,7 @@ public class OrganizationCreationSettingsTests
         var handler = new CreateApplicationCommandHandler(
             applications.Object, ApplicationTestImages.Composer(),
             ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()), Mock.Of<MediatR.IPublisher>(),
+            new Auth.Infrastructure.MediatRDomainEventDispatcher(Mock.Of<MediatR.IPublisher>()),
             new Mock<ILogger<CreateApplicationCommandHandler>>().Object);
 
         var result = await handler.Handle(new CreateApplicationCommand("NEWAPP", "New") { CreatedBy = _admin }, CancellationToken.None);

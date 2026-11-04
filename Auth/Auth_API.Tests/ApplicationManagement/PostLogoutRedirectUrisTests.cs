@@ -196,6 +196,7 @@ public class PostLogoutRedirectUrisTests
             ApplicationTestImages.Composer(),
             ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
             Mock.Of<MediatR.IPublisher>(),
+            new Auth.Infrastructure.MediatRDomainEventDispatcher(Mock.Of<MediatR.IPublisher>()),
             new Mock<ILogger<CreateApplicationCommandHandler>>().Object);
 
         var result = await handler.Handle(
@@ -223,6 +224,7 @@ public class PostLogoutRedirectUrisTests
             ApplicationTestImages.Composer(),
             ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
             Mock.Of<MediatR.IPublisher>(),
+            new Auth.Infrastructure.MediatRDomainEventDispatcher(Mock.Of<MediatR.IPublisher>()),
             new Mock<ILogger<CreateApplicationCommandHandler>>().Object);
 
         var result = await handler.Handle(
@@ -251,6 +253,7 @@ public class PostLogoutRedirectUrisTests
             new Auth.Application.Common.PermissionGrantGuard(permissions.Object),
             ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
             Mock.Of<MediatR.IPublisher>(),
+            new Auth.Infrastructure.MediatRDomainEventDispatcher(Mock.Of<MediatR.IPublisher>()),
             new Mock<ILogger<UpdateApplicationCommandHandler>>().Object);
 
         var result = await handler.Handle(

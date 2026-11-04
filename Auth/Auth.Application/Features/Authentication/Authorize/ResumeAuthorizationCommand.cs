@@ -19,6 +19,7 @@ namespace Auth.Application.Features.Authentication.Authorize;
 /// <param name="StepUpTicket">The step-up cookie value, if present.</param>
 /// <param name="IpAddress">The client's IP address.</param>
 /// <param name="UserAgent">The browser's <c>User-Agent</c> header (OI-178).</param>
+/// <param name="AppMfaTicket">The <c>__Host-auth_appmfa</c> cookie value, if present (S23).</param>
 public record ResumeAuthorizationCommand(
     string? ClientId,
     string? Handle,
@@ -26,4 +27,5 @@ public record ResumeAuthorizationCommand(
     string? IdpSessionToken,
     string? StepUpTicket,
     string? IpAddress,
-    string? UserAgent = null) : IRequest<ErrorOr<AuthorizeResult>>;
+    string? UserAgent = null,
+    string? AppMfaTicket = null) : IRequest<ErrorOr<AuthorizeResult>>;

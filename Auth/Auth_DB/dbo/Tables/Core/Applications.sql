@@ -13,6 +13,9 @@ CREATE TABLE [dbo].[Applications]
     -- works is Registration:AllowSelfRegistration in system settings, applied per server.
     [AllowSelfRegistration] BIT NOT NULL CONSTRAINT [DF_Applications_AllowSelfRegistration] DEFAULT 0,
     [RequireEmailVerification] BIT NOT NULL CONSTRAINT [DF_Applications_RequireEmailVerification] DEFAULT 0,
+    -- The administrator's choice, off by default (S23): when 1, authorize, the code exchange and every
+    -- refresh of this application require a session that proved two factors. While
+    -- IdentityProvider:ApplicationMfaEnforcement is Monitor the server only logs who would be stopped.
     [RequireTwoFactor] BIT NOT NULL CONSTRAINT [DF_Applications_RequireTwoFactor] DEFAULT 0,
     [SessionTimeoutMinutes] INT NOT NULL CONSTRAINT [DF_Applications_SessionTimeoutMinutes] DEFAULT 60,
     [MaxConcurrentSessions] INT NOT NULL CONSTRAINT [DF_Applications_MaxConcurrentSessions] DEFAULT 5,

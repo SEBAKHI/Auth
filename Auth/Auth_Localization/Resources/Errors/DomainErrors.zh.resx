@@ -312,6 +312,9 @@
   <data name="Application.AccessDenied" xml:space="preserve">
     <value>您无权访问此应用程序。</value>
   </data>
+  <data name="Application.TwoFactorRequired" xml:space="preserve">
+    <value>此应用程序需要双因素身份验证。请从该应用程序重新登录。</value>
+  </data>
   <data name="Application.UserAccessAlreadyGranted" xml:space="preserve">
     <value>用户"{0}"已拥有此应用程序的访问权限。</value>
   </data>

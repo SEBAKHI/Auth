@@ -53,6 +53,7 @@ public class PurposeSubkeyDerivationTests
     [InlineData(CredentialPurpose.PendingRegistrationHandle, "AuthSystem/credential-hash/PendingRegistrationHandle/v1")]
     [InlineData(CredentialPurpose.WebhookKey, "AuthSystem/credential-hash/WebhookKey/v1")]
     [InlineData(CredentialPurpose.TwoFactorEmailCode, "AuthSystem/credential-hash/TwoFactorEmailCode/v1")]
+    [InlineData(CredentialPurpose.AppMfaTicket, "AuthSystem/credential-hash/AppMfaTicket/v1")]
     public void TheLabel_IsPinned(CredentialPurpose purpose, string label)
     {
         // Literals, not the member name: renaming a member must not change a subkey, and

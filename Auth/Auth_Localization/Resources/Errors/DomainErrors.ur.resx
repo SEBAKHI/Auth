@@ -312,6 +312,9 @@
   <data name="Application.AccessDenied" xml:space="preserve">
     <value>آپ کو اس ایپلیکیشن تک رسائی حاصل نہیں ہے۔</value>
   </data>
+  <data name="Application.TwoFactorRequired" xml:space="preserve">
+    <value>اس ایپلیکیشن کے لیے دو مرحلہ تصدیق لازمی ہے۔ ایپلیکیشن سے دوبارہ سائن ان کریں۔</value>
+  </data>
   <data name="Application.UserAccessAlreadyGranted" xml:space="preserve">
     <value>صارف '{0}' کو پہلے ہی اس ایپلیکیشن تک رسائی حاصل ہے۔</value>
   </data>

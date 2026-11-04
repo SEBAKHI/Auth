@@ -33,6 +33,13 @@ namespace Auth_API.Modules.ApplicationManagement.Contracts;
 /// <c>InitiateLoginUri</c> (where invitees are sent after accepting) follows the
 /// same rule: left UNCHANGED when null or absent, removed by the empty string.
 /// </para>
+/// <para>
+/// <c>RequireTwoFactor</c> and <c>AccessMode</c> are left UNCHANGED when null or absent
+/// (S23, AM11): a body built before the field existed, or by a tool that forgot it, used to
+/// switch the two-step requirement off, or close the application to its invitation list,
+/// without a trace. A change of <c>RequireTwoFactor</c> is audited
+/// (<c>application.two-factor-requirement-changed</c>).
+/// </para>
 /// </summary>
 public record UpdateApplicationRequest(
     string Name,
@@ -41,13 +48,13 @@ public record UpdateApplicationRequest(
     string? LogoUrl = null,
     string? ContactEmail = null,
     bool AllowSelfRegistration = false,
-    bool RequireTwoFactor = false,
+    bool? RequireTwoFactor = null,
     bool RequireEmailVerification = false,
     int SessionTimeoutMinutes = 60,
     int MaxConcurrentSessions = 5,
     IReadOnlyList<string>? RedirectUris = null,
     int? ReauthenticationMaxAgeMinutes = null,
-    ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted,
+    ApplicationAccessMode? AccessMode = null,
     IReadOnlyList<string>? AllowedScopes = null,
     bool? AllowOrganizationCreation = null,
     Guid? OrganizationCreatorRoleId = null,

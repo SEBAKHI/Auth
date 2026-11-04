@@ -80,4 +80,12 @@ public static class TokenRevocationReasons
     /// reached its maximum.
     /// </summary>
     public const string SingleLogout = "Single logout";
+
+    /// <summary>
+    /// The application requires two-step verification and this session never proved it
+    /// (S23, AM6): its next refresh under <c>Enforce</c> ends the session, so a sign-in
+    /// made before the requirement was switched on does not outlive it. Only that session
+    /// goes; the person's other applications are untouched.
+    /// </summary>
+    public const string ApplicationMfaRequired = "Application requires two-step verification";
 }

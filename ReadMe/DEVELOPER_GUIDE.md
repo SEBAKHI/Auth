@@ -2130,7 +2130,7 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 
 Implications are descriptive only. They are stored and shown in the console, and they grant nothing at runtime — see [4.4](#44-permission-based-authorization).
 
-#### Applications — 17 endpoints
+#### Applications — 18 endpoints
 
 | Method | Path | What it does | Permission |
 |---|---|---|---|
@@ -2138,6 +2138,7 @@ Implications are descriptive only. They are stored and shown in the console, and
 | GET | `/api/v1/Applications/{clientId}/public-branding` | Name, logos (light and dark mode), the application's own appearance while it is switched on, and which design the sign-in panel shows, for a sign-in screen before anyone is signed in. **Anonymous** — the accounts application calls it | Anonymous |
 | GET | `/api/v1/Applications/{clientId}/login-design` | The design the panel of this application's sign-in pages shows, rendered for one language, as JSON. Rate limit `sign-in-page`; see [5.21b](#521b-sign-in-page-designs) | Anonymous |
 | GET | `/api/v1/Applications/{id}` | One application | `applications:read` |
+| GET | `/api/v1/Applications/{id}/mfa-readiness` | Of the users who started a session in it in the last 30 days, how many have an authenticator app: `{activeUsers, withQualifyingFactor, withoutQualifyingFactor, windowDays}`. The console shows it before the two-factor requirement is switched on | `applications:read` |
 | GET | `/api/v1/Applications/{id}/roles` | Its roles | `applications:read` |
 | GET | `/api/v1/Applications/{id}/permissions` | Its permissions | `applications:read` |
 | GET | `/api/v1/Applications/{id}/users` | Paged list of its users | `applications:read` |
@@ -2151,6 +2152,8 @@ Implications are descriptive only. They are stored and shown in the console, and
 | GET | `/api/v1/Applications/{id}/access` | Its individual access list, used when access mode is Restricted | `applications:read` |
 | POST | `/api/v1/Applications/{id}/access` | Add a user to that list | `applications:update` |
 | DELETE | `/api/v1/Applications/{id}/access/{userId}` | Remove a user and revoke that application's tokens for them | `applications:update` |
+
+**An application's two-factor requirement (`requireTwoFactor`).** The administrator's choice, off by default. When it is on, the authorize endpoint, the code exchange and every refresh of the application's tokens require a sign-in that proved two factors: a first one and an authenticator-app or recovery code (an emailed code never counts). `IdentityProvider:ApplicationMfaEnforcement` decides what happens to one that did not: `Monitor` (the default) logs `app-mfa.would-require` and lets it through; `Enforce` sends the person to sign in with a reason, answers `login_required` under `prompt=none`, `access_denied` with `error_description=application_requires_two_step_verification` when they come back without progress, and **403 `Application.TwoFactorRequired`** at the token endpoint, where a refused refresh ends that session (`app-mfa.refused`). `Enforce` is not offered until the sign-in pages that guide a person through setting up an authenticator ship. What a sign-in proved is read from its SSO session (`IdpSessions.AuthMethods`) and recorded on the application's session row for its refreshes; the application's token carries no `amr` and no `auth_time`. A `PUT` that omits `requireTwoFactor` or `accessMode` leaves it unchanged, and each change of the requirement is audited (`application.two-factor-requirement-changed`). The relying party's view is in the [integration guide](APPLICATION_INTEGRATION_GUIDE.md#when-your-application-requires-two-factor-authentication). *In code:* `Auth/Auth.Application/Features/Authentication/Common/ApplicationMfaPolicy.cs`.
 
 #### Organizations — 23 endpoints
 

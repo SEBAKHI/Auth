@@ -7,8 +7,9 @@ namespace Auth_API.Tests.Authentication;
 /// S08 T4: every sign-in exit says what it proved. The builder's
 /// <c>authenticationMethods</c> parameter has no default, so the compiler already
 /// forces each caller to pass one; this pins WHICH value each passes — the factors
-/// that request actually verified — and that only the authorization-code exchange
-/// passes Unknown. A new caller fails here until it is added with its reason.
+/// that request actually verified — and that none passes Unknown since the
+/// authorization-code exchange carries its IdP session's methods (S23). A new caller
+/// fails here until it is added with its reason.
 /// </summary>
 public class BuildAsyncCallerGuardTests
 {
@@ -34,9 +35,10 @@ public class BuildAsyncCallerGuardTests
         ["SignInWithEmailCodeCommandHandler.cs"] = "methods",
         // The entry point's first factor, with the TOTP code when one was claimed.
         ["AccountDeletionRecoverer.cs"] = "methods",
-        // The application token exchange: the code does not carry the IdP session's
-        // methods yet (S23), and an application token has no platform authority.
-        ["ExchangeAuthorizationCodeCommandHandler.cs"] = "AuthenticationMethods.Unknown",
+        // The application token exchange: what the IdP session behind the code proved (S23,
+        // D-S23-2 (a)), Unknown only for a code issued without one. The session row records
+        // it for the application's refreshes; the application token carries none.
+        ["ExchangeAuthorizationCodeCommandHandler.cs"] = "methods",
     };
 
     /// <summary>
@@ -90,14 +92,16 @@ public class BuildAsyncCallerGuardTests
     }
 
     [Fact]
-    public void OnlyTheExchange_PassesUnknown()
+    public void NoExit_PassesUnknown()
     {
+        // Before S23 the application exchange passed Unknown; it now passes what the code's
+        // IdP session proved, which its refreshes read (AM5, AM6).
         Callers()
             .Where(c => c.Calls.Any(call =>
                 MethodsArgument(c.Source, call).Contains("AuthenticationMethods.Unknown", StringComparison.Ordinal)))
             .Select(c => c.Name)
-            .Should().Equal(["ExchangeAuthorizationCodeCommandHandler.cs"],
-                "Unknown asks a platform administrator to sign in again; only the application exchange may pass it");
+            .Should().BeEmpty(
+                "Unknown asks a platform administrator to sign in again, and an application's refresh under Enforce to end");
     }
 
     [Fact]

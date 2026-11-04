@@ -16,7 +16,7 @@ CREATE TABLE [dbo].[UserSessions]
     [DeviceName] NVARCHAR(100) NULL,
     [DeviceId] NVARCHAR(64) NULL,
     [DeviceHash] CHAR(64) NULL,
-    [AuthMethods] INT NULL,                     -- P3 deploy-1 batch: the authentication methods this session proved, as AuthenticationMethods flags (S08). NULL = recorded before the column existed, or an application's session: a code exchange is written NULL by design (S23 carries the methods)
+    [AuthMethods] INT NULL,                     -- P3 deploy-1 batch: the authentication methods this session proved, as AuthenticationMethods flags (S08). NULL = recorded before the column existed, or nothing proved: since S23 an application's session records what the IdP session behind its code proved, which its refreshes read
 
     CONSTRAINT [PK_UserSessions] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_UserSessions_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id]),

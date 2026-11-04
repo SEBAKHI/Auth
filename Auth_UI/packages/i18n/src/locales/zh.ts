@@ -979,7 +979,16 @@ export const zh: TranslationResources = {
     logoUrlHint: "在该应用登录界面显示的公开图片地址。",
     contactEmailHint: "向用户提供的、就该应用寻求帮助的联系地址。",
     sessionTimeoutHint: "无操作时登录会话保持有效的时长。",
-    requireTwoFactorHint: "每位用户登录时都必须通过第二重验证。",
+    requireTwoFactorHint:
+      "开启后，登录此应用程序需要第二步，即身份验证器应用中的验证码；没有的人需先设置一个。在“应用程序双因素强制”（系统设置）的“监视”模式下，暂不阻止任何人：服务器只记录本会被阻止的人。",
+    mfaReadiness:
+      "最近 {{days}} 天：{{active}} 人登录过此应用程序；其中 {{without}} 人没有身份验证器应用。",
+    mfaRequireConfirmTitle: "要求 {{name}} 使用双因素身份验证？",
+    mfaRequireConfirmBody:
+      "最近 {{days}} 天登录的 {{active}} 人中，有 {{without}} 人没有身份验证器应用。强制执行后，他们需先设置一个，才能再次登录此应用程序。",
+    mfaRequireConfirmBodyNoCount:
+      "无法读取没有身份验证器应用的人数。强制执行后，没有的人需先设置一个，才能再次登录此应用程序。",
+    mfaRequireConfirmAction: "要求",
     requireEmailVerificationHint: "用户必须先确认邮箱地址才能登录。",
     allowOrganizationCreation: "允许从此应用创建组织",
     allowOrganizationCreationHint:
@@ -1441,6 +1450,7 @@ export const zh: TranslationResources = {
       applicationLaunchAddressesChanged: "应用启动地址已更改",
       applicationAppearanceChanged: "应用外观已更改",
       applicationLogoHeightChanged: "应用徽标尺寸已更改",
+      applicationTwoFactorRequirementChanged: "应用双因素要求已更改",
       organizationOwnershipTransferInitiated: "发起组织所有权转移",
       organizationOwnershipTransferred: "转移组织所有权",
       organizationProvisionedForApplication: "从应用设置组织",
@@ -2731,6 +2741,12 @@ export const zh: TranslationResources = {
       applicationSessionsEndWithSsoSession: "应用登录随 SSO 会话结束",
       applicationSessionsEndWithSsoSessionHint:
         "应用的登录与其所源自的单点登录（SSO）会话绑定：该会话结束时（登出、长时间未使用或达到最长时限），应用的下一次续期会被拒绝，用户需重新登录。使用应用即计为使用 SSO 会话，因此正在应用中工作的人会保持登录。因此，未勾选“保持登录”的登录在闲置时限内未被使用时结束，即使在使用中也会在浏览器会话最长时限时结束。默认开启。关闭即为回退：应用的登录将只在登出（单点登出开启时）或其自身过期时结束。",
+      applicationMfaEnforcement: "应用程序双因素强制",
+      applicationMfaEnforcementHint:
+        "当应用程序要求双因素身份验证而登录未证明时，服务器的做法。监视：不阻止任何人；服务器记录本会被阻止的人（app-mfa.would-require）。引导用户完成验证的登录页面发布后，将提供“强制”选项。",
+      applicationMfaEnforcementOptions: {
+        Monitor: "监视（仅记录）",
+      },
     },
     email: {
       title: "邮件（SMTP）",

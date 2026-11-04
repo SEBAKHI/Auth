@@ -56,6 +56,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             _loginResponseBuilderMock.Object,
             _credentialRevocationMock.Object,
             Mock.Of<IClientAuthenticator>(),
+            TestAppMfa.Settings(),
             new Mock<ILogger<ExchangeAuthorizationCodeCommandHandler>>().Object);
     }
 

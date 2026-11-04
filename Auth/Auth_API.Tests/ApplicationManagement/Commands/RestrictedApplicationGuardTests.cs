@@ -43,6 +43,7 @@ public class RestrictedApplicationGuardTests
         new Auth.Application.Common.PermissionGrantGuard(new Mock<IPermissionRepository>().Object),
         ApplicationTestImages.Guard(new Mock<IUploadedImageRepository>()),
         Mock.Of<MediatR.IPublisher>(),
+        new Auth.Infrastructure.MediatRDomainEventDispatcher(Mock.Of<MediatR.IPublisher>()),
         new Mock<ILogger<UpdateApplicationCommandHandler>>().Object);
 
     private void SetupOrganization()

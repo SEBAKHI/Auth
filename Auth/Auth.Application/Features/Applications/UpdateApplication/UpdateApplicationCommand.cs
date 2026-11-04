@@ -8,6 +8,14 @@ namespace Auth.Application.Features.Applications.UpdateApplication;
 /// <summary>
 /// Command to update an existing application.
 /// </summary>
+/// <param name="RequireTwoFactor">
+/// Whether the application requires two-step verification (S23). Null leaves it UNCHANGED:
+/// a body that omits it must not switch the requirement off. A change is audited.
+/// </param>
+/// <param name="AccessMode">
+/// Who may sign in: everyone, or the invitation list. Null leaves it UNCHANGED, for the same
+/// reason: an omitted field used to close the application down.
+/// </param>
 /// <param name="AllowedScopes">
 /// The OAuth scopes the application may be granted beyond <c>openid</c>. Null
 /// leaves them UNCHANGED, like <c>RedirectUris</c>: a client built before the
@@ -45,13 +53,13 @@ public record UpdateApplicationCommand(
     string? LogoUrl = null,
     string? ContactEmail = null,
     bool AllowSelfRegistration = false,
-    bool RequireTwoFactor = false,
+    bool? RequireTwoFactor = null,
     bool RequireEmailVerification = false,
     int SessionTimeoutMinutes = 60,
     int MaxConcurrentSessions = 5,
     IReadOnlyList<string>? RedirectUris = null,
     int? ReauthenticationMaxAgeMinutes = null,
-    ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted,
+    ApplicationAccessMode? AccessMode = null,
     IReadOnlyList<string>? AllowedScopes = null,
     bool? AllowOrganizationCreation = null,
     Guid? OrganizationCreatorRoleId = null,

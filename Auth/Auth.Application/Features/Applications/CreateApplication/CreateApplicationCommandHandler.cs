@@ -20,6 +20,7 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
     private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ImageReferenceGuard _imageReferenceGuard;
     private readonly IPublisher _publisher;
+    private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<CreateApplicationCommandHandler> _logger;
 
     public CreateApplicationCommandHandler(
@@ -27,12 +28,14 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
         IImageUrlComposer imageUrlComposer,
         ImageReferenceGuard imageReferenceGuard,
         IPublisher publisher,
+        IDomainEventDispatcher eventDispatcher,
         ILogger<CreateApplicationCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
         _imageUrlComposer = imageUrlComposer;
         _imageReferenceGuard = imageReferenceGuard;
         _publisher = publisher;
+        _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
 
@@ -140,6 +143,10 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
         _logger.LogInformation(
             "Application created: {ApplicationId} ({ApplicationCode}) by {CreatedBy}",
             application.Id, application.Code, request.CreatedBy);
+
+        // An application born requiring two steps is recorded like a later switch-on: the
+        // entity raised it when the requirement left its default (S23, AM11).
+        await _eventDispatcher.DispatchEventsAsync(application, CancellationToken.None);
 
         // The lists an application is born with are recorded like any later change to them.
         var listsChanged = new ApplicationRedirectUrisChangedEvent(

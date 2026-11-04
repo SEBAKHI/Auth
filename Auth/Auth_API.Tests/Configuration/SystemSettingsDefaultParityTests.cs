@@ -115,6 +115,9 @@ public class SystemSettingsDefaultParityTests
     [InlineData("Registration", "NameAtSignUp", "True")]
     // D-110-2: twenty wrong codes per address in 24 hours.
     [InlineData("Email", "MaxWrongCodesPerDay", "20")]
+    // S23: an application's two-step requirement ships in Monitor: it logs and refuses
+    // nothing until an operator sets Enforce, which needs the sign-in journey of PR B.
+    [InlineData("IdentityProvider", "ApplicationMfaEnforcement", "Monitor")]
     public void ProductionDefaults_AgreeInFileClassAndRegistry(
         string configRoot, string fieldPath, string expected)
     {

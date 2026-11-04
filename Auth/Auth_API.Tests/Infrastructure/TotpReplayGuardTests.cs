@@ -134,6 +134,8 @@ public class TotpReplayGuardTests
     [
         nameof(ITwoFactorStateStore.GetSnapshotAsync),
         nameof(ITwoFactorStateStore.HasEnabledFactorAsync),
+        // S23: a count for the console, no code.
+        nameof(ITwoFactorStateStore.GetApplicationMfaReadinessAsync),
         nameof(ITwoFactorStateStore.TryReserveAttemptAsync),
         nameof(ITwoFactorStateStore.TryStorePendingSecretAsync),
         // S24: the emailed code's own reservation and the reset's clearing of its count;

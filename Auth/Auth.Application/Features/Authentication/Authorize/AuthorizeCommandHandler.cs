@@ -3,6 +3,7 @@ using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -59,6 +60,8 @@ public class AuthorizeCommandHandler :
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ICredentialHasher _credentialHasher;
     private readonly IStepUpTicketService _stepUpTicketService;
+    private readonly IAppMfaTicketService _appMfaTicketService;
+    private readonly IApplicationMfaPolicy _applicationMfaPolicy;
     private readonly IOrganizationRepository _organizationRepository;
     private readonly OrganizationCreatorRoleCheck _creatorRoleCheck;
     private readonly IdentityProviderSettings _idpSettings;
@@ -75,6 +78,8 @@ public class AuthorizeCommandHandler :
         IJwtTokenService jwtTokenService,
         ICredentialHasher credentialHasher,
         IStepUpTicketService stepUpTicketService,
+        IAppMfaTicketService appMfaTicketService,
+        IApplicationMfaPolicy applicationMfaPolicy,
         IOrganizationRepository organizationRepository,
         OrganizationCreatorRoleCheck creatorRoleCheck,
         IOptionsSnapshot<IdentityProviderSettings> idpSettings,
@@ -90,6 +95,8 @@ public class AuthorizeCommandHandler :
         _jwtTokenService = jwtTokenService;
         _credentialHasher = credentialHasher;
         _stepUpTicketService = stepUpTicketService;
+        _appMfaTicketService = appMfaTicketService;
+        _applicationMfaPolicy = applicationMfaPolicy;
         _organizationRepository = organizationRepository;
         _creatorRoleCheck = creatorRoleCheck;
         _idpSettings = idpSettings.Value;
@@ -209,7 +216,7 @@ public class AuthorizeCommandHandler :
                 "Authorize request for client {ClientId} refused: scope parameter is {ScopeStatus}",
                 request.ClientId, scopeStatus);
 
-            return ErrorRedirect(request, "invalid_scope");
+            return FinalError(request, prompt, "invalid_scope");
         }
 
         // create_organization accepts exactly "true": a value this server does
@@ -217,7 +224,7 @@ public class AuthorizeCommandHandler :
         if (request.CreateOrganization is not null &&
             !string.Equals(request.CreateOrganization, "true", StringComparison.Ordinal))
         {
-            return ErrorRedirect(request, "invalid_request");
+            return FinalError(request, prompt, "invalid_request");
         }
 
         // Same placement as the scope check, for the same reason: an application
@@ -234,7 +241,7 @@ public class AuthorizeCommandHandler :
                     "Authorize request for client {ClientId} asked to create an organization, which the application does not offer",
                     request.ClientId);
 
-                return ErrorRedirect(request, "unauthorized_client");
+                return FinalError(request, prompt, "unauthorized_client");
             }
         }
 
@@ -277,6 +284,34 @@ public class AuthorizeCommandHandler :
                 request, pending, demandStepUp: prompt.Login, cancellationToken, offerRegistration: prompt.Create);
         }
 
+        // --- The application's two-step requirement (S23, AM2) ---
+        // What this session still has to do for this application, decided now from what
+        // the SSO session proved. Applied below, after the freshness check; decided here so
+        // the loop guard compares it with what the last redirect asked. The flag is the
+        // administrator's choice: off, nothing is read and nothing changes.
+        var appMfa = await _applicationMfaPolicy.EvaluateAsync(
+            application.RequireTwoFactor, user.Id, session.Methods, cancellationToken);
+        var enforceAppMfa = appMfa != ApplicationMfaRequirement.None &&
+            _idpSettings.ApplicationMfaEnforcementInForce == ApplicationMfaEnforcementMode.Enforce;
+
+        // --- Loop guard (AM7 (7-4)): back with no progress since the last redirect ---
+        // Interactive requests only, and before the freshness check: a prompt=login or
+        // max_age=0 that asks for a sign-in on every return would otherwise hide the loop.
+        // The ticket is bound to this client, this person and this request, so a new
+        // request of the application is a new redirect, never a refusal; a different
+        // reason is progress and gets a new ticket. prompt=none never reads it.
+        if (enforceAppMfa && !prompt.None &&
+            _appMfaTicketService.TryRead(
+                request.AppMfaTicket, request.ClientId!, user.Id, request.CodeChallenge, UtcNow(), out var lastReason) &&
+            lastReason == appMfa)
+        {
+            _logger.LogWarning(
+                "{EventCode}: user {UserId} came back to client {ClientId} without completing {Requirement}; the request ends with access_denied",
+                AppMfaSignalCodes.GuardDenied, user.Id, request.ClientId, appMfa);
+
+            return FinalError(request, prompt, "access_denied", ApplicationMfaReason.GuardErrorDescription);
+        }
+
         // --- Step-up: the authentication behind this session must be fresh ---
         // A valid session exists, but the app's policy (ReauthenticationMaxAgeMinutes)
         // or the request's prompt=login / max_age may demand a fresher one.
@@ -294,11 +329,48 @@ public class AuthorizeCommandHandler :
                 request, pending, demandStepUp: true, cancellationToken, offerRegistration: prompt.Create);
         }
 
+        // --- The two-step requirement applied (AM7 (7-2), (7-3)) ---
+        // Before the entitlement (D-T3 A), for the reason the freshness check is: a
+        // stolen session cookie that proved one step must not learn which of these
+        // applications its owner may enter. Before the session's use is recorded, so a
+        // redirect keeps no session alive.
+        if (appMfa != ApplicationMfaRequirement.None)
+        {
+            if (!enforceAppMfa)
+            {
+                _logger.LogInformation(
+                    "{EventCode}: client {ClientId} requires two-step verification; the session of user {UserId} would be sent to {Requirement} at {Path}",
+                    AppMfaSignalCodes.WouldRequire, request.ClientId, user.Id, appMfa, "authorize");
+            }
+            else if (prompt.None)
+            {
+                // No UI allowed: the relying party starts an interactive request. The
+                // tickets are neither read nor erased.
+                return ErrorRedirect(request, "login_required");
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Client {ClientId} requires two-step verification; user {UserId} is sent to sign in for {Requirement}",
+                    request.ClientId, user.Id, appMfa);
+
+                return new AuthorizeResult
+                {
+                    RedirectUrl = await AccountsRedirectAsync(
+                        "login", request, pending, cancellationToken, ApplicationMfaReason.For(appMfa)),
+                    IsLoginRedirect = true,
+                    // The step-up ticket stays: it is spent at the code (ARR-0749).
+                    AppMfaTicketToSet = _appMfaTicketService.Issue(
+                        request.ClientId!, user.Id, appMfa, request.CodeChallenge!, UtcNow())
+                };
+            }
+        }
+
         // --- Entitlement: is this user allowed into THIS application? ---
-        // Last, on purpose. A user whose session is too old re-authenticates
-        // before being told no, which costs one extra round trip in the rare
-        // step-up case and buys this: a stolen stale session cookie cannot be
-        // used to enumerate which applications its owner may enter.
+        // Last, on purpose. A user whose session is too old, or short of the
+        // application's second step, re-authenticates before being told no, which
+        // costs one extra round trip and buys this: a stolen stale session cookie
+        // cannot be used to enumerate which applications its owner may enter.
         if (!await _applicationAccessRepository.IsUserEntitledAsync(user.Id, application.Id, cancellationToken))
         {
             // No error_description: the client is told it was refused, never why
@@ -306,7 +378,7 @@ public class AuthorizeCommandHandler :
             _logger.LogWarning(
                 "Access denied for user {UserId} to client {ClientId}", user.Id, request.ClientId);
 
-            return ErrorRedirect(request, "access_denied");
+            return FinalError(request, prompt, "access_denied");
         }
 
         // --- Organization: the application asked that the user have one ---
@@ -389,13 +461,16 @@ public class AuthorizeCommandHandler :
             "Issued authorization code for client {ClientId} and user {UserId}",
             request.ClientId, user.Id);
 
+        var interactive = !prompt.None;
         return new AuthorizeResult
         {
             RedirectUrl = AppendQuery(request.RedirectUri, "code", plainCode, request.State),
             // The demand has been answered, so spend the ticket. Leaving it to
             // expire on its own would let one re-authentication satisfy every
-            // prompt=login this client made within the ticket's lifetime.
-            ClearStepUpTicket = stepUp.TicketSpent
+            // prompt=login this client made within the ticket's lifetime. An
+            // interactive request is over too: the tickets it raised go (AM7 (7-1)).
+            ClearStepUpTicket = stepUp.TicketSpent || (interactive && RaisedStepUpTicket(request)),
+            ClearAppMfaTicket = interactive && RaisedAppMfaTicket(request)
         };
     }
 
@@ -577,8 +652,21 @@ public class AuthorizeCommandHandler :
     /// reads them from the stored request.
     /// </para>
     /// </remarks>
+    /// <param name="page">The accounts page.</param>
+    /// <param name="request">The request being served.</param>
+    /// <param name="pending">What a stored copy of it needs.</param>
+    /// <param name="cancellationToken">The request's cancellation token.</param>
+    /// <param name="reason">
+    /// Why the sign-in page is shown again, when an application's two-step requirement
+    /// sent the person there (S23): a short word, in either shape, never stored with the
+    /// request. The resume decides again from the session.
+    /// </param>
     private async Task<string> AccountsRedirectAsync(
-        string page, AuthorizeCommand request, PendingContext pending, CancellationToken cancellationToken)
+        string page,
+        AuthorizeCommand request,
+        PendingContext pending,
+        CancellationToken cancellationToken,
+        string? reason = null)
     {
         var accountsBase = _idpSettings.AccountsBaseUrl.TrimEnd('/');
 
@@ -591,7 +679,7 @@ public class AuthorizeCommandHandler :
             if (!_idpSettings.AuthorizationRequestHandlesEnabled)
             {
                 return PresentationHintsQuery.AppendTo(
-                    $"{accountsBase}/{page}?returnTo={Uri.EscapeDataString(request.OriginalRequestUrl)}",
+                    WithReason($"{accountsBase}/{page}?returnTo={Uri.EscapeDataString(request.OriginalRequestUrl)}", reason),
                     pending.Hints);
             }
 
@@ -599,9 +687,12 @@ public class AuthorizeCommandHandler :
         }
 
         return PresentationHintsQuery.AppendTo(
-            $"{accountsBase}/{page}?client_id={Uri.EscapeDataString(request.ClientId!)}&auth_request={handle}",
+            WithReason($"{accountsBase}/{page}?client_id={Uri.EscapeDataString(request.ClientId!)}&auth_request={handle}", reason),
             pending.Hints);
     }
+
+    private static string WithReason(string url, string? reason) =>
+        reason is null ? url : RelyingPartyRedirect.AppendQuery(url, ApplicationMfaReason.QueryName, reason);
 
     /// <summary>
     /// Stores the validated request under a new handle and returns the handle.
@@ -732,16 +823,58 @@ public class AuthorizeCommandHandler :
         // Resolved values, which resolve to themselves: the resume URL never
         // carries the hints, so the stored request is their only way back.
         stored.Hints.Language,
-        stored.Hints.Theme);
+        stored.Hints.Theme,
+        resume.AppMfaTicket);
 
     /// <summary>The current time, from the injected clock, as every rule here reads it.</summary>
     private DateTime UtcNow() => _timeProvider.GetUtcNow().UtcDateTime;
 
-    private static AuthorizeResult ErrorRedirect(AuthorizeCommand request, string oauthError)
+    /// <summary>
+    /// The redirect of an error that ends the request, after its prompt was read. An
+    /// interactive request is over, so the tickets it raised go with it (AM3): its step-up
+    /// ticket and its application two-step ticket. Under <c>prompt=none</c> neither is
+    /// touched.
+    /// </summary>
+    private AuthorizeResult FinalError(
+        AuthorizeCommand request, PromptValues prompt, string oauthError, string? errorDescription = null)
     {
+        var redirect = ErrorRedirect(request, oauthError, errorDescription);
+
+        return prompt.None
+            ? redirect
+            : redirect with
+            {
+                ClearStepUpTicket = RaisedStepUpTicket(request),
+                ClearAppMfaTicket = RaisedAppMfaTicket(request)
+            };
+    }
+
+    /// <summary>
+    /// Whether the browser holds the step-up ticket this request raised. Only that one: the
+    /// cookie is one per browser, and another application's request in another tab may be
+    /// waiting on its own.
+    /// </summary>
+    private bool RaisedStepUpTicket(AuthorizeCommand request) =>
+        _stepUpTicketService.TryValidate(
+            request.StepUpTicket, request.ClientId!, request.CodeChallenge, UtcNow(),
+            _idpSettings.StepUpTicketLifetime, out _);
+
+    /// <summary>Whether the browser holds the application two-step ticket this request raised.</summary>
+    private bool RaisedAppMfaTicket(AuthorizeCommand request) =>
+        _appMfaTicketService.BelongsTo(request.AppMfaTicket, request.ClientId!, request.CodeChallenge, UtcNow());
+
+    private static AuthorizeResult ErrorRedirect(
+        AuthorizeCommand request, string oauthError, string? errorDescription = null)
+    {
+        var redirect = errorDescription is null
+            ? request.RedirectUri!
+            : RelyingPartyRedirect.AppendQuery(request.RedirectUri!, "error", oauthError);
+
         return new AuthorizeResult
         {
-            RedirectUrl = AppendQuery(request.RedirectUri!, "error", oauthError, request.State)
+            RedirectUrl = errorDescription is null
+                ? AppendQuery(redirect, "error", oauthError, request.State)
+                : AppendQuery(redirect, "error_description", errorDescription, request.State)
         };
     }
 

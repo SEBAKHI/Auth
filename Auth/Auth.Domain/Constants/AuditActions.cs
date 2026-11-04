@@ -210,6 +210,7 @@ public static class AuditActions
     public const string ApplicationLaunchAddressesChanged = "application.launch_addresses.changed";
     public const string ApplicationAppearanceChanged = "application.appearance.changed";
     public const string ApplicationLogoHeightChanged = "application.logo_height.changed";
+    public const string ApplicationTwoFactorRequirementChanged = "application.two-factor-requirement-changed";
 
     // OrganizationManagement
     public const string OrganizationOwnershipTransferInitiated = "organization.ownership_transfer_initiated";
@@ -312,6 +313,7 @@ public static class AuditActions
             [ApplicationLaunchAddressesChanged] = AuditActionTypes.Application,
             [ApplicationAppearanceChanged] = AuditActionTypes.Application,
             [ApplicationLogoHeightChanged] = AuditActionTypes.Application,
+            [ApplicationTwoFactorRequirementChanged] = AuditActionTypes.Application,
 
             [OrganizationOwnershipTransferInitiated] = AuditActionTypes.OrganizationManagement,
             [OrganizationOwnershipTransferred] = AuditActionTypes.OrganizationManagement,

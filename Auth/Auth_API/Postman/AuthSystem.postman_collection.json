@@ -7,6 +7,11 @@
 	},
 	"variable": [
 		{
+			"key": "applicationReauthenticationMaxAgeMinutes",
+			"value": "null",
+			"type": "string"
+		},
+		{
 			"key": "baseUrl",
 			"value": "http://localhost:5000",
 			"type": "string"
@@ -1583,6 +1588,21 @@
 				},
 				{
 					"name": "Get Application by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const json = pm.response.json();",
+									"    // Update Application is a full replacement: it sends this back so it is not wiped.",
+									"    pm.collectionVariables.set('applicationReauthenticationMaxAgeMinutes', JSON.stringify(json.reauthenticationMaxAgeMinutes ?? null));",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"url": {
@@ -1591,6 +1611,18 @@
 							"path": ["api", "v1", "applications", "{{applicationId}}"]
 						},
 						"description": "Returns a specific application by ID."
+					}
+				},
+				{
+					"name": "Get Application MFA Readiness",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/mfa-readiness",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "applications", "{{applicationId}}", "mfa-readiness"]
+						},
+						"description": "Of the users who started a session in the application in the last 30 days, how many already have an authenticator app (activeUsers, withQualifyingFactor, withoutQualifyingFactor). Read before switching the application's two-step requirement on."
 					}
 				},
 				{
@@ -1655,14 +1687,14 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"Updated Application Name\",\n    \"description\": \"Updated application description\",\n    \"baseUrl\": \"https://updated-app.example.com\",\n    \"logoUrl\": null,\n    \"contactEmail\": \"admin@updated-app.example.com\",\n    \"allowSelfRegistration\": false,\n    \"requireTwoFactor\": false,\n    \"requireEmailVerification\": true,\n    \"sessionTimeoutMinutes\": 120,\n    \"maxConcurrentSessions\": 10\n}"
+							"raw": "{\n    \"name\": \"Updated Application Name\",\n    \"description\": \"Updated application description\",\n    \"baseUrl\": \"https://updated-app.example.com\",\n    \"logoUrl\": null,\n    \"contactEmail\": \"admin@updated-app.example.com\",\n    \"allowSelfRegistration\": false,\n    \"requireEmailVerification\": true,\n    \"sessionTimeoutMinutes\": 120,\n    \"maxConcurrentSessions\": 10,\n    \"reauthenticationMaxAgeMinutes\": {{applicationReauthenticationMaxAgeMinutes}}\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "applications", "{{applicationId}}"]
 						},
-						"description": "Updates an existing application's settings."
+						"description": "Updates an existing application's settings. A full replacement, except the fields that are left unchanged when omitted: requireTwoFactor and accessMode among them, so this body does not touch the two-step requirement. Run Get Application by ID first: it fills the step-up policy (reauthenticationMaxAgeMinutes) this body sends back."
 					}
 				},
 				{

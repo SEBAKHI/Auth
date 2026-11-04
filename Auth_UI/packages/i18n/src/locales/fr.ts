@@ -1033,7 +1033,16 @@ export const fr: TranslationResources = {
     sessionTimeoutHint:
       "Durée pendant laquelle une session reste valide sans activité.",
     requireTwoFactorHint:
-      "Chaque utilisateur doit franchir une deuxième étape de vérification.",
+      "Activée, la connexion à cette application demande une deuxième étape, un code d’une application d’authentification ; une personne qui n’en a pas doit d’abord en configurer une. En mode Surveillance du réglage « Application de l’authentification à deux facteurs » (Paramètres système), personne n’est encore bloqué : le serveur enregistre seulement qui le serait.",
+    mfaReadiness:
+      "{{days}} derniers jours : {{active}} personnes se sont connectées à cette application ; {{without}} n’ont pas d’application d’authentification.",
+    mfaRequireConfirmTitle:
+      "Exiger l’authentification à deux facteurs pour {{name}} ?",
+    mfaRequireConfirmBody:
+      "{{without}} des {{active}} personnes connectées ces {{days}} derniers jours n’ont pas d’application d’authentification. Une fois l’exigence appliquée, elles devront en configurer une avant de se reconnecter à cette application.",
+    mfaRequireConfirmBodyNoCount:
+      "Le nombre de personnes sans application d’authentification n’a pas pu être lu. Une fois l’exigence appliquée, celles qui n’en ont pas devront en configurer une avant de se reconnecter à cette application.",
+    mfaRequireConfirmAction: "L’exiger",
     requireEmailVerificationHint:
       "Les utilisateurs doivent confirmer leur adresse e-mail avant de se connecter.",
     allowOrganizationCreation:
@@ -1523,6 +1532,8 @@ export const fr: TranslationResources = {
       applicationLaunchAddressesChanged: "Adresses de lancement d'une application modifiées",
       applicationAppearanceChanged: "Apparence d'une application modifiée",
       applicationLogoHeightChanged: "Taille du logo d’une application modifiée",
+      applicationTwoFactorRequirementChanged:
+        "Exigence d’authentification à deux facteurs d’une application modifiée",
       organizationOwnershipTransferInitiated:
         "Transfert de propriété d'organisation lancé",
       organizationOwnershipTransferred: "Propriété d'organisation transférée",
@@ -2929,6 +2940,13 @@ export const fr: TranslationResources = {
       applicationSessionsEndWithSsoSession: "Les connexions aux applications prennent fin avec la session SSO",
       applicationSessionsEndWithSsoSessionHint:
         "La connexion d'une application est liée à la session d'authentification unique (SSO) dont elle est issue : quand cette session prend fin (une déconnexion, trop longtemps sans utilisation, ou sa durée maximale), le prochain renouvellement de l'application est refusé et la personne se reconnecte. Utiliser l'application compte comme une utilisation de la session SSO : une personne qui y travaille reste donc connectée. Une connexion sans « Rester connecté » prend ainsi fin après la limite d'inactivité sans utilisation, et à la durée maximale de la session de navigateur même en cours d'utilisation. Activé par défaut. Le désactiver est le retour arrière : la connexion d'une application ne prend alors fin qu'à une déconnexion (avec la déconnexion unique activée) ou à sa propre expiration.",
+      applicationMfaEnforcement:
+        "Application de l’authentification à deux facteurs",
+      applicationMfaEnforcementHint:
+        "Ce que fait le serveur quand une application exige l’authentification à deux facteurs et qu’une connexion ne l’a pas prouvée. Surveillance : personne n’est bloqué ; le serveur enregistre qui le serait (app-mfa.would-require). L’application stricte sera proposée quand les pages de connexion qui guident les personnes seront livrées.",
+      applicationMfaEnforcementOptions: {
+        Monitor: "Surveillance (journal seulement)",
+      },
     },
     email: {
       title: "E-mail (SMTP)",

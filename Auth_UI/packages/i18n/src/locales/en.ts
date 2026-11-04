@@ -1017,7 +1017,15 @@ export const en = {
     sessionTimeoutHint:
       "How long a signed-in session stays valid without activity.",
     requireTwoFactorHint:
-      "Every user must pass a second verification step to sign in.",
+      "When on, signing in to this application asks for a second step, a code from an authenticator app; someone without one is asked to set one up first. Under the Monitor mode of Application two-factor enforcement (System settings), nobody is stopped yet: the server only records who would be.",
+    mfaReadiness:
+      "Last {{days}} days: {{active}} people signed in to this application; {{without}} have no authenticator app.",
+    mfaRequireConfirmTitle: "Require two-factor authentication for {{name}}?",
+    mfaRequireConfirmBody:
+      "{{without}} of the {{active}} people who signed in during the last {{days}} days have no authenticator app. Once it is enforced, they are asked to set one up before they sign in to this application again.",
+    mfaRequireConfirmBodyNoCount:
+      "The number of people without an authenticator app could not be read. Once it is enforced, anyone without one is asked to set one up before they sign in to this application again.",
+    mfaRequireConfirmAction: "Require it",
     requireEmailVerificationHint:
       "Users must confirm their email address before they can sign in.",
     allowOrganizationCreation: "Organization creation from this application",
@@ -1510,6 +1518,8 @@ export const en = {
       applicationLaunchAddressesChanged: "Application launch addresses changed",
       applicationAppearanceChanged: "Application appearance changed",
       applicationLogoHeightChanged: "Application logo size changed",
+      applicationTwoFactorRequirementChanged:
+        "Application two-factor requirement changed",
       organizationOwnershipTransferInitiated:
         "Organization ownership transfer started",
       organizationOwnershipTransferred: "Organization ownership transferred",
@@ -2895,6 +2905,12 @@ export const en = {
       applicationSessionsEndWithSsoSession: "Application sign-ins end with the SSO session",
       applicationSessionsEndWithSsoSessionHint:
         "An application’s sign-in is tied to the single sign-on (SSO) session it began from: once that session ends (a sign-out, too long without use, or its maximum), the application’s next renewal is refused and the person signs in again. Using the application counts as using the SSO session, so a person at work in it stays signed in. A sign-in without “Stay signed in” therefore ends after the inactivity limit without use, and at the browser session maximum even in use. On by default. Turning it off is the rollback: an application’s sign-in then ends only at a sign-out (with single logout on) or at its own expiry.",
+      applicationMfaEnforcement: "Application two-factor enforcement",
+      applicationMfaEnforcementHint:
+        "What the server does when an application requires two-factor authentication and a sign-in did not prove it. Monitor: nobody is stopped; the server logs who would be (app-mfa.would-require). Enforce is offered once the sign-in pages that guide people through it ship.",
+      applicationMfaEnforcementOptions: {
+        Monitor: "Monitor (log only)",
+      },
     },
     email: {
       title: "Email (SMTP)",

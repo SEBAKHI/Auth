@@ -40,6 +40,15 @@ public interface ITwoFactorStateStore
     Task<bool> HasEnabledFactorAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The readiness of an application's recent users for its two-step requirement (S23,
+    /// AM11): the distinct live accounts that started a session in the application at or
+    /// after <paramref name="sinceUtc"/>, and how many of them have an enabled second factor
+    /// by the same definition as <see cref="HasEnabledFactorAsync"/>, in one statement.
+    /// </summary>
+    Task<ApplicationMfaReadiness> GetApplicationMfaReadinessAsync(
+        Guid applicationId, DateTime sinceUtc, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Whether a role is held at platform scope by a live account that has no
     /// enabled second factor — by the same definition of "has a factor" as
     /// <see cref="HasEnabledFactorAsync"/>, in one statement. Adding a permission to

@@ -59,6 +59,24 @@ public class ApplicationContractParityTests
         reported.Should().Contain(settings);
     }
 
+    [Theory]
+    [InlineData(typeof(UpdateApplicationRequest))]
+    [InlineData(typeof(UpdateApplicationCommand))]
+    public void Update_LeavesTheTwoStepRequirementAndAccessModeUnchanged_WhenOmitted(Type contract)
+    {
+        // S23, AM11 (11-2): a body that omits one of them used to switch the two-step
+        // requirement off, or close the application to its invitation list. Both are
+        // nullable now, and null means "unchanged". Deliberate break: make either a
+        // plain bool or enum again.
+        foreach (var name in new[] { nameof(UpdateApplicationRequest.RequireTwoFactor), nameof(UpdateApplicationRequest.AccessMode) })
+        {
+            var property = contract.GetProperty(name, BindingFlags.Public | BindingFlags.Instance);
+            property.Should().NotBeNull($"{contract.Name} carries {name}");
+            Nullable.GetUnderlyingType(property!.PropertyType).Should().NotBeNull(
+                $"{contract.Name}.{name} must be nullable: omitted means unchanged");
+        }
+    }
+
     private static IEnumerable<string> SettableNames(Type type)
     {
         return type

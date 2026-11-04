@@ -333,6 +333,11 @@
       "pointer": "#/sessionTimeoutMinutes"
     },
     {
+      "code": "Application.TwoFactorRequired",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
       "code": "Application.UserAccessAlreadyGranted",
       "status": 409,
       "source": "catalog"

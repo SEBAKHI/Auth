@@ -2395,7 +2395,7 @@ Retry-After: 43
 
 ‏والتضمينات وصفية لا غير. فهي تُخزَّن وتُعرَض في لوحة التحكم، ولا تمنح شيئاً وقت التشغيل — راجع القسم [4.4](#44-التفويض-المبني-على-الصلاحيات).
 
-#### ‏Applications — 17 نقطة نهاية
+#### ‏Applications — 18 نقطة نهاية
 
 | ‏الصلاحية | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
@@ -2403,6 +2403,7 @@ Retry-After: 43
 | ‏مجهول | ‏الاسم والشعاران (للوضع الفاتح والداكن) ومظهر التطبيق الخاص ما دام مفعّلًا، وأيّ قالب تعرضه لوحة صفحة الدخول، لشاشة دخول قبل أن يسجّل أحد دخوله. **مجهولة** — فتطبيق الحسابات يناديها | ‏`/api/v1/Applications/{clientId}/public-branding` | ‏GET |
 | ‏مجهول | ‏القالب الذي تعرضه لوحة صفحات الدخول لهذا التطبيق، مصيَّرًا بلغة واحدة، بصيغة JSON. وحدّ المعدّل `sign-in-page`؛ راجع القسم [5.21b](#521b-قوالب-صفحات-الدخول) | ‏`/api/v1/Applications/{clientId}/login-design` | ‏GET |
 | ‏`applications:read` | ‏تطبيق واحد | ‏`/api/v1/Applications/{id}` | ‏GET |
+| ‏`applications:read` | ‏من المستخدمين الذين بدأوا جلسة فيه خلال آخر 30 يومًا، كم منهم يملك تطبيق مصادقة: `{activeUsers, withQualifyingFactor, withoutQualifyingFactor, windowDays}`. تعرضه لوحة التحكم قبل تشغيل اشتراط المصادقة الثنائية | ‏`/api/v1/Applications/{id}/mfa-readiness` | ‏GET |
 | ‏`applications:read` | ‏أدواره | ‏`/api/v1/Applications/{id}/roles` | ‏GET |
 | ‏`applications:read` | ‏صلاحياته | ‏`/api/v1/Applications/{id}/permissions` | ‏GET |
 | ‏`applications:read` | ‏قائمة مصفَّحة بمستخدميه | ‏`/api/v1/Applications/{id}/users` | ‏GET |
@@ -2416,6 +2417,8 @@ Retry-After: 43
 | ‏`applications:read` | ‏قائمة وصوله الفردية، المستعملة حين يكون نمط الوصول Restricted | ‏`/api/v1/Applications/{id}/access` | ‏GET |
 | ‏`applications:update` | ‏إضافة مستخدم إلى تلك القائمة | ‏`/api/v1/Applications/{id}/access` | ‏POST |
 | ‏`applications:update` | ‏إزالة مستخدم وإبطال رموز ذلك التطبيق له | ‏`/api/v1/Applications/{id}/access/{userId}` | ‏DELETE |
+
+**‏اشتراط المصادقة الثنائية لتطبيق (`requireTwoFactor`).** اختيار المسؤول، ومطفأ افتراضيًّا. وحين يُشغَّل تشترط نقطة authorize وتبادل الكود وكل تجديد لرموز التطبيق دخولًا أثبت عاملين: عاملًا أوّل، ورمزًا من تطبيق المصادقة أو رمز استرداد (ورمز البريد لا يُحسب أبدًا). ويقرّر `IdentityProvider:ApplicationMfaEnforcement` ما يحدث لدخول لم يُثبتهما: `Monitor` (الافتراضي) يسجّل `app-mfa.would-require` ويتركه يمرّ؛ و`Enforce` يرسل الشخص ليسجّل الدخول مع سبب، ويجيب `login_required` تحت `prompt=none`، و`access_denied` مع `error_description=application_requires_two_step_verification` حين يعود بلا تقدّم، و**403 `Application.TwoFactorRequired`** عند نقطة الرموز، حيث يُنهي التجديدُ المرفوض تلك الجلسة (`app-mfa.refused`). ولا يُعرض `Enforce` قبل أن تُشحن صفحات الدخول التي ترشد الشخص إلى إعداد تطبيق مصادقة. ويُقرأ ما أثبته الدخول من جلسة الدخول الموحّد (`IdpSessions.AuthMethods`)، ويُسجَّل على صفّ جلسة التطبيق لتجديداته؛ ورمز التطبيق لا يحمل `amr` ولا `auth_time`. و`PUT` الذي يُغفل `requireTwoFactor` أو `accessMode` يتركه كما هو، وكل تغيير للاشتراط يُدقَّق (`application.two-factor-requirement-changed`). ومنظور التطبيق المتكامل في [دليل التكامل](APPLICATION_INTEGRATION_GUIDE.md#when-your-application-requires-two-factor-authentication). *‏في الكود:* `Auth/Auth.Application/Features/Authentication/Common/ApplicationMfaPolicy.cs`.
 
 #### ‏Organizations — 23 نقطة نهاية
 
