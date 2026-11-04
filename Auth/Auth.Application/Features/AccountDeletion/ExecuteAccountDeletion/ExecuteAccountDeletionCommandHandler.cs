@@ -23,6 +23,7 @@ public class ExecuteAccountDeletionCommandHandler
 {
     private readonly IAccountDeletionRequestRepository _requestRepository;
     private readonly IUserRepository _userRepository;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IUserExternalLoginRepository _externalLoginRepository;
     private readonly IEnumerable<IExternalTokenLifecycle> _tokenLifecycles;
     private readonly IPerUserCryptoService _perUserCrypto;
@@ -34,6 +35,7 @@ public class ExecuteAccountDeletionCommandHandler
     public ExecuteAccountDeletionCommandHandler(
         IAccountDeletionRequestRepository requestRepository,
         IUserRepository userRepository,
+        ICredentialRevocationService credentialRevocation,
         IUserExternalLoginRepository externalLoginRepository,
         IEnumerable<IExternalTokenLifecycle> tokenLifecycles,
         IPerUserCryptoService perUserCrypto,
@@ -44,6 +46,7 @@ public class ExecuteAccountDeletionCommandHandler
     {
         _requestRepository = requestRepository;
         _userRepository = userRepository;
+        _credentialRevocation = credentialRevocation;
         _externalLoginRepository = externalLoginRepository;
         _tokenLifecycles = tokenLifecycles;
         _perUserCrypto = perUserCrypto;
@@ -106,6 +109,14 @@ public class ExecuteAccountDeletionCommandHandler
                 throw new InvalidOperationException(
                     "External provider token revocation failed; the deletion will retry.");
             }
+
+            // Revoke everything again before the purge, as the administrator's permanent
+            // delete does: the request revoked at its start, a grace period ago, and a
+            // sign-in or a restored row since would otherwise keep a token alive past the
+            // rows the purge removes. The user-level entry it writes is kept until the
+            // revocation horizon; the purge leaves RevokedTokens alone (X04).
+            await _credentialRevocation.RevokeAllCredentialsAsync(
+                user.Id, null, "Account destroyed at the end of the deletion grace period", cancellationToken);
 
             var purged = await _userRepository.HardDeleteAsync(user.Id, cancellationToken);
             if (!purged)

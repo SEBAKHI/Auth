@@ -255,15 +255,15 @@ public class CredentialRevocationService : ICredentialRevocationService
     }
 
     /// <summary>
-    /// How long a killed session's id stays blacklisted: until the last moment a
-    /// token issued right now could still be accepted.
+    /// The expiry asked for a killed session's id when no session row says more: the
+    /// last moment a token issued right now could be accepted under the live settings.
     /// </summary>
     /// <remarks>
-    /// That is NOT the access-token lifetime alone: validation adds ClockSkew on
-    /// top of exp, so a flat one-day horizon could lapse while a token was still
-    /// being honoured — the settings ceiling for the lifetime is exactly one day,
-    /// leaving no room for the skew. Computed from the live settings so it follows
-    /// them if either ceiling moves.
+    /// Only what this caller asks for. The rule is the blacklist's own floor
+    /// (<see cref="TokenBlacklistService.BlacklistSession"/>, X04): no session entry is
+    /// kept less than <see cref="RevocationHorizon.User"/> from now, because a token
+    /// issued before a lifetime was lowered, or under a session row shorter than it,
+    /// outlives both this value and the row's expiry.
     /// </remarks>
     private DateTime AccessTokenAcceptanceHorizon()
     {

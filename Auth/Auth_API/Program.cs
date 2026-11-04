@@ -745,13 +745,17 @@ builder.Services.AddSingleton<IJwtTokenService>(jwtTokenService);
 // Token blacklist: one singleton behind both the interface and the concrete
 // type (the background service needs the concrete LoadSnapshot for rehydration),
 // with a write-behind channel and a durable-store background persister so
-// revocations survive app-pool recycles.
+// revocations survive app-pool recycles. The background service loads the list in
+// its StartAsync, before the server starts; it stays registered before the
+// security posture check, whose first evaluation then knows how that load ended
+// (X04). The status is what /ready and the posture read.
 builder.Services.AddSingleton(_ => Channel.CreateUnbounded<TokenRevocation>(
     new UnboundedChannelOptions { SingleReader = true, SingleWriter = false }));
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<TokenRevocation>>().Writer);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<TokenRevocation>>().Reader);
 builder.Services.AddSingleton<TokenBlacklistService>();
 builder.Services.AddSingleton<ITokenBlacklistService>(sp => sp.GetRequiredService<TokenBlacklistService>());
+builder.Services.AddSingleton<RevocationRehydrationStatus>();
 builder.Services.AddHostedService<TokenRevocationBackgroundService>();
 builder.Services.AddSingleton<ICredentialHasher, KeyringCredentialHasher>();
 builder.Services.AddSingleton<IIdentifierHasher, IdentifierHasher>();
@@ -915,6 +919,8 @@ builder.Services.AddSingleton<ISecurityPostureContributor, KeyringPostureContrib
 builder.Services.AddSingleton<ISecurityPostureContributor, AdminApiPostureContributor>();
 // S24: email sending switched off while accounts depend on the emailed second factor.
 builder.Services.AddSingleton<ISecurityPostureContributor, EmailCodeFactorPostureContributor>();
+// X04: the token revocation list loaded at startup, and the lifetime and skew within their bounds.
+builder.Services.AddSingleton<ISecurityPostureContributor, RevocationPostureContributor>();
 builder.Services.AddHostedService<SecurityPostureCheck>();
 
 // External Authentication
@@ -1439,7 +1445,8 @@ builder.Services.AddOpenApi("v1", options =>
 //   /health -> liveness  (tag "live") : is the process up? No external dependencies, so a
 //                                       transient DB/secret outage never triggers a restart.
 //   /ready  -> readiness (tag "ready"): can we actually serve auth requests? Database reachable
-//                                       AND the JWT signing key is loaded.
+//                                       AND the JWT signing key is loaded AND the token
+//                                       revocation list is loaded (X04).
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy("Auth API process is running."), tags: ["live"])
     // Cached and single-flight, not the stock SQL Server check: /ready is
@@ -1456,6 +1463,11 @@ builder.Services.AddHealthChecks()
         args: connectionString)
     .AddTypeActivatedCheck<SigningKeyHealthCheck>(
         "signing-key",
+        failureStatus: HealthStatus.Unhealthy,
+        tags: ["ready"])
+    // Until a load succeeds, a token revoked before this start is accepted again.
+    .AddCheck<RevocationRehydrationHealthCheck>(
+        "revocation",
         failureStatus: HealthStatus.Unhealthy,
         tags: ["ready"]);
 

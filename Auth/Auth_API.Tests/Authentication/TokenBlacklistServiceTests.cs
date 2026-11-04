@@ -16,7 +16,7 @@ public class TokenBlacklistServiceTests
     {
         var channel = Channel.CreateUnbounded<TokenRevocation>();
         var service = new TokenBlacklistService(
-            channel.Writer, new Mock<ILogger<TokenBlacklistService>>().Object);
+            channel.Writer, TimeProvider.System, new Mock<ILogger<TokenBlacklistService>>().Object);
         return (service, channel);
     }
 

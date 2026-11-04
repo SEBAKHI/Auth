@@ -14,13 +14,14 @@ public interface IRevokedTokenStore
     Task AddAsync(TokenRevocation revocation, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Loads all revocations that have not yet expired (for rehydrating the
-    /// in-memory blacklist on startup).
+    /// Loads all revocations still in force at <paramref name="now"/> (for rehydrating the
+    /// in-memory blacklist at startup and on every periodic re-read). A user-level row is in
+    /// force until the user revocation horizon after it took effect, whatever expiry it carries.
     /// </summary>
     Task<IReadOnlyList<TokenRevocation>> GetActiveAsync(DateTime now, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Deletes revocations that expired before the given cutoff.
+    /// Deletes revocations no longer in force at <paramref name="olderThan"/>, by the same rule.
     /// </summary>
     Task PurgeExpiredAsync(DateTime olderThan, CancellationToken cancellationToken);
 }

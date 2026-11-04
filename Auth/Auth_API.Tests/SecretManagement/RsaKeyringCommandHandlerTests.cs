@@ -69,7 +69,6 @@ public sealed class RsaKeyringCommandHandlerTests : IDisposable
             _keyring.SigningKeys,
             _keyring.Challenges.Service,
             _keyring.Publisher.Object,
-            new TestHelpers.TestOptions<JwtSettings>(_keyring.Jwt),
             _keyring.Clock,
             new Mock<ILogger<Auth.Application.Features.Secrets.Common.RsaKeyringChangeService>>().Object);
         await StagePublishAndWaitAsync();
@@ -240,12 +239,14 @@ public sealed class RsaKeyringCommandHandlerTests : IDisposable
         // afterwards, before the first change. The first save keeps the name the JWKS publishes.
         _keyring.RemoveSigningRing();
         await _keyring.RestartAsync();
+        // The change service reads no Jwt settings since X04; the edit lands in the settings the
+        // rest of the process reads.
+        _keyring.Jwt.KeyId = "renamed";
         var renamed = new Auth.Application.Features.Secrets.Common.RsaKeyringChangeService(
             _keyring.Secrets,
             _keyring.SigningKeys,
             _keyring.Challenges.Service,
             _keyring.Publisher.Object,
-            new TestHelpers.TestOptions<JwtSettings>(new JwtSettings { KeyId = "renamed", AccessTokenLifetimeMinutes = 15 }),
             _keyring.Clock,
             new Mock<ILogger<Auth.Application.Features.Secrets.Common.RsaKeyringChangeService>>().Object);
 
@@ -328,7 +329,6 @@ public sealed class RsaKeyringCommandHandlerTests : IDisposable
             _keyring.SigningKeys,
             _keyring.Challenges.Service,
             _keyring.Publisher.Object,
-            new TestHelpers.TestOptions<JwtSettings>(_keyring.Jwt),
             _keyring.Clock,
             new Mock<ILogger<Auth.Application.Features.Secrets.Common.RsaKeyringChangeService>>().Object);
         await StagePublishAndWaitAsync();

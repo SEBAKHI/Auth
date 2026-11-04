@@ -47,7 +47,7 @@ public sealed class AppTokenRevocationEndToEndTests : IAsyncLifetime
 
     private readonly UserInfoTokens _tokens = new();
     private readonly TokenBlacklistService _blacklist = new(
-        Channel.CreateUnbounded<TokenRevocation>().Writer, NullLogger<TokenBlacklistService>.Instance);
+        Channel.CreateUnbounded<TokenRevocation>().Writer, TimeProvider.System, NullLogger<TokenBlacklistService>.Instance);
     private readonly Mock<IUserRepository> _users = new();
     private readonly Mock<IRefreshTokenRepository> _refreshTokens = new();
     private readonly Mock<IUserSessionRepository> _sessions = new();

@@ -87,6 +87,27 @@ public class BreakGlassScriptGoldenTests
             "the check is for the same live account the transaction resolves, and reads only");
     }
 
+    /// <summary>
+    /// X04 (RV2 (h), ARR-0386): the user-level entry the script writes is kept for the revocation
+    /// horizon, the minutes taken from <c>RevocationHorizon.User</c>, never a number of its own.
+    /// One hour let a token issued before the script work again after the hour.
+    /// </summary>
+    /// <remarks>Deliberate break: a literal number of minutes in BreakGlassScript; red.</remarks>
+    [Fact]
+    public void Build_KeepsTheUserEntry_ForTheRevocationHorizon_FromTheConstant()
+    {
+        var minutes = (int)Auth.Application.Configuration.RevocationHorizon.User.TotalMinutes;
+
+        BreakGlassScript.Build("someone@example.org").Value
+            .Should().Contain($"SYSUTCDATETIME(), DATEADD(MINUTE, {minutes}, SYSUTCDATETIME()));")
+            .And.NotContain("DATEADD(HOUR");
+        var source = File.ReadAllText(Path.Combine(ApiSourceScan.SolutionDirectory(), "Auth_Setup", "BreakGlassScript.cs"));
+        source.Should().Contain("(int)RevocationHorizon.User.TotalMinutes")
+            .And.Contain("DATEADD(MINUTE, {horizonMinutes},");
+        System.Text.RegularExpressions.Regex.IsMatch(source, @"DATEADD\(MINUTE, \d").Should()
+            .BeFalse("the minutes come from the horizon, not a literal");
+    }
+
     /// <summary>The script from its transaction on: what the owner's run executes.</summary>
     private static string Statement(string script) =>
         script[script.IndexOf("SET XACT_ABORT ON;", StringComparison.Ordinal)..];

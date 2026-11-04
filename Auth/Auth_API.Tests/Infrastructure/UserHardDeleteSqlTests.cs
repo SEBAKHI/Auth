@@ -6,7 +6,9 @@ namespace Auth_API.Tests.Infrastructure;
 /// Guards the user hard-delete purge against schema drift.
 ///
 /// Users is referenced by ~20 non-cascading foreign keys plus loose (FK-less)
-/// user references in AuditLogs, NotificationOutbox and RevokedTokens. The
+/// user references in AuditLogs and NotificationOutbox, and in RevokedTokens,
+/// which the purge leaves alone on purpose (X04: the user-level revocation the
+/// callers write just before it must outlive every token it covers). The
 /// purge in <c>UserRepository.HardDeleteAsync</c> must account for every one
 /// of them: rows the user owns are deleted, actor references on records that
 /// belong to other entities are reattributed, and Organizations ownership is
@@ -115,14 +117,27 @@ public class UserHardDeleteSqlTests
         "immediately and which a UserId/Username-only update left intact for a further 365 days")]
     [InlineData(@"DELETE\s+FROM\s+\[dbo\]\.\[NotificationOutbox\]\s+WHERE\s+\[RecipientUserId\]\s*=\s*@Id\s+OR\s+\[Recipient\]\s*=\s*@Email",
         "queued notifications addressed to the user must be purged")]
-    [InlineData(@"DELETE\s+FROM\s+\[dbo\]\.\[RevokedTokens\]\s+WHERE\s+\[RevocationKey\]",
-        "denylist entries keyed by the user id must be purged")]
     [InlineData(@"DELETE\s+FROM\s+\[dbo\]\.\[AccountDeletionVerifications\]\s+WHERE\s+\[UserId\]\s*=\s*@Id",
         "deletion re-auth OTP rows are Class A and must be purged with the account")]
     public void LooseUserReferences_AreCoveredByThePurge(string pattern, string because)
     {
         new Regex(pattern, RegexOptions.IgnoreCase).IsMatch(HardDeleteSql())
             .Should().BeTrue(because);
+    }
+
+    /// <summary>
+    /// X04 (ARR-0393): the permanent deletes revoke every credential just before the purge, and
+    /// the user-level entry that writes must outlive every access token issued before it (the
+    /// revocation horizon). A DELETE here removed the very row just queued, so after the next
+    /// restart those tokens were accepted again. The store's own purge removes it later.
+    /// </summary>
+    /// <remarks>Deliberate break: put the DELETE back; this turns red.</remarks>
+    [Fact]
+    public void RevokedTokens_AreLeftToTheirOwnPurge()
+    {
+        new Regex(@"(DELETE|UPDATE|MERGE)\s+(FROM\s+)?\[dbo\]\.\[RevokedTokens\]", RegexOptions.IgnoreCase)
+            .IsMatch(HardDeleteSql())
+            .Should().BeFalse("the revocation written before the purge must survive it");
     }
 
     /// <summary>

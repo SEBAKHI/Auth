@@ -10,12 +10,16 @@ public interface ITokenBlacklistService
     /// Blacklist a token by its JWT ID (jti claim).
     /// </summary>
     /// <param name="jti">The JWT ID to blacklist.</param>
-    /// <param name="expiresAt">When the token naturally expires (for cleanup purposes).</param>
+    /// <param name="expiresAt">
+    /// When the token naturally expires. The entry is kept until then plus the largest
+    /// clock skew validation can allow.
+    /// </param>
     void BlacklistToken(string jti, DateTime expiresAt);
 
     /// <summary>
     /// Blacklist all tokens for a specific user (logout all devices).
-    /// Tokens issued before this timestamp will be rejected.
+    /// Tokens issued before this timestamp will be rejected, for as long as any of them
+    /// can live (the user revocation horizon).
     /// </summary>
     /// <param name="userId">The user ID.</param>
     /// <param name="revokedAt">The timestamp after which all tokens should be rejected.</param>
@@ -26,7 +30,13 @@ public interface ITokenBlacklistService
     /// access token carrying that sid is rejected until it would have expired.
     /// </summary>
     /// <param name="sessionId">The session id (sid claim) to blacklist.</param>
-    /// <param name="expiresAt">When the blacklist entry can be cleaned up.</param>
+    /// <param name="expiresAt">
+    /// When the caller expects the entry can be cleaned up. A floor only: the entry is
+    /// kept no less than the user revocation horizon from now.
+    /// </param>
+    /// <remarks>
+    /// Called by <c>ICredentialRevocationService</c> alone: every session kill goes through it.
+    /// </remarks>
     void BlacklistSession(string sessionId, DateTime expiresAt);
 
     /// <summary>

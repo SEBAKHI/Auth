@@ -79,8 +79,7 @@ public class VerifySecretOperationChallengeCommandHandler
         // An access token is only "live" for its lifetime plus the validation
         // clock skew — past that, the holder is getting a new one anyway and was
         // never going to notice the rotation.
-        var accessTokenLifetime =
-            TimeSpan.FromMinutes(_jwtSettings.AccessTokenLifetimeMinutes) + _jwtSettings.ClockSkew;
+        var accessTokenLifetime = _jwtSettings.AccessTokenLifetime + _jwtSettings.ClockSkew;
 
         var snapshot = await _impactRepository.GetImpactAsync(
             accessTokenLifetime, scope.IssuedBefore, PurposeLimitedOverlap.LegacyCap, cancellationToken);

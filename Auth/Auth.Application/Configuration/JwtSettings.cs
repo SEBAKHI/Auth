@@ -17,8 +17,30 @@ public class JwtSettings
     /// </summary>
     public string Audience { get; set; } = string.Empty;
 
+    /// <summary>The shortest access-token lifetime the settings accept, in minutes.</summary>
+    public const int MinAccessTokenLifetimeMinutes = 1;
+
     /// <summary>
-    /// Gets or sets the access token lifetime in minutes.
+    /// The longest access-token lifetime the settings accept, in minutes: one day.
+    /// <see cref="RevocationHorizon.User"/> is built on it.
+    /// </summary>
+    public const int MaxAccessTokenLifetimeMinutes = 1440;
+
+    /// <summary>The smallest clock skew the settings accept, in seconds.</summary>
+    public const int MinClockSkewSeconds = 0;
+
+    /// <summary>
+    /// The largest clock skew the settings accept, in seconds.
+    /// <see cref="RevocationHorizon.User"/> is built on it.
+    /// </summary>
+    public const int MaxClockSkewSeconds = 300;
+
+    /// <summary>The largest clock skew validation can allow on top of a token's exp.</summary>
+    public static readonly TimeSpan MaxClockSkew = TimeSpan.FromSeconds(MaxClockSkewSeconds);
+
+    /// <summary>
+    /// Gets or sets the access token lifetime in minutes, as configured. Read it through
+    /// <see cref="AccessTokenLifetime"/>, which keeps it within the bounds above.
     /// </summary>
     public int AccessTokenLifetimeMinutes { get; set; } = 15;
 
@@ -56,7 +78,8 @@ public class JwtSettings
     public bool RotateRefreshTokens { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets the clock skew allowance in seconds.
+    /// Gets or sets the clock skew allowance in seconds, as configured. Read it through
+    /// <see cref="ClockSkew"/>, which keeps it within the bounds above.
     /// </summary>
     public int ClockSkewSeconds { get; set; } = 60;
 
@@ -84,9 +107,13 @@ public class JwtSettings
     public int ApplicationRefreshReplayGraceSeconds { get; set; } = 30;
 
     /// <summary>
-    /// Gets the access token lifetime as a TimeSpan.
+    /// Gets the access token lifetime as a TimeSpan, within 1–1440 minutes whatever the
+    /// configuration says. The console refuses a value outside them, but the settings file,
+    /// the environment and a stored override are not checked; this bound is what lets a
+    /// revocation be kept long enough for every token (X04, RV1).
     /// </summary>
-    public TimeSpan AccessTokenLifetime => TimeSpan.FromMinutes(AccessTokenLifetimeMinutes);
+    public TimeSpan AccessTokenLifetime => TimeSpan.FromMinutes(
+        Math.Clamp(AccessTokenLifetimeMinutes, MinAccessTokenLifetimeMinutes, MaxAccessTokenLifetimeMinutes));
 
     /// <summary>
     /// Gets the refresh token lifetime as a TimeSpan.
@@ -94,9 +121,11 @@ public class JwtSettings
     public TimeSpan RefreshTokenLifetime => TimeSpan.FromDays(RefreshTokenLifetimeDays);
 
     /// <summary>
-    /// Gets the clock skew as a TimeSpan.
+    /// Gets the clock skew as a TimeSpan, within 0–300 seconds whatever the configuration
+    /// says, for the reason <see cref="AccessTokenLifetime"/> gives.
     /// </summary>
-    public TimeSpan ClockSkew => TimeSpan.FromSeconds(ClockSkewSeconds);
+    public TimeSpan ClockSkew => TimeSpan.FromSeconds(
+        Math.Clamp(ClockSkewSeconds, MinClockSkewSeconds, MaxClockSkewSeconds));
 
     /// <summary>
     /// Gets the refresh replay grace window as a TimeSpan.

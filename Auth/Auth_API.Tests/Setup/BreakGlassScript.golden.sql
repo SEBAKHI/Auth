@@ -16,5 +16,5 @@ UPDATE [dbo].[IdpSessions] SET [RevokedAt] = SYSUTCDATETIME() WHERE [UserId] = @
 UPDATE [dbo].[UserSessions] SET [EndedAt] = SYSUTCDATETIME(), [EndReason] = N'Break-glass two-factor reset'
  WHERE [UserId] = @U AND [EndedAt] IS NULL;
 INSERT INTO [dbo].[RevokedTokens] ([RevocationType], [RevocationKey], [EffectiveAt], [ExpiresAt])
-VALUES (3, LOWER(CONVERT(NVARCHAR(36), @U)), SYSUTCDATETIME(), DATEADD(HOUR, 1, SYSUTCDATETIME()));
+VALUES (3, LOWER(CONVERT(NVARCHAR(36), @U)), SYSUTCDATETIME(), DATEADD(MINUTE, 1445, SYSUTCDATETIME()));
 COMMIT;

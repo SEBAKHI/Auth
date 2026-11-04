@@ -1306,7 +1306,7 @@ Caching is entirely in-process. There is no cache server and no distributed cach
 
 | Cache | What it holds | Expiry |
 |---|---|---|
-| Token blacklist | Revoked token, session and user entries | User-level entries retained 1 hour past revocation; cleanup pass every 5 minutes |
+| Token blacklist | Revoked token, session and user entries | Each entry is kept as long as the tokens it covers can be accepted: a user-level entry 24 h 5 min past revocation (the longest access-token lifetime plus the largest clock skew), a session entry at least that long, a token entry until its exp plus 5 minutes; loaded from `RevokedTokens` before the server starts, re-read every 5 minutes, cleanup pass every 5 minutes |
 | `TemplateCache` | Notification template and layout source, including "no such template" | 15-minute absolute ceiling, plus immediate eviction when a template is published |
 | `FluidTemplateRenderer` parsed cache | Liquid templates already parsed, keyed by their exact source text | Bounded at 1,024 entries; no time expiry |
 | `PolicyArtifactCache` | Rendered privacy-policy documents | No expiry at all — entries are replaced when a revision is published |
@@ -1544,7 +1544,7 @@ and enrichers are built once at startup.
 | Host | Path | Checks run | Status on failure |
 |---|---|---|---|
 | Auth API | `/health` | `self` — the process is running | — (always healthy) |
-| Auth API | `/ready` | `database` (SQL Server, 5-second timeout) and `signing-key` | `Degraded` / **`Unhealthy`** |
+| Auth API | `/ready` | `database` (SQL Server, 5-second timeout), `signing-key` and `revocation` (the token revocation list was loaded at startup) | `Degraded` / **`Unhealthy`** |
 | API Gateway | `/health` | `self` — the process is running | — |
 | API Gateway | `/ready` | `auth-api` — an HTTP probe against the API's `/ready` | Unhealthy |
 

@@ -1,3 +1,4 @@
+using Auth.Application.Configuration;
 using Auth.Domain.ValueObjects;
 using ErrorOr;
 
@@ -14,13 +15,15 @@ namespace Auth_Setup;
 /// One transaction: the factor row goes, the account flag is cleared, and every
 /// way the account is signed in is revoked — refresh tokens, SSO sessions, session
 /// rows — plus a user-level entry in the revocation list that rejects every access
-/// token issued until now. The script throws, and changes nothing, when no live
-/// account has the address.
+/// token issued until now, kept for the revocation horizon
+/// (<see cref="RevocationHorizon.User"/>), the longest any of them can live. The
+/// script throws, and changes nothing, when no live account has the address.
 /// </para>
 /// <para>
-/// The revocation list reaches the API's memory only when the API starts, so the
-/// application pool is recycled after the script. No audit row is written: the
-/// owner's own record of running it is the record.
+/// The API re-reads the revocation list every five minutes (X04), so the entry
+/// reaches every running API process within five minutes, with no recycle. It is
+/// the only writer of a revocation outside the API's credential revocation service.
+/// No audit row is written: the owner's own record of running it is the record.
 /// </para>
 /// <para>
 /// One builder and one golden file, so a later factor (passkeys) is removed by
@@ -46,6 +49,7 @@ public static class BreakGlassScript
 
         var normalized = SqlLiteral.Unicode(email.Value.ToNormalized());
         var reason = SqlLiteral.Unicode(Reason);
+        var horizonMinutes = (int)RevocationHorizon.User.TotalMinutes;
 
         // The rule the administrator's reset enforces (X12, LK4 (4)) and this script
         // cannot: comments for the owner who runs it, before the transaction. The
@@ -69,7 +73,7 @@ public static class BreakGlassScript
             $"UPDATE [dbo].[UserSessions] SET [EndedAt] = SYSUTCDATETIME(), [EndReason] = {reason}\n" +
             " WHERE [UserId] = @U AND [EndedAt] IS NULL;\n" +
             "INSERT INTO [dbo].[RevokedTokens] ([RevocationType], [RevocationKey], [EffectiveAt], [ExpiresAt])\n" +
-            "VALUES (3, LOWER(CONVERT(NVARCHAR(36), @U)), SYSUTCDATETIME(), DATEADD(HOUR, 1, SYSUTCDATETIME()));\n" +
+            $"VALUES (3, LOWER(CONVERT(NVARCHAR(36), @U)), SYSUTCDATETIME(), DATEADD(MINUTE, {horizonMinutes}, SYSUTCDATETIME()));\n" +
             "COMMIT;";
     }
 }
