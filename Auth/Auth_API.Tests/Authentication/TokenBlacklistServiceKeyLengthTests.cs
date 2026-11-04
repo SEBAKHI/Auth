@@ -17,7 +17,7 @@ public class TokenBlacklistServiceKeyLengthTests
     {
         // Arrange
         var channel = Channel.CreateUnbounded<TokenRevocation>();
-        using var service = new TokenBlacklistService(channel.Writer, Mock.Of<ILogger<TokenBlacklistService>>());
+        using var service = new TokenBlacklistService(channel.Writer, TimeProvider.System, Mock.Of<ILogger<TokenBlacklistService>>());
 
         // Act
         service.BlacklistToken(new string('a', TokenBlacklistService.MaxKeyLength), DateTime.UtcNow.AddMinutes(15));
@@ -31,7 +31,7 @@ public class TokenBlacklistServiceKeyLengthTests
     {
         // Arrange
         var channel = Channel.CreateUnbounded<TokenRevocation>();
-        using var service = new TokenBlacklistService(channel.Writer, Mock.Of<ILogger<TokenBlacklistService>>());
+        using var service = new TokenBlacklistService(channel.Writer, TimeProvider.System, Mock.Of<ILogger<TokenBlacklistService>>());
 
         // Act
         service.BlacklistToken(new string('a', TokenBlacklistService.MaxKeyLength + 1), DateTime.UtcNow.AddMinutes(15));

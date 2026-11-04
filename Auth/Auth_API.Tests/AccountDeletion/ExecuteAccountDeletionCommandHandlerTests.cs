@@ -22,6 +22,7 @@ public class ExecuteAccountDeletionCommandHandlerTests
 {
     private readonly Mock<IAccountDeletionRequestRepository> _requestRepositoryMock = new();
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly Mock<IUserExternalLoginRepository> _externalLoginRepositoryMock = new();
     private readonly Mock<IExternalTokenLifecycle> _tokenLifecycleMock = new();
     private readonly Mock<IPerUserCryptoService> _perUserCryptoMock = new();
@@ -42,6 +43,7 @@ public class ExecuteAccountDeletionCommandHandlerTests
         _handler = new ExecuteAccountDeletionCommandHandler(
             _requestRepositoryMock.Object,
             _userRepositoryMock.Object,
+            _credentialRevocationMock.Object,
             _externalLoginRepositoryMock.Object,
             [_tokenLifecycleMock.Object],
             _perUserCryptoMock.Object,
@@ -95,6 +97,36 @@ public class ExecuteAccountDeletionCommandHandlerTests
                     e.UserId == request.UserId && e.PolicyVersion == "2026.07" && !e.ExternalRevocationFailed),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    /// <summary>
+    /// X04, RV3: everything is revoked again just before the purge, as the administrator's
+    /// permanent delete does. The request revoked a grace period ago; a sign-in or a restored
+    /// row since would otherwise keep an access token alive past the rows the purge removes.
+    /// </summary>
+    /// <remarks>Deliberate break: purge first, then revoke; red.</remarks>
+    [Fact]
+    public async Task Handle_DueRequest_RevokesEveryCredential_BeforeThePurge()
+    {
+        var request = SetupDueRequest();
+        var user = TestHelpers.CreateUser(id: request.UserId, isDeleted: true, deletedAt: DateTime.UtcNow.AddDays(-31));
+        var calls = new List<string>();
+        _userRepositoryMock
+            .Setup(r => r.GetByIdIncludeDeletedAsync(request.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _credentialRevocationMock
+            .Setup(s => s.RevokeAllCredentialsAsync(request.UserId, It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("revoke"))
+            .ReturnsAsync(0);
+        _userRepositoryMock
+            .Setup(r => r.HardDeleteAsync(request.UserId, It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("purge"))
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(new ExecuteAccountDeletionCommand(request.Id), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        calls.Should().Equal("revoke", "purge");
     }
 
     [Fact]

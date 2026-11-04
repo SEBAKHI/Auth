@@ -2966,16 +2966,16 @@ It prints one transaction of SQL and opens no connection. **Back up the database
 statement against it in one batch. It removes the account's second factor and recovery codes, clears
 its two-factor flag, revokes its refresh tokens and single sign-on sessions, ends its sessions, and
 adds a revocation of every access token it holds. It stops with `No such user`, changing nothing, when
-no live account has that address. **Then recycle the API's application pool:** the API reads the
-revocation list when it starts, so until the recycle an access token issued before the script keeps
-working, up to its lifetime. The recycle overlaps — the new worker takes over when the old one exits —
-so it needs no downtime.
+no live account has that address. **Then wait 5 minutes:** every running API process re-reads the
+revocation list every 5 minutes, so until it does an access token issued before the script keeps
+working. No recycle is needed.
 
 Know before you run it:
 
 - **No audit row is written.** Keep your own record of when and why you ran it.
-- The revocation entry lasts one hour. If you raised `Jwt:AccessTokenLifetimeMinutes` above 60, a
-  token issued in the minutes before the script outlives it (follow-up OI-102).
+- The revocation entry lasts 24 h 5 min: the longest access-token lifetime the API issues (1,440
+  minutes, whatever `Jwt:AccessTokenLifetimeMinutes` says) plus the largest clock skew (300 seconds),
+  so no token issued before the script outlives it.
 - The next person to sign in to the account and set up two-step verification owns it (with the emailed
   code first, while email is on). Sign in and set it up yourself straight away.
 

@@ -560,7 +560,7 @@ public class UserRepository : IUserRepository
 
         // Staged destruction. Every table below either references Users
         // through a non-cascading foreign key, carries a loose user reference
-        // (AuditLogs, NotificationOutbox, RevokedTokens), or is bound to the
+        // (AuditLogs, NotificationOutbox), or is bound to the
         // account by IDENTIFIER rather than by id (OrganizationInvitations.Email,
         // NotificationOutbox.Recipient, LoginAttempts.Username) — that last
         // class has no foreign key to drift-check, so it is enumerated
@@ -570,6 +570,14 @@ public class UserRepository : IUserRepository
         // reattributed to the system account so those rows keep resolving.
         // AccountDeletionRequests rows are retained untouched as destruction
         // evidence. UserHardDeleteSqlTests guards this list against schema drift.
+        //
+        // RevokedTokens is the one loose reference left alone on purpose (X04):
+        // the callers revoke every credential just before this purge, and the
+        // user-level entry that revocation writes must outlive every access token
+        // issued before it, for the revocation horizon (24 h 5 min). Deleting it
+        // here deleted the very row just queued, so after the next restart those
+        // tokens were accepted again. The entry holds only the account id and two
+        // instants, and the store's purge removes it once the horizon has passed.
         await connection.ExecuteAsync(@"
             -- Destruction tombstone (idempotent MERGE): the identifier
             -- reservation and the restore re-apply anchor. Written before
@@ -607,7 +615,6 @@ public class UserRepository : IUserRepository
             -- The rotations they authorized survive in AuditLogs; the codes
             -- themselves are spent credentials with no evidentiary value.
             DELETE FROM [dbo].[SecretOperationChallenges] WHERE [RequestedBy] = @Id;
-            DELETE FROM [dbo].[RevokedTokens] WHERE [RevocationKey] = CONVERT(NVARCHAR(200), @Id);
 
             -- Platform-level assignments
             DELETE FROM [dbo].[UserRoles] WHERE [UserId] = @Id;

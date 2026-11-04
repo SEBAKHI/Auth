@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Application.Security.Keyring;
@@ -8,7 +7,6 @@ using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using ErrorOr;
 using MediatR;
-using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.Secrets.Common;
 
@@ -71,8 +69,6 @@ public sealed class RsaKeyringChangeService
     private readonly SecretOperationChallengeService _challengeService;
     private readonly IPublisher _publisher;
 
-    // Read live for the access-token lifetime only (T12); never for the migrated key's name.
-    private readonly IOptionsMonitor<JwtSettings> _jwtSettings;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<RsaKeyringChangeService> _logger;
 
@@ -81,7 +77,6 @@ public sealed class RsaKeyringChangeService
         ISigningKeyRing process,
         SecretOperationChallengeService challengeService,
         IPublisher publisher,
-        IOptionsMonitor<JwtSettings> jwtSettings,
         TimeProvider timeProvider,
         ILogger<RsaKeyringChangeService> logger)
     {
@@ -89,7 +84,6 @@ public sealed class RsaKeyringChangeService
         _process = process;
         _challengeService = challengeService;
         _publisher = publisher;
-        _jwtSettings = jwtSettings;
         _timeProvider = timeProvider;
         _logger = logger;
     }
@@ -210,10 +204,10 @@ public sealed class RsaKeyringChangeService
             }
         }
 
-        // The window of the key a promote demotes, from the lifetime in force now (T12).
+        // The window of the key a promote demotes: the user revocation horizon (T12, X04).
         var context = new SigningKeyChangeContext(
             now,
-            SigningKeyOverlap.PreviousVerifyUntil(now, _jwtSettings.CurrentValue.AccessTokenLifetime),
+            SigningKeyOverlap.PreviousVerifyUntil(now),
             newKey,
             before.Value);
 

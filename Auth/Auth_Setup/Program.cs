@@ -99,10 +99,9 @@ static int PrintBreakGlass(string address)
     Console.WriteLine();
     Console.WriteLine(script.Value);
     Console.WriteLine();
-    Console.WriteLine("Then recycle the API's application pool. The statement revokes every token and session of the");
-    Console.WriteLine("account, but the API learns of the revocation only when it starts; until the recycle an access");
-    Console.WriteLine("token issued before it keeps working, up to its lifetime. The recycle overlaps: the new worker");
-    Console.WriteLine("takes over when the old one exits.");
+    Console.WriteLine("Then wait 5 minutes. The statement revokes every token and session of the account, and the API");
+    Console.WriteLine("re-reads the revocation list every 5 minutes: until it does, an access token issued before the");
+    Console.WriteLine("statement keeps working. No recycle is needed.");
     Console.WriteLine();
     Console.WriteLine("Know before you run it:");
     Console.WriteLine("  - No audit row is written: keep your own record of when and why you ran it.");

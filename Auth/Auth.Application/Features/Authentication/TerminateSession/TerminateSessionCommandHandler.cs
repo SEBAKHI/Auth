@@ -12,19 +12,16 @@ namespace Auth.Application.Features.Authentication.TerminateSession;
 public class TerminateSessionCommandHandler : IRequestHandler<TerminateSessionCommand, ErrorOr<Success>>
 {
     private readonly IUserSessionRepository _sessionRepository;
-    private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly ITokenBlacklistService _blacklistService;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly ILogger<TerminateSessionCommandHandler> _logger;
 
     public TerminateSessionCommandHandler(
         IUserSessionRepository sessionRepository,
-        IRefreshTokenRepository refreshTokenRepository,
-        ITokenBlacklistService blacklistService,
+        ICredentialRevocationService credentialRevocation,
         ILogger<TerminateSessionCommandHandler> logger)
     {
         _sessionRepository = sessionRepository;
-        _refreshTokenRepository = refreshTokenRepository;
-        _blacklistService = blacklistService;
+        _credentialRevocation = credentialRevocation;
         _logger = logger;
     }
 
@@ -53,13 +50,11 @@ public class TerminateSessionCommandHandler : IRequestHandler<TerminateSessionCo
             return SessionErrors.SessionAlreadyTerminated;
         }
 
-        await _sessionRepository.TerminateAsync(request.SessionId, "User terminated", cancellationToken);
-
-        // Truly kill the session: revoke its refresh tokens (durable) and
-        // blacklist the session id so existing access tokens are rejected at once.
-        await _refreshTokenRepository.RevokeBySessionIdAsync(
-            request.SessionId, request.UserId, "Session terminated", cancellationToken);
-        _blacklistService.BlacklistSession(request.SessionId.ToString(), session.ExpiresAt);
+        // Truly kill the session through the one credential-kill primitive: revoke its
+        // refresh tokens (durable), end the row, and blacklist the session id so existing
+        // access tokens are rejected at once, for as long as any of them can live.
+        await _credentialRevocation.TerminateSessionAsync(
+            request.SessionId, request.UserId, "User terminated", cancellationToken);
 
         _logger.LogInformation(
             "Session {SessionId} terminated for user {UserId}",

@@ -41,10 +41,23 @@ public static class SystemSettingsRegistry
                 // change saves it.
                 new SettingFieldDefinition("Issuer", SettingKind.String, RestartRequired: true),
                 new SettingFieldDefinition("Audience", SettingKind.String, RestartRequired: true),
-                new SettingFieldDefinition("AccessTokenLifetimeMinutes", SettingKind.Int, Min: 1, Max: 1440, DefaultValue: 15),
+                // Both bounds are the ones JwtSettings clamps to where it is read, and the
+                // revocation horizon is built on the two maxima (X04): never a literal here.
+                new SettingFieldDefinition(
+                    "AccessTokenLifetimeMinutes",
+                    SettingKind.Int,
+                    Min: Configuration.JwtSettings.MinAccessTokenLifetimeMinutes,
+                    Max: Configuration.JwtSettings.MaxAccessTokenLifetimeMinutes,
+                    DefaultValue: 15),
                 new SettingFieldDefinition("RefreshTokenLifetimeDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 7),
                 new SettingFieldDefinition("RotateRefreshTokens", SettingKind.Bool, DefaultValue: true),
-                new SettingFieldDefinition("ClockSkewSeconds", SettingKind.Int, RestartRequired: true, Min: 0, Max: 300, DefaultValue: 60),
+                new SettingFieldDefinition(
+                    "ClockSkewSeconds",
+                    SettingKind.Int,
+                    RestartRequired: true,
+                    Min: Configuration.JwtSettings.MinClockSkewSeconds,
+                    Max: Configuration.JwtSettings.MaxClockSkewSeconds,
+                    DefaultValue: 60),
                 // Read per request through IOptionsSnapshot. Only ever applies to a
                 // refresh presented from the first-party cookie, never to a body.
                 new SettingFieldDefinition("RefreshReplayGraceSeconds", SettingKind.Int, Min: 15, Max: 120, DefaultValue: 30),

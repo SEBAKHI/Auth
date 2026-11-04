@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
@@ -18,25 +19,41 @@ namespace Auth.Infrastructure.Authentication;
 /// a logout would stop rejecting a still-valid access token after the next
 /// recycle wiped the in-memory list.
 /// </summary>
+/// <remarks>
+/// Every entry is kept at least as long as the tokens it covers can be accepted
+/// (X04, RV2): a user-level entry until <see cref="RevocationHorizon.User"/> after
+/// it took effect, a session entry no shorter than that from now, and a single
+/// token's entry until its exp plus the largest clock skew.
+/// </remarks>
 public class TokenBlacklistService : ITokenBlacklistService, IDisposable
 {
     private readonly ConcurrentDictionary<string, DateTime> _blacklistedTokens = new();
     private readonly ConcurrentDictionary<string, DateTime> _blacklistedSessions = new();
-    private readonly ConcurrentDictionary<Guid, DateTime> _userRevocationTimes = new();
+    private readonly ConcurrentDictionary<Guid, UserRevocation> _userRevocations = new();
     private readonly ChannelWriter<TokenRevocation> _persistenceQueue;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<TokenBlacklistService> _logger;
     private readonly Timer _cleanupTimer;
     private bool _disposed;
 
-    // Bounds how long a User-level (logout-all) entry lives beyond the revocation
-    // instant — comfortably longer than any access-token lifetime.
-    private static readonly TimeSpan UserRevocationRetention = TimeSpan.FromHours(1);
+    /// <summary>
+    /// A user-level revocation: tokens issued at or before <see cref="EffectiveAt"/>
+    /// are refused, and the entry is dropped at <see cref="ExpiresAt"/>.
+    /// </summary>
+    private readonly record struct UserRevocation(DateTime EffectiveAt, DateTime ExpiresAt)
+    {
+        public UserRevocation Merge(UserRevocation other) => new(
+            other.EffectiveAt > EffectiveAt ? other.EffectiveAt : EffectiveAt,
+            other.ExpiresAt > ExpiresAt ? other.ExpiresAt : ExpiresAt);
+    }
 
     public TokenBlacklistService(
         ChannelWriter<TokenRevocation> persistenceQueue,
+        TimeProvider timeProvider,
         ILogger<TokenBlacklistService> logger)
     {
         _persistenceQueue = persistenceQueue;
+        _timeProvider = timeProvider;
         _logger = logger;
         // Run in-memory cleanup every 5 minutes (durable purge is the background service's job).
         _cleanupTimer = new Timer(_ => CleanupExpiredEntries(), null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
@@ -49,6 +66,19 @@ public class TokenBlacklistService : ITokenBlacklistService, IDisposable
     /// anywhere near it (they are GUIDs). Anything longer is not one of ours.
     /// </summary>
     public const int MaxKeyLength = 200;
+
+    /// <summary>
+    /// When a user-level revocation that took effect at <paramref name="effectiveAt"/>
+    /// can be dropped, whatever expiry its durable row carries: rows written before X04
+    /// carry one hour, and still count until the horizon.
+    /// </summary>
+    private static DateTime UserRevocationExpiry(DateTime effectiveAt, DateTime storedExpiresAt)
+    {
+        var horizon = effectiveAt + RevocationHorizon.User;
+        return storedExpiresAt > horizon ? storedExpiresAt : horizon;
+    }
+
+    private DateTime UtcNow => _timeProvider.GetUtcNow().UtcDateTime;
 
     /// <inheritdoc />
     public void BlacklistToken(string jti, DateTime expiresAt)
@@ -66,19 +96,22 @@ public class TokenBlacklistService : ITokenBlacklistService, IDisposable
             return;
         }
 
-        _blacklistedTokens.TryAdd(jti, expiresAt);
-        Persist(new TokenRevocation(RevocationType.Token, jti, DateTime.UtcNow, expiresAt));
-        _logger.LogDebug("Blacklisted token with JTI: {Jti}, expires at: {ExpiresAt}", jti, expiresAt);
+        // Validation accepts a token until its exp plus the clock skew, so the entry
+        // lasts that long too: the largest skew, whatever is configured now.
+        var keptUntil = expiresAt + JwtSettings.MaxClockSkew;
+        _blacklistedTokens.AddOrUpdate(jti, keptUntil, (_, existing) => Later(existing, keptUntil));
+        Persist(new TokenRevocation(RevocationType.Token, jti, UtcNow, keptUntil));
+        _logger.LogDebug("Blacklisted token with JTI: {Jti}, kept until: {KeptUntil}", jti, keptUntil);
     }
 
     /// <inheritdoc />
     public void BlacklistAllUserTokens(Guid userId, DateTime revokedAt)
     {
-        _userRevocationTimes.AddOrUpdate(userId, revokedAt, (_, existing) =>
-            revokedAt > existing ? revokedAt : existing);
+        var revocation = new UserRevocation(revokedAt, revokedAt + RevocationHorizon.User);
+        _userRevocations.AddOrUpdate(userId, revocation, (_, existing) => existing.Merge(revocation));
 
         Persist(new TokenRevocation(
-            RevocationType.User, userId.ToString(), revokedAt, revokedAt.Add(UserRevocationRetention)));
+            RevocationType.User, userId.ToString(), revocation.EffectiveAt, revocation.ExpiresAt));
         _logger.LogInformation("Blacklisted all tokens for user {UserId} issued before {RevokedAt}", userId, revokedAt);
     }
 
@@ -90,9 +123,13 @@ public class TokenBlacklistService : ITokenBlacklistService, IDisposable
             return;
         }
 
-        _blacklistedSessions.TryAdd(sessionId, expiresAt);
-        Persist(new TokenRevocation(RevocationType.Session, sessionId, DateTime.UtcNow, expiresAt));
-        _logger.LogDebug("Blacklisted session {SessionId}, expires at: {ExpiresAt}", sessionId, expiresAt);
+        // The caller's value is a floor, never the answer: a session row's expiry or the
+        // lifetime in force now can both fall short of a token issued under a longer
+        // lifetime. No token issued before now outlives now + the horizon.
+        var keptUntil = Later(expiresAt, UtcNow + RevocationHorizon.User);
+        _blacklistedSessions.AddOrUpdate(sessionId, keptUntil, (_, existing) => Later(existing, keptUntil));
+        Persist(new TokenRevocation(RevocationType.Session, sessionId, UtcNow, keptUntil));
+        _logger.LogDebug("Blacklisted session {SessionId}, kept until: {KeptUntil}", sessionId, keptUntil);
     }
 
     /// <inheritdoc />
@@ -110,63 +147,70 @@ public class TokenBlacklistService : ITokenBlacklistService, IDisposable
     /// <inheritdoc />
     public bool AreUserTokensBlacklisted(Guid userId, DateTime issuedAt)
     {
-        if (_userRevocationTimes.TryGetValue(userId, out var revocationTime))
+        if (_userRevocations.TryGetValue(userId, out var revocation))
         {
-            return issuedAt <= revocationTime;
+            return issuedAt <= revocation.EffectiveAt;
         }
 
         return false;
     }
 
     /// <summary>
-    /// Repopulates the in-memory cache from durable storage (called on startup).
-    /// Expired entries are ignored.
+    /// Merges durable revocations into the in-memory cache: at startup, and on every
+    /// periodic re-read. An entry is only ever added or extended, never shortened or
+    /// removed, so a re-read cannot undo a revocation this process made itself.
+    /// Entries already past their expiry are ignored.
     /// </summary>
-    public void LoadSnapshot(IEnumerable<TokenRevocation> revocations)
+    /// <returns>How many revocations of the snapshot are still in force.</returns>
+    public int LoadSnapshot(IEnumerable<TokenRevocation> revocations)
     {
-        var now = DateTime.UtcNow;
+        var now = UtcNow;
         var loaded = 0;
 
         foreach (var revocation in revocations)
         {
-            if (revocation.ExpiresAt <= now)
-            {
-                continue;
-            }
-
             switch (revocation.Type)
             {
-                case RevocationType.Token:
-                    _blacklistedTokens.TryAdd(revocation.Key, revocation.ExpiresAt);
+                case RevocationType.Token when revocation.ExpiresAt > now:
+                    _blacklistedTokens.AddOrUpdate(
+                        revocation.Key, revocation.ExpiresAt, (_, existing) => Later(existing, revocation.ExpiresAt));
                     break;
-                case RevocationType.Session:
-                    _blacklistedSessions.TryAdd(revocation.Key, revocation.ExpiresAt);
+                case RevocationType.Session when revocation.ExpiresAt > now:
+                    _blacklistedSessions.AddOrUpdate(
+                        revocation.Key, revocation.ExpiresAt, (_, existing) => Later(existing, revocation.ExpiresAt));
                     break;
                 case RevocationType.User when Guid.TryParse(revocation.Key, out var userId):
-                    _userRevocationTimes.AddOrUpdate(userId, revocation.EffectiveAt, (_, existing) =>
-                        revocation.EffectiveAt > existing ? revocation.EffectiveAt : existing);
+                    var user = new UserRevocation(
+                        revocation.EffectiveAt, UserRevocationExpiry(revocation.EffectiveAt, revocation.ExpiresAt));
+                    if (user.ExpiresAt <= now)
+                    {
+                        continue;
+                    }
+
+                    _userRevocations.AddOrUpdate(userId, user, (_, existing) => existing.Merge(user));
                     break;
+                default:
+                    continue;
             }
 
             loaded++;
         }
 
-        if (loaded > 0)
-        {
-            _logger.LogInformation("Rehydrated {Count} token revocations from durable store", loaded);
-        }
+        return loaded;
     }
 
     /// <inheritdoc />
     public void CleanupExpiredEntries()
     {
-        var now = DateTime.UtcNow;
+        var now = UtcNow;
 
+        // Removal by key AND value: an entry extended between the read and the removal
+        // stays.
         foreach (var kvp in _blacklistedTokens)
         {
             if (kvp.Value < now)
             {
-                _blacklistedTokens.TryRemove(kvp.Key, out _);
+                _blacklistedTokens.TryRemove(kvp);
             }
         }
 
@@ -174,19 +218,20 @@ public class TokenBlacklistService : ITokenBlacklistService, IDisposable
         {
             if (kvp.Value < now)
             {
-                _blacklistedSessions.TryRemove(kvp.Key, out _);
+                _blacklistedSessions.TryRemove(kvp);
             }
         }
 
-        var cutoff = now.Subtract(UserRevocationRetention);
-        foreach (var kvp in _userRevocationTimes)
+        foreach (var kvp in _userRevocations)
         {
-            if (kvp.Value < cutoff)
+            if (kvp.Value.ExpiresAt < now)
             {
-                _userRevocationTimes.TryRemove(kvp.Key, out _);
+                _userRevocations.TryRemove(kvp);
             }
         }
     }
+
+    private static DateTime Later(DateTime a, DateTime b) => a > b ? a : b;
 
     /// <summary>
     /// Enqueues a revocation for durable persistence. Non-blocking; the

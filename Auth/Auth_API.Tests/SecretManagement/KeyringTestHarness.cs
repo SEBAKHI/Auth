@@ -250,7 +250,6 @@ internal sealed class KeyringTestHarness : IDisposable
         SigningKeys,
         Challenges.Service,
         Publisher.Object,
-        new TestHelpers.TestOptions<JwtSettings>(Jwt),
         Clock,
         new Mock<ILogger<RsaKeyringChangeService>>().Object);
 

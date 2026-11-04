@@ -12,18 +12,19 @@ namespace Auth_API.Tests.Authentication.Commands;
 public class TerminateSessionCommandHandlerTests
 {
     private readonly Mock<IUserSessionRepository> _sessionRepositoryMock;
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock;
     private readonly Mock<ILogger<TerminateSessionCommandHandler>> _loggerMock;
     private readonly TerminateSessionCommandHandler _handler;
 
     public TerminateSessionCommandHandlerTests()
     {
         _sessionRepositoryMock = new Mock<IUserSessionRepository>();
+        _credentialRevocationMock = new Mock<ICredentialRevocationService>();
         _loggerMock = new Mock<ILogger<TerminateSessionCommandHandler>>();
 
         _handler = new TerminateSessionCommandHandler(
             _sessionRepositoryMock.Object,
-            new Mock<IRefreshTokenRepository>().Object,
-            new Mock<ITokenBlacklistService>().Object,
+            _credentialRevocationMock.Object,
             _loggerMock.Object);
     }
 
@@ -114,8 +115,30 @@ public class TerminateSessionCommandHandlerTests
         // Assert
         result.IsError.Should().BeFalse();
 
-        _sessionRepositoryMock.Verify(
-            r => r.TerminateAsync(sessionId, "User terminated", It.IsAny<CancellationToken>()),
+        // X04: the one credential-kill primitive ends it (refresh tokens, row, session id
+        // blacklisted until the revocation horizon), never moves of the handler's own.
+        _credentialRevocationMock.Verify(
+            s => s.TerminateSessionAsync(sessionId, userId, "User terminated", It.IsAny<CancellationToken>()),
             Times.Once);
+        _sessionRepositoryMock.Verify(
+            r => r.TerminateAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_RefusedSession_KillsNothing()
+    {
+        var userId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        _sessionRepositoryMock
+            .Setup(r => r.GetByIdAsync(sessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUserSession(id: sessionId, userId: Guid.NewGuid(), isActive: true));
+
+        var result = await _handler.Handle(new TerminateSessionCommand(userId, sessionId), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        _credentialRevocationMock.Verify(
+            s => s.TerminateSessionAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }

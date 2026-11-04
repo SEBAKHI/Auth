@@ -66,10 +66,12 @@ public interface ICredentialRevocationService
     /// circulation stops being accepted now rather than at its expiry.
     /// </summary>
     /// <remarks>
-    /// Narrower than every other method here on purpose. The caller is the token
+    /// Narrower than every other method here on purpose. The callers are the token
     /// exchange reacting to a replayed authorization code, where the thing to
     /// revoke is precisely what that one code produced — not the account, and
-    /// not the user's other devices.
+    /// not the user's other devices — and a user ending one session from the
+    /// session list (X04), so that end gets the same three moves and the same
+    /// blacklist horizon as every other.
     /// <para>
     /// Idempotent: a session already ended costs one no-op UPDATE, which is what
     /// keeps a flood of replays cheap.
