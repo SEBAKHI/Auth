@@ -1019,10 +1019,10 @@ export const en = {
     requireTwoFactorHint:
       "When on, signing in to this application asks for a second step, a code from an authenticator app; someone without one is asked to set one up first. Under the Monitor mode of Application two-factor enforcement (System settings), nobody is stopped yet: the server only records who would be.",
     mfaReadiness:
-      "Last {{days}} days: {{active}} people signed in to this application; {{without}} have no authenticator app.",
+      "Signed in to this application in the last {{days}} days: {{active}}. Without an authenticator app: {{without}}.",
     mfaRequireConfirmTitle: "Require two-factor authentication for {{name}}?",
     mfaRequireConfirmBody:
-      "{{without}} of the {{active}} people who signed in during the last {{days}} days have no authenticator app. Once it is enforced, they are asked to set one up before they sign in to this application again.",
+      "Signed in during the last {{days}} days: {{active}}. Without an authenticator app: {{without}}. Once it is enforced, anyone without one is asked to set one up before they sign in to this application again.",
     mfaRequireConfirmBodyNoCount:
       "The number of people without an authenticator app could not be read. Once it is enforced, anyone without one is asked to set one up before they sign in to this application again.",
     mfaRequireConfirmAction: "Require it",

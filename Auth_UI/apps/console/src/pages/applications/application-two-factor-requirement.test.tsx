@@ -9,7 +9,7 @@ import {
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import i18n from "@authsystem/i18n"
+import i18n, { loadLanguage, type LanguageCode } from "@authsystem/i18n"
 
 /**
  * S23, AM11 (11-3): the edit dialog shows how many of the application's recent
@@ -107,7 +107,7 @@ function renderEdit() {
 }
 
 const READINESS_LINE =
-  "Last 30 days: 12 people signed in to this application; 3 have no authenticator app."
+  "Signed in to this application in the last 30 days: 12. Without an authenticator app: 3."
 
 beforeEach(async () => {
   await i18n.changeLanguage("en")
@@ -151,7 +151,7 @@ describe("the two-factor requirement in the application dialogs", () => {
     ).toBeInTheDocument()
     expect(
       within(confirm).getByText(
-        /^3 of the 12 people who signed in during the last 30 days/
+        /^Signed in during the last 30 days: 12\. Without an authenticator app: 3\./
       )
     ).toBeInTheDocument()
     expect(toggle).not.toBeChecked()
@@ -231,4 +231,24 @@ describe("the two-factor requirement in the application dialogs", () => {
       expect.anything()
     )
   })
+
+  it.each(["en", "ar", "fr", "ur"])(
+    "in %s the counts follow a colon, so the sentence reads right for any number",
+    async (language) => {
+      // Found on the running console: "1 people", and Arabic «7 شخصًا» (3-10 take
+      // the plural). Where the noun changes with the number, the count stands
+      // alone after a colon. Break: the English "{{active}} people" wording.
+      // A language's bundle loads when it is chosen.
+      await loadLanguage(language as LanguageCode)
+      for (const key of ["mfaReadiness", "mfaRequireConfirmBody"]) {
+        const text = i18n.getResource(
+          language,
+          "translation",
+          `applications.${key}`
+        ) as string
+        expect(text, `${language} ${key}`).toMatch(/[:：]\s*\{\{active\}\}/)
+        expect(text, `${language} ${key}`).toMatch(/[:：]\s*\{\{without\}\}/)
+      }
+    }
+  )
 })

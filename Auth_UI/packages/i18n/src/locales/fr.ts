@@ -1035,11 +1035,11 @@ export const fr: TranslationResources = {
     requireTwoFactorHint:
       "Activée, la connexion à cette application demande une deuxième étape, un code d’une application d’authentification ; une personne qui n’en a pas doit d’abord en configurer une. En mode Surveillance du réglage « Application de l’authentification à deux facteurs » (Paramètres système), personne n’est encore bloqué : le serveur enregistre seulement qui le serait.",
     mfaReadiness:
-      "{{days}} derniers jours : {{active}} personnes se sont connectées à cette application ; {{without}} n’ont pas d’application d’authentification.",
+      "Connectés à cette application ces {{days}} derniers jours : {{active}}. Sans application d’authentification : {{without}}.",
     mfaRequireConfirmTitle:
       "Exiger l’authentification à deux facteurs pour {{name}} ?",
     mfaRequireConfirmBody:
-      "{{without}} des {{active}} personnes connectées ces {{days}} derniers jours n’ont pas d’application d’authentification. Une fois l’exigence appliquée, elles devront en configurer une avant de se reconnecter à cette application.",
+      "Connectés ces {{days}} derniers jours : {{active}}. Sans application d’authentification : {{without}}. Une fois l’exigence appliquée, les personnes qui n’en ont pas devront en configurer une avant de se reconnecter à cette application.",
     mfaRequireConfirmBodyNoCount:
       "Le nombre de personnes sans application d’authentification n’a pas pu être lu. Une fois l’exigence appliquée, celles qui n’en ont pas devront en configurer une avant de se reconnecter à cette application.",
     mfaRequireConfirmAction: "L’exiger",
