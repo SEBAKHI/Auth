@@ -23,9 +23,11 @@ namespace Auth_API.Tests.Passkeys;
 /// </summary>
 /// <remarks>
 /// Deliberate breaks, each verified red: the owner check dropped (the repository asked by
-/// passkey id alone — see <c>UserPasskeyRepositorySqlTextTests</c> for the statement's
-/// <c>UserId</c> condition); a passkey assertion demanded for removal (a password session
-/// refused); the revocation of the other sessions dropped.
+/// passkey id alone — <c>PasskeyStoreSqlTextTests.GetLiveById_ReadsOnlyTheCallersLiveRowOfTheRpId</c>
+/// pins the statement's <c>UserId</c> condition); a passkey assertion demanded for removal (a
+/// password session refused); the revocation of the other sessions dropped. REVIEW 150: the
+/// <c>try</c> around the session revocation dropped (F3); the floor's statement replaced by the
+/// plain revocation for a bound administrator (F4).
 /// </remarks>
 public class RemovePasskeyCommandHandlerTests
 {
@@ -53,6 +55,8 @@ public class RemovePasskeyCommandHandlerTests
             .ReturnsAsync(_passkey);
         _passkeys.Setup(r => r.CountLiveAsync(_userId, PasskeyTestDoubles.RpId, It.IsAny<CancellationToken>())).ReturnsAsync(2);
         _passkeys.Setup(r => r.TryRevokeAsync(_userId, _passkey.Id, PasskeyTestDoubles.RpId, PasskeyRemovalReasons.User, _userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => Revoked(_passkey));
+        _passkeys.Setup(r => r.TryRevokeUnlessLastAsync(_userId, _passkey.Id, PasskeyTestDoubles.RpId, PasskeyRemovalReasons.User, _userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => Revoked(_passkey));
         _revocation.Setup(r => r.RevokeCredentialsAsync(
                 _userId, SessionId, IdpToken, _userId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -160,6 +164,63 @@ public class RemovePasskeyCommandHandlerTests
         result.IsError.Should().Be(!expectedRemoved);
     }
 
+    /// <summary>
+    /// REVIEW 150 F3: the passkey is revoked; ending the other sessions then fails. The removal
+    /// stands — its audit row and its notice follow, and the failure is logged once — because a
+    /// retry would find the passkey gone and could never end those sessions.
+    /// </summary>
+    [Fact]
+    public async Task Handle_WhenTheOtherSessionsCannotBeEnded_TheRemovalStands_WithItsAuditRowAndNotice()
+    {
+        _revocation.Setup(r => r.RevokeCredentialsAsync(
+                _userId, SessionId, IdpToken, _userId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Execution Timeout Expired."));
+        var log = new CapturingLogger<RemovePasskeyCommandHandler>();
+
+        var result = await Handler(log).Handle(Command(_passkey.Id), CancellationToken.None);
+
+        result.IsError.Should().BeFalse("the passkey is already revoked");
+        _publisher.Verify(p => p.Publish(It.Is<PasskeyRemovedEvent>(e => e.PasskeyId == _passkey.Id), CancellationToken.None), Times.Once,
+            "the audit row and the owner's notice follow the removal");
+        log.Entries.Should().ContainSingle(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Error)
+            .Which.Exception.Should().BeOfType<InvalidOperationException>();
+    }
+
+    /// <summary>
+    /// REVIEW 150 F4: for an administrator the policy binds, with no app, the removal is made by
+    /// the statement that keeps one live passkey, so two removals at once cannot take the last two.
+    /// </summary>
+    [Fact]
+    public async Task Handle_ABoundAdministratorsRemoval_IsMadeByTheStatementThatKeepsTheFloor()
+    {
+        _policy.Setup(p => p.IsEnforcedForUserAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        (await Handler().Handle(Command(_passkey.Id), CancellationToken.None)).IsError.Should().BeFalse();
+
+        _passkeys.Verify(r => r.TryRevokeUnlessLastAsync(
+            _userId, _passkey.Id, PasskeyTestDoubles.RpId, PasskeyRemovalReasons.User, _userId, CancellationToken.None), Times.Once);
+        _passkeys.Verify(r => r.TryRevokeAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    /// <summary>
+    /// REVIEW 150 F4: two removals raced for the last two passkeys; the count read two, but the
+    /// statement found the other gone and changed nothing. The passkey is still live, so the
+    /// answer is the policy's, with nothing ended and no event.
+    /// </summary>
+    [Fact]
+    public async Task Handle_TheFloorKeptTheLastPasskey_IsRequiredByPolicy_WithNothingChanged()
+    {
+        _policy.Setup(p => p.IsEnforcedForUserAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _passkeys.Setup(r => r.TryRevokeUnlessLastAsync(_userId, _passkey.Id, PasskeyTestDoubles.RpId, PasskeyRemovalReasons.User, _userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserPasskey?)null);
+
+        var result = await Handler().Handle(Command(_passkey.Id), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(TwoFactorErrors.RequiredByPolicy.Code);
+        _revocation.Verify(r => r.RevokeCredentialsAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisher.Verify(p => p.Publish(It.IsAny<PasskeyRemovedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Fact]
     public async Task Handle_ARevocationThatLosesARace_IsNotFound_WithNoSessionEnded()
     {
@@ -220,6 +281,7 @@ public class RemovePasskeyCommandHandlerTests
     private void AssertNothingChanged()
     {
         _passkeys.Verify(r => r.TryRevokeAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _passkeys.Verify(r => r.TryRevokeUnlessLastAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
         _revocation.Verify(r => r.RevokeCredentialsAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _publisher.Verify(p => p.Publish(It.IsAny<PasskeyRemovedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -231,9 +293,9 @@ public class RemovePasskeyCommandHandlerTests
 
     private RemovePasskeyCommand Command(Guid passkeyId) => new(_userId, passkeyId, SessionId, IdpToken);
 
-    private RemovePasskeyCommandHandler Handler() =>
+    private RemovePasskeyCommandHandler Handler(Microsoft.Extensions.Logging.ILogger<RemovePasskeyCommandHandler>? log = null) =>
         new(PasskeyTestDoubles.Feature(), _guard.Object, _store.Object, _policy.Object, _users.Object, _passkeys.Object,
-            _revocation.Object, _publisher.Object, TimeProvider.System, NullLogger<RemovePasskeyCommandHandler>.Instance);
+            _revocation.Object, _publisher.Object, TimeProvider.System, log ?? NullLogger<RemovePasskeyCommandHandler>.Instance);
 
     private RenamePasskeyCommandHandler Rename() => new(PasskeyTestDoubles.Feature(), _passkeys.Object);
 }

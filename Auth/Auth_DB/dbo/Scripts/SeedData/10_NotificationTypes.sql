@@ -290,8 +290,8 @@ BEGIN
         N'Password Added',
         N'Tells the owner that an account which previously had no password (Google/Apple sign-in only) now has one',
         1,
-        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"SetAt","description":"UTC timestamp when the password was added","example":"2026-08-16 09:14:00Z","required":true},{"name":"ManageSecurityLink","description":"Absolute URL of the profile security page","example":"https://example.com/profile?tab=security","required":true}]',
-        N'{"UserName":"Jane Doe","SetAt":"2026-08-16 09:14:00Z","ManageSecurityLink":"https://example.com/profile?tab=security"}',
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"SetAt","description":"UTC timestamp when the password was added","example":"2026-08-16 09:14:00Z","required":true},{"name":"ManageSecurityLink","description":"Absolute URL of the profile security page","example":"https://example.com/profile?tab=security","required":true},{"name":"PasskeyCount","description":"How many passkeys stay on the account once the password is set (S20)","example":"1","required":true},{"name":"Passkeys","description":"The passkeys that stay: each with Name, CreatedAt and LastUsedAt (UTC; LastUsedAt empty when never used)","example":"[]","required":true}]',
+        N'{"UserName":"Jane Doe","SetAt":"2026-08-16 09:14:00Z","ManageSecurityLink":"https://example.com/profile?tab=security","PasskeyCount":0,"Passkeys":[]}',
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created password-created notification type';
 END
@@ -376,8 +376,8 @@ BEGIN
         N'Two-Factor Authentication Changed',
         N'Tells the owner that two-factor authentication on the account was turned on or off, or that its recovery codes or authenticator were replaced, or that an administrator reset it',
         1,
-        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"ChangeKind","description":"What changed: enabled, disabled, recovery-codes-regenerated, authenticator-replaced or reset-by-administrator","example":"enabled","required":true},{"name":"OccurredAtUtc","description":"UTC timestamp when the change was made","example":"2026-09-19 09:14:00Z","required":true},{"name":"DeviceName","description":"Browser and operating system the change was made from, when known","example":"Chrome on Windows","required":false},{"name":"ManageSecurityLink","description":"Absolute URL of the profile security page","example":"https://example.com/profile?tab=security","required":true}]',
-        N'{"UserName":"Jane Doe","ChangeKind":"enabled","OccurredAtUtc":"2026-09-19 09:14:00Z","DeviceName":"Chrome on Windows","ManageSecurityLink":"https://example.com/profile?tab=security"}',
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"ChangeKind","description":"What changed: enabled, disabled, recovery-codes-regenerated, authenticator-replaced, reset-by-administrator, email-code-enabled, email-code-disabled, authenticator-replaced-email-code, passkey-registered, passkey-removed, passkey-removed-password-change, passkey-removed-password-reset or passkey-removed-admin-lock","example":"enabled","required":true},{"name":"OccurredAtUtc","description":"UTC timestamp when the change was made","example":"2026-09-19 09:14:00Z","required":true},{"name":"DeviceName","description":"Browser and operating system the change was made from, when known","example":"Chrome on Windows","required":false},{"name":"ManageSecurityLink","description":"Absolute URL of the profile security page","example":"https://example.com/profile?tab=security","required":true},{"name":"PasskeyName","description":"The name of the passkey that stopped working, for the passkey-removed kinds (S20)","example":"Work laptop","required":false},{"name":"PasskeyAddedAt","description":"UTC timestamp when that passkey was added, for the passkey-removed kinds (S20)","example":"2026-09-17 08:00:00Z","required":false}]',
+        N'{"UserName":"Jane Doe","ChangeKind":"enabled","OccurredAtUtc":"2026-09-19 09:14:00Z","DeviceName":"Chrome on Windows","ManageSecurityLink":"https://example.com/profile?tab=security","PasskeyName":"Work laptop","PasskeyAddedAt":"2026-09-17 08:00:00Z"}',
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created two-factor-changed notification type';
 END
@@ -397,8 +397,8 @@ BEGIN
         N'Two-Factor Setup Code',
         N'One-time code an account enters before it turns on its first second factor, sent to its confirmed email address',
         1,
-        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"OtpCode","description":"6-digit confirmation code","example":"123456","required":true},{"name":"ExpirationMinutes","description":"Minutes until the code expires","example":"15","required":true},{"name":"RequestedAt","description":"UTC timestamp of the request","example":"2026-10-03 09:14:00Z","required":true},{"name":"DeviceName","description":"Browser and operating system the request came from, when known","example":"Chrome on Windows","required":false},{"name":"IpAddress","description":"Client address the request came from, when known","example":"203.0.113.7","required":false}]',
-        N'{"UserName":"Jane Doe","OtpCode":"123456","ExpirationMinutes":15,"RequestedAt":"2026-10-03 09:14:00Z","DeviceName":"Chrome on Windows","IpAddress":"203.0.113.7"}',
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"OtpCode","description":"6-digit confirmation code","example":"123456","required":true},{"name":"ExpirationMinutes","description":"Minutes until the code expires","example":"15","required":true},{"name":"RequestedAt","description":"UTC timestamp of the request","example":"2026-10-03 09:14:00Z","required":true},{"name":"DeviceName","description":"Browser and operating system the request came from, when known","example":"Chrome on Windows","required":false},{"name":"IpAddress","description":"Client address the request came from, when known","example":"203.0.113.7","required":false},{"name":"Factor","description":"Which first factor the code finishes adding: authenticator-app or passkey (S20)","example":"authenticator-app","required":true}]',
+        N'{"UserName":"Jane Doe","OtpCode":"123456","ExpirationMinutes":15,"RequestedAt":"2026-10-03 09:14:00Z","DeviceName":"Chrome on Windows","IpAddress":"203.0.113.7","Factor":"authenticator-app"}',
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created two-factor-bind-code notification type';
 END
@@ -464,6 +464,40 @@ SET [VariablesJson] = N'[{"name":"UserName","description":"Recipient display nam
     [SampleDataJson] = N'{"UserName":"Jane Doe","ChangedAt":"2026-08-16 09:14:00Z","ManageSecurityLink":"https://example.com/profile?tab=security","PasskeyCount":0,"Passkeys":[]}'
 WHERE [Id] = '40000000-0000-0000-0000-000000000018'
   AND [VariablesJson] NOT LIKE N'%"name":"PasskeyCount"%';
+
+-- The passkeys that stay once a first password is set (S20, REVIEW 150 F12): template 17's
+-- version 2 lists them, as template 18's does, so PasskeyCount and Passkeys join the
+-- password-created catalog and sample. An update, not the guarded insert above, so a
+-- database that already holds the type gains them too; idempotent, it writes only while
+-- the catalog lacks them. The sample has no passkey.
+UPDATE [dbo].[NotificationTypes]
+SET [VariablesJson] = N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"SetAt","description":"UTC timestamp when the password was added","example":"2026-08-16 09:14:00Z","required":true},{"name":"ManageSecurityLink","description":"Absolute URL of the profile security page","example":"https://example.com/profile?tab=security","required":true},{"name":"PasskeyCount","description":"How many passkeys stay on the account once the password is set (S20)","example":"1","required":true},{"name":"Passkeys","description":"The passkeys that stay: each with Name, CreatedAt and LastUsedAt (UTC; LastUsedAt empty when never used)","example":"[]","required":true}]',
+    [SampleDataJson] = N'{"UserName":"Jane Doe","SetAt":"2026-08-16 09:14:00Z","ManageSecurityLink":"https://example.com/profile?tab=security","PasskeyCount":0,"Passkeys":[]}'
+WHERE [Id] = '40000000-0000-0000-0000-000000000017'
+  AND [VariablesJson] NOT LIKE N'%"name":"PasskeyCount"%';
+
+-- The passkey a passkey-removed kind names (S20, REVIEW 150 F12): template 21's version 3
+-- tells the owner which passkey the system revoked and when it was added, so PasskeyName
+-- and PasskeyAddedAt join the two-factor-changed catalog and sample (optional: only those
+-- kinds carry them), and ChangeKind's description names every kind. An update, not the
+-- guarded insert above, so a database that already holds the type gains them too;
+-- idempotent, it writes only while the catalog lacks them.
+UPDATE [dbo].[NotificationTypes]
+SET [VariablesJson] = N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"ChangeKind","description":"What changed: enabled, disabled, recovery-codes-regenerated, authenticator-replaced, reset-by-administrator, email-code-enabled, email-code-disabled, authenticator-replaced-email-code, passkey-registered, passkey-removed, passkey-removed-password-change, passkey-removed-password-reset or passkey-removed-admin-lock","example":"enabled","required":true},{"name":"OccurredAtUtc","description":"UTC timestamp when the change was made","example":"2026-09-19 09:14:00Z","required":true},{"name":"DeviceName","description":"Browser and operating system the change was made from, when known","example":"Chrome on Windows","required":false},{"name":"ManageSecurityLink","description":"Absolute URL of the profile security page","example":"https://example.com/profile?tab=security","required":true},{"name":"PasskeyName","description":"The name of the passkey that stopped working, for the passkey-removed kinds (S20)","example":"Work laptop","required":false},{"name":"PasskeyAddedAt","description":"UTC timestamp when that passkey was added, for the passkey-removed kinds (S20)","example":"2026-09-17 08:00:00Z","required":false}]',
+    [SampleDataJson] = N'{"UserName":"Jane Doe","ChangeKind":"enabled","OccurredAtUtc":"2026-09-19 09:14:00Z","DeviceName":"Chrome on Windows","ManageSecurityLink":"https://example.com/profile?tab=security","PasskeyName":"Work laptop","PasskeyAddedAt":"2026-09-17 08:00:00Z"}'
+WHERE [Id] = '40000000-0000-0000-0000-000000000021'
+  AND [VariablesJson] NOT LIKE N'%"name":"PasskeyName"%';
+
+-- Which factor the bind code finishes adding (S20, REVIEW 150 F11): template 22's version 2
+-- words the code for an authenticator app (version 1's words) or a passkey, so Factor joins
+-- the two-factor-bind-code catalog and sample. An update, not the guarded insert above, so
+-- a database that already holds the type gains it too; idempotent, it writes only while
+-- the catalog lacks it. The sample is the app's.
+UPDATE [dbo].[NotificationTypes]
+SET [VariablesJson] = N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"OtpCode","description":"6-digit confirmation code","example":"123456","required":true},{"name":"ExpirationMinutes","description":"Minutes until the code expires","example":"15","required":true},{"name":"RequestedAt","description":"UTC timestamp of the request","example":"2026-10-03 09:14:00Z","required":true},{"name":"DeviceName","description":"Browser and operating system the request came from, when known","example":"Chrome on Windows","required":false},{"name":"IpAddress","description":"Client address the request came from, when known","example":"203.0.113.7","required":false},{"name":"Factor","description":"Which first factor the code finishes adding: authenticator-app or passkey (S20)","example":"authenticator-app","required":true}]',
+    [SampleDataJson] = N'{"UserName":"Jane Doe","OtpCode":"123456","ExpirationMinutes":15,"RequestedAt":"2026-10-03 09:14:00Z","DeviceName":"Chrome on Windows","IpAddress":"203.0.113.7","Factor":"authenticator-app"}'
+WHERE [Id] = '40000000-0000-0000-0000-000000000022'
+  AND [VariablesJson] NOT LIKE N'%"name":"Factor"%';
 
 -- email-sign-in-code (OTP, sign-in by emailed code, OI-215)
 -- Sent to an address that has an account when someone types it on the sign-in

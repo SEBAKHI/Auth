@@ -22,13 +22,16 @@ namespace Auth_API.Tests.Passkeys;
 /// <summary>
 /// S20 (PK7, PK14, T-A4, ARR-1049): adding a passkey. The session rule runs before anything is
 /// minted, counted or written: a recent sign-in; one that proved a first factor; two factors
-/// when the account already holds a qualifying one (FA2); and, when it holds none and email is
-/// on, the code emailed to its confirmed address, checked before the bind. The challenge is
-/// spent before the response is checked, and the limit of ten is enforced by the insert.
+/// when the account already holds a qualifying one (FA2); and, when it holds none, the code
+/// emailed to its confirmed address, checked before the bind — so with email off a first
+/// passkey is refused (REVIEW 150 F13). The challenge is spent before the response is checked,
+/// the limit of ten is enforced by the insert, and the insert names the session the checks
+/// accepted (REVIEW 150 F1).
 /// </summary>
 /// <remarks>
 /// Deliberate breaks, each verified red: the <c>HasPrimary</c> step dropped from the gate; the
-/// FA2 step dropped from the gate.
+/// FA2 step dropped from the gate; the email-off refusal dropped from the gate (the pass-through
+/// restored, F13); the session-ended outcome mapped to a stored passkey (F1).
 /// </remarks>
 public class RegisterPasskeyCommandHandlerTests
 {
@@ -60,8 +63,11 @@ public class RegisterPasskeyCommandHandlerTests
     private readonly Mock<INotificationService> _notifications = new();
     private readonly Mock<IPublisher> _publisher = new();
     private readonly FakeCredentialHasher _hasher = new();
-    private readonly EmailSettings _email = new() { Enabled = false };
+
+    // Email on, as a deployment runs: a first passkey needs the emailed code (F13).
+    private readonly EmailSettings _email = new() { Enabled = true };
     private readonly List<string> _order = [];
+    private readonly TwoFactorBindCode _liveCode;
 
     public RegisterPasskeyCommandHandlerTests()
     {
@@ -73,7 +79,7 @@ public class RegisterPasskeyCommandHandlerTests
         _passkeys.Setup(r => r.GetLiveAsync(_userId, PasskeyTestDoubles.RpId, It.IsAny<CancellationToken>())).ReturnsAsync([]);
         _passkeys.Setup(r => r.EnsureUserHandleAsync(_userId, It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid _, byte[] candidate, CancellationToken _) => candidate);
-        _passkeys.Setup(r => r.TryCreateAsync(It.IsAny<UserPasskey>(), UserPasskey.MaxLivePerAccount, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+        _passkeys.Setup(r => r.TryCreateAsync(It.IsAny<UserPasskey>(), UserPasskey.MaxLivePerAccount, It.IsAny<Guid?>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .Callback(() => _order.Add("insert"))
             .ReturnsAsync(PasskeyInsertOutcome.Inserted);
 
@@ -91,6 +97,8 @@ public class RegisterPasskeyCommandHandlerTests
         _otpHasher.Setup(h => h.Hash(It.IsAny<string>(), It.IsAny<string>())).Returns("fresh-hash");
         _notifications.Setup(n => n.SendAsync(It.IsAny<Auth.Application.Notifications.NotificationRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ErrorOr<Success>)Result.Success);
+
+        _liveCode = GivenLiveCode();
     }
 
     // ── The session rule (begin; the same gate runs at verify and at the send) ──
@@ -103,7 +111,7 @@ public class RegisterPasskeyCommandHandlerTests
         started.IsError.Should().BeFalse();
         started.Value.OptionsJson.Should().Be(OptionsJson);
         started.Value.ChallengeHandle.Should().Be(GeneratedHandle);
-        started.Value.EmailCodeRequired.Should().BeFalse("email is off: the independent notice alone (FA11)");
+        started.Value.EmailCodeRequired.Should().BeTrue("a first qualifying factor needs the emailed code (ARR-1049)");
         _challenges.Verify(c => c.CreateAsync(
             It.Is<WebAuthnChallenge>(challenge =>
                 challenge.UserId == _userId
@@ -114,16 +122,6 @@ public class RegisterPasskeyCommandHandlerTests
                 && challenge.ExpiresAt == challenge.CreatedAt + WebAuthnChallenge.Lifetime),
             It.IsAny<CancellationToken>()), Times.Once);
         _hasher.Hashed.Should().Contain((CredentialPurpose.WebAuthnChallenge, GeneratedHandle));
-    }
-
-    [Fact]
-    public async Task Begin_WithEmailOn_AndNoFactor_SaysTheBindNeedsTheEmailedCode()
-    {
-        _email.Enabled = true;
-
-        var started = await Begin().Handle(BeginCommand(), CancellationToken.None);
-
-        started.Value.EmailCodeRequired.Should().BeTrue();
     }
 
     [Fact]
@@ -165,7 +163,6 @@ public class RegisterPasskeyCommandHandlerTests
     [Fact]
     public async Task Begin_BesideAQualifyingFactor_FromATwoFactorSession_AsksNoEmailedCode()
     {
-        _email.Enabled = true;
         GivenFactors(AppOnly);
         GivenSession(AuthenticationMethods.Password.With(AuthenticationMethods.Totp));
 
@@ -194,6 +191,83 @@ public class RegisterPasskeyCommandHandlerTests
 
         started.FirstError.Code.Should().Be(PasskeyErrors.VerificationFailed.Code);
         _guard.Verify(g => g.EnsureRecentSignInAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // ── Email off: a passkey is never an account's first factor (REVIEW 150 F13, D-150-3 (c)) ──
+
+    [Fact]
+    public async Task Begin_EmailOff_NoFactor_IsRefused_BeforeAnythingIsReadMintedOrWritten()
+    {
+        _email.Enabled = false;
+
+        var started = await Begin().Handle(BeginCommand(), CancellationToken.None);
+
+        started.FirstError.Code.Should().Be(PasskeyErrors.EmailRequired.Code,
+            "with no code to send, a passkey bound from a password sign-in alone would be a door nobody is told of");
+        started.FirstError.Type.Should().Be(ErrorType.Conflict);
+        _passkeys.Verify(r => r.GetLiveAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _passkeys.Verify(r => r.EnsureUserHandleAsync(It.IsAny<Guid>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()), Times.Never);
+        _challenges.Verify(c => c.CreateAsync(It.IsAny<WebAuthnChallenge>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Complete_EmailOff_NoFactor_IsRefused_WithNothingSpent()
+    {
+        _email.Enabled = false;
+
+        var created = await Complete().Handle(CompleteCommand(emailCode: null), CancellationToken.None);
+
+        created.FirstError.Code.Should().Be(PasskeyErrors.EmailRequired.Code);
+        _bindCodes.Verify(r => r.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _challenges.Verify(c => c.TryConsumeRegistrationAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        AssertNothingStored();
+    }
+
+    [Fact]
+    public async Task EmailSwitchedOff_BetweenOptionsAndVerify_LetsNothingThrough()
+    {
+        // The options were offered while email was on, and the code asked for; then an
+        // administrator switches email off. The gate decides again at verify.
+        var started = await Begin().Handle(BeginCommand(), CancellationToken.None);
+        started.Value.EmailCodeRequired.Should().BeTrue();
+
+        _email.Enabled = false;
+        var withoutCode = await Complete().Handle(CompleteCommand(emailCode: null), CancellationToken.None);
+        var withCode = await Complete().Handle(CompleteCommand(emailCode: EmailCode), CancellationToken.None);
+
+        withoutCode.FirstError.Code.Should().Be(PasskeyErrors.EmailRequired.Code);
+        withCode.FirstError.Code.Should().Be(PasskeyErrors.EmailRequired.Code, "a code sent before the switch-off binds nothing after it");
+        _challenges.Verify(c => c.TryConsumeRegistrationAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        AssertNothingStored();
+    }
+
+    [Fact]
+    public async Task EmailOff_WithTheApp_APasskeyIsAddedFromATwoFactorSession_WithNoCode()
+    {
+        // The way in while email is off: the app first (RV-P8-4), then a passkey.
+        _email.Enabled = false;
+        GivenFactors(AppOnly);
+        GivenSession(AuthenticationMethods.Password.With(AuthenticationMethods.Totp));
+
+        var started = await Begin().Handle(BeginCommand(), CancellationToken.None);
+        var created = await Complete().Handle(CompleteCommand(emailCode: null), CancellationToken.None);
+
+        started.IsError.Should().BeFalse();
+        started.Value.EmailCodeRequired.Should().BeFalse();
+        created.IsError.Should().BeFalse();
+        _passkeys.Verify(r => r.TryCreateAsync(It.IsAny<UserPasskey>(), UserPasskey.MaxLivePerAccount, null, SessionId, CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task Send_EmailOff_NoFactor_IsRefused_AndMintsNone()
+    {
+        _email.Enabled = false;
+
+        var sent = await Send().Handle(SendCommand(), CancellationToken.None);
+
+        sent.FirstError.Code.Should().Be(PasskeyErrors.EmailRequired.Code);
+        _challenges.Verify(c => c.HasLiveRegistrationAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _bindCodes.Verify(r => r.CreateAsync(It.IsAny<TwoFactorBindCode>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── Begin: the limit, the handle, the exclusions ──
@@ -254,7 +328,8 @@ public class RegisterPasskeyCommandHandlerTests
                 && passkey.IsUserVerified
                 && passkey.CredentialId.SequenceEqual(CredentialId)
                 && passkey.Name == "Laptop"),
-            UserPasskey.MaxLivePerAccount, null, CancellationToken.None), Times.Once);
+            UserPasskey.MaxLivePerAccount, _liveCode.Id, SessionId, CancellationToken.None), Times.Once,
+            "the row names the session the checks accepted, and the emailed code is spent with it");
         _publisher.Verify(p => p.Publish(
             It.Is<PasskeyRegisteredEvent>(e => e.UserId == _userId && e.RegisteredBy == _userId && e.Name == "Laptop"
                 && e.Email == "owner@example.com" && e.DeviceName == DeviceName),
@@ -315,8 +390,6 @@ public class RegisterPasskeyCommandHandlerTests
     [Fact]
     public async Task Complete_EmailOn_NoFactor_WithoutTheCode_AsksForIt_WithNothingSpent()
     {
-        _email.Enabled = true;
-
         var created = await Complete().Handle(CompleteCommand(emailCode: null), CancellationToken.None);
 
         created.FirstError.Code.Should().Be(TwoFactorErrors.EmailCodeRequired.Code);
@@ -327,13 +400,10 @@ public class RegisterPasskeyCommandHandlerTests
     [Fact]
     public async Task Complete_EmailOn_NoFactor_AWrongCode_IsRefused_BeforeTheChallengeIsSpent()
     {
-        _email.Enabled = true;
-        var code = GivenLiveCode();
-
         var created = await Complete().Handle(CompleteCommand(emailCode: "000000"), CancellationToken.None);
 
         created.FirstError.Code.Should().Be(TwoFactorErrors.EmailCodeInvalid.Code);
-        _bindCodes.Verify(r => r.TryReserveAttemptAsync(code.Id, TwoFactorBindCode.MaxAttempts, It.IsAny<CancellationToken>()), Times.Once,
+        _bindCodes.Verify(r => r.TryReserveAttemptAsync(_liveCode.Id, TwoFactorBindCode.MaxAttempts, It.IsAny<CancellationToken>()), Times.Once,
             "the attempt is counted before the code is checked");
         _challenges.Verify(c => c.TryConsumeRegistrationAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         AssertNothingStored();
@@ -342,20 +412,15 @@ public class RegisterPasskeyCommandHandlerTests
     [Fact]
     public async Task Complete_EmailOn_NoFactor_TheRightCode_IsSpentByTheInsertsTransaction()
     {
-        _email.Enabled = true;
-        var code = GivenLiveCode();
-
         var created = await Complete().Handle(CompleteCommand(emailCode: EmailCode), CancellationToken.None);
 
         created.IsError.Should().BeFalse();
-        _passkeys.Verify(r => r.TryCreateAsync(It.IsAny<UserPasskey>(), UserPasskey.MaxLivePerAccount, code.Id, CancellationToken.None), Times.Once);
+        _passkeys.Verify(r => r.TryCreateAsync(It.IsAny<UserPasskey>(), UserPasskey.MaxLivePerAccount, _liveCode.Id, SessionId, CancellationToken.None), Times.Once);
     }
 
     [Fact]
     public async Task Complete_TheCodeSpentByAnotherRequest_IsRefused_WithNoEvent()
     {
-        _email.Enabled = true;
-        GivenLiveCode();
         GivenInsertOutcome(PasskeyInsertOutcome.BindCodeLost);
 
         var created = await Complete().Handle(CompleteCommand(emailCode: EmailCode), CancellationToken.None);
@@ -364,15 +429,21 @@ public class RegisterPasskeyCommandHandlerTests
         _publisher.Verify(p => p.Publish(It.IsAny<PasskeyRegisteredEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    /// <summary>
+    /// REVIEW 150 F1: a password change, a reset or a lock ended the session while the
+    /// registration was in flight. The insert stored nothing and left the code unspent; the
+    /// caller is asked to sign in again, and no event says a passkey was added.
+    /// </summary>
     [Fact]
-    public async Task Complete_EmailOff_Binds_WithTheNoticeAlone()
+    public async Task Complete_TheSessionEndedBeforeTheRowWasWritten_IsAskedToSignInAgain_WithNoEvent()
     {
-        var created = await Complete().Handle(CompleteCommand(emailCode: null), CancellationToken.None);
+        GivenInsertOutcome(PasskeyInsertOutcome.SessionEnded);
 
-        created.IsError.Should().BeFalse();
-        _passkeys.Verify(r => r.TryCreateAsync(It.IsAny<UserPasskey>(), UserPasskey.MaxLivePerAccount, null, CancellationToken.None), Times.Once);
-        _publisher.Verify(p => p.Publish(It.IsAny<PasskeyRegisteredEvent>(), CancellationToken.None), Times.Once,
-            "the owner's independent notice follows the event");
+        var created = await Complete().Handle(CompleteCommand(), CancellationToken.None);
+
+        created.IsError.Should().BeTrue("nothing was stored");
+        created.FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
+        _publisher.Verify(p => p.Publish(It.IsAny<PasskeyRegisteredEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Theory]
@@ -408,19 +479,8 @@ public class RegisterPasskeyCommandHandlerTests
     // ── The emailed code's send step (T-A6) ──
 
     [Fact]
-    public async Task Send_EmailOff_SaysNoCodeIsNeeded_AndMintsNone()
-    {
-        var sent = await Send().Handle(SendCommand(), CancellationToken.None);
-
-        sent.Value.EmailCodeRequired.Should().BeFalse();
-        _challenges.Verify(c => c.HasLiveRegistrationAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
-        _bindCodes.Verify(r => r.CreateAsync(It.IsAny<TwoFactorBindCode>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
     public async Task Send_BesideAQualifyingFactor_FromATwoFactorSession_SaysNoCodeIsNeeded()
     {
-        _email.Enabled = true;
         GivenFactors(AppOnly);
         GivenSession(AuthenticationMethods.Password.With(AuthenticationMethods.Totp));
 
@@ -434,8 +494,6 @@ public class RegisterPasskeyCommandHandlerTests
     public async Task Send_EmailOn_WithoutAStartedRegistration_IsRefused_AndMintsNone()
     {
         // As the app's sender mints only while its setup is pending (Fact 7).
-        _email.Enabled = true;
-
         var sent = await Send().Handle(SendCommand(), CancellationToken.None);
 
         sent.FirstError.Code.Should().Be(TwoFactorErrors.SetupRequired.Code);
@@ -443,9 +501,8 @@ public class RegisterPasskeyCommandHandlerTests
     }
 
     [Fact]
-    public async Task Send_EmailOn_DuringARegistration_EmailsTheCode_ToTheConfirmedAddress()
+    public async Task Send_EmailOn_DuringARegistration_EmailsTheCode_ToTheConfirmedAddress_WordedForAPasskey()
     {
-        _email.Enabled = true;
         _challenges.Setup(c => c.HasLiveRegistrationAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         var sent = await Send().Handle(SendCommand(), CancellationToken.None);
@@ -456,14 +513,15 @@ public class RegisterPasskeyCommandHandlerTests
         _bindCodes.Verify(r => r.CreateAsync(It.Is<TwoFactorBindCode>(code => code.UserId == _userId), It.IsAny<CancellationToken>()), Times.Once);
         _notifications.Verify(n => n.SendAsync(
             It.Is<Auth.Application.Notifications.NotificationRequest>(request => request.TypeCode == NotificationTypeCodes.TwoFactorBindCode
-                && request.RecipientAddress == "owner@example.com"),
-            It.IsAny<CancellationToken>()), Times.Once);
+                && request.RecipientAddress == "owner@example.com"
+                && Equals(request.Variables["Factor"], BindCodeFactors.Passkey)),
+            It.IsAny<CancellationToken>()), Times.Once,
+            "REVIEW 150 F11: the email says the code lets a device sign in without the password");
     }
 
     [Fact]
     public async Task Send_FromAPasswordAccountsEmailedCodeSession_IsRefused()
     {
-        _email.Enabled = true;
         GivenSession(AuthenticationMethods.EmailCode);
 
         var sent = await Send().Handle(SendCommand(), CancellationToken.None);
@@ -481,7 +539,7 @@ public class RegisterPasskeyCommandHandlerTests
         _store.Setup(s => s.GetQualifyingFactorsAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(factors);
 
     private void GivenInsertOutcome(PasskeyInsertOutcome outcome) =>
-        _passkeys.Setup(r => r.TryCreateAsync(It.IsAny<UserPasskey>(), UserPasskey.MaxLivePerAccount, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+        _passkeys.Setup(r => r.TryCreateAsync(It.IsAny<UserPasskey>(), UserPasskey.MaxLivePerAccount, It.IsAny<Guid?>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(outcome);
 
     private TwoFactorBindCode GivenLiveCode()
@@ -498,7 +556,7 @@ public class RegisterPasskeyCommandHandlerTests
 
     private void AssertNothingStored()
     {
-        _passkeys.Verify(r => r.TryCreateAsync(It.IsAny<UserPasskey>(), It.IsAny<int>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _passkeys.Verify(r => r.TryCreateAsync(It.IsAny<UserPasskey>(), It.IsAny<int>(), It.IsAny<Guid?>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         _publisher.Verify(p => p.Publish(It.IsAny<PasskeyRegisteredEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -524,7 +582,7 @@ public class RegisterPasskeyCommandHandlerTests
     private BeginPasskeyRegistrationCommand BeginCommand() => new(_userId, SessionId);
 
     private CompletePasskeyRegistrationCommand CompleteCommand(
-        string? handle = Handle, bool repeated = false, string? name = "Laptop", string? emailCode = null) =>
+        string? handle = Handle, bool repeated = false, string? name = "Laptop", string? emailCode = EmailCode) =>
         new(_userId, SessionId, handle, repeated, ResponseJson, name, emailCode);
 
     private SendPasskeyRegistrationEmailCodeCommand SendCommand() => new(_userId, SessionId, "203.0.113.7");

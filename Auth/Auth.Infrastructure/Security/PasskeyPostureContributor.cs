@@ -21,10 +21,10 @@ namespace Auth.Infrastructure.Security;
 /// </para>
 /// <para>
 /// <c>passkey.rpid-mismatch</c> (A124): Critical while any live passkey is bound to another RP
-/// ID — an edit of <c>Passkeys:RpId</c> in a settings file. Such passkeys sign in nowhere and
-/// count as no factor, so an administrator whose only factor was one is back to enrolling;
-/// and passkeys stay off meanwhile (PK3: the new value is refused). The way out is to restore
-/// the value, or retire the old RP ID ([S20-O10]).
+/// ID — an edit of <c>Passkeys:RpId</c> in a settings file, emptying it included. Such passkeys
+/// sign in nowhere and count as no factor, so an administrator whose only factor was one is
+/// back to enrolling; and passkeys stay off meanwhile (PK3: the new value is refused). The way
+/// out is to restore the value, or retire the old RP ID ([S20-O10]).
 /// </para>
 /// <para>
 /// Evaluated at start-up and after every configuration reload, re-reading the switch, the
@@ -67,9 +67,10 @@ public sealed class PasskeyPostureContributor : ISecurityPostureContributor
             reasons.Add($"{PasskeySignalCodes.Configuration}: {problem}");
         }
 
-        // Without an RP ID or the schema there is nothing to compare: no passkey counts.
-        var mismatch = feature.RpId.Length > 0
-            && await scope.ServiceProvider.GetRequiredService<IPasskeySchema>().IsPresentAsync(cancellationToken)
+        // Without the schema there is nothing to compare. An empty RP ID is compared too: it
+        // stops every live passkey counting as a factor, whatever the switch says, which is
+        // exactly what this line exists to tell the operator (REVIEW 150 F10).
+        var mismatch = await scope.ServiceProvider.GetRequiredService<IPasskeySchema>().IsPresentAsync(cancellationToken)
             && await scope.ServiceProvider.GetRequiredService<IUserPasskeyRepository>()
                 .HasLiveOfAnotherRpIdAsync(feature.RpId, cancellationToken);
         if (mismatch)

@@ -116,7 +116,8 @@ public class PasskeySettingsGuardTests
         { "a URL", "https://example.com", BothOrigins, true, "is not a host name" },
         { "an address", "10.0.0.1", ["https://10.0.0.1"], true, "is not a host name" },
         { "a single-app host name (E12)", "console.example.com", BothOrigins, true, "does not cover the first-party origin 'https://accounts.example.com'" },
-        { "a look-alike suffix", PasskeyTestDoubles.RpId, ["https://notexample.com"], true, "does not cover" },
+        // Reserved names (RFC 6761): the dot boundary, with no real host in a public repository.
+        { "a look-alike suffix", "example.test", ["https://notexample.test"], true, "does not cover" },
         { "another domain", PasskeyTestDoubles.RpId, ["https://console.example.org"], true, "does not cover" },
         { "plain http", PasskeyTestDoubles.RpId, ["http://console.example.com"], true, "is not a bare https origin" },
         { "a path", PasskeyTestDoubles.RpId, ["https://console.example.com/app"], true, "is not a bare https origin" },
@@ -179,7 +180,46 @@ public class PasskeySettingsGuardTests
             "a deployment that never turns passkeys on never asks the database on a request");
     }
 
+    /// <summary>
+    /// REVIEW 150 F5: the 404 gate assesses before authentication and the handler again; one
+    /// request reads PK3's rows once.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the memo dropped.</remarks>
+    [Fact]
+    public async Task Feature_AssessedTwiceInOneRequest_ReadsTheRowsOnce()
+    {
+        var rows = PasskeyTestDoubles.OtherRpIdRows(live: false);
+        var feature = new PasskeyFeature(
+            Monitor(new PasskeySettings { Enabled = true, RpId = PasskeyTestDoubles.RpId }),
+            Monitor(new IdentityProviderSettings { FirstPartySpaOrigins = BothOrigins }),
+            new PasskeyRpIdAtStartup(PasskeyTestDoubles.RpId),
+            PasskeyTestDoubles.Schema(),
+            rows.Object);
+
+        (await feature.AssessAsync(CancellationToken.None)).IsAvailable.Should().BeTrue();
+        (await feature.RelyingPartyAsync(CancellationToken.None)).Should().NotBeNull();
+
+        rows.Verify(r => r.HasLiveOfAnotherRpIdAsync(PasskeyTestDoubles.RpId, It.IsAny<CancellationToken>()), Times.Once,
+            "the gate's answer is the handler's: one read of the rows per request");
+    }
+
     // ── The posture (A124, A125) ──
+
+    /// <summary>
+    /// REVIEW 150 F10 (d): emptying <c>Passkeys:RpId</c> stops every live passkey counting as a
+    /// factor, whatever the switch says, so a passkey-only administrator is back to enrolling;
+    /// the posture says so at Critical while any live passkey exists.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the empty RP ID excluded from the comparison again.</remarks>
+    [Fact]
+    public async Task Posture_AnEmptyRpId_WithLivePasskeys_IsCritical_PasskeyRpIdMismatch_EvenSwitchedOff()
+    {
+        var posture = await Posture(PasskeyTestDoubles.Feature(enabled: false, rpId: ""), otherRpIdLive: true);
+
+        posture.Level.Should().Be(SecurityPostureLevel.Weak);
+        posture.Lines.Should().ContainSingle(l => l.Level == LogLevel.Critical)
+            .Which.Arguments[0].Should().Be(PasskeySignalCodes.RpIdMismatch);
+    }
 
     [Fact]
     public async Task Posture_SwitchedOff_IsOk_WhateverTheRestSays()

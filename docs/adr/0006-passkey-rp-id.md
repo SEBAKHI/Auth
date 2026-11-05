@@ -26,14 +26,14 @@ The API reads it once at start-up, trimmed and lower-cased; a change applies aft
 
 Passkeys run only when `Passkeys:Enabled` is on and all of these hold; otherwise every passkey route answers 404, and while the switch is on the security posture logs `passkey.configuration` at Critical with the reason:
 
-- the RP ID is a host name: `localhost`, or two or more DNS labels; never a URL, an IP address or a port;
-- `IdentityProvider:FirstPartySpaOrigins` lists at least one origin, and each is a bare `https` origin whose host is the RP ID or ends with `.` and the RP ID (a plain suffix is not enough: `notexample.com` is not under `example.com`);
+- the RP ID is a host name: `localhost`, or two or more DNS labels; never a URL, an IP address or a port. It is the registrable domain itself, never a public suffix such as `co.uk`: browsers refuse a public suffix as an RP ID, so a value like that leaves nobody able to add a passkey;
+- `IdentityProvider:FirstPartySpaOrigins` lists at least one origin, and each is a bare `https` origin whose host is the RP ID or ends with `.` and the RP ID (a plain suffix is not enough: `notexample.test` is not under `example.test`);
 - the passkey tables are deployed;
 - no live passkey is bound to another RP ID (section 4).
 
 ### 4. A new RP ID is refused while live passkeys carry another
 
-When live passkeys carry an RP ID other than the configured one, passkeys stay off and the posture logs `passkey.rpid-mismatch` at Critical, whatever the switch says. There are two ways out:
+When live passkeys carry an RP ID other than the configured one, passkeys stay off and the posture logs `passkey.rpid-mismatch` at Critical, whatever the switch says. An empty `Passkeys:RpId` is such a value too: no passkey counts as a factor under it, so the line is logged while any live passkey exists. There are two ways out:
 
 - restore the previous value; or
 - move on purpose: announce the move and ask people to add another way to sign in, run `dotnet run --project Auth/Auth_Setup -- --retire-passkey-rp-id <old RP ID>` and execute the statement it prints against the database (one transaction; it revokes every live passkey of that RP ID and writes one audit row each, reason `rp-id-move`), then set `Passkeys:RpId` to the new domain and recycle the API.
@@ -58,7 +58,7 @@ Only passkeys of the configured RP ID are listed, renamed, removed by their owne
 
 ### Neutral
 
-- Tests and documentation use `example.com` and `localhost` only.
+- Tests and documentation use `example.com`, the reserved `.test` names (RFC 6761) and `localhost` only.
 
 ## Alternatives Considered
 

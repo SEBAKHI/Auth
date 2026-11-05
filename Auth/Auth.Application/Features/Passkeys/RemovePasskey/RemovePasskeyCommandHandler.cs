@@ -20,10 +20,12 @@ namespace Auth.Application.Features.Passkeys.RemovePasskey;
 /// <item>Only a live passkey of the caller, of the current RP ID: anything else is
 /// <c>Passkey.NotFound</c>, with no event and no revocation.</item>
 /// <item>The last qualifying factor of an administrator the policy binds stays:
-/// <c>TwoFactor.RequiredByPolicy</c>, as for switching the app off.</item>
+/// <c>TwoFactor.RequiredByPolicy</c>, as for switching the app off. The statement that
+/// revokes it keeps the floor, so two removals at once cannot take the last two.</item>
 /// <item>The row is revoked in one statement; then every other session and SSO session of
-/// the account is ended through the revocation service, the caller's own kept; then the event
-/// (the audit row and the owner's notice).</item>
+/// the account is ended through the revocation service, the caller's own kept (a failure
+/// there is logged and the removal stands); then the event (the audit row and the owner's
+/// notice).</item>
 /// </list>
 /// </remarks>
 public sealed class RemovePasskeyCommandHandler : IRequestHandler<RemovePasskeyCommand, ErrorOr<Success>>
@@ -94,15 +96,14 @@ public sealed class RemovePasskeyCommandHandler : IRequestHandler<RemovePasskeyC
         }
 
         // 3. An administrator the policy binds keeps a qualifying factor: refused before
-        //    anything changes, so asking costs nothing.
-        if (!factors.Totp
-            && await _passkeyRepository.CountLiveAsync(request.UserId, rpId, cancellationToken) <= 1
-            && await _platformMfaPolicy.IsEnforcedForUserAsync(request.UserId, cancellationToken))
+        //    anything changes, so asking costs nothing. The count here is a courtesy; the
+        //    floor that holds when two removals race is in the revocation itself.
+        var keepsAFactor = !factors.Totp
+            && await _platformMfaPolicy.IsEnforcedForUserAsync(request.UserId, cancellationToken);
+        if (keepsAFactor
+            && await _passkeyRepository.CountLiveAsync(request.UserId, rpId, cancellationToken) <= 1)
         {
-            _logger.LogInformation(
-                "Removing the last passkey of user {UserId} was refused: platform administrators must keep a second factor",
-                request.UserId);
-            return TwoFactorErrors.RequiredByPolicy;
+            return RefusedAsTheLastFactor(request.UserId);
         }
 
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
@@ -112,21 +113,45 @@ public sealed class RemovePasskeyCommandHandler : IRequestHandler<RemovePasskeyC
         }
 
         // 4. The row, then the other sessions, then the event. From the first write on, a
-        //    client that disconnects must not stop it halfway.
-        var revoked = await _passkeyRepository.TryRevokeAsync(
-            request.UserId, request.PasskeyId, rpId, PasskeyRemovalReasons.User, request.UserId, CancellationToken.None);
+        //    client that disconnects must not stop it halfway. For a bound administrator the
+        //    statement itself keeps one live passkey (REVIEW 150 F4): of two removals that
+        //    would each take one of the last two, one changes nothing.
+        var revoked = keepsAFactor
+            ? await _passkeyRepository.TryRevokeUnlessLastAsync(
+                request.UserId, request.PasskeyId, rpId, PasskeyRemovalReasons.User, request.UserId, CancellationToken.None)
+            : await _passkeyRepository.TryRevokeAsync(
+                request.UserId, request.PasskeyId, rpId, PasskeyRemovalReasons.User, request.UserId, CancellationToken.None);
         if (revoked is null)
         {
-            return PasskeyErrors.NotFound;
+            // Nothing changed: the passkey was not the caller's live one, or the floor kept it.
+            return keepsAFactor
+                && await _passkeyRepository.GetLiveByIdAsync(request.UserId, request.PasskeyId, rpId, CancellationToken.None) is not null
+                ? RefusedAsTheLastFactor(request.UserId)
+                : PasskeyErrors.NotFound;
         }
 
-        var sessionsEnded = await _credentialRevocation.RevokeCredentialsAsync(
-            request.UserId,
-            request.CurrentSessionId,
-            request.IdpSessionToken,
-            revokedBy: request.UserId,
-            RevocationReason,
-            CancellationToken.None);
+        // A failed revocation must not cost the owner the audit row, the notice or the request
+        // its success: the passkey is already revoked, and a retry would find it gone
+        // (REVIEW 150 F3, as switching the app off does). It is logged for an operator, and
+        // those sessions live on until they expire.
+        var sessionsEnded = 0;
+        try
+        {
+            sessionsEnded = await _credentialRevocation.RevokeCredentialsAsync(
+                request.UserId,
+                request.CurrentSessionId,
+                request.IdpSessionToken,
+                revokedBy: request.UserId,
+                RevocationReason,
+                CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(
+                ex,
+                "Passkey {PasskeyId} of user {UserId} was removed, but the account's other sessions could not be signed out",
+                revoked.Id, request.UserId);
+        }
 
         _logger.LogInformation(
             "{EventCode}: passkey {PasskeyId} of user {UserId} removed by its owner; {SessionsEnded} other sessions ended",
@@ -137,6 +162,7 @@ public sealed class RemovePasskeyCommandHandler : IRequestHandler<RemovePasskeyC
                 request.UserId,
                 revoked.Id,
                 revoked.Name,
+                revoked.CreatedAt,
                 PasskeyRemovalReasons.User,
                 request.UserId,
                 user.Email.Value,
@@ -146,5 +172,13 @@ public sealed class RemovePasskeyCommandHandler : IRequestHandler<RemovePasskeyC
             CancellationToken.None);
 
         return Result.Success;
+    }
+
+    private Error RefusedAsTheLastFactor(Guid userId)
+    {
+        _logger.LogInformation(
+            "Removing the last passkey of user {UserId} was refused: platform administrators must keep a second factor",
+            userId);
+        return TwoFactorErrors.RequiredByPolicy;
     }
 }

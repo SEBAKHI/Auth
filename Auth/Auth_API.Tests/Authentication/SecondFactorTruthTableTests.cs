@@ -293,7 +293,11 @@ public class UserStatsMfaSplitTests
 
         dto.TotpEnabled.Should().Be(totp);
         dto.EmailCodeEnabled.Should().Be(emailCode);
-        dto.QualifyingMfa.Should().Be(qualifying, "the emailed code is never a factor a policy accepts");
+        // REVIEW 150 F6: the page's answer is FA2's, read from the store, never derived from
+        // the row it shows; that the emailed code is never a factor is the FA2 fragment's
+        // own test (SecondFactorInventoryTests), not this stub's.
+        store.Verify(s => s.HasEnabledFactorAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        dto.QualifyingMfa.Should().Be(qualifying, "the page carries the store's answer through");
         dto.EmailCodeAvailable.Should().Be(emailEnabled && available);
     }
 

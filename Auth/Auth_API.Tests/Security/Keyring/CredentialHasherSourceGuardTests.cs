@@ -66,7 +66,7 @@ public class CredentialHasherSourceGuardTests
         // S20 (PK6): a passkey ceremony's challenge, issued under its own purpose and found by
         // every accepted fingerprint of the handle its cookie carries.
         App + "Passkeys/BeginPasskeyRegistration/BeginPasskeyRegistrationCommandHandler.cs:113 Hash WebAuthnChallenge",
-        App + "Passkeys/CompletePasskeyRegistration/CompletePasskeyRegistrationCommandHandler.cs:123 Candidates WebAuthnChallenge",
+        App + "Passkeys/CompletePasskeyRegistration/CompletePasskeyRegistrationCommandHandler.cs:124 Candidates WebAuthnChallenge",
         App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:77 Candidates WebhookKey",
         // S11 PR B: the issuing form a matched webhook key is compared with, to re-fingerprint it.
         App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:97 Hash WebhookKey",

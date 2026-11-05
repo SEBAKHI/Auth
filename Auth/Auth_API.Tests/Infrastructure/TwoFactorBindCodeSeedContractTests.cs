@@ -40,6 +40,8 @@ public class TwoFactorBindCodeSeedContractTests
         ["RequestedAt"] = true,
         ["DeviceName"] = false,
         ["IpAddress"] = false,
+        // REVIEW 150 F11: which factor the code finishes adding; both senders pass it.
+        ["Factor"] = true,
     };
 
     private readonly FluidTemplateRenderer _renderer = new(TimeProvider.System);
@@ -203,32 +205,104 @@ public class TwoFactorBindCodeSeedContractTests
         return model;
     }
 
-    /// <summary>Language, subject source and body source of every translation of version 0022.</summary>
     /// <summary>
-    /// S20: version 2 is the code of an authenticator app OR a passkey, so no translation
-    /// tells the reader to type it beside an app's code (a passkey has none), and each
-    /// names the passkey.
+    /// REVIEW 150 F11 (D-150-1 = (b)): for the authenticator app — and for any other Factor,
+    /// or none, as an API older than the variable sends — version 2 renders version 1's words
+    /// exactly, subject included, so nothing changes for anyone who binds the app.
     /// </summary>
-    [Fact]
-    public void Version2_NamesBothFactors_AndNeverAsksForAnAppCodeBesideIt()
+    /// <remarks>Deliberate break, verified red: the app's lead reworded in version 2.</remarks>
+    [Theory]
+    [InlineData(BindCodeFactors.AuthenticatorApp)]
+    [InlineData(null)]
+    public void Version2_ForTheApp_IsVersion1sWordsExactly(string? factor)
     {
-        var version1 = Translations(VersionId).ToDictionary(row => row.Language, row => row.Body);
-        var passkeyWord = new Dictionary<string, string>
+        var version1 = Translations(VersionId).ToDictionary(row => row.Language);
+
+        foreach (var (language, subjectSource, bodySource) in Translations(Version2Id))
         {
-            ["en"] = "passkey", ["ar"] = "مفتاح المرور", ["tr"] = "geçiş anahtarı", ["fr"] = "clé d'accès",
-            ["zh"] = "通行密钥", ["ur"] = "پاس کی", ["fa"] = "کلید عبور",
+            var model = ModelFor(factor);
+            var before = version1[language];
+
+            Squash(_renderer.Render(subjectSource, model, language, encodeHtml: false).Value)
+                .Should().Be(Squash(_renderer.Render(before.Subject, model, language, encodeHtml: false).Value), $"the {language} subject");
+            Squash(_renderer.Render(bodySource, model, language, encodeHtml: true).Value)
+                .Should().Be(Squash(_renderer.Render(before.Body, model, language, encodeHtml: true).Value), $"the {language} body");
+        }
+    }
+
+    /// <summary>
+    /// REVIEW 150 F11: for a passkey the email says plainly what the code does — the device that
+    /// holds the passkey will sign in with its fingerprint, face or PIN, without the password —
+    /// and what to do if it was not you, in its subject, heading, lead and "not you" text.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the passkey branch's lead made the app's again.</remarks>
+    [Fact]
+    public void Version2_ForAPasskey_SaysTheCodeLetsADeviceSignInWithoutThePassword()
+    {
+        var version1 = Translations(VersionId).ToDictionary(row => row.Language);
+        var words = new Dictionary<string, (string Passkey, string Fingerprint, string WithoutPassword)>
+        {
+            ["en"] = ("passkey", "fingerprint", "without your password"),
+            ["ar"] = ("مفتاح مرور", "بصمة الإصبع", "دون كلمة المرور"),
+            ["tr"] = ("geçiş anahtarı", "parmak izi", "parolanız olmadan"),
+            ["fr"] = ("clé d'accès", "empreinte", "sans votre mot de passe"),
+            ["zh"] = ("通行密钥", "指纹", "无需密码"),
+            ["ur"] = ("پاس کی", "فنگر پرنٹ", "پاس ورڈ کے بغیر"),
+            ["fa"] = ("کلید عبور", "اثر انگشت", "بدون رمز عبور"),
         };
 
-        foreach (var (language, _, body) in Translations(Version2Id))
+        foreach (var (language, subjectSource, bodySource) in Translations(Version2Id))
         {
-            body.Should().Contain(passkeyWord[language], $"the {language} code message names the passkey it may bind");
-            body.Should().NotBe(version1[language], $"the {language} instruction changed");
-            body.Length.Should().BeGreaterThan(version1[language].Length / 2, "only one sentence changed");
+            var model = ModelFor(BindCodeFactors.Passkey);
+            var subject = _renderer.RenderTracking(subjectSource, model, language, encodeHtml: false, out var subjectMissing);
+            var body = _renderer.RenderTracking(bodySource, model, language, encodeHtml: true, out var bodyMissing);
+            var before = version1[language];
+
+            subjectMissing.Should().BeEmpty();
+            bodyMissing.Should().BeEmpty($"the {language} passkey wording names nothing the sender does not pass");
+            body.Value.Should().NotContain("{{").And.NotContain("{%").And.NotContain("href");
+            body.Value.Should().Contain("<div class=\"otp-code\">123456</div>");
+
+            var (passkey, fingerprint, withoutPassword) = words[language];
+            subject.Value.Should().NotBe(_renderer.Render(before.Subject, model, language, encodeHtml: false).Value,
+                $"the {language} subject names the passkey, not two-factor authentication");
+            Lead(body.Value).Should().Contain(passkey).And.Contain(fingerprint).And.Contain(withoutPassword,
+                $"the {language} lead says the code lets a device sign in without the password");
+            NotYou(body.Value).Should().NotBe(NotYou(_renderer.Render(before.Body, model, language, encodeHtml: true).Value),
+                $"the {language} \"not you\" text says what the code would give away");
         }
 
-        Translations(Version2Id).Single(row => row.Language == "en").Body
-            .Should().NotContain("together with the code from your authenticator app");
+        var english = _renderer.Render(Translations(Version2Id).Single(row => row.Language == "en").Body,
+            ModelFor(BindCodeFactors.Passkey), "en", encodeHtml: true).Value;
+        english.Should().NotContain("together with the code from your authenticator app")
+            .And.NotContain("turn on two-factor authentication");
+        NotYou(english).Should().Contain("Do not enter the code").And.Contain("change it now");
     }
+
+    private static IReadOnlyDictionary<string, object?> ModelFor(string? factor)
+    {
+        var model = new Dictionary<string, object?>(SampleModel(), StringComparer.Ordinal);
+        if (factor is null)
+        {
+            model.Remove("Factor");
+        }
+        else
+        {
+            model["Factor"] = factor;
+        }
+
+        return model;
+    }
+
+    private static string Squash(string text) => Regex.Replace(text, @"\s+", " ").Trim();
+
+    /// <summary>The paragraph that says when the code expires.</summary>
+    private static string Lead(string body) =>
+        Regex.Matches(body, "<p class=\"message\">(.*?)</p>", RegexOptions.Singleline)[1].Groups[1].Value;
+
+    /// <summary>The "if this was not you" text: the second notice.</summary>
+    private static string NotYou(string body) =>
+        Regex.Matches(body, "<p class=\"notice-text\">(.*?)</p>", RegexOptions.Singleline)[1].Groups[1].Value;
 
     [Fact]
     public void Version2_IsANewVersionPublishedOnlyWhileTheSeededVersion1IsThePublishedOne()

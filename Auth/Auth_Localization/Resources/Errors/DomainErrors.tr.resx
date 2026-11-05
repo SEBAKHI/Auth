@@ -1376,6 +1376,9 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>Kayıt sayısı 1 ile 100 arasında olmalıdır.</value>
   </data>
+  <data name="Passkey.EmailRequired" xml:space="preserve">
+    <value>İlk geçiş anahtarı yalnızca e-posta gönderimi açıkken eklenebilir. Önce doğrulayıcı uygulamayı, ardından geçiş anahtarını ekleyin.</value>
+  </data>
   <data name="Passkey.LimitReached" xml:space="preserve">
     <value>Bu hesap zaten en fazla sayıda geçiş anahtarına sahip. Yenisini eklemeden önce birini kaldırın.</value>
   </data>

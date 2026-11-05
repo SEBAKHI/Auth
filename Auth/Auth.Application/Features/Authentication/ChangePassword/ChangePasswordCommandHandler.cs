@@ -134,31 +134,22 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
 
         await _passwordHistoryRepository.AddAsync(passwordHistory, cancellationToken);
 
-        // Update the password (entity raises PasswordChangedEvent). S20 (D-T19 D): the
-        // passkeys registered in the 72 hours before the change go once it has committed —
-        // a phishing proxy holding a two-factor session could have planted one — and the
-        // older ones stay, listed in the notice. Cut once, now.
+        // Update the password. S20 (D-T19 D): the passkeys registered in the 72 hours before
+        // the change go once it has committed — a phishing proxy holding a two-factor
+        // session could have planted one — and the older ones stay, listed in the notice.
+        // Cut once, now.
         var passkeyCutoff = _recentPasskeys.CutoffNow();
-        var survivingPasskeys = await _recentPasskeys.SurvivorsAsync(request.UserId, passkeyCutoff, cancellationToken);
-        user.ChangePassword(newPasswordHash, request.UserId, survivingPasskeys);
         await _userRepository.UpdatePasswordAsync(
             request.UserId,
             newPasswordHash,
             request.UserId,
             cancellationToken);
 
-        // The current password was just proved, and replaced: a lock raised by
-        // strangers' wrong passwords is lifted and the count starts again (owner
-        // decision G8). An administrator's lock is left as it is.
-        await _accountLockout.ClearAutomaticLockAsync(request.UserId, cancellationToken);
-
-        // Cleanup old password history entries beyond the limit
-        await _passwordHistoryRepository.CleanupOldHistoryAsync(
-            request.UserId,
-            _passwordSettings.HistoryCount,
-            cancellationToken);
-
-        // Determine whether to terminate sessions
+        // From the write on, what takes the account back runs to its end whatever the client
+        // does (REVIEW 150 F1, F2): no request token. The other sessions first, so a passkey
+        // registration in flight from one of them either committed already, and the
+        // revocation below catches it, or finds its session ended and stores nothing; then
+        // the passkeys.
         var shouldTerminateSessions = request.TerminateSessions
             ?? _sessionSettings.TerminateSessionsOnPasswordChange;
 
@@ -176,7 +167,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
                 request.IdpSessionToken,
                 revokedBy: request.UserId,
                 "Password changed",
-                cancellationToken);
+                CancellationToken.None);
 
             _logger.LogInformation(
                 request.CurrentSessionId.HasValue
@@ -192,6 +183,22 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         }
 
         await _recentPasskeys.RevokeRecentAsync(user, passkeyCutoff, PasskeyRemovalReasons.PasswordChange, request.UserId);
+
+        // The entity raises PasswordChangedEvent with the passkeys still live now, read after
+        // the revocation: a failed one leaves the recent passkeys listed, never hidden.
+        var passkeysThatStay = await _recentPasskeys.StillLiveAsync(request.UserId, cancellationToken);
+        user.ChangePassword(newPasswordHash, request.UserId, passkeysThatStay);
+
+        // The current password was just proved, and replaced: a lock raised by
+        // strangers' wrong passwords is lifted and the count starts again (owner
+        // decision G8). An administrator's lock is left as it is.
+        await _accountLockout.ClearAutomaticLockAsync(request.UserId, cancellationToken);
+
+        // Cleanup old password history entries beyond the limit
+        await _passwordHistoryRepository.CleanupOldHistoryAsync(
+            request.UserId,
+            _passwordSettings.HistoryCount,
+            cancellationToken);
 
         await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 

@@ -159,11 +159,13 @@ public readonly record struct AuthenticationMethods
     /// authenticator-app code or a recovery code, or a passkey the device verified the
     /// person for (<see cref="PasskeyUserVerified"/>, M3). An emailed code is never the
     /// second of the two, and is the first only as <see cref="EmailCodeFirstFactor"/>; a
-    /// passkey without the device's check is a first factor only; <see cref="Unknown"/>
-    /// never satisfies it.
+    /// passkey without the device's check is a first factor only, and the device's check
+    /// without the passkey is nothing (REVIEW 150 F10); <see cref="Unknown"/> never
+    /// satisfies it.
     /// </summary>
     public bool IsMfaSatisfied =>
-        (HasPrimary && (Value & SecondFactorBits) != 0) || (Value & PasskeyUserVerifiedBit) != 0;
+        (HasPrimary && (Value & SecondFactorBits) != 0)
+        || (Value & (PasskeyBit | PasskeyUserVerifiedBit)) == (PasskeyBit | PasskeyUserVerifiedBit);
 
     /// <summary>
     /// What a sign-in whose first proof is the emailed code records: the code, and the

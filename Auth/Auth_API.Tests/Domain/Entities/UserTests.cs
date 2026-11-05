@@ -287,7 +287,7 @@ public class UserTests
         var modifiedBy = Guid.NewGuid();
 
         // Act
-        var result = user.SetInitialPassword("first_argon2id_hash", modifiedBy);
+        var result = user.SetInitialPassword("first_argon2id_hash", modifiedBy, []);
 
         // Assert
         result.IsError.Should().BeFalse();
@@ -305,7 +305,7 @@ public class UserTests
         var user = CreateDefaultUser(passwordHash: null);
         var modifiedBy = Guid.NewGuid();
 
-        user.SetInitialPassword("first_hash", modifiedBy);
+        user.SetInitialPassword("first_hash", modifiedBy, []);
 
         user.DomainEvents.Should().ContainSingle();
         var domainEvent = user.DomainEvents[0].Should().BeOfType<PasswordCreatedEvent>().Subject;
@@ -321,7 +321,7 @@ public class UserTests
         var passwordChangedAtBefore = user.PasswordChangedAt;
 
         // Act
-        var result = user.SetInitialPassword("attempted_hash", Guid.NewGuid());
+        var result = user.SetInitialPassword("attempted_hash", Guid.NewGuid(), []);
 
         // Assert — the invariant lives in the aggregate, so no caller can overwrite an
         // existing password through a path that never asked for the current one.

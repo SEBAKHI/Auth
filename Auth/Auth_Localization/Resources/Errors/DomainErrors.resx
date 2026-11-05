@@ -1378,6 +1378,9 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>The number of entries must be between 1 and 100.</value>
   </data>
+  <data name="Passkey.EmailRequired" xml:space="preserve">
+    <value>A first passkey can be added only while email sending is on. Add the authenticator app first, then the passkey.</value>
+  </data>
   <data name="Passkey.LimitReached" xml:space="preserve">
     <value>This account already has the maximum number of passkeys. Remove one before adding another.</value>
   </data>

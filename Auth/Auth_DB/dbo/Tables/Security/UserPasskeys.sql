@@ -37,3 +37,11 @@ ON [dbo].[UserPasskeys] ([UserId], [RpId])
 INCLUDE ([IsUserVerified], [CreatedAt])
 WHERE [RevokedAt] IS NULL;
 GO
+
+-- The live passkeys by RP ID alone: PK3's check that none is bound to another RP ID runs on
+-- every passkey request, before authentication, and with this index its "<> @RpId" is two
+-- range seeks instead of a read of every live row (REVIEW 150 F5).
+CREATE NONCLUSTERED INDEX [IX_UserPasskeys_LiveRpId]
+ON [dbo].[UserPasskeys] ([RpId])
+WHERE [RevokedAt] IS NULL;
+GO

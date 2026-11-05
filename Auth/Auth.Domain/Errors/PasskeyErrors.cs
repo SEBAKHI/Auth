@@ -26,6 +26,18 @@ public static class PasskeyErrors
         description: "This account already has the maximum number of passkeys. Remove one before adding another.");
 
     /// <summary>
+    /// With email sending off, a passkey is never an account's first qualifying factor
+    /// (REVIEW 150 F13, D-150-3 (c)): the code that proves the mailbox cannot be sent, and a
+    /// passkey bound from a password sign-in alone would be a second door nobody is told of.
+    /// The account adds the authenticator app first (it binds without a code while email is
+    /// off, RV-P8-4), then a passkey from a session that proved both. Conflict: the account's
+    /// state and the deployment's, not the request, forbid it.
+    /// </summary>
+    public static readonly Error EmailRequired = Error.Conflict(
+        code: "Passkey.EmailRequired",
+        description: "A first passkey can be added only while email sending is on. Add the authenticator app first, then the passkey.");
+
+    /// <summary>
     /// No live passkey of the caller has this id: never another account's, never a removed
     /// one, never one bound to another relying party.
     /// </summary>

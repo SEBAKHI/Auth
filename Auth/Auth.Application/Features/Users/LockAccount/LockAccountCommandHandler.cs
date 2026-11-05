@@ -53,6 +53,10 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
             ? DateTime.UtcNow.AddMinutes(request.LockDurationMinutes.Value)
             : null; // Indefinite lock
 
+        // S20 (D-T19 D): the passkeys registered in the 72 hours before the lock go once it has
+        // committed. Cut once, now.
+        var passkeyCutoff = _recentPasskeys.CutoffNow();
+
         // The account rules, the last full administrator judged under the lock this
         // status write runs under: a locked account cannot sign in.
         var begun = await _accountActionPolicy.BeginAsync(
@@ -71,6 +75,11 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
             authorityChange.Commit();
         }
 
+        // From the commit on, what takes the account back runs to its end whatever the
+        // administrator's browser does (REVIEW 150 F1, F2): no request token. The sessions
+        // first, so a passkey registration in flight from one of them either committed
+        // already, and the revocation below catches it, or finds its session ended and
+        // stores nothing; then the passkeys.
         // An administrator locking an account is usually answering an incident, so
         // the already-issued access tokens are the point. Ending the session rows
         // leaves them working for their full lifetime, and leaves the refresh
@@ -80,12 +89,13 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
             request.UserId,
             request.LockedBy,
             $"Account locked: {request.Reason}",
-            cancellationToken);
+            CancellationToken.None);
 
         // S20 (D-T19 D): a lock answers an incident, and a passkey registered in the 72
-        // hours before it may be the intruder's door; it goes, the older ones stay.
+        // hours before it may be the intruder's door; it goes, the older ones stay, and
+        // the owner is told which one and why (REVIEW 150 F12).
         await _recentPasskeys.RevokeRecentAsync(
-            user, _recentPasskeys.CutoffNow(), PasskeyRemovalReasons.AdminLock, request.LockedBy);
+            user, passkeyCutoff, PasskeyRemovalReasons.AdminLock, request.LockedBy);
 
         _logger.LogInformation(
             "User {UserId} account locked by {LockedBy}. Reason: {Reason}. Lock ends: {LockoutEnd}",

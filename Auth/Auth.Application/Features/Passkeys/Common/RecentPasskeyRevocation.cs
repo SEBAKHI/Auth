@@ -9,8 +9,9 @@ namespace Auth.Application.Features.Passkeys.Common;
 /// <summary>
 /// What a password reset, a password change and an administrator's lock do to the
 /// account's passkeys (S20, D-T19 D, ARR-0667): every passkey registered in the 72 hours
-/// before it is revoked, one event each; the older ones stay, and the password notice lists
-/// them so the owner can spot one they do not recognise.
+/// before it is revoked, one event each, and each one's owner is told which and why; the
+/// older ones stay, and the password notice lists them so the owner can spot one they do
+/// not recognise.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,10 +21,18 @@ namespace Auth.Application.Features.Passkeys.Common;
 /// back, and a passkey that young may be the planted door.
 /// </para>
 /// <para>
-/// The revocation runs after the change it follows has committed, with no token a client
-/// can cancel, and never fails the request: the password is already changed, or the lock
-/// already set. A failure is logged at Error (<c>passkey.revocation-failed</c>) for the
-/// operator, and the passkeys stay as they were.
+/// The caller runs it right after the change it follows has committed and the account's
+/// sessions were ended, before any step that takes the request's token (REVIEW 150 F1,
+/// F2): a client that disconnects cannot skip it, and a registration in flight either
+/// committed before it, and is revoked here, or finds its session ended and stores nothing.
+/// It takes no token a client can cancel, and never fails the request: the password is
+/// already changed, or the lock already set. A failure is logged at Error
+/// (<c>passkey.revocation-failed</c>) for the operator, and the passkeys stay as they were.
+/// </para>
+/// <para>
+/// The notice's list is read after it (<see cref="StillLiveAsync"/>): every live passkey of
+/// the RP ID in force, so when the revocation failed the recent ones are listed too, and
+/// the notice never hides a passkey that still signs in.
 /// </para>
 /// </remarks>
 public sealed class RecentPasskeyRevocation
@@ -56,15 +65,15 @@ public sealed class RecentPasskeyRevocation
         _timeProvider.GetUtcNow().UtcDateTime - PasskeyRemovalReasons.RecentRegistrationWindow;
 
     /// <summary>
-    /// The account's live passkeys of the current RP ID that a change cut at
-    /// <paramref name="cutoff"/> keeps: those registered at or before it.
+    /// The account's live passkeys of the current RP ID, read after
+    /// <see cref="RevokeRecentAsync"/>: what the password notice lists. After a revocation
+    /// that worked these are the ones registered before the cut; after one that failed, the
+    /// recent ones too, so the owner sees every passkey that still signs in.
     /// </summary>
-    public async Task<IReadOnlyList<PasskeySummary>> SurvivorsAsync(
-        Guid userId, DateTime cutoff, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<PasskeySummary>> StillLiveAsync(Guid userId, CancellationToken cancellationToken)
     {
         var live = await _passkeyRepository.GetLiveAsync(userId, _feature.RpId, cancellationToken);
         return live
-            .Where(passkey => passkey.CreatedAt <= cutoff)
             .Select(passkey => new PasskeySummary(passkey.Name, passkey.CreatedAt, passkey.LastUsedAt))
             .ToList();
     }
@@ -105,6 +114,7 @@ public sealed class RecentPasskeyRevocation
                     user.Id,
                     passkey.Id,
                     passkey.Name,
+                    passkey.CreatedAt,
                     reason,
                     revokedBy,
                     user.Email.Value,

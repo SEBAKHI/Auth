@@ -10,14 +10,16 @@ namespace Auth.Domain.Events;
 /// </summary>
 /// <remarks>
 /// The audit handler records every one. The owner's notice (FA11) is sent for a removal by
-/// the owner (<see cref="Constants.PasskeyRemovalReasons.User"/>): the other reasons come
-/// with a notice of their own (the administrator's reset, the password change, the lock),
-/// so a second email per passkey would only bury it. Carries no credential id, public key
-/// or user handle (PK16).
+/// the owner (<see cref="Constants.PasskeyRemovalReasons.User"/>), and for each passkey the
+/// system revoked by itself — a password change, a password reset (a first password set by
+/// one included), an administrator's lock — in words that name the passkey, say why and say
+/// what to do (REVIEW 150 F12). An administrator's two-factor reset sends its own notice and
+/// none per passkey. Carries no credential id, public key or user handle (PK16).
 /// </remarks>
 /// <param name="UserId">The account.</param>
 /// <param name="PasskeyId">The passkey's row id.</param>
 /// <param name="Name">The name its owner gave it.</param>
+/// <param name="AddedAtUtc">When it was added (UTC), so its notice can say which one it was.</param>
 /// <param name="Reason">Why: a value of <see cref="Constants.PasskeyRemovalReasons"/>.</param>
 /// <param name="RemovedBy">The person who removed it: the owner, or the administrator.</param>
 /// <param name="Email">The account's address, for the notice.</param>
@@ -28,6 +30,7 @@ public sealed record PasskeyRemovedEvent(
     Guid UserId,
     Guid PasskeyId,
     string Name,
+    DateTime AddedAtUtc,
     string Reason,
     Guid? RemovedBy,
     string Email,

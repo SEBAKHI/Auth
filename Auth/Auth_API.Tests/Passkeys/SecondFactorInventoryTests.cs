@@ -66,6 +66,37 @@ public class SecondFactorInventoryTests
         Squash(text).Should().Contain(Squash(string.Format(TotpFragment, "@UserId")));
     }
 
+    /// <summary>
+    /// REVIEW 150 F6: without an RP ID or the passkey schema the store sends exactly what main
+    /// sent before S20 — compared with a golden copy generated from main's own source, not with
+    /// the variant itself — so every account keeps the answers it had.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: one predicate of the variant changed.</remarks>
+    [Theory]
+    [InlineData("HasEnabledFactor")]
+    [InlineData("ApplicationMfaReadiness")]
+    [InlineData("HasPlatformRoleHolderWithoutFactor")]
+    public void WithoutPasskeys_IsMainsTextBeforeS20(string statement)
+    {
+        var golden = File.ReadAllText(Path.Combine(
+                ApiSourceScan.SolutionDirectory(), "Auth_API.Tests", "Passkeys", "FactorStatementsBeforeS20.golden.sql"))
+            .Replace("\r\n", "\n");
+        var start = golden.IndexOf($"-- @@ {statement}\n", StringComparison.Ordinal);
+        start.Should().BePositive($"the golden file holds {statement}");
+        start += $"-- @@ {statement}\n".Length;
+        var end = golden.IndexOf("\n-- @@ ", start, StringComparison.Ordinal);
+        var mains = golden[start..(end < 0 ? golden.Length : end)];
+
+        var sent = statement switch
+        {
+            "HasEnabledFactor" => TwoFactorStateStore.WithoutPasskeys.HasEnabledFactor,
+            "ApplicationMfaReadiness" => TwoFactorStateStore.WithoutPasskeys.ApplicationMfaReadiness,
+            _ => TwoFactorStateStore.WithoutPasskeys.HasPlatformRoleHolderWithoutFactor,
+        };
+
+        Squash(sent).Should().Be(Squash(mains), $"{statement} without passkeys is main's statement before S20");
+    }
+
     [Fact]
     public async Task QualifyingFactors_AreReadApart_WithTheSameFragments()
     {

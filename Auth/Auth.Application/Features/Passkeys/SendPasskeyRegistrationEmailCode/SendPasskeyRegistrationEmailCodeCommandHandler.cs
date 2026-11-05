@@ -1,6 +1,7 @@
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Authentication.SendTwoFactorEmailCode;
 using Auth.Application.Features.Passkeys.Common;
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -19,11 +20,16 @@ namespace Auth.Application.Features.Passkeys.SendPasskeyRegistrationEmailCode;
 /// </para>
 /// <para>
 /// A code is minted only while it can be used: for a session the registration would accept
-/// (<see cref="PasskeyRegistrationGate"/>), while the bind needs it — no qualifying factor
-/// yet, email on — and while the account holds a live registration challenge. That mirrors
-/// the app's sender, which mints only while an app is being set up. Otherwise it answers
-/// <c>EmailCodeRequired: false</c> and sends nothing, or <c>TwoFactor.SetupRequired</c>
-/// when no registration was started.
+/// (<see cref="PasskeyRegistrationGate"/>, which refuses a first passkey while email is off),
+/// while the bind needs it — no qualifying factor yet — and while the account holds a live
+/// registration challenge. That mirrors the app's sender, which mints only while an app is
+/// being set up. Otherwise it answers <c>EmailCodeRequired: false</c> and sends nothing (a
+/// qualifying factor already), or <c>TwoFactor.SetupRequired</c> when no registration was
+/// started.
+/// </para>
+/// <para>
+/// The code it sends is worded for a passkey (REVIEW 150 F11): it adds a way to sign in with
+/// the device's fingerprint, face or PIN, without the password.
 /// </para>
 /// </remarks>
 public sealed class SendPasskeyRegistrationEmailCodeCommandHandler
@@ -72,7 +78,7 @@ public sealed class SendPasskeyRegistrationEmailCodeCommandHandler
         }
 
         var sent = await _emailProof.SendAsync(
-            request.UserId, allowed.Value.Session.DeviceName, request.IpAddress, cancellationToken);
+            request.UserId, BindCodeFactors.Passkey, allowed.Value.Session.DeviceName, request.IpAddress, cancellationToken);
         if (sent.IsError)
         {
             return sent.Errors;

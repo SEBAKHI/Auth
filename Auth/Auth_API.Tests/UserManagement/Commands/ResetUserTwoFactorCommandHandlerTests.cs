@@ -393,7 +393,8 @@ public class ResetUserTwoFactorCommandHandlerTests
     /// <summary>
     /// An account whose only factor is a passkey — no TwoFactorAuth row, the flag 0 — is reset:
     /// the store revokes its passkeys in the reset's own transaction, and one removal event per
-    /// passkey writes its audit row and is told to the owner.
+    /// passkey writes its audit row. The owner is told by the reset's own notice
+    /// (<c>TwoFactorResetEvent</c>), not once per passkey (REVIEW 150 F12).
     /// </summary>
     /// <remarks>Deliberate break, verified red: the passkey clause dropped from the precondition.</remarks>
     [Fact]

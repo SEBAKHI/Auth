@@ -181,6 +181,7 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
                     request.UserId,
                     passkey.Id,
                     passkey.Name,
+                    passkey.CreatedAt,
                     PasskeyRemovalReasons.PeerReset,
                     request.ResetBy,
                     user.Email.Value,

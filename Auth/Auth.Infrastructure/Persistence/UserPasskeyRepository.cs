@@ -30,9 +30,12 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
                 inserted.[IsBackedUp], inserted.[Name], inserted.[CreatedAt], inserted.[LastUsedAt],
                 inserted.[LastCounterRegressionAt], inserted.[RevokedAt], inserted.[RevokedReason], inserted.[RevokedBy]";
 
-    // The live-passkey limit and the insert in one statement: the count is read under a
-    // range lock held to the end of the statement, so of two registrations that would each
-    // be the eleventh, one is refused.
+    // The live-passkey limit, the session and the insert in one statement. The count is read
+    // under a range lock held to the end of the statement, so of two registrations that would
+    // each be the eleventh, one is refused. The session that authorised the registration is
+    // read under a lock its end must wait for (REVIEW 150 F1): a password change, a reset or a
+    // lock ends the sessions before it revokes the recent passkeys, so an insert either commits
+    // first, and that revocation catches it, or finds the session ended and stores nothing.
     internal const string InsertWithinLimitSql = @"
             INSERT INTO [dbo].[UserPasskeys]
                 ([Id], [UserId], [CredentialId], [PublicKey], [SignCount], [RpId],
@@ -40,7 +43,17 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
             SELECT @Id, @UserId, @CredentialId, @PublicKey, @SignCount, @RpId,
                    @IsUserVerified, @IsBackupEligible, @IsBackedUp, @Name, @CreatedAt
             WHERE (SELECT COUNT(*) FROM [dbo].[UserPasskeys] WITH (UPDLOCK, HOLDLOCK)
-                   WHERE [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL) < @MaxLive";
+                   WHERE [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL) < @MaxLive
+              AND EXISTS (SELECT 1 FROM [dbo].[UserSessions] WITH (UPDLOCK, HOLDLOCK)
+                          WHERE [Id] = @SessionId AND [UserId] = @UserId AND [EndedAt] IS NULL)";
+
+    // Which of the insert's two conditions failed, read in its transaction before the
+    // rollback: the session's lock is still held, so the answer is the one the insert saw.
+    internal const string SessionLiveSql = @"
+            SELECT CAST(CASE WHEN EXISTS (
+                SELECT 1 FROM [dbo].[UserSessions]
+                WHERE [Id] = @SessionId AND [UserId] = @UserId AND [EndedAt] IS NULL)
+            THEN 1 ELSE 0 END AS BIT)";
 
     // The handle is set once: only while the column is still empty. The read that follows
     // returns the value that won, whoever wrote it.
@@ -58,6 +71,37 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
             OUTPUT " + InsertedColumns + @"
             WHERE [Id] = @Id
               AND [UserId] = @UserId
+              AND [RpId] = @RpId
+              AND [RevokedAt] IS NULL";
+
+    // The same revocation with the floor of an administrator the policy binds (REVIEW 150 F4):
+    // the live count is read under a range lock held to the end of the statement, so of two
+    // removals that would each take one of the last two passkeys, one changes nothing.
+    internal const string RevokeOneUnlessLastSql = RevokeOneSql + @"
+              AND (SELECT COUNT(*) FROM [dbo].[UserPasskeys] WITH (UPDLOCK, HOLDLOCK)
+                   WHERE [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL) > 1";
+
+    // The reads a person or a policy makes: the caller's own live rows of the RP ID in force.
+    internal const string LiveSql = @"
+            SELECT" + Columns + @"
+            FROM [dbo].[UserPasskeys]
+            WHERE [UserId] = @UserId
+              AND [RpId] = @RpId
+              AND [RevokedAt] IS NULL
+            ORDER BY [CreatedAt], [Id]";
+
+    internal const string LiveByIdSql = @"
+            SELECT" + Columns + @"
+            FROM [dbo].[UserPasskeys]
+            WHERE [Id] = @Id
+              AND [UserId] = @UserId
+              AND [RpId] = @RpId
+              AND [RevokedAt] IS NULL";
+
+    internal const string CountLiveSql = @"
+            SELECT COUNT(*)
+            FROM [dbo].[UserPasskeys]
+            WHERE [UserId] = @UserId
               AND [RpId] = @RpId
               AND [RevokedAt] IS NULL";
 
@@ -99,13 +143,8 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
         }
 
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        var rows = await connection.QueryAsync<UserPasskeyDto>(new CommandDefinition(@"
-            SELECT" + Columns + @"
-            FROM [dbo].[UserPasskeys]
-            WHERE [UserId] = @UserId
-              AND [RpId] = @RpId
-              AND [RevokedAt] IS NULL
-            ORDER BY [CreatedAt], [Id]",
+        var rows = await connection.QueryAsync<UserPasskeyDto>(new CommandDefinition(
+            LiveSql,
             new { UserId = userId, RpId = rpId },
             cancellationToken: cancellationToken));
 
@@ -121,13 +160,8 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
         }
 
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        var row = await connection.QuerySingleOrDefaultAsync<UserPasskeyDto>(new CommandDefinition(@"
-            SELECT" + Columns + @"
-            FROM [dbo].[UserPasskeys]
-            WHERE [Id] = @Id
-              AND [UserId] = @UserId
-              AND [RpId] = @RpId
-              AND [RevokedAt] IS NULL",
+        var row = await connection.QuerySingleOrDefaultAsync<UserPasskeyDto>(new CommandDefinition(
+            LiveByIdSql,
             new { Id = passkeyId, UserId = userId, RpId = rpId },
             cancellationToken: cancellationToken));
 
@@ -143,12 +177,8 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
         }
 
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(@"
-            SELECT COUNT(*)
-            FROM [dbo].[UserPasskeys]
-            WHERE [UserId] = @UserId
-              AND [RpId] = @RpId
-              AND [RevokedAt] IS NULL",
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            CountLiveSql,
             new { UserId = userId, RpId = rpId },
             cancellationToken: cancellationToken));
     }
@@ -192,6 +222,7 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
         UserPasskey passkey,
         int maxLive,
         Guid? bindCodeId,
+        Guid sessionId,
         CancellationToken cancellationToken)
     {
         if (!await _schema.IsPresentAsync(cancellationToken))
@@ -233,14 +264,20 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
                     passkey.Name,
                     passkey.CreatedAt,
                     MaxLive = maxLive,
+                    SessionId = sessionId,
                 },
                 transaction,
                 cancellationToken: cancellationToken));
 
             if (inserted != 1)
             {
+                var sessionLive = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                    SessionLiveSql,
+                    new { SessionId = sessionId, passkey.UserId },
+                    transaction,
+                    cancellationToken: cancellationToken));
                 transaction.Rollback();
-                return PasskeyInsertOutcome.LimitReached;
+                return sessionLive ? PasskeyInsertOutcome.LimitReached : PasskeyInsertOutcome.SessionEnded;
             }
 
             transaction.Commit();
@@ -285,6 +322,29 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         var row = await connection.QuerySingleOrDefaultAsync<UserPasskeyDto>(new CommandDefinition(
             RevokeOneSql,
+            new { Id = passkeyId, UserId = userId, RpId = rpId, Reason = reason, RevokedBy = revokedBy },
+            cancellationToken: cancellationToken));
+
+        return row?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<UserPasskey?> TryRevokeUnlessLastAsync(
+        Guid userId,
+        Guid passkeyId,
+        string rpId,
+        string reason,
+        Guid? revokedBy,
+        CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var row = await connection.QuerySingleOrDefaultAsync<UserPasskeyDto>(new CommandDefinition(
+            RevokeOneUnlessLastSql,
             new { Id = passkeyId, UserId = userId, RpId = rpId, Reason = reason, RevokedBy = revokedBy },
             cancellationToken: cancellationToken));
 

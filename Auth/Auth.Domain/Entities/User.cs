@@ -399,7 +399,14 @@ public class User : AggregateRoot
     /// rather than in a handler so that no future caller can overwrite an existing password
     /// through a path that asks for nothing.
     /// </remarks>
-    public ErrorOr<Success> SetInitialPassword(string passwordHash, Guid modifiedBy)
+    /// <param name="passwordHash">The first password's hash.</param>
+    /// <param name="modifiedBy">Who set it.</param>
+    /// <param name="passkeysThatStay">
+    /// The account's passkeys that stay (S20, REVIEW 150 F12): the notice lists them, as the
+    /// password-changed notice does. Required, so no caller can leave the list out by accident;
+    /// an account without passkeys passes an empty one.
+    /// </param>
+    public ErrorOr<Success> SetInitialPassword(string passwordHash, Guid modifiedBy, IReadOnlyList<PasskeySummary> passkeysThatStay)
     {
         if (PasswordHash is not null)
             return UserErrors.PasswordAlreadySet;
@@ -408,7 +415,10 @@ public class User : AggregateRoot
         PasswordChangedAt = DateTime.UtcNow;
         MustChangePassword = false;
         SetModified(modifiedBy);
-        RaiseDomainEvent(new PasswordCreatedEvent(Id, modifiedBy, Email, NameToShow));
+        RaiseDomainEvent(new PasswordCreatedEvent(Id, modifiedBy, Email, NameToShow)
+        {
+            Passkeys = [.. passkeysThatStay],
+        });
         return Result.Success;
     }
 

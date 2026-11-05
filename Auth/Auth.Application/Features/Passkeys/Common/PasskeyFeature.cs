@@ -31,6 +31,10 @@ public sealed class PasskeyFeature
     private readonly IPasskeySchema _schema;
     private readonly IUserPasskeyRepository _passkeys;
 
+    // PK3's answer, read once per scope (REVIEW 150 F5): the 404 gate asks before
+    // authentication and the handler asks again, and one request decides once.
+    private bool? _otherRpIdLive;
+
     public PasskeyFeature(
         IOptionsMonitor<PasskeySettings> settings,
         IOptionsMonitor<IdentityProviderSettings> identityProvider,
@@ -92,9 +96,9 @@ public sealed class PasskeyFeature
             _identityProvider.CurrentValue.FirstPartySpaOrigins,
             schemaPresent);
 
-        // PK3: only a configuration that could otherwise run asks the rows.
+        // PK3: only a configuration that could otherwise run asks the rows, once per scope.
         if (!assessment.IsConfigured
-            || !await _passkeys.HasLiveOfAnotherRpIdAsync(_rpId.Value, cancellationToken))
+            || !(_otherRpIdLive ??= await _passkeys.HasLiveOfAnotherRpIdAsync(_rpId.Value, cancellationToken)))
         {
             return assessment;
         }

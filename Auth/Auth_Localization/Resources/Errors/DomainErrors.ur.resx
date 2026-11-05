@@ -1376,6 +1376,9 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>اندراجات کی تعداد ۱ اور ۱۰۰ کے درمیان ہونی چاہیے۔</value>
   </data>
+  <data name="Passkey.EmailRequired" xml:space="preserve">
+    <value>پہلی پاس کی صرف اسی وقت شامل کی جا سکتی ہے جب ای میل بھیجنا فعال ہو۔ پہلے تصدیقی ایپ شامل کریں، پھر پاس کی۔</value>
+  </data>
   <data name="Passkey.LimitReached" xml:space="preserve">
     <value>اس اکاؤنٹ میں پاس کیز کی زیادہ سے زیادہ تعداد پہلے ہی موجود ہے۔ نئی شامل کرنے سے پہلے ایک ہٹا دیں۔</value>
   </data>

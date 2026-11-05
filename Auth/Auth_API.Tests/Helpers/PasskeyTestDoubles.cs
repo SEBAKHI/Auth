@@ -71,13 +71,44 @@ internal static class PasskeyTestDoubles
     public static RecentPasskeyRevocation Revocation(
         Mock<IUserPasskeyRepository>? repository = null,
         IPublisher? publisher = null,
-        TimeProvider? clock = null) =>
+        TimeProvider? clock = null,
+        Microsoft.Extensions.Logging.ILogger<RecentPasskeyRevocation>? logger = null) =>
         new(
             Feature(),
             (repository ?? EmptyRepository()).Object,
             publisher ?? new Mock<IPublisher>().Object,
             clock ?? TimeProvider.System,
-            NullLogger<RecentPasskeyRevocation>.Instance);
+            logger ?? NullLogger<RecentPasskeyRevocation>.Instance);
+
+    /// <summary>
+    /// Makes <paramref name="repository"/> behave as the table does for the 72-hour revocation
+    /// (REVIEW 150 F2): <c>RevokeRegisteredAfterAsync</c> revokes the rows registered after the
+    /// cut and answers them, and <c>GetLiveAsync</c> then reads only the rows still live — so a
+    /// test sees what a list read before the revocation, or after one that failed, would show.
+    /// </summary>
+    /// <param name="repository">The repository the handler under test was built with.</param>
+    /// <param name="revocationFails">Whether the revocation statement fails, leaving every row live.</param>
+    /// <param name="live">The account's live passkeys of the example RP ID.</param>
+    public static void AsTable(Mock<IUserPasskeyRepository> repository, bool revocationFails, params UserPasskey[] live)
+    {
+        var rows = live.ToList();
+        repository.Setup(r => r.GetLiveAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid userId, string rpId, CancellationToken _) =>
+                (IReadOnlyList<UserPasskey>)rows.Where(passkey => passkey.UserId == userId && passkey.RpId == rpId).ToList());
+        repository.Setup(r => r.RevokeRegisteredAfterAsync(
+                It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid userId, DateTime after, string _, Guid? _, CancellationToken _) =>
+            {
+                if (revocationFails)
+                {
+                    throw new InvalidOperationException("Execution Timeout Expired.");
+                }
+
+                var revoked = rows.Where(passkey => passkey.UserId == userId && passkey.CreatedAt > after).ToList();
+                rows.RemoveAll(revoked.Contains);
+                return (IReadOnlyList<UserPasskey>)revoked;
+            });
+    }
 
     /// <summary>A live passkey of the example RP ID, registered at <paramref name="createdAt"/>.</summary>
     public static UserPasskey Live(Guid userId, DateTime createdAt, string name = "Laptop", string rpId = RpId) =>

@@ -1378,6 +1378,9 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>يجب أن يكون عدد العناصر بين 1 و100.</value>
   </data>
+  <data name="Passkey.EmailRequired" xml:space="preserve">
+    <value>لا يُضاف أول مفتاح مرور إلا وإرسال البريد مفعّل. أضف تطبيق المصادقة أولًا، ثم مفتاح المرور.</value>
+  </data>
   <data name="Passkey.LimitReached" xml:space="preserve">
     <value>بلغ هذا الحساب الحدّ الأقصى من مفاتيح المرور. احذف واحدًا قبل إضافة غيره.</value>
   </data>

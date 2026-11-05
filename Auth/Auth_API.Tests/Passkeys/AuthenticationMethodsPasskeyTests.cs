@@ -4,12 +4,14 @@ namespace Auth_API.Tests.Passkeys;
 
 /// <summary>
 /// S20 (T-A1, M3, D-T14 A, D-T18 C): the two passkey bits. <c>Passkey</c> (32) is a first
-/// factor; <c>PasskeyUserVerified</c> (64), the device having verified the person, satisfies
-/// two factors on its own. Nothing issues them before PR B; these pin what they will mean.
+/// factor; with <c>PasskeyUserVerified</c> (64), the device having verified the person, the two
+/// satisfy two factors on their own (64 alone proves nothing, REVIEW 150 F10). Nothing issues
+/// them before PR B; these pin what they will mean.
 /// </summary>
 /// <remarks>
 /// Deliberate breaks, each verified red: <c>hwk</c> emitted for the passkey; <c>Passkey</c>
-/// dropped from the primaries; <c>PasskeyUserVerified</c> dropped from <c>IsMfaSatisfied</c>.
+/// dropped from the primaries; <c>PasskeyUserVerified</c> dropped from <c>IsMfaSatisfied</c>;
+/// the bare OR of the user-verified bit restored (F10).
 /// </remarks>
 public class AuthenticationMethodsPasskeyTests
 {
@@ -32,11 +34,21 @@ public class AuthenticationMethodsPasskeyTests
         AuthenticationMethods.Passkey.IsMfaSatisfied.Should().BeFalse("possession alone is one factor");
     }
 
+    /// <summary>
+    /// REVIEW 150 F10 (a): the device's check counts only with the passkey it unlocked. The
+    /// user-verified bit alone proves no first factor, and beside a password it is no second
+    /// one: nothing writes it without the passkey bit (PR B writes both), and a stored value
+    /// that did must satisfy no MFA policy.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the bare OR of the user-verified bit restored.</remarks>
     [Fact]
-    public void UserVerification_SatisfiesTwoFactors_ByItself()
+    public void UserVerification_CountsOnlyWithThePasskey()
     {
-        AuthenticationMethods.PasskeyUserVerified.IsMfaSatisfied.Should().BeTrue();
-        AuthenticationMethods.Password.With(AuthenticationMethods.PasskeyUserVerified).IsMfaSatisfied.Should().BeTrue();
+        AuthenticationMethods.FromStored(64).IsMfaSatisfied.Should().BeFalse("the device's check without the passkey proves nothing");
+        AuthenticationMethods.FromStored(96).IsMfaSatisfied.Should().BeTrue("a passkey the device unlocked is two factors (M3)");
+        AuthenticationMethods.PasskeyUserVerified.IsMfaSatisfied.Should().BeFalse();
+        AuthenticationMethods.Password.With(AuthenticationMethods.PasskeyUserVerified).IsMfaSatisfied.Should().BeFalse(
+            "a password and a check of no passkey is one factor");
     }
 
     [Fact]

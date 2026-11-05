@@ -29,8 +29,11 @@ namespace Auth_API.Modules.Authentication.Controllers;
 /// an RP ID, a first-party origin or the schema (PK19, <see cref="PasskeysAvailabilityMiddleware"/>).
 /// </para>
 /// <para>
-/// The route is a lower-case literal: a cookie's path and the gateway's routes are
-/// case-sensitive. The ceremony cookie is <c>__Host-</c> and Strict (<see cref="WebAuthnChallengeCookie"/>).
+/// The route is a template (<c>api/v{version}/auth/passkeys</c>), matched as every route is:
+/// the 404 gate reads the endpoint's metadata, never the path, so a path's case, a trailing
+/// slash or an encoding cannot slip past it. The ceremony cookie is <c>__Host-</c>, Strict and
+/// <c>Path=/</c> (<see cref="WebAuthnChallengeCookie"/>), so the path's case does not matter to
+/// it either.
 /// </para>
 /// <para>
 /// No answer here may be stored by a browser or a proxy.

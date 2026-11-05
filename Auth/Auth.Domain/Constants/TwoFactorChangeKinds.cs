@@ -42,4 +42,22 @@ public static class TwoFactorChangeKinds
 
     /// <summary>The account's owner removed one of its passkeys (S20).</summary>
     public const string PasskeyRemoved = "passkey-removed";
+
+    /// <summary>
+    /// A password change revoked a passkey registered in the 72 hours before it (S20,
+    /// D-T19 D, REVIEW 150 F12): the notice names it, says why, and what to do.
+    /// </summary>
+    public const string PasskeyRemovedByPasswordChange = "passkey-removed-password-change";
+
+    /// <summary>
+    /// A completed password reset — a first password set by the reset link included — revoked
+    /// a passkey registered in the 72 hours before it (S20, D-T19 D, REVIEW 150 F12).
+    /// </summary>
+    public const string PasskeyRemovedByPasswordReset = "passkey-removed-password-reset";
+
+    /// <summary>
+    /// An administrator's lock revoked a passkey registered in the 72 hours before it (S20,
+    /// D-T19 D, REVIEW 150 F12).
+    /// </summary>
+    public const string PasskeyRemovedByAdminLock = "passkey-removed-admin-lock";
 }

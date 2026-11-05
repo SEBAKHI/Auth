@@ -48,12 +48,24 @@ public class TwoFactorChangedSeedContractTests
         ("authenticator-replaced-email-code", "replaced your codes by email"),
     ];
 
-    /// <summary>Version 3 (S20) words version 2's kinds and the passkey's two.</summary>
+    /// <summary>
+    /// The passkey-removed kinds of the removals the system makes by itself (REVIEW 150 F12):
+    /// each names the passkey, says why, and replaces the closing advice with what to do.
+    /// </summary>
+    private static readonly (string Kind, string EnglishHeadingWord)[] SystemRemovalKinds =
+    [
+        ("passkey-removed-password-change", "password was changed"),
+        ("passkey-removed-password-reset", "password was reset"),
+        ("passkey-removed-admin-lock", "account was locked"),
+    ];
+
+    /// <summary>Version 3 (S20) words version 2's kinds and the passkey's five.</summary>
     private static readonly (string Kind, string EnglishHeadingWord)[] Version3Kinds =
     [
         .. Version2Kinds,
         ("passkey-registered", "passkey was added"),
         ("passkey-removed", "passkey was removed"),
+        .. SystemRemovalKinds,
     ];
 
     /// <summary>Every seeded version: the published one is the newest, so each must render.</summary>
@@ -78,7 +90,10 @@ public class TwoFactorChangedSeedContractTests
     }
 
     private static readonly string[] Catalog =
-        ["UserName", "ChangeKind", "OccurredAtUtc", "DeviceName", "ManageSecurityLink"];
+        ["UserName", "ChangeKind", "OccurredAtUtc", "DeviceName", "ManageSecurityLink", "PasskeyName", "PasskeyAddedAt"];
+
+    /// <summary>What a sender may leave out: the device, and the passkey a kind other than a removal does not name.</summary>
+    private static readonly string[] OptionalVariables = ["DeviceName", "PasskeyName", "PasskeyAddedAt"];
 
     private readonly FluidTemplateRenderer _renderer = new(TimeProvider.System);
 
@@ -99,7 +114,7 @@ public class TwoFactorChangedSeedContractTests
     }
 
     [Fact]
-    public void TheCatalog_IsTheFiveVariables_WithOnlyDeviceNameOptional()
+    public void TheCatalog_IsWhatTheSenderPasses_WithTheDeviceAndThePasskeyOptional()
     {
         var block = TypeBlock(File.ReadAllText(SeedPath(TypesSeed)), TypeId);
         var variablesJson = Regex.Match(block, @"N'(\[\{""name"".*?\])',", RegexOptions.Singleline).Groups[1].Value
@@ -111,13 +126,33 @@ public class TwoFactorChangedSeedContractTests
                 variable => variable.GetProperty("required").GetBoolean());
 
         variables.Keys.Should().BeEquivalentTo(Catalog,
-            "the catalog is the contract the X02 sender fills; a variable in one and not the other renders blank");
-        variables.Where(pair => !pair.Value).Select(pair => pair.Key).Should().Equal(["DeviceName"],
-            "an administrator's reset has no device of the owner's to name; everything else is always known");
+            "the catalog is the contract the sender fills; a variable in one and not the other renders blank");
+        variables.Where(pair => !pair.Value).Select(pair => pair.Key).Should().Equal(OptionalVariables,
+            "an administrator's reset has no device of the owner's to name, and only a passkey removal names a passkey; everything else is always known");
 
         // The publish gate and the console preview render the sample data, so it must hold
-        // every variable the template names, the optional one included.
+        // every variable the template names, the optional ones included.
         SampleModel(block).Keys.Should().BeEquivalentTo(Catalog);
+    }
+
+    [Fact]
+    public void ADatabaseThatHoldsTheType_GainsThePasskeyVariables_ByAnIdempotentUpdate()
+    {
+        // REVIEW 150 F12, S24's way: the guarded insert carries the new catalog for a fresh
+        // database, and an update gives it to one that already holds the type.
+        var seed = File.ReadAllText(SeedPath(TypesSeed)).Replace("\r\n", "\n");
+        var insert = Regex.Match(seed,
+            @"'40000000-0000-0000-0000-000000000021',\s+N'two-factor-changed',.*?N'(?<vars>\[\{""name"".*?\])',\s+N'(?<sample>\{.*?\})',",
+            RegexOptions.Singleline);
+        var update = Regex.Match(seed,
+            @"UPDATE \[dbo\]\.\[NotificationTypes\]\s+SET \[VariablesJson\] = N'(?<vars>\[[^']*\])',\s+\[SampleDataJson\] = N'(?<sample>\{[^']*\})'\s+"
+            + @"WHERE \[Id\] = '40000000-0000-0000-0000-000000000021'\s+AND \[VariablesJson\] NOT LIKE N'%""name"":""PasskeyName""%';");
+
+        insert.Success.Should().BeTrue();
+        update.Success.Should().BeTrue("the guarded insert never reaches a database that already holds the type");
+        update.Groups["vars"].Value.Should().Be(insert.Groups["vars"].Value, "the update writes the catalog a fresh database gets");
+        update.Groups["sample"].Value.Should().Be(insert.Groups["sample"].Value);
+        update.Index.Should().BeLessThan(Regex.Match(seed, @"^\s*GO\s*$", RegexOptions.Multiline).Index, "inside the seed's single batch");
     }
 
     [Theory]
@@ -148,21 +183,26 @@ public class TwoFactorChangedSeedContractTests
         // dropped from one branch would otherwise pass every render.
         var kinds = KindsOf(versionId).Select(row => row.Kind).ToList();
 
+        // Version 3 branches a third time, in the closing advice, for the removals the system
+        // made by itself (REVIEW 150 F12): a heading, an explanation and what to do.
+        var branches = versionId == Version3 ? 3 : 2;
+        var systemRemovals = versionId == Version3 ? SystemRemovalKinds.Select(row => row.Kind).ToHashSet() : new HashSet<string>();
+
         foreach (var (language, subject, body) in Translations(versionId))
         {
             subject.Should().NotContain("{%", $"the {language} subject is fixed; only the body branches");
-            Regex.Matches(body, @"\{%-?\s*case\s+ChangeKind\s*-?%\}").Should().HaveCount(2,
-                $"the {language} body branches twice: the heading and the explanation");
-            Regex.Matches(body, @"\{%-?\s*else\s*-?%\}").Should().HaveCount(2,
-                $"both {language} branches fall back to generic wording for a kind added later");
+            Regex.Matches(body, @"\{%-?\s*case\s+ChangeKind\s*-?%\}").Should().HaveCount(branches,
+                $"the {language} body branches on the kind in the heading, the explanation{(branches == 3 ? " and the closing advice" : "")}");
+            Regex.Matches(body, @"\{%-?\s*else\s*-?%\}").Should().HaveCount(branches,
+                $"every {language} branch falls back to generic wording for a kind added later");
 
             var whens = Regex.Matches(body, @"\{%-?\s*when\s+""([^""]*)""\s*-?%\}")
                 .Select(match => match.Groups[1].Value)
                 .ToList();
 
             whens.Distinct().Should().BeEquivalentTo(kinds, $"the {language} body words exactly the seeded kinds");
-            whens.GroupBy(kind => kind).Should().OnlyContain(group => group.Count() == 2,
-                $"each kind has a {language} heading and a {language} explanation");
+            whens.GroupBy(kind => kind).Should().OnlyContain(group => group.Count() == (systemRemovals.Contains(group.Key) ? 3 : 2),
+                $"each kind has a {language} heading and a {language} explanation, and a removal the system made its own advice");
         }
     }
 
@@ -283,8 +323,9 @@ public class TwoFactorChangedSeedContractTests
             + $"AND [PublishedVersionId] = '{Version2}';");
     }
 
-    private static IReadOnlyDictionary<string, object?> Model(string kind, string? deviceName) =>
-        new Dictionary<string, object?>(StringComparer.Ordinal)
+    private static IReadOnlyDictionary<string, object?> Model(string kind, string? deviceName)
+    {
+        var model = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["UserName"] = "Jane Doe",
             ["ChangeKind"] = kind,
@@ -294,6 +335,84 @@ public class TwoFactorChangedSeedContractTests
             // Injected by the rendering service into every render.
             ["Platform"] = new Dictionary<string, object?>(StringComparer.Ordinal) { ["Name"] = "Example Platform" },
         };
+
+        // The sender passes the passkey's name and date with a passkey removal only.
+        if (kind.StartsWith("passkey-removed", StringComparison.Ordinal))
+        {
+            model["PasskeyName"] = "Work <laptop> & co";
+            model["PasskeyAddedAt"] = "2026-09-17 08:00:00Z";
+        }
+
+        return model;
+    }
+
+    /// <summary>The paragraph after the notice: the closing advice.</summary>
+    private static string Closing(string body) =>
+        Regex.Matches(body, "<p class=\"message\">(.*?)</p>", RegexOptions.Singleline)[2].Groups[1].Value;
+
+    /// <summary>
+    /// REVIEW 150 F12: a passkey the system revoked by itself — a password change, a reset, an
+    /// administrator's lock — is told to its owner in words of its reason: which passkey and
+    /// when it was added, why (added in the 72 hours before; a passkey that new may be someone
+    /// else's), and what to do, in place of the "change your password now" a person who just
+    /// changed it, or cannot sign in under a lock, cannot act on.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the closing advice's branch dropped (the generic words back).</remarks>
+    [Fact]
+    public void TheSystemsOwnRemovals_NameThePasskey_SayWhy_AndWhatToDo_InEveryLanguage()
+    {
+        foreach (var (language, _, bodySource) in Translations(Version3))
+        {
+            var generic = Closing(_renderer.Render(bodySource, Model("disabled", null), language, encodeHtml: true).Value);
+
+            foreach (var (kind, _) in SystemRemovalKinds)
+            {
+                var body = _renderer.RenderTracking(bodySource, Model(kind, null), language, encodeHtml: true, out var missing).Value;
+
+                missing.Should().BeEmpty($"the {language} {kind} wording names nothing the sender does not pass");
+                Explanation(body).Should().Contain("Work &lt;laptop&gt; &amp; co", $"the {language} notice names the passkey, encoded")
+                    .And.Contain("2026-09-17 08:00:00Z", $"the {language} notice says when it was added")
+                    .And.Contain("72", $"the {language} notice says why: it was added in the 72 hours before");
+                Closing(body).Should().NotBe(generic, $"the {language} {kind} notice says what to do, not the generic advice");
+            }
+        }
+
+        var english = Translations(Version3).Single(row => row.Language == "en").Body;
+        foreach (var (kind, _) in SystemRemovalKinds)
+        {
+            var closing = Closing(_renderer.Render(english, Model(kind, null), "en", encodeHtml: true).Value);
+            closing.Should().NotContain("Change your password now");
+            closing.Should().Contain(kind.EndsWith("admin-lock", StringComparison.Ordinal)
+                ? "add it again once the administrator lifts the lock"
+                : "add it again once you are signed in");
+            closing.Should().Contain(kind.EndsWith("admin-lock", StringComparison.Ordinal)
+                ? "contact your administrator"
+                : "review your security settings");
+        }
+    }
+
+    /// <summary>
+    /// REVIEW 150 F12: the owner's own removal keeps the words version 3 was written with — no
+    /// name, no date, and the generic closing advice.
+    /// </summary>
+    [Fact]
+    public void TheOwnersOwnRemoval_KeepsItsWords()
+    {
+        foreach (var (language, _, bodySource) in Translations(Version3))
+        {
+            var own = _renderer.Render(bodySource, Model("passkey-removed", "Chrome on Windows"), language, encodeHtml: true).Value;
+            var generic = _renderer.Render(bodySource, Model("disabled", "Chrome on Windows"), language, encodeHtml: true).Value;
+
+            Closing(own).Should().Be(Closing(generic), $"the {language} owner's removal keeps the generic closing advice");
+            Explanation(own).Should().NotContain("Work &lt;laptop&gt;").And.NotContain("2026-09-17");
+        }
+
+        var english = _renderer.Render(
+            Translations(Version3).Single(row => row.Language == "en").Body, Model("passkey-removed", null), "en", encodeHtml: true).Value;
+        Explanation(english).Should().Be(
+            "A passkey was just removed from your Example Platform account. It no longer signs in, and your other sessions were signed out.");
+        Heading(english).Should().Be("A passkey was removed from your account");
+    }
 
     private static string Heading(string body) =>
         Regex.Match(body, "<h1>(.*?)</h1>", RegexOptions.Singleline).Groups[1].Value.Trim();

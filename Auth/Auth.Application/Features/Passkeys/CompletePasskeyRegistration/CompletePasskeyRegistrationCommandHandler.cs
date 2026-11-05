@@ -28,8 +28,9 @@ namespace Auth.Application.Features.Passkeys.CompletePasskeyRegistration;
 /// against the same challenge.</item>
 /// <item>The library's check (<see cref="IWebAuthnVerifier"/>): exact origin, RP ID, user
 /// verification, ES256 or RS256. Every rejection is <c>Passkey.VerificationFailed</c>.</item>
-/// <item>The row, within the limit of ten, with the emailed code spent in the same
-/// transaction; a credential id registered already, to anyone, is refused.</item>
+/// <item>The row, within the limit of ten and only while the session the gate accepted is
+/// still live, with the emailed code spent in the same transaction; a credential id
+/// registered already, to anyone, is refused.</item>
 /// <item>The event, after the save: the audit row and the owner's notice (FA11).</item>
 /// </list>
 /// From the save on, a client that disconnects must not stop the event.
@@ -161,11 +162,14 @@ public sealed class CompletePasskeyRegistrationCommandHandler
             return UserErrors.NotFound(request.UserId);
         }
 
-        // 6. The row, within the limit, with the emailed code spent in the same transaction.
-        //    From here on a client that disconnects must not stop it halfway.
+        // 6. The row, within the limit and only while the session the gate accepted is live,
+        //    with the emailed code spent in the same transaction. A password change, a reset
+        //    or a lock that ended the session meanwhile leaves nothing stored and the code
+        //    unspent (REVIEW 150 F1). From here on a client that disconnects must not stop it
+        //    halfway.
         var passkey = created.Value;
         var outcome = await _passkeyRepository.TryCreateAsync(
-            passkey, UserPasskey.MaxLivePerAccount, bindCodeId, CancellationToken.None);
+            passkey, UserPasskey.MaxLivePerAccount, bindCodeId, allowed.Value.Session.SessionId, CancellationToken.None);
         switch (outcome)
         {
             case PasskeyInsertOutcome.Inserted:
@@ -174,6 +178,11 @@ public sealed class CompletePasskeyRegistrationCommandHandler
                 return PasskeyErrors.LimitReached;
             case PasskeyInsertOutcome.BindCodeLost:
                 return TwoFactorErrors.EmailCodeInvalid;
+            case PasskeyInsertOutcome.SessionEnded:
+                _logger.LogInformation(
+                    "A passkey registration for user {UserId} stored nothing: its session ended before the row was written",
+                    request.UserId);
+                return AuthErrors.ReauthenticationRequired;
             default:
                 return Refused(request.UserId, "the credential id is registered already");
         }

@@ -1376,6 +1376,9 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>تعداد موارد باید بین ۱ و ۱۰۰ باشد.</value>
   </data>
+  <data name="Passkey.EmailRequired" xml:space="preserve">
+    <value>نخستین کلید عبور تنها زمانی افزوده می‌شود که ارسال ایمیل روشن باشد. نخست برنامهٔ احراز هویت را بیفزایید، سپس کلید عبور را.</value>
+  </data>
   <data name="Passkey.LimitReached" xml:space="preserve">
     <value>این حساب به حداکثر تعداد کلیدهای عبور رسیده است. پیش از افزودن کلید تازه، یکی را حذف کنید.</value>
   </data>

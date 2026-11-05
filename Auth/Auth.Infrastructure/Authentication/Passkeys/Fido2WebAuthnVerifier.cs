@@ -24,9 +24,12 @@ namespace Auth.Infrastructure.Authentication.Passkeys;
 /// </para>
 /// <para>
 /// ES256 (-7) and RS256 (-257) only. The library's EdDSA path is the one that loads the
-/// native libsodium (through NSec); it is never offered, and the library itself refuses a
-/// credential whose algorithm the options did not offer
-/// (<see cref="Fido2NetLib.Exceptions.Fido2ErrorCode.CredentialAlgorithmRequirementNotMet"/>).
+/// native libsodium (through NSec); it is never offered, and the library refuses a credential
+/// whose algorithm the options did not offer
+/// (<see cref="Fido2NetLib.Exceptions.Fido2ErrorCode.CredentialAlgorithmRequirementNotMet"/>)
+/// — but only after it has read the key, and reading an OKP key loads libsodium (REVIEW 150
+/// F9, the spike). So a credential whose key is not EC2 or RSA is refused before the library
+/// sees it (<see cref="AttestedKeyType"/>).
 /// </para>
 /// <para>
 /// What the client sent is checked by the library, and every rejection it raises is mapped
@@ -98,6 +101,22 @@ public sealed class Fido2WebAuthnVerifier : IWebAuthnVerifier
         // The server's own inputs, outside the mapped call: the options it stored and its
         // configuration. A failure in either is the server's, so it propagates.
         var options = CredentialCreateOptions.FromJson(optionsJson);
+
+        // Options stored under another RP ID (a restart with a new Passkeys:RpId inside a
+        // ceremony's five minutes) would bind a credential to that one and store it under
+        // this one: refused before the library runs (REVIEW 150 F10).
+        if (!string.Equals(options.Rp?.Id, relyingParty.RpId, StringComparison.Ordinal))
+        {
+            return Refused("the stored options name another RP ID");
+        }
+
+        // Only an EC2 or RSA credential key reaches the library: it reads an OKP (EdDSA) key
+        // through the native libsodium before refusing its algorithm (REVIEW 150 F9).
+        if (!AttestedKeyType.IsEc2OrRsa(responseJson))
+        {
+            return Refused("the credential key is not an EC2 or RSA key, or cannot be read");
+        }
+
         var fido2 = new Fido2(Configuration(relyingParty));
 
         try

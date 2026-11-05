@@ -276,6 +276,48 @@ public class LockAccountCommandHandlerTests
             CancellationToken.None), Times.Once);
     }
 
+    /// <summary>
+    /// REVIEW 150 F1, F2: from the commit on, an administrator's browser that disconnects
+    /// cannot skip taking the account back: the sessions end and the recent passkeys go with
+    /// no request token; a step after them may still stop on the cancelled one.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the request's token given to the session revocation again.</remarks>
+    [Fact]
+    public async Task Handle_ACallerThatDisconnectsAfterTheLock_CannotSkipTheSessionsOrThePasskeys()
+    {
+        var userId = Guid.NewGuid();
+        var lockedBy = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        using var request = new CancellationTokenSource();
+        _change.Setup(c => c.SetAccountStatusAsync(userId, It.IsAny<AccountStatusChange>(), lockedBy, It.IsAny<CancellationToken>()))
+            .Callback(() => request.Cancel())
+            .Returns(Task.CompletedTask);
+        _credentialRevocationMock
+            .Setup(c => c.RevokeAllCredentialsAsync(userId, lockedBy, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns((Guid _, Guid? _, string _, CancellationToken token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                return Task.FromResult(1);
+            });
+        _eventDispatcherMock
+            .Setup(d => d.DispatchEventsAsync(It.IsAny<Auth.Domain.Primitives.AggregateRoot>(), It.IsAny<CancellationToken>()))
+            .Returns((Auth.Domain.Primitives.AggregateRoot _, CancellationToken token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            });
+
+        var act = () => _handler.Handle(new LockAccountCommand(userId, "Suspicious activity", 30, lockedBy), request.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        _credentialRevocationMock.Verify(c => c.RevokeAllCredentialsAsync(userId, lockedBy, It.IsAny<string>(), CancellationToken.None), Times.Once,
+            "the sessions end whatever the administrator's browser does");
+        _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
+            userId, It.IsAny<DateTime>(), Auth.Domain.Constants.PasskeyRemovalReasons.AdminLock, lockedBy, CancellationToken.None), Times.Once,
+            "the recent passkeys go whatever the administrator's browser does");
+    }
+
     [Fact]
     public async Task Handle_IndefiniteLock_StillRevokesEveryCredential()
     {

@@ -13,7 +13,8 @@ namespace Auth_API.Modules.Authentication.EventHandlers;
 /// Tells the account owner that two-factor authentication on their account was
 /// switched on or off, that its recovery codes or its authenticator app were
 /// replaced, that the emailed code became or stopped being its second factor (S24),
-/// or that an administrator removed it.
+/// that an administrator removed it, or that a passkey was added or stopped working
+/// (S20: by its owner, or revoked by a password change, a password reset or a lock).
 ///
 /// One change, one notice: when one factor takes the place of the other, two events
 /// are raised (the old factor off, the new one on) and only the new factor's sends —
@@ -159,11 +160,12 @@ public class TwoFactorChangedNotificationEventHandler :
             TwoFactorChangeKinds.PasskeyRegistered,
             cancellationToken);
 
-    // S20: a passkey its owner removed. The other removals come with a notice of their own —
-    // the administrator's reset, the password change, the lock — so one more email per
-    // passkey would only bury it (D-T19 D).
+    // S20 (REVIEW 150 F12): every passkey that stopped working without its owner's own word is
+    // told to them, each in words of its reason — which passkey, why, and what to do — and the
+    // owner's own removal keeps its words. An administrator's two-factor reset has a notice of
+    // its own and sends none per passkey; the scripts the owner runs raise no event.
     public Task Handle(PasskeyRemovedEvent notification, CancellationToken cancellationToken) =>
-        notification.Reason != PasskeyRemovalReasons.User
+        !NoticeKindByRemovalReason.TryGetValue(notification.Reason, out var kind)
             ? Task.CompletedTask
             : SendAsync(
                 notification.UserId,
@@ -171,8 +173,27 @@ public class TwoFactorChangedNotificationEventHandler :
                 notification.Email,
                 notification.DisplayName,
                 notification.DeviceName,
-                TwoFactorChangeKinds.PasskeyRemoved,
-                cancellationToken);
+                kind,
+                cancellationToken,
+                new Dictionary<string, object?>
+                {
+                    // The template encodes the name: it is the owner's own text, or an intruder's.
+                    ["PasskeyName"] = notification.Name,
+                    ["PasskeyAddedAt"] = notification.AddedAtUtc.ToString("u", CultureInfo.InvariantCulture),
+                });
+
+    /// <summary>
+    /// The removals told to the owner per passkey, with the wording each gets (REVIEW 150 F12).
+    /// A reason that is not here sends nothing.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> NoticeKindByRemovalReason =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [PasskeyRemovalReasons.User] = TwoFactorChangeKinds.PasskeyRemoved,
+            [PasskeyRemovalReasons.PasswordChange] = TwoFactorChangeKinds.PasskeyRemovedByPasswordChange,
+            [PasskeyRemovalReasons.PasswordReset] = TwoFactorChangeKinds.PasskeyRemovedByPasswordReset,
+            [PasskeyRemovalReasons.AdminLock] = TwoFactorChangeKinds.PasskeyRemovedByAdminLock,
+        };
 
     private async Task SendAsync(
         Guid userId,
@@ -181,10 +202,25 @@ public class TwoFactorChangedNotificationEventHandler :
         string displayName,
         string? deviceName,
         string changeKind,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, object?>? passkeyDetails = null)
     {
         try
         {
+            var variables = new Dictionary<string, object?>
+            {
+                ["UserName"] = displayName,
+                ["ChangeKind"] = changeKind,
+                ["OccurredAtUtc"] = _timeProvider.GetUtcNow().UtcDateTime
+                    .ToString("u", CultureInfo.InvariantCulture),
+                ["DeviceName"] = deviceName,
+                ["ManageSecurityLink"] = _emailSettings.BuildFrontendUrl("/profile?tab=security"),
+            };
+            foreach (var (name, value) in passkeyDetails ?? new Dictionary<string, object?>())
+            {
+                variables[name] = value;
+            }
+
             var sendResult = await _notificationService.SendAsync(
                 new NotificationRequest
                 {
@@ -196,15 +232,7 @@ public class TwoFactorChangedNotificationEventHandler :
                     // whichever application the change was made from.
                     ApplicationId = null,
                     TriggeredBy = changedBy,
-                    Variables = new Dictionary<string, object?>
-                    {
-                        ["UserName"] = displayName,
-                        ["ChangeKind"] = changeKind,
-                        ["OccurredAtUtc"] = _timeProvider.GetUtcNow().UtcDateTime
-                            .ToString("u", CultureInfo.InvariantCulture),
-                        ["DeviceName"] = deviceName,
-                        ["ManageSecurityLink"] = _emailSettings.BuildFrontendUrl("/profile?tab=security"),
-                    }
+                    Variables = variables
                 },
                 cancellationToken);
 

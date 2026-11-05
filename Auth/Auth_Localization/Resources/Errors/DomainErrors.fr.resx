@@ -1376,6 +1376,9 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>Le nombre d'éléments doit être compris entre 1 et 100.</value>
   </data>
+  <data name="Passkey.EmailRequired" xml:space="preserve">
+    <value>Une première clé d'accès ne peut être ajoutée que si l'envoi d'e-mails est activé. Ajoutez d'abord l'application d'authentification, puis la clé d'accès.</value>
+  </data>
   <data name="Passkey.LimitReached" xml:space="preserve">
     <value>Ce compte a déjà le nombre maximal de clés d'accès. Supprimez-en une avant d'en ajouter une autre.</value>
   </data>

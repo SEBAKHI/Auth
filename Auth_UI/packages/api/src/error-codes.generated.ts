@@ -345,6 +345,7 @@ export const PUBLISHED_ERROR_CODES = {
   "Paging.PageNumberOutOfRange": "catalog",
   "Paging.PageSizeOutOfRange": "catalog",
   "Paging.TakeOutOfRange": "catalog",
+  "Passkey.EmailRequired": "catalog",
   "Passkey.LimitReached": "catalog",
   "Passkey.NameTooLong": "#/name",
   "Passkey.NotFound": "catalog",

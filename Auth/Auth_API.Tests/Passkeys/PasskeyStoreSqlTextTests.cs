@@ -7,6 +7,7 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
 using Auth.Infrastructure.Persistence;
 using Auth_API.Tests.Helpers;
+using Auth_API.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Auth_API.Tests.Passkeys;
@@ -24,12 +25,15 @@ namespace Auth_API.Tests.Passkeys;
 /// Deliberate breaks, each verified red: <c>[UsedAt] IS NULL</c> dropped from the consumption;
 /// <c>[Purpose] = @Purpose</c> dropped; <c>WITH (UPDLOCK, HOLDLOCK)</c> dropped; <c>AND
 /// [UserId] = @UserId</c> dropped from the revocation; <c>[WebAuthnUserHandle] IS NULL</c>
-/// dropped; the 72-hour cut written <c>&gt;=</c>.
+/// dropped; the 72-hour cut written <c>&gt;=</c>. REVIEW 150: the session's EXISTS dropped
+/// from the insert (F1); the floor, or its lock hints, dropped (F4); the index dropped (F5);
+/// <c>[UserId] = @UserId</c> dropped from the list, and its order written <c>DESC</c> (F6, F8).
 /// </para>
 /// </remarks>
 public class PasskeyStoreSqlTextTests
 {
     private static readonly Guid UserId = Guid.NewGuid();
+    private static readonly Guid SessionId = Guid.NewGuid();
 
     // ── The challenge store (WebAuthnChallengeStoreSqlTextTests) ──
 
@@ -115,26 +119,68 @@ public class PasskeyStoreSqlTextTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
         var passkey = PasskeyTestDoubles.Live(UserId, DateTime.UtcNow);
 
-        (await Passkeys(db).TryCreateAsync(passkey, UserPasskey.MaxLivePerAccount, bindCodeId: null, CancellationToken.None))
+        (await Passkeys(db).TryCreateAsync(passkey, UserPasskey.MaxLivePerAccount, bindCodeId: null, SessionId, CancellationToken.None))
             .Should().Be(PasskeyInsertOutcome.Inserted);
 
         var insert = db.Commands.Single();
         insert.InTransaction.Should().BeTrue();
-        Squash(insert.CommandText).Should().EndWith(
+        Squash(insert.CommandText).Should().Contain(
             "WHERE (SELECT COUNT(*) FROM [dbo].[UserPasskeys] WITH (UPDLOCK, HOLDLOCK) WHERE [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL) < @MaxLive",
             "of two registrations that would each be the eleventh, one is refused");
         insert.Parameters["MaxLive"].Should().Be(10);
         db.LastTransaction!.Committed.Should().BeTrue();
     }
 
+    /// <summary>
+    /// REVIEW 150 F1: the insert names the session the registration's checks accepted, read
+    /// under a lock its end must wait for. A password change, a reset or a lock ends the
+    /// sessions before it revokes the recent passkeys, so a registration in flight either
+    /// commits first, and is revoked, or finds its session ended.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the EXISTS on the session dropped from the insert.</remarks>
+    [Fact]
+    public async Task TryCreate_InsertsOnlyWhileTheSessionThatAuthorisedItIsLive_UnderALockItsEndWaitsFor()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, null, SessionId, CancellationToken.None);
+
+        var insert = db.Commands.Single();
+        Squash(insert.CommandText).Should().EndWith(
+            "AND EXISTS (SELECT 1 FROM [dbo].[UserSessions] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = @SessionId AND [UserId] = @UserId AND [EndedAt] IS NULL)",
+            "a registration whose session a recovery ended stores nothing");
+        insert.Parameters["SessionId"].Should().Be(SessionId);
+        insert.Parameters["UserId"].Should().Be(UserId);
+    }
+
     [Fact]
     public async Task TryCreate_AtTheLimit_RollsBack_AndSaysSo()
     {
-        var db = new RecordingDbConnectionFactory(affectedRows: 0);
+        // The insert loses; the session is still live, so it was the limit.
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, scalarFor: _ => true);
 
-        (await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, null, CancellationToken.None))
+        (await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, null, SessionId, CancellationToken.None))
             .Should().Be(PasskeyInsertOutcome.LimitReached);
         db.LastTransaction!.RolledBack.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TryCreate_AfterTheSessionEnded_RollsBack_AndSaysSo_InTheSameTransaction()
+    {
+        var codeId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 0,
+            affectedFor: command => command.CommandText == SingleUseCodeStatements.TwoFactorBindCodes.Consume ? 1 : 0,
+            scalarFor: _ => false);
+
+        (await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, codeId, SessionId, CancellationToken.None))
+            .Should().Be(PasskeyInsertOutcome.SessionEnded);
+
+        db.Commands.Should().HaveCount(3).And.OnlyContain(command => command.InTransaction);
+        db.Commands[2].CommandText.Should().Be(UserPasskeyRepository.SessionLiveSql, "which condition lost, read before the rollback");
+        Squash(UserPasskeyRepository.SessionLiveSql).Should().Contain(
+            "WHERE [Id] = @SessionId AND [UserId] = @UserId AND [EndedAt] IS NULL");
+        db.LastTransaction!.RolledBack.Should().BeTrue("the emailed code stays unspent");
     }
 
     [Fact]
@@ -143,7 +189,7 @@ public class PasskeyStoreSqlTextTests
         var codeId = Guid.NewGuid();
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
-        await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, codeId, CancellationToken.None);
+        await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, codeId, SessionId, CancellationToken.None);
 
         db.Commands.Should().HaveCount(2).And.OnlyContain(command => command.InTransaction);
         db.Commands[0].CommandText.Should().Be(SingleUseCodeStatements.TwoFactorBindCodes.Consume);
@@ -156,10 +202,100 @@ public class PasskeyStoreSqlTextTests
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 0);
 
-        (await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, Guid.NewGuid(), CancellationToken.None))
+        (await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, Guid.NewGuid(), SessionId, CancellationToken.None))
             .Should().Be(PasskeyInsertOutcome.BindCodeLost);
         db.Commands.Should().ContainSingle("the insert never runs");
         db.LastTransaction!.RolledBack.Should().BeTrue();
+    }
+
+    // ── The reads a person or a policy makes (REVIEW 150 F6) ──
+
+    /// <summary>
+    /// The caller's own live passkeys of the RP ID in force, oldest first. Each of the three
+    /// conditions is what keeps another account's rows, a revoked row or a row of another RP
+    /// ID out of the list, the exclusions and the password notice.
+    /// </summary>
+    /// <remarks>Deliberate breaks, each verified red: <c>[UserId] = @UserId</c> dropped; the order written <c>DESC</c>.</remarks>
+    [Fact]
+    public async Task GetLive_ReadsOnlyTheCallersLiveRowsOfTheRpId_OldestFirst()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => null);
+
+        await Passkeys(db).GetLiveAsync(UserId, PasskeyTestDoubles.RpId, CancellationToken.None);
+
+        var command = db.Commands.Single();
+        command.CommandText.Should().Be(UserPasskeyRepository.LiveSql);
+        Squash(command.CommandText).Should().EndWith(
+            "FROM [dbo].[UserPasskeys] WHERE [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL ORDER BY [CreatedAt], [Id]",
+            "oldest first, as the guides say and the console shows");
+        command.Parameters["UserId"].Should().Be(UserId);
+        command.Parameters["RpId"].Should().Be(PasskeyTestDoubles.RpId);
+    }
+
+    [Fact]
+    public async Task GetLiveById_ReadsOnlyTheCallersLiveRowOfTheRpId()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => null);
+        var passkeyId = Guid.NewGuid();
+
+        (await Passkeys(db).GetLiveByIdAsync(UserId, passkeyId, PasskeyTestDoubles.RpId, CancellationToken.None)).Should().BeNull();
+
+        var command = db.Commands.Single();
+        command.CommandText.Should().Be(UserPasskeyRepository.LiveByIdSql);
+        Squash(command.CommandText).Should().EndWith(
+            "FROM [dbo].[UserPasskeys] WHERE [Id] = @Id AND [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL",
+            "another account's passkey id finds nothing");
+        command.Parameters["Id"].Should().Be(passkeyId);
+        command.Parameters["UserId"].Should().Be(UserId);
+    }
+
+    [Fact]
+    public async Task CountLive_CountsOnlyTheCallersLiveRowsOfTheRpId()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 2);
+
+        (await Passkeys(db).CountLiveAsync(UserId, PasskeyTestDoubles.RpId, CancellationToken.None)).Should().Be(2);
+
+        var command = db.Commands.Single();
+        command.CommandText.Should().Be(UserPasskeyRepository.CountLiveSql);
+        Squash(command.CommandText).Should().Be(
+            "SELECT COUNT(*) FROM [dbo].[UserPasskeys] WHERE [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL");
+        command.Parameters["UserId"].Should().Be(UserId);
+    }
+
+    /// <summary>
+    /// REVIEW 150 F4: a bound administrator's removal keeps the floor in the statement itself,
+    /// read under a range lock held to its end, so two removals at once cannot take the last two.
+    /// </summary>
+    /// <remarks>Deliberate breaks, each verified red: the floor dropped; its lock hints dropped.</remarks>
+    [Fact]
+    public async Task RevokeOneUnlessLast_KeepsTheLastLivePasskey_UnderARangeLock()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => null);
+        var passkeyId = Guid.NewGuid();
+
+        (await Passkeys(db).TryRevokeUnlessLastAsync(UserId, passkeyId, PasskeyTestDoubles.RpId, PasskeyRemovalReasons.User, UserId, CancellationToken.None))
+            .Should().BeNull();
+
+        var command = db.Commands.Single();
+        command.CommandText.Should().Be(UserPasskeyRepository.RevokeOneUnlessLastSql);
+        Squash(command.CommandText).Should().EndWith(
+            "WHERE [Id] = @Id AND [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL "
+            + "AND (SELECT COUNT(*) FROM [dbo].[UserPasskeys] WITH (UPDLOCK, HOLDLOCK) WHERE [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL) > 1",
+            "of two removals that would each take one of the last two, one changes nothing");
+        command.Parameters["Id"].Should().Be(passkeyId);
+        command.Parameters["UserId"].Should().Be(UserId);
+    }
+
+    [Fact]
+    public void TheLiveRpIdIndex_LetsPk3sCheckSeek_InsteadOfReadingEveryLiveRow()
+    {
+        // REVIEW 150 F5: "[RpId] <> @RpId" on every passkey request, before authentication.
+        var table = File.ReadAllText(Path.Combine(
+            ApiSourceScan.SolutionDirectory(), "Auth_DB", "dbo", "Tables", "Security", "UserPasskeys.sql"));
+
+        Squash(table).Should().Contain(
+            "CREATE NONCLUSTERED INDEX [IX_UserPasskeys_LiveRpId] ON [dbo].[UserPasskeys] ([RpId]) WHERE [RevokedAt] IS NULL;");
     }
 
     [Fact]

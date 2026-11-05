@@ -1376,6 +1376,9 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>条目数量必须介于1到100之间。</value>
   </data>
+  <data name="Passkey.EmailRequired" xml:space="preserve">
+    <value>只有在开启邮件发送时才能添加第一个通行密钥。请先添加身份验证器应用，再添加通行密钥。</value>
+  </data>
   <data name="Passkey.LimitReached" xml:space="preserve">
     <value>此账户的通行密钥已达上限。请先删除一个，再添加新的。</value>
   </data>
