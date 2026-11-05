@@ -76,6 +76,7 @@ vi.mock("@authsystem/ui/form", async (importOriginal) => {
 import { setAccessToken } from "@authsystem/api/token-store"
 
 import { toAccountsSearch } from "../return-to"
+import { requestKey } from "../sign-in-marker"
 import { LoginPage } from "./login"
 
 function tokenWith(claims: Record<string, unknown>): string {
@@ -96,7 +97,7 @@ interface Marker {
 
 function marker(overrides: Partial<Marker> = {}): Marker {
   return {
-    request: RESUME,
+    request: requestKey(RESUME),
     sub: "user-1",
     sid: "session-1",
     at: Date.now(),
@@ -197,16 +198,41 @@ describe("the skip (U2)", () => {
   })
 
   it("hands over once under StrictMode's double effects", async () => {
-    storeMarker(marker())
-    renderAt(enroll(), { strict: true })
-    await expectSetUp()
+    // A tab storage that records its removals: each hand-over spends the
+    // marker once in the completion rule, so one removal is one hand-over,
+    // whatever StrictMode ran twice.
+    const items = new Map<string, string>()
+    const removals: string[] = []
+    const recording = {
+      getItem: (key: string) => items.get(key) ?? null,
+      setItem: (key: string, value: string) => void items.set(key, String(value)),
+      removeItem: (key: string) => {
+        removals.push(key)
+        items.delete(key)
+      },
+      clear: () => items.clear(),
+      key: (index: number) => [...items.keys()][index] ?? null,
+      get length() {
+        return items.size
+      },
+    }
+    const own = Object.getOwnPropertyDescriptor(window, "sessionStorage")
+    Object.defineProperty(window, "sessionStorage", { configurable: true, get: () => recording })
+    try {
+      storeMarker(marker())
+      renderAt(enroll(), { strict: true })
+      await expectSetUp()
+      expect(removals.filter((key) => key === MARKER_KEY)).toHaveLength(1)
+    } finally {
+      if (own) Object.defineProperty(window, "sessionStorage", own)
+    }
   })
 })
 
 describe("the form, as before (U2)", () => {
   const cases: Array<[string, () => void, string?]> = [
     ["no marker", () => {}],
-    ["a marker for another request", () => storeMarker(marker({ request: OTHER_RESUME }))],
+    ["a marker for another request", () => storeMarker(marker({ request: requestKey(OTHER_RESUME) }))],
     ["another account", () => storeMarker(marker({ sub: "user-2" }))],
     ["another accounts session", () => storeMarker(marker({ sid: "session-2" }))],
     ["a marker older than two minutes", () => storeMarker(marker({ at: Date.now() - 121_000 }))],

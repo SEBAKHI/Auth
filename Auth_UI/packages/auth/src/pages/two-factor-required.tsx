@@ -95,7 +95,8 @@ function ApplicationTwoFactorRequired({ returnTo }: { returnTo: string }) {
   const resume = React.useCallback(async () => {
     if (resuming.current) return
     resuming.current = true
-    complete({})
+    // Not a sign-in: this resume leaves no sign-in marker (OI-275).
+    complete({}, { endsSignIn: false })
   }, [complete])
 
   const signInAgain = React.useCallback(() => {

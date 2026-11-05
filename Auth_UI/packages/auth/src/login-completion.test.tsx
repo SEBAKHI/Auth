@@ -24,7 +24,7 @@ import {
   setPendingReturnTo,
 } from "./pending-challenge"
 import { setAccessToken } from "@authsystem/api/token-store"
-import { SIGN_IN_MARKER_KEY } from "./sign-in-marker"
+import { requestKey, SIGN_IN_MARKER_KEY } from "./sign-in-marker"
 
 const AUTHORIZE =
   "https://api.example.com/api/v1/auth/authorize?client_id=app&state=xyz"
@@ -606,7 +606,7 @@ describe("the sign-in marker (OI-275)", () => {
     expect(assign).toHaveBeenCalledWith(RESUME)
     const marker = JSON.parse(atNavigation ?? "null") as Record<string, unknown>
     expect(marker).toEqual({
-      request: RESUME,
+      request: requestKey(RESUME),
       sub: "user-1",
       sid: "session-1",
       at: expect.any(Number),
@@ -621,7 +621,19 @@ describe("the sign-in marker (OI-275)", () => {
 
     await act()
 
-    expect(JSON.parse(stored() ?? "null")).toMatchObject({ request: RESUME, proof: null })
+    expect(JSON.parse(stored() ?? "null")).toMatchObject({ request: requestKey(RESUME), proof: null })
+  })
+
+  it("is not written by a resume that ends no sign-in, and an older one is dropped", async () => {
+    window.sessionStorage.setItem(SIGN_IN_MARKER_KEY, "left over")
+    const { act } = renderCompletion(entry(PENDING), (c) =>
+      c.complete({}, { endsSignIn: false })
+    )
+
+    await act()
+
+    expect(assign).toHaveBeenCalledWith(RESUME)
+    expect(stored()).toBeNull()
   })
 
   it("is not written from a token without sub or sid, and an older one is dropped", async () => {
@@ -657,7 +669,7 @@ describe("the sign-in marker (OI-275)", () => {
   it("is spent where mfa_enroll opens the set-up page", async () => {
     window.sessionStorage.setItem(
       SIGN_IN_MARKER_KEY,
-      JSON.stringify({ request: RESUME, sub: "user-1", sid: "session-1", at: Date.now(), proof: "password" })
+      JSON.stringify({ request: requestKey(RESUME), sub: "user-1", sid: "session-1", at: Date.now(), proof: "password" })
     )
     const { act } = renderCompletion(entry(`${PENDING}&reason=mfa_enroll&method=password`), (c) =>
       c.complete({}, { proof: "password" })

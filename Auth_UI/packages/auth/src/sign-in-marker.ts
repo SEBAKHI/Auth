@@ -15,13 +15,16 @@ import type { SignInReason } from "./sign-in-reason"
  * in this tab, and the page that opens for the same request, account and
  * session moments later goes straight to the set-up page.
  *
- * THE MARKER. One `sessionStorage` key, in this tab only: the pending request
- * (the validated internal URL the completion resumed), the account (`sub`) and
- * the accounts session (`sid`) of the token stored by that sign-in, the time,
- * and what proved the sign-in's first step. No address, no name, no token.
+ * THE MARKER. One `sessionStorage` key, in this tab only: a digest of the
+ * pending request (of the validated internal URL the completion resumed: only
+ * equality is ever asked, and a legacy authorize URL may carry an address in
+ * `login_hint`), the account (`sub`) and the accounts session (`sid`) of the
+ * token stored by that sign-in, the time, and what proved the sign-in's first
+ * step. No address, no name, no token, no request URL.
  *
  * WHO WRITES AND WHO SPENDS IT. Only the completion rule writes it, right before
- * it resumes a request. The completion rule also removes it where it spends the
+ * a sign-in resumes a request; a resume that ends no sign-in (the set-up page's
+ * own) leaves none. The completion rule also removes it where it spends the
  * `mfa_enroll` reason, which is where every skip goes, so a marker opens the
  * set-up page once: a set-up the server refuses (the sign-in is too old, or it
  * did not prove a first factor) sends the person to the sign-in page with the
@@ -62,6 +65,28 @@ interface SignInMarker {
   proof: SignInProof | null
 }
 
+/**
+ * The marker's name for a pending request: two 53-bit string hashes (cyrb53,
+ * two seeds). An equality key, not a security boundary: the request's own
+ * random parts (handle, state, PKCE challenge) make it unguessable, and a
+ * script that could read the marker could read the page's URL anyway.
+ */
+export function requestKey(request: string): string {
+  const hash = (seed: number) => {
+    let h1 = 0xdeadbeef ^ seed
+    let h2 = 0x41c6ce57 ^ seed
+    for (let index = 0; index < request.length; index += 1) {
+      const code = request.charCodeAt(index)
+      h1 = Math.imul(h1 ^ code, 2654435761)
+      h2 = Math.imul(h2 ^ code, 1597334677)
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36)
+  }
+  return `${hash(0)}.${hash(1)}`
+}
+
 function isProof(value: unknown): value is SignInProof {
   return value === "password" || value === "code" || value === "external"
 }
@@ -100,7 +125,7 @@ export function writeSignInMarker(
     return
   }
   const marker: SignInMarker = {
-    request,
+    request: requestKey(request),
     sub: session.sub,
     sid: session.sid,
     at: now,
@@ -158,7 +183,7 @@ export function canSkipSignIn(
   if (!returnTo || reason?.reason !== "mfa_enroll") return false
 
   const marker = readSignInMarker()
-  if (!marker || marker.request !== returnTo) return false
+  if (!marker || marker.request !== requestKey(returnTo)) return false
 
   const session = currentSession()
   if (!session || marker.sub !== session.sub || marker.sid !== session.sid) {

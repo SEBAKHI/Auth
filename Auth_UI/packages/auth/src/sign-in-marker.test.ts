@@ -5,6 +5,7 @@ import { setAccessToken } from "@authsystem/api/token-store"
 import {
   canSkipSignIn,
   clearSignInMarker,
+  requestKey,
   SIGN_IN_MARKER_KEY,
   SIGN_IN_MARKER_MAX_AGE_MS,
   writeSignInMarker,
@@ -55,16 +56,36 @@ describe("writing", () => {
     writeSignInMarker(REQUEST, "password", NOW)
 
     expect(JSON.parse(stored() ?? "null")).toEqual({
-      request: REQUEST,
+      request: requestKey(REQUEST),
       sub: "user-1",
       sid: "session-1",
       at: NOW,
       proof: "password",
     })
-    // Nothing else of the token: no address, no name, no token.
+    // Nothing else of the token: no address, no name, no token, no URL.
     expect(stored()).not.toContain("jane")
     expect(stored()).not.toContain("h.")
+    expect(stored()).not.toContain("api.example.com")
     expect(window.localStorage.length).toBe(0)
+  })
+
+  it("keeps no address a legacy authorize URL carries, only a key for the request", () => {
+    const legacy =
+      "https://api.example.com/api/v1/auth/authorize?client_id=app&login_hint=jane%40one.example&state=s1&code_challenge=c1"
+    writeSignInMarker(legacy, "password", NOW)
+
+    expect(stored()).not.toContain("jane")
+    expect(stored()).not.toContain("login_hint")
+    expect(stored()).not.toContain("authorize")
+    expect(canSkipSignIn(legacy, ENROLL_PASSWORD, NOW)).toBe(true)
+    // One character apart is another request.
+    expect(canSkipSignIn(legacy.replace("state=s1", "state=s2"), ENROLL_PASSWORD, NOW)).toBe(false)
+  })
+
+  it("names a request the same way every time, and two requests apart", () => {
+    expect(requestKey(REQUEST)).toBe(requestKey(`${REQUEST}`))
+    expect(requestKey(REQUEST)).not.toBe(requestKey(REQUEST.replace("c", "d")))
+    expect(requestKey(REQUEST)).toMatch(/^[0-9a-z]+\.[0-9a-z]+$/)
   })
 
   it("records an unknown proof as null", () => {
@@ -90,7 +111,7 @@ describe("writing", () => {
   it("overwrites a marker for another request", () => {
     writeSignInMarker("https://api.example.com/other", "code", NOW - 1000)
     writeSignInMarker(REQUEST, "password", NOW)
-    expect(JSON.parse(stored() ?? "null")).toMatchObject({ request: REQUEST, proof: "password" })
+    expect(JSON.parse(stored() ?? "null")).toMatchObject({ request: requestKey(REQUEST), proof: "password" })
   })
 
   it("does not throw where storage is blocked", () => {
@@ -144,7 +165,7 @@ describe("the rule", () => {
   })
 
   it("does not skip for a marker it cannot read", () => {
-    for (const raw of ["{", "null", "42", JSON.stringify({ request: REQUEST, sub: "user-1", sid: "session-1", at: "now" })]) {
+    for (const raw of ["{", "null", "42", JSON.stringify({ request: requestKey(REQUEST), sub: "user-1", sid: "session-1", at: "now" })]) {
       window.sessionStorage.setItem(SIGN_IN_MARKER_KEY, raw)
       expect(canSkipSignIn(REQUEST, ENROLL_PASSWORD, NOW), raw).toBe(false)
     }
@@ -173,7 +194,7 @@ describe("the first step the set-up will accept (T5)", () => {
   it("reads an unknown proof word as unknown", () => {
     window.sessionStorage.setItem(
       SIGN_IN_MARKER_KEY,
-      JSON.stringify({ request: REQUEST, sub: "user-1", sid: "session-1", at: NOW, proof: "passkey" })
+      JSON.stringify({ request: requestKey(REQUEST), sub: "user-1", sid: "session-1", at: NOW, proof: "passkey" })
     )
     expect(canSkipSignIn(REQUEST, ENROLL_PASSWORD, NOW)).toBe(false)
   })

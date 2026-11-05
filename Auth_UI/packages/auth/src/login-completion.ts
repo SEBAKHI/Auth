@@ -68,6 +68,12 @@ export interface CompletionOptions {
    * set-up will accept this sign-in. Absent is unknown, and unknown never skips.
    */
   proof?: SignInProof
+  /**
+   * False for a completion that ends no sign-in: the set-up page resuming the
+   * request after its own step (OI-275). It leaves no marker, so the marker
+   * always means "a sign-in in this tab just resumed this request".
+   */
+  endsSignIn?: boolean
 }
 
 export interface LoginCompletion {
@@ -198,8 +204,10 @@ export function useLoginCompletion(
         //
         // Before it, the marker (OI-275): if the server sends the person back
         // to set up an authenticator for this request, the sign-in page skips
-        // the sign-in it saw here. Read from the token just stored.
-        writeSignInMarker(returnTo, options?.proof)
+        // the sign-in it saw here. Read from the token just stored. A resume
+        // that ends no sign-in leaves none.
+        if (options?.endsSignIn === false) clearSignInMarker()
+        else writeSignInMarker(returnTo, options?.proof)
         window.location.assign(returnTo)
         return
       }
