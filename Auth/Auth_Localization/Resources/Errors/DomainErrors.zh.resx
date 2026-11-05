@@ -1376,6 +1376,18 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>条目数量必须介于1到100之间。</value>
   </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>此账户的通行密钥已达上限。请先删除一个，再添加新的。</value>
+  </data>
+  <data name="Passkey.NameTooLong" xml:space="preserve">
+    <value>通行密钥名称不得超过64个字符。</value>
+  </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>未找到该通行密钥。</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>无法验证通行密钥。请重试。</value>
+  </data>
   <data name="Password.CommonPattern" xml:space="preserve">
     <value>密码包含容易被猜到的常见模式。</value>
   </data>

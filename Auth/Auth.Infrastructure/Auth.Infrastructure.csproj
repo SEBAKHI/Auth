@@ -8,6 +8,12 @@
 
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.89" />
+    <!-- S20 (PK1): WebAuthn ceremonies (passkeys), MIT. Used only behind IWebAuthnVerifier
+         (Authentication/Passkeys), built per request while Passkeys:Enabled is on, so the API
+         starts and every other path runs whatever this library does. ES256 and RS256 only:
+         its EdDSA path is the one that loads the native libsodium (NSec), and it is never
+         offered (Fido2WebAuthnSpikeTests proves neither is loaded). -->
+    <PackageReference Include="Fido2" Version="4.3.2" />
     <PackageReference Include="Fluid.Core" Version="2.40.0" />
     <PackageReference Include="Google.Apis.Auth" Version="1.76.0" />
     <PackageReference Include="MailKit" Version="4.18.0" />

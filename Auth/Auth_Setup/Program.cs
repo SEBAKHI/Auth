@@ -14,6 +14,10 @@ using Auth_Setup;
 //   dotnet run --project Auth/Auth_Setup -- --reset-two-factor <address>
 //       The emergency way back for an account whose authenticator and recovery codes
 //       are both lost when no administrator can reset them through the console.
+//
+//   dotnet run --project Auth/Auth_Setup -- --retire-passkey-rp-id <old RP ID>
+//       S20 ([S20-O10]): retires every passkey of an RP ID the deployment is leaving,
+//       with one audit row each, before Passkeys:RpId moves to the new domain.
 
 Console.WriteLine("=== Auth System Setup ===");
 Console.WriteLine();
@@ -27,9 +31,32 @@ if (request.IsRefused)
     return 1;
 }
 
-return request.Mode == SetupMode.ResetTwoFactor
-    ? PrintBreakGlass(request.Address!)
-    : BootstrapAdministrator(request.Address!, request.Password);
+return request.Mode switch
+{
+    SetupMode.ResetTwoFactor => PrintBreakGlass(request.Address!),
+    SetupMode.RetirePasskeyRpId => PrintRpIdMove(request.Address!),
+    _ => BootstrapAdministrator(request.Address!, request.Password),
+};
+
+static int PrintRpIdMove(string rpId)
+{
+    var script = PasskeyRpIdMoveScript.Build(rpId);
+    if (script is null)
+    {
+        Console.Error.WriteLine("That RP ID cannot be used: it must be localhost, or a domain such as example.com.");
+        return 1;
+    }
+
+    Console.WriteLine("Run this only when the deployment moves its passkeys to another domain, after announcing it.");
+    Console.WriteLine("Back up the database first. Run this against the target database in one batch:");
+    Console.WriteLine();
+    Console.WriteLine(script);
+    Console.WriteLine();
+    Console.WriteLine("Then set Passkeys:RpId to the new domain and recycle the API's application pool. The retired");
+    Console.WriteLine("passkeys stop working at once; each has an audit row. People sign in with their password, their");
+    Console.WriteLine("authenticator app or a provider, and add a passkey again under the new domain.");
+    return 0;
+}
 
 static int BootstrapAdministrator(string address, string? givenPassword)
 {
@@ -104,7 +131,8 @@ static int PrintBreakGlass(string address)
     Console.WriteLine("statement keeps working. No recycle is needed.");
     Console.WriteLine();
     Console.WriteLine("Know before you run it:");
-    Console.WriteLine("  - No audit row is written: keep your own record of when and why you ran it.");
+    Console.WriteLine("  - Keep your own record of when and why you ran it. Only the account's passkeys get audit rows");
+    Console.WriteLine("    (one each); the reset itself writes none.");
     Console.WriteLine("  - The next person to sign in to the account and set up two-step verification owns it. While");
     Console.WriteLine("    email is on, setting it up first needs a code sent to the account's address.");
     Console.WriteLine("  - \"No such user\" means no live account has that address, and nothing changed.");

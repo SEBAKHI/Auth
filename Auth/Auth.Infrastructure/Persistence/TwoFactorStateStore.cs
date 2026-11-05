@@ -1,6 +1,9 @@
 using System.Collections.Frozen;
 using System.Data;
 using System.Globalization;
+using Auth.Application.Configuration;
+using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -227,53 +230,45 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             FROM [dbo].[TwoFactorAuth]
             WHERE [UserId] = @UserId";
 
-    // The one definition of "the account has a second factor" the platform-
-    // administrator policy reads: an enabled two-factor row. Never the account
-    // flag, which can disagree with the row. Both statements below are built from
-    // it, so a later factor (a passkey) is added here once.
+    // The one definition of "the account has a qualifying second factor" (FA2) every
+    // policy reads: an enabled two-factor row — never the account flag, which can
+    // disagree with the row — or (S20) a live, user-verified passkey of the current RP
+    // ID. The emailed code is never one: its row has IsEnabled = 0
+    // (CK_TwoFactorAuth_SingleFactor). It ignores Passkeys:Enabled and the posture on
+    // purpose: switching the feature off must not turn an administrator whose only
+    // factor is a passkey into one with none.
+    // Every statement below is built from these two fragments, in two variants (see
+    // FactorStatements): with the passkey schema and an RP ID, and without — code
+    // deployed before its DACPAC, or no RP ID — which is exactly the text before S20,
+    // because a statement naming a missing table fails when it is bound.
     // Unqualified columns resolve to the subquery's own table first.
-    private const string EnabledFactorOf = @"EXISTS (
+    private const string TotpFactorOf = @"EXISTS (
                 SELECT 1 FROM [dbo].[TwoFactorAuth]
                 WHERE [UserId] = {0} AND [IsEnabled] = 1)";
 
-    private static readonly string HasEnabledFactorSql = @"
-            SELECT CAST(CASE WHEN " + string.Format(CultureInfo.InvariantCulture, EnabledFactorOf, "@UserId") + @"
-                THEN 1 ELSE 0 END AS BIT)";
+    private const string PasskeyFactorOf = @"EXISTS (
+                SELECT 1 FROM [dbo].[UserPasskeys]
+                WHERE [UserId] = {0} AND [RevokedAt] IS NULL AND [IsUserVerified] = 1 AND [RpId] = @RpId)";
 
-    // An application's recent users and how many have a factor (S23): the distinct live
-    // accounts that started a session in it since @Since, each flagged by the one
-    // definition above. The flag is computed per user in a derived table: SQL Server
-    // refuses an aggregate over an expression holding a subquery.
-    private static readonly string ApplicationMfaReadinessSql = @"
-            SELECT
-                COUNT(*) AS [ActiveUsers],
-                ISNULL(SUM(u.[HasFactor]), 0) AS [WithQualifyingFactor]
-            FROM (
-                SELECT CASE WHEN " + string.Format(CultureInfo.InvariantCulture, EnabledFactorOf, "a.[UserId]") + @"
-                    THEN 1 ELSE 0 END AS [HasFactor]
-                FROM (
-                    SELECT DISTINCT s.[UserId]
-                    FROM [dbo].[UserSessions] s
-                    INNER JOIN [dbo].[Users] usr ON usr.[Id] = s.[UserId] AND usr.[IsDeleted] = 0
-                    WHERE s.[ApplicationId] = @ApplicationId
-                      AND s.[StartedAt] >= @Since) a
-            ) u";
+    /// <summary>The FA2 statements before S20: the authenticator app alone.</summary>
+    internal static readonly FactorStatements WithoutPasskeys = new(TotpFactorOf, passkeyFactorOf: null);
 
-    // A platform holder of the role — the predicates the platform token reads
-    // (PermissionRepository's platform query; the pre-switch inventory) — whose
-    // account has no enabled factor. Accounts waiting for deletion count too: one
-    // its owner recovers comes back with its roles (RecoverAccountCommandHandler),
-    // and the deployment guide's inventory lists them for the same reason.
-    private static readonly string HasPlatformRoleHolderWithoutFactorSql = @"
-            SELECT CAST(CASE WHEN EXISTS (
-                SELECT 1 FROM [dbo].[UserRoles] ur
-                INNER JOIN [dbo].[Roles] r ON r.[Id] = ur.[RoleId]
-                WHERE ur.[RoleId] = @RoleId
-                  AND ur.[ApplicationId] IS NULL AND r.[ApplicationId] IS NULL
-                  AND ur.[IsActive] = 1 AND r.[IsActive] = 1
-                  AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
-                  AND NOT " + string.Format(CultureInfo.InvariantCulture, EnabledFactorOf, "ur.[UserId]") + @")
-                THEN 1 ELSE 0 END AS BIT)";
+    /// <summary>The FA2 statements with the passkey schema and an RP ID: the app or a passkey.</summary>
+    internal static readonly FactorStatements WithPasskeys = new(
+        "(" + TotpFactorOf + @"
+                OR " + PasskeyFactorOf + ")",
+        PasskeyFactorOf);
+
+    // The passkeys of an account, revoked inside an administrator's reset (M8(4)): every
+    // live one, of any RP ID, as the rows were revoked, for one event each.
+    internal const string RevokeEveryPasskeyByAdministratorSql = @"
+            UPDATE [dbo].[UserPasskeys] SET
+                [RevokedAt] = SYSUTCDATETIME(),
+                [RevokedReason] = @Reason,
+                [RevokedBy] = @ResetBy
+            OUTPUT " + UserPasskeyRepository.InsertedColumns + @"
+            WHERE [UserId] = @UserId
+              AND [RevokedAt] IS NULL";
 
     // Regenerating the recovery codes (contract A3g): the new set is written only
     // while the stored set is still the one this request saw — after its own
@@ -510,13 +505,42 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly ILogger<TwoFactorStateStore> _logger;
 
+    private readonly PasskeyRpIdAtStartup _passkeyRpId;
+    private readonly IPasskeySchema? _passkeySchema;
+
+    /// <param name="connectionFactory">The database.</param>
+    /// <param name="logger">The logger.</param>
+    /// <param name="passkeyRpId">
+    /// The RP ID the process started with (S20). None — the default — counts no passkey:
+    /// the statements are the ones before S20.
+    /// </param>
+    /// <param name="passkeySchema">
+    /// Whether the passkey schema is present. Absent — or null, the default — counts no
+    /// passkey, and an administrator's reset revokes none.
+    /// </param>
     public TwoFactorStateStore(
         IDbConnectionFactory connectionFactory,
-        ILogger<TwoFactorStateStore>? logger = null)
+        ILogger<TwoFactorStateStore>? logger = null,
+        PasskeyRpIdAtStartup? passkeyRpId = null,
+        IPasskeySchema? passkeySchema = null)
     {
         _connectionFactory = connectionFactory;
         _logger = logger ?? NullLogger<TwoFactorStateStore>.Instance;
+        _passkeyRpId = passkeyRpId ?? PasskeyRpIdAtStartup.None;
+        _passkeySchema = passkeySchema;
     }
+
+    /// <summary>
+    /// The FA2 statements for this database: with passkeys only once the RP ID is set and
+    /// the schema is present.
+    /// </summary>
+    private async Task<FactorStatements> FactorStatementsAsync(CancellationToken cancellationToken) =>
+        _passkeyRpId.IsSet && await PasskeySchemaPresentAsync(cancellationToken)
+            ? WithPasskeys
+            : WithoutPasskeys;
+
+    private async Task<bool> PasskeySchemaPresentAsync(CancellationToken cancellationToken) =>
+        _passkeySchema is not null && await _passkeySchema.IsPresentAsync(cancellationToken);
 
     /// <inheritdoc />
     public async Task<TwoFactorSnapshot?> GetSnapshotAsync(Guid userId, CancellationToken cancellationToken)
@@ -538,23 +562,41 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     /// <inheritdoc />
     public async Task<bool> HasEnabledFactorAsync(Guid userId, CancellationToken cancellationToken)
     {
+        var statements = await FactorStatementsAsync(cancellationToken);
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
-            HasEnabledFactorSql,
-            new { UserId = userId },
+            statements.HasEnabledFactor,
+            new { UserId = userId, RpId = _passkeyRpId.Value },
             cancellationToken: cancellationToken));
     }
+
+    /// <inheritdoc />
+    public async Task<QualifyingSecondFactors> GetQualifyingFactorsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var statements = await FactorStatementsAsync(cancellationToken);
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var row = await connection.QuerySingleAsync<QualifyingFactorsRow>(new CommandDefinition(
+            statements.QualifyingFactors,
+            new { UserId = userId, RpId = _passkeyRpId.Value },
+            cancellationToken: cancellationToken));
+
+        return new QualifyingSecondFactors(row.Totp, row.Passkey);
+    }
+
+    private sealed record QualifyingFactorsRow(bool Totp, bool Passkey);
 
     /// <inheritdoc />
     public async Task<ApplicationMfaReadiness> GetApplicationMfaReadinessAsync(
         Guid applicationId, DateTime sinceUtc, CancellationToken cancellationToken)
     {
+        var statements = await FactorStatementsAsync(cancellationToken);
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var row = await connection.QuerySingleAsync<ReadinessRow>(new CommandDefinition(
-            ApplicationMfaReadinessSql,
-            new { ApplicationId = applicationId, Since = sinceUtc },
+            statements.ApplicationMfaReadiness,
+            new { ApplicationId = applicationId, Since = sinceUtc, RpId = _passkeyRpId.Value },
             cancellationToken: cancellationToken));
 
         return new ApplicationMfaReadiness(row.ActiveUsers, row.WithQualifyingFactor);
@@ -565,12 +607,85 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     /// <inheritdoc />
     public async Task<bool> HasPlatformRoleHolderWithoutFactorAsync(Guid roleId, CancellationToken cancellationToken)
     {
+        var statements = await FactorStatementsAsync(cancellationToken);
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
-            HasPlatformRoleHolderWithoutFactorSql,
-            new { RoleId = roleId },
+            statements.HasPlatformRoleHolderWithoutFactor,
+            new { RoleId = roleId, RpId = _passkeyRpId.Value },
             cancellationToken: cancellationToken));
+    }
+
+    /// <summary>
+    /// The statements built from the one definition of a qualifying factor: either the
+    /// authenticator app alone (no passkey fragment), or the app or a passkey.
+    /// </summary>
+    internal sealed class FactorStatements
+    {
+        public FactorStatements(string enabledFactorOf, string? passkeyFactorOf)
+        {
+            HasEnabledFactor = @"
+            SELECT CAST(CASE WHEN " + Fill(enabledFactorOf, "@UserId") + @"
+                THEN 1 ELSE 0 END AS BIT)";
+
+            QualifyingFactors = @"
+            SELECT CAST(CASE WHEN " + Fill(TotpFactorOf, "@UserId") + @"
+                THEN 1 ELSE 0 END AS BIT) AS [Totp],
+                   CAST(" + (passkeyFactorOf is null
+                    ? "0"
+                    : "CASE WHEN " + Fill(passkeyFactorOf, "@UserId") + @"
+                THEN 1 ELSE 0 END") + @" AS BIT) AS [Passkey]";
+
+            // An application's recent users and how many have a factor (S23): the distinct
+            // live accounts that started a session in it since @Since, each flagged by the one
+            // definition. The flag is computed per user in a derived table: SQL Server refuses
+            // an aggregate over an expression holding a subquery.
+            ApplicationMfaReadiness = @"
+            SELECT
+                COUNT(*) AS [ActiveUsers],
+                ISNULL(SUM(u.[HasFactor]), 0) AS [WithQualifyingFactor]
+            FROM (
+                SELECT CASE WHEN " + Fill(enabledFactorOf, "a.[UserId]") + @"
+                    THEN 1 ELSE 0 END AS [HasFactor]
+                FROM (
+                    SELECT DISTINCT s.[UserId]
+                    FROM [dbo].[UserSessions] s
+                    INNER JOIN [dbo].[Users] usr ON usr.[Id] = s.[UserId] AND usr.[IsDeleted] = 0
+                    WHERE s.[ApplicationId] = @ApplicationId
+                      AND s.[StartedAt] >= @Since) a
+            ) u";
+
+            // A platform holder of the role — the predicates the platform token reads
+            // (PermissionRepository's platform query; the pre-switch inventory) — whose
+            // account has no qualifying factor. Accounts waiting for deletion count too: one
+            // its owner recovers comes back with its roles (RecoverAccountCommandHandler),
+            // and the deployment guide's inventory lists them for the same reason.
+            HasPlatformRoleHolderWithoutFactor = @"
+            SELECT CAST(CASE WHEN EXISTS (
+                SELECT 1 FROM [dbo].[UserRoles] ur
+                INNER JOIN [dbo].[Roles] r ON r.[Id] = ur.[RoleId]
+                WHERE ur.[RoleId] = @RoleId
+                  AND ur.[ApplicationId] IS NULL AND r.[ApplicationId] IS NULL
+                  AND ur.[IsActive] = 1 AND r.[IsActive] = 1
+                  AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+                  AND NOT " + Fill(enabledFactorOf, "ur.[UserId]") + @")
+                THEN 1 ELSE 0 END AS BIT)";
+        }
+
+        /// <summary>Whether the account has any qualifying factor.</summary>
+        public string HasEnabledFactor { get; }
+
+        /// <summary>Which qualifying factors the account has, each as a BIT.</summary>
+        public string QualifyingFactors { get; }
+
+        /// <summary>An application's recent users and how many have a qualifying factor.</summary>
+        public string ApplicationMfaReadiness { get; }
+
+        /// <summary>Whether a platform role is held by an account without a qualifying factor.</summary>
+        public string HasPlatformRoleHolderWithoutFactor { get; }
+
+        private static string Fill(string fragment, string user) =>
+            string.Format(CultureInfo.InvariantCulture, fragment, user);
     }
 
     /// <inheritdoc />
@@ -941,8 +1056,11 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     }
 
     /// <inheritdoc />
-    public async Task<bool> TryResetAsync(Guid userId, Guid resetBy, CancellationToken cancellationToken)
+    public async Task<TwoFactorResetResult?> TryResetAsync(Guid userId, Guid resetBy, CancellationToken cancellationToken)
     {
+        // Asked before the transaction opens: the probe uses a connection of its own.
+        var passkeySchema = await PasskeySchemaPresentAsync(cancellationToken);
+
         // The factory hands back an OPEN connection; opening it again throws.
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         using var transaction = connection.BeginTransaction();
@@ -966,6 +1084,21 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             transaction,
             cancellationToken: cancellationToken));
 
+        // S20 (PK12): every live passkey goes with the factor row, of any RP ID — one bound
+        // to an old RP ID counts as no factor, but it is still the account's — in the same
+        // transaction, as the rows were revoked, so the caller raises one event each.
+        IReadOnlyList<UserPasskey> revokedPasskeys = [];
+        if (passkeySchema)
+        {
+            revokedPasskeys = (await connection.QueryAsync<UserPasskeyRepository.UserPasskeyDto>(new CommandDefinition(
+                    RevokeEveryPasskeyByAdministratorSql,
+                    new { UserId = userId, ResetBy = resetBy, Reason = PasskeyRemovalReasons.PeerReset },
+                    transaction,
+                    cancellationToken: cancellationToken)))
+                .Select(dto => dto.ToEntity())
+                .ToList();
+        }
+
         var cleared = await connection.ExecuteAsync(new CommandDefinition(
             ClearAccountFlagByAdministratorSql,
             new { UserId = userId, ResetBy = resetBy },
@@ -975,11 +1108,11 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         if (cleared != 1)
         {
             transaction.Rollback();
-            return false;
+            return null;
         }
 
         transaction.Commit();
-        return true;
+        return new TwoFactorResetResult(revokedPasskeys);
     }
 
     /// <inheritdoc />

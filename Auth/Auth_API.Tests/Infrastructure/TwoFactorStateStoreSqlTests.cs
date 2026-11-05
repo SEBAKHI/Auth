@@ -749,7 +749,7 @@ public class TwoFactorStateStoreSqlTests
         var actor = Guid.NewGuid();
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
-        (await new TwoFactorStateStore(db).TryResetAsync(userId, actor, CancellationToken.None)).Should().BeTrue();
+        (await new TwoFactorStateStore(db).TryResetAsync(userId, actor, CancellationToken.None)).Should().NotBeNull();
 
         db.Commands.Should().HaveCount(3);
         db.Commands.Should().OnlyContain(command => command.InTransaction,
@@ -774,7 +774,7 @@ public class TwoFactorStateStoreSqlTests
             affectedRows: 1,
             affectedFor: command => Writes(command, "Users") ? 0 : 1);
 
-        (await new TwoFactorStateStore(db).TryResetAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None)).Should().BeFalse();
+        (await new TwoFactorStateStore(db).TryResetAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None)).Should().BeNull();
 
         db.LastTransaction!.RolledBack.Should().BeTrue();
         db.LastTransaction.Committed.Should().BeFalse();

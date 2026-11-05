@@ -56,6 +56,16 @@ public class RateLimitPolicyCoverageTests
         // Anonymous, verifies a signature, and ends two sessions per call (OI-183). Its policy is
         // "token", pinned by TokenEndpointThrottleGuardTests.
         { "Authentication/Controllers/AuthController.cs", "EndSessionFromServer" },
+        // S20 (T-A3): the passkey routes. Registration writes a challenge and a row and runs the
+        // WebAuthn check; the email-code step sends an email; removal ends sessions; the list and
+        // the rename read and write rows. Today's policies until S14 moves them; the names are
+        // pinned by PasskeySettingsGuardTests.
+        { "Authentication/Controllers/PasskeysController.cs", "BeginRegistration" },
+        { "Authentication/Controllers/PasskeysController.cs", "SendRegistrationEmailCode" },
+        { "Authentication/Controllers/PasskeysController.cs", "CompleteRegistration" },
+        { "Authentication/Controllers/PasskeysController.cs", "List" },
+        { "Authentication/Controllers/PasskeysController.cs", "Rename" },
+        { "Authentication/Controllers/PasskeysController.cs", "Remove" },
     };
 
     [Theory]

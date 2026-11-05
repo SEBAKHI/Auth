@@ -1470,6 +1470,8 @@ export const ur: TranslationResources = {
       twofactorEmailCodeEnabled: "ای میل کوڈ فعال کیے گئے",
       twofactorEmailCodeDisabled: "ای میل کوڈ غیر فعال کیے گئے",
       twofactorSteppedUp: "سیشن میں دوسرا عامل ثابت ہوا",
+      passkeyRegistered: "پاس کی شامل کی گئی",
+      passkeyRemoved: "پاس کی ہٹا دی گئی",
       userLocked: "اکاؤنٹ مقفل ہوا",
       userUnlocked: "اکاؤنٹ کا قفل کھلا",
       userHardLocked: "بہت زیادہ ناکام سائن انز کے بعد اکاؤنٹ لاک ہو گیا",

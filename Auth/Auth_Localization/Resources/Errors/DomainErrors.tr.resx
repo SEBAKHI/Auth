@@ -1376,6 +1376,18 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>Kayıt sayısı 1 ile 100 arasında olmalıdır.</value>
   </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>Bu hesap zaten en fazla sayıda geçiş anahtarına sahip. Yenisini eklemeden önce birini kaldırın.</value>
+  </data>
+  <data name="Passkey.NameTooLong" xml:space="preserve">
+    <value>Geçiş anahtarı adı 64 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>Geçiş anahtarı bulunamadı.</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>Geçiş anahtarı doğrulanamadı. Tekrar deneyin.</value>
+  </data>
   <data name="Password.CommonPattern" xml:space="preserve">
     <value>Parola, tahmin edilmesi kolay yaygın bir desen içeriyor.</value>
   </data>

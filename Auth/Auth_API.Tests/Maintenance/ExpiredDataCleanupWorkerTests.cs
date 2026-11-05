@@ -19,6 +19,7 @@ public class ExpiredDataCleanupWorkerTests
     private readonly Mock<IAuthorizationRequestRepository> _authorizationRequests = new();
     private readonly Mock<ITwoFactorChallengeRepository> _challenges = new();
     private readonly Mock<ITwoFactorBindCodeRepository> _bindCodes = new();
+    private readonly Mock<IWebAuthnChallengeRepository> _webAuthnChallenges = new();
     private readonly Mock<IClientAssertionJtiStore> _assertionJtis = new();
     private readonly Mock<IPasswordResetTokenRepository> _resetTokens = new();
     private readonly Mock<IEmailVerificationTokenRepository> _verificationTokens = new();
@@ -37,6 +38,7 @@ public class ExpiredDataCleanupWorkerTests
         services.AddSingleton(_authorizationRequests.Object);
         services.AddSingleton(_challenges.Object);
         services.AddSingleton(_bindCodes.Object);
+        services.AddSingleton(_webAuthnChallenges.Object);
         services.AddSingleton(_assertionJtis.Object);
         services.AddSingleton(_resetTokens.Object);
         services.AddSingleton(_verificationTokens.Object);
@@ -82,6 +84,7 @@ public class ExpiredDataCleanupWorkerTests
         _authorizationRequests.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _challenges.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _bindCodes.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        _webAuthnChallenges.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _assertionJtis.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _resetTokens.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _verificationTokens.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
@@ -118,6 +121,7 @@ public class ExpiredDataCleanupWorkerTests
         _authorizationRequests.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _challenges.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _bindCodes.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+        _webAuthnChallenges.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _assertionJtis.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _resetTokens.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _verificationTokens.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -373,6 +377,24 @@ public class ExpiredDataCleanupWorkerTests
         await CreateWorker(settings).RunSweepAsync(CancellationToken.None);
 
         bindCodeCutoff.Should().BeCloseTo(DateTime.UtcNow.AddDays(-3), TimeSpan.FromMinutes(1));
+    }
+
+    [Fact]
+    public async Task RunSweep_SweepsWebAuthnChallenges_WithTheChallengeRetention()
+    {
+        // S20 (PK6): a passkey ceremony's challenge lives five minutes, like a sign-in
+        // challenge, so it shares DataRetention:TwoFactorChallengeDays. Spent and unspent
+        // alike, once expired.
+        SetupAllDrained();
+        var settings = new DataRetentionSettings { TwoFactorChallengeDays = 4 };
+        DateTime cutoff = default;
+
+        _webAuthnChallenges.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<DateTime, int, CancellationToken>((c, _, _) => cutoff = c).ReturnsAsync(0);
+
+        await CreateWorker(settings).RunSweepAsync(CancellationToken.None);
+
+        cutoff.Should().BeCloseTo(DateTime.UtcNow.AddDays(-4), TimeSpan.FromMinutes(1));
     }
 
     [Fact]

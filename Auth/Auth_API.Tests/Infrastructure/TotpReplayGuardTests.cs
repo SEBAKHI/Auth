@@ -150,6 +150,8 @@ public class TotpReplayGuardTests
         // administrator's reset, which removes the factor and checks no code.
         nameof(ITwoFactorStateStore.HasPlatformRoleHolderWithoutFactorAsync),
         nameof(ITwoFactorStateStore.TryResetAsync),
+        // S20: which qualifying factors an account holds (a read).
+        nameof(ITwoFactorStateStore.GetQualifyingFactorsAsync),
         // S24 PR B: binding the emailed code (an emailed code proves it) and switching
         // it off (an emailed or a recovery code): no authenticator code is accepted.
         nameof(ITwoFactorStateStore.TryBindEmailCodeAsync),

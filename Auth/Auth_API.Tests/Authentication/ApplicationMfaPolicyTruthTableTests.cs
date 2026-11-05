@@ -63,14 +63,17 @@ public class ApplicationMfaPolicyTruthTableTests
     public void Evaluate_EachRow_GivesItsRequirement(
         string row, bool requireTwoFactor, AuthenticationMethods methods, bool hasFactor, ApplicationMfaRequirement expected)
     {
-        _policy.Evaluate(requireTwoFactor, methods, hasFactor).Should().Be(expected, row);
+        _policy.Evaluate(requireTwoFactor, methods, new QualifyingSecondFactors(Totp: hasFactor, Passkey: false)).Should().Be(expected, row);
     }
 
     [Fact]
-    public void Evaluate_NeverProducesPasskey_BeforePasskeysShip()
+    public void Evaluate_WithoutAPasskey_NeverProducesPasskey()
     {
-        // S20 owns the passkey row; until then the qualifying factor is the authenticator app.
-        var every = Rows.Select(row => _policy.Evaluate((bool)row[1], (AuthenticationMethods)row[2], (bool)row[3]));
+        // S20: Passkey is produced only for an account whose only qualifying factor is a
+        // passkey (ApplicationMfaPolicyPasskeyTests); every row here has none, and answers as
+        // before passkeys shipped.
+        var every = Rows.Select(row => _policy.Evaluate(
+            (bool)row[1], (AuthenticationMethods)row[2], new QualifyingSecondFactors(Totp: (bool)row[3], Passkey: false)));
 
         every.Should().NotContain(ApplicationMfaRequirement.Passkey);
         Rows.Count.Should().BeGreaterThan(0);
@@ -91,13 +94,14 @@ public class ApplicationMfaPolicyTruthTableTests
     {
         var userId = Guid.NewGuid();
         var store = new Mock<ITwoFactorStateStore>(MockBehavior.Strict);
-        store.Setup(s => s.HasEnabledFactorAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        store.Setup(s => s.GetQualifyingFactorsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new QualifyingSecondFactors(Totp: true, Passkey: false));
 
         var outcome = await new ApplicationMfaPolicy(store.Object).EvaluateAsync(
             requireTwoFactor: true, userId, Password, CancellationToken.None);
 
         outcome.Should().Be(ApplicationMfaRequirement.StepUp);
-        store.Verify(s => s.HasEnabledFactorAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+        store.Verify(s => s.GetQualifyingFactorsAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Theory]

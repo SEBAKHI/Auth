@@ -1879,6 +1879,28 @@
       "pointer": null
     },
     {
+      "code": "Passkey.LimitReached",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Passkey.NameTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/name"
+    },
+    {
+      "code": "Passkey.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Passkey.VerificationFailed",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "Password.CommonPattern",
       "status": 400,
       "source": "catalog",

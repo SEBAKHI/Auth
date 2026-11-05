@@ -60,6 +60,8 @@ export const AUDIT_ACTIONS: readonly AuditActionEntry[] = [
   { code: "twofactor.stepped-up", actionType: "Security" },
   { code: "twofactor.email-code-enabled", actionType: "Security" },
   { code: "twofactor.email-code-disabled", actionType: "Security" },
+  { code: "passkey.registered", actionType: "Security" },
+  { code: "passkey.removed", actionType: "Security" },
   { code: "user.locked", actionType: "Security" },
   { code: "user.unlocked", actionType: "Security" },
   { code: "user.hard-locked", actionType: "Security" },

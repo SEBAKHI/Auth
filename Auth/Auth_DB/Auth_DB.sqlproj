@@ -127,6 +127,8 @@
     <Build Include="dbo\Tables\Security\SecretOperationChallenges.sql" />
     <Build Include="dbo\Tables\Security\PendingRegistrations.sql" />
     <Build Include="dbo\Tables\Security\TwoFactorBindCodes.sql" />
+    <Build Include="dbo\Tables\Security\UserPasskeys.sql" />
+    <Build Include="dbo\Tables\Security\WebAuthnChallenges.sql" />
     <Build Include="dbo\Tables\Security\ApplicationMachineKeys.sql" />
     <Build Include="dbo\Tables\Security\ClientAssertionJtis.sql" />
     <Build Include="dbo\Tables\Organizations\Organizations.sql" />

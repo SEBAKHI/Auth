@@ -366,13 +366,26 @@ public class User : AggregateRoot
         SetModified(modifiedBy);
     }
 
-    public void ChangePassword(string newPasswordHash, Guid modifiedBy)
+    /// <summary>
+    /// Replaces the password and raises <see cref="PasswordChangedEvent"/>.
+    /// </summary>
+    /// <param name="newPasswordHash">The new password's hash.</param>
+    /// <param name="modifiedBy">Who changed it.</param>
+    /// <param name="survivingPasskeys">
+    /// The account's passkeys that stay after the change (S20, D-T19 D): the notice lists
+    /// them so the owner can spot one they do not recognise. Required, so no caller can
+    /// leave the list out by accident; an account without passkeys passes an empty one.
+    /// </param>
+    public void ChangePassword(string newPasswordHash, Guid modifiedBy, IReadOnlyList<PasskeySummary> survivingPasskeys)
     {
         PasswordHash = newPasswordHash;
         PasswordChangedAt = DateTime.UtcNow;
         MustChangePassword = false;
         SetModified(modifiedBy);
-        RaiseDomainEvent(new PasswordChangedEvent(Id, modifiedBy, Email, NameToShow));
+        RaiseDomainEvent(new PasswordChangedEvent(Id, modifiedBy, Email, NameToShow)
+        {
+            Passkeys = [.. survivingPasskeys],
+        });
     }
 
     /// <summary>

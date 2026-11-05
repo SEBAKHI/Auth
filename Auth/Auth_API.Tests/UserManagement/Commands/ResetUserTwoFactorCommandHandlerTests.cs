@@ -55,7 +55,7 @@ public class ResetUserTwoFactorCommandHandlerTests
             .Returns(Task.CompletedTask);
         _store.Setup(s => s.TryResetAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .Callback(() => _calls.Add("reset"))
-            .ReturnsAsync(true);
+            .ReturnsAsync(new TwoFactorResetResult([]));
         _revocation
             .Setup(r => r.RevokeAllCredentialsAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback(() => _calls.Add("revoke"))
@@ -76,7 +76,11 @@ public class ResetUserTwoFactorCommandHandlerTests
             _revocation.Object,
             _dispatcher.Object,
             TestHelpers.CreateSecondFactorLockout(_passwordSettings),
+            _publisher.Object,
+            new FixedTimeProvider(new DateTimeOffset(Now)),
             Mock.Of<ILogger<ResetUserTwoFactorCommandHandler>>());
+
+    private readonly Mock<MediatR.IPublisher> _publisher = new();
 
     private static ResetUserTwoFactorCommand Command(Guid target, Guid actor) => new(target, actor, ActorSession);
 
@@ -239,7 +243,7 @@ public class ResetUserTwoFactorCommandHandlerTests
         GivenActorHolds("users:*");
         _store.SetupSequence(s => s.TryResetAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("the database went away"))
-            .ReturnsAsync(true);
+            .ReturnsAsync(new TwoFactorResetResult([]));
 
         var first = async () => await Handler().Handle(Command(Target, Actor), CancellationToken.None);
 
@@ -382,5 +386,56 @@ public class ResetUserTwoFactorCommandHandlerTests
         var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(TwoFactorErrors.ResetNotPermitted.Code);
+    }
+
+    // ── S20 (M8(4), PK12): a passkey is a factor the reset removes ──
+
+    /// <summary>
+    /// An account whose only factor is a passkey — no TwoFactorAuth row, the flag 0 — is reset:
+    /// the store revokes its passkeys in the reset's own transaction, and one removal event per
+    /// passkey writes its audit row and is told to the owner.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the passkey clause dropped from the precondition.</remarks>
+    [Fact]
+    public async Task PasskeyOnlyAccount_IsReset_AndEachRevokedPasskeyIsPublished()
+    {
+        GivenTarget(Target, flag: false, factorRow: false);
+        GivenActorHolds("users:*");
+        _store.Setup(s => s.GetQualifyingFactorsAsync(Target, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new QualifyingSecondFactors(Totp: false, Passkey: true));
+        Auth.Domain.Entities.UserPasskey[] revoked =
+        [
+            PasskeyTestDoubles.Live(Target, Now.AddDays(-9), "Phone"),
+            PasskeyTestDoubles.Live(Target, Now.AddDays(-2), "Laptop"),
+        ];
+        _store.Setup(s => s.TryResetAsync(Target, Actor, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TwoFactorResetResult(revoked));
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _store.Verify(s => s.TryResetAsync(Target, Actor, CancellationToken.None), Times.Once);
+        foreach (var passkey in revoked)
+        {
+            _publisher.Verify(p => p.Publish(
+                It.Is<PasskeyRemovedEvent>(e => e.UserId == Target && e.PasskeyId == passkey.Id && e.Name == passkey.Name
+                    && e.Reason == PasskeyRemovalReasons.PeerReset && e.RemovedBy == Actor),
+                CancellationToken.None), Times.Once);
+        }
+    }
+
+    [Fact]
+    public async Task AccountWithNoFactorAtAll_IsStillNotEnabled_AndNothingChanges()
+    {
+        GivenTarget(Target, flag: false, factorRow: false);
+        GivenActorHolds("users:*");
+        _store.Setup(s => s.GetQualifyingFactorsAsync(Target, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(QualifyingSecondFactors.None);
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(UserErrors.TwoFactorNotEnabled.Code);
+        VerifyNothingChanged();
+        _publisher.Verify(p => p.Publish(It.IsAny<PasskeyRemovedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }

@@ -40,7 +40,7 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/Common/LoginResponseBuilder.cs:213 Hash RefreshToken",
         App + "Authentication/Common/LoginResponseBuilder.cs:413 Hash IdpSession",
         App + "Authentication/Common/TwoFactorChallengeService.cs:79 Hash TwoFactorChallenge",
-        App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:272 Candidates IdpSession",
+        App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:278 Candidates IdpSession",
         App + "Authentication/ExternalLogin/IssueExternalNonceCommandHandler.cs:34 Hash ExternalNonce",
         App + "Authentication/ForgotPassword/ForgotPasswordCommandHandler.cs:111 Hash PasswordReset",
         App + "Authentication/IntrospectToken/IntrospectTokenQueryHandler.cs:174 Candidates RefreshToken",
@@ -48,7 +48,7 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/LogoutWithRefreshCookie/LogoutWithRefreshCookieCommandHandler.cs:48 Candidates RefreshToken",
         App + "Authentication/RefreshToken/RefreshTokenCommandHandler.cs:79 Candidates RefreshToken",
         App + "Authentication/RefreshToken/RefreshTokenCommandHandler.cs:360 Hash RefreshToken",
-        App + "Authentication/ResetPassword/ResetPasswordCommandHandler.cs:74 Candidates PasswordReset",
+        App + "Authentication/ResetPassword/ResetPasswordCommandHandler.cs:79 Candidates PasswordReset",
         App + "Authentication/RevokeToken/RevokeTokenCommandHandler.cs:180 Candidates RefreshToken",
         // S24: the anonymous send of an emailed second-factor code, which finds its sign-in
         // challenge by the token exactly as verify does.
@@ -63,6 +63,10 @@ public class CredentialHasherSourceGuardTests
         App + "Organizations/OrganizationSetup/OrganizationSetupSession.cs:157 Candidates AuthorizationRequestHandle",
         App + "Organizations/RegisterWithInvitation/RegisterWithInvitationCommandHandler.cs:102 Candidates Invitation",
         App + "Organizations/ResendInvitation/ResendInvitationCommandHandler.cs:77 Hash Invitation",
+        // S20 (PK6): a passkey ceremony's challenge, issued under its own purpose and found by
+        // every accepted fingerprint of the handle its cookie carries.
+        App + "Passkeys/BeginPasskeyRegistration/BeginPasskeyRegistrationCommandHandler.cs:113 Hash WebAuthnChallenge",
+        App + "Passkeys/CompletePasskeyRegistration/CompletePasskeyRegistrationCommandHandler.cs:123 Candidates WebAuthnChallenge",
         App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:77 Candidates WebhookKey",
         // S11 PR B: the issuing form a matched webhook key is compared with, to re-fingerprint it.
         App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:97 Hash WebhookKey",

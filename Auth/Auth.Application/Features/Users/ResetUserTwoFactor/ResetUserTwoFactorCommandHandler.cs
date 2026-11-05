@@ -1,6 +1,8 @@
 using Auth.Application.Common;
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
@@ -55,6 +57,8 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
     private readonly ICredentialRevocationService _credentialRevocationService;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ISecondFactorLockout _secondFactorLockout;
+    private readonly IPublisher _publisher;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<ResetUserTwoFactorCommandHandler> _logger;
 
     public ResetUserTwoFactorCommandHandler(
@@ -66,8 +70,11 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
         ICredentialRevocationService credentialRevocationService,
         IDomainEventDispatcher eventDispatcher,
         ISecondFactorLockout secondFactorLockout,
+        IPublisher publisher,
+        TimeProvider timeProvider,
         ILogger<ResetUserTwoFactorCommandHandler> logger)
     {
+        _publisher = publisher;
         _reauthenticationGuard = reauthenticationGuard;
         _userRepository = userRepository;
         _permissionRepository = permissionRepository;
@@ -76,6 +83,7 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
         _credentialRevocationService = credentialRevocationService;
         _eventDispatcher = eventDispatcher;
         _secondFactorLockout = secondFactorLockout;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -119,9 +127,13 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
             return TwoFactorErrors.ResetNotPermitted;
         }
 
-        // 3. Something to reset: a factor row in any state, or the flag.
+        // 3. Something to reset: a factor row in any state, the flag, or (S20, PK12) a
+        //    live passkey that counts as a factor — an administrator whose only factor is a
+        //    passkey is reset, not answered "two-factor is not enabled".
         var snapshot = await _twoFactorStateStore.GetSnapshotAsync(request.UserId, cancellationToken);
-        if (snapshot is null && !user.TwoFactorEnabled)
+        if (snapshot is null
+            && !user.TwoFactorEnabled
+            && !(await _twoFactorStateStore.GetQualifyingFactorsAsync(request.UserId, cancellationToken)).Passkey)
         {
             return UserErrors.TwoFactorNotEnabled;
         }
@@ -146,7 +158,8 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
         var sessionsEnded = await _credentialRevocationService.RevokeAllCredentialsAsync(
             request.UserId, request.ResetBy, RevocationReason, CancellationToken.None);
 
-        if (!await _twoFactorStateStore.TryResetAsync(request.UserId, request.ResetBy, CancellationToken.None))
+        var reset = await _twoFactorStateStore.TryResetAsync(request.UserId, request.ResetBy, CancellationToken.None);
+        if (reset is null)
         {
             return UserErrors.NotFound(request.UserId);
         }
@@ -155,11 +168,27 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
         user.ResetTwoFactor(request.ResetBy);
 
         _logger.LogWarning(
-            "Two-factor authentication of user {UserId} reset by administrator {ResetBy}; {SessionsEnded} sessions ended",
-            request.UserId, request.ResetBy, sessionsEnded);
+            "Two-factor authentication of user {UserId} reset by administrator {ResetBy}; {SessionsEnded} sessions ended, {PasskeysRevoked} passkeys revoked",
+            request.UserId, request.ResetBy, sessionsEnded, reset.RevokedPasskeys.Count);
 
-        // The audit row and the email to the owner.
+        // The audit row and the email to the owner; then one audit row per passkey the reset
+        // revoked (the owner's notice of the reset covers them, so none of their own).
         await _eventDispatcher.DispatchEventsAsync(user, CancellationToken.None);
+        foreach (var passkey in reset.RevokedPasskeys)
+        {
+            await _publisher.Publish(
+                new PasskeyRemovedEvent(
+                    request.UserId,
+                    passkey.Id,
+                    passkey.Name,
+                    PasskeyRemovalReasons.PeerReset,
+                    request.ResetBy,
+                    user.Email.Value,
+                    user.NameToShow,
+                    DeviceName: null,
+                    passkey.RevokedAt ?? _timeProvider.GetUtcNow().UtcDateTime),
+                CancellationToken.None);
+        }
 
         return Result.Success;
     }

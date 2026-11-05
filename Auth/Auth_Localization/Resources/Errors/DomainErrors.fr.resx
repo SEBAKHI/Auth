@@ -1376,6 +1376,18 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>Le nombre d'éléments doit être compris entre 1 et 100.</value>
   </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>Ce compte a déjà le nombre maximal de clés d'accès. Supprimez-en une avant d'en ajouter une autre.</value>
+  </data>
+  <data name="Passkey.NameTooLong" xml:space="preserve">
+    <value>Le nom d'une clé d'accès ne doit pas dépasser 64 caractères.</value>
+  </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>La clé d'accès est introuvable.</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>La clé d'accès n'a pas pu être vérifiée. Réessayez.</value>
+  </data>
   <data name="Password.CommonPattern" xml:space="preserve">
     <value>Le mot de passe contient un schéma courant facile à deviner.</value>
   </data>

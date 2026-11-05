@@ -14,7 +14,7 @@ namespace Auth.Domain.ValueObjects;
 /// <para>
 /// Persisted as an <c>INT</c> of these fixed bits, which are never renumbered:
 /// Password = 1, ExternalIdentity = 2, EmailCode = 4, Totp = 8, RecoveryCode = 16,
-/// EmailCodeFirstFactor = 128. 32 and 64 are reserved for the passkey methods.
+/// Passkey = 32, PasskeyUserVerified = 64, EmailCodeFirstFactor = 128.
 /// <see cref="Unknown"/> (no bit) is stored as <c>NULL</c>: a session recorded
 /// before the column existed, or one whose row could not be written, proved nothing
 /// anyone can read back.
@@ -37,6 +37,14 @@ namespace Auth.Domain.ValueObjects;
 /// and reads such a session as the emailed code alone. A recovery code issued
 /// without two factors (FA3) records no bit at all.
 /// </para>
+/// <para>
+/// A passkey (S20) is a first factor of its own (D-T14 A), never a step after the
+/// password: <see cref="Passkey"/> is a primary. Every passkey is made with the device's own
+/// check of the person (fingerprint, face or PIN), and a sign-in the device verified records
+/// <see cref="PasskeyUserVerified"/> beside it, which proves two factors alone (M3):
+/// something the person has, and something they are or know. Nothing issues either bit
+/// before passkey sign-in ships (S20 PR B).
+/// </para>
 /// </remarks>
 public readonly record struct AuthenticationMethods
 {
@@ -45,22 +53,28 @@ public readonly record struct AuthenticationMethods
     private const int EmailCodeBit = 4;
     private const int TotpBit = 8;
     private const int RecoveryCodeBit = 16;
+    private const int PasskeyBit = 32;
+    private const int PasskeyUserVerifiedBit = 64;
     private const int EmailCodeFirstFactorBit = 128;
 
-    // Bits 32 and 64 belong to the passkey methods and are not issued yet. A
-    // stored value carrying any other bit was not written by this code: it is
+    // A stored value carrying any other bit was not written by this code: it is
     // read as what it holds of the known bits, never trusted beyond them.
     private const int KnownBits =
-        PasswordBit | ExternalIdentityBit | EmailCodeBit | TotpBit | RecoveryCodeBit | EmailCodeFirstFactorBit;
+        PasswordBit | ExternalIdentityBit | EmailCodeBit | TotpBit | RecoveryCodeBit
+        | PasskeyBit | PasskeyUserVerifiedBit | EmailCodeFirstFactorBit;
 
-    private const int PrimaryBits = PasswordBit | ExternalIdentityBit | EmailCodeFirstFactorBit;
+    private const int PrimaryBits = PasswordBit | ExternalIdentityBit | PasskeyBit | EmailCodeFirstFactorBit;
     private const int SecondFactorBits = TotpBit | RecoveryCodeBit;
 
-    // RFC 8176 values. Only the password and the authenticator app have one;
+    // RFC 8176 values. The password, the authenticator app and the passkey have one;
     // an external identity, an emailed code (as either factor) and a recovery code
     // are reflected by "mfa" alone. An emailed code is never "otp": that value
-    // means HOTP/TOTP.
+    // means HOTP/TOTP. A passkey is "pop" (proof of possession of a key, IANA
+    // 2023-05-08) and, verified by the device, "user" (D-T18 C): never "hwk" or
+    // "swk", since attestation none cannot tell a hardware key from a synced one.
     private const string PasswordAmr = "pwd";
+    private const string ProofOfPossessionAmr = "pop";
+    private const string UserPresenceAmr = "user";
     private const string OneTimePasswordAmr = "otp";
     private const string MultiFactorAmr = "mfa";
 
@@ -107,6 +121,18 @@ public readonly record struct AuthenticationMethods
     /// <summary>One of the account's single-use recovery codes.</summary>
     public static AuthenticationMethods RecoveryCode { get; } = new(RecoveryCodeBit);
 
+    /// <summary>
+    /// A passkey of the account (S20): a first factor of its own, the proof that the
+    /// person holds the device. Never a password.
+    /// </summary>
+    public static AuthenticationMethods Passkey { get; } = new(PasskeyBit);
+
+    /// <summary>
+    /// The device verified the person before the passkey signed (fingerprint, face or PIN):
+    /// with <see cref="Passkey"/>, two factors on its own (M3).
+    /// </summary>
+    public static AuthenticationMethods PasskeyUserVerified { get; } = new(PasskeyUserVerifiedBit);
+
     /// <summary>Gets the flags as stored, 0 for <see cref="Unknown"/>.</summary>
     public int Value { get; }
 
@@ -115,9 +141,9 @@ public readonly record struct AuthenticationMethods
 
     /// <summary>
     /// Gets whether the session proved who the person is with a first factor: the
-    /// password, an external identity, or the emailed code of an account without a
-    /// password (<see cref="EmailCodeFirstFactor"/>). The emailed code of an account
-    /// with a password is not one.
+    /// password, an external identity, a passkey, or the emailed code of an account
+    /// without a password (<see cref="EmailCodeFirstFactor"/>). The emailed code of an
+    /// account with a password is not one.
     /// </summary>
     public bool HasPrimary => (Value & PrimaryBits) != 0;
 
@@ -130,11 +156,14 @@ public readonly record struct AuthenticationMethods
 
     /// <summary>
     /// Gets whether the session proved two factors: a first factor and an
-    /// authenticator-app code or a recovery code. An emailed code is never the
-    /// second of the two, and is the first only as <see cref="EmailCodeFirstFactor"/>;
-    /// <see cref="Unknown"/> never satisfies it.
+    /// authenticator-app code or a recovery code, or a passkey the device verified the
+    /// person for (<see cref="PasskeyUserVerified"/>, M3). An emailed code is never the
+    /// second of the two, and is the first only as <see cref="EmailCodeFirstFactor"/>; a
+    /// passkey without the device's check is a first factor only; <see cref="Unknown"/>
+    /// never satisfies it.
     /// </summary>
-    public bool IsMfaSatisfied => HasPrimary && (Value & SecondFactorBits) != 0;
+    public bool IsMfaSatisfied =>
+        (HasPrimary && (Value & SecondFactorBits) != 0) || (Value & PasskeyUserVerifiedBit) != 0;
 
     /// <summary>
     /// What a sign-in whose first proof is the emailed code records: the code, and the
@@ -148,17 +177,28 @@ public readonly record struct AuthenticationMethods
     public AuthenticationMethods With(AuthenticationMethods other) => new(Value | other.Value);
 
     /// <summary>
-    /// The access token's <c>amr</c> values (RFC 8176): <c>pwd</c>, <c>otp</c>, and
+    /// The access token's <c>amr</c> values (RFC 8176): <c>pwd</c>, <c>pop</c> for a
+    /// passkey and <c>user</c> when the device verified the person, <c>otp</c>, and
     /// <c>mfa</c> when <see cref="IsMfaSatisfied"/>. Empty for <see cref="Unknown"/>,
     /// and for a set no registered value describes (an external identity alone).
     /// </summary>
     public IReadOnlyList<string> ToAmrValues()
     {
-        var values = new List<string>(capacity: 3);
+        var values = new List<string>(capacity: 4);
 
         if ((Value & PasswordBit) != 0)
         {
             values.Add(PasswordAmr);
+        }
+
+        if ((Value & PasskeyBit) != 0)
+        {
+            values.Add(ProofOfPossessionAmr);
+        }
+
+        if ((Value & PasskeyUserVerifiedBit) != 0)
+        {
+            values.Add(UserPresenceAmr);
         }
 
         if ((Value & TotpBit) != 0)

@@ -56,6 +56,26 @@ public class DomainEventCoverageTests
             + "event to UnhandledOnPurpose with the reason it needs none");
     }
 
+    /// <summary>
+    /// S20: adding and removing a passkey are credential changes an investigation asks about,
+    /// and each event has a second handler (the owner's notice), so "at least one handler"
+    /// cannot see a missing audit row. Named, like the authority changes below.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: PasskeyRemovedAuditEventHandler deleted.</remarks>
+    [Fact]
+    public void ThePasskeyEvents_AreAudited()
+    {
+        var auditHandlers = typeof(UserCreatedAuditEventHandler).Assembly
+            .GetTypes()
+            .Where(type => type.IsClass && !type.IsAbstract && type.Namespace == typeof(UserCreatedAuditEventHandler).Namespace)
+            .SelectMany(type => type.GetInterfaces())
+            .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(INotificationHandler<>))
+            .Select(i => i.GetGenericArguments()[0].Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        auditHandlers.Should().Contain("PasskeyRegisteredEvent").And.Contain("PasskeyRemovedEvent");
+    }
+
     [Fact]
     public void EveryAuthorityChange_IsAudited()
     {

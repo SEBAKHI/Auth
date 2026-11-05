@@ -790,6 +790,10 @@ public static class TestHelpers
         store
             .Setup(s => s.HasEnabledFactorAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(hasEnabledFactor);
+        // S20: the policy reads the breakdown; before passkeys the factor was the app alone.
+        store
+            .Setup(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Auth.Domain.ValueObjects.QualifyingSecondFactors(Totp: hasEnabledFactor, Passkey: false));
 
         return new Auth.Application.Features.Authentication.Common.PlatformMfaPolicy(
             store.Object,

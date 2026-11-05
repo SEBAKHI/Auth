@@ -1,3 +1,4 @@
+using System.Globalization;
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
@@ -51,6 +52,17 @@ public class PasswordChangedEventHandler : INotificationHandler<PasswordChangedE
                     ["ChangedAt"] = DateTime.UtcNow.ToString("u"),
                     ["ManageSecurityLink"] =
                         _emailSettings.BuildFrontendUrl("/profile?tab=security"),
+                    // S20 (P7-R12): the passkeys that stay after the change, so the owner can
+                    // spot one they do not recognise. The template encodes each name.
+                    ["PasskeyCount"] = notification.Passkeys.Count,
+                    ["Passkeys"] = notification.Passkeys
+                        .Select(passkey => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>
+                        {
+                            ["Name"] = passkey.Name,
+                            ["CreatedAt"] = passkey.CreatedAt.ToString("u", CultureInfo.InvariantCulture),
+                            ["LastUsedAt"] = passkey.LastUsedAt?.ToString("u", CultureInfo.InvariantCulture),
+                        })
+                        .ToList(),
                 }
             },
             cancellationToken);

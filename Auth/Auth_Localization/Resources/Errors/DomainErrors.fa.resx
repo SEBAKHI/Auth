@@ -1376,6 +1376,18 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>تعداد موارد باید بین ۱ و ۱۰۰ باشد.</value>
   </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>این حساب به حداکثر تعداد کلیدهای عبور رسیده است. پیش از افزودن کلید تازه، یکی را حذف کنید.</value>
+  </data>
+  <data name="Passkey.NameTooLong" xml:space="preserve">
+    <value>نام کلید عبور نباید بیش از ۶۴ نویسه باشد.</value>
+  </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>کلید عبور پیدا نشد.</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>کلید عبور تأیید نشد. دوباره تلاش کنید.</value>
+  </data>
   <data name="Password.CommonPattern" xml:space="preserve">
     <value>رمز عبور شامل الگوی رایجی است که به راحتی قابل حدس زدن است.</value>
   </data>

@@ -2368,6 +2368,200 @@ END
 GO
 
 -- ============================================================
+-- Template 18, version 2: password-changed, with the passkeys that stay (S20)
+--
+-- A password reset, a password change and an administrator's lock revoke every passkey
+-- registered in the 72 hours before them (D-T19 D); the older ones stay. Version 2 lists
+-- those that stay, with when each was added and last used (P7-R12), so the owner can spot
+-- one they do not recognise. The block shows only when the account has one
+-- (PasskeyCount > 0); each name is the owner's own text and is encoded like every value.
+-- Every other word is version 1's.
+--
+-- Published only while the seeded version 1 is the published one, under the next free
+-- version number, as for template 21's later versions.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000018')
+   AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '43000000-0000-0000-0002-000000000018')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    SELECT '43000000-0000-0000-0002-000000000018', '42000000-0000-0000-0000-000000000018',
+           ISNULL(MAX([VersionNumber]), 0) + 1, N'Lists the passkeys that stay (S20)', GETUTCDATE(), @SystemUserId
+    FROM [dbo].[NotificationTemplateVersions]
+    WHERE [TemplateId] = '42000000-0000-0000-0000-000000000018';
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0002-0018-000000000001', '43000000-0000-0000-0002-000000000018', N'en', N'Your password was changed',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>Your password was changed</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">The password on your {{ Platform.Name }} account was just changed. Depending on your settings, this may also have signed you out on your other devices.</p>
+<div class="notice">
+    <p class="notice-title">When</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+{% if PasskeyCount > 0 %}<div class="notice">
+    <p class="notice-title">Passkeys on your account</p>
+    <p class="notice-text">{% for passkey in Passkeys %}{{ passkey.Name }}: added {{ passkey.CreatedAt }}, {% if passkey.LastUsedAt %}last used {{ passkey.LastUsedAt }}{% else %}never used{% endif %}<br />{% endfor %}If you do not recognise one, remove it in your security settings.</p>
+</div>{% endif %}
+<p class="message">If that was you, there is nothing else to do.</p>
+<p class="message">If it was not, whoever made the change can sign in as you right now. Change your password immediately and review your security settings.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Review your security settings</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0002-0018-000000000002', '43000000-0000-0000-0002-000000000018', N'ar', N'تم تغيير كلمة مرور حسابك',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>تم تغيير كلمة مرور حسابك</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">غُيّرت للتوّ كلمة مرور حسابك على {{ Platform.Name }}. وقد يكون ذلك أنهى جلساتك على أجهزتك الأخرى، بحسب الإعدادات.</p>
+<div class="notice">
+    <p class="notice-title">الوقت</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+{% if PasskeyCount > 0 %}<div class="notice">
+    <p class="notice-title">مفاتيح المرور في حسابك</p>
+    <p class="notice-text">{% for passkey in Passkeys %}{{ passkey.Name }}: أُضيف {{ passkey.CreatedAt }}, {% if passkey.LastUsedAt %}آخر استخدام {{ passkey.LastUsedAt }}{% else %}لم يُستخدم بعد{% endif %}<br />{% endfor %}إن لم تعرف واحدًا منها فاحذفه من إعدادات الأمان.</p>
+</div>{% endif %}
+<p class="message">إن كنت أنت من غيّرها، فلا حاجة إلى أي إجراء.</p>
+<p class="message">وإن لم تكن أنت، فمن أجرى التغيير يستطيع الدخول باسمك الآن. غيّر كلمة المرور فورًا وراجع إعدادات الأمان.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">مراجعة إعدادات الأمان</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0002-0018-000000000003', '43000000-0000-0000-0002-000000000018', N'tr', N'Parolanız değiştirildi',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>Parolanız değiştirildi</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">{{ Platform.Name }} hesabınızın parolası az önce değiştirildi. Ayarlarınıza bağlı olarak bu, diğer cihazlarınızdaki oturumlarınızı da kapatmış olabilir.</p>
+<div class="notice">
+    <p class="notice-title">Zaman</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+{% if PasskeyCount > 0 %}<div class="notice">
+    <p class="notice-title">Hesabınızdaki geçiş anahtarları</p>
+    <p class="notice-text">{% for passkey in Passkeys %}{{ passkey.Name }}: eklendi {{ passkey.CreatedAt }}, {% if passkey.LastUsedAt %}son kullanım {{ passkey.LastUsedAt }}{% else %}hiç kullanılmadı{% endif %}<br />{% endfor %}Tanımadığınız biri varsa güvenlik ayarlarınızdan kaldırın.</p>
+</div>{% endif %}
+<p class="message">Bunu siz yaptıysanız yapmanız gereken başka bir şey yok.</p>
+<p class="message">Siz yapmadıysanız, değişikliği yapan kişi şu anda sizin adınıza giriş yapabilir. Parolanızı hemen değiştirin ve güvenlik ayarlarınızı gözden geçirin.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Güvenlik ayarlarını gözden geçir</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı tarayıcınıza kopyalayın:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0002-0018-000000000004', '43000000-0000-0000-0002-000000000018', N'fr', N'Votre mot de passe a été modifié',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>Votre mot de passe a été modifié</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">Le mot de passe de votre compte {{ Platform.Name }} vient d''être modifié. Selon vos paramètres, cela peut aussi vous avoir déconnecté sur vos autres appareils.</p>
+<div class="notice">
+    <p class="notice-title">Quand</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+{% if PasskeyCount > 0 %}<div class="notice">
+    <p class="notice-title">Les clés d''accès de votre compte</p>
+    <p class="notice-text">{% for passkey in Passkeys %}{{ passkey.Name }}: ajoutée le {{ passkey.CreatedAt }}, {% if passkey.LastUsedAt %}dernière utilisation {{ passkey.LastUsedAt }}{% else %}jamais utilisée{% endif %}<br />{% endfor %}Si vous n''en reconnaissez pas une, supprimez-la dans vos paramètres de sécurité.</p>
+</div>{% endif %}
+<p class="message">Si c''était vous, il n''y a rien d''autre à faire.</p>
+<p class="message">Sinon, la personne qui a fait ce changement peut se connecter à votre place dès maintenant. Changez votre mot de passe immédiatement et vérifiez vos paramètres de sécurité.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Vérifier vos paramètres de sécurité</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0002-0018-000000000005', '43000000-0000-0000-0002-000000000018', N'zh', N'您的密码已修改',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>您的密码已修改</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">您的 {{ Platform.Name }} 账户密码刚刚被修改。视您的设置而定，这可能同时让您在其他设备上退出了登录。</p>
+<div class="notice">
+    <p class="notice-title">时间</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+{% if PasskeyCount > 0 %}<div class="notice">
+    <p class="notice-title">您账户中的通行密钥</p>
+    <p class="notice-text">{% for passkey in Passkeys %}{{ passkey.Name }}: 添加于 {{ passkey.CreatedAt }}, {% if passkey.LastUsedAt %}上次使用 {{ passkey.LastUsedAt }}{% else %}从未使用{% endif %}<br />{% endfor %}如有您不认识的，请在安全设置中将其删除。</p>
+</div>{% endif %}
+<p class="message">如果这是您本人操作，无需其他处理。</p>
+<p class="message">如果不是，进行此修改的人现在就能以您的身份登录。请立即修改密码并检查安全设置。</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">检查安全设置</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请将此链接复制到浏览器：</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0002-0018-000000000006', '43000000-0000-0000-0002-000000000018', N'ur', N'آپ کا پاس ورڈ تبدیل کر دیا گیا',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>آپ کا پاس ورڈ تبدیل کر دیا گیا</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">آپ کے {{ Platform.Name }} اکاؤنٹ کا پاس ورڈ ابھی تبدیل کیا گیا ہے۔ آپ کی ترتیبات کے مطابق ممکن ہے اس سے آپ کے دوسرے آلات پر بھی سائن آؤٹ ہو گیا ہو۔</p>
+<div class="notice">
+    <p class="notice-title">وقت</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+{% if PasskeyCount > 0 %}<div class="notice">
+    <p class="notice-title">آپ کے اکاؤنٹ کی پاس کیز</p>
+    <p class="notice-text">{% for passkey in Passkeys %}{{ passkey.Name }}: شامل کی گئی {{ passkey.CreatedAt }}, {% if passkey.LastUsedAt %}آخری استعمال {{ passkey.LastUsedAt }}{% else %}کبھی استعمال نہیں ہوئی{% endif %}<br />{% endfor %}اگر آپ ان میں سے کسی کو نہیں پہچانتے تو اسے حفاظتی ترتیبات سے ہٹا دیں۔</p>
+</div>{% endif %}
+<p class="message">اگر یہ آپ نے کیا ہے تو مزید کچھ کرنے کی ضرورت نہیں۔</p>
+<p class="message">اگر آپ نے نہیں کیا تو جس نے یہ تبدیلی کی ہے وہ ابھی آپ کی حیثیت سے سائن اِن کر سکتا ہے۔ فوراً پاس ورڈ تبدیل کریں اور حفاظتی ترتیبات کا جائزہ لیں۔</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">حفاظتی ترتیبات کا جائزہ لیں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک اپنے براؤزر میں کاپی کریں:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0002-0018-000000000007', '43000000-0000-0000-0002-000000000018', N'fa', N'رمز عبور شما تغییر کرد',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>رمز عبور شما تغییر کرد</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">رمز عبور حساب شما در {{ Platform.Name }} هم‌اکنون تغییر کرد. بسته به تنظیمات شما، ممکن است این کار شما را روی دستگاه‌های دیگرتان نیز خارج کرده باشد.</p>
+<div class="notice">
+    <p class="notice-title">زمان</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+{% if PasskeyCount > 0 %}<div class="notice">
+    <p class="notice-title">کلیدهای عبور حساب شما</p>
+    <p class="notice-text">{% for passkey in Passkeys %}{{ passkey.Name }}: افزوده شده در {{ passkey.CreatedAt }}, {% if passkey.LastUsedAt %}آخرین استفاده {{ passkey.LastUsedAt }}{% else %}هرگز استفاده نشده{% endif %}<br />{% endfor %}اگر یکی را نمی‌شناسید، آن را از تنظیمات امنیتی حذف کنید.</p>
+</div>{% endif %}
+<p class="message">اگر این کار را شما انجام داده‌اید، اقدام دیگری لازم نیست.</p>
+<p class="message">اگر شما نبوده‌اید، هر کس این تغییر را انجام داده هم‌اکنون می‌تواند به جای شما وارد شود. بی‌درنگ رمز عبور را تغییر دهید و تنظیمات امنیتی را بررسی کنید.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">بررسی تنظیمات امنیتی</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را در مرورگر خود کپی کنید:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0002-000000000018'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000018'
+      AND [PublishedVersionId] = '43000000-0000-0000-0000-000000000018';
+
+    PRINT 'Created password-changed template version 2 (7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'password-changed template version 2 already exists, or the template does not';
+END
+GO
+
+-- ============================================================
 -- Template 19: registration-verification (global, Email channel)
 --
 -- The first message a would-be account ever receives, sent before any Users
@@ -2989,6 +3183,161 @@ END
 GO
 
 -- ============================================================
+-- Template 21, version 3: two-factor-changed, with the passkey kinds (S20)
+--
+-- Version 2 names eight kinds; S20 adds two: a passkey added to the account
+-- ("passkey-registered") and a passkey its owner removed ("passkey-removed").
+-- Version 2 would print its {% else %} wording for them. Every other word is version
+-- 2's. Published only while version 2 is the published one, under the next free
+-- version number, for the reasons version 2 gives.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000021')
+   AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '43000000-0000-0000-0003-000000000021')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    SELECT '43000000-0000-0000-0003-000000000021', '42000000-0000-0000-0000-000000000021',
+           ISNULL(MAX([VersionNumber]), 0) + 1, N'Adds a passkey added and removed (S20)', GETUTCDATE(), @SystemUserId
+    FROM [dbo].[NotificationTemplateVersions]
+    WHERE [TemplateId] = '42000000-0000-0000-0000-000000000021';
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0003-0021-000000000001', '43000000-0000-0000-0003-000000000021', N'en', N'Two-factor authentication changed on your account',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}Two-factor authentication was turned on{% when "disabled" %}Two-factor authentication was turned off{% when "recovery-codes-regenerated" %}New recovery codes were created{% when "authenticator-replaced" %}Your authenticator app was replaced{% when "reset-by-administrator" %}An administrator reset your two-factor authentication{% when "email-code-enabled" %}Sign-in codes by email were turned on{% when "email-code-disabled" %}Sign-in codes by email were turned off{% when "authenticator-replaced-email-code" %}An authenticator app replaced your codes by email{% when "passkey-registered" %}A passkey was added to your account{% when "passkey-removed" %}A passkey was removed from your account{% else %}Your two-factor authentication changed{% endcase %}</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}Two-factor authentication was just turned on for your {{ Platform.Name }} account. Signing in now asks for a code from your authenticator app as well as your password.{% when "disabled" %}Two-factor authentication was just turned off for your {{ Platform.Name }} account. Signing in no longer asks for a code from your authenticator app.{% when "recovery-codes-regenerated" %}New recovery codes were just created for your {{ Platform.Name }} account. Your previous recovery codes no longer work.{% when "authenticator-replaced" %}The authenticator app linked to your {{ Platform.Name }} account was just replaced. Codes from your previous app no longer work.{% when "reset-by-administrator" %}An administrator just reset two-factor authentication on your {{ Platform.Name }} account. Codes from your previous authenticator app and your old recovery codes no longer work. Set up two-factor authentication again from your security settings.{% when "email-code-enabled" %}Signing in to your {{ Platform.Name }} account now asks, after your password, for a code we email to this address. If an authenticator app was linked to your account, it no longer is, and its codes no longer work.{% when "email-code-disabled" %}Signing in to your {{ Platform.Name }} account no longer asks for a code sent to your email address.{% when "authenticator-replaced-email-code" %}An authenticator app was just linked to your {{ Platform.Name }} account in place of sign-in codes by email. Signing in now asks for a code from that app; codes sent by email, and your previous recovery codes, no longer work.{% when "passkey-registered" %}A passkey was just added to your {{ Platform.Name }} account. The device that holds it can now sign in to your account with its fingerprint, face or PIN, without your password.{% when "passkey-removed" %}A passkey was just removed from your {{ Platform.Name }} account. It no longer signs in, and your other sessions were signed out.{% else %}The two-factor authentication settings of your {{ Platform.Name }} account were just changed.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">Change details</p>
+    <p class="notice-text">When: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />Device: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">If you did not make or ask for this change, someone else may be able to sign in as you. Change your password now and review your security settings. If you can no longer sign in, contact your administrator.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Review your security settings</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0003-0021-000000000002', '43000000-0000-0000-0003-000000000021', N'ar', N'تغيّرت المصادقة الثنائية في حسابك',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}فُعّلت المصادقة الثنائية{% when "disabled" %}عُطّلت المصادقة الثنائية{% when "recovery-codes-regenerated" %}أُنشئت رموز استرداد جديدة{% when "authenticator-replaced" %}استُبدل تطبيق المصادقة{% when "reset-by-administrator" %}أعاد مسؤول ضبط المصادقة الثنائية في حسابك{% when "email-code-enabled" %}فُعّلت رموز الدخول بالبريد الإلكتروني{% when "email-code-disabled" %}عُطّلت رموز الدخول بالبريد الإلكتروني{% when "authenticator-replaced-email-code" %}حلّ تطبيق مصادقة محلّ رموز الدخول بالبريد{% when "passkey-registered" %}أُضيف مفتاح مرور إلى حسابك{% when "passkey-removed" %}أُزيل مفتاح مرور من حسابك{% else %}تغيّرت المصادقة الثنائية في حسابك{% endcase %}</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}فُعّلت للتوّ المصادقة الثنائية في حسابك على {{ Platform.Name }}. وأصبح تسجيل الدخول يطلب رمزًا من تطبيق المصادقة إلى جانب كلمة المرور.{% when "disabled" %}عُطّلت للتوّ المصادقة الثنائية في حسابك على {{ Platform.Name }}. ولم يعد تسجيل الدخول يطلب رمزًا من تطبيق المصادقة.{% when "recovery-codes-regenerated" %}أُنشئت للتوّ رموز استرداد جديدة لحسابك على {{ Platform.Name }}. ولم تعد رموز الاسترداد السابقة تعمل.{% when "authenticator-replaced" %}استُبدل للتوّ تطبيق المصادقة المرتبط بحسابك على {{ Platform.Name }}. ولم تعد رموز التطبيق السابق تعمل.{% when "reset-by-administrator" %}أعاد مسؤول للتوّ ضبط المصادقة الثنائية في حسابك على {{ Platform.Name }}. فلم تعد رموز تطبيق المصادقة السابق ولا رموز الاسترداد القديمة تعمل. أعد إعداد المصادقة الثنائية من إعدادات الأمان.{% when "email-code-enabled" %}أصبح تسجيل الدخول إلى حسابك على {{ Platform.Name }} يطلب، بعد كلمة المرور، رمزًا نرسله إلى هذا العنوان. وإن كان تطبيق مصادقة مرتبطًا بحسابك فلم يعد كذلك، ولم تعد رموزه تعمل.{% when "email-code-disabled" %}لم يعد تسجيل الدخول إلى حسابك على {{ Platform.Name }} يطلب رمزًا يُرسل إلى بريدك الإلكتروني.{% when "authenticator-replaced-email-code" %}رُبط للتوّ تطبيق مصادقة بحسابك على {{ Platform.Name }} بدلًا من رموز الدخول بالبريد. فصار الدخول يطلب رمزًا من ذلك التطبيق، ولم تعد الرموز المرسَلة بالبريد تعمل، ولا رموز الاسترداد السابقة.{% when "passkey-registered" %}أُضيف للتوّ مفتاح مرور إلى حسابك على {{ Platform.Name }}. صار الجهاز الذي يحمله قادرًا على تسجيل الدخول إلى حسابك ببصمة الإصبع أو الوجه أو رمز PIN، دون كلمة المرور.{% when "passkey-removed" %}أُزيل للتوّ مفتاح مرور من حسابك على {{ Platform.Name }}. لم يعد يسجّل الدخول، وأُنهيت جلساتك الأخرى.{% else %}تغيّرت للتوّ إعدادات المصادقة الثنائية في حسابك على {{ Platform.Name }}.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">تفاصيل التغيير</p>
+    <p class="notice-text">الوقت: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />الجهاز: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">إن لم تُجرِ هذا التغيير ولم تطلبه، فقد يستطيع غيرك الدخول باسمك. غيّر كلمة المرور الآن وراجع إعدادات الأمان. وإن لم تعد تستطيع الدخول، فتواصل مع المسؤول.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">مراجعة إعدادات الأمان</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0003-0021-000000000003', '43000000-0000-0000-0003-000000000021', N'tr', N'Hesabınızda iki adımlı doğrulama değişti',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}İki adımlı doğrulama açıldı{% when "disabled" %}İki adımlı doğrulama kapatıldı{% when "recovery-codes-regenerated" %}Yeni kurtarma kodları oluşturuldu{% when "authenticator-replaced" %}Doğrulayıcı uygulamanız değiştirildi{% when "reset-by-administrator" %}Bir yönetici iki adımlı doğrulamanızı sıfırladı{% when "email-code-enabled" %}E-postayla giriş kodları açıldı{% when "email-code-disabled" %}E-postayla giriş kodları kapatıldı{% when "authenticator-replaced-email-code" %}E-postayla giriş kodlarınızın yerini bir kimlik doğrulama uygulaması aldı{% when "passkey-registered" %}Hesabınıza bir geçiş anahtarı eklendi{% when "passkey-removed" %}Hesabınızdan bir geçiş anahtarı kaldırıldı{% else %}İki adımlı doğrulamanız değişti{% endcase %}</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}{{ Platform.Name }} hesabınızda iki adımlı doğrulama az önce açıldı. Giriş yaparken artık parolanızın yanı sıra doğrulayıcı uygulamanızdan bir kod da istenecek.{% when "disabled" %}{{ Platform.Name }} hesabınızda iki adımlı doğrulama az önce kapatıldı. Giriş yaparken artık doğrulayıcı uygulamanızdan kod istenmeyecek.{% when "recovery-codes-regenerated" %}{{ Platform.Name }} hesabınız için az önce yeni kurtarma kodları oluşturuldu. Önceki kurtarma kodlarınız artık çalışmıyor.{% when "authenticator-replaced" %}{{ Platform.Name }} hesabınıza bağlı doğrulayıcı uygulama az önce değiştirildi. Önceki uygulamanızdaki kodlar artık çalışmıyor.{% when "reset-by-administrator" %}Bir yönetici {{ Platform.Name }} hesabınızdaki iki adımlı doğrulamayı az önce sıfırladı. Önceki doğrulayıcı uygulamanızdaki kodlar ve eski kurtarma kodlarınız artık çalışmıyor. İki adımlı doğrulamayı güvenlik ayarlarınızdan yeniden kurun.{% when "email-code-enabled" %}{{ Platform.Name }} hesabınızda oturum açarken artık parolanızdan sonra bu adrese e-postayla gönderdiğimiz bir kod istenecek. Hesabınıza bağlı bir doğrulayıcı uygulama varsa artık bağlı değil ve kodları çalışmıyor.{% when "email-code-disabled" %}{{ Platform.Name }} hesabınızda oturum açarken artık e-posta adresinize gönderilen bir kod istenmeyecek.{% when "authenticator-replaced-email-code" %}{{ Platform.Name }} hesabınıza, e-postayla giriş kodlarının yerine az önce bir kimlik doğrulama uygulaması bağlandı. Giriş artık bu uygulamadan bir kod istiyor; e-postayla gönderilen kodlar ve önceki kurtarma kodlarınız artık çalışmıyor.{% when "passkey-registered" %}{{ Platform.Name }} hesabınıza az önce bir geçiş anahtarı eklendi. Onu taşıyan cihaz artık parmak izi, yüz veya PIN ile, parolanız olmadan hesabınıza giriş yapabilir.{% when "passkey-removed" %}{{ Platform.Name }} hesabınızdan az önce bir geçiş anahtarı kaldırıldı. Artık giriş yapamaz ve diğer oturumlarınız kapatıldı.{% else %}{{ Platform.Name }} hesabınızın iki adımlı doğrulama ayarları az önce değiştirildi.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">Değişiklik ayrıntıları</p>
+    <p class="notice-text">Zaman: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />Cihaz: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">Bu değişikliği siz yapmadıysanız ve talep de etmediyseniz, başka biri sizin adınıza giriş yapabilir. Parolanızı hemen değiştirin ve güvenlik ayarlarınızı gözden geçirin. Artık giriş yapamıyorsanız yöneticinize başvurun.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Güvenlik ayarlarını gözden geçir</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı tarayıcınıza kopyalayın:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0003-0021-000000000004', '43000000-0000-0000-0003-000000000021', N'fr', N'L''authentification à deux facteurs de votre compte a changé',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}L''authentification à deux facteurs a été activée{% when "disabled" %}L''authentification à deux facteurs a été désactivée{% when "recovery-codes-regenerated" %}De nouveaux codes de récupération ont été créés{% when "authenticator-replaced" %}Votre application d''authentification a été remplacée{% when "reset-by-administrator" %}Un administrateur a réinitialisé votre authentification à deux facteurs{% when "email-code-enabled" %}Les codes de connexion par e-mail ont été activés{% when "email-code-disabled" %}Les codes de connexion par e-mail ont été désactivés{% when "authenticator-replaced-email-code" %}Une application d''authentification a remplacé vos codes par e-mail{% when "passkey-registered" %}Une clé d''accès a été ajoutée à votre compte{% when "passkey-removed" %}Une clé d''accès a été supprimée de votre compte{% else %}Votre authentification à deux facteurs a changé{% endcase %}</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}L''authentification à deux facteurs vient d''être activée sur votre compte {{ Platform.Name }}. La connexion demande désormais un code de votre application d''authentification en plus de votre mot de passe.{% when "disabled" %}L''authentification à deux facteurs vient d''être désactivée sur votre compte {{ Platform.Name }}. La connexion ne demande plus de code de votre application d''authentification.{% when "recovery-codes-regenerated" %}De nouveaux codes de récupération viennent d''être créés pour votre compte {{ Platform.Name }}. Vos anciens codes de récupération ne fonctionnent plus.{% when "authenticator-replaced" %}L''application d''authentification associée à votre compte {{ Platform.Name }} vient d''être remplacée. Les codes de votre ancienne application ne fonctionnent plus.{% when "reset-by-administrator" %}Un administrateur vient de réinitialiser l''authentification à deux facteurs de votre compte {{ Platform.Name }}. Les codes de votre ancienne application d''authentification et vos anciens codes de récupération ne fonctionnent plus. Configurez de nouveau l''authentification à deux facteurs depuis vos paramètres de sécurité.{% when "email-code-enabled" %}La connexion à votre compte {{ Platform.Name }} demande désormais, après votre mot de passe, un code que nous envoyons à cette adresse. Si une application d''authentification était associée à votre compte, elle ne l''est plus et ses codes ne fonctionnent plus.{% when "email-code-disabled" %}La connexion à votre compte {{ Platform.Name }} ne demande plus de code envoyé à votre adresse e-mail.{% when "authenticator-replaced-email-code" %}Une application d''authentification vient d''être associée à votre compte {{ Platform.Name }} à la place des codes de connexion par e-mail. La connexion demande désormais un code de cette application ; les codes envoyés par e-mail et vos anciens codes de récupération ne fonctionnent plus.{% when "passkey-registered" %}Une clé d''accès vient d''être ajoutée à votre compte {{ Platform.Name }}. L''appareil qui la détient peut désormais se connecter à votre compte avec son empreinte, son visage ou son code PIN, sans votre mot de passe.{% when "passkey-removed" %}Une clé d''accès vient d''être supprimée de votre compte {{ Platform.Name }}. Elle ne permet plus de se connecter, et vos autres sessions ont été fermées.{% else %}Les paramètres d''authentification à deux facteurs de votre compte {{ Platform.Name }} viennent d''être modifiés.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">Détails de la modification</p>
+    <p class="notice-text">Date : {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />Appareil : {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">Si vous n''avez ni fait ni demandé cette modification, quelqu''un d''autre pourrait se connecter à votre place. Changez votre mot de passe immédiatement et vérifiez vos paramètres de sécurité. Si vous ne pouvez plus vous connecter, contactez votre administrateur.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Vérifier vos paramètres de sécurité</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0003-0021-000000000005', '43000000-0000-0000-0003-000000000021', N'zh', N'您账户的双重认证已更改',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}双重认证已开启{% when "disabled" %}双重认证已关闭{% when "recovery-codes-regenerated" %}已生成新的恢复代码{% when "authenticator-replaced" %}您的验证器应用已更换{% when "reset-by-administrator" %}管理员已重置您的双重认证{% when "email-code-enabled" %}已开启邮件登录验证码{% when "email-code-disabled" %}已关闭邮件登录验证码{% when "authenticator-replaced-email-code" %}身份验证器应用已取代您的邮件验证码{% when "passkey-registered" %}您的账户添加了一个通行密钥{% when "passkey-removed" %}您的账户移除了一个通行密钥{% else %}您的双重认证已更改{% endcase %}</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}您的 {{ Platform.Name }} 账户刚刚开启了双重认证。今后登录时，除密码外还需要输入验证器应用中的代码。{% when "disabled" %}您的 {{ Platform.Name }} 账户刚刚关闭了双重认证。今后登录时不再需要验证器应用中的代码。{% when "recovery-codes-regenerated" %}您的 {{ Platform.Name }} 账户刚刚生成了新的恢复代码。之前的恢复代码已失效。{% when "authenticator-replaced" %}与您的 {{ Platform.Name }} 账户关联的验证器应用刚刚被更换。之前应用中的代码已失效。{% when "reset-by-administrator" %}管理员刚刚重置了您 {{ Platform.Name }} 账户的双重认证。之前验证器应用中的代码和旧的恢复代码均已失效。请在安全设置中重新设置双重认证。{% when "email-code-enabled" %}今后登录您的 {{ Platform.Name }} 账户时，输入密码后还需要输入我们发送到此邮箱的验证码。如果您的账户之前关联了验证器应用，该应用已解除关联，其代码已失效。{% when "email-code-disabled" %}今后登录您的 {{ Platform.Name }} 账户时，不再需要发送到您邮箱的验证码。{% when "authenticator-replaced-email-code" %}您的 {{ Platform.Name }} 账户刚刚绑定了身份验证器应用，取代了邮件登录验证码。现在登录需要输入该应用中的验证码；通过邮件发送的验证码和您之前的恢复码均已失效。{% when "passkey-registered" %}您的 {{ Platform.Name }} 账户刚刚添加了一个通行密钥。持有它的设备现在可以通过指纹、面容或 PIN 登录您的账户，无需密码。{% when "passkey-removed" %}您的 {{ Platform.Name }} 账户刚刚移除了一个通行密钥。它已无法再登录，您的其他会话也已退出。{% else %}您的 {{ Platform.Name }} 账户的双重认证设置刚刚被更改。{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">更改详情</p>
+    <p class="notice-text">时间：{{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />设备：{{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">如果此更改不是您本人进行或申请的，其他人可能能够以您的身份登录。请立即修改密码并检查安全设置。如果您已无法登录，请联系管理员。</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">检查安全设置</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请将此链接复制到浏览器：</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0003-0021-000000000006', '43000000-0000-0000-0003-000000000021', N'ur', N'آپ کے اکاؤنٹ کی دو مرحلہ توثیق تبدیل ہو گئی',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}دو مرحلہ توثیق فعال کر دی گئی{% when "disabled" %}دو مرحلہ توثیق غیر فعال کر دی گئی{% when "recovery-codes-regenerated" %}نئے ریکوری کوڈ بنائے گئے{% when "authenticator-replaced" %}آپ کی تصدیقی ایپ تبدیل کر دی گئی{% when "reset-by-administrator" %}ایک منتظم نے آپ کی دو مرحلہ توثیق ری سیٹ کر دی{% when "email-code-enabled" %}ای میل کے ذریعے سائن اِن کوڈ فعال کر دیے گئے{% when "email-code-disabled" %}ای میل کے ذریعے سائن اِن کوڈ غیر فعال کر دیے گئے{% when "authenticator-replaced-email-code" %}ایک تصدیقی ایپ نے آپ کے ای میل کوڈز کی جگہ لے لی{% when "passkey-registered" %}آپ کے اکاؤنٹ میں ایک پاس کی شامل کی گئی{% when "passkey-removed" %}آپ کے اکاؤنٹ سے ایک پاس کی ہٹا دی گئی{% else %}آپ کی دو مرحلہ توثیق تبدیل ہو گئی{% endcase %}</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}آپ کے {{ Platform.Name }} اکاؤنٹ پر ابھی دو مرحلہ توثیق فعال کی گئی ہے۔ اب سائن اِن کرتے وقت پاس ورڈ کے ساتھ آپ کی تصدیقی ایپ کا کوڈ بھی مانگا جائے گا۔{% when "disabled" %}آپ کے {{ Platform.Name }} اکاؤنٹ پر ابھی دو مرحلہ توثیق غیر فعال کی گئی ہے۔ اب سائن اِن کرتے وقت تصدیقی ایپ کا کوڈ نہیں مانگا جائے گا۔{% when "recovery-codes-regenerated" %}آپ کے {{ Platform.Name }} اکاؤنٹ کے لیے ابھی نئے ریکوری کوڈ بنائے گئے ہیں۔ پچھلے ریکوری کوڈ اب کام نہیں کرتے۔{% when "authenticator-replaced" %}آپ کے {{ Platform.Name }} اکاؤنٹ سے منسلک تصدیقی ایپ ابھی تبدیل کی گئی ہے۔ پچھلی ایپ کے کوڈ اب کام نہیں کرتے۔{% when "reset-by-administrator" %}ایک منتظم نے ابھی آپ کے {{ Platform.Name }} اکاؤنٹ کی دو مرحلہ توثیق ری سیٹ کی ہے۔ پچھلی تصدیقی ایپ کے کوڈ اور پرانے ریکوری کوڈ اب کام نہیں کرتے۔ اپنی حفاظتی ترتیبات سے دو مرحلہ توثیق دوبارہ ترتیب دیں۔{% when "email-code-enabled" %}اب آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کرتے وقت پاس ورڈ کے بعد ایک کوڈ مانگا جائے گا جو ہم اس پتے پر ای میل کریں گے۔ اگر آپ کے اکاؤنٹ سے کوئی تصدیقی ایپ منسلک تھی تو اب وہ منسلک نہیں، اور اس کے کوڈ اب کام نہیں کرتے۔{% when "email-code-disabled" %}اب آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کرتے وقت آپ کے ای میل پر بھیجا گیا کوڈ نہیں مانگا جائے گا۔{% when "authenticator-replaced-email-code" %}آپ کے {{ Platform.Name }} اکاؤنٹ سے ای میل سائن اِن کوڈز کی جگہ ابھی ایک تصدیقی ایپ منسلک کی گئی ہے۔ اب سائن اِن کے لیے اسی ایپ کا کوڈ درکار ہے؛ ای میل سے بھیجے گئے کوڈ اور آپ کے پچھلے ریکوری کوڈ اب کام نہیں کرتے۔{% when "passkey-registered" %}آپ کے {{ Platform.Name }} اکاؤنٹ میں ابھی ایک پاس کی شامل کی گئی ہے۔ جس آلے میں یہ موجود ہے وہ اب فنگر پرنٹ، چہرے یا PIN سے، پاس ورڈ کے بغیر، آپ کے اکاؤنٹ میں سائن اِن کر سکتا ہے۔{% when "passkey-removed" %}آپ کے {{ Platform.Name }} اکاؤنٹ سے ابھی ایک پاس کی ہٹا دی گئی ہے۔ اب یہ سائن اِن نہیں کر سکتی، اور آپ کے دوسرے سیشن ختم کر دیے گئے ہیں۔{% else %}آپ کے {{ Platform.Name }} اکاؤنٹ کی دو مرحلہ توثیق کی ترتیبات ابھی تبدیل کی گئی ہیں۔{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">تبدیلی کی تفصیلات</p>
+    <p class="notice-text">وقت: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />آلہ: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">اگر یہ تبدیلی آپ نے نہیں کی اور نہ ہی اس کی درخواست کی، تو کوئی اور آپ کی حیثیت سے سائن اِن کر سکتا ہے۔ فوراً پاس ورڈ تبدیل کریں اور حفاظتی ترتیبات کا جائزہ لیں۔ اگر آپ اب سائن اِن نہیں کر سکتے تو اپنے منتظم سے رابطہ کریں۔</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">حفاظتی ترتیبات کا جائزہ لیں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک اپنے براؤزر میں کاپی کریں:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0003-0021-000000000007', '43000000-0000-0000-0003-000000000021', N'fa', N'احراز هویت دومرحله‌ای حساب شما تغییر کرد',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>{% case ChangeKind %}{% when "enabled" %}احراز هویت دومرحله‌ای فعال شد{% when "disabled" %}احراز هویت دومرحله‌ای غیرفعال شد{% when "recovery-codes-regenerated" %}کدهای بازیابی جدید ساخته شد{% when "authenticator-replaced" %}برنامهٔ احراز هویت شما جایگزین شد{% when "reset-by-administrator" %}یک مدیر احراز هویت دومرحله‌ای شما را بازنشانی کرد{% when "email-code-enabled" %}کدهای ورود با ایمیل فعال شد{% when "email-code-disabled" %}کدهای ورود با ایمیل غیرفعال شد{% when "authenticator-replaced-email-code" %}یک برنامهٔ احراز هویت جای کدهای ایمیلی شما را گرفت{% when "passkey-registered" %}یک کلید عبور به حساب شما افزوده شد{% when "passkey-removed" %}یک کلید عبور از حساب شما حذف شد{% else %}احراز هویت دومرحله‌ای شما تغییر کرد{% endcase %}</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">{% case ChangeKind %}{% when "enabled" %}احراز هویت دومرحله‌ای برای حساب شما در {{ Platform.Name }} هم‌اکنون فعال شد. از این پس ورود، علاوه بر رمز عبور، کدی از برنامهٔ احراز هویت شما نیز می‌خواهد.{% when "disabled" %}احراز هویت دومرحله‌ای برای حساب شما در {{ Platform.Name }} هم‌اکنون غیرفعال شد. از این پس ورود دیگر کدی از برنامهٔ احراز هویت نمی‌خواهد.{% when "recovery-codes-regenerated" %}هم‌اکنون کدهای بازیابی جدیدی برای حساب شما در {{ Platform.Name }} ساخته شد. کدهای بازیابی قبلی دیگر کار نمی‌کنند.{% when "authenticator-replaced" %}برنامهٔ احراز هویت متصل به حساب شما در {{ Platform.Name }} هم‌اکنون جایگزین شد. کدهای برنامهٔ قبلی دیگر کار نمی‌کنند.{% when "reset-by-administrator" %}یک مدیر هم‌اکنون احراز هویت دومرحله‌ای حساب شما در {{ Platform.Name }} را بازنشانی کرد. کدهای برنامهٔ احراز هویت قبلی و کدهای بازیابی قدیمی دیگر کار نمی‌کنند. احراز هویت دومرحله‌ای را از تنظیمات امنیتی دوباره راه‌اندازی کنید.{% when "email-code-enabled" %}از این پس ورود به حساب شما در {{ Platform.Name }}، پس از رمز عبور، کدی را می‌خواهد که به این نشانی ایمیل می‌کنیم. اگر برنامهٔ احراز هویتی به حساب شما متصل بود، دیگر متصل نیست و کدهایش کار نمی‌کنند.{% when "email-code-disabled" %}از این پس ورود به حساب شما در {{ Platform.Name }} دیگر کدی را که به ایمیل شما فرستاده می‌شود نمی‌خواهد.{% when "authenticator-replaced-email-code" %}همین حالا یک برنامهٔ احراز هویت به‌جای کدهای ورود ایمیلی به حساب شما در {{ Platform.Name }} متصل شد. اکنون ورود، کدی از همین برنامه می‌خواهد؛ کدهای ارسال‌شده با ایمیل و کدهای بازیابی قبلی شما دیگر کار نمی‌کنند.{% when "passkey-registered" %}همین حالا یک کلید عبور به حساب {{ Platform.Name }} شما افزوده شد. دستگاهی که آن را دارد اکنون می‌تواند با اثر انگشت، چهره یا PIN و بدون رمز عبور وارد حساب شما شود.{% when "passkey-removed" %}همین حالا یک کلید عبور از حساب {{ Platform.Name }} شما حذف شد. دیگر با آن نمی‌توان وارد شد و نشست‌های دیگر شما بسته شدند.{% else %}تنظیمات احراز هویت دومرحله‌ای حساب شما در {{ Platform.Name }} هم‌اکنون تغییر کرد.{% endcase %}</p>
+<div class="notice">
+    <p class="notice-title">جزئیات تغییر</p>
+    <p class="notice-text">زمان: {{ OccurredAtUtc }}{% if DeviceName and DeviceName != "" %}<br />دستگاه: {{ DeviceName }}{% endif %}</p>
+</div>
+<p class="message">اگر این تغییر را نه خودتان انجام داده‌اید و نه درخواستش را داده‌اید، ممکن است شخص دیگری بتواند به جای شما وارد شود. بی‌درنگ رمز عبور را تغییر دهید و تنظیمات امنیتی را بررسی کنید. اگر دیگر نمی‌توانید وارد شوید، با مدیر سیستم تماس بگیرید.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">بررسی تنظیمات امنیتی</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را در مرورگر خود کپی کنید:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>');;
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0003-000000000021'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000021'
+      AND [PublishedVersionId] = '43000000-0000-0000-0002-000000000021';
+
+    PRINT 'Created two-factor-changed template version 3 (7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'two-factor-changed template version 3 already exists, or the template does not';
+END
+GO
+
+-- ============================================================
 -- Template 22: two-factor-bind-code (global, Email channel)
 --
 -- The code an account enters, together with its authenticator code, before it
@@ -3146,6 +3495,171 @@ END
 ELSE
 BEGIN
     PRINT 'two-factor-bind-code template already exists';
+END
+GO
+
+-- ============================================================
+-- Template 22, version 2: two-factor-bind-code, worded for an app or a passkey (S20)
+--
+-- Version 1 tells the reader to enter the code "together with the code from your
+-- authenticator app". Since S20 the same code is the first-factor proof of a passkey
+-- too (ARR-1049), which has no app code to enter, so version 2 says only where the
+-- code goes and what it finishes. Every other word is version 1's. No new variable:
+-- the sender (FirstFactorEmailProof) passes the same ones for both.
+--
+-- Published only while the seeded version 1 is the published one, under the next free
+-- version number, as for template 21's later versions.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000022')
+   AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '43000000-0000-0000-0002-000000000022')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    SELECT '43000000-0000-0000-0002-000000000022', '42000000-0000-0000-0000-000000000022',
+           ISNULL(MAX([VersionNumber]), 0) + 1, N'Worded for an authenticator app or a passkey (S20)', GETUTCDATE(), @SystemUserId
+    FROM [dbo].[NotificationTemplateVersions]
+    WHERE [TemplateId] = '42000000-0000-0000-0000-000000000022';
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0002-0022-000000000001', '43000000-0000-0000-0002-000000000022', N'en', N'Your code to turn on two-factor authentication',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>Confirm it is you turning on two-factor authentication</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">Someone signed in to your {{ Platform.Name }} account and is turning on two-factor authentication for it. If it is you, enter the code below where you were asked for it, to finish linking your authenticator app or adding your passkey. It expires in {{ ExpirationMinutes }} minutes.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Request details</p>
+    <p class="notice-text">When: {{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />Device: {{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />From: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">If this was not you</p>
+    <p class="notice-text">Do not enter the code, and never share it with anyone — {{ Platform.Name }} will never ask you for it. Someone else may know your password: change it now. Without this code they cannot turn on two-factor authentication on your account.</p>
+</div>'),
+    ('44000000-0000-0002-0022-000000000002', '43000000-0000-0000-0002-000000000022', N'ar', N'رمز تفعيل المصادقة الثنائية في حسابك',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>أكِّد أنك من يفعّل المصادقة الثنائية</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">سجّل أحدهم الدخول إلى حسابك على {{ Platform.Name }}، وهو يفعّل فيه المصادقة الثنائية. فإن كنت أنت، فأدخل الرمز أدناه حيث طُلب منك، لإتمام ربط تطبيق المصادقة أو إضافة مفتاح المرور. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">تفاصيل الطلب</p>
+    <p class="notice-text">الوقت: {{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />الجهاز: {{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />من العنوان: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">إن لم تكن أنت</p>
+    <p class="notice-text">لا تُدخل الرمز، ولا تشاركه مع أي شخص — لن يطلبه منك فريق {{ Platform.Name }} أبدًا. فقد يعرف شخص آخر كلمة مرورك: غيّرها الآن. ولن يستطيع تفعيل المصادقة الثنائية في حسابك بدون هذا الرمز.</p>
+</div>'),
+    ('44000000-0000-0002-0022-000000000003', '43000000-0000-0000-0002-000000000022', N'tr', N'İki adımlı doğrulamayı açma kodunuz',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>İki adımlı doğrulamayı açanın siz olduğunuzu onaylayın</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">Biri {{ Platform.Name }} hesabınıza giriş yaptı ve hesabınızda iki adımlı doğrulamayı açıyor. Bu sizseniz, doğrulayıcı uygulamanızı bağlamayı ya da geçiş anahtarınızı eklemeyi tamamlamak için aşağıdaki kodu istendiği yere girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolacaktır.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">İstek ayrıntıları</p>
+    <p class="notice-text">Zaman: {{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />Cihaz: {{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />Nereden: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Bu siz değilseniz</p>
+    <p class="notice-text">Kodu girmeyin ve kimseyle paylaşmayın — {{ Platform.Name }} bu kodu sizden asla istemez. Başka biri parolanızı biliyor olabilir: parolanızı hemen değiştirin. Bu kod olmadan hesabınızda iki adımlı doğrulamayı açamaz.</p>
+</div>'),
+    ('44000000-0000-0002-0022-000000000004', '43000000-0000-0000-0002-000000000022', N'fr', N'Votre code pour activer l''authentification à deux facteurs',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>Confirmez que c''est bien vous qui activez l''authentification à deux facteurs</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">Quelqu''un s''est connecté à votre compte {{ Platform.Name }} et y active l''authentification à deux facteurs. Si c''est vous, saisissez le code ci-dessous là où il vous est demandé, pour terminer la liaison de votre application d''authentification ou l''ajout de votre clé d''accès. Il expirera dans {{ ExpirationMinutes }} minutes.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Détails de la demande</p>
+    <p class="notice-text">Date : {{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />Appareil : {{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />Origine : {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Si ce n''est pas vous</p>
+    <p class="notice-text">Ne saisissez pas le code et ne le partagez avec personne — {{ Platform.Name }} ne vous le demandera jamais. Quelqu''un d''autre connaît peut-être votre mot de passe : changez-le dès maintenant. Sans ce code, il ne peut pas activer l''authentification à deux facteurs sur votre compte.</p>
+</div>'),
+    ('44000000-0000-0002-0022-000000000005', '43000000-0000-0000-0002-000000000022', N'zh', N'开启双重认证的验证码',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>确认是您本人在开启双重认证</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">有人登录了您的 {{ Platform.Name }} 账户，正在为其开启双重认证。如果是您本人，请在提示处输入以下验证码，以完成绑定验证器应用或添加通行密钥。验证码将在 {{ ExpirationMinutes }} 分钟后失效。</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">请求详情</p>
+    <p class="notice-text">时间：{{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />设备：{{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />来源：{{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">如果不是您本人</p>
+    <p class="notice-text">请不要输入此验证码，也不要透露给任何人 — {{ Platform.Name }} 绝不会向您索要。可能有他人知道您的密码：请立即修改密码。没有此验证码，对方无法在您的账户上开启双重认证。</p>
+</div>'),
+    ('44000000-0000-0002-0022-000000000006', '43000000-0000-0000-0002-000000000022', N'ur', N'دو مرحلہ توثیق فعال کرنے کا کوڈ',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>تصدیق کریں کہ دو مرحلہ توثیق آپ ہی فعال کر رہے ہیں</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">کسی نے آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کیا ہے اور اس پر دو مرحلہ توثیق فعال کر رہا ہے۔ اگر یہ آپ ہیں تو اپنی تصدیقی ایپ کو منسلک کرنے یا اپنی پاس کی شامل کرنے کا عمل مکمل کرنے کے لیے نیچے دیا گیا کوڈ وہاں درج کریں جہاں پوچھا گیا ہے۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی۔</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">درخواست کی تفصیلات</p>
+    <p class="notice-text">وقت: {{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />آلہ: {{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />کہاں سے: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">اگر یہ آپ نہیں ہیں</p>
+    <p class="notice-text">کوڈ درج نہ کریں اور نہ کسی کے ساتھ شیئر کریں — {{ Platform.Name }} آپ سے یہ کوڈ کبھی نہیں مانگے گا۔ ہو سکتا ہے کسی اور کو آپ کا پاس ورڈ معلوم ہو: ابھی اپنا پاس ورڈ تبدیل کریں۔ اس کوڈ کے بغیر وہ آپ کے اکاؤنٹ پر دو مرحلہ توثیق فعال نہیں کر سکتا۔</p>
+</div>'),
+    ('44000000-0000-0002-0022-000000000007', '43000000-0000-0000-0002-000000000022', N'fa', N'کد فعال‌سازی احراز هویت دومرحله‌ای',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>تأیید کنید که خودتان احراز هویت دومرحله‌ای را فعال می‌کنید</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">کسی وارد حساب شما در {{ Platform.Name }} شده و در حال فعال کردن احراز هویت دومرحله‌ای برای آن است. اگر خودتان هستید، برای تکمیل اتصال برنامهٔ احراز هویت یا افزودن کلید عبور، کد زیر را در جایی که از شما خواسته شده وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">جزئیات درخواست</p>
+    <p class="notice-text">زمان: {{ RequestedAt }}{% if DeviceName and DeviceName != "" %}<br />دستگاه: {{ DeviceName }}{% endif %}{% if IpAddress and IpAddress != "" %}<br />از نشانی: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">اگر شما نبودید</p>
+    <p class="notice-text">کد را وارد نکنید و آن را با هیچ‌کس در میان نگذارید — {{ Platform.Name }} هرگز این کد را از شما نمی‌خواهد. ممکن است شخص دیگری رمز عبور شما را بداند: همین حالا آن را تغییر دهید. بدون این کد، او نمی‌تواند احراز هویت دومرحله‌ای را روی حساب شما فعال کند.</p>
+</div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0002-000000000022'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000022'
+      AND [PublishedVersionId] = '43000000-0000-0000-0000-000000000022';
+
+    PRINT 'Created two-factor-bind-code template version 2 (7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'two-factor-bind-code template version 2 already exists, or the template does not';
 END
 GO
 

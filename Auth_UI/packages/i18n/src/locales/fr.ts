@@ -1503,6 +1503,8 @@ export const fr: TranslationResources = {
       twofactorEmailCodeEnabled: "Codes par e-mail activés",
       twofactorEmailCodeDisabled: "Codes par e-mail désactivés",
       twofactorSteppedUp: "Second facteur prouvé dans une session",
+      passkeyRegistered: "Clé d'accès ajoutée",
+      passkeyRemoved: "Clé d'accès supprimée",
       userLocked: "Compte verrouillé",
       userUnlocked: "Compte déverrouillé",
       userHardLocked: "Compte verrouillé après trop d’échecs de connexion",

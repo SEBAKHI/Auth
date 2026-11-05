@@ -1,3 +1,4 @@
+using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.ValueObjects;
 
@@ -27,17 +28,26 @@ public interface ITwoFactorStateStore
     Task<TwoFactorSnapshot?> GetSnapshotAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Whether the account has an enabled second factor: a two-factor row with
-    /// <c>IsEnabled = 1</c> — never the account flag, which can disagree with it. The
-    /// one question the platform-administrator policy asks of the factor, kept in
-    /// one statement so that a later factor (a passkey) is added in one place.
+    /// Whether the account has a qualifying second factor (FA2): a two-factor row with
+    /// <c>IsEnabled = 1</c> — never the account flag, which can disagree with it — or
+    /// (S20) a live, user-verified passkey of the current RP ID. The one question every
+    /// policy asks of the factor, kept in one statement.
     /// </summary>
     /// <remarks>
     /// The emailed code (S24) is never such a factor: its row has <c>IsEnabled = 0</c>
     /// by <c>CK_TwoFactorAuth_SingleFactor</c>, so an administrator whose only second
-    /// factor is email is asked to enroll one that counts.
+    /// factor is email is asked to enroll one that counts. A passkey counts whatever
+    /// <c>Passkeys:Enabled</c> says; without an RP ID or the passkey schema, none does.
     /// </remarks>
     Task<bool> HasEnabledFactorAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Which qualifying second factors the account has (FA2 (2-1)), by the same definition
+    /// as <see cref="HasEnabledFactorAsync"/>, in one statement: what the MFA policies need
+    /// to tell an account that can step up with its app from one whose only factor is a
+    /// passkey.
+    /// </summary>
+    Task<QualifyingSecondFactors> GetQualifyingFactorsAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
     /// The readiness of an application's recent users for its two-step requirement (S23,
@@ -451,14 +461,22 @@ public interface ITwoFactorStateStore
     /// the same transaction by adding a statement here. The account's open
     /// challenges of every purpose — a sign-in, switching the emailed code on or off,
     /// a recovery — end in the same transaction (S24): none of them may outlive the
-    /// factor they were opened against.
+    /// factor they were opened against. Every live passkey of the account, of any RP ID,
+    /// is revoked in it too (S20, PK12), and returned, so the caller raises one event each.
     /// </remarks>
     /// <param name="userId">The account whose factor is removed.</param>
     /// <param name="resetBy">The administrator removing it, recorded on the account row.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>True when the account row was found and the change committed.</returns>
-    Task<bool> TryResetAsync(Guid userId, Guid resetBy, CancellationToken cancellationToken);
+    /// <returns>
+    /// The passkeys the reset revoked when the account row was found and the change
+    /// committed; null when the account row was not found and nothing changed.
+    /// </returns>
+    Task<TwoFactorResetResult?> TryResetAsync(Guid userId, Guid resetBy, CancellationToken cancellationToken);
 }
+
+/// <summary>An administrator's reset that committed (M8(4)).</summary>
+/// <param name="RevokedPasskeys">The passkeys it revoked, as they were revoked: none when the account had none.</param>
+public sealed record TwoFactorResetResult(IReadOnlyList<UserPasskey> RevokedPasskeys);
 
 /// <summary>
 /// One request to make the emailed code the account's second factor: the enrollment

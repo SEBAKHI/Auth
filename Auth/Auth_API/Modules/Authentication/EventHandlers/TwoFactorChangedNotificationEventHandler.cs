@@ -42,7 +42,9 @@ public class TwoFactorChangedNotificationEventHandler :
     INotificationHandler<TwoFactorAuthenticatorReplacedEvent>,
     INotificationHandler<TwoFactorResetEvent>,
     INotificationHandler<TwoFactorEmailCodeEnabledEvent>,
-    INotificationHandler<TwoFactorEmailCodeDisabledEvent>
+    INotificationHandler<TwoFactorEmailCodeDisabledEvent>,
+    INotificationHandler<PasskeyRegisteredEvent>,
+    INotificationHandler<PasskeyRemovedEvent>
 {
     private readonly INotificationService _notificationService;
     private readonly EmailSettings _emailSettings;
@@ -143,6 +145,33 @@ public class TwoFactorChangedNotificationEventHandler :
                 notification.DisplayName,
                 notification.DeviceName,
                 TwoFactorChangeKinds.EmailCodeDisabled,
+                cancellationToken);
+
+    // S20 (FA11): a passkey added to the account is a new way in, so its owner is told,
+    // independently of the session that added it.
+    public Task Handle(PasskeyRegisteredEvent notification, CancellationToken cancellationToken) =>
+        SendAsync(
+            notification.UserId,
+            notification.RegisteredBy,
+            notification.Email,
+            notification.DisplayName,
+            notification.DeviceName,
+            TwoFactorChangeKinds.PasskeyRegistered,
+            cancellationToken);
+
+    // S20: a passkey its owner removed. The other removals come with a notice of their own —
+    // the administrator's reset, the password change, the lock — so one more email per
+    // passkey would only bury it (D-T19 D).
+    public Task Handle(PasskeyRemovedEvent notification, CancellationToken cancellationToken) =>
+        notification.Reason != PasskeyRemovalReasons.User
+            ? Task.CompletedTask
+            : SendAsync(
+                notification.UserId,
+                notification.RemovedBy ?? notification.UserId,
+                notification.Email,
+                notification.DisplayName,
+                notification.DeviceName,
+                TwoFactorChangeKinds.PasskeyRemoved,
                 cancellationToken);
 
     private async Task SendAsync(

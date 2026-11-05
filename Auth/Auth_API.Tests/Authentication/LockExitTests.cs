@@ -43,7 +43,8 @@ public class LockExitResetTests
             TestHelpers.CreatePassingBreachEvaluator(), TestHelpers.CreateOptions(_settings),
             TestHelpers.CreateOptions(TestHelpers.CreateSessionSettings()), new Mock<IDomainEventDispatcher>().Object,
             TestHelpers.CreateAccountLockout(_users.Object, _settings), new Mock<ITwoFactorStateStore>().Object,
-            new Mock<ITwoFactorChallengeRepository>().Object, NullLogger<ResetPasswordCommandHandler>.Instance);
+            new Mock<ITwoFactorChallengeRepository>().Object, PasskeyTestDoubles.Revocation(),
+            NullLogger<ResetPasswordCommandHandler>.Instance);
     }
 
     private ChangePasswordCommandHandler Change() => new(
@@ -51,7 +52,7 @@ public class LockExitResetTests
         new PasswordValidator(TestHelpers.CreateOptions(_settings)), TestHelpers.CreatePassingBreachEvaluator(),
         new Mock<IDomainEventDispatcher>().Object, TestHelpers.CreateAccountLockout(_users.Object, _settings),
         TestHelpers.CreateOptions(_settings), TestHelpers.CreateOptions(TestHelpers.CreateSessionSettings()),
-        NullLogger<ChangePasswordCommandHandler>.Instance);
+        PasskeyTestDoubles.Revocation(), NullLogger<ChangePasswordCommandHandler>.Instance);
 
     private User Given(int count, int? minutes)
     {

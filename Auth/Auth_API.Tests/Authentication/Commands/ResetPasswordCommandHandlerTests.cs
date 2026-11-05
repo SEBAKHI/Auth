@@ -21,6 +21,11 @@ namespace Auth_API.Tests.Authentication.Commands;
 /// </summary>
 public class ResetPasswordCommandHandlerTests
 {
+    // S20 (PK12): the passkeys the 72-hour revocation sees, on a fixed clock.
+    private static readonly DateTimeOffset PasskeyNow = new(2026, 11, 5, 9, 14, 0, TimeSpan.Zero);
+    private readonly Mock<Auth.Domain.Interfaces.Repositories.IUserPasskeyRepository> _passkeysMock = PasskeyTestDoubles.EmptyRepository();
+    private readonly Mock<MediatR.IPublisher> _passkeyPublisherMock = new();
+
     private const string ValidToken = "valid-token";
     private const string ValidTokenHash = $"hmac({ValidToken})";
 
@@ -86,6 +91,7 @@ public class ResetPasswordCommandHandlerTests
             TestHelpers.CreateAccountLockout(_userRepositoryMock.Object, _passwordSettings),
             _twoFactorStateStoreMock.Object,
             _twoFactorChallengeRepositoryMock.Object,
+            PasskeyTestDoubles.Revocation(_passkeysMock, _passkeyPublisherMock.Object, new FixedTimeProvider(PasskeyNow)),
             _loggerMock.Object);
     }
 
@@ -689,5 +695,42 @@ public class ResetPasswordCommandHandlerTests
         _passwordHistoryRepositoryMock
             .Setup(r => r.GetRecentHashesAsync(user.Id, _passwordSettings.HistoryCount, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string>());
+    }
+
+    /// <summary>
+    /// S20 (PK12): a password reset by email revokes the passkeys registered in the 72 hours
+    /// before it — one an attacker added with the stolen password goes — and the notice lists
+    /// those that stay with their dates.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the revocation dropped from this path.</remarks>
+    [Fact]
+    public async Task Handle_ValidReset_RevokesThePasskeysOfTheLast72Hours_AndListsTheOthers()
+    {
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+        SetupValidResetScenario(user, resetToken, command);
+        var cutoff = PasskeyNow.UtcDateTime.AddHours(-72);
+        var recent = PasskeyTestDoubles.Live(user.Id, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
+        var older = PasskeyTestDoubles.Live(user.Id, PasskeyNow.UtcDateTime.AddHours(-73), "Older");
+        _passkeysMock
+            .Setup(r => r.GetLiveAsync(user.Id, PasskeyTestDoubles.RpId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recent, older]);
+        _passkeysMock
+            .Setup(r => r.RevokeRegisteredAfterAsync(user.Id, cutoff, Auth.Domain.Constants.PasskeyRemovalReasons.PasswordReset, user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recent]);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
+            user.Id, cutoff, Auth.Domain.Constants.PasskeyRemovalReasons.PasswordReset, user.Id, CancellationToken.None), Times.Once,
+            "a passkey registered in the 72 hours before is revoked; the statement keeps the older ones (CreatedAt > @RegisteredAfter)");
+        _passkeyPublisherMock.Verify(p => p.Publish(
+            It.Is<Auth.Domain.Events.PasskeyRemovedEvent>(e => e.PasskeyId == recent.Id
+                && e.Reason == Auth.Domain.Constants.PasskeyRemovalReasons.PasswordReset && e.RemovedBy == user.Id),
+            CancellationToken.None), Times.Once);
+        _dispatchedEvents.OfType<Auth.Domain.Events.PasswordChangedEvent>().Single().Passkeys
+            .Should().Equal(new Auth.Domain.Events.PasskeySummary("Older", older.CreatedAt, older.LastUsedAt));
     }
 }

@@ -120,8 +120,11 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         // anything is counted. With an authenticator on the account the reservation
         // below refuses anyway; the rule stands for every factor that can coexist
         // with one, and it is why the emailed code is never asked for here.
-        if (!session.Value.Methods.IsMfaSatisfied
-            && await _twoFactorStateStore.HasEnabledFactorAsync(request.UserId, cancellationToken))
+        // Read once: whether the account already holds a qualifying factor (FA2) — the app,
+        // or a passkey (S20) — decides both the session rule and whether the emailed code
+        // of a FIRST factor applies.
+        var hasQualifyingFactor = await _twoFactorStateStore.HasEnabledFactorAsync(request.UserId, cancellationToken);
+        if (!session.Value.Methods.IsMfaSatisfied && hasQualifyingFactor)
         {
             _logger.LogInformation(
                 "Binding a further second factor for user {UserId} asked for a two-factor sign-in first",
@@ -148,7 +151,10 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         // proof that the emailed code may go went through the mailbox: it is the
         // first-factor mailbox proof too, so that code is never asked as well. A
         // recovery code proves no mailbox, so it is.
+        // Beside a passkey (S20) the app is a further factor: the two-factor session above
+        // is its proof, and the emailed code of a first factor is not asked (OI-48 (2)).
         var emailProofRequired = _emailProofPolicy.IsRequired
+            && !hasQualifyingFactor
             && !(replacesEmailCode && !request.ReplacementProofIsRecoveryCode);
         var emailCode = string.IsNullOrEmpty(request.EmailCode) ? null : request.EmailCode;
 

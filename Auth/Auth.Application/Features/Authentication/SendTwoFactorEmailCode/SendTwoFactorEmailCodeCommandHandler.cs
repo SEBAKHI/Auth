@@ -69,6 +69,14 @@ public class SendTwoFactorEmailCodeCommandHandler
             return UserErrors.TwoFactorAlreadyEnabled;
         }
 
+        // S20: beside a passkey the app is a further factor, bound from a two-factor session
+        // with no emailed code (OI-48 (2)), so none is minted. With the app off, only a
+        // passkey makes this true: an account without one answers as it always has.
+        if (await _twoFactorStateStore.HasEnabledFactorAsync(request.UserId, cancellationToken))
+        {
+            return new TwoFactorEmailCodeResponse(EmailCodeRequired: false, SentTo: null, ExpiresAt: null);
+        }
+
         var sent = await _emailProof.SendAsync(
             request.UserId, session.Value.DeviceName, request.IpAddress, cancellationToken);
         if (sent.IsError)

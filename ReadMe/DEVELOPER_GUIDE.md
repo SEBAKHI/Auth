@@ -694,6 +694,29 @@ The check exists because without it, every reset and verification link in every 
 
 > **Note:** Keep the real SMTP password out of `appsettings.json`. Supply it through the `Email__Password` environment variable, or store it in the encrypted secret store (`Certificate` and `Dpapi` modes).
 
+#### Passkeys Settings
+
+```json
+{
+  "Passkeys": {
+    "Enabled": false,
+    "RpId": ""
+  }
+}
+```
+
+| Field | Description |
+|---|---|
+| `Enabled` | The switch, `false` as shipped, read per request. While it is off every passkey endpoint answers **404**, and nothing changes for anyone. **Leave it off until the release whose sign-in pages offer passkeys is deployed** (S20 PR C): before that, people could add passkeys they cannot use |
+| `RpId` | The relying party ID every passkey is bound to: the registrable domain both first-party apps share (`example.com` when they are `console.example.com` and `accounts.example.com`), or `localhost` on a developer machine. Read once at start-up: a change needs an application-pool recycle. Empty means passkeys cannot run |
+
+**Passkeys run only when the switch is on and the configuration allows them.** The RP ID must be a host name (never a URL, an address or a port); every origin in `IdentityProvider:FirstPartySpaOrigins` must be a bare `https` origin whose host is the RP ID or a subdomain of it; the passkey tables must be deployed; and no live passkey may be bound to another RP ID. Otherwise the endpoints answer 404 and, while the switch is on, the security posture logs `passkey.configuration` at Critical with the reason. Live passkeys of another RP ID are also logged as `passkey.rpid-mismatch` (Critical) whatever the switch says.
+
+**The RP ID is permanent in practice.** A passkey made under one RP ID never works under another, so a changed value is refused while live passkeys carry the old one. To move a deployment to another domain: announce it and ask people to add another way to sign in; run `dotnet run --project Auth/Auth_Setup -- --retire-passkey-rp-id <old RP ID>` and execute the statement it prints against the database (one transaction; one audit row per retired passkey, reason `rp-id-move`); then set the new `RpId` and recycle. The decision and its alternatives: `docs/adr/0006-passkey-rp-id.md`.
+
+Neither setting is in the console's System Settings yet.
+*In code:* `Auth/Auth.Application/Configuration/PasskeySettings.cs`, `Auth/Auth.Application/Features/Passkeys/Common/PasskeyConfiguration.cs`, `Auth/Auth.Application/Features/Passkeys/Common/PasskeyFeature.cs`.
+
 #### External Authentication
 
 ```json
@@ -2066,6 +2089,17 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 **Setup, the email code, enable, disable and the three `email/*` endpoints need a recent sign-in.** The session the access token belongs to must have signed in no longer ago than `TwoFactor:ReauthenticationMaxAgeMinutes` (default 15, from 5 to 60, read per request); a refreshed token keeps its session, so refreshing does not make an old sign-in recent. An older session — or a token that carries no session — is answered **403 `Auth.ReauthenticationRequired`** before anything else runs: sign out and sign in again. It is 403 and not 401 on purpose: a client refreshes and replays on a 401, and the refreshed token belongs to the same old session. Branch on the code, not on the status: `TwoFactor.LockedOut` is a 403 too.
 *In code:* `Auth/Auth.Application/Features/Authentication/Common/ReauthenticationGuard.cs`.
 
+#### Passkeys — 6 endpoints (S20; every one answers 404 while `Passkeys:Enabled` is off — see [5.3b](#53b-passkeys))
+
+| Method | Path | What it does | Auth |
+|---|---|---|---|
+| POST | `/api/v1/auth/passkeys/registration/options` | Start adding a passkey: the WebAuthn options, and a five-minute challenge held server-side behind a `__Host-` cookie | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` · `login` |
+| POST | `/api/v1/auth/passkeys/registration/email-code` | Email a code to the confirmed address of an account adding its first qualifying factor (while `Email:Enabled` is on) | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` · `two-factor-email-code` |
+| POST | `/api/v1/auth/passkeys/registration/verify` | Finish adding it: check the browser's response and store the passkey | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` · `login` |
+| GET | `/api/v1/auth/passkeys` | The caller's live passkeys | Authenticated · `sign-in-page` |
+| PATCH | `/api/v1/auth/passkeys/{id}` | Rename one | Authenticated · `sign-in-page` |
+| DELETE | `/api/v1/auth/passkeys/{id}` | Remove one; ends the caller's other sessions | Authenticated, signed in within `TwoFactor:ReauthenticationMaxAgeMinutes` · `login` |
+
 #### Users — 29 endpoints
 
 | Method | Path | What it does | Permission |
@@ -2795,10 +2829,11 @@ Spends the code and signs in. A sign-in exit like `login`: it mints the browser 
 | `EmailCode` | 4 | An emailed code was proved | no, by itself | no |
 | `Totp` | 8 | The authenticator app | — (second factor) | no |
 | `RecoveryCode` | 16 | A recovery code | — (second factor) | no |
-| — | 32, 64 | Reserved for passkeys | | |
+| `Passkey` | 32 | A passkey signed the sign-in (S20; issued from PR B) | yes | no |
+| `PasskeyUserVerified` | 64 | The device verified the person for that passkey: two factors on its own | — | no |
 | `EmailCodeFirstFactor` | 128 | The emailed code opened the sign-in of an account without a password | yes | no |
 
-A session's two-factor status is unchanged in form: a first factor and the app or a recovery code. A password account that signs in by code holds `EmailCode` only, so anything that needs a first factor asks for its password — binding the authenticator app included (`2fa/setup` and `2fa/enable` answer `403 Auth.ReauthenticationRequired`); an account without one holds the new bit and manages its app and platform authority fully. An older build reads the stored value through its own mask and sees `EmailCode` alone.
+A session's two-factor status is a first factor and the app or a recovery code, or (S20, from PR B) a user-verified passkey, which proves two factors by itself: its `amr` is `pop`, `user`, `mfa`. A password account that signs in by code holds `EmailCode` only, so anything that needs a first factor asks for its password — binding the authenticator app included (`2fa/setup` and `2fa/enable` answer `403 Auth.ReauthenticationRequired`); an account without one holds the new bit and manages its app and platform authority fully. An older build reads the stored value through its own mask and sees `EmailCode` alone.
 
 **Errors:** the code's `400`s as on `verify`; the lock refusals as on `login`; `429` from the budget.
 
@@ -3564,7 +3599,7 @@ The same recovery, for an account that has no password because it signs in throu
 
 Fourteen endpoints. Twelve of them — `setup`, `email-code`, `enable`, `step-up`, `disable`, `status`, `recovery-codes`, `replace`, `replace/confirm`, `email/enable`, `email/confirm` and `email/disable` — manage the feature for somebody who is already signed in, and require a bearer token. The other two, `verify` and `verify/email-code`, are **anonymous**, and the reason is worth stating plainly: they complete a sign-in that has not happened yet, so there is no token to present.
 
-**An account has at most one second factor: an authenticator app, or a code emailed to it.** The app is the default and the stronger one. The emailed code is an opt-in for somebody without an app (the three `email/*` endpoints below); it stops an attacker who holds only the password, but not one who also holds the mailbox — and the mailbox is where a password reset goes. So **no two-factor policy counts it**: a platform administrator under `TwoFactor:EnforceForPlatformAdmins` still needs the app, and `qualifyingMfa` in `GET /api/v1/users/me` says whether the account's factor is one a policy accepts, and `twoFactorRequiredByPolicy` whether a policy keeps the account's app right now — its switch-off and the emailed code in its place are then refused (`TwoFactor.RequiredByPolicy`), and the screens say why instead of offering them. Binding one factor replaces the other; the two are never bound together. An administrator's reset of another account's factor is in [5.4](#54-users) (`POST /api/v1/users/{id}/two-factor/reset`).
+**An account has at most one second factor: an authenticator app, or a code emailed to it.** The app is the default and the stronger one. The emailed code is an opt-in for somebody without an app (the three `email/*` endpoints below); it stops an attacker who holds only the password, but not one who also holds the mailbox — and the mailbox is where a password reset goes. So **no two-factor policy counts it**: a platform administrator under `TwoFactor:EnforceForPlatformAdmins` still needs the app, and `qualifyingMfa` in `GET /api/v1/users/me` says whether the account's factor is one a policy accepts, and `twoFactorRequiredByPolicy` whether a policy keeps the account's app right now — its switch-off and the emailed code in its place are then refused (`TwoFactor.RequiredByPolicy`), and the screens say why instead of offering them. Binding one factor replaces the other; the two are never bound together. A passkey ([5.3b](#53b-passkeys)) is a separate door: it stands beside either, and counts as a qualifying factor by itself. An administrator's reset of another account's factor is in [5.4](#54-users) (`POST /api/v1/users/{id}/two-factor/reset`).
 
 **How a two-factor sign-in works, end to end.** It is two calls, not one.
 
@@ -3945,6 +3980,69 @@ Confirm the new authenticator app with a code it shows.
 **When everything is lost** — the app and every recovery code — the way back is another administrator's reset ([5.4](#54-users), `POST /api/v1/users/{id}/two-factor/reset`), or, with no other administrator, the owner's emergency script: `dotnet run --project Auth/Auth_Setup -- --reset-two-factor <address>`, which prints one transaction of SQL to run on the database, followed by an application-pool recycle. The deployment guide's Reference §K.4 walks through it.
 
 **While `TwoFactor:EnforceForPlatformAdmins` is on, platform grants wait for a factor.** Assigning a platform role (`POST /api/v1/users/{id}/roles` with no application), granting a platform permission (`POST /api/v1/users/{id}/permissions` with no application), or adding a permission to a platform role one of whose holders has no enabled factor is refused with **409 `TwoFactor.RequiredForPlatformGrant`**: the account sets up two-step verification first. Application and organization grants are never refused. With the setting off nothing is read — except after the API starts and before it has read its database settings once (normally minutes, but as long as the cause lasts): it enforces then, whatever the files say (the deployment guide's §K.2). Creating a user (`POST /api/v1/users`) assigns no role, so a platform role is given only through `POST /api/v1/users/{id}/roles`. *In code:* `Auth/Auth.Application/Common/PlatformGrantFactorGuard.cs`.
+
+### 5.3b Passkeys
+
+**Base route:** `/api/v1/auth/passkeys` · **Status:** S20 PR A — the server side, unreachable until PR C. Signing in with a passkey is PR B; the console and accounts pages are PR C.
+
+**While `Passkeys:Enabled` is off, every endpoint here answers 404** (the error contract's `Http.NotFound`), before authentication, so a signed-out caller learns nothing more than a signed-in one. The switch and the RP ID: [Passkeys Settings](#passkeys-settings).
+
+**What a passkey is here.** A WebAuthn credential the person's device makes and keeps; the private key never leaves the device. Registration asks for a discoverable credential with user verification (the device checks the person: a fingerprint, a face, a PIN), attestation `none`, ES256 or RS256 only. At most ten live passkeys per account. Each stores the RP ID it was made under, and only those of the RP ID in force are listed, renamed, removed by their owner, or counted.
+
+**A passkey counts as a qualifying second factor.** The one definition every MFA policy reads (FA2) is now: the authenticator app, or a live, user-verified passkey of the RP ID in force. It ignores `Passkeys:Enabled` on purpose: switching the feature off never turns an administrator whose only factor is a passkey into one with none. A platform administrator or an application that requires two-step verification asks a passkey-only account for `mfa_req: passkey` (`MfaRequirement.Passkey`, `ApplicationMfaRequirement.Passkey`): only a passkey sign-in (PR B) proves two factors for it. Every account without a passkey gets exactly the answers it got before. `GET /api/v1/users/{id}` reports `qualifyingMfa` from the same definition, and `passkeyCount`.
+
+**The authenticator app beside a passkey is a further factor.** `2fa/setup` and `2fa/enable` then need a session that proved two factors (`403 Auth.ReauthenticationRequired` otherwise, whatever the switch says), and no emailed code is asked: `emailCodeRequired` is `false`, and `2fa/email-code` mints none.
+
+#### POST `/api/v1/auth/passkeys/registration/options`
+
+**Auth:** Authenticated, a recent sign-in that proved a first factor (a password account signed in by emailed code alone gets `403 Auth.ReauthenticationRequired`; a passwordless account's code is its first factor), and **two factors when the account already has a qualifying one** (the app or a passkey). | **Rate Limited:** `login` policy
+
+**Response (200):** `{ "options": { …PublicKeyCredentialCreationOptions… }, "expiresAt": "…", "emailCodeRequired": false }`, and the `__Host-auth_webauthn` cookie (HttpOnly, Secure, SameSite=Strict, `Path=/`, five minutes) holding a random handle. The challenge stays in the database (`WebAuthnChallenges`), stored by the keyed fingerprint of the handle only. The options exclude the account's live passkeys, and give the account a random 64-byte user handle, set once and kept. `emailCodeRequired` is `true` when the account has no qualifying factor and `Email:Enabled` is on.
+
+**409 `Passkey.LimitReached`** at ten live passkeys.
+
+#### POST `/api/v1/auth/passkeys/registration/email-code`
+
+**Auth:** as `registration/options` | **Rate Limited:** `two-factor-email-code` policy
+
+Emails a code to the account's confirmed address, the same code `2fa/email-code` sends before a first app (X02). It mints only while the account has a live registration challenge (`409 TwoFactor.SetupRequired` otherwise), and answers `{ "emailCodeRequired": false }` without sending when no code is needed (email off, or a qualifying factor already).
+
+#### POST `/api/v1/auth/passkeys/registration/verify`
+
+**Auth:** as `registration/options` | **Rate Limited:** `login` policy | **Body:** at most 64 KB
+
+**Request:** `{ "credential": { …the browser's PublicKeyCredential, as JSON… }, "name": "Laptop", "emailCode": "123456" }` — `name` optional (blank names it "Passkey"; at most 64 characters, counted as Unicode code points), `emailCode` when `emailCodeRequired` was `true`.
+
+**Response (200):** the passkey: `id`, `name`, `createdAt`, `lastUsedAt`, `isBackupEligible`, `isBackedUp`, `lastCounterRegressionAt`. The cookie is deleted.
+
+The order is the guarantee: no cookie, or **two** cookies (one may have been planted by a sibling host), is refused with nothing spent; then the session rule; then the emailed code (`400 TwoFactor.EmailCodeRequired` without it, `400 TwoFactor.EmailCodeInvalid` when wrong — counted before it is checked); then the challenge is **spent before the response is checked**, so every failure after it costs the challenge; then the WebAuthn check (origin among the first-party origins, the RP ID hash, the challenge, user presence and verification, no cross-origin frame, an offered algorithm). The row is written with the ten-passkey limit in the same statement, and the emailed code is spent in the same transaction. **400 `Passkey.VerificationFailed`** for every refused response, whatever the reason, the reason going to the log only; **409 `Passkey.LimitReached`**; **400 `Passkey.NameTooLong`**. The owner is told (the two-factor notice, `passkey-registered`), and the audit log records `passkey.registered`.
+
+#### GET `/api/v1/auth/passkeys`
+
+**Auth:** Authenticated | **Rate Limited:** `sign-in-page` policy. The caller's live passkeys of the RP ID in force, newest first, in the shape above.
+
+#### PATCH `/api/v1/auth/passkeys/{id}`
+
+**Auth:** Authenticated | **Rate Limited:** `sign-in-page` policy | **Request:** `{ "name": "Work laptop" }`. **204**; **404 `Passkey.NotFound`** for an id that is not the caller's own live passkey; **400 `Passkey.NameTooLong`**.
+
+#### DELETE `/api/v1/auth/passkeys/{id}`
+
+**Auth:** Authenticated, a recent sign-in that proved a first factor, and two factors when the account has the authenticator app; no passkey proof is asked. | **Rate Limited:** `login` policy
+
+**204.** Every other session and browser of the account is signed out (this session and its single sign-on cookie stay); the owner is told (`passkey-removed`); the audit log records `passkey.removed`, reason `user`. **404 `Passkey.NotFound`** for an id that is not the caller's own live passkey, with nothing changed. **403 `TwoFactor.RequiredByPolicy`** when it is the last qualifying factor of a platform administrator `TwoFactor:EnforceForPlatformAdmins` binds.
+
+#### Passkeys that are revoked without their owner
+
+| When | Which | Reason recorded |
+|---|---|---|
+| A password reset by email, a password change, an administrator's lock | The passkeys registered in the 72 hours before it, of any RP ID (one an attacker added with the stolen password goes). The password-changed email lists the passkeys that stay, with when each was added and last used | `password-reset`, `password-change`, `admin-lock` |
+| An administrator's two-factor reset (`POST /api/v1/users/{id}/two-factor/reset`) | Every live passkey, in the reset's own transaction. An account whose only factor is a passkey can be reset | `peer-reset` |
+| The owner's break-glass script (`Auth_Setup --reset-two-factor`) | Every live passkey, in the same transaction, one audit row each | `break-glass` |
+| A move to another domain (`Auth_Setup --retire-passkey-rp-id`) | Every live passkey of the old RP ID, one audit row each | `rp-id-move` |
+
+Each revocation of the first two rows is published as an event, so it gets an audit row; the owner is emailed for the user's own removal only — a reset or a lock already tells them in its own words. A passkey is never deleted while its account lives: revoked rows stay, with when, why and by whom. The account's permanent deletion purges them.
+
+*In code:* `Auth/Auth_API/Modules/Authentication/Controllers/PasskeysController.cs`; the slices are under `Auth/Auth.Application/Features/Passkeys/`; the WebAuthn library (Fido2, MIT) is used only in `Auth/Auth.Infrastructure/Authentication/Passkeys/Fido2WebAuthnVerifier.cs`, which maps the library's rejections to `Passkey.VerificationFailed` and lets anything else answer 500 `Http.Unexpected`; the FA2 statements are in `Auth/Auth.Infrastructure/Persistence/TwoFactorStateStore.cs`; the tables are `Auth/Auth_DB/dbo/Tables/Security/UserPasskeys.sql` and `WebAuthnChallenges.sql`, and `Users.WebAuthnUserHandle`.
 
 ---
 

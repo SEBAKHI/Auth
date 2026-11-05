@@ -146,24 +146,25 @@ public class TwoFactorChangedNotificationEventHandlerTests
 
         kinds.Should().BeEquivalentTo(
             ["enabled", "disabled", "recovery-codes-regenerated", "authenticator-replaced", "reset-by-administrator",
-             "email-code-enabled", "email-code-disabled", "authenticator-replaced-email-code"]);
+             "email-code-enabled", "email-code-disabled", "authenticator-replaced-email-code",
+             "passkey-registered", "passkey-removed"]);
 
         var templates = File.ReadAllText(Path.Combine(
             Auth_API.Tests.Infrastructure.ApiSourceScan.SolutionDirectory(),
             "Auth_DB", "dbo", "Scripts", "SeedData", "12_NotificationTemplates.sql"));
 
-        // The version the seed publishes last (S24's version 2) branches on every kind,
+        // The version the seed publishes last (S20's version 3) branches on every kind,
         // in its heading and its message, in each of the seven languages.
-        var start = templates.IndexOf("-- Template 21, version 2:", StringComparison.Ordinal);
-        start.Should().BeGreaterThan(0, "the two-factor-changed template's version 2 is seeded");
+        var start = templates.IndexOf("-- Template 21, version 3:", StringComparison.Ordinal);
+        start.Should().BeGreaterThan(0, "the two-factor-changed template's version 3 is seeded");
         var end = templates.IndexOf("\nGO", start, StringComparison.Ordinal);
         var published = templates[start..end];
-        published.Should().Contain("SET [PublishedVersionId] = '43000000-0000-0000-0002-000000000021'");
+        published.Should().Contain("SET [PublishedVersionId] = '43000000-0000-0000-0003-000000000021'");
         foreach (var kind in kinds)
         {
             templates.Should().Contain($"{{% when \"{kind}\" %}}", $"the seeded templates must branch on '{kind}'");
             System.Text.RegularExpressions.Regex.Matches(published, System.Text.RegularExpressions.Regex.Escape($"{{% when \"{kind}\" %}}"))
-                .Count.Should().Be(14, $"version 2 branches on '{kind}' in the heading and the message of seven translations");
+                .Count.Should().Be(14, $"version 3 branches on '{kind}' in the heading and the message of seven translations");
         }
     }
 

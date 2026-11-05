@@ -1376,6 +1376,18 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>اندراجات کی تعداد ۱ اور ۱۰۰ کے درمیان ہونی چاہیے۔</value>
   </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>اس اکاؤنٹ میں پاس کیز کی زیادہ سے زیادہ تعداد پہلے ہی موجود ہے۔ نئی شامل کرنے سے پہلے ایک ہٹا دیں۔</value>
+  </data>
+  <data name="Passkey.NameTooLong" xml:space="preserve">
+    <value>پاس کی کا نام ۶۴ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>پاس کی نہیں ملی۔</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>پاس کی کی تصدیق نہیں ہو سکی۔ دوبارہ کوشش کریں۔</value>
+  </data>
   <data name="Password.CommonPattern" xml:space="preserve">
     <value>پاس ورڈ میں ایک عام نمونہ ہے جو آسانی سے اندازہ لگایا جا سکتا ہے۔</value>
   </data>

@@ -194,6 +194,11 @@ public class DeactivateAccountCommandHandlerTests
 
 public class LockAccountCommandHandlerTests
 {
+    // S20 (PK12): the passkeys the 72-hour revocation sees, on a fixed clock.
+    private static readonly DateTimeOffset PasskeyNow = new(2026, 11, 5, 9, 14, 0, TimeSpan.Zero);
+    private readonly Mock<Auth.Domain.Interfaces.Repositories.IUserPasskeyRepository> _passkeysMock = PasskeyTestDoubles.EmptyRepository();
+    private readonly Mock<MediatR.IPublisher> _passkeyPublisherMock = new();
+
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly Mock<IUserSessionRepository> _sessionRepositoryMock = new();
@@ -209,6 +214,7 @@ public class LockAccountCommandHandlerTests
             AccountRules.Policy(users: _userRepositoryMock),
             _credentialRevocationMock.Object,
             _eventDispatcherMock.Object,
+            PasskeyTestDoubles.Revocation(_passkeysMock, _passkeyPublisherMock.Object, new FixedTimeProvider(PasskeyNow)),
             new Mock<ILogger<LockAccountCommandHandler>>().Object);
     }
 
@@ -234,6 +240,40 @@ public class LockAccountCommandHandlerTests
         _credentialRevocationMock.Verify(
             c => c.RevokeAllCredentialsAsync(userId, lockedBy, It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once());
+    }
+
+    /// <summary>
+    /// S20 (PK12, ARR-0667): an administrator's lock revokes the passkeys registered in the 72
+    /// hours before it, with its reason; the older ones stay for the owner's return.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the revocation dropped from this path.</remarks>
+    [Fact]
+    public async Task Handle_ValidUser_RevokesThePasskeysOfTheLast72Hours()
+    {
+        var userId = Guid.NewGuid();
+        var lockedBy = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        var cutoff = PasskeyNow.UtcDateTime.AddHours(-72);
+        var recent = PasskeyTestDoubles.Live(userId, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
+        var older = PasskeyTestDoubles.Live(userId, PasskeyNow.UtcDateTime.AddHours(-73), "Older");
+        _passkeysMock
+            .Setup(r => r.GetLiveAsync(userId, PasskeyTestDoubles.RpId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recent, older]);
+        _passkeysMock
+            .Setup(r => r.RevokeRegisteredAfterAsync(userId, cutoff, Auth.Domain.Constants.PasskeyRemovalReasons.AdminLock, lockedBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recent]);
+
+        var result = await _handler.Handle(new LockAccountCommand(userId, "Suspicious activity", 30, lockedBy), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
+            userId, cutoff, Auth.Domain.Constants.PasskeyRemovalReasons.AdminLock, lockedBy, CancellationToken.None), Times.Once,
+            "a passkey registered in the 72 hours before is revoked; the statement keeps the older ones (CreatedAt > @RegisteredAfter)");
+        _passkeyPublisherMock.Verify(p => p.Publish(
+            It.Is<Auth.Domain.Events.PasskeyRemovedEvent>(e => e.PasskeyId == recent.Id
+                && e.Reason == Auth.Domain.Constants.PasskeyRemovalReasons.AdminLock && e.RemovedBy == lockedBy),
+            CancellationToken.None), Times.Once);
     }
 
     [Fact]

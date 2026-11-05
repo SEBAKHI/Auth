@@ -1266,7 +1266,7 @@ Each of these was checked against the source. None of them exists in any form.
 | **SAML 2.0 federation** | No SAML implementation of any kind | Medium |
 | **Outbound webhook delivery** | Webhook keys (inbound: for systems that post to an application) are fully managed today, but **no event is delivered to any external system**. The publisher interface exists and its only implementation deliberately discards what it is given. There is no broker and no outbound HTTP sender | Medium |
 | **Trend and anomaly analytics** | The dashboard shows six live panels over a trailing window. What is missing is history beyond that window and any risk or anomaly scoring | Future |
-| **Passwordless authentication (WebAuthn / FIDO2, passkeys)** | Nothing in the repository touches these standards | Future |
+| **Passwordless authentication (WebAuthn / FIDO2, passkeys)** | The server side is built and off (S20 PR A): passkeys are stored, added, listed, renamed and removed, and count as a second factor; `Passkeys:Enabled` is off and every passkey endpoint answers 404 until the pages ship. Signing in with a passkey is S20 PR B, the pages PR C | In progress |
 | **Shared token revocation across instances** | Described in Section 14. Needs a shared cache or a polling loop; neither exists | High, if you intend to run more than one instance |
 
 ### Design Principles for Future Development

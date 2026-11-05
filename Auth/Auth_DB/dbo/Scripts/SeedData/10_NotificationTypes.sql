@@ -308,8 +308,8 @@ BEGIN
         N'Password Changed',
         N'Tells the owner that the account password was replaced, whether from the profile screen or via a reset link',
         1,
-        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"ChangedAt","description":"UTC timestamp when the password was replaced","example":"2026-08-16 09:14:00Z","required":true},{"name":"ManageSecurityLink","description":"Absolute URL of the profile security page","example":"https://example.com/profile?tab=security","required":true}]',
-        N'{"UserName":"Jane Doe","ChangedAt":"2026-08-16 09:14:00Z","ManageSecurityLink":"https://example.com/profile?tab=security"}',
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"ChangedAt","description":"UTC timestamp when the password was replaced","example":"2026-08-16 09:14:00Z","required":true},{"name":"ManageSecurityLink","description":"Absolute URL of the profile security page","example":"https://example.com/profile?tab=security","required":true},{"name":"PasskeyCount","description":"How many passkeys stay on the account after the change (S20)","example":"1","required":true},{"name":"Passkeys","description":"The passkeys that stay: each with Name, CreatedAt and LastUsedAt (UTC; LastUsedAt empty when never used)","example":"[]","required":true}]',
+        N'{"UserName":"Jane Doe","ChangedAt":"2026-08-16 09:14:00Z","ManageSecurityLink":"https://example.com/profile?tab=security","PasskeyCount":0,"Passkeys":[]}',
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created password-changed notification type';
 END
@@ -452,6 +452,18 @@ SET [VariablesJson] = N'[{"name":"UserName","description":"Recipient display nam
     [SampleDataJson] = N'{"UserName":"Jane Doe","OtpCode":"123456","ExpirationMinutes":10,"RequestedAt":"2026-10-23 09:14:00Z","IpAddress":"203.0.113.7","Purpose":"sign-in"}'
 WHERE [Id] = '40000000-0000-0000-0000-000000000024'
   AND [VariablesJson] NOT LIKE N'%"name":"Purpose"%';
+
+-- The passkeys that stay after a password change (S20): template 18's version 2 lists
+-- them, so PasskeyCount and Passkeys join the password-changed catalog and sample, and the
+-- console's editor names them and its publish gate accepts a version that uses them. An
+-- update, not the guarded insert above, so a database that already holds the type gains
+-- them too; idempotent, it writes only while the catalog lacks them. The sample has no
+-- passkey: a preview shows the notice an account without one receives.
+UPDATE [dbo].[NotificationTypes]
+SET [VariablesJson] = N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"ChangedAt","description":"UTC timestamp when the password was replaced","example":"2026-08-16 09:14:00Z","required":true},{"name":"ManageSecurityLink","description":"Absolute URL of the profile security page","example":"https://example.com/profile?tab=security","required":true},{"name":"PasskeyCount","description":"How many passkeys stay on the account after the change (S20)","example":"1","required":true},{"name":"Passkeys","description":"The passkeys that stay: each with Name, CreatedAt and LastUsedAt (UTC; LastUsedAt empty when never used)","example":"[]","required":true}]',
+    [SampleDataJson] = N'{"UserName":"Jane Doe","ChangedAt":"2026-08-16 09:14:00Z","ManageSecurityLink":"https://example.com/profile?tab=security","PasskeyCount":0,"Passkeys":[]}'
+WHERE [Id] = '40000000-0000-0000-0000-000000000018'
+  AND [VariablesJson] NOT LIKE N'%"name":"PasskeyCount"%';
 
 -- email-sign-in-code (OTP, sign-in by emailed code, OI-215)
 -- Sent to an address that has an account when someone types it on the sign-in

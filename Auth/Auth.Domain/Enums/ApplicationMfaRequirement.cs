@@ -23,8 +23,10 @@ public enum ApplicationMfaRequirement
     StepUp = 1,
 
     /// <summary>
-    /// The account's only qualifying factor is a passkey. Reserved: never produced before
-    /// passkeys ship (S20).
+    /// The account's only qualifying factor is a passkey (S20): a passkey sign-in, which
+    /// proves two factors on its own, is the only session that satisfies the application.
+    /// Produced only while passkeys count (an RP ID is configured and the schema is
+    /// deployed), so never on an account that has no live passkey.
     /// </summary>
     Passkey = 2,
 

@@ -1489,6 +1489,8 @@ export const en = {
       twofactorEmailCodeEnabled: "Codes by email turned on",
       twofactorEmailCodeDisabled: "Codes by email turned off",
       twofactorSteppedUp: "Second factor proved in a session",
+      passkeyRegistered: "Passkey added",
+      passkeyRemoved: "Passkey removed",
       userLocked: "Account locked",
       userUnlocked: "Account unlocked",
       userHardLocked: "Account locked after too many failed sign-ins",

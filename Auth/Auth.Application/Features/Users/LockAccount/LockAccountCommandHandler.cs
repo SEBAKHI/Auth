@@ -1,5 +1,7 @@
 using Auth.Application.Common;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -16,6 +18,7 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
     private readonly AccountActionPolicy _accountActionPolicy;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly RecentPasskeyRevocation _recentPasskeys;
     private readonly ILogger<LockAccountCommandHandler> _logger;
 
     public LockAccountCommandHandler(
@@ -23,8 +26,10 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
         AccountActionPolicy accountActionPolicy,
         ICredentialRevocationService credentialRevocation,
         IDomainEventDispatcher eventDispatcher,
+        RecentPasskeyRevocation recentPasskeys,
         ILogger<LockAccountCommandHandler> logger)
     {
+        _recentPasskeys = recentPasskeys;
         _userRepository = userRepository;
         _accountActionPolicy = accountActionPolicy;
         _credentialRevocation = credentialRevocation;
@@ -76,6 +81,11 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
             request.LockedBy,
             $"Account locked: {request.Reason}",
             cancellationToken);
+
+        // S20 (D-T19 D): a lock answers an incident, and a passkey registered in the 72
+        // hours before it may be the intruder's door; it goes, the older ones stay.
+        await _recentPasskeys.RevokeRecentAsync(
+            user, _recentPasskeys.CutoffNow(), PasskeyRemovalReasons.AdminLock, request.LockedBy);
 
         _logger.LogInformation(
             "User {UserId} account locked by {LockedBy}. Reason: {Reason}. Lock ends: {LockoutEnd}",

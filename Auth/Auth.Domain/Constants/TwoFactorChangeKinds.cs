@@ -36,4 +36,10 @@ public static class TwoFactorChangeKinds
     /// email and the recovery codes issued with them stopped working.
     /// </summary>
     public const string AuthenticatorReplacedEmailCode = "authenticator-replaced-email-code";
+
+    /// <summary>A passkey was added to the account (S20).</summary>
+    public const string PasskeyRegistered = "passkey-registered";
+
+    /// <summary>The account's owner removed one of its passkeys (S20).</summary>
+    public const string PasskeyRemoved = "passkey-removed";
 }

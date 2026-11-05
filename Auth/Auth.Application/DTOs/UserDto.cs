@@ -39,9 +39,16 @@ public class UserDto
 
     /// <summary>
     /// Whether the account has a second factor a two-factor policy accepts (FA2): the
-    /// authenticator app. The emailed code never is one. Null where not read.
+    /// authenticator app, or a live passkey of the current RP ID (S20). The emailed code
+    /// never is one. Null where not read.
     /// </summary>
     public bool? QualifyingMfa { get; set; }
+
+    /// <summary>
+    /// How many live passkeys of the current RP ID the account holds (S20, FA12). Null where
+    /// not read.
+    /// </summary>
+    public int? PasskeyCount { get; set; }
 
     /// <summary>
     /// Whether the emailed code can be offered right now: email sending is on. Read per

@@ -238,7 +238,7 @@ public class UserTests
         var modifiedBy = Guid.NewGuid();
 
         // Act
-        user.ChangePassword(newHash, modifiedBy);
+        user.ChangePassword(newHash, modifiedBy, []);
 
         // Assert
         user.PasswordHash.Should().Be(newHash);
@@ -251,7 +251,7 @@ public class UserTests
         var user = CreateDefaultUser(mustChangePassword: true);
 
         // Act
-        user.ChangePassword("new_hash", Guid.NewGuid());
+        user.ChangePassword("new_hash", Guid.NewGuid(), []);
 
         // Assert
         user.PasswordChangedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
@@ -266,7 +266,7 @@ public class UserTests
         var modifiedBy = Guid.NewGuid();
 
         // Act
-        user.ChangePassword("new_hash", modifiedBy);
+        user.ChangePassword("new_hash", modifiedBy, []);
 
         // Assert
         user.DomainEvents.Should().ContainSingle();

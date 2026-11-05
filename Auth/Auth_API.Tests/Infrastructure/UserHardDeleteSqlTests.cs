@@ -80,6 +80,25 @@ public class UserHardDeleteSqlTests
         factor.Should().BeGreaterThan(codes);
     }
 
+    /// <summary>
+    /// S20 (PK17): the two passkey tables are found by the scan, and purged before the account
+    /// row, each behind its own existence so a purge on a database without them still runs.
+    /// </summary>
+    [Fact]
+    public void ThePasskeyTables_AreFoundByTheScan_AndPurgedBehindTheirExistence()
+    {
+        ForeignKeysReferencingUsers().Should().Contain(("UserPasskeys", "UserId")).And.Contain(("WebAuthnChallenges", "UserId"));
+
+        var purgeSql = Regex.Replace(HardDeleteSql(), @"\s+", " ");
+        var passkeys = purgeSql.IndexOf("IF OBJECT_ID(N'[dbo].[UserPasskeys]', N'U') IS NOT NULL DELETE FROM [dbo].[UserPasskeys] WHERE [UserId] = @Id;", StringComparison.Ordinal);
+        var challenges = purgeSql.IndexOf("IF OBJECT_ID(N'[dbo].[WebAuthnChallenges]', N'U') IS NOT NULL DELETE FROM [dbo].[WebAuthnChallenges] WHERE [UserId] = @Id;", StringComparison.Ordinal);
+        var account = purgeSql.IndexOf("DELETE FROM [dbo].[Users] WHERE [Id] = @Id", StringComparison.Ordinal);
+
+        passkeys.Should().BePositive();
+        challenges.Should().BePositive();
+        account.Should().BeGreaterThan(passkeys).And.BeGreaterThan(challenges);
+    }
+
     [Fact]
     public void OrganizationsOwnership_IsResolvedByTheSharedGuard()
     {

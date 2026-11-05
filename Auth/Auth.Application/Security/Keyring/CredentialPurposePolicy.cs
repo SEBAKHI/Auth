@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 
 namespace Auth.Application.Security.Keyring;
@@ -70,6 +71,9 @@ public static class CredentialPurposePolicy
             [CredentialPurpose.TwoFactorEmailCode] = Bounded("AuthSystem/credential-hash/TwoFactorEmailCode/v1", TimeSpan.FromMinutes(10)),
             // The application two-step ticket's fixed lifetime (AppMfaTicketService.Lifetime, S23).
             [CredentialPurpose.AppMfaTicket] = Bounded("AuthSystem/credential-hash/AppMfaTicket/v1", TimeSpan.FromMinutes(15)),
+            // A WebAuthn challenge's fixed lifetime (WebAuthnChallenge.Lifetime, S20): its handle
+            // is looked up only while the challenge can still be answered.
+            [CredentialPurpose.WebAuthnChallenge] = Bounded("AuthSystem/credential-hash/WebAuthnChallenge/v1", WebAuthnChallenge.Lifetime),
         }.ToFrozenDictionary();
 
     /// <summary>Every purpose the table covers.</summary>

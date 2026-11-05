@@ -1467,6 +1467,8 @@ export const fa: TranslationResources = {
       twofactorEmailCodeEnabled: "کدهای ایمیلی فعال شد",
       twofactorEmailCodeDisabled: "کدهای ایمیلی غیرفعال شد",
       twofactorSteppedUp: "اثبات عامل دوم در نشست",
+      passkeyRegistered: "کلید عبور افزوده شد",
+      passkeyRemoved: "کلید عبور حذف شد",
       userLocked: "قفل شدن حساب",
       userUnlocked: "باز شدن قفل حساب",
       userHardLocked: "قفل شدن حساب پس از ورودهای ناموفق بسیار",

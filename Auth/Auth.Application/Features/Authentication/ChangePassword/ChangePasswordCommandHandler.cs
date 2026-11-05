@@ -1,6 +1,8 @@
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Validators;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
@@ -25,6 +27,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
     private readonly IAccountLockout _accountLockout;
     private readonly PasswordSettings _passwordSettings;
     private readonly SessionSettings _sessionSettings;
+    private readonly RecentPasskeyRevocation _recentPasskeys;
     private readonly ILogger<ChangePasswordCommandHandler> _logger;
 
     public ChangePasswordCommandHandler(
@@ -38,8 +41,10 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         IAccountLockout accountLockout,
         IOptionsSnapshot<PasswordSettings> passwordSettings,
         IOptionsSnapshot<SessionSettings> sessionSettings,
+        RecentPasskeyRevocation recentPasskeys,
         ILogger<ChangePasswordCommandHandler> logger)
     {
+        _recentPasskeys = recentPasskeys;
         _userRepository = userRepository;
         _passwordHistoryRepository = passwordHistoryRepository;
         _credentialRevocation = credentialRevocation;
@@ -129,8 +134,13 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
 
         await _passwordHistoryRepository.AddAsync(passwordHistory, cancellationToken);
 
-        // Update the password (entity raises PasswordChangedEvent)
-        user.ChangePassword(newPasswordHash, request.UserId);
+        // Update the password (entity raises PasswordChangedEvent). S20 (D-T19 D): the
+        // passkeys registered in the 72 hours before the change go once it has committed —
+        // a phishing proxy holding a two-factor session could have planted one — and the
+        // older ones stay, listed in the notice. Cut once, now.
+        var passkeyCutoff = _recentPasskeys.CutoffNow();
+        var survivingPasskeys = await _recentPasskeys.SurvivorsAsync(request.UserId, passkeyCutoff, cancellationToken);
+        user.ChangePassword(newPasswordHash, request.UserId, survivingPasskeys);
         await _userRepository.UpdatePasswordAsync(
             request.UserId,
             newPasswordHash,
@@ -180,6 +190,8 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
                 "Password changed for user {UserId}, sessions preserved per request/configuration",
                 request.UserId);
         }
+
+        await _recentPasskeys.RevokeRecentAsync(user, passkeyCutoff, PasskeyRemovalReasons.PasswordChange, request.UserId);
 
         await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 

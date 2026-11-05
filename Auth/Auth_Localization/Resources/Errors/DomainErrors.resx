@@ -1378,6 +1378,18 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>The number of entries must be between 1 and 100.</value>
   </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>This account already has the maximum number of passkeys. Remove one before adding another.</value>
+  </data>
+  <data name="Passkey.NameTooLong" xml:space="preserve">
+    <value>A passkey name must not exceed 64 characters.</value>
+  </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>The passkey was not found.</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>The passkey could not be verified. Try again.</value>
+  </data>
   <data name="Password.CommonPattern" xml:space="preserve">
     <value>Password contains a common pattern that is easy to guess.</value>
   </data>

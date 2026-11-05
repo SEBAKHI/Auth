@@ -12,9 +12,10 @@ namespace Auth.Application.Features.Authentication.Common;
 /// one up, not let through on a proof it can no longer repeat.
 /// </summary>
 /// <remarks>
-/// A passkey is not a factor yet (S20): <see cref="ApplicationMfaRequirement.Passkey"/> is
-/// never produced, and the qualifying factor is the authenticator app alone
-/// (<see cref="ITwoFactorStateStore.HasEnabledFactorAsync"/>).
+/// The qualifying factors are FA2's (<see cref="ITwoFactorStateStore.GetQualifyingFactorsAsync"/>):
+/// the authenticator app, and (S20) a live, user-verified passkey of the current RP ID. An
+/// account whose only one is a passkey is <see cref="ApplicationMfaRequirement.Passkey"/>:
+/// stepping up needs an app it does not have.
 /// </remarks>
 public sealed class ApplicationMfaPolicy : IApplicationMfaPolicy
 {
@@ -27,14 +28,14 @@ public sealed class ApplicationMfaPolicy : IApplicationMfaPolicy
 
     /// <inheritdoc />
     public ApplicationMfaRequirement Evaluate(
-        bool requireTwoFactor, AuthenticationMethods methods, bool hasQualifyingFactor)
+        bool requireTwoFactor, AuthenticationMethods methods, QualifyingSecondFactors factors)
     {
         if (!requireTwoFactor)
         {
             return ApplicationMfaRequirement.None;
         }
 
-        if (!hasQualifyingFactor)
+        if (!factors.HasAny)
         {
             return ApplicationMfaRequirement.Enroll;
         }
@@ -44,8 +45,15 @@ public sealed class ApplicationMfaPolicy : IApplicationMfaPolicy
             return ApplicationMfaRequirement.None;
         }
 
-        // The account has an authenticator app (the only qualifying factor before S20), so a
-        // session that proved who the person is only lacks the second step.
+        // S20: a passkey sign-in is the only proof of two factors an account whose one
+        // qualifying factor is a passkey can give.
+        if (factors.IsPasskeyOnly)
+        {
+            return ApplicationMfaRequirement.Passkey;
+        }
+
+        // The account has an authenticator app, so a session that proved who the person is
+        // only lacks the second step.
         return methods.HasPrimary
             ? ApplicationMfaRequirement.StepUp
             : ApplicationMfaRequirement.Reauthenticate;
@@ -60,7 +68,7 @@ public sealed class ApplicationMfaPolicy : IApplicationMfaPolicy
             return ApplicationMfaRequirement.None;
         }
 
-        var hasQualifyingFactor = await _twoFactorStateStore.HasEnabledFactorAsync(userId, cancellationToken);
-        return Evaluate(requireTwoFactor, methods, hasQualifyingFactor);
+        var factors = await _twoFactorStateStore.GetQualifyingFactorsAsync(userId, cancellationToken);
+        return Evaluate(requireTwoFactor, methods, factors);
     }
 }

@@ -17,6 +17,11 @@ namespace Auth_API.Tests.Authentication.Commands;
 /// </summary>
 public class ChangePasswordCommandHandlerTests
 {
+    // S20 (PK12): the passkeys the 72-hour revocation sees, on a fixed clock.
+    private static readonly DateTimeOffset PasskeyNow = new(2026, 11, 5, 9, 14, 0, TimeSpan.Zero);
+    private readonly Mock<Auth.Domain.Interfaces.Repositories.IUserPasskeyRepository> _passkeysMock = PasskeyTestDoubles.EmptyRepository();
+    private readonly Mock<MediatR.IPublisher> _passkeyPublisherMock = new();
+
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IPasswordHistoryRepository> _passwordHistoryRepositoryMock;
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock;
@@ -54,6 +59,7 @@ public class ChangePasswordCommandHandlerTests
             TestHelpers.CreateAccountLockout(_userRepositoryMock.Object, _passwordSettings),
             TestHelpers.CreateOptions(_passwordSettings),
             TestHelpers.CreateOptions(_sessionSettings),
+            PasskeyTestDoubles.Revocation(_passkeysMock, _passkeyPublisherMock.Object, new FixedTimeProvider(PasskeyNow)),
             _loggerMock.Object);
     }
 
@@ -427,5 +433,46 @@ public class ChangePasswordCommandHandlerTests
         _passwordHistoryRepositoryMock
             .Setup(r => r.GetRecentHashesAsync(userId, _passwordSettings.HistoryCount, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string>());
+    }
+
+    /// <summary>
+    /// S20 (PK12, ARR-0667): a password change revokes the passkeys registered in the 72 hours
+    /// before it, with its reason, and the notice lists those that stay with their dates.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the revocation dropped from this path.</remarks>
+    [Fact]
+    public async Task Handle_ValidChange_RevokesThePasskeysOfTheLast72Hours_AndListsTheOthers()
+    {
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _passwordHasherMock.Setup(h => h.VerifyPassword("OldPass1!", user.PasswordHash!)).Returns(true);
+        _passwordHasherMock.Setup(h => h.VerifyPassword("NewPass1!", It.IsAny<string>())).Returns(false);
+        _passwordHasherMock.Setup(h => h.HashPassword("NewPass1!")).Returns("NewHashedPassword");
+        _passwordHistoryRepositoryMock
+            .Setup(r => r.GetRecentHashesAsync(userId, _passwordSettings.HistoryCount, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string>());
+        var cutoff = PasskeyNow.UtcDateTime.AddHours(-72);
+        var recent = PasskeyTestDoubles.Live(userId, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
+        var older = PasskeyTestDoubles.Live(userId, PasskeyNow.UtcDateTime.AddHours(-73), "Older");
+        _passkeysMock
+            .Setup(r => r.GetLiveAsync(userId, PasskeyTestDoubles.RpId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recent, older]);
+        _passkeysMock
+            .Setup(r => r.RevokeRegisteredAfterAsync(userId, cutoff, Auth.Domain.Constants.PasskeyRemovalReasons.PasswordChange, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recent]);
+
+        var result = await _handler.Handle(new ChangePasswordCommand(userId, "OldPass1!", "NewPass1!"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
+            userId, cutoff, Auth.Domain.Constants.PasskeyRemovalReasons.PasswordChange, userId, CancellationToken.None), Times.Once,
+            "a passkey registered in the 72 hours before is revoked; the statement keeps the older ones (CreatedAt > @RegisteredAfter)");
+        _passkeyPublisherMock.Verify(p => p.Publish(
+            It.Is<Auth.Domain.Events.PasskeyRemovedEvent>(e => e.PasskeyId == recent.Id
+                && e.Reason == Auth.Domain.Constants.PasskeyRemovalReasons.PasswordChange && e.RemovedBy == userId),
+            CancellationToken.None), Times.Once);
+        user.DomainEvents.OfType<Auth.Domain.Events.PasswordChangedEvent>().Single().Passkeys
+            .Should().Equal(new Auth.Domain.Events.PasskeySummary("Older", older.CreatedAt, older.LastUsedAt));
     }
 }

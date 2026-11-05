@@ -27,5 +27,12 @@ public enum MfaRequirement
     /// The session's first factor is unknown — recorded before methods were, or
     /// opened by an emailed code — so it must sign in again, which records it.
     /// </summary>
-    Reauthenticate = 3
+    Reauthenticate = 3,
+
+    /// <summary>
+    /// The account's only qualifying second factor is a passkey (S20): a passkey sign-in,
+    /// which proves two factors on its own, is the only session that carries the authority.
+    /// Signing in again with the password would only answer this again.
+    /// </summary>
+    Passkey = 4
 }

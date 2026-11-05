@@ -158,6 +158,16 @@ public static class AuditActions
     /// <summary>The emailed code stopped being the account's second factor (S24); the
     /// row's details say why: switched off, or replaced by an authenticator app.</summary>
     public const string TwoFactorEmailCodeDisabled = "twofactor.email-code-disabled";
+
+    /// <summary>A passkey was added to the account (S20); the details name it.</summary>
+    public const string PasskeyRegistered = "passkey.registered";
+
+    /// <summary>
+    /// A passkey stopped working (S20); the details say why (a value of
+    /// <see cref="PasskeyRemovalReasons"/>). <c>PerformedBy</c> is the person who removed it,
+    /// absent when a script did.
+    /// </summary>
+    public const string PasskeyRemoved = "passkey.removed";
     public const string UserLocked = "user.locked";
     public const string UserUnlocked = "user.unlocked";
 
@@ -273,6 +283,8 @@ public static class AuditActions
             [TwoFactorSteppedUp] = AuditActionTypes.Security,
             [TwoFactorEmailCodeEnabled] = AuditActionTypes.Security,
             [TwoFactorEmailCodeDisabled] = AuditActionTypes.Security,
+            [PasskeyRegistered] = AuditActionTypes.Security,
+            [PasskeyRemoved] = AuditActionTypes.Security,
             [UserLocked] = AuditActionTypes.Security,
             [UserUnlocked] = AuditActionTypes.Security,
             [UserHardLocked] = AuditActionTypes.Security,

@@ -26,9 +26,11 @@ public class JwtClaimNamesGuardTests
         MfaRequirement.Enroll.ToClaimValue().Should().Be("enroll");
         MfaRequirement.StepUp.ToClaimValue().Should().Be("step_up");
         MfaRequirement.Reauthenticate.ToClaimValue().Should().Be("reauthenticate");
+        // S20: the client reads a word it does not know as "reauthenticate".
+        MfaRequirement.Passkey.ToClaimValue().Should().Be("passkey");
 
         Enum.GetValues<MfaRequirement>().Select(r => r.ToClaimValue())
-            .Should().OnlyHaveUniqueItems().And.HaveCount(4);
+            .Should().OnlyHaveUniqueItems().And.HaveCount(5);
     }
 
     [Fact]
@@ -38,6 +40,7 @@ public class JwtClaimNamesGuardTests
         ((int)MfaRequirement.Enroll).Should().Be(1);
         ((int)MfaRequirement.StepUp).Should().Be(2);
         ((int)MfaRequirement.Reauthenticate).Should().Be(3);
+        ((int)MfaRequirement.Passkey).Should().Be(4);
         ((int)LoginCommitOutcome.SessionLost).Should().Be(8);
     }
 }

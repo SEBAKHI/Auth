@@ -3,8 +3,8 @@ using Auth_Setup;
 namespace Auth_API.Tests.Setup;
 
 /// <summary>
-/// Auth_Setup's one parser (S08 PR B, design D-B4; OI-50 B1): two modes, and
-/// nothing else accepted — a command line that could mean something other than
+/// Auth_Setup's one parser (S08 PR B, design D-B4; OI-50 B1): three modes since S20,
+/// and nothing else accepted — a command line that could mean something other than
 /// what it says is refused, never guessed at.
 /// </summary>
 public class SetupCommandLineTests
@@ -114,8 +114,47 @@ public class SetupCommandLineTests
     }
 
     [Fact]
-    public void Usage_NamesBothModes()
+    public void Usage_NamesEveryMode()
     {
-        SetupCommandLine.Usage.Should().Contain("--email <your address>").And.Contain("--reset-two-factor <address>");
+        SetupCommandLine.Usage.Should().Contain("--email <your address>")
+            .And.Contain("--reset-two-factor <address>")
+            .And.Contain("--retire-passkey-rp-id <old RP ID>");
+    }
+
+    /// <summary>
+    /// S20 ([S20-O10]): the RP ID move is a mode of its own — first, alone, with one value —
+    /// so it is never read as an address or a password of another mode.
+    /// </summary>
+    /// <remarks>Deliberate break: the mode accepted anywhere on the line; red.</remarks>
+    [Fact]
+    public void RetirePasskeyRpId_IsAccepted_AloneWithOneValue()
+    {
+        var request = SetupCommandLine.Parse(["--retire-passkey-rp-id", "example.com"]);
+
+        request.IsRefused.Should().BeFalse();
+        request.Mode.Should().Be(SetupMode.RetirePasskeyRpId);
+        request.Address.Should().Be("example.com");
+        request.Password.Should().BeNull();
+    }
+
+    public static TheoryData<string[], string> RpIdMoveRefusals => new()
+    {
+        { ["--retire-passkey-rp-id"], "takes one RP ID" },
+        { ["--retire-passkey-rp-id", "example.com", "extra"], "takes one RP ID" },
+        { ["--retire-passkey-rp-id", "--email"], "takes one RP ID" },
+        { ["--retire-passkey-rp-id", "exämple.com"], "takes one RP ID" },
+        { ["--email", "a@example.org", "--retire-passkey-rp-id", "example.com"], "mode of its own" },
+        { ["--reset-two-factor", "a@example.org", "--retire-passkey-rp-id", "example.com"], "mode of its own" },
+    };
+
+    [Theory]
+    [MemberData(nameof(RpIdMoveRefusals))]
+    public void RetirePasskeyRpId_IsRefused_WithItsReason(string[] args, string reason)
+    {
+        var request = SetupCommandLine.Parse(args);
+
+        request.IsRefused.Should().BeTrue(string.Join(' ', args));
+        request.Mode.Should().BeNull();
+        request.Error.Should().Contain(reason);
     }
 }

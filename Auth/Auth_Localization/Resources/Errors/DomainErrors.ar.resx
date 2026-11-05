@@ -1378,6 +1378,18 @@
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>يجب أن يكون عدد العناصر بين 1 و100.</value>
   </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>بلغ هذا الحساب الحدّ الأقصى من مفاتيح المرور. احذف واحدًا قبل إضافة غيره.</value>
+  </data>
+  <data name="Passkey.NameTooLong" xml:space="preserve">
+    <value>يجب ألّا يتجاوز اسم مفتاح المرور 64 حرفًا.</value>
+  </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>لم يُعثر على مفتاح المرور.</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>تعذّر التحقق من مفتاح المرور. حاول مرة أخرى.</value>
+  </data>
   <data name="Password.CommonPattern" xml:space="preserve">
     <value>تحتوي كلمة المرور على نمط شائع يسهل تخمينه.</value>
   </data>

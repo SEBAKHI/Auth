@@ -27,6 +27,7 @@ public class TwoFactorChangedSeedContractTests
     private const string TemplateId = "42000000-0000-0000-0000-000000000021";
     private const string Version1 = "43000000-0000-0000-0000-000000000021";
     private const string Version2 = "43000000-0000-0000-0002-000000000021";
+    private const string Version3 = "43000000-0000-0000-0003-000000000021";
 
     /// <summary>The kinds version 1 words, each with a word its English heading must carry.</summary>
     private static readonly (string Kind, string EnglishHeadingWord)[] Version1Kinds =
@@ -47,8 +48,16 @@ public class TwoFactorChangedSeedContractTests
         ("authenticator-replaced-email-code", "replaced your codes by email"),
     ];
 
+    /// <summary>Version 3 (S20) words version 2's kinds and the passkey's two.</summary>
+    private static readonly (string Kind, string EnglishHeadingWord)[] Version3Kinds =
+    [
+        .. Version2Kinds,
+        ("passkey-registered", "passkey was added"),
+        ("passkey-removed", "passkey was removed"),
+    ];
+
     /// <summary>Every seeded version: the published one is the newest, so each must render.</summary>
-    public static TheoryData<string> Versions => new() { Version1, Version2 };
+    public static TheoryData<string> Versions => new() { Version1, Version2, Version3 };
 
     /// <summary>Every kind of every version, with the word its English heading must carry.</summary>
     public static TheoryData<string, string, string> VersionKinds
@@ -56,7 +65,7 @@ public class TwoFactorChangedSeedContractTests
         get
         {
             var data = new TheoryData<string, string, string>();
-            foreach (var version in new[] { Version1, Version2 })
+            foreach (var version in new[] { Version1, Version2, Version3 })
             {
                 foreach (var (kind, word) in KindsOf(version))
                 {
@@ -257,7 +266,22 @@ public class TwoFactorChangedSeedContractTests
     }
 
     private static (string Kind, string EnglishHeadingWord)[] KindsOf(string versionId) =>
-        versionId == Version2 ? Version2Kinds : Version1Kinds;
+        versionId == Version3 ? Version3Kinds : versionId == Version2 ? Version2Kinds : Version1Kinds;
+
+    [Fact]
+    public void Version3_IsANewVersionPublishedOnlyWhileTheSeededVersion2IsThePublishedOne()
+    {
+        // S20: as version 2 did for version 1 — an administrator's own version stays published.
+        var seed = File.ReadAllText(SeedPath(TemplatesSeed));
+        var start = seed.IndexOf($"AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '{Version3}')", StringComparison.Ordinal);
+        start.Should().BePositive("version 3 is inserted once, guarded by its own id");
+        var block = seed[start..seed.IndexOf("\nEND", start, StringComparison.Ordinal)];
+
+        block.Should().Contain("ISNULL(MAX([VersionNumber]), 0) + 1");
+        Regex.Replace(block, @"\s+", " ").Should().Contain(
+            $"UPDATE [dbo].[NotificationTemplates] SET [PublishedVersionId] = '{Version3}' WHERE [Id] = '{TemplateId}' "
+            + $"AND [PublishedVersionId] = '{Version2}';");
+    }
 
     private static IReadOnlyDictionary<string, object?> Model(string kind, string? deviceName) =>
         new Dictionary<string, object?>(StringComparer.Ordinal)

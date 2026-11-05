@@ -611,6 +611,14 @@ public class UserRepository : IUserRepository
             -- the order the bind itself takes them in.
             DELETE FROM [dbo].[TwoFactorBindCodes] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[TwoFactorAuth] WHERE [UserId] = @Id;
+            -- S20: the account's passkeys and its ceremony challenges. Each behind its
+            -- table's existence: code deployed before its DACPAC still purges, because a
+            -- statement naming a missing table fails only when it runs, and the IF never
+            -- runs it.
+            IF OBJECT_ID(N'[dbo].[UserPasskeys]', N'U') IS NOT NULL
+                DELETE FROM [dbo].[UserPasskeys] WHERE [UserId] = @Id;
+            IF OBJECT_ID(N'[dbo].[WebAuthnChallenges]', N'U') IS NOT NULL
+                DELETE FROM [dbo].[WebAuthnChallenges] WHERE [UserId] = @Id;
             -- Step-up confirmations the admin raised against the secret store.
             -- The rotations they authorized survive in AuditLogs; the codes
             -- themselves are spent credentials with no evidentiary value.

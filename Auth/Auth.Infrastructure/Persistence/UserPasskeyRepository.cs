@@ -1,0 +1,340 @@
+using Auth.Application.Interfaces;
+using Auth.Domain.Entities;
+using Auth.Domain.Interfaces.Repositories;
+using Dapper;
+using Microsoft.Data.SqlClient;
+
+namespace Auth.Infrastructure.Persistence;
+
+/// <summary>
+/// Dapper implementation of the passkey repository (S20). Every change is one conditional
+/// statement whose affected-row count is the decision; a credential id is compared as
+/// bytes (VARBINARY), never as text under a case-insensitive collation (P7-R15).
+/// </summary>
+/// <remarks>
+/// Without the passkey schema (code deployed before its DACPAC) every read answers "none"
+/// and every write changes nothing: a statement naming the missing table would fail.
+/// </remarks>
+public sealed class UserPasskeyRepository : IUserPasskeyRepository
+{
+    /// <summary>The columns a passkey is read with, as one SELECT list.</summary>
+    internal const string Columns = @"
+                [Id], [UserId], [CredentialId], [PublicKey], [SignCount], [RpId],
+                [IsUserVerified], [IsBackupEligible], [IsBackedUp], [Name], [CreatedAt],
+                [LastUsedAt], [LastCounterRegressionAt], [RevokedAt], [RevokedReason], [RevokedBy]";
+
+    /// <summary>The same columns as an <c>OUTPUT</c> list of the rows a statement changed.</summary>
+    internal const string InsertedColumns = @"
+                inserted.[Id], inserted.[UserId], inserted.[CredentialId], inserted.[PublicKey],
+                inserted.[SignCount], inserted.[RpId], inserted.[IsUserVerified], inserted.[IsBackupEligible],
+                inserted.[IsBackedUp], inserted.[Name], inserted.[CreatedAt], inserted.[LastUsedAt],
+                inserted.[LastCounterRegressionAt], inserted.[RevokedAt], inserted.[RevokedReason], inserted.[RevokedBy]";
+
+    // The live-passkey limit and the insert in one statement: the count is read under a
+    // range lock held to the end of the statement, so of two registrations that would each
+    // be the eleventh, one is refused.
+    internal const string InsertWithinLimitSql = @"
+            INSERT INTO [dbo].[UserPasskeys]
+                ([Id], [UserId], [CredentialId], [PublicKey], [SignCount], [RpId],
+                 [IsUserVerified], [IsBackupEligible], [IsBackedUp], [Name], [CreatedAt])
+            SELECT @Id, @UserId, @CredentialId, @PublicKey, @SignCount, @RpId,
+                   @IsUserVerified, @IsBackupEligible, @IsBackedUp, @Name, @CreatedAt
+            WHERE (SELECT COUNT(*) FROM [dbo].[UserPasskeys] WITH (UPDLOCK, HOLDLOCK)
+                   WHERE [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL) < @MaxLive";
+
+    // The handle is set once: only while the column is still empty. The read that follows
+    // returns the value that won, whoever wrote it.
+    internal const string EnsureUserHandleSql = @"
+            UPDATE [dbo].[Users] SET [WebAuthnUserHandle] = @Candidate
+            WHERE [Id] = @UserId AND [WebAuthnUserHandle] IS NULL;
+
+            SELECT [WebAuthnUserHandle] FROM [dbo].[Users] WHERE [Id] = @UserId;";
+
+    internal const string RevokeOneSql = @"
+            UPDATE [dbo].[UserPasskeys] SET
+                [RevokedAt] = SYSUTCDATETIME(),
+                [RevokedReason] = @Reason,
+                [RevokedBy] = @RevokedBy
+            OUTPUT " + InsertedColumns + @"
+            WHERE [Id] = @Id
+              AND [UserId] = @UserId
+              AND [RpId] = @RpId
+              AND [RevokedAt] IS NULL";
+
+    internal const string RevokeRegisteredAfterSql = @"
+            UPDATE [dbo].[UserPasskeys] SET
+                [RevokedAt] = SYSUTCDATETIME(),
+                [RevokedReason] = @Reason,
+                [RevokedBy] = @RevokedBy
+            OUTPUT " + InsertedColumns + @"
+            WHERE [UserId] = @UserId
+              AND [RevokedAt] IS NULL
+              AND [CreatedAt] > @RegisteredAfter";
+
+    internal const string RenameSql = @"
+            UPDATE [dbo].[UserPasskeys] SET [Name] = @Name
+            WHERE [Id] = @Id
+              AND [UserId] = @UserId
+              AND [RpId] = @RpId
+              AND [RevokedAt] IS NULL";
+
+    // SQL Server's unique-index and unique-constraint violations.
+    private static readonly int[] DuplicateKeyErrors = [2601, 2627];
+
+    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IPasskeySchema _schema;
+
+    public UserPasskeyRepository(IDbConnectionFactory connectionFactory, IPasskeySchema schema)
+    {
+        _connectionFactory = connectionFactory;
+        _schema = schema;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<UserPasskey>> GetLiveAsync(Guid userId, string rpId, CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return [];
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var rows = await connection.QueryAsync<UserPasskeyDto>(new CommandDefinition(@"
+            SELECT" + Columns + @"
+            FROM [dbo].[UserPasskeys]
+            WHERE [UserId] = @UserId
+              AND [RpId] = @RpId
+              AND [RevokedAt] IS NULL
+            ORDER BY [CreatedAt], [Id]",
+            new { UserId = userId, RpId = rpId },
+            cancellationToken: cancellationToken));
+
+        return rows.Select(row => row.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<UserPasskey?> GetLiveByIdAsync(Guid userId, Guid passkeyId, string rpId, CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var row = await connection.QuerySingleOrDefaultAsync<UserPasskeyDto>(new CommandDefinition(@"
+            SELECT" + Columns + @"
+            FROM [dbo].[UserPasskeys]
+            WHERE [Id] = @Id
+              AND [UserId] = @UserId
+              AND [RpId] = @RpId
+              AND [RevokedAt] IS NULL",
+            new { Id = passkeyId, UserId = userId, RpId = rpId },
+            cancellationToken: cancellationToken));
+
+        return row?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<int> CountLiveAsync(Guid userId, string rpId, CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return 0;
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(@"
+            SELECT COUNT(*)
+            FROM [dbo].[UserPasskeys]
+            WHERE [UserId] = @UserId
+              AND [RpId] = @RpId
+              AND [RevokedAt] IS NULL",
+            new { UserId = userId, RpId = rpId },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> HasLiveOfAnotherRpIdAsync(string rpId, CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return false;
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(@"
+            SELECT CAST(CASE WHEN EXISTS (
+                SELECT 1 FROM [dbo].[UserPasskeys]
+                WHERE [RevokedAt] IS NULL
+                  AND [RpId] <> @RpId)
+            THEN 1 ELSE 0 END AS BIT)",
+            new { RpId = rpId },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <inheritdoc />
+    public async Task<byte[]?> EnsureUserHandleAsync(Guid userId, byte[] candidate, CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.QuerySingleOrDefaultAsync<byte[]?>(new CommandDefinition(
+            EnsureUserHandleSql,
+            new { UserId = userId, Candidate = candidate },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <inheritdoc />
+    public async Task<PasskeyInsertOutcome> TryCreateAsync(
+        UserPasskey passkey,
+        int maxLive,
+        Guid? bindCodeId,
+        CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            throw new InvalidOperationException("The passkey schema is not deployed: no passkey can be stored.");
+        }
+
+        // The factory hands back an OPEN connection; opening it again throws.
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+        try
+        {
+            // The emailed code first, when the bind needed one (X02): spent only by a bind
+            // that commits, and refused when another request spent or superseded it.
+            if (bindCodeId is { } codeId
+                && await connection.ExecuteAsync(new CommandDefinition(
+                    SingleUseCodeStatements.TwoFactorBindCodes.Consume,
+                    new { Id = codeId },
+                    transaction,
+                    cancellationToken: cancellationToken)) != 1)
+            {
+                transaction.Rollback();
+                return PasskeyInsertOutcome.BindCodeLost;
+            }
+
+            var inserted = await connection.ExecuteAsync(new CommandDefinition(
+                InsertWithinLimitSql,
+                new
+                {
+                    passkey.Id,
+                    passkey.UserId,
+                    passkey.CredentialId,
+                    passkey.PublicKey,
+                    passkey.SignCount,
+                    passkey.RpId,
+                    passkey.IsUserVerified,
+                    passkey.IsBackupEligible,
+                    passkey.IsBackedUp,
+                    passkey.Name,
+                    passkey.CreatedAt,
+                    MaxLive = maxLive,
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+
+            if (inserted != 1)
+            {
+                transaction.Rollback();
+                return PasskeyInsertOutcome.LimitReached;
+            }
+
+            transaction.Commit();
+            return PasskeyInsertOutcome.Inserted;
+        }
+        catch (SqlException ex) when (DuplicateKeyErrors.Contains(ex.Number))
+        {
+            transaction.Rollback();
+            return PasskeyInsertOutcome.DuplicateCredential;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> TryRenameAsync(Guid userId, Guid passkeyId, string rpId, string name, CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return false;
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.ExecuteAsync(new CommandDefinition(
+            RenameSql,
+            new { Id = passkeyId, UserId = userId, RpId = rpId, Name = name },
+            cancellationToken: cancellationToken)) == 1;
+    }
+
+    /// <inheritdoc />
+    public async Task<UserPasskey?> TryRevokeAsync(
+        Guid userId,
+        Guid passkeyId,
+        string rpId,
+        string reason,
+        Guid? revokedBy,
+        CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var row = await connection.QuerySingleOrDefaultAsync<UserPasskeyDto>(new CommandDefinition(
+            RevokeOneSql,
+            new { Id = passkeyId, UserId = userId, RpId = rpId, Reason = reason, RevokedBy = revokedBy },
+            cancellationToken: cancellationToken));
+
+        return row?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<UserPasskey>> RevokeRegisteredAfterAsync(
+        Guid userId,
+        DateTime registeredAfterUtc,
+        string reason,
+        Guid? revokedBy,
+        CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return [];
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var rows = await connection.QueryAsync<UserPasskeyDto>(new CommandDefinition(
+            RevokeRegisteredAfterSql,
+            new { UserId = userId, RegisteredAfter = registeredAfterUtc, Reason = reason, RevokedBy = revokedBy },
+            cancellationToken: cancellationToken));
+
+        return rows.Select(row => row.ToEntity()).ToList();
+    }
+
+    /// <summary>A passkey row as Dapper reads it.</summary>
+    internal sealed record UserPasskeyDto
+    {
+        public Guid Id { get; init; }
+        public Guid UserId { get; init; }
+        public byte[] CredentialId { get; init; } = [];
+        public byte[] PublicKey { get; init; } = [];
+        public long SignCount { get; init; }
+        public string RpId { get; init; } = string.Empty;
+        public bool IsUserVerified { get; init; }
+        public bool IsBackupEligible { get; init; }
+        public bool IsBackedUp { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public DateTime CreatedAt { get; init; }
+        public DateTime? LastUsedAt { get; init; }
+        public DateTime? LastCounterRegressionAt { get; init; }
+        public DateTime? RevokedAt { get; init; }
+        public string? RevokedReason { get; init; }
+        public Guid? RevokedBy { get; init; }
+
+        public UserPasskey ToEntity() => new(
+            Id, UserId, CredentialId, PublicKey, SignCount, RpId, IsUserVerified, IsBackupEligible, IsBackedUp,
+            Name, CreatedAt, LastUsedAt, LastCounterRegressionAt, RevokedAt, RevokedReason, RevokedBy);
+    }
+}

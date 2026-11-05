@@ -25,6 +25,12 @@ public class TwoFactorBindCodeSeedContractTests
     private const string TemplateId = "42000000-0000-0000-0000-000000000022";
     private const string VersionId = "43000000-0000-0000-0000-000000000022";
 
+    /// <summary>S20: version 2 says where the code goes for an app or a passkey.</summary>
+    private const string Version2Id = "43000000-0000-0000-0002-000000000022";
+
+    /// <summary>Every seeded version: the published one is the newest, so each must render.</summary>
+    public static TheoryData<string> Versions => new() { VersionId, Version2Id };
+
     /// <summary>What FirstFactorEmailProof passes, and whether a sender may leave it out.</summary>
     private static readonly Dictionary<string, bool> Catalog = new(StringComparer.Ordinal)
     {
@@ -89,16 +95,17 @@ public class TwoFactorBindCodeSeedContractTests
         seed.Should().Contain($"VALUES ('{TemplateId}', '{TypeId}', NULL, 1, N'en'",
             "a global Email template bound to the type");
         seed.Should().Contain($"VALUES ('{VersionId}', '{TemplateId}', 1,", "a version row");
-        Translations().Select(row => row.Language).Should().BeEquivalentTo(Languages.Supported,
+        Translations(VersionId).Select(row => row.Language).Should().BeEquivalentTo(Languages.Supported,
             "the code goes out in the account's own language, whichever it is");
         seed.Should().Contain($"SET [PublishedVersionId] = '{VersionId}'",
             "an unpublished template fails the renderer at send time, not at deploy time");
     }
 
-    [Fact]
-    public void EveryTranslation_UsesOnlyCatalogedVariables_ShowsTheCode_AndCarriesNoLink()
+    [Theory]
+    [MemberData(nameof(Versions))]
+    public void EveryTranslation_UsesOnlyCatalogedVariables_ShowsTheCode_AndCarriesNoLink(string versionId)
     {
-        foreach (var (language, subject, body) in Translations())
+        foreach (var (language, subject, body) in Translations(versionId))
         {
             var used = Regex.Matches(subject + body, @"\{\{\s*([A-Za-z_][\w.]*)\s*\}\}")
                 .Select(match => match.Groups[1].Value)
@@ -117,12 +124,13 @@ public class TwoFactorBindCodeSeedContractTests
         }
     }
 
-    [Fact]
-    public void EveryTranslation_RendersTheSeededSample_WithNothingUnresolved()
+    [Theory]
+    [MemberData(nameof(Versions))]
+    public void EveryTranslation_RendersTheSeededSample_WithNothingUnresolved(string versionId)
     {
         var model = SampleModel();
 
-        foreach (var (language, subjectSource, bodySource) in Translations())
+        foreach (var (language, subjectSource, bodySource) in Translations(versionId))
         {
             var subject = _renderer.RenderTracking(subjectSource, model, language, encodeHtml: false, out var subjectMissing);
             var body = _renderer.RenderTracking(bodySource, model, language, encodeHtml: true, out var bodyMissing);
@@ -138,10 +146,11 @@ public class TwoFactorBindCodeSeedContractTests
         }
     }
 
-    [Fact]
-    public void TheDeviceAndAddressLines_ArePrintedOnlyWhenKnown()
+    [Theory]
+    [MemberData(nameof(Versions))]
+    public void TheDeviceAndAddressLines_ArePrintedOnlyWhenKnown(string versionId)
     {
-        foreach (var (language, _, bodySource) in Translations())
+        foreach (var (language, _, bodySource) in Translations(versionId))
         {
             var withoutBoth = SampleModel()
                 .Where(pair => pair.Key is not ("DeviceName" or "IpAddress"))
@@ -195,10 +204,50 @@ public class TwoFactorBindCodeSeedContractTests
     }
 
     /// <summary>Language, subject source and body source of every translation of version 0022.</summary>
-    private static List<(string Language, string Subject, string Body)> Translations()
+    /// <summary>
+    /// S20: version 2 is the code of an authenticator app OR a passkey, so no translation
+    /// tells the reader to type it beside an app's code (a passkey has none), and each
+    /// names the passkey.
+    /// </summary>
+    [Fact]
+    public void Version2_NamesBothFactors_AndNeverAsksForAnAppCodeBesideIt()
+    {
+        var version1 = Translations(VersionId).ToDictionary(row => row.Language, row => row.Body);
+        var passkeyWord = new Dictionary<string, string>
+        {
+            ["en"] = "passkey", ["ar"] = "مفتاح المرور", ["tr"] = "geçiş anahtarı", ["fr"] = "clé d'accès",
+            ["zh"] = "通行密钥", ["ur"] = "پاس کی", ["fa"] = "کلید عبور",
+        };
+
+        foreach (var (language, _, body) in Translations(Version2Id))
+        {
+            body.Should().Contain(passkeyWord[language], $"the {language} code message names the passkey it may bind");
+            body.Should().NotBe(version1[language], $"the {language} instruction changed");
+            body.Length.Should().BeGreaterThan(version1[language].Length / 2, "only one sentence changed");
+        }
+
+        Translations(Version2Id).Single(row => row.Language == "en").Body
+            .Should().NotContain("together with the code from your authenticator app");
+    }
+
+    [Fact]
+    public void Version2_IsANewVersionPublishedOnlyWhileTheSeededVersion1IsThePublishedOne()
+    {
+        var seed = File.ReadAllText(SeedPath(TemplatesSeed));
+        var start = seed.IndexOf($"AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '{Version2Id}')", StringComparison.Ordinal);
+        start.Should().BePositive("version 2 is inserted once, guarded by its own id");
+        var block = seed[start..seed.IndexOf("\nEND", start, StringComparison.Ordinal)];
+
+        block.Should().Contain("ISNULL(MAX([VersionNumber]), 0) + 1");
+        Regex.Replace(block, @"\s+", " ").Should().Contain(
+            $"UPDATE [dbo].[NotificationTemplates] SET [PublishedVersionId] = '{Version2Id}' WHERE [Id] = '{TemplateId}' "
+            + $"AND [PublishedVersionId] = '{VersionId}';");
+    }
+
+    private static List<(string Language, string Subject, string Body)> Translations(string versionId)
     {
         var rows = Regex.Matches(File.ReadAllText(SeedPath(TemplatesSeed)),
-                $@"'44000000-0000-0000-0022-0000000000\d\d', '{VersionId}', N'(?<lang>[a-z]{{2}})', N'(?<subject>(?:[^']|'')*)',\s*N'(?<body>(?:[^']|'')*)'",
+                $@"'44000000-0000-000\d-0022-0000000000\d\d', '{versionId}', N'(?<lang>[a-z]{{2}})', N'(?<subject>(?:[^']|'')*)',\s*N'(?<body>(?:[^']|'')*)'",
                 RegexOptions.Singleline)
             .Select(row => (
                 row.Groups["lang"].Value,

@@ -1,6 +1,8 @@
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Validators;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -30,6 +32,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly IAccountLockout _accountLockout;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ITwoFactorChallengeRepository _twoFactorChallengeRepository;
+    private readonly RecentPasskeyRevocation _recentPasskeys;
     private readonly ILogger<ResetPasswordCommandHandler> _logger;
 
     public ResetPasswordCommandHandler(
@@ -47,8 +50,10 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IAccountLockout accountLockout,
         ITwoFactorStateStore twoFactorStateStore,
         ITwoFactorChallengeRepository twoFactorChallengeRepository,
+        RecentPasskeyRevocation recentPasskeys,
         ILogger<ResetPasswordCommandHandler> logger)
     {
+        _recentPasskeys = recentPasskeys;
         _userRepository = userRepository;
         _passwordResetTokenRepository = passwordResetTokenRepository;
         _passwordHistoryRepository = passwordHistoryRepository;
@@ -148,6 +153,9 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         // account (Google, Apple) has no hash, so this reset is the first credential it has
         // ever had - a different security event from a rotation. Until now this handler
         // mutated nothing and dispatched nothing, so a reset left no audit trail at all.
+        // S20 (D-T19 D): the passkeys registered in the 72 hours before this reset go once
+        // it has committed; the older ones stay, and the notice lists them. Cut once, now.
+        var passkeyCutoff = _recentPasskeys.CutoffNow();
         if (user.PasswordHash is null)
         {
             var initialPassword = user.SetInitialPassword(newPasswordHash, user.Id);
@@ -158,7 +166,8 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         }
         else
         {
-            user.ChangePassword(newPasswordHash, user.Id);
+            var survivingPasskeys = await _recentPasskeys.SurvivorsAsync(user.Id, passkeyCutoff, cancellationToken);
+            user.ChangePassword(newPasswordHash, user.Id, survivingPasskeys);
         }
 
         // Update the password
@@ -268,6 +277,10 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
                 "Password reset for user {UserId} completed, but the emailed second factor's lock or send caps could not be cleared; they stay as they were",
                 user.Id);
         }
+
+        // S20 (D-T19 D): a passkey registered in the 72 hours before the reset may be the
+        // door of whoever held the account; it goes now, never failing the reset.
+        await _recentPasskeys.RevokeRecentAsync(user, passkeyCutoff, PasskeyRemovalReasons.PasswordReset, user.Id);
 
         // Dispatched last, mirroring ChangePasswordCommandHandler: the password is persisted
         // and the sessions are settled before anything reacts to the event.

@@ -1,4 +1,5 @@
 using Auth.Application.Configuration;
+using Auth.Domain.Constants;
 using Auth.Domain.ValueObjects;
 using ErrorOr;
 
@@ -23,11 +24,14 @@ namespace Auth_Setup;
 /// The API re-reads the revocation list every five minutes (X04), so the entry
 /// reaches every running API process within five minutes, with no recycle. It is
 /// the only writer of a revocation outside the API's credential revocation service.
-/// No audit row is written: the owner's own record of running it is the record.
+/// The owner's own record of running it is the record of the reset itself.
 /// </para>
 /// <para>
-/// One builder and one golden file, so a later factor (passkeys) is removed by
-/// adding its statement here.
+/// One builder and one golden file. S20 (PK12): every live passkey of the account is
+/// revoked in the same transaction, with one audit row each (reason <c>break-glass</c>):
+/// no event or notice follows a script, so the audit row is what the account's history
+/// keeps. Behind the table's existence, so the script still runs on a database whose
+/// passkey schema is not deployed: the IF never runs the statements that name it.
 /// </para>
 /// </remarks>
 public static class BreakGlassScript
@@ -67,6 +71,7 @@ public static class BreakGlassScript
             "IF @U IS NULL THROW 50001, N'No such user', 1;\n" +
             "DELETE FROM [dbo].[TwoFactorAuth] WHERE [UserId] = @U;\n" +
             "UPDATE [dbo].[Users] SET [IsTwoFactorEnabled] = 0 WHERE [Id] = @U;\n" +
+            PasskeyRevocation("[UserId] = @U", PasskeyRemovalReasons.BreakGlass) +
             $"UPDATE [dbo].[RefreshTokens] SET [RevokedAt] = SYSUTCDATETIME(), [ReasonRevoked] = {reason}\n" +
             " WHERE [UserId] = @U AND [RevokedAt] IS NULL;\n" +
             "UPDATE [dbo].[IdpSessions] SET [RevokedAt] = SYSUTCDATETIME() WHERE [UserId] = @U AND [RevokedAt] IS NULL;\n" +
@@ -75,5 +80,32 @@ public static class BreakGlassScript
             "INSERT INTO [dbo].[RevokedTokens] ([RevocationType], [RevocationKey], [EffectiveAt], [ExpiresAt])\n" +
             $"VALUES (3, LOWER(CONVERT(NVARCHAR(36), @U)), SYSUTCDATETIME(), DATEADD(MINUTE, {horizonMinutes}, SYSUTCDATETIME()));\n" +
             "COMMIT;";
+    }
+
+    /// <summary>
+    /// The statements that revoke the live passkeys a predicate selects, with one audit row
+    /// each, as the API's audit handler writes them (action <c>passkey.removed</c>, details
+    /// built by <c>FOR JSON</c>, never by concatenation). Behind the table's existence. Shared
+    /// with <see cref="PasskeyRpIdMoveScript"/>.
+    /// </summary>
+    /// <param name="where">The predicate over <c>UserPasskeys</c>, besides "live".</param>
+    /// <param name="reason">The reason recorded on the rows and in the audit details.</param>
+    internal static string PasskeyRevocation(string where, string reason)
+    {
+        var reasonLiteral = SqlLiteral.Unicode(reason);
+        return
+            "IF OBJECT_ID(N'[dbo].[UserPasskeys]', N'U') IS NOT NULL\n" +
+            "BEGIN\n" +
+            "    DECLARE @RevokedPasskeys TABLE ([Id] UNIQUEIDENTIFIER, [UserId] UNIQUEIDENTIFIER, [Name] NVARCHAR(128));\n" +
+            $"    UPDATE [dbo].[UserPasskeys] SET [RevokedAt] = SYSUTCDATETIME(), [RevokedReason] = {reasonLiteral}, [RevokedBy] = NULL\n" +
+            "     OUTPUT inserted.[Id], inserted.[UserId], inserted.[Name] INTO @RevokedPasskeys\n" +
+            $"     WHERE {where} AND [RevokedAt] IS NULL;\n" +
+            "    INSERT INTO [dbo].[AuditLogs] ([UserId], [Action], [EntityType], [EntityId], [Details], [ActionType], [IsSuccess])\n" +
+            $"    SELECT r.[UserId], {SqlLiteral.Unicode(AuditActions.PasskeyRemoved)}, N'UserPasskey', r.[Id],\n" +
+            $"           (SELECT r.[Name] AS [name], {reasonLiteral} AS [reason] FOR JSON PATH, WITHOUT_ARRAY_WRAPPER),\n" +
+            $"           {SqlLiteral.Unicode(AuditActionTypes.Security)}, 1\n" +
+            "    FROM @RevokedPasskeys r;\n" +
+            "    SELECT COUNT(*) AS [PasskeysRevoked] FROM @RevokedPasskeys;\n" +
+            "END;\n";
     }
 }

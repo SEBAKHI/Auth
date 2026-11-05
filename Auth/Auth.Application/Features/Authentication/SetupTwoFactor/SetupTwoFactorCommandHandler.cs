@@ -75,6 +75,18 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
             return AuthErrors.ReauthenticationRequired;
         }
 
+        // S20 (FA11 (11-2)): beside a passkey, the app is a further factor, so it is set up
+        // only from a session that proved two — whatever Passkeys:Enabled says. Keyed on the
+        // passkey: an account whose app is on answers below as it always has.
+        var factors = await _twoFactorStateStore.GetQualifyingFactorsAsync(request.UserId, cancellationToken);
+        if (factors.Passkey && !session.Value.Methods.IsMfaSatisfied)
+        {
+            _logger.LogInformation(
+                "Two-factor setup for user {UserId} beside a passkey asked for a two-factor sign-in first",
+                request.UserId);
+            return AuthErrors.ReauthenticationRequired;
+        }
+
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (user == null)
         {
@@ -108,13 +120,15 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
             "Two-factor authentication setup initiated for user {UserId}",
             request.UserId);
 
-        // Only a pending factor reaches here, so this is the account's first: enable
-        // will want the emailed code exactly when the rule applies right now. A rule
-        // that changes before enable is answered there (TwoFactor.EmailCodeRequired).
+        // Only a pending factor reaches here, so the app is the account's first factor —
+        // unless a passkey is (S20): then the two-factor session above is the proof, and no
+        // emailed code is asked (OI-48 (2)). Enable wants the code exactly when the rule
+        // applies right now; a rule that changes before enable is answered there
+        // (TwoFactor.EmailCodeRequired).
         return new TwoFactorSetupResponse(
             Secret: key.Secret,
             QrCodeUri: key.QrCodeUri,
             ManualEntryKey: key.ManualEntryKey,
-            EmailCodeRequired: _emailProofPolicy.IsRequired);
+            EmailCodeRequired: _emailProofPolicy.IsRequired && !factors.HasAny);
     }
 }
