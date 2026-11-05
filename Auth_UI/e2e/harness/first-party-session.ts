@@ -60,10 +60,18 @@ function cookiesOf(header: string | undefined): Map<string, string> {
   return cookies
 }
 
-function accessToken(sequence: number): string {
+/**
+ * An access token as the API shapes it, unsigned: the account (`sub`) and the
+ * accounts session (`sid`, constant across refreshes, as RefreshTokenCommandHandler
+ * keeps it) are what the accounts app reads to tell one sign-in from another
+ * (OI-275). Neither names any fixture user: no page treats the harness as "you".
+ */
+function accessToken(sequence: number, subject: string, sessionId: string): string {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url")
   return `${encode({ alg: "none", typ: "JWT" })}.${encode({
     jti: `harness-${sequence}`,
+    sub: subject,
+    sid: sessionId,
     exp: Math.floor(Date.now() / 1000) + 3600,
   })}.signature`
 }
@@ -79,6 +87,9 @@ function cookieHeader(name: string, value: string, maxAge: number): string {
 export class FirstPartyServer {
   mode: DeliveryMode = "cookie"
   refreshDelayMs = 0
+  /** The account and the accounts session every token of this test names. */
+  subject = "harness-subject"
+  sessionId = "harness-sid-1"
   /** When true, sign-out requests get a dropped connection (B11). */
   dropLogout = false
   /** When true, the bearer sign-out answers 401, as for an expired or refused access token (F2). */
@@ -96,6 +107,8 @@ export class FirstPartyServer {
     this.refreshDelayMs = 0
     this.dropLogout = false
     this.rejectLogout = false
+    this.subject = "harness-subject"
+    this.sessionId = "harness-sid-1"
     this.cookieLogouts.length = 0
     this.refreshes.length = 0
     this.logouts.length = 0
@@ -193,7 +206,12 @@ export class FirstPartyServer {
     const { refreshToken, setCookie } = this.#deliver(origin, `rotated-${this.#issued}`)
     await this.#fulfill(
       route,
-      { accessToken: accessToken(this.#issued), refreshToken, expiresIn: 3600, refreshExpiresIn: 604800 },
+      {
+        accessToken: accessToken(this.#issued, this.subject, this.sessionId),
+        refreshToken,
+        expiresIn: 3600,
+        refreshExpiresIn: 604800,
+      },
       setCookie
     )
     return true
@@ -207,7 +225,12 @@ export class FirstPartyServer {
     await this.#fulfill(
       route,
       {
-        token: { accessToken: accessToken(this.#issued), refreshToken, expiresIn: 3600, refreshExpiresIn: 604800 },
+        token: {
+          accessToken: accessToken(this.#issued, this.subject, this.sessionId),
+          refreshToken,
+          expiresIn: 3600,
+          refreshExpiresIn: 604800,
+        },
         user,
         requiresPasswordChange: false,
         requiresTwoFactor: false,

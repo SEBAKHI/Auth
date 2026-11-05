@@ -111,6 +111,17 @@ export function rememberMethodForChallenge(
   pendingChallengeMethod = { challengeToken, method }
 }
 
+/**
+ * The method the sign-in page recorded for this challenge, without spending it;
+ * null when the challenge did not start there (OI-275: the proof the
+ * completion keeps with its marker).
+ */
+export function methodForChallenge(challengeToken: string): SignInMethod | null {
+  return pendingChallengeMethod?.challengeToken === challengeToken
+    ? pendingChallengeMethod.method
+    : null
+}
+
 export function challengeEnded(challengeToken: string): void {
   if (pendingChallengeMethod?.challengeToken !== challengeToken) return
   const { method } = pendingChallengeMethod

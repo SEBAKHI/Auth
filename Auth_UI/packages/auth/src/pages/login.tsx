@@ -37,7 +37,9 @@ import { startEmailCode, type PendingEmailCode } from "../email-code"
 import { isAbsoluteUrl } from "../external/recovery-navigation"
 import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
+import { FullScreenLoader } from "../require-auth"
 import { toAccountsSearch } from "../return-to"
+import { canSkipSignIn } from "../sign-in-marker"
 import type { SignInReasonWord } from "../sign-in-reason"
 import {
   isFullProofRequested,
@@ -127,7 +129,7 @@ export function LoginPage({
   recoveryPath?: string
 } = {}) {
   const { t, i18n } = useTranslation()
-  const { login } = useAuth()
+  const { login, status } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as LocationState | null
@@ -137,6 +139,22 @@ export function LoginPage({
   // only the auth origin's authorize endpoint is ever a legal destination.
   const { returnTo, reason, complete, challenge, interstitial } =
     useLoginCompletion()
+  // One sign-in, not two (OI-275): the server sent this tab back to set up an
+  // authenticator for the request a sign-in here resumed moments ago, for the
+  // same account and session. The form is skipped and the completion rule
+  // opens the set-up page, spending the marker; any condition false is the
+  // form. Decided while rendering, so the form is never painted; handed over
+  // once, so a second effect run (StrictMode) adds nothing.
+  const skipSignIn = React.useMemo(
+    () => status === "authenticated" && canSkipSignIn(returnTo, reason),
+    [status, returnTo, reason]
+  )
+  const handedOver = React.useRef(false)
+  React.useEffect(() => {
+    if (!skipSignIn || handedOver.current) return
+    handedOver.current = true
+    complete({})
+  }, [skipSignIn, complete])
   // The last session ended at its first refresh because the browser withheld
   // the sign-in cookie from the API host. Without saying so, "you were signed
   // out" would repeat on every sign-in with nothing to act on.
@@ -226,7 +244,7 @@ export function LoginPage({
       }
       signInEnded("password")
       toast.success(t("auth.welcomeBack"))
-      complete(result)
+      complete(result, { proof: "password" })
     } catch (error) {
       // Unconfirmed email: send the user to enter the verification code, which
       // confirms the address and signs them in — no dead-end and no second
@@ -301,6 +319,8 @@ export function LoginPage({
     },
     [form]
   )
+
+  if (skipSignIn) return <FullScreenLoader />
 
   if (step.kind === "code") {
     return (

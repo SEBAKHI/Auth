@@ -176,7 +176,7 @@ export function AppleSignIn({
         return
       }
       toast.success(t("auth.welcomeBack"))
-      complete(result)
+      complete(result, { proof: "external" })
     } catch (error) {
       if (isUserCancelled(error)) return
       // Pending deletion (the ID token itself was valid): carry the still-

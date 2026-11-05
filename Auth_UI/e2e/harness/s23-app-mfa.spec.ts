@@ -32,7 +32,9 @@ import { ORIGINS, expect, test, type HarnessApi } from "./fixtures"
  *
  * Deliberate breaks this file must catch: the reason Alert removed from the
  * sign-in page; an inline style in the application-mode screen (a CSP
- * violation).
+ * violation); the sign-in marker ignored (OI-275: the second sign-in comes
+ * back); the skip taken whatever proved the first step (OI-275: an emailed code
+ * alone, for an account with a password, reaches the set-up page).
  */
 
 test.use({ viewport: { width: 375, height: 812 } })
@@ -69,6 +71,7 @@ async function json(route: Route, body: unknown, status = 200) {
 
 interface JourneyServer {
   logins: number
+  codeSignIns: number
   verifies: unknown[]
   enables: unknown[]
   emailSends: number
@@ -77,6 +80,7 @@ interface JourneyServer {
 
 const newServer = (): JourneyServer => ({
   logins: 0,
+  codeSignIns: 0,
   verifies: [],
   enables: [],
   emailSends: 0,
@@ -88,12 +92,14 @@ const newServer = (): JourneyServer => ({
  * second-step challenge (an account with an authenticator); otherwise the
  * password signs in at once. `qualifyingMfa` is what /me says about the factor.
  * The resume is answered with a plain page, recorded: what the server decides
- * there is the xUnit suite's.
+ * there is the xUnit suite's. With `bounce`, the FIRST resume is answered as the
+ * server answers a session short of the application's second step: a redirect
+ * to the accounts sign-in page with the request and those words (OI-275).
  */
 async function serveJourney(
   api: HarnessApi,
   state: JourneyServer,
-  account: { challenged: boolean; qualifyingMfa: boolean },
+  account: { challenged: boolean; qualifyingMfa: boolean; bounce?: string },
   branding?: Record<string, unknown>
 ) {
   await api.useAuthenticated(
@@ -104,7 +110,32 @@ async function serveJourney(
 
       if (path === "/api/v1/auth/authorize/resume" && method === "GET") {
         state.resumes.push(url.search)
+        if (account.bounce && state.resumes.length === 1) {
+          await route.fulfill({
+            status: 302,
+            headers: { location: `${ORIGINS.accounts}/login?${PENDING}${account.bounce}` },
+          })
+          return true
+        }
         await route.fulfill({ status: 200, contentType: "text/html", body: "<p>resumed</p>" })
+        return true
+      }
+      // The sign-in by emailed code (OI-215): start, check, then spend it.
+      if (path === "/api/v1/auth/email-code/start" && method === "POST") {
+        await json(route, {
+          pendingId: "harness-pending",
+          maskedEmail: "p****n@example.test",
+          expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+        })
+        return true
+      }
+      if (path === "/api/v1/auth/email-code/verify" && method === "POST") {
+        await json(route, { step: "signIn" })
+        return true
+      }
+      if (path === "/api/v1/auth/email-code/sign-in" && method === "POST") {
+        state.codeSignIns += 1
+        await api.firstParty.answerSignIn(route, USER, "s23-secret")
         return true
       }
       if (path === "/api/v1/auth/login" && method === "POST") {
@@ -249,6 +280,94 @@ test("s23: an account that already has an authenticator is offered Continue", as
   await page.getByRole("button", { name: en.auth.mfaAppContinue }).click()
 
   await expect.poll(() => state.resumes).toEqual([`?${PENDING}`])
+})
+
+// ── OI-275: one sign-in, not two, before the set-up page ─────────────────────
+
+/**
+ * Records, in each accounts document opened under `mfa_enroll`, whether the
+ * sign-in form was ever put on the page there: "never painted" is observed, not
+ * inferred from where the test ended up.
+ */
+async function watchForTheEnrollForm(page: Page) {
+  await page.addInitScript((accounts: string) => {
+    if (location.origin !== accounts || !location.search.includes("reason=mfa_enroll")) return
+    const flag = () => {
+      if (location.pathname === "/login" && document.querySelector('input[type="email"]')) {
+        ;(window as unknown as { __enrollFormSeen?: boolean }).__enrollFormSeen = true
+      }
+    }
+    new MutationObserver(flag).observe(document, { childList: true, subtree: true })
+  }, ORIGINS.accounts)
+}
+
+const enrollFormSeen = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __enrollFormSeen?: boolean }).__enrollFormSeen ?? false)
+
+test("s23: journey 2 in one sign-in: the bounce for set-up goes straight to the set-up page", async ({ page, api }) => {
+  const state = newServer()
+  await serveJourney(api, state, {
+    challenged: false,
+    qualifyingMfa: false,
+    bounce: "&reason=mfa_enroll&method=password",
+  })
+  await watchForTheEnrollForm(page)
+
+  // No session and no reason: the application sent the person to sign in.
+  await page.goto(`${ORIGINS.accounts}/login?${PENDING}`)
+  await expect(page.locator('input[type="password"]')).toBeVisible(FIRST_LOAD)
+  await expect(reasonAlert(page)).toHaveCount(0)
+  await signInWithPassword(page)
+
+  // The resume bounced once, for set-up, and the page skipped its form.
+  await expect(page).toHaveURL(`${ORIGINS.accounts}/two-factor/required`, FIRST_LOAD)
+  await expect(page.getByText(en.auth.mfaAppRequiredSubtitle)).toBeVisible()
+  expect(state.resumes).toEqual([`?${PENDING}`])
+  expect(state.logins).toBe(1)
+  expect(await enrollFormSeen(page)).toBe(false)
+  // Spent: nothing is left in the tab for a later page to act on.
+  expect(await page.evaluate(() => sessionStorage.getItem("auth.signIn.marker"))).toBeNull()
+
+  // The rest of the journey is the set-up as before: X02's emailed proof, then the codes.
+  await page.getByRole("button", { name: en.profile.enableTwoFactor }).click()
+  await page.getByLabel(en.auth.twoFactorCode, { exact: true }).fill("123456")
+  await page.getByRole("button", { name: "Send code" }).click()
+  await expect.poll(() => state.emailSends).toBe(1)
+  await page.getByLabel("Code from your email", { exact: true }).fill("654321")
+  await page.getByRole("button", { name: en.auth.verify }).click()
+  const codes = page.getByRole("dialog", { name: "Save your recovery codes" })
+  await expect(codes).toBeVisible()
+  await codes.getByRole("button", { name: en.common.close }).first().click()
+
+  await expect.poll(() => state.resumes).toEqual([`?${PENDING}`, `?${PENDING}`])
+  expect(state.enables).toEqual([{ code: "123456", emailCode: "654321" }])
+  expect(state.logins).toBe(1)
+})
+
+test("s23: a password account that signed in by emailed code alone gets the form after the bounce", async ({ page, api }) => {
+  const state = newServer()
+  await serveJourney(
+    api,
+    state,
+    { challenged: false, qualifyingMfa: false, bounce: "&reason=mfa_enroll&method=password" },
+    { platformName: "AuthSystem", staySignedInOffered: true, codeSignInOffered: true, primaryMethod: "code" }
+  )
+
+  await page.goto(`${ORIGINS.accounts}/login?${PENDING}`)
+  await expect(page.getByRole("button", { name: en.auth.continueWithEmail })).toBeVisible(FIRST_LOAD)
+  await page.locator('input[type="email"]').fill(USER.email)
+  await page.getByRole("button", { name: en.auth.continueWithEmail }).click()
+  await page.locator("[data-slot=input-otp]").click()
+  await page.keyboard.type("123456")
+
+  // The set-up would refuse a session that proved the mailbox only: the form,
+  // with the password first, as the server named it.
+  await expect(page).toHaveURL(`${ORIGINS.accounts}/login?${PENDING}&reason=mfa_enroll&method=password`, FIRST_LOAD)
+  await expect(reasonAlert(page)).toContainText(en.auth.signInReasonEnrollTitle)
+  await expect(page.locator('input[type="password"]')).toBeVisible()
+  expect(state.codeSignIns).toBe(1)
+  expect(state.resumes).toEqual([`?${PENDING}`])
+  await expect(page).not.toHaveURL(/\/two-factor\/required/)
 })
 
 test("s23: the server's code word beats the deployment's password, and the password stays one click away", async ({ page, api }) => {

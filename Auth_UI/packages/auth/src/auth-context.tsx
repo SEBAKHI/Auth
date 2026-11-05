@@ -47,6 +47,7 @@ import { toEmailCodeNextStep, type EmailCodeNextStep } from "./email-code"
 import { permissionMatches } from "./permission-matching"
 import { markRecoveryCodeSignIn } from "./recovery-code-notice"
 import { challengeEnded } from "./sign-in-method"
+import { clearSignInMarker } from "./sign-in-marker"
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated"
 
@@ -713,6 +714,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       /* network failure: the marker stays; clear local state regardless */
     }
     clearTokens()
+    // The sign-in marker (OI-275) belongs to the session that just ended.
+    clearSignInMarker()
     setUser(null)
     setStatus("unauthenticated")
     setActiveTimeZone(null)

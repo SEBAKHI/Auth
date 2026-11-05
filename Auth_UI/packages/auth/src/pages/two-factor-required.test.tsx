@@ -319,7 +319,7 @@ describe("TwoFactorRequiredPage in application mode (S23)", () => {
     await user.dblClick(screen.getByRole("button", { name: "auth.mfaAppContinue" }))
 
     expect(mocks.complete).toHaveBeenCalledTimes(1)
-    expect(mocks.complete).toHaveBeenCalledWith({})
+    expect(mocks.complete).toHaveBeenCalledWith({}, { endsSignIn: false })
   })
 
   it("resumes the application once the authenticator is on", async () => {
@@ -336,7 +336,7 @@ describe("TwoFactorRequiredPage in application mode (S23)", () => {
     await user.click(screen.getByRole("button", { name: "auth.verify" }))
 
     await waitFor(() => expect(mocks.complete).toHaveBeenCalledTimes(1))
-    expect(mocks.complete).toHaveBeenCalledWith({})
+    expect(mocks.complete).toHaveBeenCalledWith({}, { endsSignIn: false })
     expect(mocks.post).toHaveBeenCalledWith("/api/v1/auth/2fa/enable", expect.anything())
   })
 
@@ -348,7 +348,7 @@ describe("TwoFactorRequiredPage in application mode (S23)", () => {
     await user.click(screen.getByRole("button", { name: "common.cancel" }))
 
     expect(mocks.complete).toHaveBeenCalledTimes(1)
-    expect(mocks.complete).toHaveBeenCalledWith({})
+    expect(mocks.complete).toHaveBeenCalledWith({}, { endsSignIn: false })
     expect(screen.queryByRole("button", { name: "common.signOut" })).toBeNull()
   })
 

@@ -220,3 +220,31 @@ describe("the next load after an unfinished sign-out", () => {
     expect(window.localStorage.getItem(LOGOUT_PENDING_KEY)).toBeNull()
   })
 })
+
+describe("the sign-in marker (OI-275)", () => {
+  it("is removed when this tab signs out", async () => {
+    window.localStorage.setItem("auth.refreshToken", SENTINEL)
+    window.sessionStorage.setItem(
+      "auth.signIn.marker",
+      JSON.stringify({ request: "https://api.example.com/x", sub: "u", sid: "s", at: Date.now(), proof: "password" })
+    )
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: unknown) => {
+        const url = urlOf(input)
+        calls.push(url)
+        if (url.includes("/Auth/refresh")) return json(200, { accessToken: accessToken(), refreshToken: SENTINEL })
+        if (url.includes("/Auth/logout")) return new Response(null, { status: 204 })
+        return json(200, {})
+      })
+    )
+    const { logout } = await renderProvider(() => undefined)
+    expect(window.sessionStorage.getItem("auth.signIn.marker")).not.toBeNull()
+
+    await act(async () => {
+      await logout()
+    })
+
+    expect(window.sessionStorage.getItem("auth.signIn.marker")).toBeNull()
+  })
+})
