@@ -593,6 +593,9 @@
   <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
     <value>بہت زیادہ غلط کوڈز کے بعد دو مرحلہ تصدیق مقفل ہو گئی ہے۔ سائن اِن صفحے سے اپنا پاس ورڈ ری سیٹ کریں، پھر کسی منتظم سے دو مرحلہ تصدیق ری سیٹ کرنے کو کہیں۔</value>
   </data>
+  <data name="TwoFactor.PasskeyNeedsApp" xml:space="preserve">
+    <value>جب تک ای میل بھیجنا بند ہے، اکاؤنٹ پر پاس کی موجود ہو تو تصدیقی ایپ بند نہیں کی جا سکتی۔ پہلے پاس کیز ہٹا دیں۔</value>
+  </data>
   <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
     <value>بہت زیادہ غلط کوڈز کے بعد اس اکاؤنٹ کی دو مرحلہ تصدیق مقفل ہو گئی ہے۔ آپ کے دو مرحلہ تصدیق ری سیٹ کرنے سے پہلے اس کے مالک کو ای میل کے ذریعے پاس ورڈ ری سیٹ کرنا ہوگا۔</value>
   </data>
@@ -1375,6 +1378,21 @@
   </data>
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>اندراجات کی تعداد ۱ اور ۱۰۰ کے درمیان ہونی چاہیے۔</value>
+  </data>
+  <data name="Passkey.EmailRequired" xml:space="preserve">
+    <value>پہلی پاس کی صرف اسی وقت شامل کی جا سکتی ہے جب ای میل بھیجنا فعال ہو۔ پہلے تصدیقی ایپ شامل کریں، پھر پاس کی۔</value>
+  </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>اس اکاؤنٹ میں پاس کیز کی زیادہ سے زیادہ تعداد پہلے ہی موجود ہے۔ نئی شامل کرنے سے پہلے ایک ہٹا دیں۔</value>
+  </data>
+  <data name="Passkey.NameTooLong" xml:space="preserve">
+    <value>پاس کی کا نام ۶۴ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>پاس کی نہیں ملی۔</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>پاس کی کی تصدیق نہیں ہو سکی۔ دوبارہ کوشش کریں۔</value>
   </data>
   <data name="Password.CommonPattern" xml:space="preserve">
     <value>پاس ورڈ میں ایک عام نمونہ ہے جو آسانی سے اندازہ لگایا جا سکتا ہے۔</value>

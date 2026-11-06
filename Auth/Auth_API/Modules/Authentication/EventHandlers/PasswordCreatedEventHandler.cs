@@ -1,3 +1,4 @@
+using System.Globalization;
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
@@ -53,6 +54,17 @@ public class PasswordCreatedEventHandler : INotificationHandler<PasswordCreatedE
                     // fire before a human read the message.
                     ["ManageSecurityLink"] =
                         _emailSettings.BuildFrontendUrl("/profile?tab=security"),
+                    // S20 (REVIEW 150 F12): the passkeys that stay once the password is set,
+                    // as the password-changed notice lists them. The template encodes each name.
+                    ["PasskeyCount"] = notification.Passkeys.Count,
+                    ["Passkeys"] = notification.Passkeys
+                        .Select(passkey => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?>
+                        {
+                            ["Name"] = passkey.Name,
+                            ["CreatedAt"] = passkey.CreatedAt.ToString("u", CultureInfo.InvariantCulture),
+                            ["LastUsedAt"] = passkey.LastUsedAt?.ToString("u", CultureInfo.InvariantCulture),
+                        })
+                        .ToList(),
                 }
             },
             cancellationToken);

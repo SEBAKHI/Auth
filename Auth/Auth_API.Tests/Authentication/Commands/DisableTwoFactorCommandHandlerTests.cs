@@ -48,6 +48,9 @@ public class DisableTwoFactorCommandHandlerTests
     private readonly TwoFactorSettings _twoFactorSettings = new();
     private readonly DisableTwoFactorCommandHandler _handler;
 
+    // Email on: the switch-off rule of D-150-5 (a) applies only with email off.
+    private readonly EmailSettings _email = new() { Enabled = true };
+
     public DisableTwoFactorCommandHandlerTests()
     {
         var verifier = new SecondFactorVerifier(
@@ -65,6 +68,7 @@ public class DisableTwoFactorCommandHandlerTests
             _userRepositoryMock.Object,
             _revocationMock.Object,
             _eventDispatcherMock.Object,
+            new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_email)),
             _loggerMock.Object);
     }
 
@@ -104,7 +108,7 @@ public class DisableTwoFactorCommandHandlerTests
 
     private void GivenCommit(Guid userId, LoginCommitOutcome outcome) =>
         _stateStoreMock
-            .Setup(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(outcome);
 
     private void VerifyNothingAfterTheCommit()
@@ -139,8 +143,8 @@ public class DisableTwoFactorCommandHandlerTests
         GivenEnabledFactor(userId);
         SecondFactorProof? committed = null;
         _stateStoreMock
-            .Setup(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
-            .Callback<Guid, SecondFactorProof, CancellationToken>((_, proof, _) => committed = proof)
+            .Setup(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Callback<Guid, SecondFactorProof, bool, CancellationToken>((_, proof, _, _) => committed = proof)
             .ReturnsAsync(LoginCommitOutcome.Committed);
 
         var result = await _handler.Handle(CreateCommand(userId, "RECOVERY-1", useRecoveryCode: true), CancellationToken.None);
@@ -167,7 +171,7 @@ public class DisableTwoFactorCommandHandlerTests
             s => s.TryDisableAsync(
                 userId,
                 It.Is<SecondFactorProof>(p => p.Method == SecondFactorMethod.Totp && p.Step == MatchedStep),
-                It.IsAny<CancellationToken>()),
+                It.IsAny<bool>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -185,7 +189,7 @@ public class DisableTwoFactorCommandHandlerTests
         _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
         _totpServiceMock.Verify(t => t.ValidateCode(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         _stateStoreMock.Verify(
-            s => s.TryDisableAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()),
+            s => s.TryDisableAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -234,7 +238,7 @@ public class DisableTwoFactorCommandHandlerTests
         result.FirstError.Code.Should().Be(UserErrors.InvalidTwoFactorCode.Code);
         _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _stateStoreMock.Verify(
-            s => s.TryDisableAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()),
+            s => s.TryDisableAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
             Times.Never);
         VerifyNothingAfterTheCommit();
     }
@@ -308,6 +312,95 @@ public class DisableTwoFactorCommandHandlerTests
         VerifyNothingAfterTheCommit();
     }
 
+    // ── D-150-5 (a): with email off, a passkey keeps the app (REVIEW-FIXES 150 F19) ──
+
+    /// <summary>
+    /// With email off no notice can reach the owner, so a passkey is never an account's only
+    /// factor: while one is live, switching the app off is refused — before any attempt is
+    /// counted, with nothing changed. Removing the passkeys first lets the app go.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the rule dropped (the refusal and the flag to the store).</remarks>
+    [Fact]
+    public async Task Handle_EmailOff_WithAPasskey_IsRefused_BeforeAnyAttemptIsCounted_AndNothingChanges()
+    {
+        var userId = Guid.NewGuid();
+        GivenEnabledFactor(userId);
+        GivenCommit(userId, LoginCommitOutcome.Committed);
+        _email.Enabled = false;
+        _stateStoreMock.Setup(s => s.GetQualifyingFactorsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new QualifyingSecondFactors(Totp: true, Passkey: true));
+
+        var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(TwoFactorErrors.PasskeyNeedsApp.Code);
+        result.FirstError.Type.Should().Be(ErrorType.Conflict);
+        _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never,
+            "refused before any attempt is counted, so asking costs nothing");
+        _stateStoreMock.Verify(s => s.TryDisableAsync(It.IsAny<Guid>(), It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never,
+            "the app stays");
+        VerifyNothingAfterTheCommit();
+    }
+
+    /// <summary>With email on the owner is told of every change, so the rule does not apply: as today.</summary>
+    [Fact]
+    public async Task Handle_EmailOn_WithAPasskey_SwitchesOff_AsToday()
+    {
+        var userId = Guid.NewGuid();
+        GivenEnabledFactor(userId);
+        GivenCommit(userId, LoginCommitOutcome.Committed);
+        _stateStoreMock.Setup(s => s.GetQualifyingFactorsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new QualifyingSecondFactors(Totp: true, Passkey: true));
+
+        var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _stateStoreMock.Verify(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), false, It.IsAny<CancellationToken>()), Times.Once,
+            "with email on, no passkey keeps the app");
+        _stateStoreMock.Verify(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    /// <summary>
+    /// With email off and no passkey the app goes as today, and the switch-off's own transaction
+    /// keeps the check, so a passkey registered at the same moment is seen there.
+    /// </summary>
+    [Fact]
+    public async Task Handle_EmailOff_NoPasskey_SwitchesOff_AsToday_WithTheCheckInTheWrite()
+    {
+        var userId = Guid.NewGuid();
+        GivenEnabledFactor(userId);
+        GivenCommit(userId, LoginCommitOutcome.Committed);
+        _email.Enabled = false;
+        _stateStoreMock.Setup(s => s.GetQualifyingFactorsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new QualifyingSecondFactors(Totp: true, Passkey: false));
+
+        var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _stateStoreMock.Verify(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), true, It.IsAny<CancellationToken>()), Times.Once,
+            "the write decides again under its lock");
+    }
+
+    /// <summary>
+    /// A passkey registered between the first check and the write is seen inside the
+    /// switch-off's transaction: refused the same way, with nothing after the commit run.
+    /// </summary>
+    [Fact]
+    public async Task Handle_EmailOff_APasskeyAddedMeanwhile_IsSeenByTheWrite_AndRefused()
+    {
+        var userId = Guid.NewGuid();
+        GivenEnabledFactor(userId);
+        GivenCommit(userId, LoginCommitOutcome.PasskeysStillLive);
+        _email.Enabled = false;
+        _stateStoreMock.Setup(s => s.GetQualifyingFactorsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new QualifyingSecondFactors(Totp: true, Passkey: false));
+
+        var result = await _handler.Handle(CreateCommand(userId), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(TwoFactorErrors.PasskeyNeedsApp.Code);
+        VerifyNothingAfterTheCommit();
+    }
+
     // ── T3: after the commit ───────────────────────────────────────────────
 
     [Fact]
@@ -340,7 +433,7 @@ public class DisableTwoFactorCommandHandlerTests
         GivenEnabledFactor(userId);
         var order = new List<string>();
         _stateStoreMock
-            .Setup(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("commit"))
             .ReturnsAsync(LoginCommitOutcome.Committed);
         _revocationMock
@@ -401,7 +494,7 @@ public class DisableTwoFactorCommandHandlerTests
         _stateStoreMock.Verify(s => s.TryReserveAttemptAsync(userId, It.IsAny<int?>(), cts.Token), Times.Once);
         _userRepositoryMock.Verify(r => r.GetByIdAsync(userId, cts.Token), Times.Once);
         _stateStoreMock.Verify(
-            s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), cts.Token), Times.Once);
+            s => s.TryDisableAsync(userId, It.IsAny<SecondFactorProof>(), It.IsAny<bool>(), cts.Token), Times.Once);
         _revocationMock.Verify(
             r => r.RevokeCredentialsAsync(userId, SessionId, IdpSessionToken, userId, It.IsAny<string>(), CancellationToken.None),
             Times.Once);

@@ -24,11 +24,17 @@ public interface IPasswordResetTokenRepository
     Task CreateAsync(PasswordResetToken token, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Marks a token as used.
+    /// Spends a token, only while it is still unused, and reports whether this call spent it.
     /// </summary>
+    /// <remarks>
+    /// Of two submissions of one link, only one spends it (OI-31, REVIEW-FIXES 150 F14): the
+    /// statement is conditional and its row count is read, so the other learns it lost and
+    /// writes nothing.
+    /// </remarks>
     /// <param name="tokenId">The token ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task MarkAsUsedAsync(Guid tokenId, CancellationToken cancellationToken);
+    /// <returns>True when this call spent the token; false when it was already spent.</returns>
+    Task<bool> MarkAsUsedAsync(Guid tokenId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Invalidates all unused tokens for a user.

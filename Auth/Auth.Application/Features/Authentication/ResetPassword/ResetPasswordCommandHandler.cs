@@ -1,6 +1,8 @@
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Validators;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -30,6 +32,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly IAccountLockout _accountLockout;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly ITwoFactorChallengeRepository _twoFactorChallengeRepository;
+    private readonly RecentPasskeyRevocation _recentPasskeys;
     private readonly ILogger<ResetPasswordCommandHandler> _logger;
 
     public ResetPasswordCommandHandler(
@@ -47,8 +50,10 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IAccountLockout accountLockout,
         ITwoFactorStateStore twoFactorStateStore,
         ITwoFactorChallengeRepository twoFactorChallengeRepository,
+        RecentPasskeyRevocation recentPasskeys,
         ILogger<ResetPasswordCommandHandler> logger)
     {
+        _recentPasskeys = recentPasskeys;
         _userRepository = userRepository;
         _passwordResetTokenRepository = passwordResetTokenRepository;
         _passwordHistoryRepository = passwordHistoryRepository;
@@ -132,6 +137,29 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         // Hash the new password
         var newPasswordHash = _passwordHasher.HashPassword(request.NewPassword);
 
+        // Which event this is, decided from the account as it was read, BEFORE the write. An
+        // external-only account (Google, Apple) has no hash, so this reset is the first
+        // credential it has ever had - a different security event from a rotation. Until now
+        // this handler mutated nothing and dispatched nothing, so a reset left no audit trail
+        // at all. S20 (D-T19 D): the passkeys registered in the 72 hours before this reset go
+        // once it has committed; the older ones stay, and the notice lists them. Cut once, now.
+        var settingFirstPassword = user.PasswordHash is null;
+        var passkeyCutoff = _recentPasskeys.CutoffNow();
+
+        // The link is spent first, right after the last check that can refuse and before the
+        // first write (REVIEW-FIXES 150 F14, OI-31): the statement is conditional and its row
+        // count is read, so of two submissions of one link only one goes on, and the other
+        // writes nothing. From the spend on, no step takes the request's token: the link is
+        // gone, so a reset a client stopped halfway would leave the account half taken back,
+        // with no link left to finish it.
+        if (!await _passwordResetTokenRepository.MarkAsUsedAsync(resetToken.Id, CancellationToken.None))
+        {
+            _logger.LogWarning(
+                "Password reset token {TokenId} was spent by another submission; nothing was written",
+                resetToken.Id);
+            return PasswordResetErrors.InvalidOrExpiredToken;
+        }
+
         // Add current password to history
         if (user.PasswordHash is not null)
         {
@@ -141,24 +169,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
                 user.PasswordHash,
                 DateTime.UtcNow);
 
-            await _passwordHistoryRepository.AddAsync(passwordHistory, cancellationToken);
-        }
-
-        // Let the aggregate decide which event this is, BEFORE the write. An external-only
-        // account (Google, Apple) has no hash, so this reset is the first credential it has
-        // ever had - a different security event from a rotation. Until now this handler
-        // mutated nothing and dispatched nothing, so a reset left no audit trail at all.
-        if (user.PasswordHash is null)
-        {
-            var initialPassword = user.SetInitialPassword(newPasswordHash, user.Id);
-            if (initialPassword.IsError)
-            {
-                return initialPassword.Errors;
-            }
-        }
-        else
-        {
-            user.ChangePassword(newPasswordHash, user.Id);
+            await _passwordHistoryRepository.AddAsync(passwordHistory, CancellationToken.None);
         }
 
         // Update the password
@@ -166,7 +177,43 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
             user.Id,
             newPasswordHash,
             user.Id,
-            cancellationToken);
+            CancellationToken.None);
+
+        // What takes the account back: the sessions first, so a passkey registration in flight
+        // from one of them either committed already, and the revocation below catches it, or
+        // finds its session ended and stores nothing (REVIEW 150 F1, F2). The passkeys then go
+        // even when ending the sessions throws, whose exception surfaces after it (F14).
+        var shouldTerminateSessions = request.TerminateSessions
+            ?? _sessionSettings.TerminateSessionsOnPasswordReset;
+
+        try
+        {
+            await EndSessionsAsync(user.Id, shouldTerminateSessions);
+        }
+        finally
+        {
+            // S20 (D-T19 D): a passkey registered in the 72 hours before the reset may be the
+            // door of whoever held the account; it goes now, never failing the reset.
+            await _recentPasskeys.RevokeRecentAsync(user, passkeyCutoff, PasskeyRemovalReasons.PasswordReset, user.Id);
+        }
+
+        // The entity raises its event with the passkeys still live now, read after the
+        // revocation: a failed one leaves the recent passkeys listed, never hidden. It cannot
+        // refuse here: a first password is refused only on an account that has one, which
+        // settingFirstPassword, decided from the same read, excludes.
+        var passkeysThatStay = await _recentPasskeys.StillLiveAsync(user.Id, CancellationToken.None);
+        if (settingFirstPassword)
+        {
+            var initialPassword = user.SetInitialPassword(newPasswordHash, user.Id, passkeysThatStay);
+            if (initialPassword.IsError)
+            {
+                return initialPassword.Errors;
+            }
+        }
+        else
+        {
+            user.ChangePassword(newPasswordHash, user.Id, passkeysThatStay);
+        }
 
         // A completed reset replaces the password the strangers were guessing, so
         // a lock raised by their wrong passwords has nothing left to protect: it is
@@ -174,61 +221,20 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         // from the row, unconditionally: an administrator's lock (count 0) is an
         // incident-response decision a self-service reset must never undo, and it
         // is left as it is, like Inactive and Pending and the second factor's own
-        // counter. Next to the password write, before the link is spent, so a
-        // failure here leaves a link the user can still use.
-        await _accountLockout.ClearAutomaticLockAsync(user.Id, cancellationToken);
-
-        // Mark the reset token as used
-        await _passwordResetTokenRepository.MarkAsUsedAsync(resetToken.Id, cancellationToken);
+        // counter. The link is already spent (F14): should this fail, the way out
+        // is a new link, which a lock raised by guessing does not stop.
+        await _accountLockout.ClearAutomaticLockAsync(user.Id, CancellationToken.None);
 
         // Invalidate on use, not on request: any other live link for this
         // account (issued before the one-live-link rule shipped, or still in
         // an inbox) dies now that the password has changed.
-        await _passwordResetTokenRepository.InvalidateAllForUserAsync(user.Id, cancellationToken);
+        await _passwordResetTokenRepository.InvalidateAllForUserAsync(user.Id, CancellationToken.None);
 
         // Cleanup old password history
         await _passwordHistoryRepository.CleanupOldHistoryAsync(
             user.Id,
             _passwordSettings.HistoryCount,
-            cancellationToken);
-
-        // Determine whether to terminate sessions
-        var shouldTerminateSessions = request.TerminateSessions
-            ?? _sessionSettings.TerminateSessionsOnPasswordReset;
-
-        if (shouldTerminateSessions)
-        {
-            // The full wipe, not a session-row termination. Ending the rows alone
-            // evicts nobody: nothing on the refresh path consults the session, so
-            // an unrevoked refresh token mints a fresh access token and the reset
-            // locks nothing out. This also revokes the SSO sessions.
-            await _credentialRevocation.RevokeAllCredentialsAsync(
-                user.Id,
-                revokedBy: user.Id,
-                "Password reset",
-                cancellationToken);
-
-            _logger.LogInformation(
-                "Password reset for user {UserId}, revoked all credentials",
-                user.Id);
-        }
-        else
-        {
-            // Preserving application sessions is a usability choice the operator
-            // may make. Preserving single sign-on is not: this is the action
-            // someone takes when they believe they have been compromised, and an
-            // SSO cookie that predates the reset still mints authorization codes
-            // for every application the account can enter. So it goes regardless
-            // of the flag, and no caller can opt out.
-            var idpRevoked = await _credentialRevocation.RevokeIdpSessionsAsync(
-                user.Id,
-                exceptIdpSessionToken: null,
-                cancellationToken);
-
-            _logger.LogInformation(
-                "Password reset for user {UserId}, application sessions preserved per request/configuration; revoked {IdpSessionCount} SSO sessions",
-                user.Id, idpRevoked);
-        }
+            CancellationToken.None);
 
         // And the emailed second factor's count and lock (S24, LK4 (c)): the reset
         // proved the same mailbox the code goes to, so it is that factor's way out
@@ -271,8 +277,48 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
 
         // Dispatched last, mirroring ChangePasswordCommandHandler: the password is persisted
         // and the sessions are settled before anything reacts to the event.
-        await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
+        await _eventDispatcher.DispatchEventsAsync(user, CancellationToken.None);
 
         return Result.Success;
+    }
+
+    /// <summary>
+    /// Ends what the reset must end, with no token a client can cancel: every credential, or,
+    /// when the application sessions are kept, the SSO sessions alone.
+    /// </summary>
+    private async Task EndSessionsAsync(Guid userId, bool terminateSessions)
+    {
+        if (terminateSessions)
+        {
+            // The full wipe, not a session-row termination. Ending the rows alone
+            // evicts nobody: nothing on the refresh path consults the session, so
+            // an unrevoked refresh token mints a fresh access token and the reset
+            // locks nothing out. This also revokes the SSO sessions.
+            await _credentialRevocation.RevokeAllCredentialsAsync(
+                userId,
+                revokedBy: userId,
+                "Password reset",
+                CancellationToken.None);
+
+            _logger.LogInformation(
+                "Password reset for user {UserId}, revoked all credentials",
+                userId);
+            return;
+        }
+
+        // Preserving application sessions is a usability choice the operator
+        // may make. Preserving single sign-on is not: this is the action
+        // someone takes when they believe they have been compromised, and an
+        // SSO cookie that predates the reset still mints authorization codes
+        // for every application the account can enter. So it goes regardless
+        // of the flag, and no caller can opt out.
+        var idpRevoked = await _credentialRevocation.RevokeIdpSessionsAsync(
+            userId,
+            exceptIdpSessionToken: null,
+            CancellationToken.None);
+
+        _logger.LogInformation(
+            "Password reset for user {UserId}, application sessions preserved per request/configuration; revoked {IdpSessionCount} SSO sessions",
+            userId, idpRevoked);
     }
 }

@@ -169,6 +169,12 @@ public class ExpiredDataCleanupWorker : BackgroundService
             ("TwoFactorBindCodes",
                 sp.GetRequiredService<ITwoFactorBindCodeRepository>().CleanupExpiredAsync,
                 settings.EffectiveTwoFactorChallengeDays),
+            // The challenges of the passkey ceremonies (S20, PK6): five-minute, single-use
+            // records like the sign-in challenges, so they share their retention. Nothing is
+            // swept while the database has no such table.
+            ("WebAuthnChallenges",
+                sp.GetRequiredService<IWebAuthnChallengeRepository>().CleanupExpiredAsync,
+                settings.EffectiveTwoFactorChallengeDays),
             ("PasswordResetTokens",
                 sp.GetRequiredService<IPasswordResetTokenRepository>().CleanupExpiredAsync,
                 settings.EffectivePasswordResetTokenDays),

@@ -194,11 +194,17 @@ public class DeactivateAccountCommandHandlerTests
 
 public class LockAccountCommandHandlerTests
 {
+    // S20 (PK12): the passkeys the 72-hour revocation sees, on a fixed clock.
+    private static readonly DateTimeOffset PasskeyNow = new(2026, 11, 5, 9, 14, 0, TimeSpan.Zero);
+    private readonly Mock<Auth.Domain.Interfaces.Repositories.IUserPasskeyRepository> _passkeysMock = PasskeyTestDoubles.EmptyRepository();
+    private readonly Mock<MediatR.IPublisher> _passkeyPublisherMock = new();
+
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly Mock<IUserSessionRepository> _sessionRepositoryMock = new();
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock = new();
     private readonly Mock<IAccountAuthorityChange> _change;
+    private readonly Mock<ITwoFactorBindCodeRepository> _bindCodesMock = new();
     private readonly LockAccountCommandHandler _handler;
 
     public LockAccountCommandHandlerTests()
@@ -209,6 +215,8 @@ public class LockAccountCommandHandlerTests
             AccountRules.Policy(users: _userRepositoryMock),
             _credentialRevocationMock.Object,
             _eventDispatcherMock.Object,
+            PasskeyTestDoubles.Revocation(_passkeysMock, _passkeyPublisherMock.Object, new FixedTimeProvider(PasskeyNow)),
+            _bindCodesMock.Object,
             new Mock<ILogger<LockAccountCommandHandler>>().Object);
     }
 
@@ -234,6 +242,129 @@ public class LockAccountCommandHandlerTests
         _credentialRevocationMock.Verify(
             c => c.RevokeAllCredentialsAsync(userId, lockedBy, It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once());
+    }
+
+    /// <summary>
+    /// S20 (PK12, ARR-0667): an administrator's lock revokes the passkeys registered in the 72
+    /// hours before it, with its reason; the older ones stay for the owner's return.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the revocation dropped from this path.</remarks>
+    [Fact]
+    public async Task Handle_ValidUser_RevokesThePasskeysOfTheLast72Hours()
+    {
+        var userId = Guid.NewGuid();
+        var lockedBy = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        var cutoff = PasskeyNow.UtcDateTime.AddHours(-72);
+        var recent = PasskeyTestDoubles.Live(userId, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
+        var older = PasskeyTestDoubles.Live(userId, PasskeyNow.UtcDateTime.AddHours(-73), "Older");
+        _passkeysMock
+            .Setup(r => r.GetLiveAsync(userId, PasskeyTestDoubles.RpId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recent, older]);
+        _passkeysMock
+            .Setup(r => r.RevokeRegisteredAfterAsync(userId, cutoff, Auth.Domain.Constants.PasskeyRemovalReasons.AdminLock, lockedBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recent]);
+
+        var result = await _handler.Handle(new LockAccountCommand(userId, "Suspicious activity", 30, lockedBy), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
+            userId, cutoff, Auth.Domain.Constants.PasskeyRemovalReasons.AdminLock, lockedBy, CancellationToken.None), Times.Once,
+            "a passkey registered in the 72 hours before is revoked; the statement keeps the older ones (CreatedAt > @RegisteredAfter)");
+        _passkeyPublisherMock.Verify(p => p.Publish(
+            It.Is<Auth.Domain.Events.PasskeyRemovedEvent>(e => e.PasskeyId == recent.Id
+                && e.Reason == Auth.Domain.Constants.PasskeyRemovalReasons.AdminLock && e.RemovedBy == lockedBy),
+            CancellationToken.None), Times.Once);
+    }
+
+    /// <summary>
+    /// REVIEW 150 F1, F2 and REVIEW-FIXES 150 F14: from the commit on, an administrator's browser
+    /// that disconnects cannot skip any step: the sessions, the recent passkeys, the bind codes and
+    /// the event all run with no request token.
+    /// </summary>
+    /// <remarks>
+    /// Deliberate breaks, each verified red: the request's token back on the dispatch; the request's
+    /// token given to the session revocation again.
+    /// </remarks>
+    [Fact]
+    public async Task Handle_ACallerThatDisconnectsAfterTheLock_CannotSkipAnyStep()
+    {
+        var userId = Guid.NewGuid();
+        var lockedBy = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        using var request = new CancellationTokenSource();
+        _change.Setup(c => c.SetAccountStatusAsync(userId, It.IsAny<AccountStatusChange>(), lockedBy, It.IsAny<CancellationToken>()))
+            .Callback(() => request.Cancel())
+            .Returns(Task.CompletedTask);
+        _credentialRevocationMock
+            .Setup(c => c.RevokeAllCredentialsAsync(userId, lockedBy, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns((Guid _, Guid? _, string _, CancellationToken token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                return Task.FromResult(1);
+            });
+        _eventDispatcherMock
+            .Setup(d => d.DispatchEventsAsync(It.IsAny<Auth.Domain.Primitives.AggregateRoot>(), It.IsAny<CancellationToken>()))
+            .Returns((Auth.Domain.Primitives.AggregateRoot _, CancellationToken token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            });
+
+        var result = await _handler.Handle(new LockAccountCommand(userId, "Suspicious activity", 30, lockedBy), request.Token);
+
+        result.IsError.Should().BeFalse("the lock is set: the rest runs whatever the administrator's browser does");
+        _credentialRevocationMock.Verify(c => c.RevokeAllCredentialsAsync(userId, lockedBy, It.IsAny<string>(), CancellationToken.None), Times.Once,
+            "the sessions end whatever the administrator's browser does");
+        _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
+            userId, It.IsAny<DateTime>(), Auth.Domain.Constants.PasskeyRemovalReasons.AdminLock, lockedBy, CancellationToken.None), Times.Once,
+            "the recent passkeys go whatever the administrator's browser does");
+        _eventDispatcherMock.Verify(d => d.DispatchEventsAsync(user, CancellationToken.None), Times.Once, "the event still goes");
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F14: the recent passkeys go even when ending the sessions throws, and that
+    /// exception then surfaces as before.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the revocation moved out of the <c>finally</c>.</remarks>
+    [Fact]
+    public async Task Handle_WhenEndingTheSessionsThrows_TheRecentPasskeysStillGo_AndTheErrorSurfaces()
+    {
+        var userId = Guid.NewGuid();
+        var lockedBy = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _credentialRevocationMock
+            .Setup(c => c.RevokeAllCredentialsAsync(userId, lockedBy, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("the token store is unreachable"));
+
+        var act = () => _handler.Handle(new LockAccountCommand(userId, "Suspicious activity", 30, lockedBy), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("the token store is unreachable");
+        _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
+            userId, It.IsAny<DateTime>(), Auth.Domain.Constants.PasskeyRemovalReasons.AdminLock, lockedBy, CancellationToken.None), Times.Once,
+            "the passkeys of the last 72 hours go whatever ending the sessions did");
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F18 (g): a lock leaves the password as it was, so it ends the account's
+    /// outstanding codes to bind a factor: one asked for before the lock binds nothing after it.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the call removed.</remarks>
+    [Fact]
+    public async Task Handle_ALock_EndsTheOutstandingCodesToBindAFactor()
+    {
+        var userId = Guid.NewGuid();
+        var lockedBy = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+
+        var result = await _handler.Handle(new LockAccountCommand(userId, "Suspicious activity", 30, lockedBy), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _bindCodesMock.Verify(r => r.InvalidateOutstandingForUserAsync(userId, CancellationToken.None), Times.Once);
     }
 
     [Fact]

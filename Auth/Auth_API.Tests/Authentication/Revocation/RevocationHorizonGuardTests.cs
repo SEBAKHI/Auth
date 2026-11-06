@@ -126,6 +126,7 @@ public class RevocationHorizonGuardTests
             "ChangePasswordCommandHandler.cs",
             "ConfirmAuthenticatorReplacementCommandHandler.cs",
             "DisableTwoFactorCommandHandler.cs",
+            "RemovePasskeyCommandHandler.cs",
             "RemovePasswordCommandHandler.cs",
             "SecondFactorChangeRevocation.cs",
             "SignInWithEmailCodeCommandHandler.cs",

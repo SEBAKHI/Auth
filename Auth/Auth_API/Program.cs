@@ -13,6 +13,7 @@ using Auth_API.Common.FirstParty;
 using Auth_API.Common.Filters;
 using Auth_API.Common.HealthChecks;
 using Auth_API.Common.Middleware;
+using Auth_API.Common.Passkeys;
 using Auth_API.Common.RateLimiting;
 using Auth_API.Modules.Media.Filters;
 using Auth_API.Tools;
@@ -24,6 +25,7 @@ using Auth.Application.SystemSettings;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Infrastructure;
 using Auth.Infrastructure.Authentication;
+using Auth.Infrastructure.Authentication.Passkeys;
 using Auth.Infrastructure.Authorization;
 using Auth.Infrastructure.Persistence;
 using Auth.Infrastructure.Services;
@@ -40,6 +42,7 @@ using Auth.Shared.Diagnostics;
 using Auth.Shared.Http;
 using Auth.Shared.Http.ErrorContract;
 using Auth.Application.Features.Authentication.Common;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Features.PrivacyPolicy.Common;
 using Auth.Application.Validators;
 using FluentValidation;
@@ -114,6 +117,10 @@ builder.Services.Configure<RegistrationSettings>(builder.Configuration.GetSectio
 builder.Services.Configure<OrganizationSettings>(builder.Configuration.GetSection(OrganizationSettings.SectionName));
 builder.Services.Configure<IdentityProviderSettings>(builder.Configuration.GetSection(IdentityProviderSettings.SectionName));
 builder.Services.PostConfigure<IdentityProviderSettings>(SettingsArrayNormalizer.Apply);
+// S20: passkeys. Read from the settings files only (not in the console registry until the
+// screens ship): Enabled per request, the RP ID once, at start-up (restart required).
+builder.Services.Configure<PasskeySettings>(builder.Configuration.GetSection(PasskeySettings.SectionName));
+builder.Services.AddSingleton(PasskeyRpIdAtStartup.From(builder.Configuration));
 // Password reset and email verification links are built from FrontendBaseUrl. An
 // empty value silently yields a relative URL, i.e. a dead link in every email, so
 // it is validated up front - but only when email is actually enabled. It is on in
@@ -625,6 +632,16 @@ builder.Services.AddScoped<ITwoFactorChallengeRepository, TwoFactorChallengeRepo
 builder.Services.AddScoped<ITwoFactorStateStore, TwoFactorStateStore>();
 // The codes emailed before an account binds its first second factor.
 builder.Services.AddScoped<ITwoFactorBindCodeRepository, TwoFactorBindCodeRepository>();
+// S20: the passkeys, their ceremony challenges, and whether the database holds their schema
+// (asked once; every passkey read answers "none" without it). The WebAuthn library sits
+// behind IWebAuthnVerifier and is built per call, only while passkeys run.
+builder.Services.AddSingleton<IPasskeySchema, PasskeySchemaProbe>();
+builder.Services.AddScoped<IUserPasskeyRepository, UserPasskeyRepository>();
+builder.Services.AddScoped<IWebAuthnChallengeRepository, WebAuthnChallengeRepository>();
+builder.Services.AddScoped<IWebAuthnVerifier, Fido2WebAuthnVerifier>();
+builder.Services.AddScoped<PasskeyFeature>();
+builder.Services.AddScoped<PasskeyRegistrationGate>();
+builder.Services.AddScoped<RecentPasskeyRevocation>();
 builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
 builder.Services.AddScoped<IPendingRegistrationRepository, PendingRegistrationRepository>();
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
@@ -924,6 +941,8 @@ builder.Services.AddSingleton<ISecurityPostureContributor, AdminApiPostureContri
 builder.Services.AddSingleton<ISecurityPostureContributor, EmailCodeFactorPostureContributor>();
 // X04: the token revocation list loaded at startup, and the lifetime and skew within their bounds.
 builder.Services.AddSingleton<ISecurityPostureContributor, RevocationPostureContributor>();
+// S20: a passkey switch-on that cannot run, and live passkeys of another RP ID.
+builder.Services.AddSingleton<ISecurityPostureContributor, PasskeyPostureContributor>();
 builder.Services.AddHostedService<SecurityPostureCheck>();
 
 // External Authentication
@@ -1605,6 +1624,9 @@ catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
 app.UseStaticFiles(UploadsStaticFiles.Options(imageStorageRoot, imageStorageSettings.RequestPath));
 
 app.UseCors();
+// S20 (PK19): every passkey endpoint answers 404 while passkeys do not run — before
+// authentication, so it answers as an address that does not exist.
+app.UseMiddleware<PasskeysAvailabilityMiddleware>();
 app.UseAuthentication();
 
 // AFTER UseAuthentication, deliberately. A limiter placed ahead of it sees only

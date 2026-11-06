@@ -31,6 +31,16 @@ public static class TwoFactorErrors
         description: "Platform administrators must use two-factor authentication. Complete it to continue.");
 
     /// <summary>
+    /// Email sending is off and the account holds a passkey: the authenticator app stays, so
+    /// a passkey is never the account's only factor while no notice can reach its owner
+    /// (S20, D-150-5 (a), REVIEW-FIXES 150 F19). Removing the passkeys first lets the app go;
+    /// replacing the app is unchanged.
+    /// </summary>
+    public static readonly Error PasskeyNeedsApp = Error.Conflict(
+        code: "TwoFactor.PasskeyNeedsApp",
+        description: "While email sending is off, the authenticator app cannot be switched off while a passkey is on the account. Remove the passkeys first.");
+
+    /// <summary>
     /// An administrator may not remove this account's second factor: it is their
     /// own (another administrator, or the owner's emergency script, does that), it
     /// is the internal system account, or it holds platform authority the

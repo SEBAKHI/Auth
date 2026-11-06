@@ -23,6 +23,8 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly IOptionsMonitor<EmailSettings> _emailSettings;
     private readonly IPlatformMfaPolicy _platformMfaPolicy;
+    private readonly IUserPasskeyRepository _passkeyRepository;
+    private readonly PasskeyRpIdAtStartup _passkeyRpId;
 
     public GetUserByIdQueryHandler(
         IUserRepository userRepository,
@@ -32,8 +34,12 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
         IImageUrlComposer imageUrlComposer,
         ITwoFactorStateStore twoFactorStateStore,
         IOptionsMonitor<EmailSettings> emailSettings,
-        IPlatformMfaPolicy platformMfaPolicy)
+        IPlatformMfaPolicy platformMfaPolicy,
+        IUserPasskeyRepository passkeyRepository,
+        PasskeyRpIdAtStartup passkeyRpId)
     {
+        _passkeyRepository = passkeyRepository;
+        _passkeyRpId = passkeyRpId;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
@@ -68,6 +74,11 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
         // account flag says only that a sign-in asks for one.
         var factor = await _twoFactorStateStore.GetSnapshotAsync(user.Id, cancellationToken);
 
+        // FA2, the one definition every policy reads: the app or a live passkey (S20). The
+        // app's own flag stays TotpEnabled (FA12: each factor shown on its own).
+        var qualifyingMfa = await _twoFactorStateStore.HasEnabledFactorAsync(user.Id, cancellationToken);
+        var passkeyCount = await _passkeyRepository.CountLiveAsync(user.Id, _passkeyRpId.Value, cancellationToken);
+
         // The rule that refuses the app's switch-off and the emailed code in its place,
         // read for the screens that offer them (review of #107: no button that fails).
         var requiredByPolicy = await _platformMfaPolicy.IsEnforcedForUserAsync(user.Id, cancellationToken);
@@ -87,7 +98,8 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
             TwoFactorEnabled = user.TwoFactorEnabled,
             TotpEnabled = factor?.IsEnabled == true,
             EmailCodeEnabled = factor?.HasEmailCode == true,
-            QualifyingMfa = factor?.IsEnabled == true,
+            QualifyingMfa = qualifyingMfa,
+            PasskeyCount = passkeyCount,
             EmailCodeAvailable = _emailSettings.CurrentValue.Enabled,
             TwoFactorRequiredByPolicy = requiredByPolicy,
             PreferredLanguage = user.PreferredLanguage,

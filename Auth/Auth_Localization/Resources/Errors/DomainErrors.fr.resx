@@ -593,6 +593,9 @@
   <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
     <value>L'authentification à deux facteurs est verrouillée après trop de codes erronés. Réinitialisez votre mot de passe depuis la page de connexion, puis demandez à un administrateur de réinitialiser l'authentification à deux facteurs.</value>
   </data>
+  <data name="TwoFactor.PasskeyNeedsApp" xml:space="preserve">
+    <value>Lorsque l'envoi d'e-mails est désactivé, l'application d'authentification ne peut pas être désactivée tant que le compte a une clé d'accès. Supprimez d'abord les clés d'accès.</value>
+  </data>
   <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
     <value>L'authentification à deux facteurs de ce compte est verrouillée après trop de codes erronés. Son propriétaire doit réinitialiser le mot de passe par e-mail avant que vous puissiez réinitialiser l'authentification à deux facteurs.</value>
   </data>
@@ -1375,6 +1378,21 @@
   </data>
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>Le nombre d'éléments doit être compris entre 1 et 100.</value>
+  </data>
+  <data name="Passkey.EmailRequired" xml:space="preserve">
+    <value>Une première clé d'accès ne peut être ajoutée que si l'envoi d'e-mails est activé. Ajoutez d'abord l'application d'authentification, puis la clé d'accès.</value>
+  </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>Ce compte a déjà le nombre maximal de clés d'accès. Supprimez-en une avant d'en ajouter une autre.</value>
+  </data>
+  <data name="Passkey.NameTooLong" xml:space="preserve">
+    <value>Le nom d'une clé d'accès ne doit pas dépasser 64 caractères.</value>
+  </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>La clé d'accès est introuvable.</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>La clé d'accès n'a pas pu être vérifiée. Réessayez.</value>
   </data>
   <data name="Password.CommonPattern" xml:space="preserve">
     <value>Le mot de passe contient un schéma courant facile à deviner.</value>

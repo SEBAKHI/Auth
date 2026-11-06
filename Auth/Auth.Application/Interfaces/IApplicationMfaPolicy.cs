@@ -22,18 +22,19 @@ public interface IApplicationMfaPolicy
     /// an account without a qualifying factor is <see cref="ApplicationMfaRequirement.Enroll"/>,
     /// even for a session that proved one since removed; a session that proved two factors
     /// (<see cref="AuthenticationMethods.IsMfaSatisfied"/>) is <see cref="ApplicationMfaRequirement.None"/>;
-    /// a first factor with an authenticator app on the account is
-    /// <see cref="ApplicationMfaRequirement.StepUp"/>; anything else, nothing recorded or an
-    /// emailed code of an account that has a password, is
+    /// an account whose only qualifying factor is a passkey (S20) is
+    /// <see cref="ApplicationMfaRequirement.Passkey"/>; a first factor with an authenticator
+    /// app on the account is <see cref="ApplicationMfaRequirement.StepUp"/>; anything else,
+    /// nothing recorded or an emailed code of an account that has a password, is
     /// <see cref="ApplicationMfaRequirement.Reauthenticate"/>.
     /// </summary>
     /// <param name="requireTwoFactor">The application's flag.</param>
     /// <param name="methods">What the session proved; <see cref="AuthenticationMethods.Unknown"/> when nothing was recorded.</param>
-    /// <param name="hasQualifyingFactor">
-    /// Whether the account holds a qualifying second factor: an enabled authenticator app.
-    /// An emailed code never qualifies.
+    /// <param name="factors">
+    /// The account's qualifying second factors (FA2): an enabled authenticator app, a live
+    /// user-verified passkey of the current RP ID. An emailed code never qualifies.
     /// </param>
-    ApplicationMfaRequirement Evaluate(bool requireTwoFactor, AuthenticationMethods methods, bool hasQualifyingFactor);
+    ApplicationMfaRequirement Evaluate(bool requireTwoFactor, AuthenticationMethods methods, QualifyingSecondFactors factors);
 
     /// <summary>
     /// <see cref="Evaluate"/> for a user, reading the account's factors only when the flag

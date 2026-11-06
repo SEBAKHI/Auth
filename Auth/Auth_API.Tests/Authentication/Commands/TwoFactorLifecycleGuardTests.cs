@@ -99,6 +99,7 @@ public class TwoFactorLifecycleGuardTests
                     _userRepository.Object,
                     _revocation.Object,
                     _dispatcher.Object,
+                    emailProofPolicy,
                     Mock.Of<ILogger<DisableTwoFactorCommandHandler>>())
                 .Handle(new DisableTwoFactorCommand(UserId, "123456", false, SessionId, "idp-cookie", "203.0.113.7"), CancellationToken.None)),
 

@@ -62,7 +62,7 @@ public class SecondFactorTruthTableTests
         var claims = new TokenClaims(["admin"], ["users:read"], []);
 
         // The emailed code's row has IsEnabled = 0, which is what the policy reads.
-        var decision = policy.Apply(claims, Pwd.With(AuthenticationMethods.EmailCode), hasEnabledSecondFactor: false, enforce: true);
+        var decision = policy.Apply(claims, Pwd.With(AuthenticationMethods.EmailCode), factors: QualifyingSecondFactors.None, enforce: true);
 
         decision.Requirement.Should().Be(MfaRequirement.Enroll);
         decision.Claims.Permissions.Should().BeEmpty();
@@ -278,6 +278,8 @@ public class UserStatsMfaSplitTests
             "email" => EmailRow(user.Id),
             _ => null
         });
+        // FA2 as the store reads it: the app alone qualifies, never the emailed code.
+        store.Setup(s => s.HasEnabledFactorAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(factor == "totp");
         var roles = new Mock<IRoleRepository>();
         roles.Setup(r => r.GetUserRolesAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync([]);
         var permissions = new Mock<IPermissionRepository>();
@@ -285,12 +287,17 @@ public class UserStatsMfaSplitTests
 
         var dto = (await new GetUserByIdQueryHandler(
                 users.Object, roles.Object, permissions.Object, AccountRules.Policy(), Mock.Of<IImageUrlComposer>(), store.Object,
-                TestHelpers.CreateOptions(new EmailSettings { Enabled = emailEnabled && available }), Mock.Of<IPlatformMfaPolicy>())
+                TestHelpers.CreateOptions(new EmailSettings { Enabled = emailEnabled && available }), Mock.Of<IPlatformMfaPolicy>(),
+                PasskeyTestDoubles.EmptyRepository().Object, PasskeyTestDoubles.RpIdAtStartup)
             .Handle(new GetUserByIdQuery(user.Id), CancellationToken.None)).Value;
 
         dto.TotpEnabled.Should().Be(totp);
         dto.EmailCodeEnabled.Should().Be(emailCode);
-        dto.QualifyingMfa.Should().Be(qualifying, "the emailed code is never a factor a policy accepts");
+        // REVIEW 150 F6: the page's answer is FA2's, read from the store, never derived from
+        // the row it shows; that the emailed code is never a factor is the FA2 fragment's
+        // own test (SecondFactorInventoryTests), not this stub's.
+        store.Verify(s => s.HasEnabledFactorAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        dto.QualifyingMfa.Should().Be(qualifying, "the page carries the store's answer through");
         dto.EmailCodeAvailable.Should().Be(emailEnabled && available);
     }
 

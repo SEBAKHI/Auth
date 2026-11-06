@@ -124,11 +124,12 @@ public class AuthenticationMethodsTests
     [Fact]
     public void FromStored_IgnoresBitsThisCodeNeverWrites()
     {
-        // 32 and 64 are reserved for the passkey methods: until they exist, a value
-        // carrying them is read as what it holds of the known bits, and never
-        // counts as two factors on their strength.
-        AuthenticationMethods.FromStored(1 | 64).Should().Be(Pwd);
-        AuthenticationMethods.FromStored(64).IsUnknown.Should().BeTrue();
+        // A value carrying a bit no code writes (256 and up) is read as what it holds of
+        // the known bits, and never counts as anything on its strength. 32 and 64 are the
+        // passkey methods since S20 (AuthenticationMethodsPasskeyTests).
+        AuthenticationMethods.FromStored(1 | 256).Should().Be(Pwd);
+        AuthenticationMethods.FromStored(256).IsUnknown.Should().BeTrue();
+        AuthenticationMethods.FromStored(256 | 512).IsMfaSatisfied.Should().BeFalse();
     }
 
     [Fact]

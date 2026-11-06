@@ -362,7 +362,8 @@ public class AccountActionMatrixTests
             .Handle(new GetUsersQuery { ActorId = _actor }, CancellationToken.None);
         var account = await new GetUserByIdQueryHandler(
                 _users.Object, _roles.Object, _permissions.Object, _policy, images, Mock.Of<ITwoFactorStateStore>(),
-                TestHelpers.CreateOptions(new EmailSettings()), Mock.Of<IPlatformMfaPolicy>())
+                TestHelpers.CreateOptions(new EmailSettings()), Mock.Of<IPlatformMfaPolicy>(),
+                PasskeyTestDoubles.EmptyRepository().Object, PasskeyTestDoubles.RpIdAtStartup)
             .Handle(new GetUserByIdQuery(_target) { ActorId = _actor }, CancellationToken.None);
 
         foreach (var actions in new[] { page.Value.Users.Single().AllowedActions!, account.Value.AllowedActions! })
@@ -420,7 +421,7 @@ public class AccountActionMatrixTests
                     ? new RevokeUserPermissionCommand(_target, _applicationPermission, _application) { RevokedBy = _actor }
                     : new RevokeUserPermissionCommand(_target, _wildcardPermission) { RevokedBy = _actor }, ct),
             "Lock" => await new LockAccountCommandHandler(
-                    _users.Object, _policy, _revocation.Object, _dispatcher.Object, Mock.Of<ILogger<LockAccountCommandHandler>>())
+                    _users.Object, _policy, _revocation.Object, _dispatcher.Object, PasskeyTestDoubles.Revocation(), Mock.Of<ITwoFactorBindCodeRepository>(), Mock.Of<ILogger<LockAccountCommandHandler>>())
                 .Handle(new LockAccountCommand(_target, "Incident", 30, _actor), ct),
             "Unlock" => await new UnlockAccountCommandHandler(
                     _users.Object, _policy, _dispatcher.Object, Mock.Of<ILogger<UnlockAccountCommandHandler>>())

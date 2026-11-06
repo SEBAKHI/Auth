@@ -90,10 +90,10 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
     public PlatformMfaDecision Apply(
         TokenClaims platformClaims,
         AuthenticationMethods methods,
-        bool hasEnabledSecondFactor,
+        QualifyingSecondFactors factors,
         bool enforce)
     {
-        var assessed = Assess(platformClaims, methods, hasEnabledSecondFactor);
+        var assessed = Assess(platformClaims, methods, factors);
 
         if (assessed == MfaRequirement.None || !enforce)
         {
@@ -125,10 +125,10 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
         // Read once: the switch is hot, and one mint decides once.
         var enforce = IsEnforcing;
 
-        bool hasEnabledSecondFactor;
+        QualifyingSecondFactors factors;
         try
         {
-            hasEnabledSecondFactor = await _twoFactorStateStore.HasEnabledFactorAsync(userId, cancellationToken);
+            factors = await _twoFactorStateStore.GetQualifyingFactorsAsync(userId, cancellationToken);
         }
         catch (Exception ex) when (!enforce && ex is not OperationCanceledException)
         {
@@ -142,7 +142,7 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
             return PlatformMfaDecision.Unchanged(claims);
         }
 
-        var decision = Apply(claims, methods, hasEnabledSecondFactor, enforce);
+        var decision = Apply(claims, methods, factors, enforce);
 
         if (decision.Withheld)
         {
@@ -186,14 +186,14 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
     private static MfaRequirement Assess(
         TokenClaims platformClaims,
         AuthenticationMethods methods,
-        bool hasEnabledSecondFactor)
+        QualifyingSecondFactors factors)
     {
         if (platformClaims.Permissions.Count == 0)
         {
             return MfaRequirement.None;
         }
 
-        if (!hasEnabledSecondFactor)
+        if (!factors.HasAny)
         {
             return MfaRequirement.Enroll;
         }
@@ -201,6 +201,14 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
         if (methods.IsMfaSatisfied)
         {
             return MfaRequirement.None;
+        }
+
+        // S20: only a passkey sign-in proves two factors for an account whose one
+        // qualifying factor is a passkey — signing in again with the password, or stepping
+        // up, has nothing to answer with.
+        if (factors.IsPasskeyOnly)
+        {
+            return MfaRequirement.Passkey;
         }
 
         return methods.HasPrimary

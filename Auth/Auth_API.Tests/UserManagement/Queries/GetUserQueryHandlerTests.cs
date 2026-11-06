@@ -28,7 +28,8 @@ public class GetUserByIdQueryHandlerTests
         _handler = new GetUserByIdQueryHandler(
             _userRepositoryMock.Object, _roleRepositoryMock.Object, _permissionRepositoryMock.Object,
             AccountRules.Policy(), Mock.Of<IImageUrlComposer>(), _twoFactorStateStoreMock.Object,
-            TestHelpers.CreateOptions(new Auth.Application.Configuration.EmailSettings()), _platformMfaPolicyMock.Object);
+            TestHelpers.CreateOptions(new Auth.Application.Configuration.EmailSettings()), _platformMfaPolicyMock.Object,
+            PasskeyTestDoubles.EmptyRepository().Object, PasskeyTestDoubles.RpIdAtStartup);
     }
 
     // Review of #107 (F4): the screens learn from the server that the policy keeps the

@@ -593,6 +593,9 @@
   <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
     <value>İki faktörlü kimlik doğrulama çok sayıda hatalı koddan sonra kilitlendi. Giriş sayfasından parolanızı sıfırlayın, ardından bir yöneticiden iki faktörlü kimlik doğrulamayı sıfırlamasını isteyin.</value>
   </data>
+  <data name="TwoFactor.PasskeyNeedsApp" xml:space="preserve">
+    <value>E-posta gönderimi kapalıyken, hesapta bir geçiş anahtarı varsa doğrulayıcı uygulama kapatılamaz. Önce geçiş anahtarlarını kaldırın.</value>
+  </data>
   <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
     <value>Bu hesabın iki faktörlü kimlik doğrulaması çok sayıda hatalı koddan sonra kilitlendi. İki faktörlü kimlik doğrulamayı sıfırlayabilmeniz için önce hesap sahibinin parolasını e-postayla sıfırlaması gerekir.</value>
   </data>
@@ -1375,6 +1378,21 @@
   </data>
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>Kayıt sayısı 1 ile 100 arasında olmalıdır.</value>
+  </data>
+  <data name="Passkey.EmailRequired" xml:space="preserve">
+    <value>İlk geçiş anahtarı yalnızca e-posta gönderimi açıkken eklenebilir. Önce doğrulayıcı uygulamayı, ardından geçiş anahtarını ekleyin.</value>
+  </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>Bu hesap zaten en fazla sayıda geçiş anahtarına sahip. Yenisini eklemeden önce birini kaldırın.</value>
+  </data>
+  <data name="Passkey.NameTooLong" xml:space="preserve">
+    <value>Geçiş anahtarı adı 64 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>Geçiş anahtarı bulunamadı.</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>Geçiş anahtarı doğrulanamadı. Tekrar deneyin.</value>
   </data>
   <data name="Password.CommonPattern" xml:space="preserve">
     <value>Parola, tahmin edilmesi kolay yaygın bir desen içeriyor.</value>

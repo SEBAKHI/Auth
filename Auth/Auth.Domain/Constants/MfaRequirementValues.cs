@@ -15,6 +15,12 @@ public static class MfaRequirementValues
     public const string StepUp = "step_up";
     public const string Reauthenticate = "reauthenticate";
 
+    /// <summary>
+    /// S20: sign in with the passkey. A client that does not know the word reads it as
+    /// <see cref="Reauthenticate"/>.
+    /// </summary>
+    public const string Passkey = "passkey";
+
     private static readonly FrozenDictionary<MfaRequirement, string> ByRequirement =
         new Dictionary<MfaRequirement, string>
         {
@@ -22,6 +28,7 @@ public static class MfaRequirementValues
             [MfaRequirement.Enroll] = Enroll,
             [MfaRequirement.StepUp] = StepUp,
             [MfaRequirement.Reauthenticate] = Reauthenticate,
+            [MfaRequirement.Passkey] = Passkey,
         }.ToFrozenDictionary();
 
     /// <summary>The claim value of a requirement.</summary>

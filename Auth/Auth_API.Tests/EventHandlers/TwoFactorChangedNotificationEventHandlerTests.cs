@@ -132,6 +132,25 @@ public class TwoFactorChangedNotificationEventHandlerTests
     }
 
     /// <summary>
+    /// REVIEW-FIXES 150 F16: the reset's notice says the passkeys went too only when there were
+    /// some, so the handler passes the count the reset recorded.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the count not passed.</remarks>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public async Task Handle_ResetByAnAdministrator_PassesHowManyPasskeysWent(int passkeysRemoved)
+    {
+        var owner = Guid.NewGuid();
+
+        await _handler.Handle(
+            new TwoFactorResetEvent(owner, Guid.NewGuid(), "owner@example.com", "Jane Doe") { PasskeysRemoved = passkeysRemoved },
+            CancellationToken.None);
+
+        _sent!.Variables["PasskeysRemoved"].Should().Be(passkeysRemoved);
+    }
+
+    /// <summary>
     /// The templates branch on these exact strings (seeded in deploy 1); a kind
     /// they do not know falls to the generic "changed" wording. So every kind the
     /// handler sends is one the seed branches on, and the list is the seed's.
@@ -146,25 +165,83 @@ public class TwoFactorChangedNotificationEventHandlerTests
 
         kinds.Should().BeEquivalentTo(
             ["enabled", "disabled", "recovery-codes-regenerated", "authenticator-replaced", "reset-by-administrator",
-             "email-code-enabled", "email-code-disabled", "authenticator-replaced-email-code"]);
+             "email-code-enabled", "email-code-disabled", "authenticator-replaced-email-code",
+             "passkey-registered", "passkey-removed",
+             "passkey-removed-password-change", "passkey-removed-password-reset", "passkey-removed-admin-lock"]);
+        // The removals the system made by itself also branch in the closing advice (REVIEW 150 F12).
+        var withAdvice = new HashSet<string>(
+            ["passkey-removed-password-change", "passkey-removed-password-reset", "passkey-removed-admin-lock"]);
 
         var templates = File.ReadAllText(Path.Combine(
             Auth_API.Tests.Infrastructure.ApiSourceScan.SolutionDirectory(),
             "Auth_DB", "dbo", "Scripts", "SeedData", "12_NotificationTemplates.sql"));
 
-        // The version the seed publishes last (S24's version 2) branches on every kind,
+        // The version the seed publishes last (S20's version 3) branches on every kind,
         // in its heading and its message, in each of the seven languages.
-        var start = templates.IndexOf("-- Template 21, version 2:", StringComparison.Ordinal);
-        start.Should().BeGreaterThan(0, "the two-factor-changed template's version 2 is seeded");
+        var start = templates.IndexOf("-- Template 21, version 3:", StringComparison.Ordinal);
+        start.Should().BeGreaterThan(0, "the two-factor-changed template's version 3 is seeded");
         var end = templates.IndexOf("\nGO", start, StringComparison.Ordinal);
         var published = templates[start..end];
-        published.Should().Contain("SET [PublishedVersionId] = '43000000-0000-0000-0002-000000000021'");
+        published.Should().Contain("SET [PublishedVersionId] = '43000000-0000-0000-0003-000000000021'");
         foreach (var kind in kinds)
         {
             templates.Should().Contain($"{{% when \"{kind}\" %}}", $"the seeded templates must branch on '{kind}'");
             System.Text.RegularExpressions.Regex.Matches(published, System.Text.RegularExpressions.Regex.Escape($"{{% when \"{kind}\" %}}"))
-                .Count.Should().Be(14, $"version 2 branches on '{kind}' in the heading and the message of seven translations");
+                .Count.Should().Be(withAdvice.Contains(kind) ? 21 : 14,
+                    $"version 3 branches on '{kind}' in the heading and the message{(withAdvice.Contains(kind) ? " and the closing advice" : "")} of seven translations");
         }
+    }
+
+    /// <summary>
+    /// REVIEW 150 F12 (D-150-2 (a)): every passkey that stopped working without its owner's own
+    /// word is told to the owner, in words of its reason, naming the passkey and when it was
+    /// added; the owner's own removal keeps its kind. TriggeredBy is whoever made the change.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the owner's removal alone told again (<c>Reason != User</c> restored).</remarks>
+    [Theory]
+    [InlineData(PasskeyRemovalReasons.User, TwoFactorChangeKinds.PasskeyRemoved)]
+    [InlineData(PasskeyRemovalReasons.PasswordChange, TwoFactorChangeKinds.PasskeyRemovedByPasswordChange)]
+    [InlineData(PasskeyRemovalReasons.PasswordReset, TwoFactorChangeKinds.PasskeyRemovedByPasswordReset)]
+    [InlineData(PasskeyRemovalReasons.AdminLock, TwoFactorChangeKinds.PasskeyRemovedByAdminLock)]
+    public async Task Handle_APasskeyThatStoppedWorking_IsToldToItsOwner_InWordsOfItsReason(string reason, string expectedKind)
+    {
+        var owner = Guid.NewGuid();
+        var by = reason == PasskeyRemovalReasons.AdminLock ? Guid.NewGuid() : owner;
+        var addedAt = new DateTime(2026, 9, 30, 8, 0, 0, DateTimeKind.Utc);
+
+        await _handler.Handle(
+            new PasskeyRemovedEvent(owner, Guid.NewGuid(), "Work laptop", addedAt, reason, by, "owner@example.com", "Jane Doe",
+                DeviceName: null, Now.UtcDateTime),
+            CancellationToken.None);
+
+        _sent.Should().NotBeNull($"a passkey removed for '{reason}' is told to its owner");
+        _sent!.RecipientUserId.Should().Be(owner);
+        _sent.TriggeredBy.Should().Be(by);
+        _sent.Variables["ChangeKind"].Should().Be(expectedKind);
+        _sent.Variables["PasskeyName"].Should().Be("Work laptop");
+        _sent.Variables["PasskeyAddedAt"].Should().Be("2026-09-30 08:00:00Z");
+        _sent.Variables["DeviceName"].Should().BeNull();
+    }
+
+    /// <summary>
+    /// REVIEW 150 F12: an administrator's two-factor reset sends its own notice
+    /// (<see cref="TwoFactorResetEvent"/>) and none per passkey; the scripts the owner runs raise
+    /// no event, and a reason this version does not word sends nothing rather than wrong words.
+    /// </summary>
+    [Theory]
+    [InlineData(PasskeyRemovalReasons.PeerReset)]
+    [InlineData(PasskeyRemovalReasons.RpIdMove)]
+    [InlineData(PasskeyRemovalReasons.BreakGlass)]
+    public async Task Handle_APasskeyRemovedWithANoticeOfItsOwn_SendsNoneMore(string reason)
+    {
+        var owner = Guid.NewGuid();
+
+        await _handler.Handle(
+            new PasskeyRemovedEvent(owner, Guid.NewGuid(), "Work laptop", Now.UtcDateTime.AddDays(-1), reason, Guid.NewGuid(),
+                "owner@example.com", "Jane Doe", DeviceName: null, Now.UtcDateTime),
+            CancellationToken.None);
+
+        _notificationServiceMock.Verify(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Theory]

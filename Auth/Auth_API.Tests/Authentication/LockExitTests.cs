@@ -43,7 +43,8 @@ public class LockExitResetTests
             TestHelpers.CreatePassingBreachEvaluator(), TestHelpers.CreateOptions(_settings),
             TestHelpers.CreateOptions(TestHelpers.CreateSessionSettings()), new Mock<IDomainEventDispatcher>().Object,
             TestHelpers.CreateAccountLockout(_users.Object, _settings), new Mock<ITwoFactorStateStore>().Object,
-            new Mock<ITwoFactorChallengeRepository>().Object, NullLogger<ResetPasswordCommandHandler>.Instance);
+            new Mock<ITwoFactorChallengeRepository>().Object, PasskeyTestDoubles.Revocation(),
+            NullLogger<ResetPasswordCommandHandler>.Instance);
     }
 
     private ChangePasswordCommandHandler Change() => new(
@@ -51,7 +52,7 @@ public class LockExitResetTests
         new PasswordValidator(TestHelpers.CreateOptions(_settings)), TestHelpers.CreatePassingBreachEvaluator(),
         new Mock<IDomainEventDispatcher>().Object, TestHelpers.CreateAccountLockout(_users.Object, _settings),
         TestHelpers.CreateOptions(_settings), TestHelpers.CreateOptions(TestHelpers.CreateSessionSettings()),
-        NullLogger<ChangePasswordCommandHandler>.Instance);
+        PasskeyTestDoubles.Revocation(), NullLogger<ChangePasswordCommandHandler>.Instance);
 
     private User Given(int count, int? minutes)
     {
@@ -73,6 +74,7 @@ public class LockExitResetTests
         _tokens
             .Setup(r => r.GetByTokenHashAsync(FakeCredentialHasher.CandidatesOf("hmac(reset-token)"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "hmac(reset-token)"));
+        _tokens.Setup(r => r.MarkAsUsedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
         _hasher.Setup(h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>())).Returns(false);
 
         var result = await Reset().Handle(new ResetPasswordCommand("reset-token", "NewPass1!"), CancellationToken.None);
@@ -82,10 +84,12 @@ public class LockExitResetTests
     }
 
     [Fact]
-    public async Task CompletedReset_LiftsTheLockBeforeTheLinkIsSpent()
+    public async Task CompletedReset_SpendsTheLinkFirst_ThenLiftsTheLock()
     {
-        // Should lifting the lock fail, the link must still be usable for the
-        // retry, or the user is left locked with a spent link (security review).
+        // REVIEW-FIXES 150 F14 (OI-31) reverses the order an earlier security review chose:
+        // the link is spent first, conditionally, before the first write, so of two
+        // submissions of one link only one changes anything. Should lifting the lock fail
+        // after it, the way out is a new link, which a lock raised by guessing does not stop.
         var user = Given(100, null);
         var order = new List<string>();
         var token = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "hmac(reset-token)");
@@ -93,7 +97,7 @@ public class LockExitResetTests
         _tokens
             .Setup(r => r.MarkAsUsedAsync(token.Id, It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("spend"))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(true);
         _users
             .Setup(r => r.ClearAutomaticLockAsync(user.Id, It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("lift"))
@@ -102,7 +106,7 @@ public class LockExitResetTests
 
         await Reset().Handle(new ResetPasswordCommand("reset-token", "NewPass1!"), CancellationToken.None);
 
-        order.Should().Equal("lift", "spend");
+        order.Should().Equal("spend", "lift");
     }
 
     [Fact]

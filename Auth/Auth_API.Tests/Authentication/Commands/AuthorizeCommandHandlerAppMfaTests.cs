@@ -119,7 +119,8 @@ public class AuthorizeCommandHandlerAppMfaTests
             .ReturnsAsync(_session);
         _users.Setup(r => r.GetByIdAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateUser(id: _userId, passwordHash: hasPassword ? "TestPasswordHash" : null));
-        _factors.Setup(s => s.HasEnabledFactorAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(hasFactor);
+        _factors.Setup(s => s.GetQualifyingFactorsAsync(_userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new QualifyingSecondFactors(Totp: hasFactor, Passkey: false));
     }
 
     private void Mode(ApplicationMfaEnforcementMode mode) => _settings.ApplicationMfaEnforcement = mode.ToString();
@@ -193,7 +194,7 @@ public class AuthorizeCommandHandlerAppMfaTests
         var result = await _handler.Handle(Command(), CancellationToken.None);
 
         result.Value.RedirectUrl.Should().StartWith(RedirectUri + "?code=");
-        _factors.Verify(s => s.HasEnabledFactorAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _factors.Verify(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Theory]

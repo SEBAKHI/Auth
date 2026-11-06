@@ -1459,6 +1459,8 @@ export const ar: TranslationResources = {
       twofactorEmailCodeEnabled: "فُعّلت الرموز بالبريد",
       twofactorEmailCodeDisabled: "عُطّلت الرموز بالبريد",
       twofactorSteppedUp: "إثبات العامل الثاني داخل جلسة",
+      passkeyRegistered: "أُضيف مفتاح مرور",
+      passkeyRemoved: "أُزيل مفتاح مرور",
       userLocked: "قفل الحساب",
       userUnlocked: "فتح قفل الحساب",
       userHardLocked: "قفل الحساب بعد بلوغ حدّ المحاولات الفاشلة المتتالية",

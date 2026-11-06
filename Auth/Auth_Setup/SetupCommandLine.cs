@@ -10,13 +10,16 @@ public enum SetupMode
 
     /// <summary>Print the emergency script that removes an account's second factor (<c>--reset-two-factor</c>).</summary>
     ResetTwoFactor,
+
+    /// <summary>S20 ([S20-O10]): retire the passkeys of an RP ID the deployment is leaving.</summary>
+    RetirePasskeyRpId,
 }
 
 /// <summary>
 /// The parsed command line: a mode and its inputs, or the reason it was refused.
 /// </summary>
 /// <param name="Mode">The mode, when the command line was accepted.</param>
-/// <param name="Address">The address the mode works on, as typed.</param>
+/// <param name="Address">The address the mode works on, as typed: an email address, or the RP ID being left.</param>
 /// <param name="Password">The password given on the command line; null means "prompt".</param>
 /// <param name="Error">Why the command line was refused; null when it was accepted.</param>
 public sealed record SetupRequest(SetupMode? Mode, string? Address, string? Password, string? Error)
@@ -29,7 +32,7 @@ public sealed record SetupRequest(SetupMode? Mode, string? Address, string? Pass
 }
 
 /// <summary>
-/// The one parser of Auth_Setup's command line. Two modes, and nothing else is
+/// The one parser of Auth_Setup's command line. Three modes, and nothing else is
 /// accepted: a command line that could mean something other than what it says is
 /// refused rather than guessed at.
 /// </summary>
@@ -38,6 +41,8 @@ public sealed record SetupRequest(SetupMode? Mode, string? Address, string? Pass
 /// <item><c>--email &lt;address&gt; [&lt;password&gt;]</c>: the password positional, or
 /// prompted when absent.</item>
 /// <item><c>--reset-two-factor &lt;address&gt;</c>.</item>
+/// <item><c>--retire-passkey-rp-id &lt;old RP ID&gt;</c> (S20): first, alone, with its one
+/// value in printable ASCII; the script builder then refuses what is not a host name.</item>
 /// </list>
 /// Refused: no mode; both modes; an unknown option; an option given twice; an
 /// option without its value; the old form with two positional arguments
@@ -53,6 +58,7 @@ public static class SetupCommandLine
 {
     public const string EmailOption = "--email";
     public const string ResetTwoFactorOption = "--reset-two-factor";
+    public const string RetirePasskeyRpIdOption = "--retire-passkey-rp-id";
 
     public const string Usage =
         "Usage:\n" +
@@ -60,11 +66,21 @@ public static class SetupCommandLine
         "      Prints the statement that gives the seeded administrator your address and a password.\n" +
         "      Without a password on the command line, it asks for one.\n" +
         "  dotnet run --project Auth/Auth_Setup -- --reset-two-factor <address>\n" +
-        "      Prints the emergency statement that removes an account's two-step verification.";
+        "      Prints the emergency statement that removes an account's two-step verification.\n" +
+        "  dotnet run --project Auth/Auth_Setup -- --retire-passkey-rp-id <old RP ID>\n" +
+        "      Prints the statement that retires every passkey of an RP ID the deployment is leaving.";
 
     /// <summary>Parses the command line.</summary>
     public static SetupRequest Parse(IReadOnlyList<string> args)
     {
+        // A mode of its own, with one value and nothing else: never mixed with the others.
+        if (args.Count > 0 && args[0] == RetirePasskeyRpIdOption)
+        {
+            return args.Count == 2 && !args[1].StartsWith("--", StringComparison.Ordinal) && IsPrintableAscii(args[1])
+                ? new SetupRequest(SetupMode.RetirePasskeyRpId, args[1], null, null)
+                : Refuse($"{RetirePasskeyRpIdOption} takes one RP ID (localhost, or a domain such as example.com) and nothing else.");
+        }
+
         string? email = null;
         string? reset = null;
         var positional = new List<string>();
@@ -77,6 +93,11 @@ public static class SetupCommandLine
             {
                 positional.Add(arg);
                 continue;
+            }
+
+            if (arg == RetirePasskeyRpIdOption)
+            {
+                return Refuse($"{RetirePasskeyRpIdOption} is a mode of its own: give it first, with one RP ID and nothing else.");
             }
 
             if (arg != EmailOption && arg != ResetTwoFactorOption)

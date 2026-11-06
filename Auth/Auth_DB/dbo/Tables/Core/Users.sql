@@ -40,6 +40,10 @@ CREATE TABLE [dbo].[Users]
     [IsDeleted] BIT NOT NULL CONSTRAINT [DF_Users_IsDeleted] DEFAULT 0,
     [DeletedAt] DATETIME2 NULL,
     [DeletedBy] UNIQUEIDENTIFIER NULL,
+    -- S20 (D-T20 A): the account's WebAuthn user handle, 64 random bytes set by its first
+    -- passkey registration and never changed; never the account id (WebAuthn L3 §14.6.1).
+    -- Appended last, so the publish is a plain ALTER TABLE ADD.
+    [WebAuthnUserHandle] VARBINARY(64) NULL,
 
     CONSTRAINT [PK_Users] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [UQ_Users_Username] UNIQUE ([Username]),
@@ -78,4 +82,10 @@ GO
 CREATE NONCLUSTERED INDEX [IX_Users_LastLoginUtc]
 ON [dbo].[Users] ([LastLoginUtc] DESC)
 WHERE [IsDeleted] = 0;
+GO
+
+-- S20 (D-T20 A): the user handle is unique among the accounts that have one.
+CREATE UNIQUE NONCLUSTERED INDEX [UX_Users_WebAuthnUserHandle]
+ON [dbo].[Users] ([WebAuthnUserHandle])
+WHERE [WebAuthnUserHandle] IS NOT NULL;
 GO

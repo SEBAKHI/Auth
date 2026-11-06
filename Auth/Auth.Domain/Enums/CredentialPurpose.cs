@@ -57,5 +57,8 @@ public enum CredentialPurpose
     TwoFactorEmailCode = 14,
 
     /// <summary>The signature of an application two-step ticket (the <c>__Host-auth_appmfa</c> cookie, S23).</summary>
-    AppMfaTicket = 15
+    AppMfaTicket = 15,
+
+    /// <summary>The handle of a WebAuthn ceremony's challenge (WebAuthnChallenges.HandleHash, S20).</summary>
+    WebAuthnChallenge = 16
 }

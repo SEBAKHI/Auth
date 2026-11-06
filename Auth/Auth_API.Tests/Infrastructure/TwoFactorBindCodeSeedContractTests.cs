@@ -25,6 +25,12 @@ public class TwoFactorBindCodeSeedContractTests
     private const string TemplateId = "42000000-0000-0000-0000-000000000022";
     private const string VersionId = "43000000-0000-0000-0000-000000000022";
 
+    /// <summary>S20: version 2 says where the code goes for an app or a passkey.</summary>
+    private const string Version2Id = "43000000-0000-0000-0002-000000000022";
+
+    /// <summary>Every seeded version: the published one is the newest, so each must render.</summary>
+    public static TheoryData<string> Versions => new() { VersionId, Version2Id };
+
     /// <summary>What FirstFactorEmailProof passes, and whether a sender may leave it out.</summary>
     private static readonly Dictionary<string, bool> Catalog = new(StringComparer.Ordinal)
     {
@@ -34,6 +40,8 @@ public class TwoFactorBindCodeSeedContractTests
         ["RequestedAt"] = true,
         ["DeviceName"] = false,
         ["IpAddress"] = false,
+        // REVIEW 150 F11: which factor the code finishes adding; both senders pass it.
+        ["Factor"] = true,
     };
 
     private readonly FluidTemplateRenderer _renderer = new(TimeProvider.System);
@@ -73,6 +81,32 @@ public class TwoFactorBindCodeSeedContractTests
             "the catalog is the contract between the sender and the template; a variable in one and not the other renders empty");
     }
 
+    /// <summary>
+    /// REVIEW-FIXES 150 F17: the guarded insert gives Factor to a fresh database, and only this
+    /// update gives it to one that already holds the type — so the update is pinned like its
+    /// siblings: the catalog and the sample a fresh database gets, written once.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: Factor dropped from the update's catalog.</remarks>
+    [Fact]
+    public void ADatabaseThatHoldsTheType_GainsFactor_ByAnIdempotentUpdate()
+    {
+        var seed = File.ReadAllText(SeedPath(TypesSeed)).Replace("\r\n", "\n");
+        var insert = Regex.Match(seed,
+            @"'40000000-0000-0000-0000-000000000022',\s+N'two-factor-bind-code',.*?N'(?<vars>\[\{""name"".*?\])',\s+N'(?<sample>\{.*?\})',",
+            RegexOptions.Singleline);
+        var update = Regex.Match(seed,
+            @"UPDATE \[dbo\]\.\[NotificationTypes\]\s+SET \[VariablesJson\] = N'(?<vars>\[[^']*\])',\s+\[SampleDataJson\] = N'(?<sample>\{[^']*\})'\s+"
+            + @"WHERE \[Id\] = '40000000-0000-0000-0000-000000000022'\s+AND \[VariablesJson\] NOT LIKE N'%""name"":""Factor""%';");
+
+        insert.Success.Should().BeTrue();
+        update.Success.Should().BeTrue("the guarded insert never reaches a database that already holds the type");
+        update.Groups["vars"].Value.Should().Contain(@"{""name"":""Factor""", "the update brings the variable")
+            .And.Be(insert.Groups["vars"].Value, "the update writes the catalog a fresh database gets");
+        update.Groups["sample"].Value.Should().Contain(@"""Factor"":")
+            .And.Be(insert.Groups["sample"].Value, "and its sample, which the preview and the publish gate render");
+        update.Index.Should().BeLessThan(Regex.Match(seed, @"^\s*GO\s*$", RegexOptions.Multiline).Index, "inside the seed's single batch");
+    }
+
     [Fact]
     public void TheCode_IsSensitive()
     {
@@ -89,16 +123,17 @@ public class TwoFactorBindCodeSeedContractTests
         seed.Should().Contain($"VALUES ('{TemplateId}', '{TypeId}', NULL, 1, N'en'",
             "a global Email template bound to the type");
         seed.Should().Contain($"VALUES ('{VersionId}', '{TemplateId}', 1,", "a version row");
-        Translations().Select(row => row.Language).Should().BeEquivalentTo(Languages.Supported,
+        Translations(VersionId).Select(row => row.Language).Should().BeEquivalentTo(Languages.Supported,
             "the code goes out in the account's own language, whichever it is");
         seed.Should().Contain($"SET [PublishedVersionId] = '{VersionId}'",
             "an unpublished template fails the renderer at send time, not at deploy time");
     }
 
-    [Fact]
-    public void EveryTranslation_UsesOnlyCatalogedVariables_ShowsTheCode_AndCarriesNoLink()
+    [Theory]
+    [MemberData(nameof(Versions))]
+    public void EveryTranslation_UsesOnlyCatalogedVariables_ShowsTheCode_AndCarriesNoLink(string versionId)
     {
-        foreach (var (language, subject, body) in Translations())
+        foreach (var (language, subject, body) in Translations(versionId))
         {
             var used = Regex.Matches(subject + body, @"\{\{\s*([A-Za-z_][\w.]*)\s*\}\}")
                 .Select(match => match.Groups[1].Value)
@@ -117,12 +152,13 @@ public class TwoFactorBindCodeSeedContractTests
         }
     }
 
-    [Fact]
-    public void EveryTranslation_RendersTheSeededSample_WithNothingUnresolved()
+    [Theory]
+    [MemberData(nameof(Versions))]
+    public void EveryTranslation_RendersTheSeededSample_WithNothingUnresolved(string versionId)
     {
         var model = SampleModel();
 
-        foreach (var (language, subjectSource, bodySource) in Translations())
+        foreach (var (language, subjectSource, bodySource) in Translations(versionId))
         {
             var subject = _renderer.RenderTracking(subjectSource, model, language, encodeHtml: false, out var subjectMissing);
             var body = _renderer.RenderTracking(bodySource, model, language, encodeHtml: true, out var bodyMissing);
@@ -138,10 +174,11 @@ public class TwoFactorBindCodeSeedContractTests
         }
     }
 
-    [Fact]
-    public void TheDeviceAndAddressLines_ArePrintedOnlyWhenKnown()
+    [Theory]
+    [MemberData(nameof(Versions))]
+    public void TheDeviceAndAddressLines_ArePrintedOnlyWhenKnown(string versionId)
     {
-        foreach (var (language, _, bodySource) in Translations())
+        foreach (var (language, _, bodySource) in Translations(versionId))
         {
             var withoutBoth = SampleModel()
                 .Where(pair => pair.Key is not ("DeviceName" or "IpAddress"))
@@ -194,11 +231,123 @@ public class TwoFactorBindCodeSeedContractTests
         return model;
     }
 
-    /// <summary>Language, subject source and body source of every translation of version 0022.</summary>
-    private static List<(string Language, string Subject, string Body)> Translations()
+    /// <summary>
+    /// REVIEW 150 F11 (D-150-1 = (b)): for the authenticator app — and for any other Factor,
+    /// or none, as an API older than the variable sends — version 2 renders version 1's words
+    /// exactly, subject included, so nothing changes for anyone who binds the app.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the app's lead reworded in version 2.</remarks>
+    [Theory]
+    [InlineData(BindCodeFactors.AuthenticatorApp)]
+    [InlineData(null)]
+    public void Version2_ForTheApp_IsVersion1sWordsExactly(string? factor)
+    {
+        var version1 = Translations(VersionId).ToDictionary(row => row.Language);
+
+        foreach (var (language, subjectSource, bodySource) in Translations(Version2Id))
+        {
+            var model = ModelFor(factor);
+            var before = version1[language];
+
+            Squash(_renderer.Render(subjectSource, model, language, encodeHtml: false).Value)
+                .Should().Be(Squash(_renderer.Render(before.Subject, model, language, encodeHtml: false).Value), $"the {language} subject");
+            Squash(_renderer.Render(bodySource, model, language, encodeHtml: true).Value)
+                .Should().Be(Squash(_renderer.Render(before.Body, model, language, encodeHtml: true).Value), $"the {language} body");
+        }
+    }
+
+    /// <summary>
+    /// REVIEW 150 F11: for a passkey the email says plainly what the code does — the device that
+    /// holds the passkey will sign in with its fingerprint, face or PIN, without the password —
+    /// and what to do if it was not you, in its subject, heading, lead and "not you" text.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the passkey branch's lead made the app's again.</remarks>
+    [Fact]
+    public void Version2_ForAPasskey_SaysTheCodeLetsADeviceSignInWithoutThePassword()
+    {
+        var version1 = Translations(VersionId).ToDictionary(row => row.Language);
+        var words = new Dictionary<string, (string Passkey, string Fingerprint, string WithoutPassword)>
+        {
+            ["en"] = ("passkey", "fingerprint", "without your password"),
+            ["ar"] = ("مفتاح مرور", "بصمة الإصبع", "دون كلمة المرور"),
+            ["tr"] = ("geçiş anahtarı", "parmak izi", "parolanız olmadan"),
+            ["fr"] = ("clé d'accès", "empreinte", "sans votre mot de passe"),
+            ["zh"] = ("通行密钥", "指纹", "无需密码"),
+            ["ur"] = ("پاس کی", "فنگر پرنٹ", "پاس ورڈ کے بغیر"),
+            ["fa"] = ("کلید عبور", "اثر انگشت", "بدون رمز عبور"),
+        };
+
+        foreach (var (language, subjectSource, bodySource) in Translations(Version2Id))
+        {
+            var model = ModelFor(BindCodeFactors.Passkey);
+            var subject = _renderer.RenderTracking(subjectSource, model, language, encodeHtml: false, out var subjectMissing);
+            var body = _renderer.RenderTracking(bodySource, model, language, encodeHtml: true, out var bodyMissing);
+            var before = version1[language];
+
+            subjectMissing.Should().BeEmpty();
+            bodyMissing.Should().BeEmpty($"the {language} passkey wording names nothing the sender does not pass");
+            body.Value.Should().NotContain("{{").And.NotContain("{%").And.NotContain("href");
+            body.Value.Should().Contain("<div class=\"otp-code\">123456</div>");
+
+            var (passkey, fingerprint, withoutPassword) = words[language];
+            subject.Value.Should().NotBe(_renderer.Render(before.Subject, model, language, encodeHtml: false).Value,
+                $"the {language} subject names the passkey, not two-factor authentication");
+            Lead(body.Value).Should().Contain(passkey).And.Contain(fingerprint).And.Contain(withoutPassword,
+                $"the {language} lead says the code lets a device sign in without the password");
+            NotYou(body.Value).Should().NotBe(NotYou(_renderer.Render(before.Body, model, language, encodeHtml: true).Value),
+                $"the {language} \"not you\" text says what the code would give away");
+        }
+
+        var english = _renderer.Render(Translations(Version2Id).Single(row => row.Language == "en").Body,
+            ModelFor(BindCodeFactors.Passkey), "en", encodeHtml: true).Value;
+        english.Should().NotContain("together with the code from your authenticator app")
+            .And.NotContain("turn on two-factor authentication");
+        NotYou(english).Should().Contain("Do not enter the code").And.Contain("change it now");
+    }
+
+    private static IReadOnlyDictionary<string, object?> ModelFor(string? factor)
+    {
+        var model = new Dictionary<string, object?>(SampleModel(), StringComparer.Ordinal);
+        if (factor is null)
+        {
+            model.Remove("Factor");
+        }
+        else
+        {
+            model["Factor"] = factor;
+        }
+
+        return model;
+    }
+
+    private static string Squash(string text) => Regex.Replace(text, @"\s+", " ").Trim();
+
+    /// <summary>The paragraph that says when the code expires.</summary>
+    private static string Lead(string body) =>
+        Regex.Matches(body, "<p class=\"message\">(.*?)</p>", RegexOptions.Singleline)[1].Groups[1].Value;
+
+    /// <summary>The "if this was not you" text: the second notice.</summary>
+    private static string NotYou(string body) =>
+        Regex.Matches(body, "<p class=\"notice-text\">(.*?)</p>", RegexOptions.Singleline)[1].Groups[1].Value;
+
+    [Fact]
+    public void Version2_IsANewVersionPublishedOnlyWhileTheSeededVersion1IsThePublishedOne()
+    {
+        var seed = File.ReadAllText(SeedPath(TemplatesSeed));
+        var start = seed.IndexOf($"AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '{Version2Id}')", StringComparison.Ordinal);
+        start.Should().BePositive("version 2 is inserted once, guarded by its own id");
+        var block = seed[start..seed.IndexOf("\nEND", start, StringComparison.Ordinal)];
+
+        block.Should().Contain("ISNULL(MAX([VersionNumber]), 0) + 1");
+        Regex.Replace(block, @"\s+", " ").Should().Contain(
+            $"UPDATE [dbo].[NotificationTemplates] SET [PublishedVersionId] = '{Version2Id}' WHERE [Id] = '{TemplateId}' "
+            + $"AND [PublishedVersionId] = '{VersionId}';");
+    }
+
+    private static List<(string Language, string Subject, string Body)> Translations(string versionId)
     {
         var rows = Regex.Matches(File.ReadAllText(SeedPath(TemplatesSeed)),
-                $@"'44000000-0000-0000-0022-0000000000\d\d', '{VersionId}', N'(?<lang>[a-z]{{2}})', N'(?<subject>(?:[^']|'')*)',\s*N'(?<body>(?:[^']|'')*)'",
+                $@"'44000000-0000-000\d-0022-0000000000\d\d', '{versionId}', N'(?<lang>[a-z]{{2}})', N'(?<subject>(?:[^']|'')*)',\s*N'(?<body>(?:[^']|'')*)'",
                 RegexOptions.Singleline)
             .Select(row => (
                 row.Groups["lang"].Value,

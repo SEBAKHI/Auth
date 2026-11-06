@@ -120,7 +120,7 @@ public class TwoFactorStateStoreSqlTests
 
         // Disable, both statements matched: likewise.
         var disabled = new RecordingDbConnectionFactory(affectedRows: 1);
-        (await new TwoFactorStateStore(disabled).TryDisableAsync(userId, SecondFactorProof.Totp(Step), CancellationToken.None))
+        (await new TwoFactorStateStore(disabled).TryDisableAsync(userId, SecondFactorProof.Totp(Step), keepWhilePasskeysLive: false, CancellationToken.None))
             .Should().Be(LoginCommitOutcome.Committed);
         disabled.Commands.Should().HaveCount(2);
         disabled.Commands.Should().OnlyContain(command => command.InTransaction);
@@ -134,7 +134,7 @@ public class TwoFactorStateStoreSqlTests
         foreach (var run in new Func<TwoFactorStateStore, Task<LoginCommitOutcome>>[]
                  {
                      store => Enable(store, userId),
-                     store => store.TryDisableAsync(userId, SecondFactorProof.RecoveryCode(OldCodes, NewCodes, qualified: true), CancellationToken.None),
+                     store => store.TryDisableAsync(userId, SecondFactorProof.RecoveryCode(OldCodes, NewCodes, qualified: true), keepWhilePasskeysLive: false, CancellationToken.None),
                  })
         {
             var lost = new RecordingDbConnectionFactory(
@@ -159,7 +159,7 @@ public class TwoFactorStateStoreSqlTests
             affectedFor: StepRefused);
 
         var outcome = await new TwoFactorStateStore(db)
-            .TryDisableAsync(userId, SecondFactorProof.Totp(Step), CancellationToken.None);
+            .TryDisableAsync(userId, SecondFactorProof.Totp(Step), keepWhilePasskeysLive: false, CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.StepReused, "the factor is on, so only the step held it back");
         db.Commands.Should().HaveCount(2, "the refused removal, then the read that names the refusal");
@@ -311,7 +311,7 @@ public class TwoFactorStateStoreSqlTests
         var userId = Guid.NewGuid();
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
-        await new TwoFactorStateStore(db).TryDisableAsync(userId, SecondFactorProof.Totp(Step), CancellationToken.None);
+        await new TwoFactorStateStore(db).TryDisableAsync(userId, SecondFactorProof.Totp(Step), keepWhilePasskeysLive: false, CancellationToken.None);
 
         var remove = db.Commands[0];
         Sql(remove).Should().Be(ExpectedRemoveWithTotp);
@@ -329,13 +329,70 @@ public class TwoFactorStateStoreSqlTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         var outcome = await new TwoFactorStateStore(db)
-            .TryDisableAsync(userId, SecondFactorProof.RecoveryCode(OldCodes, NewCodes, qualified: true), CancellationToken.None);
+            .TryDisableAsync(userId, SecondFactorProof.RecoveryCode(OldCodes, NewCodes, qualified: true), keepWhilePasskeysLive: false, CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.Committed);
         var remove = db.Commands[0];
         Sql(remove).Should().Be(ExpectedRemoveWithRecoveryCode);
         remove.Parameters["OldCodes"].Should().Be(OldCodes, "the comparison uses the text exactly as loaded");
         remove.Parameters.Keys.Should().NotContain("Step", "a recovery code has no time step");
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F19 (D-150-5 (a)): with email off, the switch-off reads the live passkeys
+    /// of the RP ID in force inside its own transaction, after the factor row's delete and under a
+    /// range lock held to the commit. A passkey registration reads that row under a lock the delete
+    /// holds, so of the two at the same moment one sees the other; a live passkey keeps the factor,
+    /// and nothing is written.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the check inside the transaction dropped.</remarks>
+    [Fact]
+    public async Task Disable_WithEmailOff_ReadsThePasskeysUnderARangeLock_AfterTheDelete_AndOneKeepsTheFactor()
+    {
+        var userId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            scalarFor: command => command.CommandText.Contains("[UserPasskeys]", StringComparison.Ordinal) ? true : null);
+        var store = new TwoFactorStateStore(
+            db,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<TwoFactorStateStore>.Instance,
+            new Auth.Application.Configuration.PasskeyRpIdAtStartup(PasskeyTestDoubles.RpId),
+            PasskeyTestDoubles.Schema());
+
+        var outcome = await store.TryDisableAsync(userId, SecondFactorProof.Totp(Step), keepWhilePasskeysLive: true, CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.PasskeysStillLive);
+        Sql(db.Commands[0]).Should().Be(ExpectedRemoveWithTotp, "the factor row's delete comes first: its lock is the one a registration waits for");
+        var check = db.Commands[1];
+        Sql(check).Should().Contain("FROM dbo.UserPasskeys WITH (HOLDLOCK)")
+            .And.Contain("UserId = @UserId AND RpId = @RpId AND RevokedAt IS NULL AND IsUserVerified = 1");
+        check.Parameters["UserId"].Should().Be(userId);
+        check.Parameters["RpId"].Should().Be(PasskeyTestDoubles.RpId);
+        check.InTransaction.Should().BeTrue("inside the switch-off's own transaction");
+        db.Commands.Should().NotContain(command => Writes(command, "Users"), "the account flag is not cleared");
+        db.LastTransaction!.RolledBack.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// With email on, or where no passkey of the RP ID in force can exist (no RP ID set), the
+    /// switch-off reads no passkey: the statements before S20.
+    /// </summary>
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task Disable_WithEmailOnOrNoRpId_ReadsNoPasskey(bool keepWhilePasskeysLive, bool rpIdSet)
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var store = new TwoFactorStateStore(
+            db,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<TwoFactorStateStore>.Instance,
+            rpIdSet ? new Auth.Application.Configuration.PasskeyRpIdAtStartup(PasskeyTestDoubles.RpId) : Auth.Application.Configuration.PasskeyRpIdAtStartup.None,
+            PasskeyTestDoubles.Schema());
+
+        var outcome = await store.TryDisableAsync(Guid.NewGuid(), SecondFactorProof.Totp(Step), keepWhilePasskeysLive, CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        db.Commands.Should().NotContain(command => command.CommandText.Contains("UserPasskeys", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -350,7 +407,7 @@ public class TwoFactorStateStoreSqlTests
             affectedRows: 0,
             rowFor: command => IsTheRead(command) ? new { IsEnabled = isEnabled } : null);
 
-        var outcome = await new TwoFactorStateStore(db).TryDisableAsync(Guid.NewGuid(), proof, CancellationToken.None);
+        var outcome = await new TwoFactorStateStore(db).TryDisableAsync(Guid.NewGuid(), proof, keepWhilePasskeysLive: false, CancellationToken.None);
 
         outcome.Should().Be(expected);
         db.Commands.Should().NotContain(command => Writes(command, "Users"));
@@ -749,7 +806,7 @@ public class TwoFactorStateStoreSqlTests
         var actor = Guid.NewGuid();
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
-        (await new TwoFactorStateStore(db).TryResetAsync(userId, actor, CancellationToken.None)).Should().BeTrue();
+        (await new TwoFactorStateStore(db).TryResetAsync(userId, actor, CancellationToken.None)).Should().NotBeNull();
 
         db.Commands.Should().HaveCount(3);
         db.Commands.Should().OnlyContain(command => command.InTransaction,
@@ -774,7 +831,7 @@ public class TwoFactorStateStoreSqlTests
             affectedRows: 1,
             affectedFor: command => Writes(command, "Users") ? 0 : 1);
 
-        (await new TwoFactorStateStore(db).TryResetAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None)).Should().BeFalse();
+        (await new TwoFactorStateStore(db).TryResetAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None)).Should().BeNull();
 
         db.LastTransaction!.RolledBack.Should().BeTrue();
         db.LastTransaction.Committed.Should().BeFalse();

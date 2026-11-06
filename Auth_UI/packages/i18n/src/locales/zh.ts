@@ -1422,6 +1422,8 @@ export const zh: TranslationResources = {
       twofactorEmailCodeEnabled: "邮件验证码已开启",
       twofactorEmailCodeDisabled: "邮件验证码已关闭",
       twofactorSteppedUp: "在会话中完成两步验证",
+      passkeyRegistered: "已添加通行密钥",
+      passkeyRemoved: "已移除通行密钥",
       userLocked: "锁定账户",
       userUnlocked: "解锁账户",
       userHardLocked: "登录失败次数过多，账户已锁定",

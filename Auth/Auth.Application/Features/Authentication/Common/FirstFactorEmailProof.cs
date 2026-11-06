@@ -81,12 +81,18 @@ public class FirstFactorEmailProof
     /// one live target.
     /// </summary>
     /// <param name="userId">The account binding its first factor.</param>
+    /// <param name="factor">
+    /// Which factor the code finishes adding, a value of <see cref="BindCodeFactors"/>: the
+    /// email says what the code does (REVIEW 150 F11). The code itself proves the mailbox for
+    /// either.
+    /// </param>
     /// <param name="deviceName">The browser and operating system the request came from, when known.</param>
     /// <param name="ipAddress">The requesting client address, for the email and the audit column.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The masked address the code went to, and when it expires.</returns>
     public async Task<ErrorOr<FirstFactorEmailCodeSent>> SendAsync(
         Guid userId,
+        string factor,
         string? deviceName,
         string? ipAddress,
         CancellationToken cancellationToken)
@@ -151,7 +157,8 @@ public class FirstFactorEmailProof
                     ["ExpirationMinutes"] = _emailSettings.OtpExpirationMinutes,
                     ["RequestedAt"] = code.CreatedAt.ToString("u", CultureInfo.InvariantCulture),
                     ["DeviceName"] = deviceName,
-                    ["IpAddress"] = ipAddress
+                    ["IpAddress"] = ipAddress,
+                    ["Factor"] = factor
                 }
             },
             cancellationToken);

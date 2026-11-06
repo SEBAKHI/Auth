@@ -18,4 +18,12 @@ public record TwoFactorResetEvent(
     Guid UserId,
     Guid ResetBy,
     string Email,
-    string DisplayName) : IDomainEvent;
+    string DisplayName) : IDomainEvent
+{
+    /// <summary>
+    /// How many passkeys the reset revoked with the factor (S20, REVIEW-FIXES 150 F16). The
+    /// owner's notice says they went too only when there were some, and no passkey gets a
+    /// notice of its own.
+    /// </summary>
+    public int PasskeysRemoved { get; init; }
+}

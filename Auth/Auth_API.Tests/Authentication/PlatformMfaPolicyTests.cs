@@ -30,6 +30,9 @@ public class PlatformMfaPolicyTests
     private static readonly AuthenticationMethods Pwd = AuthenticationMethods.Password;
     private static readonly AuthenticationMethods Mfa = AuthenticationMethods.Password.With(AuthenticationMethods.Totp);
 
+    // Before S20 the one qualifying factor was the authenticator app: these rows keep it so.
+    private static QualifyingSecondFactors AppOnly(bool hasFactor) => new(Totp: hasFactor, Passkey: false);
+
     private readonly Mock<ITwoFactorStateStore> _store = new(MockBehavior.Strict);
     private readonly Mock<ITokenClaimsResolver> _resolver = new(MockBehavior.Strict);
     private readonly Mock<ILogger<PlatformMfaPolicy>> _logger = new();
@@ -39,7 +42,7 @@ public class PlatformMfaPolicyTests
         new(_store.Object, _resolver.Object, TestHelpers.CreateOptions(_settings), TestHelpers.LoadedSettingsReloader(), new EnforcedSettingsWarning(), _logger.Object);
 
     private void GivenFactor(bool enabled) =>
-        _store.Setup(s => s.HasEnabledFactorAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(enabled);
+        _store.Setup(s => s.GetQualifyingFactorsAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(AppOnly(enabled));
 
     private void VerifyLog(LogLevel level, string text, Times times) =>
         _logger.Verify(
@@ -74,7 +77,7 @@ public class PlatformMfaPolicyTests
     public void Apply_Enforced_WithholdsPlatformAuthority_KeepsOrgPerm(
         string name, bool hasFactor, AuthenticationMethods methods, MfaRequirement expected)
     {
-        var decision = Policy().Apply(Admin, methods, hasFactor, enforce: true);
+        var decision = Policy().Apply(Admin, methods, AppOnly(hasFactor), enforce: true);
 
         decision.Requirement.Should().Be(expected, name);
         decision.Assessed.Should().Be(expected, name);
@@ -98,7 +101,7 @@ public class PlatformMfaPolicyTests
     public void Apply_SwitchOff_ChangesNothing_ButStillAssesses(
         string name, bool hasFactor, AuthenticationMethods methods, MfaRequirement expected)
     {
-        var decision = Policy().Apply(Admin, methods, hasFactor, enforce: false);
+        var decision = Policy().Apply(Admin, methods, AppOnly(hasFactor), enforce: false);
 
         decision.Claims.Should().BeSameAs(Admin, name);
         decision.Requirement.Should().Be(MfaRequirement.None, "with the switch off nothing is in force");
@@ -114,7 +117,7 @@ public class PlatformMfaPolicyTests
         // session proved and whether or not it has a factor: two-step stays optional.
         foreach (var hasFactor in new[] { true, false })
         {
-            var decision = Policy().Apply(PlainUser, AuthenticationMethods.Unknown, hasFactor, enforce);
+            var decision = Policy().Apply(PlainUser, AuthenticationMethods.Unknown, AppOnly(hasFactor), enforce);
 
             decision.Claims.Should().BeSameAs(PlainUser);
             decision.Requirement.Should().Be(MfaRequirement.None);
@@ -127,7 +130,7 @@ public class PlatformMfaPolicyTests
     {
         // The break: checking IsMfaSatisfied before "has a factor" would let a
         // session that proved a factor since removed keep platform authority.
-        var decision = Policy().Apply(Admin, Mfa, hasEnabledSecondFactor: false, enforce: true);
+        var decision = Policy().Apply(Admin, Mfa, factors: QualifyingSecondFactors.None, enforce: true);
 
         decision.Requirement.Should().Be(MfaRequirement.Enroll);
         decision.Claims.Permissions.Should().BeEmpty();
@@ -201,7 +204,7 @@ public class PlatformMfaPolicyTests
     {
         // The read serves only the readiness log while the switch is off: its
         // failure must not cost a sign-in that never needed it.
-        _store.Setup(s => s.HasEnabledFactorAsync(UserId, It.IsAny<CancellationToken>()))
+        _store.Setup(s => s.GetQualifyingFactorsAsync(UserId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("database down"));
 
         var decision = await Policy().EvaluateAsync(UserId, null, Admin, Pwd, CancellationToken.None);
@@ -215,7 +218,7 @@ public class PlatformMfaPolicyTests
     {
         // Under enforcement a token is never minted on a guess.
         _settings.EnforceForPlatformAdmins = true;
-        _store.Setup(s => s.HasEnabledFactorAsync(UserId, It.IsAny<CancellationToken>()))
+        _store.Setup(s => s.GetQualifyingFactorsAsync(UserId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("database down"));
 
         var act = () => Policy().EvaluateAsync(UserId, null, Admin, Pwd, CancellationToken.None);

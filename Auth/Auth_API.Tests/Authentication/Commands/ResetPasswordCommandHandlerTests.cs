@@ -21,6 +21,11 @@ namespace Auth_API.Tests.Authentication.Commands;
 /// </summary>
 public class ResetPasswordCommandHandlerTests
 {
+    // S20 (PK12): the passkeys the 72-hour revocation sees, on a fixed clock.
+    private static readonly DateTimeOffset PasskeyNow = new(2026, 11, 5, 9, 14, 0, TimeSpan.Zero);
+    private readonly Mock<Auth.Domain.Interfaces.Repositories.IUserPasskeyRepository> _passkeysMock = PasskeyTestDoubles.EmptyRepository();
+    private readonly Mock<MediatR.IPublisher> _passkeyPublisherMock = new();
+
     private const string ValidToken = "valid-token";
     private const string ValidTokenHash = $"hmac({ValidToken})";
 
@@ -86,6 +91,7 @@ public class ResetPasswordCommandHandlerTests
             TestHelpers.CreateAccountLockout(_userRepositoryMock.Object, _passwordSettings),
             _twoFactorStateStoreMock.Object,
             _twoFactorChallengeRepositoryMock.Object,
+            PasskeyTestDoubles.Revocation(_passkeysMock, _passkeyPublisherMock.Object, new FixedTimeProvider(PasskeyNow)),
             _loggerMock.Object);
     }
 
@@ -220,7 +226,8 @@ public class ResetPasswordCommandHandlerTests
     {
         // Review 99, F4: the statement fails deterministically while the API runs ahead
         // of the schema (a missing column). It runs last and its failure is logged, so
-        // the reset still spends the link and evicts every session first.
+        // the reset still evicts every session and spends the link. Since REVIEW-FIXES 150 (F14)
+        // the link is spent first, before the first write, and the sessions end right after it.
         var user = TestHelpers.CreateUser(email: "john@example.com");
         var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
         var command = new ResetPasswordCommand(ValidToken, "NewPass1!", TerminateSessions: true);
@@ -229,7 +236,7 @@ public class ResetPasswordCommandHandlerTests
         _passwordResetTokenRepositoryMock
             .Setup(r => r.MarkAsUsedAsync(resetToken.Id, It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("link spent"))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(true);
         _credentialRevocationMock
             .Setup(r => r.RevokeAllCredentialsAsync(user.Id, It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback(() => order.Add("sessions revoked"))
@@ -689,5 +696,262 @@ public class ResetPasswordCommandHandlerTests
         _passwordHistoryRepositoryMock
             .Setup(r => r.GetRecentHashesAsync(user.Id, _passwordSettings.HistoryCount, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string>());
+
+        // The link is still unspent: this submission spends it (REVIEW-FIXES 150 F14).
+        _passwordResetTokenRepositoryMock
+            .Setup(r => r.MarkAsUsedAsync(resetToken.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
     }
+
+    /// <summary>
+    /// S20 (PK12): a password reset by email revokes the passkeys registered in the 72 hours
+    /// before it — one an attacker added with the stolen password goes — and the notice lists
+    /// those that stay with their dates.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the revocation dropped from this path.</remarks>
+    [Fact]
+    public async Task Handle_ValidReset_RevokesThePasskeysOfTheLast72Hours_AndListsTheOthers()
+    {
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+        SetupValidResetScenario(user, resetToken, command);
+        var cutoff = PasskeyNow.UtcDateTime.AddHours(-72);
+        var recent = PasskeyTestDoubles.Live(user.Id, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
+        var older = PasskeyTestDoubles.Live(user.Id, PasskeyNow.UtcDateTime.AddHours(-73), "Older");
+        PasskeyTestDoubles.AsTable(_passkeysMock, revocationFails: false, recent, older);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
+            user.Id, cutoff, Auth.Domain.Constants.PasskeyRemovalReasons.PasswordReset, user.Id, CancellationToken.None), Times.Once,
+            "a passkey registered in the 72 hours before is revoked; the statement keeps the older ones (CreatedAt > @RegisteredAfter)");
+        _passkeyPublisherMock.Verify(p => p.Publish(
+            It.Is<Auth.Domain.Events.PasskeyRemovedEvent>(e => e.PasskeyId == recent.Id
+                && e.Reason == Auth.Domain.Constants.PasskeyRemovalReasons.PasswordReset && e.RemovedBy == user.Id),
+            CancellationToken.None), Times.Once);
+        _dispatchedEvents.OfType<Auth.Domain.Events.PasswordChangedEvent>().Single().Passkeys
+            .Should().Equal(new Auth.Domain.Events.PasskeySummary("Older", older.CreatedAt, older.LastUsedAt));
+    }
+
+    /// <summary>
+    /// REVIEW 150 F12 (D-150-2 (a)): a reset that gives a passwordless account its first
+    /// password revokes the passkeys of the 72 hours before it too, and the password-created
+    /// notice lists the ones that stay, as the password-changed notice does.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the first password's event raised without the list.</remarks>
+    [Fact]
+    public async Task Handle_AFirstPasswordSetByReset_RevokesTheRecentPasskeys_AndTheNoticeListsTheOthers()
+    {
+        var user = TestHelpers.CreateUser(email: "external@example.com", passwordHash: null);
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+        SetupValidResetScenario(user, resetToken, command);
+        var recent = PasskeyTestDoubles.Live(user.Id, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
+        var older = PasskeyTestDoubles.Live(user.Id, PasskeyNow.UtcDateTime.AddHours(-73), "Older");
+        PasskeyTestDoubles.AsTable(_passkeysMock, revocationFails: false, recent, older);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _passkeyPublisherMock.Verify(p => p.Publish(
+            It.Is<Auth.Domain.Events.PasskeyRemovedEvent>(e => e.PasskeyId == recent.Id
+                && e.Reason == Auth.Domain.Constants.PasskeyRemovalReasons.PasswordReset),
+            CancellationToken.None), Times.Once, "its owner is told which passkey went, and why");
+        _dispatchedEvents.OfType<PasswordCreatedEvent>().Single().Passkeys
+            .Should().Equal(new Auth.Domain.Events.PasskeySummary("Older", older.CreatedAt, older.LastUsedAt));
+    }
+
+    /// <summary>
+    /// REVIEW 150 F2: a revocation that fails never fails the reset, is logged once at Error,
+    /// and the notice's list, read after it, shows the recent passkey too.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the list read before the revocation again.</remarks>
+    [Fact]
+    public async Task Handle_ValidReset_WhenTheRevocationFails_TheNoticeListsTheRecentPasskeyToo()
+    {
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+        SetupValidResetScenario(user, resetToken, command);
+        var recent = PasskeyTestDoubles.Live(user.Id, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
+        var older = PasskeyTestDoubles.Live(user.Id, PasskeyNow.UtcDateTime.AddHours(-73), "Older");
+        PasskeyTestDoubles.AsTable(_passkeysMock, revocationFails: true, recent, older);
+        var log = new CapturingLogger<Auth.Application.Features.Passkeys.Common.RecentPasskeyRevocation>();
+
+        var result = await Handler(log).Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse("the password is already reset");
+        log.Entries.Should().ContainSingle(entry => entry.Level == LogLevel.Error)
+            .Which.Message.Should().StartWith(Auth.Domain.Constants.PasskeySignalCodes.RevocationFailed);
+        _dispatchedEvents.OfType<PasswordChangedEvent>().Single().Passkeys.Select(passkey => passkey.Name)
+            .Should().BeEquivalentTo(["Recent", "Older"], "a passkey the revocation left live still signs in, so the notice lists it");
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F14 (OI-31): of two submissions of one link, only the one that spends it
+    /// goes on. The spend is conditional and its row count read, before the first write, so the
+    /// other is refused as an invalid link and writes nothing.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the spend's answer ignored.</remarks>
+    [Fact]
+    public async Task Handle_TwoSubmissionsOfOneLink_TheSecondLosesTheSpend_AndWritesNothing()
+    {
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!", TerminateSessions: true);
+        SetupValidResetScenario(user, resetToken, command);
+        // Both found the link unspent; only the first spends it.
+        _passwordResetTokenRepositoryMock
+            .SetupSequence(r => r.MarkAsUsedAsync(resetToken.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+
+        var first = await _handler.Handle(command, CancellationToken.None);
+        var second = await _handler.Handle(command, CancellationToken.None);
+
+        first.IsError.Should().BeFalse();
+        second.IsError.Should().BeTrue();
+        second.FirstError.Code.Should().Be(PasswordResetErrors.InvalidOrExpiredToken.Code, "the first submission spent the link");
+        _userRepositoryMock.Verify(r => r.UpdatePasswordAsync(
+            user.Id, It.IsAny<string>(), user.Id, It.IsAny<CancellationToken>()), Times.Once, "the password is written once");
+        _passwordHistoryRepositoryMock.Verify(r => r.AddAsync(It.IsAny<PasswordHistory>(), It.IsAny<CancellationToken>()), Times.Once);
+        _credentialRevocationMock.Verify(s => s.RevokeAllCredentialsAsync(
+            user.Id, It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        _eventDispatcherMock.Verify(d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>
+    /// REVIEW 150 F1, F2 and REVIEW-FIXES 150 F14: once the link is spent, a client that
+    /// disconnects cannot skip any step. The link goes before the password is written, and
+    /// every step after it — the sessions, the passkeys and their list, the lock, the other
+    /// links, the history, the event — runs with no request token.
+    /// </summary>
+    /// <remarks>
+    /// Deliberate breaks, each verified red: the request's token back on the dispatch; the
+    /// spend moved after the write again.
+    /// </remarks>
+    [Fact]
+    public async Task Handle_ACallerThatDisconnectsAfterTheWrite_CannotSkipAnyStep()
+    {
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!", TerminateSessions: true);
+        SetupValidResetScenario(user, resetToken, command);
+        using var request = new CancellationTokenSource();
+        var order = new List<string>();
+        _passwordResetTokenRepositoryMock
+            .Setup(r => r.MarkAsUsedAsync(resetToken.Id, It.IsAny<CancellationToken>()))
+            .Returns((Guid _, CancellationToken token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                order.Add("link spent");
+                return Task.FromResult(true);
+            });
+        _userRepositoryMock
+            .Setup(r => r.UpdatePasswordAsync(user.Id, "NewHashedPassword", user.Id, It.IsAny<CancellationToken>()))
+            .Callback(() =>
+            {
+                order.Add("password written");
+                request.Cancel();
+            })
+            .Returns(Task.CompletedTask);
+        // Every later step that takes a token stops on a cancelled one, as a database call does.
+        _credentialRevocationMock
+            .Setup(s => s.RevokeAllCredentialsAsync(user.Id, It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns((Guid _, Guid? _, string _, CancellationToken token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                return Task.FromResult(1);
+            });
+        _passwordResetTokenRepositoryMock
+            .Setup(r => r.InvalidateAllForUserAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Returns((Guid _, CancellationToken token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            });
+        _passwordHistoryRepositoryMock
+            .Setup(r => r.CleanupOldHistoryAsync(user.Id, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns((Guid _, int _, CancellationToken token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            });
+        _eventDispatcherMock
+            .Setup(d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), It.IsAny<CancellationToken>()))
+            .Returns((AggregateRoot aggregate, CancellationToken token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                _dispatchedEvents.AddRange(aggregate.DomainEvents);
+                aggregate.ClearDomainEvents();
+                return Task.CompletedTask;
+            });
+        var recent = PasskeyTestDoubles.Live(user.Id, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
+        PasskeyTestDoubles.AsTable(_passkeysMock, revocationFails: false, recent);
+
+        var result = await _handler.Handle(command, request.Token);
+
+        result.IsError.Should().BeFalse("the link is spent and the password written: the rest runs whatever the client does");
+        order.Should().Equal(["link spent", "password written"], "the link is spent before the first write");
+        _credentialRevocationMock.Verify(s => s.RevokeAllCredentialsAsync(
+            user.Id, user.Id, "Password reset", CancellationToken.None), Times.Once, "the sessions end whatever the client does");
+        _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
+            user.Id, It.IsAny<DateTime>(), Auth.Domain.Constants.PasskeyRemovalReasons.PasswordReset, user.Id, CancellationToken.None), Times.Once,
+            "the recent passkeys go whatever the client does");
+        _passkeysMock.Verify(r => r.GetLiveAsync(user.Id, PasskeyTestDoubles.RpId, CancellationToken.None), Times.Once,
+            "the notice's list is read whatever the client does");
+        _userRepositoryMock.Verify(r => r.ClearAutomaticLockAsync(user.Id, CancellationToken.None), Times.Once, "the lock is lifted");
+        _passwordResetTokenRepositoryMock.Verify(r => r.InvalidateAllForUserAsync(user.Id, CancellationToken.None), Times.Once,
+            "the account's other links die");
+        _passwordHistoryRepositoryMock.Verify(r => r.CleanupOldHistoryAsync(user.Id, _passwordSettings.HistoryCount, CancellationToken.None), Times.Once);
+        _eventDispatcherMock.Verify(d => d.DispatchEventsAsync(user, CancellationToken.None), Times.Once, "the owner is told");
+        _dispatchedEvents.OfType<PasswordChangedEvent>().Should().ContainSingle();
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F14: the recent passkeys go even when ending the sessions throws, and
+    /// that exception then surfaces as before.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the revocation moved out of the <c>finally</c>.</remarks>
+    [Fact]
+    public async Task Handle_WhenEndingTheSessionsThrows_TheRecentPasskeysStillGo_AndTheErrorSurfaces()
+    {
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!", TerminateSessions: true);
+        SetupValidResetScenario(user, resetToken, command);
+        _credentialRevocationMock
+            .Setup(s => s.RevokeAllCredentialsAsync(user.Id, It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("the token store is unreachable"));
+        var recent = PasskeyTestDoubles.Live(user.Id, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
+        PasskeyTestDoubles.AsTable(_passkeysMock, revocationFails: false, recent);
+
+        var act = () => _handler.Handle(command, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("the token store is unreachable");
+        _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
+            user.Id, It.IsAny<DateTime>(), Auth.Domain.Constants.PasskeyRemovalReasons.PasswordReset, user.Id, CancellationToken.None), Times.Once,
+            "the passkeys of the last 72 hours go whatever ending the sessions did");
+    }
+
+    private ResetPasswordCommandHandler Handler(Microsoft.Extensions.Logging.ILogger<Auth.Application.Features.Passkeys.Common.RecentPasskeyRevocation> log) =>
+        new(
+            _userRepositoryMock.Object,
+            _passwordResetTokenRepositoryMock.Object,
+            _passwordHistoryRepositoryMock.Object,
+            _credentialRevocationMock.Object,
+            _passwordHasherMock.Object,
+            _tokenKeyServiceMock,
+            _passwordValidator,
+            TestHelpers.CreatePassingBreachEvaluator(),
+            TestHelpers.CreateOptions(_passwordSettings),
+            TestHelpers.CreateOptions(_sessionSettings),
+            _eventDispatcherMock.Object,
+            TestHelpers.CreateAccountLockout(_userRepositoryMock.Object, _passwordSettings),
+            _twoFactorStateStoreMock.Object,
+            _twoFactorChallengeRepositoryMock.Object,
+            PasskeyTestDoubles.Revocation(_passkeysMock, _passkeyPublisherMock.Object, new FixedTimeProvider(PasskeyNow), log),
+            _loggerMock.Object);
 }

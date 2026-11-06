@@ -299,8 +299,10 @@ public class SendTwoFactorEmailCodeCommandHandlerTests
         sent.Variables["RequestedAt"].Should().Be("2026-10-03 09:14:00Z");
         sent.Variables["DeviceName"].Should().Be(DeviceName);
         sent.Variables["IpAddress"].Should().Be(ClientIp);
+        // REVIEW 150 F11: the app's code, so the email keeps version 1's words.
+        sent.Variables["Factor"].Should().Be(Auth.Domain.Constants.BindCodeFactors.AuthenticatorApp);
         sent.Variables.Keys.Should().BeEquivalentTo(
-            ["UserName", "OtpCode", "ExpirationMinutes", "RequestedAt", "DeviceName", "IpAddress"],
+            ["UserName", "OtpCode", "ExpirationMinutes", "RequestedAt", "DeviceName", "IpAddress", "Factor"],
             "the variables the seeded catalog declares, and no other");
     }
 

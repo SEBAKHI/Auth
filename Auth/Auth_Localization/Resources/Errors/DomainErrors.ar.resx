@@ -595,6 +595,9 @@
   <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
     <value>قُفلت المصادقة الثنائية بعد رموز خاطئة كثيرة. أعد تعيين كلمة المرور من صفحة تسجيل الدخول، ثم اطلب من مسؤول إعادة ضبط المصادقة الثنائية.</value>
   </data>
+  <data name="TwoFactor.PasskeyNeedsApp" xml:space="preserve">
+    <value>ما دام إرسال البريد معطّلًا، لا يمكن إيقاف تطبيق المصادقة وفي الحساب مفتاح مرور. أزل مفاتيح المرور أولًا.</value>
+  </data>
   <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
     <value>المصادقة الثنائية لهذا الحساب مقفلة بعد رموز خاطئة كثيرة. يجب أن يعيد صاحب الحساب تعيين كلمة المرور عبر البريد الإلكتروني قبل أن تستطيع إعادة ضبط المصادقة الثنائية.</value>
   </data>
@@ -1377,6 +1380,21 @@
   </data>
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>يجب أن يكون عدد العناصر بين 1 و100.</value>
+  </data>
+  <data name="Passkey.EmailRequired" xml:space="preserve">
+    <value>لا يُضاف أول مفتاح مرور إلا وإرسال البريد مفعّل. أضف تطبيق المصادقة أولًا، ثم مفتاح المرور.</value>
+  </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>بلغ هذا الحساب الحدّ الأقصى من مفاتيح المرور. احذف واحدًا قبل إضافة غيره.</value>
+  </data>
+  <data name="Passkey.NameTooLong" xml:space="preserve">
+    <value>يجب ألّا يتجاوز اسم مفتاح المرور 64 حرفًا.</value>
+  </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>لم يُعثر على مفتاح المرور.</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>تعذّر التحقق من مفتاح المرور. حاول مرة أخرى.</value>
   </data>
   <data name="Password.CommonPattern" xml:space="preserve">
     <value>تحتوي كلمة المرور على نمط شائع يسهل تخمينه.</value>

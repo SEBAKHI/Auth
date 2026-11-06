@@ -593,6 +593,9 @@
   <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
     <value>احراز هویت دو مرحله‌ای پس از کدهای نادرست بسیار قفل شده است. رمز عبور خود را از صفحهٔ ورود بازنشانی کنید، سپس از یک مدیر بخواهید احراز هویت دو مرحله‌ای را بازنشانی کند.</value>
   </data>
+  <data name="TwoFactor.PasskeyNeedsApp" xml:space="preserve">
+    <value>تا زمانی که ارسال ایمیل خاموش است و کلید عبوری روی حساب هست، نمی‌توان برنامهٔ احراز هویت را خاموش کرد. نخست کلیدهای عبور را حذف کنید.</value>
+  </data>
   <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
     <value>احراز هویت دو مرحله‌ای این حساب پس از کدهای نادرست بسیار قفل شده است. پیش از آنکه بتوانید احراز هویت دو مرحله‌ای را بازنشانی کنید، صاحب حساب باید رمز عبور را از طریق ایمیل بازنشانی کند.</value>
   </data>
@@ -1375,6 +1378,21 @@
   </data>
   <data name="Paging.TakeOutOfRange" xml:space="preserve">
     <value>تعداد موارد باید بین ۱ و ۱۰۰ باشد.</value>
+  </data>
+  <data name="Passkey.EmailRequired" xml:space="preserve">
+    <value>نخستین کلید عبور تنها زمانی افزوده می‌شود که ارسال ایمیل روشن باشد. نخست برنامهٔ احراز هویت را بیفزایید، سپس کلید عبور را.</value>
+  </data>
+  <data name="Passkey.LimitReached" xml:space="preserve">
+    <value>این حساب به حداکثر تعداد کلیدهای عبور رسیده است. پیش از افزودن کلید تازه، یکی را حذف کنید.</value>
+  </data>
+  <data name="Passkey.NameTooLong" xml:space="preserve">
+    <value>نام کلید عبور نباید بیش از ۶۴ نویسه باشد.</value>
+  </data>
+  <data name="Passkey.NotFound" xml:space="preserve">
+    <value>کلید عبور پیدا نشد.</value>
+  </data>
+  <data name="Passkey.VerificationFailed" xml:space="preserve">
+    <value>کلید عبور تأیید نشد. دوباره تلاش کنید.</value>
   </data>
   <data name="Password.CommonPattern" xml:space="preserve">
     <value>رمز عبور شامل الگوی رایجی است که به راحتی قابل حدس زدن است.</value>

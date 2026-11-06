@@ -58,16 +58,18 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task MarkAsUsedAsync(Guid tokenId, CancellationToken cancellationToken)
+    public async Task<bool> MarkAsUsedAsync(Guid tokenId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
+        var spent = await connection.ExecuteAsync(@"
             UPDATE [dbo].[PasswordResetTokens] SET
                 [UsedAt] = GETUTCDATE()
             WHERE [Id] = @TokenId
               AND [UsedAt] IS NULL",
             new { TokenId = tokenId });
+
+        return spent == 1;
     }
 
     /// <inheritdoc />

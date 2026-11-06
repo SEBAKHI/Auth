@@ -1481,6 +1481,8 @@ export const tr: TranslationResources = {
       twofactorEmailCodeEnabled: "E-postayla kodlar açıldı",
       twofactorEmailCodeDisabled: "E-postayla kodlar kapatıldı",
       twofactorSteppedUp: "Oturum içinde ikinci faktör kanıtlandı",
+      passkeyRegistered: "Geçiş anahtarı eklendi",
+      passkeyRemoved: "Geçiş anahtarı kaldırıldı",
       userLocked: "Hesap kilitlendi",
       userUnlocked: "Hesap kilidi açıldı",
       userHardLocked: "Çok sayıda başarısız girişten sonra hesap kilitlendi",

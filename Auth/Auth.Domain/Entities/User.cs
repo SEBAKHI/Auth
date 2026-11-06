@@ -366,13 +366,26 @@ public class User : AggregateRoot
         SetModified(modifiedBy);
     }
 
-    public void ChangePassword(string newPasswordHash, Guid modifiedBy)
+    /// <summary>
+    /// Replaces the password and raises <see cref="PasswordChangedEvent"/>.
+    /// </summary>
+    /// <param name="newPasswordHash">The new password's hash.</param>
+    /// <param name="modifiedBy">Who changed it.</param>
+    /// <param name="survivingPasskeys">
+    /// The account's passkeys that stay after the change (S20, D-T19 D): the notice lists
+    /// them so the owner can spot one they do not recognise. Required, so no caller can
+    /// leave the list out by accident; an account without passkeys passes an empty one.
+    /// </param>
+    public void ChangePassword(string newPasswordHash, Guid modifiedBy, IReadOnlyList<PasskeySummary> survivingPasskeys)
     {
         PasswordHash = newPasswordHash;
         PasswordChangedAt = DateTime.UtcNow;
         MustChangePassword = false;
         SetModified(modifiedBy);
-        RaiseDomainEvent(new PasswordChangedEvent(Id, modifiedBy, Email, NameToShow));
+        RaiseDomainEvent(new PasswordChangedEvent(Id, modifiedBy, Email, NameToShow)
+        {
+            Passkeys = [.. survivingPasskeys],
+        });
     }
 
     /// <summary>
@@ -386,7 +399,14 @@ public class User : AggregateRoot
     /// rather than in a handler so that no future caller can overwrite an existing password
     /// through a path that asks for nothing.
     /// </remarks>
-    public ErrorOr<Success> SetInitialPassword(string passwordHash, Guid modifiedBy)
+    /// <param name="passwordHash">The first password's hash.</param>
+    /// <param name="modifiedBy">Who set it.</param>
+    /// <param name="passkeysThatStay">
+    /// The account's passkeys that stay (S20, REVIEW 150 F12): the notice lists them, as the
+    /// password-changed notice does. Required, so no caller can leave the list out by accident;
+    /// an account without passkeys passes an empty one.
+    /// </param>
+    public ErrorOr<Success> SetInitialPassword(string passwordHash, Guid modifiedBy, IReadOnlyList<PasskeySummary> passkeysThatStay)
     {
         if (PasswordHash is not null)
             return UserErrors.PasswordAlreadySet;
@@ -395,7 +415,10 @@ public class User : AggregateRoot
         PasswordChangedAt = DateTime.UtcNow;
         MustChangePassword = false;
         SetModified(modifiedBy);
-        RaiseDomainEvent(new PasswordCreatedEvent(Id, modifiedBy, Email, NameToShow));
+        RaiseDomainEvent(new PasswordCreatedEvent(Id, modifiedBy, Email, NameToShow)
+        {
+            Passkeys = [.. passkeysThatStay],
+        });
         return Result.Success;
     }
 
@@ -717,11 +740,12 @@ public class User : AggregateRoot
     /// <see cref="EnsureTwoFactorResettableBy"/> allowed it.
     /// </summary>
     /// <param name="resetBy">The administrator who removed the factor.</param>
-    public void ResetTwoFactor(Guid resetBy)
+    /// <param name="passkeysRemoved">How many passkeys the store revoked with it, for the notice.</param>
+    public void ResetTwoFactor(Guid resetBy, int passkeysRemoved)
     {
         TwoFactorEnabled = false;
         SetModified(resetBy);
-        RaiseDomainEvent(new TwoFactorResetEvent(Id, resetBy, Email, NameToShow));
+        RaiseDomainEvent(new TwoFactorResetEvent(Id, resetBy, Email, NameToShow) { PasskeysRemoved = passkeysRemoved });
     }
 
     public void RequirePasswordChange(Guid modifiedBy)
