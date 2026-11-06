@@ -18,10 +18,10 @@ namespace Auth_API.Tests.Passkeys;
 /// every account while passkeys do not run, goes on (D-150-4: off means off, and nothing is read).
 /// </summary>
 /// <remarks>
-/// Deliberate breaks, each verified red: «passkey-only» read from the inventory instead of the
-/// usable factors (refuses while passkeys are off); «administrator» read from
-/// <c>TwoFactor:EnforceForPlatformAdmins</c> instead of the claims; the claims resolved before the
-/// factors (resolved for every account).
+/// Deliberate breaks, each verified red: the pause while passkeys do not run removed (the
+/// inventory read, and a passkey-only administrator refused, while passkeys are off);
+/// «administrator» no longer read from the platform claims (an account without platform
+/// permission refused); the claims resolved before the factors (resolved for every account).
 /// </remarks>
 public class PasskeyOnlyAdministratorRuleTests
 {

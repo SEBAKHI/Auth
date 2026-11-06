@@ -96,14 +96,24 @@ public class PasskeyCeremonyOptionsTests
     [Fact]
     public async Task ARepeatedCookie_GetsANewChallenge_AndIsNeverOfferedTheOneItNames()
     {
+        // The cookie reader hands on no handle for a name sent twice; the handler trusts none
+        // either, so a command that carries one with the flag is still a new challenge.
         using var fixture = new PasskeySignInFixture();
+        var live = WebAuthnChallenge.IssueForAssertion("fp-live", "{\"challenge\":\"bGl2ZQ\"}", DateTime.UtcNow);
+        fixture.Challenges.Setup(c => c.GetReusableAssertionAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(live);
 
-        var started = await fixture.Begin().Handle(new BeginPasskeyAssertionCommand(null, ChallengeHandleRepeated: true), CancellationToken.None);
+        foreach (var handle in new[] { null, "one-of-two" })
+        {
+            var started = await fixture.Begin().Handle(new BeginPasskeyAssertionCommand(handle, ChallengeHandleRepeated: true), CancellationToken.None);
 
-        started.Value.ChallengeHandle.Should().Be(PasskeySignInFixture.Handle);
+            started.Value.ChallengeHandle.Should().Be(PasskeySignInFixture.Handle, handle ?? "no handle");
+            started.Value.OptionsJson.Should().NotBe(live.OptionsJson, handle ?? "no handle");
+        }
+
         fixture.Challenges.Verify(c => c.GetReusableAssertionAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<CancellationToken>()), Times.Never,
             "one of two cookies may be a plant: neither is trusted to name the challenge");
-        fixture.Challenges.Verify(c => c.CreateAsync(It.IsAny<WebAuthnChallenge>(), It.IsAny<CancellationToken>()), Times.Once);
+        fixture.Challenges.Verify(c => c.CreateAsync(It.IsAny<WebAuthnChallenge>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]

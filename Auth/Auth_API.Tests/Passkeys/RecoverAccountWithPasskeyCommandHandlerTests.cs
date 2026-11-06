@@ -25,9 +25,9 @@ namespace Auth_API.Tests.Passkeys;
 /// way, while the three other entries refuse that account (D-S20-4 (ii-s)).
 /// </summary>
 /// <remarks>
-/// Deliberate breaks, each verified red: the recoverer's second-step gate asked of a passkey
-/// (<c>User.TwoFactorRequired</c>); <c>passwordProven</c> true for a passkey; the refusal asked of
-/// the passkey entry too.
+/// Deliberate breaks, each verified red: the recoverer's second-step gate asked of a passkey;
+/// <c>passwordProven</c> true for the recovered session; the refusal asked of the passkey entry
+/// too.
 /// </remarks>
 public class RecoverAccountWithPasskeyCommandHandlerTests
 {

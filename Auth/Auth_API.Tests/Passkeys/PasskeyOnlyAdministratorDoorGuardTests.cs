@@ -11,9 +11,9 @@ namespace Auth_API.Tests.Passkeys;
 /// until it says which it is.
 /// </summary>
 /// <remarks>
-/// Deliberate breaks, each verified red: the password sign-in's refusal moved after its
-/// challenge; the provider sign-in's refusal removed; the recoverer asking it of the passkey's
-/// own entry too.
+/// Deliberate breaks, each verified red: the password sign-in's refusal removed; the second
+/// step's refusal moved after its session; the recoverer asking it of the passkey's own entry
+/// too.
 /// </remarks>
 public class PasskeyOnlyAdministratorDoorGuardTests
 {

@@ -17,7 +17,8 @@ namespace Auth_API.Tests.Passkeys;
 /// </summary>
 /// <remarks>
 /// Deliberate breaks, each verified red: the setup of the app reading the inventory (the store
-/// call appears in its file); the switch-off of the app given the usable reader (N13).
+/// call appears in its file); the switch-off of the app no longer reading the inventory (N13: its
+/// passkey check gone, so a live passkey no longer keeps the app while email is off).
 /// </remarks>
 public class UsableSecondFactorsReaderGuardTests
 {
