@@ -126,13 +126,13 @@ public class UserPasskeyTests
     /// <remarks>Deliberate break, verified red: the filter removed.</remarks>
     [Theory]
     [InlineData("Lap\u0000top\u0007", "Laptop")]
-    [InlineData("‮potpaL", "potpaL")]
-    [InlineData("Work ‪laptop‬", "Work laptop")]
-    [InlineData("⁦Phone⁩ ⁧x⁨", "Phone x")]
+    [InlineData("\u202EpotpaL", "potpaL")]
+    [InlineData("Work \u202Alaptop\u202C", "Work laptop")]
+    [InlineData("\u2066Phone\u2069 \u2067x\u2068", "Phone x")]
     [InlineData("Key\r\n\tTwo\u0085\u009B", "KeyTwo")]
-    [InlineData("\u0007‮", UserPasskey.DefaultName)]
-    [InlineData("کلید‌عبور", "کلید‌عبور")]
-    [InlineData("\U0001F469‍\U0001F4BB laptop", "\U0001F469‍\U0001F4BB laptop")]
+    [InlineData("\u0007\u202E", UserPasskey.DefaultName)]
+    [InlineData("کلید\u200Cعبور", "کلید\u200Cعبور")]
+    [InlineData("\U0001F469\u200D\U0001F4BB laptop", "\U0001F469\u200D\U0001F4BB laptop")]
     public void TheName_DropsControlAndBidiCharacters_KeepsZwnjAndZwj(string name, string expected)
     {
         var created = UserPasskey.Create(Guid.NewGuid(), [1, 2, 3], [9, 9], 0, "example.com", true, true, false, name, Now);

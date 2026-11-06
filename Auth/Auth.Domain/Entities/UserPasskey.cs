@@ -253,8 +253,8 @@ public sealed class UserPasskey : EntityBase
         foreach (var character in value)
         {
             if (char.IsControl(character)
-                || character is >= '‪' and <= '‮'
-                || character is >= '⁦' and <= '⁩')
+                || character is >= '\u202A' and <= '\u202E'
+                || character is >= '\u2066' and <= '\u2069')
             {
                 continue;
             }
