@@ -75,6 +75,9 @@
   <data name="Auth.ReauthenticationRequired" xml:space="preserve">
     <value>For your security, sign in again to change two-factor authentication.</value>
   </data>
+  <data name="Auth.PasskeyRequired" xml:space="preserve">
+    <value>This account signs in with its passkey. Use your passkey to continue.</value>
+  </data>
   <data name="Auth.FirstPartyOriginRequired" xml:space="preserve">
     <value>This request must come from one of the platform's own sign-in pages. Open the sign-in page of the app you want to use and try again.</value>
   </data>

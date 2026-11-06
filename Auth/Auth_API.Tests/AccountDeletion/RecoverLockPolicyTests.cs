@@ -59,7 +59,7 @@ public class RecoverLockPolicyTests
         new FakeCredentialHasher(),
         new Mock<IJwtTokenService>().Object,
         TestHelpers.CreateSecondFactorLockout(),
-        _builder.Object, new Mock<IPublisher>().Object, NullLogger<AccountDeletionRecoverer>.Instance);
+        _builder.Object, TestHelpers.PasskeyOnlyAdministratorRuleOff(), new Mock<IPublisher>().Object, NullLogger<AccountDeletionRecoverer>.Instance);
 
     private RecoverAccountCommandHandler PasswordEntry() => new(
         _users.Object, _requests.Object, _hasher.Object, _attempts.Object, Recoverer(),

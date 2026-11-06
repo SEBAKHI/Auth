@@ -19,13 +19,17 @@ namespace Auth_API.Tests.Passkeys;
 
 /// <summary>
 /// S20 (FA11 (11-2), OI-48 (2)): beside a live passkey the authenticator app is a further
-/// factor, so a session that proved one factor can neither set it up nor switch it on —
-/// whatever <c>Passkeys:Enabled</c> says — and no emailed code is asked: the two-factor
-/// session is the proof. An account without a passkey answers as it always has.
+/// factor, so a session that proved one factor can neither set it up nor switch it on, and no
+/// emailed code is asked: the two-factor session is the proof. That holds while passkeys run;
+/// while they do not (S20 PR B, D-150-4 «off means off») the passkey is no usable factor, so
+/// the app is the account's first one, set up and switched on as before passkeys, with the
+/// emailed code X02 asks of a first factor. An account without a passkey answers as it always
+/// has, either way.
 /// </summary>
 /// <remarks>
 /// Deliberate breaks, each verified red: the FA2 line dropped from setup; enable's email-code
-/// decision no longer gated on FA2; the sender's FA2 check dropped.
+/// decision no longer gated on FA2; the sender's FA2 check dropped. PR B: setup reading the
+/// inventory instead of the usable factors (the off-means-off rows turn red).
 /// </remarks>
 public class TotpEnableRequiresMfaWhenPasskeyBoundTests
 {
@@ -46,6 +50,10 @@ public class TotpEnableRequiresMfaWhenPasskeyBoundTests
     private readonly Mock<ITwoFactorSecretProtector> _protector = new();
     private readonly Mock<ITwoFactorBindCodeRepository> _bindCodes = new(MockBehavior.Strict);
     private readonly EmailSettings _email = new() { Enabled = true };
+
+    // Passkeys run, as on a deployment that switched them on: PR A's answers. The rows that
+    // switch them off are «off means off» (D-150-4).
+    private bool _passkeysRun = true;
 
     public TotpEnableRequiresMfaWhenPasskeyBoundTests()
     {
@@ -104,7 +112,7 @@ public class TotpEnableRequiresMfaWhenPasskeyBoundTests
     public async Task Enable_BesideAPasskey_FromAPasswordSession_IsRefused_BeforeAnAttemptIsCounted()
     {
         GivenPendingFactor(AuthenticationMethods.Password);
-        _store.Setup(s => s.HasEnabledFactorAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        GivenFactors(PasskeyOnly);
 
         var result = await Enable().Handle(new EnableTwoFactorCommand(_userId, "123456", SessionId, "203.0.113.7"), CancellationToken.None);
 
@@ -117,7 +125,7 @@ public class TotpEnableRequiresMfaWhenPasskeyBoundTests
     {
         // Email is on; the strict bind-code mock fails the test if the code is asked for.
         GivenPendingFactor(TwoFactorSession);
-        _store.Setup(s => s.HasEnabledFactorAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        GivenFactors(PasskeyOnly);
         _store.Setup(s => s.TryEnableAsync(
                 _userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<Guid?>(), It.IsAny<SessionUpgrade>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LoginCommitOutcome.Committed);
@@ -134,7 +142,7 @@ public class TotpEnableRequiresMfaWhenPasskeyBoundTests
     {
         // Today's answer for a first factor (X02), unchanged.
         GivenPendingFactor(AuthenticationMethods.Password);
-        _store.Setup(s => s.HasEnabledFactorAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        GivenFactors(QualifyingSecondFactors.None);
 
         var result = await Enable().Handle(new EnableTwoFactorCommand(_userId, "123456", SessionId, "203.0.113.7"), CancellationToken.None);
 
@@ -149,7 +157,7 @@ public class TotpEnableRequiresMfaWhenPasskeyBoundTests
         GivenSession(TwoFactorSession);
         _store.Setup(s => s.GetSnapshotAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TwoFactorSnapshot(_userId, ProtectedSecret, null, isEnabled: false, failedAttempts: 0, lockedUntil: null));
-        _store.Setup(s => s.HasEnabledFactorAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        GivenFactors(PasskeyOnly);
 
         var result = await Sender().Handle(new SendTwoFactorEmailCodeCommand(_userId, SessionId, "203.0.113.7"), CancellationToken.None);
 
@@ -157,21 +165,85 @@ public class TotpEnableRequiresMfaWhenPasskeyBoundTests
         result.Value.EmailCodeRequired.Should().BeFalse("the strict bind-code mock proves nothing was minted");
     }
 
+    // ── Off means off (S20 PR B, D-150-4) ──
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Setup_BesideAPasskey_WhilePasskeysDoNotRun_GoesOnFromAPasswordSession_AsAFirstFactor(bool emailOn)
+    {
+        _passkeysRun = false;
+        _email.Enabled = emailOn;
+        GivenSession(AuthenticationMethods.Password);
+        GivenFactors(PasskeyOnly);
+
+        var result = await Setup().Handle(new SetupTwoFactorCommand(_userId, SessionId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse("no two-factor session is asked: the passkey is no usable factor");
+        result.Value.EmailCodeRequired.Should().Be(emailOn, "the emailed code of X02 applies to a first factor");
+    }
+
     [Fact]
-    public void NoneOfTheThree_ReadsThePasskeySwitch()
+    public async Task Enable_BesideAPasskey_WhilePasskeysDoNotRun_AsksTheEmailedCode_AsForAFirstFactor()
+    {
+        _passkeysRun = false;
+        GivenPendingFactor(AuthenticationMethods.Password);
+        GivenFactors(PasskeyOnly);
+
+        var result = await Enable().Handle(new EnableTwoFactorCommand(_userId, "123456", SessionId, "203.0.113.7"), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(TwoFactorErrors.EmailCodeRequired.Code,
+            "a password session may bind it, and the mailbox proof of a first factor is asked");
+        _store.Verify(s => s.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SendEmailCode_BesideAPasskey_WhilePasskeysDoNotRun_MintsTheCode()
+    {
+        _passkeysRun = false;
+        GivenSession(AuthenticationMethods.Password);
+        _store.Setup(s => s.GetSnapshotAsync(_userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TwoFactorSnapshot(_userId, ProtectedSecret, null, isEnabled: false, failedAttempts: 0, lockedUntil: null));
+        GivenFactors(PasskeyOnly);
+        var bindCodes = new Mock<ITwoFactorBindCodeRepository>();
+        var notifications = new Mock<INotificationService>();
+        notifications.Setup(n => n.SendAsync(It.IsAny<Auth.Application.Notifications.NotificationRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ErrorOr.ErrorOr<ErrorOr.Success>)ErrorOr.Result.Success);
+        var otpGenerator = new Mock<IOtpGenerator>();
+        otpGenerator.Setup(g => g.GenerateNumericOtp(It.IsAny<int>())).Returns("654321");
+        var proof = new FirstFactorEmailProof(
+            bindCodes.Object, _users.Object, notifications.Object, otpGenerator.Object,
+            Mock.Of<IOtpHasher>(hasher => hasher.Hash(It.IsAny<string>(), It.IsAny<string>()) == "fresh-hash"),
+            TestHelpers.CreateOptions(_email), TimeProvider.System, NullLogger<FirstFactorEmailProof>.Instance);
+
+        var result = await new SendTwoFactorEmailCodeCommandHandler(
+                _guard.Object, new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_email)), _store.Object,
+                TestHelpers.UsableFactors(_store.Object, passkeysRun: false), proof)
+            .Handle(new SendTwoFactorEmailCodeCommand(_userId, SessionId, "203.0.113.7"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.EmailCodeRequired.Should().BeTrue("a first factor gets its mailbox proof");
+        notifications.Verify(n => n.SendAsync(It.IsAny<Auth.Application.Notifications.NotificationRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public void EachOfTheThree_ReadsTheUsableFactors_NeverTheSwitchItself()
     {
         Type[] handlers = [typeof(SetupTwoFactorCommandHandler), typeof(EnableTwoFactorCommandHandler), typeof(SendTwoFactorEmailCodeCommandHandler)];
-        var parameters = handlers
-            .SelectMany(handler => handler.GetConstructors())
-            .SelectMany(constructor => constructor.GetParameters())
-            .Select(parameter => parameter.ParameterType)
-            .ToList();
+        foreach (var handler in handlers)
+        {
+            var parameters = handler.GetConstructors()
+                .SelectMany(constructor => constructor.GetParameters())
+                .Select(parameter => parameter.ParameterType)
+                .ToList();
 
-        parameters.Should().NotBeEmpty();
-        parameters.Should().NotContain(typeof(PasskeyFeature))
-            .And.NotContain(typeof(IOptionsMonitor<PasskeySettings>))
-            .And.NotContain(typeof(IOptionsSnapshot<PasskeySettings>))
-            .And.NotContain(typeof(IOptions<PasskeySettings>));
+            parameters.Should().Contain(typeof(UsableSecondFactors),
+                $"{handler.Name} asks whether a passkey is usable in the one place that decides it (T-B6)");
+            parameters.Should().NotContain(typeof(PasskeyFeature))
+                .And.NotContain(typeof(IOptionsMonitor<PasskeySettings>))
+                .And.NotContain(typeof(IOptionsSnapshot<PasskeySettings>))
+                .And.NotContain(typeof(IOptions<PasskeySettings>));
+        }
     }
 
     // ── Fixture ──
@@ -205,6 +277,7 @@ public class TotpEnableRequiresMfaWhenPasskeyBoundTests
             _guard.Object,
             _users.Object,
             _store.Object,
+            TestHelpers.UsableFactors(_store.Object, _passkeysRun),
             _protector.Object,
             new AuthenticatorKeyFactory(
                 Mock.Of<IPlatformSettingsRepository>(),
@@ -223,6 +296,7 @@ public class TotpEnableRequiresMfaWhenPasskeyBoundTests
                 [new TotpProofStrategy(_totp.Object, _protector.Object), new RecoveryCodeProofStrategy(_totp.Object)],
                 TestHelpers.CreateSecondFactorLockout()),
             _store.Object,
+            TestHelpers.UsableFactors(_store.Object, _passkeysRun),
             _totp.Object,
             new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_email)),
             EmailProof(),
@@ -234,5 +308,6 @@ public class TotpEnableRequiresMfaWhenPasskeyBoundTests
             NullLogger<EnableTwoFactorCommandHandler>.Instance);
 
     private SendTwoFactorEmailCodeCommandHandler Sender() =>
-        new(_guard.Object, new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_email)), _store.Object, EmailProof());
+        new(_guard.Object, new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_email)), _store.Object,
+            TestHelpers.UsableFactors(_store.Object, _passkeysRun), EmailProof());
 }

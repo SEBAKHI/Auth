@@ -1,7 +1,10 @@
 using System.Text.Json;
 using Asp.Versioning;
 using Auth.Application.Configuration;
+using Auth.Application.DTOs;
+using Auth.Application.Features.AccountDeletion.RecoverAccountWithPasskey;
 using Auth.Application.Features.Authentication.SendTwoFactorEmailCode;
+using Auth.Application.Features.Passkeys.BeginPasskeyAssertion;
 using Auth.Application.Features.Passkeys.BeginPasskeyRegistration;
 using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Features.Passkeys.CompletePasskeyRegistration;
@@ -9,7 +12,9 @@ using Auth.Application.Features.Passkeys.GetMyPasskeys;
 using Auth.Application.Features.Passkeys.RemovePasskey;
 using Auth.Application.Features.Passkeys.RenamePasskey;
 using Auth.Application.Features.Passkeys.SendPasskeyRegistrationEmailCode;
+using Auth.Application.Features.Passkeys.VerifyPasskeyAssertion;
 using Auth_API.Common;
+using Auth_API.Common.FirstParty;
 using Auth_API.Common.Passkeys;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -20,13 +25,15 @@ using Microsoft.Extensions.Options;
 namespace Auth_API.Modules.Authentication.Controllers;
 
 /// <summary>
-/// The signed-in account's passkeys (S20): add one, list them, rename and remove one. Signing
-/// in with a passkey is not here yet (S20 PR B).
+/// Passkeys (S20): the signed-in account adds one, lists them, renames and removes one; and
+/// anyone signs in with one, or cancels their account's pending deletion with one (S20 PR B).
 /// </summary>
 /// <remarks>
 /// <para>
 /// Every action answers 404 while passkeys do not run — switched off, or switched on without
 /// an RP ID, a first-party origin or the schema (PK19, <see cref="PasskeysAvailabilityMiddleware"/>).
+/// The three sign-in actions are anonymous and stay here, behind the same gate: placed anywhere
+/// else they would answer while passkeys are off.
 /// </para>
 /// <para>
 /// The route is a template (<c>api/v{version}/auth/passkeys</c>), matched as every route is:
@@ -50,6 +57,12 @@ public class PasskeysController : ApiController
 {
     /// <summary>The largest registration answer accepted: an RSA key's attestation fits many times over.</summary>
     public const int MaxRegistrationBodyBytes = 64 * 1024;
+
+    /// <summary>
+    /// The largest sign-in answer accepted: a 1023-byte credential id, a 64-byte handle and an
+    /// RSA signature, base64url, fit many times over.
+    /// </summary>
+    public const int MaxAssertionBodyBytes = 16 * 1024;
 
     private readonly ISender _sender;
     private readonly IdentityProviderSettings _idpSettings;
@@ -164,19 +177,13 @@ public class PasskeysController : ApiController
 
         var (handle, repeated) = WebAuthnChallengeCookie.Read(Request);
 
-        // A body without a credential object is checked like any malformed answer: it fails
-        // verification, rather than the request failing on reading it.
-        var credentialJson = request.Credential.ValueKind == JsonValueKind.Object
-            ? request.Credential.GetRawText()
-            : string.Empty;
-
         var result = await _sender.Send(
             new CompletePasskeyRegistrationCommand(
                 userId,
                 GetCurrentSessionId(),
                 handle,
                 repeated,
-                credentialJson,
+                CredentialJson(request.Credential),
                 request.Name,
                 request.EmailCode),
             cancellationToken);
@@ -258,7 +265,167 @@ public class PasskeysController : ApiController
             cancellationToken);
         return result.Match<IActionResult>(_ => NoContent(), errors => Problem(errors));
     }
+
+    /// <summary>
+    /// Starts a sign-in with a passkey: the options for <c>navigator.credentials.get()</c>. The
+    /// challenge they carry is held for five minutes; its handle travels in the
+    /// <c>__Host-auth_webauthn</c> cookie, never in the body. A page that asks again while its
+    /// challenge has more than a minute left gets the same options, and the cookie stays.
+    /// </summary>
+    /// <remarks>
+    /// Anonymous: the options name no account. Only the platform's own sign-in pages may ask
+    /// (<c>Auth.FirstPartyOriginRequired</c> for any other browser origin), so a page of another
+    /// host of the same site cannot sign its visitor in to an account of its choice.
+    /// </remarks>
+    [HttpPost("assertion/options")]
+    [AllowAnonymous]
+    [EnableRateLimiting("sign-in-page")]
+    [RequireFirstPartyOrigin]
+    [ProducesResponseType(typeof(PasskeyAssertionOptionsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> BeginAssertion(CancellationToken cancellationToken)
+    {
+        var (handle, repeated) = WebAuthnChallengeCookie.Read(Request);
+
+        var result = await _sender.Send(new BeginPasskeyAssertionCommand(handle, repeated), cancellationToken);
+        if (result.IsError)
+        {
+            return Problem(result.Errors);
+        }
+
+        // A new challenge, a new cookie; the live one offered again keeps the cookie it has.
+        if (result.Value.ChallengeHandle is { } newHandle)
+        {
+            WebAuthnChallengeCookie.Apply(Response, newHandle);
+        }
+
+        using var options = JsonDocument.Parse(result.Value.OptionsJson);
+        return Ok(new PasskeyAssertionOptionsResponse(options.RootElement.Clone(), result.Value.ExpiresAt));
+    }
+
+    /// <summary>
+    /// Signs in with a passkey: the browser's <c>PublicKeyCredential</c>, checked against the
+    /// challenge the cookie names. The challenge is spent whatever the outcome. A passkey the
+    /// device verified the person for proves two factors, so no second step follows.
+    /// </summary>
+    /// <remarks>
+    /// Every rejection of the ceremony is <c>Passkey.VerificationFailed</c>. An account waiting
+    /// for deletion answers <c>User.AccountPendingDeletion</c> with the end of its grace period;
+    /// an inactive or pending account, and an administrator's lock, answer as the password
+    /// sign-in does. A lock raised by wrong passwords admits the passkey and lifts nothing.
+    /// </remarks>
+    [HttpPost("assertion/verify")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [RequireFirstPartyOrigin]
+    [IssuesFirstPartySession]
+    [RequestSizeLimit(MaxAssertionBodyBytes)]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> VerifyAssertion(
+        [FromBody] PasskeyAssertionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var (handle, repeated) = WebAuthnChallengeCookie.Read(Request);
+
+        var result = await _sender.Send(
+            new VerifyPasskeyAssertionCommand(
+                handle,
+                repeated,
+                CredentialJson(request.Credential),
+                GetClientIpAddress(),
+                GetUserAgent(),
+                GetDeviceId(request.DeviceId),
+                request.StaySignedIn),
+            cancellationToken);
+
+        if (result.IsError)
+        {
+            return Problem(result.Errors);
+        }
+
+        WebAuthnChallengeCookie.Delete(Response);
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Cancels the pending deletion of the passkey's account and signs it in (D-S20-6 (a)): the
+    /// passkey entry of the grace-period recovery, chosen explicitly on the recovery page. The
+    /// same checks as <see cref="VerifyAssertion"/>, then the recovery: the deletion request is
+    /// cancelled and the account restored.
+    /// </summary>
+    /// <remarks>
+    /// An account that is not waiting for deletion answers <c>User.InvalidCredentials</c>, as
+    /// the password entry does; an administrator's lock answers as it does there.
+    /// </remarks>
+    [HttpPost("assertion/recover")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [RequireFirstPartyOrigin]
+    [IssuesFirstPartySession]
+    [RequestSizeLimit(MaxAssertionBodyBytes)]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> RecoverWithAssertion(
+        [FromBody] PasskeyRecoveryRequest request,
+        CancellationToken cancellationToken)
+    {
+        var (handle, repeated) = WebAuthnChallengeCookie.Read(Request);
+
+        var result = await _sender.Send(
+            new RecoverAccountWithPasskeyCommand(
+                handle,
+                repeated,
+                CredentialJson(request.Credential),
+                GetClientIpAddress(),
+                GetUserAgent(),
+                GetDeviceId(request.DeviceId)),
+            cancellationToken);
+
+        if (result.IsError)
+        {
+            return Problem(result.Errors);
+        }
+
+        WebAuthnChallengeCookie.Delete(Response);
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// The credential as JSON text. A body without a credential object is checked like any
+    /// malformed answer: it fails verification, rather than the request failing on reading it.
+    /// </summary>
+    private static string CredentialJson(JsonElement credential) =>
+        credential.ValueKind == JsonValueKind.Object ? credential.GetRawText() : string.Empty;
 }
+
+/// <summary>The options of a passkey sign-in.</summary>
+/// <param name="Options">The options for <c>navigator.credentials.get()</c>, as JSON (WebAuthn L3 PublicKeyCredentialRequestOptionsJSON).</param>
+/// <param name="ExpiresAt">When the challenge stops being accepted (UTC): renew the options a minute before.</param>
+public sealed record PasskeyAssertionOptionsResponse(JsonElement Options, DateTime ExpiresAt);
+
+/// <summary>The answer to a passkey sign-in.</summary>
+/// <param name="Credential">The browser's <c>PublicKeyCredential</c>, as JSON (AuthenticationResponseJSON).</param>
+/// <param name="DeviceId">The browser's own identifier, as the password sign-in sends it (the header wins).</param>
+/// <param name="StaySignedIn">Whether the person ticked "Stay signed in".</param>
+public sealed record PasskeyAssertionRequest(JsonElement Credential, string? DeviceId, bool StaySignedIn);
+
+/// <summary>The answer to a passkey sign-in that recovers an account waiting for deletion.</summary>
+/// <param name="Credential">The browser's <c>PublicKeyCredential</c>, as JSON (AuthenticationResponseJSON).</param>
+/// <param name="DeviceId">The browser's own identifier (the header wins).</param>
+public sealed record PasskeyRecoveryRequest(JsonElement Credential, string? DeviceId);
 
 /// <summary>The options of a passkey registration.</summary>
 /// <param name="Options">The options for <c>navigator.credentials.create()</c>, as JSON (WebAuthn L3 PublicKeyCredentialCreationOptionsJSON).</param>

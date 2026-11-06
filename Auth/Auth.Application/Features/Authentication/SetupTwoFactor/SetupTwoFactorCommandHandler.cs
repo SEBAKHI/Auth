@@ -1,5 +1,6 @@
 using Auth.Application.Interfaces;
 using Auth.Application.Features.Authentication.Common;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -25,6 +26,7 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
     private readonly IReauthenticationGuard _reauthenticationGuard;
     private readonly IUserRepository _userRepository;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
+    private readonly UsableSecondFactors _usableFactors;
     private readonly ITwoFactorSecretProtector _secretProtector;
     private readonly AuthenticatorKeyFactory _keyFactory;
     private readonly FirstFactorEmailProofPolicy _emailProofPolicy;
@@ -35,6 +37,7 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         IReauthenticationGuard reauthenticationGuard,
         IUserRepository userRepository,
         ITwoFactorStateStore twoFactorStateStore,
+        UsableSecondFactors usableFactors,
         ITwoFactorSecretProtector secretProtector,
         AuthenticatorKeyFactory keyFactory,
         FirstFactorEmailProofPolicy emailProofPolicy,
@@ -44,6 +47,7 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         _reauthenticationGuard = reauthenticationGuard;
         _userRepository = userRepository;
         _twoFactorStateStore = twoFactorStateStore;
+        _usableFactors = usableFactors;
         _secretProtector = secretProtector;
         _keyFactory = keyFactory;
         _emailProofPolicy = emailProofPolicy;
@@ -76,9 +80,11 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         }
 
         // S20 (FA11 (11-2)): beside a passkey, the app is a further factor, so it is set up
-        // only from a session that proved two — whatever Passkeys:Enabled says. Keyed on the
-        // passkey: an account whose app is on answers below as it always has.
-        var factors = await _twoFactorStateStore.GetQualifyingFactorsAsync(request.UserId, cancellationToken);
+        // only from a session that proved two — while passkeys run. While they do not, the
+        // passkey is no usable factor (D-150-4): the app is then the account's first one, set
+        // up as before passkeys, with the emailed code X02 asks of a first factor. Keyed on
+        // the passkey: an account whose app is on answers below as it always has.
+        var factors = await _usableFactors.GetAsync(request.UserId, cancellationToken);
         if (factors.Passkey && !session.Value.Methods.IsMfaSatisfied)
         {
             _logger.LogInformation(

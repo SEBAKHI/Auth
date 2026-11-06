@@ -65,6 +65,7 @@ public class TwoFactorLifecycleGuardTests
                     _guard.Object,
                     _userRepository.Object,
                     _stateStore.Object,
+                    TestHelpers.UsableFactors(_stateStore.Object),
                     _secretProtector.Object,
                     new AuthenticatorKeyFactory(
                         _platformSettings.Object,
@@ -80,6 +81,7 @@ public class TwoFactorLifecycleGuardTests
                     _guard.Object,
                     _verifier.Object,
                     _stateStore.Object,
+                    TestHelpers.UsableFactors(_stateStore.Object),
                     _totpService.Object,
                     emailProofPolicy,
                     emailProof,

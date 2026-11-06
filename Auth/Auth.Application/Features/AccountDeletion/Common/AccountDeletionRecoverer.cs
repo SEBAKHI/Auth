@@ -14,12 +14,19 @@ using MediatR;
 namespace Auth.Application.Features.AccountDeletion.Common;
 
 /// <summary>
-/// The shared grace-period recovery pipeline behind the three recovery entry
-/// points (password, external identity, and the emailed code of OI-215): 2FA
-/// gate, deterministic cancel-vs-claim race, account restore, cancelled event and
-/// auto-login. Callers authenticate the user BEFORE invoking this.
+/// The shared grace-period recovery pipeline behind the four recovery entry
+/// points (password, external identity, the emailed code of OI-215, and the passkey
+/// of S20 PR B): 2FA gate, deterministic cancel-vs-claim race, account restore,
+/// cancelled event and auto-login. Callers authenticate the user BEFORE invoking this.
 /// </summary>
 /// <remarks>
+/// <para>
+/// An entry whose own proof already satisfies two factors — the passkey, which the device
+/// verified the person for (M3) — is the passkey's door: it is asked no second step, and it is
+/// the one entry an administrator whose only usable factor is a passkey may use. Every other
+/// entry asks that refusal (<see cref="PasskeyOnlyAdministratorRule"/>, D-S20-4 (ii-s)) first,
+/// before anything is checked, spent, cancelled or restored.
+/// </para>
 /// <para>
 /// The second factor is proved in the same request, routed by the code's shape: what
 /// has a recovery code's shape (<c>XXXX-XXXX</c>, normalized as everywhere else) is a
@@ -45,6 +52,7 @@ public class AccountDeletionRecoverer
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ISecondFactorLockout _lockout;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
+    private readonly PasskeyOnlyAdministratorRule _passkeyOnlyAdministrator;
     private readonly IPublisher _publisher;
     private readonly ILogger<AccountDeletionRecoverer> _logger;
 
@@ -59,6 +67,7 @@ public class AccountDeletionRecoverer
         IJwtTokenService jwtTokenService,
         ISecondFactorLockout lockout,
         ILoginResponseBuilder loginResponseBuilder,
+        PasskeyOnlyAdministratorRule passkeyOnlyAdministrator,
         IPublisher publisher,
         ILogger<AccountDeletionRecoverer> logger)
     {
@@ -72,6 +81,7 @@ public class AccountDeletionRecoverer
         _jwtTokenService = jwtTokenService;
         _lockout = lockout;
         _loginResponseBuilder = loginResponseBuilder;
+        _passkeyOnlyAdministrator = passkeyOnlyAdministrator;
         _publisher = publisher;
         _logger = logger;
     }
@@ -105,9 +115,23 @@ public class AccountDeletionRecoverer
     {
         var methods = primaryMethod;
 
+        // An entry whose proof already satisfies two factors is the passkey's (M3): its own
+        // door, asked neither the refusal below nor a second step.
+        var passkeyEntry = primaryMethod.IsMfaSatisfied;
+
+        // D-S20-4 (ii-s): an administrator whose only usable factor is a passkey recovers with
+        // it alone. Asked first, after the entry's own proof and before anything is checked,
+        // spent, cancelled or restored, so a refusal changes nothing.
+        if (!passkeyEntry
+            && await _passkeyOnlyAdministrator.RefusalAsync(user.Id, PasskeyOnlyAdministratorDoors.DeletionRecovery, cancellationToken) is { } passkeyRequired)
+        {
+            return passkeyRequired;
+        }
+
         // The user opted into 2FA; recovery must not be a bypass. Verified in
-        // the same request — no challenge dance for a deactivated account.
-        if (user.TwoFactorEnabled)
+        // the same request — no challenge dance for a deactivated account. A passkey proved
+        // two factors already, so nothing more is asked of it.
+        if (user.TwoFactorEnabled && !passkeyEntry)
         {
             var snapshot = await _twoFactorStateStore.GetSnapshotAsync(user.Id, cancellationToken);
 
@@ -182,8 +206,8 @@ public class AccountDeletionRecoverer
 
         // The password entry point proved the password in this request, so its
         // success lifts an automatic lock carried from before the deletion; the
-        // provider entry point proved who the person is, never the password, and
-        // lifts nothing (owner decision G8).
+        // provider, the emailed-code and the passkey entry points proved who the
+        // person is, never the password, and lift nothing (owner decision G8).
         return await _loginResponseBuilder.BuildAsync(
             restored, ipAddress, userAgent, deviceId, methods,
             passwordProven: primaryMethod.ProvesPassword, cancellationToken);

@@ -601,9 +601,10 @@ public class TwoFactorStateStore : ITwoFactorStateStore
 
     /// <inheritdoc />
     public async Task<ApplicationMfaReadiness> GetApplicationMfaReadinessAsync(
-        Guid applicationId, DateTime sinceUtc, CancellationToken cancellationToken)
+        Guid applicationId, DateTime sinceUtc, bool countPasskeys, CancellationToken cancellationToken)
     {
-        var statements = await FactorStatementsAsync(cancellationToken);
+        // A passkey counts only while passkeys run (D-150-4): otherwise the app's statement alone.
+        var statements = countPasskeys ? await FactorStatementsAsync(cancellationToken) : WithoutPasskeys;
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var row = await connection.QuerySingleAsync<ReadinessRow>(new CommandDefinition(
@@ -617,9 +618,10 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     private sealed record ReadinessRow(int ActiveUsers, int WithQualifyingFactor);
 
     /// <inheritdoc />
-    public async Task<bool> HasPlatformRoleHolderWithoutFactorAsync(Guid roleId, CancellationToken cancellationToken)
+    public async Task<bool> HasPlatformRoleHolderWithoutFactorAsync(Guid roleId, bool countPasskeys, CancellationToken cancellationToken)
     {
-        var statements = await FactorStatementsAsync(cancellationToken);
+        // A passkey counts only while passkeys run (D-150-4): otherwise the app's statement alone.
+        var statements = countPasskeys ? await FactorStatementsAsync(cancellationToken) : WithoutPasskeys;
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(

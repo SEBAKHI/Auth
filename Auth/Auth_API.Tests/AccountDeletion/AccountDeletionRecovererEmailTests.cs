@@ -72,6 +72,7 @@ public class AccountDeletionRecovererEmailTests
         Mock.Of<IJwtTokenService>(j => j.GenerateRefreshToken() == "unhanded-token"),
         TestHelpers.CreateSecondFactorLockout(),
         _builder.Object,
+        TestHelpers.PasskeyOnlyAdministratorRuleOff(),
         Mock.Of<IPublisher>(),
         NullLogger<AccountDeletionRecoverer>.Instance);
 

@@ -16,7 +16,8 @@ namespace Auth_API.Tests.Security.Passkeys;
 /// assertion through the real WebAuthn library with keys this test makes, for ES256 (-7)
 /// and RS256 (-257); then each ceremony fed bad input one field at a time, pinning the
 /// exception the library raises for each (the list <see cref="Fido2Failures"/> maps); then
-/// the proof that neither algorithm loads the native crypto library.
+/// the proof that neither algorithm loads the native crypto library. PR B adds the sign-in
+/// through the adapter: the counter the library refuses, the origins, and the stored key (N4).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -396,6 +397,201 @@ public class Fido2WebAuthnSpikeTests
         AttestedKeyType.IsEc2OrRsa(response).Should().BeFalse();
     }
 
+    // ── S20 PR B: the sign-in, through the adapter ──
+
+    /// <summary>
+    /// An assertion of each algorithm through the adapter (IN 1): the counter, the BE and BS
+    /// flags read back, nothing refused.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Algorithms))]
+    public async Task AnAssertion_VerifiesThroughTheAdapter_WithTheCounterAndBothFlags(int algorithm)
+    {
+        using var authenticator = SoftwareAuthenticator.Create(algorithm);
+        var registered = await RegisterAsync(authenticator);
+        var options = _verifier.CreateAssertionOptions(RelyingParty);
+        var response = authenticator.Assert(options, Origin, UserHandle, new CeremonyTweaks { BackupEligible = true, BackedUp = true });
+
+        var verified = await _verifier.VerifyAssertionAsync(
+            RelyingParty, options, response, Stored(registered.Value.PublicKey, signCount: 0), CancellationToken.None);
+
+        verified.IsError.Should().BeFalse(verified.IsError ? verified.FirstError.Description : "");
+        verified.Value.SignCount.Should().Be(1);
+        verified.Value.IsBackupEligible.Should().BeTrue("the BE flag is read from the verified authenticator data");
+        verified.Value.IsBackedUp.Should().BeTrue();
+        verified.Value.CounterRegressed.Should().BeFalse();
+    }
+
+    /// <remarks>
+    /// <para>
+    /// Recorded 2026-11-06 with Fido2 4.3.2 (IN 1): a counter that did not grow — stored 5 and
+    /// answered 3, 5 or 0 — raises <see cref="Fido2VerificationException"/> with
+    /// <see cref="Fido2ErrorCode.InvalidSignCount"/>; two zeros pass. And it is raised only once
+    /// the signature verified: the same counter under a corrupt signature raises
+    /// <see cref="Fido2ErrorCode.InvalidSignature"/>. So the adapter's distinct «counter regressed»
+    /// outcome, which seals the passkey, is never reached by a forged answer.
+    /// </para>
+    /// <para>Deliberate break, verified red: the adapter's InvalidSignCount catch removed (the plain refusal returned).</para>
+    /// </remarks>
+    [Theory]
+    [InlineData(5u, 3u, "InvalidSignCount")]
+    [InlineData(5u, 5u, "InvalidSignCount")]
+    [InlineData(5u, 0u, "InvalidSignCount")]
+    [InlineData(0u, 0u, "accepted")]
+    [InlineData(0u, 7u, "accepted")]
+    public async Task ACounterThatDidNotGrow_IsInvalidSignCount_AndTheAdapterReportsIt_NotAsAPlainRefusal(
+        uint stored, uint incoming, string expected)
+    {
+        using var authenticator = SoftwareAuthenticator.Create(SoftwareAuthenticator.Es256);
+        var registered = await RegisterAsync(authenticator);
+        var tweaks = new CeremonyTweaks { SignCount = incoming };
+
+        var raw = await CatchAssertionAsync(authenticator, registered.Value.PublicKey, tweaks, stored);
+        (raw is null ? "accepted" : ((Fido2VerificationException)raw).Code.ToString()).Should().Be(expected);
+
+        var options = _verifier.CreateAssertionOptions(RelyingParty);
+        var verified = await _verifier.VerifyAssertionAsync(
+            RelyingParty, options, authenticator.Assert(options, Origin, UserHandle, tweaks),
+            Stored(registered.Value.PublicKey, stored), CancellationToken.None);
+
+        verified.IsError.Should().BeFalse("a counter that did not grow is its own outcome, never Passkey.VerificationFailed");
+        verified.Value.CounterRegressed.Should().Be(expected != "accepted");
+    }
+
+    [Fact]
+    public async Task ACounterThatDidNotGrow_UnderACorruptSignature_IsTheSignaturesRefusal()
+    {
+        using var authenticator = SoftwareAuthenticator.Create(SoftwareAuthenticator.Es256);
+        var registered = await RegisterAsync(authenticator);
+        var tweaks = new CeremonyTweaks { SignCount = 3, CorruptSignature = true };
+
+        var raw = await CatchAssertionAsync(authenticator, registered.Value.PublicKey, tweaks, storedCounter: 5);
+        ((Fido2VerificationException)raw!).Code.Should().Be(Fido2ErrorCode.InvalidSignature,
+            "the library checks the signature before the counter");
+
+        var options = _verifier.CreateAssertionOptions(RelyingParty);
+        var verified = await _verifier.VerifyAssertionAsync(
+            RelyingParty, options, authenticator.Assert(options, Origin, UserHandle, tweaks),
+            Stored(registered.Value.PublicKey, signCount: 5), CancellationToken.None);
+        verified.FirstError.Code.Should().Be(PasskeyErrors.VerificationFailed.Code, "a forged answer never seals a passkey");
+    }
+
+    [Theory]
+    [MemberData(nameof(AssertionRecord))]
+    public async Task EachBadAssertionField_MapsToVerificationFailed_ThroughTheAdapter(int algorithm, string field, string _)
+    {
+        var tweaks = AssertionCases().Single(c => c.Field == field).Tweaks;
+        using var authenticator = SoftwareAuthenticator.Create(algorithm);
+        var registered = await RegisterAsync(authenticator);
+        var options = _verifier.CreateAssertionOptions(RelyingParty);
+
+        var verified = await _verifier.VerifyAssertionAsync(
+            RelyingParty, options, authenticator.Assert(options, Origin, UserHandle, tweaks),
+            Stored(registered.Value.PublicKey, signCount: 0), CancellationToken.None);
+
+        verified.IsError.Should().BeTrue(field);
+        verified.FirstError.Code.Should().Be(PasskeyErrors.VerificationFailed.Code, field);
+    }
+
+    /// <summary>
+    /// PK4: only the exact first-party origins sign in. The apex, a sibling host, another port
+    /// and plain http are refused by the library, and so is a ceremony inside another page's
+    /// frame (topOrigin).
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the origins handed to the library made the CORS list's superset.</remarks>
+    [Theory]
+    [InlineData("https://localhost")]
+    [InlineData("https://example.com")]
+    [InlineData("https://evil.localhost:5173")]
+    [InlineData("http://localhost:5173")]
+    [InlineData("https://localhost:5175")]
+    public async Task AnAssertionFromAnyOtherOrigin_IsRefused(string origin)
+    {
+        using var authenticator = SoftwareAuthenticator.Create(SoftwareAuthenticator.Es256);
+        var registered = await RegisterAsync(authenticator);
+        var options = _verifier.CreateAssertionOptions(RelyingParty);
+
+        var verified = await _verifier.VerifyAssertionAsync(
+            RelyingParty, options, authenticator.Assert(options, origin, UserHandle),
+            Stored(registered.Value.PublicKey, signCount: 0), CancellationToken.None);
+
+        verified.FirstError.Code.Should().Be(PasskeyErrors.VerificationFailed.Code, origin);
+    }
+
+    [Fact]
+    public async Task AnAssertionInsideAnotherPagesFrame_IsRefused()
+    {
+        using var authenticator = SoftwareAuthenticator.Create(SoftwareAuthenticator.Es256);
+        var registered = await RegisterAsync(authenticator);
+        var options = _verifier.CreateAssertionOptions(RelyingParty);
+
+        var verified = await _verifier.VerifyAssertionAsync(
+            RelyingParty, options, authenticator.Assert(options, Origin, UserHandle, new CeremonyTweaks { TopOrigin = "https://example.com" }),
+            Stored(registered.Value.PublicKey, signCount: 0), CancellationToken.None);
+
+        verified.FirstError.Code.Should().Be(PasskeyErrors.VerificationFailed.Code);
+    }
+
+    /// <summary>
+    /// N4: the stored key is the server's own. One that cannot be read, or whose key type is not
+    /// EC2 or RSA (registration stores no other), is a fault of the server: it throws, named by
+    /// the passkey's row id, and never becomes the client's <c>Passkey.VerificationFailed</c> —
+    /// even though, inside the library, its parse would raise a type the client-fault list holds.
+    /// An OKP key never reaches the library, which would read it through libsodium.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the stored key's parse moved back inside the mapped call (EC2 without y became VerificationFailed).</remarks>
+    [Fact]
+    public async Task AStoredKeyThatCannotBeRead_IsAServerFault_NeverVerificationFailed()
+    {
+        using var authenticator = SoftwareAuthenticator.Create(SoftwareAuthenticator.Es256);
+        var options = _verifier.CreateAssertionOptions(RelyingParty);
+        var response = authenticator.Assert(options, Origin, UserHandle);
+        var passkeyId = Guid.NewGuid();
+
+        var ec2WithoutY = new System.Formats.Cbor.CborWriter(System.Formats.Cbor.CborConformanceMode.Lax);
+        ec2WithoutY.WriteStartMap(4);
+        ec2WithoutY.WriteInt32(1); ec2WithoutY.WriteInt32(2);
+        ec2WithoutY.WriteInt32(3); ec2WithoutY.WriteInt32(-7);
+        ec2WithoutY.WriteInt32(-1); ec2WithoutY.WriteInt32(1);
+        ec2WithoutY.WriteInt32(-2); ec2WithoutY.WriteByteString(new byte[32]);
+        ec2WithoutY.WriteEndMap();
+
+        foreach (var (name, key) in new[]
+                 {
+                     ("an EC2 key without its y", ec2WithoutY.Encode()),
+                     ("an OKP key (EdDSA)", OkpKey(Convert.FromHexString("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"))),
+                     ("bytes that are not CBOR", new byte[] { 0xFF, 0x00 }),
+                     ("nothing", Array.Empty<byte>()),
+                 })
+        {
+            var act = () => _verifier.VerifyAssertionAsync(
+                RelyingParty, options, response, new StoredPasskeyCredential(passkeyId, key, 0), CancellationToken.None);
+
+            var thrown = await act.Should().ThrowAsync<Exception>(name);
+            Fido2Failures.IsClientFault(thrown.Which, CancellationToken.None).Should().BeFalse(name);
+        }
+
+        LoadedModules().Should().NotContain(module => module.Contains("sodium", StringComparison.OrdinalIgnoreCase),
+            "an OKP key is refused before the library reads it");
+    }
+
+    [Fact]
+    public async Task StoredAssertionOptionsOfAnotherRpId_AreRefused_BeforeTheLibraryRuns()
+    {
+        var stored = new PasskeyRelyingParty("old.example.com", "old.example.com", new HashSet<string>(StringComparer.Ordinal) { "https://accounts.old.example.com" });
+        var inForce = new PasskeyRelyingParty("example.com", "example.com", new HashSet<string>(StringComparer.Ordinal) { "https://accounts.example.com" });
+        using var authenticator = SoftwareAuthenticator.Create(SoftwareAuthenticator.Es256);
+        var options = _verifier.CreateAssertionOptions(stored);
+        var response = authenticator.Assert(options, "https://accounts.example.com", UserHandle, new CeremonyTweaks { RpId = "example.com" });
+
+        var verified = await _verifier.VerifyAssertionAsync(
+            inForce, options, response, Stored(authenticator.CosePublicKey(), signCount: 0), CancellationToken.None);
+
+        verified.FirstError.Code.Should().Be(PasskeyErrors.VerificationFailed.Code);
+    }
+
+    private static StoredPasskeyCredential Stored(byte[] publicKey, long signCount) => new(Guid.NewGuid(), publicKey, signCount);
+
     /// <summary>A registration response whose attestation object the given writer writes.</summary>
     private static string AttestationResponse(Action<System.Formats.Cbor.CborWriter> attestationObject)
     {
@@ -561,7 +757,7 @@ public class Fido2WebAuthnSpikeTests
     }
 
     private static async Task<VerifyAssertionResult> AssertAsync(
-        SoftwareAuthenticator authenticator, byte[] publicKey, CeremonyTweaks tweaks)
+        SoftwareAuthenticator authenticator, byte[] publicKey, CeremonyTweaks tweaks, uint storedCounter = 0)
     {
         var library = Library();
         var options = library.GetAssertionOptions(new GetAssertionOptionsParams
@@ -577,18 +773,18 @@ public class Fido2WebAuthnSpikeTests
                 AssertionResponse = JsonSerializer.Deserialize<AuthenticatorAssertionRawResponse>(response)!,
                 OriginalOptions = options,
                 StoredPublicKey = publicKey,
-                StoredSignatureCounter = 0,
+                StoredSignatureCounter = storedCounter,
                 IsUserHandleOwnerOfCredentialIdCallback = static (_, _) => Task.FromResult(true),
             },
             CancellationToken.None);
     }
 
     private static async Task<Exception?> CatchAssertionAsync(
-        SoftwareAuthenticator authenticator, byte[] publicKey, CeremonyTweaks tweaks)
+        SoftwareAuthenticator authenticator, byte[] publicKey, CeremonyTweaks tweaks, uint storedCounter = 0)
     {
         try
         {
-            await AssertAsync(authenticator, publicKey, tweaks);
+            await AssertAsync(authenticator, publicKey, tweaks, storedCounter);
             return null;
         }
         catch (Exception ex)

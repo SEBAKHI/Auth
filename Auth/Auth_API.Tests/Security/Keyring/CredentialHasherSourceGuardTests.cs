@@ -27,7 +27,7 @@ public class CredentialHasherSourceGuardTests
     [
         // S24: the challenge a recovery's emailed code is checked against needs a unique
         // fingerprint in TokenHash; its token is never handed to anyone.
-        App + "AccountDeletion/Common/AccountDeletionRecoverer.cs:227 Hash TwoFactorChallenge",
+        App + "AccountDeletion/Common/AccountDeletionRecoverer.cs:251 Hash TwoFactorChallenge",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:440 Hash AuthorizationCode",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:730 Hash AuthorizationRequestHandle",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:772 Candidates AuthorizationRequestHandle",
@@ -40,7 +40,7 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/Common/LoginResponseBuilder.cs:213 Hash RefreshToken",
         App + "Authentication/Common/LoginResponseBuilder.cs:413 Hash IdpSession",
         App + "Authentication/Common/TwoFactorChallengeService.cs:79 Hash TwoFactorChallenge",
-        App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:278 Candidates IdpSession",
+        App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:283 Candidates IdpSession",
         App + "Authentication/ExternalLogin/IssueExternalNonceCommandHandler.cs:34 Hash ExternalNonce",
         App + "Authentication/ForgotPassword/ForgotPasswordCommandHandler.cs:111 Hash PasswordReset",
         App + "Authentication/IntrospectToken/IntrospectTokenQueryHandler.cs:174 Candidates RefreshToken",
@@ -56,7 +56,7 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/ServerSignOut/ServerSignOutCommandHandler.cs:94 Candidates RefreshToken",
         App + "Authentication/StepUpTwoFactor/StepUpTwoFactorCommandHandler.cs:117 Candidates IdpSession",
         App + "Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:137 Candidates AuthorizationCode",
-        App + "Authentication/VerifyTwoFactorLogin/VerifyTwoFactorLoginCommandHandler.cs:76 Candidates TwoFactorChallenge",
+        App + "Authentication/VerifyTwoFactorLogin/VerifyTwoFactorLoginCommandHandler.cs:79 Candidates TwoFactorChallenge",
         App + "Organizations/AcceptInvitation/AcceptInvitationCommandHandler.cs:57 Candidates Invitation",
         App + "Organizations/GetInvitationByToken/GetInvitationByTokenQueryHandler.cs:49 Candidates Invitation",
         App + "Organizations/InviteMember/InviteMemberCommandHandler.cs:187 Hash Invitation",
@@ -67,6 +67,11 @@ public class CredentialHasherSourceGuardTests
         // every accepted fingerprint of the handle its cookie carries.
         App + "Passkeys/BeginPasskeyRegistration/BeginPasskeyRegistrationCommandHandler.cs:113 Hash WebAuthnChallenge",
         App + "Passkeys/CompletePasskeyRegistration/CompletePasskeyRegistrationCommandHandler.cs:124 Candidates WebAuthnChallenge",
+        // S20 PR B: the sign-in challenge, issued and found under the same purpose as the
+        // registration's: the page's re-issue read, the issue, and the consume of the ceremony.
+        App + "Passkeys/BeginPasskeyAssertion/BeginPasskeyAssertionCommandHandler.cs:69 Candidates WebAuthnChallenge",
+        App + "Passkeys/BeginPasskeyAssertion/BeginPasskeyAssertionCommandHandler.cs:81 Hash WebAuthnChallenge",
+        App + "Passkeys/Common/PasskeyAssertionCeremony.cs:99 Candidates WebAuthnChallenge",
         App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:77 Candidates WebhookKey",
         // S11 PR B: the issuing form a matched webhook key is compared with, to re-fingerprint it.
         App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:97 Hash WebhookKey",

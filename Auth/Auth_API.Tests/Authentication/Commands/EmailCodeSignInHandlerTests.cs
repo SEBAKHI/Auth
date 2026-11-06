@@ -508,6 +508,48 @@ public class EmailCodeSignInHandlerTests
         scenario.Consumed.Should().Be(0);
     }
 
+    // ── S20 PR B, D-S20-4 (ii-s): an administrator whose only usable factor is a passkey ──
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SignIn_PasskeyOnlyAdministrator_IsRefusedBeforeThePasswordOrASecondStep(bool hasPassword)
+    {
+        // Asked first in the decision, so the page is not sent on to a password or a second
+        // step that would be refused in turn. The code was spent when it was accepted, as at
+        // the second step.
+        var scenario = new Scenario()
+            .WithAccount(TestHelpers.CreateUser(email: Address, passwordHash: hasPassword ? "TestPasswordHash" : null))
+            .WithPlatformPermission();
+        scenario.PasskeyRule = TestHelpers.PasskeyOnlyAdministratorRuleOn(
+                new QualifyingSecondFactors(Totp: false, Passkey: true), holdsPlatformAuthority: true);
+
+        var result = await scenario.SignInAsync();
+
+        result.FirstError.Code.Should().Be(AuthErrors.PasskeyRequired.Code);
+        scenario.Consumed.Should().Be(1);
+        scenario.Builder.Invocations.Should().BeEmpty();
+        scenario.ChallengeMethods.Should().BeNull();
+        scenario.DispatchedEvents.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Recover_PasskeyOnlyAdministratorWaitingForDeletion_IsRefusedAndSpendsNothing()
+    {
+        // The passkey's own recovery entry is the way through (D-S20-6 (a)).
+        var user = TestHelpers.CreateUser(email: Address, isDeleted: true, passwordHash: null);
+        var scenario = new Scenario().WithAccountWaitingForDeletion(user).WithPlatformPermission();
+        scenario.PasskeyRule = TestHelpers.PasskeyOnlyAdministratorRuleOn(
+                new QualifyingSecondFactors(Totp: false, Passkey: true), holdsPlatformAuthority: true);
+
+        var result = await scenario.RecoverAsync();
+
+        result.FirstError.Code.Should().Be(AuthErrors.PasskeyRequired.Code);
+        scenario.Consumed.Should().Be(0, "the emailed code is not spent on a refusal");
+        scenario.Users.Verify(u => u.RestoreAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        scenario.Builder.Invocations.Should().BeEmpty();
+    }
+
     // ── Scenario ─────────────────────────────────────────────────────────────
 
     private sealed class Scenario
@@ -523,6 +565,9 @@ public class EmailCodeSignInHandlerTests
         public Mock<ILoginResponseBuilder> Builder { get; } = new();
         public Mock<IDomainEventDispatcher> Events { get; } = new();
         public Mock<ISecondFactorVerifier> SecondFactors { get; } = new();
+
+        /// <summary>The refusal of a passkey-only administrator: paused, as while passkeys do not run, unless a test sets it.</summary>
+        public PasskeyOnlyAdministratorRule PasskeyRule { get; set; } = TestHelpers.PasskeyOnlyAdministratorRuleOff();
 
         /// <summary>A stateful store in place of <see cref="Pending"/>, when a test needs one.</summary>
         public IPendingRegistrationRepository? PendingStore { get; init; }
@@ -630,7 +675,7 @@ public class EmailCodeSignInHandlerTests
             new SignInWithEmailCodeCommandHandler(
                 CodeCheck(), Accounts(), PendingRepository, Users.Object, Lockout.Object, Attempts.Object,
                 new EmailCodeFullProofRule(Claims.Object), Challenges.Object, Revocation.Object, Builder.Object,
-                Events.Object, Logger)
+                Events.Object, PasskeyRule, Logger)
                 .Handle(new SignInWithEmailCodeCommand(Handle, Code, requireFullProof, staySignedIn, "device", "203.0.113.7", "TestAgent/1.0"),
                     CancellationToken.None);
 
@@ -657,6 +702,7 @@ public class EmailCodeSignInHandlerTests
             new Mock<IJwtTokenService>().Object,
             new Mock<ISecondFactorLockout>().Object,
             Builder.Object,
+            PasskeyRule,
             new Mock<MediatR.IPublisher>().Object,
             new Mock<ILogger<Auth.Application.Features.AccountDeletion.Common.AccountDeletionRecoverer>>().Object);
 

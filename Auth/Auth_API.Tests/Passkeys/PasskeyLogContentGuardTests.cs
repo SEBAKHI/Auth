@@ -1,6 +1,9 @@
 using System.Text.RegularExpressions;
+using Auth.Application.Features.AccountDeletion.RecoverAccountWithPasskey;
+using Auth.Application.Features.Passkeys.BeginPasskeyAssertion;
 using Auth.Application.Features.Passkeys.CompletePasskeyRegistration;
 using Auth.Application.Features.Passkeys.RemovePasskey;
+using Auth.Application.Features.Passkeys.VerifyPasskeyAssertion;
 using Auth_API.Tests.Infrastructure;
 
 namespace Auth_API.Tests.Passkeys;
@@ -52,6 +55,9 @@ public class PasskeyLogContentGuardTests
                 Path.Combine(root, "Auth_API", "Modules", "Authentication", "Controllers", "PasskeysController.cs"),
                 Path.Combine(root, "Auth_API", "Modules", "AuditLog", "EventHandlers", "PasskeyRegisteredAuditEventHandler.cs"),
                 Path.Combine(root, "Auth_API", "Modules", "AuditLog", "EventHandlers", "PasskeyRemovedAuditEventHandler.cs"),
+                // S20 PR B: the passkey recovery entry and the refusal at the other doors.
+                Path.Combine(root, "Auth.Application", "Features", "AccountDeletion", "RecoverAccountWithPasskey", "RecoverAccountWithPasskeyCommandHandler.cs"),
+                Path.Combine(root, "Auth.Application", "Features", "Authentication", "Common", "PasskeyOnlyAdministratorRule.cs"),
             ]);
 
         return files.Select(file => Path.GetRelativePath(root, file)).ToList();
@@ -95,5 +101,17 @@ public class PasskeyLogContentGuardTests
 
         complete.ToString().Should().NotContain("secret-handle").And.NotContain("654321").And.NotContain("response");
         remove.ToString().Should().NotContain("secret-idp-token");
+    }
+
+    [Fact]
+    public void TheSignInCommands_NeverPrintTheHandleOrTheResponse()
+    {
+        // S20 PR B: the challenge handle is a secret while it lives; the response names the account.
+        new BeginPasskeyAssertionCommand("secret-handle", false).ToString().Should().NotContain("secret-handle");
+        new PasskeyAssertionStarted("{}", "secret-handle", DateTime.UtcNow).ToString().Should().NotContain("secret-handle");
+        new VerifyPasskeyAssertionCommand("secret-handle", false, "{\"secret\":\"response\"}", "203.0.113.7", "Agent", "device", true)
+            .ToString().Should().NotContain("secret-handle").And.NotContain("response");
+        new RecoverAccountWithPasskeyCommand("secret-handle", false, "{\"secret\":\"response\"}", "203.0.113.7", "Agent", "device")
+            .ToString().Should().NotContain("secret-handle").And.NotContain("response");
     }
 }

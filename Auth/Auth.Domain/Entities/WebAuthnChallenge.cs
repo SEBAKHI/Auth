@@ -26,6 +26,13 @@ public sealed class WebAuthnChallenge : EntityBase
     /// <summary>How long a challenge may be answered: the ceremony timeout offered to the browser.</summary>
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// How much life a sign-in challenge must have left to be offered again (T-B2, PK6): more
+    /// than a minute, so a page that asks again never receives options about to expire under
+    /// the person's finger. The page renews its options this long before they expire.
+    /// </summary>
+    public static readonly TimeSpan ReuseMargin = TimeSpan.FromSeconds(60);
+
     private WebAuthnChallenge()
     {
     }
@@ -92,6 +99,32 @@ public sealed class WebAuthnChallenge : EntityBase
             HandleHash = handleHash,
             Purpose = WebAuthnChallengePurpose.Registration,
             UserId = userId,
+            OptionsJson = optionsJson,
+            ExpiresAt = issuedAt.Add(Lifetime),
+            CreatedAt = issuedAt,
+        };
+    }
+
+    /// <summary>
+    /// A sign-in challenge (S20 PR B): it names no account, because the person has not said
+    /// who they are yet — the passkey they choose does, and its row names the owner.
+    /// </summary>
+    /// <param name="handleHash">The fingerprint of the handle the cookie carries.</param>
+    /// <param name="optionsJson">The options offered.</param>
+    /// <param name="issuedAt">Now (UTC), from the caller's clock.</param>
+    public static WebAuthnChallenge IssueForAssertion(
+        string handleHash,
+        string optionsJson,
+        DateTime issuedAt)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(handleHash);
+        ArgumentException.ThrowIfNullOrEmpty(optionsJson);
+
+        return new WebAuthnChallenge
+        {
+            HandleHash = handleHash,
+            Purpose = WebAuthnChallengePurpose.Assertion,
+            UserId = null,
             OptionsJson = optionsJson,
             ExpiresAt = issuedAt.Add(Lifetime),
             CreatedAt = issuedAt,

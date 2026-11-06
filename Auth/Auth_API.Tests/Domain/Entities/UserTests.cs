@@ -2,6 +2,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Domain.Entities;
 
@@ -343,7 +344,7 @@ public class UserTests
         var user = CreateDefaultUser(failedLoginAttempts: 3);
 
         // Act
-        user.RecordSuccessfulLogin("192.168.1.1", "Chrome");
+        user.RecordSuccessfulLogin(AuthenticationMethods.Password, "192.168.1.1", "Chrome");
 
         // Assert — whether a sign-in starts a new count depends on whether it
         // proved the password, which only the statement that records it knows
@@ -362,7 +363,7 @@ public class UserTests
         var userAgent = "Mozilla/5.0";
 
         // Act
-        user.RecordSuccessfulLogin(ipAddress, userAgent);
+        user.RecordSuccessfulLogin(AuthenticationMethods.Password.With(AuthenticationMethods.Totp), ipAddress, userAgent);
 
         // Assert
         user.DomainEvents.Should().ContainSingle();
@@ -370,6 +371,8 @@ public class UserTests
         domainEvent.UserId.Should().Be(user.Id);
         domainEvent.IpAddress.Should().Be(ipAddress);
         domainEvent.UserAgent.Should().Be(userAgent);
+        // S20 (R-EVT): the methods the sign-in proved travel with the event to the audit row.
+        domainEvent.Methods.Should().Be(AuthenticationMethods.Password.With(AuthenticationMethods.Totp));
     }
 
     [Fact]
@@ -379,7 +382,7 @@ public class UserTests
         var user = CreateDefaultUser();
 
         // Act
-        user.RecordSuccessfulLogin();
+        user.RecordSuccessfulLogin(AuthenticationMethods.Unknown);
 
         // Assert
         var domainEvent = user.DomainEvents[0].Should().BeOfType<UserLoggedInEvent>().Subject;

@@ -25,14 +25,15 @@ public class GetApplicationMfaReadinessQueryHandlerTests
     private readonly Mock<ITwoFactorStateStore> _store = new();
     private readonly FixedTimeProvider _clock = new(new DateTimeOffset(2026, 11, 4, 10, 0, 0, TimeSpan.Zero));
 
-    private GetApplicationMfaReadinessQueryHandler Handler() => new(_applications.Object, _store.Object, _clock);
+    private GetApplicationMfaReadinessQueryHandler Handler() =>
+        new(_applications.Object, _store.Object, TestHelpers.UsableFactors(_store.Object), _clock);
 
     [Fact]
     public async Task Handle_KnownApplication_ReturnsTheCountsOverThirtyDays()
     {
         var application = TestHelpers.CreateApplication(code: "CRM");
         _applications.Setup(r => r.GetByIdAsync(application.Id, It.IsAny<CancellationToken>())).ReturnsAsync(application);
-        _store.Setup(s => s.GetApplicationMfaReadinessAsync(application.Id, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+        _store.Setup(s => s.GetApplicationMfaReadinessAsync(application.Id, It.IsAny<DateTime>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ApplicationMfaReadiness(ActiveUsers: 12, WithQualifyingFactor: 9));
 
         var result = await Handler().Handle(new GetApplicationMfaReadinessQuery(application.Id), CancellationToken.None);
@@ -43,7 +44,8 @@ public class GetApplicationMfaReadinessQueryHandlerTests
         result.Value.WithoutQualifyingFactor.Should().Be(3);
         result.Value.WindowDays.Should().Be(30);
         _store.Verify(s => s.GetApplicationMfaReadinessAsync(
-            application.Id, new DateTime(2026, 10, 5, 10, 0, 0, DateTimeKind.Utc), It.IsAny<CancellationToken>()), Times.Once);
+            application.Id, new DateTime(2026, 10, 5, 10, 0, 0, DateTimeKind.Utc), false, It.IsAny<CancellationToken>()), Times.Once,
+            "while passkeys do not run a passkey is no factor the requirement accepts, so the count leaves it out (D-150-4)");
     }
 
     [Fact]
@@ -81,7 +83,7 @@ public class GetApplicationMfaReadinessQueryHandlerTests
         var since = new DateTime(2026, 10, 5, 10, 0, 0, DateTimeKind.Utc);
         var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => new { ActiveUsers = 4, WithQualifyingFactor = 1 });
 
-        var readiness = await new TwoFactorStateStore(db).GetApplicationMfaReadinessAsync(applicationId, since, CancellationToken.None);
+        var readiness = await new TwoFactorStateStore(db).GetApplicationMfaReadinessAsync(applicationId, since, countPasskeys: true, CancellationToken.None);
 
         readiness.Should().Be(new ApplicationMfaReadiness(4, 1));
         readiness.WithoutQualifyingFactor.Should().Be(3);

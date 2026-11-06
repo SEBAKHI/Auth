@@ -4,8 +4,9 @@ namespace Auth.Application.Interfaces;
 
 /// <summary>
 /// The WebAuthn ceremonies of a passkey (S20, PK1): the options a browser passes to
-/// <c>navigator.credentials.create()</c>, and the check of what the authenticator answered.
-/// The one port over the WebAuthn library, which lives in Infrastructure alone.
+/// <c>navigator.credentials.create()</c> and <c>navigator.credentials.get()</c>, and the check
+/// of what the authenticator answered. The one port over the WebAuthn library, which lives in
+/// Infrastructure alone.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -50,7 +51,69 @@ public interface IWebAuthnVerifier
         string optionsJson,
         string responseJson,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The options of a sign-in (S20 PR B, PK5): no credential named (<c>allowCredentials</c>
+    /// empty, so the device offers the discoverable passkeys it holds for the RP ID), user
+    /// verification required, a 32-byte challenge, five minutes to answer.
+    /// </summary>
+    /// <param name="relyingParty">The relying party the sign-in is for.</param>
+    /// <returns>The options, as the JSON the browser receives and the check reads back.</returns>
+    string CreateAssertionOptions(PasskeyRelyingParty relyingParty);
+
+    /// <summary>
+    /// Checks a sign-in response against the options it answers and the passkey it names: the
+    /// exact origin, the stored options' challenge and RP ID, user verification, the signature
+    /// over the stored public key, and the stored counter.
+    /// </summary>
+    /// <remarks>
+    /// The stored key is the server's own: one that cannot be read, or that is not an EC2 or
+    /// RSA key (registration stores no other), is a fault of the server and throws — it is
+    /// never answered as the client's <c>Passkey.VerificationFailed</c> (N4).
+    /// </remarks>
+    /// <param name="relyingParty">The relying party now: its RP ID and its exact origins.</param>
+    /// <param name="optionsJson">The options as they were offered.</param>
+    /// <param name="responseJson">The browser's <c>PublicKeyCredential</c>, as JSON.</param>
+    /// <param name="storedCredential">The passkey the response names, as stored.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// What the verified assertion carries — <see cref="VerifiedPasskeyAssertion.CounterRegressed"/>
+    /// when the signature verified but the library refused the counter — or
+    /// <c>Passkey.VerificationFailed</c>.
+    /// </returns>
+    Task<ErrorOr<VerifiedPasskeyAssertion>> VerifyAssertionAsync(
+        PasskeyRelyingParty relyingParty,
+        string optionsJson,
+        string responseJson,
+        StoredPasskeyCredential storedCredential,
+        CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// A passkey as the sign-in check needs it: never the credential id, which the response
+/// already names.
+/// </summary>
+/// <param name="PasskeyId">The row's id: the only thing about it a log line names.</param>
+/// <param name="PublicKey">The COSE public key stored at registration.</param>
+/// <param name="SignCount">The counter last accepted.</param>
+public sealed record StoredPasskeyCredential(Guid PasskeyId, byte[] PublicKey, long SignCount);
+
+/// <summary>
+/// A sign-in the library verified: the signature over the stored key is valid.
+/// </summary>
+/// <param name="SignCount">The authenticator's signature counter in the assertion.</param>
+/// <param name="IsBackupEligible">The assertion's BE flag.</param>
+/// <param name="IsBackedUp">The assertion's BS flag.</param>
+/// <param name="CounterRegressed">
+/// The library refused the counter (it did not grow) after the signature verified — a copied
+/// or broken authenticator, never a forged response (PK9). The sign-in is refused and the
+/// passkey sealed.
+/// </param>
+public sealed record VerifiedPasskeyAssertion(
+    uint SignCount,
+    bool IsBackupEligible,
+    bool IsBackedUp,
+    bool CounterRegressed);
 
 /// <summary>
 /// The relying party a passkey is bound to (PK2, PK4).

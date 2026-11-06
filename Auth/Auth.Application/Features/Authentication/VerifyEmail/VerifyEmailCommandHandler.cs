@@ -28,6 +28,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly IAccountLockout _accountLockout;
+    private readonly PasskeyOnlyAdministratorRule _passkeyOnlyAdministrator;
     private readonly ILogger<VerifyEmailCommandHandler> _logger;
 
     public VerifyEmailCommandHandler(
@@ -38,6 +39,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         ITwoFactorChallengeService twoFactorChallengeService,
         IDomainEventDispatcher eventDispatcher,
         IAccountLockout accountLockout,
+        PasskeyOnlyAdministratorRule passkeyOnlyAdministrator,
         ILogger<VerifyEmailCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -47,6 +49,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         _twoFactorChallengeService = twoFactorChallengeService;
         _eventDispatcher = eventDispatcher;
         _accountLockout = accountLockout;
+        _passkeyOnlyAdministrator = passkeyOnlyAdministrator;
         _logger = logger;
     }
 
@@ -223,6 +226,14 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
             return user.LockRefusal(lockKind);
         }
 
+        // D-S20-4 (ii-s): an administrator whose only usable second factor is a passkey
+        // signs in with the passkey alone. The address stays verified; only the courtesy
+        // sign-in is refused, before any challenge or token.
+        if (await _passkeyOnlyAdministrator.RefusalAsync(user.Id, PasskeyOnlyAdministratorDoors.VerifyEmail, cancellationToken) is { } passkeyRequired)
+        {
+            return passkeyRequired;
+        }
+
         // Defensive parity with login: a user cannot enable two-factor before
         // confirming their email, but if that ever holds we must not skip the
         // challenge — hand back a pending-2FA response instead of tokens.
@@ -235,7 +246,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         }
 
         // Record successful login on entity (raises UserLoggedInEvent)
-        user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
+        user.RecordSuccessfulLogin(AuthenticationMethods.EmailCode, request.IpAddress, request.UserAgent);
 
         var loginResponse = await _loginResponseBuilder.BuildAsync(
             user, request.IpAddress, request.UserAgent, request.DeviceId, AuthenticationMethods.EmailCode,

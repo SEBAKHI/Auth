@@ -8,6 +8,7 @@ using Auth.Domain.Enums;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Access;
+using Auth.Domain.ValueObjects;
 using Auth_API.Modules.Authentication.EventHandlers;
 using Auth_API.Tests.Authentication;
 using Auth_API.Tests.Helpers;
@@ -59,15 +60,15 @@ public class TwoFactorHardLockAdminNotificationEventHandlerTests
             .Callback<NotificationRequest, CancellationToken>((request, _) => _sent.Add(request))
             .ReturnsAsync(Result.Success);
         // Every administrator has a second factor of their own unless a test says not.
-        _factors.Setup(s => s.HasEnabledFactorAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        _factors.Setup(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new QualifyingSecondFactors(Totp: true, Passkey: false));
     }
 
     private TwoFactorHardLockAdminNotificationEventHandler Handler() =>
         new(
             _users.Object,
             new TwoFactorResetAdministrators(
-                _permissions.Object, new PermissionGrantGuard(_permissions.Object), _factors.Object),
+                _permissions.Object, new PermissionGrantGuard(_permissions.Object), TestHelpers.UsableFactors(_factors.Object)),
             _notifications.Object,
             TestHelpers.CreateOptions(new EmailSettings { FrontendBaseUrl = "https://console.example.com/" }),
             _log);
@@ -176,8 +177,8 @@ public class TwoFactorHardLockAdminNotificationEventHandlerTests
         // No second factor of their own: the reset's recent two-factor sign-in is
         // one they can never have.
         var withoutFactor = Holder("no-factor@example.org", ["users:*"]);
-        _factors.Setup(s => s.HasEnabledFactorAsync(withoutFactor.UserId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        _factors.Setup(s => s.GetQualifyingFactorsAsync(withoutFactor.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(QualifyingSecondFactors.None);
         // The locked account itself, an administrator too: never its own resetter.
         // (Listed directly: its live grants stay the ones the fixture gave it.)
         _holders.Add(new PlatformAuthorityHolder(Target, "owner@example.org", "Olivia Owner", UserStatus.Active, true, false, ["users:*"]));

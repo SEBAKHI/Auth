@@ -94,7 +94,7 @@ public class PasskeyMfaPolicyTests
     public void ApplicationPolicy_NamesThePasskey_OnlyForAPasskeyOnlyAccount(
         string because, QualifyingSecondFactors factors, AuthenticationMethods methods, ApplicationMfaRequirement expected)
     {
-        var policy = new ApplicationMfaPolicy(Mock.Of<ITwoFactorStateStore>(MockBehavior.Strict));
+        var policy = new ApplicationMfaPolicy(TestHelpers.UsableFactors(Mock.Of<ITwoFactorStateStore>(MockBehavior.Strict)));
 
         policy.Evaluate(requireTwoFactor: true, methods, factors).Should().Be(expected, because);
         policy.Evaluate(requireTwoFactor: false, methods, factors).Should().Be(ApplicationMfaRequirement.None);

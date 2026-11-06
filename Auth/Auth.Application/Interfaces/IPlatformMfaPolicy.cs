@@ -37,9 +37,11 @@ public interface IPlatformMfaPolicy
     /// <summary>
     /// The decision for a token about to be minted. An application token
     /// (<paramref name="applicationId"/> not null) is returned untouched, without
-    /// reading anything. For a platform token with permissions, reads whether the
-    /// account has an enabled second factor and the switch, then applies the
-    /// decision; with the switch off it logs what would be required instead.
+    /// reading anything. For a platform token with permissions, reads the account's
+    /// usable second factors and the switch, then applies the decision; with the
+    /// switch off it logs what would be required instead — except for an account
+    /// whose only usable factor is a passkey, which is enforced whatever the switch
+    /// says (S20, D-S20-4 (ii)).
     /// </summary>
     Task<PlatformMfaDecision> EvaluateAsync(
         Guid userId,

@@ -98,6 +98,7 @@ export const PUBLISHED_ERROR_CODES = {
   "Auth.InvalidToken": "catalog",
   "Auth.KeyGenerationFailed": "catalog",
   "Auth.MissingCodeChallenge": "catalog",
+  "Auth.PasskeyRequired": "catalog",
   "Auth.PermissionDenied": "catalog",
   "Auth.PkceVerificationFailed": "catalog",
   "Auth.ReauthenticationRequired": "catalog",

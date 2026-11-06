@@ -843,7 +843,7 @@ public class TwoFactorStateStoreSqlTests
         var roleId = Guid.NewGuid();
         var db = new RecordingDbConnectionFactory(affectedRows: 1, scalarFor: _ => true);
 
-        (await new TwoFactorStateStore(db).HasPlatformRoleHolderWithoutFactorAsync(roleId, CancellationToken.None)).Should().BeTrue();
+        (await new TwoFactorStateStore(db).HasPlatformRoleHolderWithoutFactorAsync(roleId, countPasskeys: true, CancellationToken.None)).Should().BeTrue();
 
         Sql(db.Commands.Should().ContainSingle().Subject).Should().Be(ExpectedRoleHolderWithoutFactor);
         db.LastCommand!.Parameters["RoleId"].Should().Be(roleId);
@@ -859,7 +859,7 @@ public class TwoFactorStateStoreSqlTests
         // is a holder like any other — as in the deployment guide's inventory.
         var db = new RecordingDbConnectionFactory(affectedRows: 1, scalarFor: _ => true);
 
-        await new TwoFactorStateStore(db).HasPlatformRoleHolderWithoutFactorAsync(Guid.NewGuid(), CancellationToken.None);
+        await new TwoFactorStateStore(db).HasPlatformRoleHolderWithoutFactorAsync(Guid.NewGuid(), countPasskeys: true, CancellationToken.None);
 
         Sql(db.Commands.Should().ContainSingle().Subject).Should().NotContain("IsDeleted");
     }

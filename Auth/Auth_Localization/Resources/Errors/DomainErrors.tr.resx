@@ -75,6 +75,9 @@
   <data name="Auth.ReauthenticationRequired" xml:space="preserve">
     <value>Güvenliğiniz için, iki faktörlü kimlik doğrulamayı değiştirmek üzere tekrar giriş yapın.</value>
   </data>
+  <data name="Auth.PasskeyRequired" xml:space="preserve">
+    <value>Bu hesap geçiş anahtarıyla giriş yapar. Devam etmek için geçiş anahtarınızı kullanın.</value>
+  </data>
   <data name="Auth.FirstPartyOriginRequired" xml:space="preserve">
     <value>Bu istek platformun kendi oturum açma sayfalarından birinden gelmelidir. Kullanmak istediğiniz uygulamanın oturum açma sayfasını açıp yeniden deneyin.</value>
   </data>

@@ -75,6 +75,9 @@
   <data name="Auth.ReauthenticationRequired" xml:space="preserve">
     <value>آپ کی حفاظت کے لیے، دو مرحلہ تصدیق تبدیل کرنے کے لیے دوبارہ لاگ ان کریں۔</value>
   </data>
+  <data name="Auth.PasskeyRequired" xml:space="preserve">
+    <value>یہ اکاؤنٹ اپنی پاس کی سے لاگ ان ہوتا ہے۔ جاری رکھنے کے لیے اپنی پاس کی استعمال کریں۔</value>
+  </data>
   <data name="Auth.FirstPartyOriginRequired" xml:space="preserve">
     <value>یہ درخواست پلیٹ فارم کے اپنے سائن اِن صفحات میں سے کسی ایک سے آنی چاہیے۔ جس ایپ کو آپ استعمال کرنا چاہتے ہیں اس کا سائن اِن صفحہ کھولیں اور دوبارہ کوشش کریں۔</value>
   </data>

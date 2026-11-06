@@ -24,8 +24,29 @@ public static class PasskeySignalCodes
     /// <summary>A passkey was removed, with its reason. Information.</summary>
     public const string Removed = "passkey.removed";
 
-    /// <summary>A registration did not verify (PK10). Information; the alert rule is A121 (S16).</summary>
+    /// <summary>
+    /// A registration or a sign-in did not verify (PK10). Information; the alert rule is A121
+    /// (S16).
+    /// </summary>
     public const string VerificationFailed = "passkey.verification-failed";
+
+    /// <summary>
+    /// A sign-in's signature counter did not grow (PK9): a copied or broken authenticator. The
+    /// passkey is sealed (<c>LastCounterRegressionAt</c>), never removed. Warning; A122.
+    /// </summary>
+    public const string CounterRegressed = "passkey.counter-regressed";
+
+    /// <summary>
+    /// A passkey signed in to an account under a lock raised by wrong passwords (FA6,
+    /// ARR-1043), with the lock's kind (<c>LockKind</c>): admitted, nothing lifted. Warning; A123.
+    /// </summary>
+    public const string AdmittedWhileLocked = "passkey.admitted-while-locked";
+
+    /// <summary>
+    /// A sign-in exit other than the passkey refused an administrator whose only usable second
+    /// factor is a passkey (D-S20-4 (ii-s)), after the exit's own proof. Information.
+    /// </summary>
+    public const string Required = "passkey.required";
 
     /// <summary>
     /// Passkeys:Enabled is on but the feature cannot run: no RP ID, no first-party origin, an

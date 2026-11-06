@@ -506,6 +506,11 @@
       "pointer": null
     },
     {
+      "code": "Auth.PasskeyRequired",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
       "code": "Auth.PermissionDenied",
       "status": 403,
       "source": "catalog"

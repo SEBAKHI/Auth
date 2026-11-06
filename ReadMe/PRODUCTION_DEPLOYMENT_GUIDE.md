@@ -2833,6 +2833,13 @@ holds the password alone. Grants scoped to an application or an organization are
    **Clean** means every row has `FactorRowEnabled = 1`, and `IsTwoFactorEnabled` equals
    `FactorRowEnabled` on every row — the rows with `IsDeleted = 1` too: enrol them, or remove their
    platform grant. The switch reads `FactorRowEnabled`, not `IsTwoFactorEnabled`.
+
+   **Passkeys (S20).** The query reads the authenticator app only. While passkeys run, a live,
+   user-verified passkey of the RP ID in force is a factor too, so an account with one and no app is
+   enrolled although its `FactorRowEnabled` is empty; such an account is held to a passkey session
+   whatever this switch says ([K.2](#k2-switching-it-on-and-back-off)). While passkeys do not run
+   (`Passkeys:Enabled` off, as shipped), its passkey is no factor, and the switch treats it as an
+   account without one.
 3. **Every listed person signs out, signs back in, and sets up a second factor** (Profile → Security),
    saving the recovery codes somewhere other than the device that holds the authenticator app.
 4. **Every listed account that no person signs in to** — a script, a shared or service account — either
@@ -2873,6 +2880,13 @@ the file.
 in to the console with it. It must land on the two-factor page, and a direct
 `GET /api/v1/audit-logs` with its token must answer `403` with the code `TwoFactor.RequiredByPolicy`.
 Delete the account afterwards.
+
+**An administrator whose only factor is a passkey is held to a passkey session, switch on or off**
+(S20). Its password, provider, emailed-code and recovery sign-ins answer `403 Auth.PasskeyRequired`
+(logged `passkey.required`), and a session it opened another way loses its platform permissions at
+its next token refresh (`PlatformMfa.Withheld`, requirement `passkey`). This switch does not change
+that. Switching passkeys off does: the passkey is then no usable factor, and such an account is
+decided as one without a factor.
 
 **Off:** the same switch. Also instant — the next refresh gives the permissions back. Keep that undo
 within reach for the **window after switching on**: until the inventory shows every platform
@@ -3076,6 +3090,11 @@ decides what the tick does, and it ships as `Monitor`:
 Once a week while it runs, search the API log for `app-mfa.refused` and `app-mfa.guard-denied`
 ([Reference §I](#i-logs--where-they-are-and-how-to-find-them)): the first is a refused code or refresh,
 the second a person who came back without completing what the page asked.
+
+**Passkeys (S20).** A ticked application asks an account whose only factor is a passkey for a
+passkey sign-in (`mfa_req: passkey`), which proves two factors in one step. While passkeys do not
+run that account has no usable factor, so the application asks it to set up an authenticator app,
+as it asks any account without a factor.
 
 ## L. Refresh tokens: the application replay grace and the session row
 

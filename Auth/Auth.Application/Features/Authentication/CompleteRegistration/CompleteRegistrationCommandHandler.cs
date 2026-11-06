@@ -240,18 +240,20 @@ public class CompleteRegistrationCommandHandler : IRequestHandler<CompleteRegist
         // will issue what this could not, so the answer is one named error
         // the screen routes to "sign in", never a 500 and never a code error
         // that would send the person back to a code that is already spent.
-        user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
+        // The emailed code and the password this request set: no second factor,
+        // and an account this new holds no platform permission. Setting a
+        // password is not proving one, and a new account holds no lock to lift.
+        // Without a password the code is the account's first factor (D-215-1).
+        // A new account holds no passkey either, so the refusal of a passkey-only
+        // administrator (D-S20-4 (ii-s)) is not asked here.
+        var methods = passwordHash is null
+            ? AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false)
+            : AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode);
+        user.RecordSuccessfulLogin(methods, request.IpAddress, request.UserAgent);
 
         ErrorOr<LoginResponse> loginResponse;
         try
         {
-            // The emailed code and the password this request set: no second factor,
-            // and an account this new holds no platform permission. Setting a
-            // password is not proving one, and a new account holds no lock to lift.
-            // Without a password the code is the account's first factor (D-215-1).
-            var methods = passwordHash is null
-                ? AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false)
-                : AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode);
             loginResponse = await _loginResponseBuilder.BuildAsync(
                 user, request.IpAddress, request.UserAgent, request.DeviceId,
                 methods,

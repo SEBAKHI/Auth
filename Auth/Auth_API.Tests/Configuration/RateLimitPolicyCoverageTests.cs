@@ -66,6 +66,11 @@ public class RateLimitPolicyCoverageTests
         { "Authentication/Controllers/PasskeysController.cs", "List" },
         { "Authentication/Controllers/PasskeysController.cs", "Rename" },
         { "Authentication/Controllers/PasskeysController.cs", "Remove" },
+        // S20 PR B: the passkey sign-in's three calls. The options write a challenge row; the
+        // sign-in and the recovery run the WebAuthn check and mint a session.
+        { "Authentication/Controllers/PasskeysController.cs", "BeginAssertion" },
+        { "Authentication/Controllers/PasskeysController.cs", "VerifyAssertion" },
+        { "Authentication/Controllers/PasskeysController.cs", "RecoverWithAssertion" },
     };
 
     [Theory]

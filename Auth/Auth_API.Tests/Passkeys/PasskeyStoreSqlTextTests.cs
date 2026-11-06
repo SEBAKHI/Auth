@@ -440,6 +440,154 @@ public class PasskeyStoreSqlTextTests
         db.Commands.Should().NotContain(command => command.CommandText.Contains("UserPasskeys"));
     }
 
+    // ── S20 PR B: the sign-in ──
+
+    /// <remarks>Deliberate break, verified red: <c>[UsedAt] IS NULL</c> dropped from the consume.</remarks>
+    [Fact]
+    public async Task ConsumeAssertion_IsOneStatement_ThatSpendsOnlyAnUnusedUnexpiredSignInChallengeOfNoAccount()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => null);
+        var candidates = FakeCredentialHasher.CandidatesOf(CredentialPurpose.WebAuthnChallenge, "fp-current", "fp-previous");
+
+        (await Challenges(db).TryConsumeAssertionAsync(candidates, CancellationToken.None)).Should().BeNull();
+
+        var command = db.Commands.Should().ContainSingle().Subject;
+        Squash(WebAuthnChallengeRepository.ConsumeAssertionSql).Should().Be(
+            "UPDATE [dbo].[WebAuthnChallenges] SET [UsedAt] = SYSUTCDATETIME() OUTPUT inserted.[OptionsJson] "
+            + "WHERE [HandleHash] IN @Hashes AND [Purpose] = @Purpose AND [UserId] IS NULL "
+            + "AND [UsedAt] IS NULL AND [ExpiresAt] > SYSUTCDATETIME()",
+            "spent in the statement that finds it, before anything is checked (PK6)");
+        command.CommandText.Should().Contain("[HandleHash] IN (");
+        command.Parameters["Purpose"].Should().Be((byte)WebAuthnChallengePurpose.Assertion,
+            "a registration challenge never answers a sign-in");
+        command.Parameters.Values.Should().Contain("fp-current").And.Contain("fp-previous");
+    }
+
+    /// <remarks>Deliberate breaks, each verified red: the re-issue read on <c>CreatedAt</c>; its <c>[UsedAt] IS NULL</c> dropped.</remarks>
+    [Fact]
+    public async Task ReusableAssertion_ReadsOnlyALiveUnspentSignInChallenge_WithMoreThanAMinuteLeft_ByTheDatabasesClock()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => null);
+
+        (await Challenges(db).GetReusableAssertionAsync(
+            FakeCredentialHasher.CandidatesOf(CredentialPurpose.WebAuthnChallenge, "fp"), CancellationToken.None)).Should().BeNull();
+
+        db.Commands.Should().ContainSingle().Which.CommandText.Should().Contain("[HandleHash] IN (");
+        var sql = Squash(WebAuthnChallengeRepository.ReusableAssertionSql);
+        sql.Should().StartWith("SELECT").And.NotContain("UPDATE", "the read spends nothing");
+        sql.Should().EndWith(
+            "WHERE [HandleHash] IN @Hashes AND [Purpose] = @Purpose AND [UserId] IS NULL AND [UsedAt] IS NULL "
+            + "AND [ExpiresAt] > DATEADD(SECOND, 60, SYSUTCDATETIME())");
+        Squash(WebAuthnChallengeRepository.ReusableAssertionSql).Should().NotContain("[CreatedAt] >", "by what is left, never by when it was issued");
+        db.LastCommand!.Parameters["Purpose"].Should().Be((byte)WebAuthnChallengePurpose.Assertion);
+    }
+
+    [Fact]
+    public async Task ReusableAssertion_ReadsBackTheChallengeItFinds()
+    {
+        var id = Guid.NewGuid();
+        var expires = DateTime.UtcNow.AddMinutes(4);
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => new
+        {
+            Id = id, HandleHash = "fp", Purpose = (byte)2, UserId = (Guid?)null, OptionsJson = "{}",
+            ExpiresAt = expires, UsedAt = (DateTime?)null, CreatedAt = expires.AddMinutes(-5),
+        });
+
+        var challenge = await Challenges(db).GetReusableAssertionAsync(
+            FakeCredentialHasher.CandidatesOf(CredentialPurpose.WebAuthnChallenge, "fp"), CancellationToken.None);
+
+        challenge!.Id.Should().Be(id);
+        challenge.Purpose.Should().Be(WebAuthnChallengePurpose.Assertion);
+        challenge.ExpiresAt.Should().Be(expires);
+        challenge.OptionsJson.Should().Be("{}");
+    }
+
+    /// <summary>P7-R15: the credential id goes as bytes, through the unique index.</summary>
+    [Fact]
+    public async Task LiveByCredentialId_ComparesTheBytes_OfALiveRowOfTheRpId_OfAnyAccount()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => null);
+        byte[] credentialId = [0x41, 0x62, 0x43];
+
+        (await Passkeys(db).GetLiveByCredentialIdAsync(credentialId, PasskeyTestDoubles.RpId, CancellationToken.None)).Should().BeNull();
+
+        var command = db.Commands.Single();
+        Squash(command.CommandText).Should().EndWith(
+            "FROM [dbo].[UserPasskeys] WHERE [CredentialId] = @CredentialId AND [RpId] = @RpId AND [RevokedAt] IS NULL");
+        Squash(command.CommandText).Should().NotContain("[UserId] =", "the response's user handle says whose it must be");
+        command.Parameters["CredentialId"].Should().BeOfType<byte[]>().Which.Should().Equal(credentialId);
+    }
+
+    [Fact]
+    public async Task UserHandle_IsReadWhateverTheAccountsState_AndNothingElseOfIt()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, rowFor: _ => null);
+
+        await Passkeys(db).GetUserHandleAsync(UserId, CancellationToken.None);
+
+        Squash(db.Commands.Single().CommandText).Should().Be(
+            "SELECT [WebAuthnUserHandle] FROM [dbo].[Users] WHERE [Id] = @UserId",
+            "an account waiting for deletion is read too (FA6), and nothing but its handle");
+    }
+
+    /// <remarks>Deliberate break, verified red: <c>[RevokedAt] IS NULL</c> dropped from the record.</remarks>
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(0, false)]
+    public async Task RecordAssertion_IsOneStatement_OnlyWhileTheRowIsLive_AndItsCounterIsTheOneChecked(int rows, bool recorded)
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: rows);
+        var passkey = PasskeyTestDoubles.Live(UserId, DateTime.UtcNow.AddDays(-1));
+        passkey.RecordAssertion(signCount: 7, isBackupEligible: true, isBackedUp: true, DateTime.UtcNow).Should().Be(PasskeyCounterCheck.Advanced);
+
+        (await Passkeys(db).TryRecordAssertionAsync(passkey, storedSignCount: 0, CancellationToken.None)).Should().Be(recorded);
+
+        var command = db.Commands.Single();
+        Squash(command.CommandText).Should().Be(
+            "UPDATE [dbo].[UserPasskeys] SET [SignCount] = @SignCount, [LastUsedAt] = @LastUsedAt, "
+            + "[IsBackupEligible] = @IsBackupEligible, [IsBackedUp] = @IsBackedUp "
+            + "WHERE [Id] = @Id AND [RevokedAt] IS NULL AND [SignCount] = @StoredSignCount",
+            "a removal, a reset or another sign-in that got there first matches nothing (T-B4)");
+        command.Parameters["SignCount"].Should().Be(7L);
+        command.Parameters["StoredSignCount"].Should().Be(0L);
+        command.Parameters["IsBackupEligible"].Should().Be(true);
+        command.Parameters["IsBackedUp"].Should().Be(true);
+    }
+
+    [Fact]
+    public async Task SealCounterRegression_WritesTheSeal_AndNeverRemovesOrRevokesThePasskey()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var at = DateTime.UtcNow;
+        var passkeyId = Guid.NewGuid();
+
+        await Passkeys(db).SealCounterRegressionAsync(passkeyId, at, CancellationToken.None);
+
+        var command = db.Commands.Single();
+        Squash(command.CommandText).Should().Be(
+            "UPDATE [dbo].[UserPasskeys] SET [LastCounterRegressionAt] = @At WHERE [Id] = @Id");
+        command.Parameters["At"].Should().Be(at);
+        command.Parameters["Id"].Should().Be(passkeyId);
+    }
+
+    [Fact]
+    public async Task WithoutTheSchema_NoSignInStatementIsSent()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var challenges = new WebAuthnChallengeRepository(db, PasskeyTestDoubles.Schema(present: false));
+        var passkeys = new UserPasskeyRepository(db, PasskeyTestDoubles.Schema(present: false));
+        var candidates = FakeCredentialHasher.CandidatesOf(CredentialPurpose.WebAuthnChallenge, "fp");
+
+        (await challenges.TryConsumeAssertionAsync(candidates, CancellationToken.None)).Should().BeNull();
+        (await challenges.GetReusableAssertionAsync(candidates, CancellationToken.None)).Should().BeNull();
+        (await passkeys.GetLiveByCredentialIdAsync([1], PasskeyTestDoubles.RpId, CancellationToken.None)).Should().BeNull();
+        (await passkeys.GetUserHandleAsync(UserId, CancellationToken.None)).Should().BeNull();
+        (await passkeys.TryRecordAssertionAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 0, CancellationToken.None)).Should().BeFalse();
+        await passkeys.SealCounterRegressionAsync(Guid.NewGuid(), DateTime.UtcNow, CancellationToken.None);
+
+        db.Commands.Should().BeEmpty();
+    }
+
     private static WebAuthnChallengeRepository Challenges(RecordingDbConnectionFactory db) => new(db, PasskeyTestDoubles.Schema());
 
     private static UserPasskeyRepository Passkeys(RecordingDbConnectionFactory db) => new(db, PasskeyTestDoubles.Schema());

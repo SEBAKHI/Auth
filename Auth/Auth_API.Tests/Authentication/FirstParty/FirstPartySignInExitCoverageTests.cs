@@ -3,6 +3,7 @@ using Auth.Application.DTOs;
 using Auth.Application.Features.AccountDeletion.RecoverAccount;
 using Auth.Application.Features.AccountDeletion.RecoverAccountExternal;
 using Auth.Application.Features.AccountDeletion.RecoverAccountWithEmailCode;
+using Auth.Application.Features.AccountDeletion.RecoverAccountWithPasskey;
 using Auth.Application.Features.Authentication.CompleteRegistration;
 using Auth.Application.Features.Authentication.ExternalLogin;
 using Auth.Application.Features.Authentication.Login;
@@ -10,6 +11,7 @@ using Auth.Application.Features.Authentication.RefreshToken;
 using Auth.Application.Features.Authentication.SignInWithEmailCode;
 using Auth.Application.Features.Authentication.VerifyEmail;
 using Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
+using Auth.Application.Features.Passkeys.VerifyPasskeyAssertion;
 using Auth.Application.Interfaces;
 using Auth_API.Common.FirstParty;
 using Auth_API.Modules.Authentication.Controllers;
@@ -55,6 +57,9 @@ public class FirstPartySignInExitCoverageTests
         [typeof(RecoverAccountWithEmailCodeCommand)] = (typeof(AuthController), nameof(AuthController.RecoverAccountWithEmailCode)),
         [typeof(VerifyTwoFactorLoginCommand)] = (typeof(TwoFactorController), nameof(TwoFactorController.Verify)),
         [typeof(RefreshTokenCommand)] = (typeof(AuthController), nameof(AuthController.RefreshToken)),
+        // S20 PR B (FA5 (5-1), D-S20-6 (a)): the passkey sign-in and its recovery entry.
+        [typeof(VerifyPasskeyAssertionCommand)] = (typeof(PasskeysController), nameof(PasskeysController.VerifyAssertion)),
+        [typeof(RecoverAccountWithPasskeyCommand)] = (typeof(PasskeysController), nameof(PasskeysController.RecoverWithAssertion)),
     };
 
     private static IEnumerable<MethodInfo> Actions() =>
@@ -72,7 +77,7 @@ public class FirstPartySignInExitCoverageTests
         var exits = Actions().Where(ReturnsASession).ToList();
 
         // A floor, so the guard cannot pass because it stopped seeing anything.
-        exits.Should().HaveCountGreaterThanOrEqualTo(8);
+        exits.Should().HaveCountGreaterThanOrEqualTo(10);
 
         var bypassing = exits
             .Where(action => action.GetCustomAttribute<IssuesFirstPartySessionAttribute>() is null)
@@ -96,7 +101,7 @@ public class FirstPartySignInExitCoverageTests
             .Where(action => action.Name != nameof(AuthController.RefreshToken))
             .ToList();
 
-        exits.Should().HaveCountGreaterThanOrEqualTo(7);
+        exits.Should().HaveCountGreaterThanOrEqualTo(9);
         exits.Where(action => action.GetCustomAttribute<RequireFirstPartyOriginAttribute>() is null)
             .Select(action => $"{action.DeclaringType!.Name}.{action.Name}")
             .Should().BeEmpty("every sign-in exit must refuse a browser Origin outside FirstPartySpaOrigins");
@@ -122,7 +127,7 @@ public class FirstPartySignInExitCoverageTests
         var commands = SessionCommands().ToList();
 
         // A floor, so the guard cannot pass because reflection stopped finding anything.
-        commands.Should().HaveCountGreaterThanOrEqualTo(8);
+        commands.Should().HaveCountGreaterThanOrEqualTo(10);
 
         // Named first: a new command fails here with its own name in the message.
         foreach (var command in commands)

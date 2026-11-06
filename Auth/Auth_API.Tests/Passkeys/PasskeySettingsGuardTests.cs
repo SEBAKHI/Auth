@@ -297,7 +297,8 @@ public class PasskeySettingsGuardTests
                 route => $"{route.Http!.HttpMethods.Single()} {route.Http.Template}",
                 route => route.Method.GetCustomAttribute<EnableRateLimitingAttribute>()?.PolicyName);
 
-        // T-A3: today's policies until S14 moves these routes.
+        // T-A3: today's policies until S14 moves these routes. PR B (R-RL): the sign-in's
+        // options on the page budget, the sign-in and the recovery on the sign-in budget.
         routes.Should().BeEquivalentTo(new Dictionary<string, string?>
         {
             ["POST registration/options"] = "login",
@@ -306,6 +307,9 @@ public class PasskeySettingsGuardTests
             ["GET "] = "sign-in-page",
             ["PATCH {id:guid}"] = "sign-in-page",
             ["DELETE {id:guid}"] = "login",
+            ["POST assertion/options"] = "sign-in-page",
+            ["POST assertion/verify"] = "login",
+            ["POST assertion/recover"] = "login",
         });
     }
 

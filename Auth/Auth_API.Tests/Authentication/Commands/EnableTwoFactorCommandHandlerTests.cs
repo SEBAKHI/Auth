@@ -59,6 +59,7 @@ public class EnableTwoFactorCommandHandlerTests
             _guardMock.Object,
             verifier,
             _stateStoreMock.Object,
+            TestHelpers.UsableFactors(_stateStoreMock.Object),
             _totpServiceMock.Object,
             new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_emailSettings)),
             new FirstFactorEmailProof(
