@@ -22,6 +22,15 @@ namespace Auth.Application.Features.Authentication.DisableTwoFactor;
 /// cannot switch the factor off at all: the factor is what their platform authority
 /// rests on. Refused after the recent sign-in and before any attempt is counted.
 /// </para>
+/// <para>
+/// While <c>Email:Enabled</c> is off, the app cannot be switched off while the account holds
+/// a live passkey of the RP ID in force (S20, D-150-5 (a), REVIEW-FIXES 150 F19): no notice can
+/// reach the owner, so a passkey is never an account's first factor (REVIEW 150 F13) nor its
+/// only one. Removing the passkeys first lets the app go, and replacing the app is unchanged;
+/// the rule holds whatever <c>Passkeys:Enabled</c> says. Asked before any attempt is counted,
+/// and decided again inside the switch-off's transaction, where a passkey registered at the
+/// same moment is seen.
+/// </para>
 /// </remarks>
 public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCommand, ErrorOr<Success>>
 {
@@ -32,6 +41,7 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
     private readonly IUserRepository _userRepository;
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly FirstFactorEmailProofPolicy _emailProofPolicy;
     private readonly ILogger<DisableTwoFactorCommandHandler> _logger;
 
     public DisableTwoFactorCommandHandler(
@@ -42,8 +52,10 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
         IUserRepository userRepository,
         ICredentialRevocationService credentialRevocation,
         IDomainEventDispatcher eventDispatcher,
+        FirstFactorEmailProofPolicy emailProofPolicy,
         ILogger<DisableTwoFactorCommandHandler> logger)
     {
+        _emailProofPolicy = emailProofPolicy;
         _reauthenticationGuard = reauthenticationGuard;
         _platformMfaPolicy = platformMfaPolicy;
         _secondFactorVerifier = secondFactorVerifier;
@@ -74,6 +86,18 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
                 "Switching two-factor off was refused for user {UserId}: platform administrators must keep it",
                 request.UserId);
             return TwoFactorErrors.RequiredByPolicy;
+        }
+
+        // 2b. With email off, a passkey keeps the app (D-150-5 (a)): refused before any attempt
+        //     is counted. Read once: Email:Enabled is hot, and one request decides once.
+        var keepWhilePasskeysLive = !_emailProofPolicy.IsRequired;
+        if (keepWhilePasskeysLive
+            && (await _twoFactorStateStore.GetQualifyingFactorsAsync(request.UserId, cancellationToken)).Passkey)
+        {
+            _logger.LogInformation(
+                "Switching two-factor off was refused for user {UserId}: email sending is off and the account holds a passkey",
+                request.UserId);
+            return TwoFactorErrors.PasskeyNeedsApp;
         }
 
         // 3. One attempt counted against the factor before the code is checked: a
@@ -107,7 +131,7 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
 
         // 4. The factor row and the account flag, in one transaction.
         var outcome = await _twoFactorStateStore.TryDisableAsync(
-            request.UserId, proof.Value, cancellationToken);
+            request.UserId, proof.Value, keepWhilePasskeysLive, cancellationToken);
 
         switch (outcome)
         {
@@ -122,6 +146,13 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
             case LoginCommitOutcome.RecoveryCodesChanged:
                 // A concurrent sign-in spent a code between the check and the commit.
                 return TwoFactorErrors.InvalidRecoveryCode;
+
+            case LoginCommitOutcome.PasskeysStillLive:
+                // A passkey registered after step 2b, seen inside the transaction.
+                _logger.LogInformation(
+                    "Switching two-factor off was refused for user {UserId}: a passkey was added meanwhile while email sending is off",
+                    request.UserId);
+                return TwoFactorErrors.PasskeyNeedsApp;
 
             default:
                 // The factor was switched off or removed meanwhile — or an outcome

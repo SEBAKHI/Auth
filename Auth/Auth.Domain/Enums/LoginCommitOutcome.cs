@@ -56,5 +56,12 @@ public enum LoginCommitOutcome
     /// was never this user's — before the commit. Nothing was written; the attempt
     /// stays counted, and the session signs in again.
     /// </summary>
-    SessionLost = 8
+    SessionLost = 8,
+
+    /// <summary>
+    /// A switch-off with email off found a live passkey of the RP ID in force inside its
+    /// transaction (REVIEW-FIXES 150 F19): the app stays, so the passkey is never the
+    /// account's only factor. Nothing was written; the attempt stays counted.
+    /// </summary>
+    PasskeysStillLive = 9
 }

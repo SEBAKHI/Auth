@@ -119,7 +119,7 @@ public class PasskeyStoreSqlTextTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
         var passkey = PasskeyTestDoubles.Live(UserId, DateTime.UtcNow);
 
-        (await Passkeys(db).TryCreateAsync(passkey, UserPasskey.MaxLivePerAccount, bindCodeId: null, SessionId, CancellationToken.None))
+        (await Passkeys(db).TryCreateAsync(passkey, UserPasskey.MaxLivePerAccount, bindCodeId: null, SessionId, requireAnotherFactor: false, CancellationToken.None))
             .Should().Be(PasskeyInsertOutcome.Inserted);
 
         var insert = db.Commands.Single();
@@ -143,14 +143,60 @@ public class PasskeyStoreSqlTextTests
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
-        await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, null, SessionId, CancellationToken.None);
+        await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, null, SessionId, requireAnotherFactor: false, CancellationToken.None);
 
         var insert = db.Commands.Single();
-        Squash(insert.CommandText).Should().EndWith(
+        Squash(insert.CommandText).Should().Contain(
             "AND EXISTS (SELECT 1 FROM [dbo].[UserSessions] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = @SessionId AND [UserId] = @UserId AND [EndedAt] IS NULL)",
             "a registration whose session a recovery ended stores nothing");
         insert.Parameters["SessionId"].Should().Be(SessionId);
         insert.Parameters["UserId"].Should().Be(UserId);
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F19 (D-150-5 (a)): with email off, the row is written only while the
+    /// account still holds another factor — the authenticator app or another live passkey — read
+    /// under a lock the app's switch-off waits for. The switch-off deletes the app's row first and
+    /// then reads the passkeys under a range lock, so the two at the same moment never leave a
+    /// passkey as an account's only factor.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the condition dropped from the insert.</remarks>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task TryCreate_WithEmailOff_WritesOnlyWhileAnotherFactorRemains_UnderALockTheSwitchOffWaitsFor(bool emailOff)
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, null, SessionId, requireAnotherFactor: emailOff, CancellationToken.None);
+
+        var insert = db.Commands.Single();
+        Squash(insert.CommandText).Should().EndWith(
+            "AND (@RequireAnotherFactor = 0 "
+            + "OR EXISTS (SELECT 1 FROM [dbo].[TwoFactorAuth] WITH (UPDLOCK, HOLDLOCK) WHERE [UserId] = @UserId AND [IsEnabled] = 1) "
+            + "OR EXISTS (SELECT 1 FROM [dbo].[UserPasskeys] WITH (UPDLOCK, HOLDLOCK) WHERE [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL AND [IsUserVerified] = 1))",
+            "with email off, the app's row or another passkey must still be there when the row is written");
+        insert.Parameters["RequireAnotherFactor"].Should().Be(emailOff);
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F19: an insert that lost because the app went meanwhile, with email off,
+    /// says so — read in its transaction before the rollback — and stores nothing.
+    /// </summary>
+    [Fact]
+    public async Task TryCreate_WithEmailOff_TheOtherFactorGone_RollsBack_AndSaysSo()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 0,
+            scalarFor: command => command.CommandText == UserPasskeyRepository.SessionLiveSql);
+
+        (await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, null, SessionId, requireAnotherFactor: true, CancellationToken.None))
+            .Should().Be(PasskeyInsertOutcome.AnotherFactorRequired);
+
+        db.Commands.Should().HaveCount(3).And.OnlyContain(command => command.InTransaction);
+        db.Commands[2].CommandText.Should().Be(UserPasskeyRepository.AnotherFactorSql, "which condition lost, read before the rollback");
+        db.Commands[2].Parameters["RpId"].Should().Be(PasskeyTestDoubles.RpId);
+        db.LastTransaction!.RolledBack.Should().BeTrue();
     }
 
     [Fact]
@@ -159,7 +205,7 @@ public class PasskeyStoreSqlTextTests
         // The insert loses; the session is still live, so it was the limit.
         var db = new RecordingDbConnectionFactory(affectedRows: 0, scalarFor: _ => true);
 
-        (await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, null, SessionId, CancellationToken.None))
+        (await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, null, SessionId, requireAnotherFactor: false, CancellationToken.None))
             .Should().Be(PasskeyInsertOutcome.LimitReached);
         db.LastTransaction!.RolledBack.Should().BeTrue();
     }
@@ -173,7 +219,7 @@ public class PasskeyStoreSqlTextTests
             affectedFor: command => command.CommandText == SingleUseCodeStatements.TwoFactorBindCodes.Consume ? 1 : 0,
             scalarFor: _ => false);
 
-        (await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, codeId, SessionId, CancellationToken.None))
+        (await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, codeId, SessionId, requireAnotherFactor: false, CancellationToken.None))
             .Should().Be(PasskeyInsertOutcome.SessionEnded);
 
         db.Commands.Should().HaveCount(3).And.OnlyContain(command => command.InTransaction);
@@ -189,7 +235,7 @@ public class PasskeyStoreSqlTextTests
         var codeId = Guid.NewGuid();
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
-        await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, codeId, SessionId, CancellationToken.None);
+        await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, codeId, SessionId, requireAnotherFactor: false, CancellationToken.None);
 
         db.Commands.Should().HaveCount(2).And.OnlyContain(command => command.InTransaction);
         db.Commands[0].CommandText.Should().Be(SingleUseCodeStatements.TwoFactorBindCodes.Consume);
@@ -202,7 +248,7 @@ public class PasskeyStoreSqlTextTests
     {
         var db = new RecordingDbConnectionFactory(affectedRows: 0);
 
-        (await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, Guid.NewGuid(), SessionId, CancellationToken.None))
+        (await Passkeys(db).TryCreateAsync(PasskeyTestDoubles.Live(UserId, DateTime.UtcNow), 10, Guid.NewGuid(), SessionId, requireAnotherFactor: false, CancellationToken.None))
             .Should().Be(PasskeyInsertOutcome.BindCodeLost);
         db.Commands.Should().ContainSingle("the insert never runs");
         db.LastTransaction!.RolledBack.Should().BeTrue();

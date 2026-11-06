@@ -77,10 +77,12 @@ public class ResetUserTwoFactorCommandHandlerTests
             _dispatcher.Object,
             TestHelpers.CreateSecondFactorLockout(_passwordSettings),
             _publisher.Object,
+            _bindCodes.Object,
             new FixedTimeProvider(new DateTimeOffset(Now)),
             Mock.Of<ILogger<ResetUserTwoFactorCommandHandler>>());
 
     private readonly Mock<MediatR.IPublisher> _publisher = new();
+    private readonly Mock<ITwoFactorBindCodeRepository> _bindCodes = new();
 
     private static ResetUserTwoFactorCommand Command(Guid target, Guid actor) => new(target, actor, ActorSession);
 
@@ -423,6 +425,48 @@ public class ResetUserTwoFactorCommandHandlerTests
                     && e.Reason == PasskeyRemovalReasons.PeerReset && e.RemovedBy == Actor),
                 CancellationToken.None), Times.Once);
         }
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F16: the reset's own notice says the passkeys went too, so its event
+    /// carries how many the store revoked with the factor; none of them gets a notice of its own.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the event raised with no count (0).</remarks>
+    [Fact]
+    public async Task Reset_TellsTheOwnerHowManyPasskeysWentWithTheFactor()
+    {
+        GivenTarget(Target, flag: true, factorRow: true);
+        GivenActorHolds("users:*");
+        Auth.Domain.Entities.UserPasskey[] revoked =
+        [
+            PasskeyTestDoubles.Live(Target, Now.AddDays(-9), "Phone"),
+            PasskeyTestDoubles.Live(Target, Now.AddDays(-2), "Laptop"),
+        ];
+        _store.Setup(s => s.TryResetAsync(Target, Actor, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TwoFactorResetResult(revoked));
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _dispatched.Should().ContainSingle().Which.Should().BeOfType<TwoFactorResetEvent>()
+            .Which.PasskeysRemoved.Should().Be(2, "the owner's notice says the two passkeys went too");
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F18 (g): the reset leaves the password as it was, so it ends the account's
+    /// outstanding codes to bind a factor: one asked for before the reset binds nothing after it.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the call removed.</remarks>
+    [Fact]
+    public async Task Reset_EndsTheOutstandingCodesToBindAFactor()
+    {
+        GivenTarget(Target, flag: true, factorRow: true);
+        GivenActorHolds("users:*");
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _bindCodes.Verify(r => r.InvalidateOutstandingForUserAsync(Target, CancellationToken.None), Times.Once);
     }
 
     [Fact]

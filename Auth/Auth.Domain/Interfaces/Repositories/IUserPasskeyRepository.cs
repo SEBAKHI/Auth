@@ -53,19 +53,25 @@ public interface IUserPasskeyRepository
     /// The session is read under a lock its end must wait for (REVIEW 150 F1): every path
     /// that takes the account back ends its sessions before it revokes the recent passkeys,
     /// so a registration in flight either commits first, and the revocation catches it, or
-    /// meets an ended session, and stores nothing.
+    /// meets an ended session, and stores nothing. With <paramref name="requireAnotherFactor"/>
+    /// the account must still hold another factor when the row is written — the authenticator
+    /// app or another live passkey — read under a lock the app's switch-off waits for, so a
+    /// registration and a switch-off at the same moment never leave a passkey as an account's
+    /// only factor while email is off (REVIEW-FIXES 150 F19).
     /// </remarks>
     /// <param name="passkey">The passkey.</param>
     /// <param name="maxLive">The most live passkeys the account may hold.</param>
     /// <param name="bindCodeId">The emailed code the bind was checked with, or null.</param>
     /// <param name="sessionId">The session the registration's checks accepted.</param>
+    /// <param name="requireAnotherFactor">Whether email is off, so another factor must remain.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// <see cref="PasskeyInsertOutcome.Inserted"/>; <see cref="PasskeyInsertOutcome.LimitReached"/>;
     /// <see cref="PasskeyInsertOutcome.DuplicateCredential"/> when the credential id is
     /// registered already, to any account; <see cref="PasskeyInsertOutcome.BindCodeLost"/>
     /// when the code was spent or superseded by another request first; or
-    /// <see cref="PasskeyInsertOutcome.SessionEnded"/> when the session ended meanwhile.
+    /// <see cref="PasskeyInsertOutcome.SessionEnded"/> when the session ended meanwhile; or
+    /// <see cref="PasskeyInsertOutcome.AnotherFactorRequired"/> when the other factor went.
     /// Nothing is stored, and the code is not spent, unless it is
     /// <see cref="PasskeyInsertOutcome.Inserted"/>.
     /// </returns>
@@ -74,6 +80,7 @@ public interface IUserPasskeyRepository
         int maxLive,
         Guid? bindCodeId,
         Guid sessionId,
+        bool requireAnotherFactor,
         CancellationToken cancellationToken);
 
     /// <summary>Renames the account's live passkey; false when it matched nothing.</summary>
@@ -139,5 +146,11 @@ public enum PasskeyInsertOutcome
     BindCodeLost = 3,
 
     /// <summary>The session the registration's checks accepted ended before the row was written.</summary>
-    SessionEnded = 4
+    SessionEnded = 4,
+
+    /// <summary>
+    /// Email is off and the account no longer held another factor when the row was to be
+    /// written: the app was switched off meanwhile (REVIEW-FIXES 150 F19).
+    /// </summary>
+    AnotherFactorRequired = 5
 }

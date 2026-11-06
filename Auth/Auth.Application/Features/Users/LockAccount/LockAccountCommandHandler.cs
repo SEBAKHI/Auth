@@ -19,6 +19,7 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly RecentPasskeyRevocation _recentPasskeys;
+    private readonly ITwoFactorBindCodeRepository _bindCodes;
     private readonly ILogger<LockAccountCommandHandler> _logger;
 
     public LockAccountCommandHandler(
@@ -27,9 +28,11 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
         ICredentialRevocationService credentialRevocation,
         IDomainEventDispatcher eventDispatcher,
         RecentPasskeyRevocation recentPasskeys,
+        ITwoFactorBindCodeRepository bindCodes,
         ILogger<LockAccountCommandHandler> logger)
     {
         _recentPasskeys = recentPasskeys;
+        _bindCodes = bindCodes;
         _userRepository = userRepository;
         _accountActionPolicy = accountActionPolicy;
         _credentialRevocation = credentialRevocation;
@@ -76,26 +79,46 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
         }
 
         // From the commit on, what takes the account back runs to its end whatever the
-        // administrator's browser does (REVIEW 150 F1, F2): no request token. The sessions
-        // first, so a passkey registration in flight from one of them either committed
-        // already, and the revocation below catches it, or finds its session ended and
-        // stores nothing; then the passkeys.
-        // An administrator locking an account is usually answering an incident, so
-        // the already-issued access tokens are the point. Ending the session rows
-        // leaves them working for their full lifetime, and leaves the refresh
-        // token able to mint more. Replaces the direct TerminateAllForUserAsync —
-        // appending to it would find no active sessions left to blacklist.
-        await _credentialRevocation.RevokeAllCredentialsAsync(
-            request.UserId,
-            request.LockedBy,
-            $"Account locked: {request.Reason}",
-            CancellationToken.None);
+        // administrator's browser does (REVIEW 150 F1, F2; REVIEW-FIXES 150 F14): no step
+        // takes the request's token. The sessions first, so a passkey registration in flight
+        // from one of them either committed already, and the revocation below catches it, or
+        // finds its session ended and stores nothing; then the passkeys, even when ending the
+        // sessions throws, whose exception surfaces after it.
+        try
+        {
+            // An administrator locking an account is usually answering an incident, so
+            // the already-issued access tokens are the point. Ending the session rows
+            // leaves them working for their full lifetime, and leaves the refresh
+            // token able to mint more. Replaces the direct TerminateAllForUserAsync —
+            // appending to it would find no active sessions left to blacklist.
+            await _credentialRevocation.RevokeAllCredentialsAsync(
+                request.UserId,
+                request.LockedBy,
+                $"Account locked: {request.Reason}",
+                CancellationToken.None);
+        }
+        finally
+        {
+            // S20 (D-T19 D): a lock answers an incident, and a passkey registered in the 72
+            // hours before it may be the intruder's door; it goes, the older ones stay, and
+            // the owner is told which one and why (REVIEW 150 F12).
+            await _recentPasskeys.RevokeRecentAsync(
+                user, passkeyCutoff, PasskeyRemovalReasons.AdminLock, request.LockedBy);
+        }
 
-        // S20 (D-T19 D): a lock answers an incident, and a passkey registered in the 72
-        // hours before it may be the intruder's door; it goes, the older ones stay, and
-        // the owner is told which one and why (REVIEW 150 F12).
-        await _recentPasskeys.RevokeRecentAsync(
-            user, passkeyCutoff, PasskeyRemovalReasons.AdminLock, request.LockedBy);
+        // REVIEW-FIXES 150 F18 (g): a lock leaves the password as it was, so an emailed code to
+        // bind a factor, asked for before it, must not bind one once the lock is lifted. Never
+        // failing the lock, which is set.
+        try
+        {
+            await _bindCodes.InvalidateOutstandingForUserAsync(request.UserId, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex,
+                "User {UserId} was locked, but the outstanding codes to bind a second factor could not be ended",
+                request.UserId);
+        }
 
         _logger.LogInformation(
             "User {UserId} account locked by {LockedBy}. Reason: {Reason}. Lock ends: {LockoutEnd}",
@@ -104,7 +127,7 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
             request.Reason,
             lockoutEnd?.ToString() ?? "Indefinite");
 
-        await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
+        await _eventDispatcher.DispatchEventsAsync(user, CancellationToken.None);
 
         return Result.Success;
     }

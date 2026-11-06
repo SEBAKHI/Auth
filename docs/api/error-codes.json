@@ -2772,6 +2772,11 @@
       "pointer": null
     },
     {
+      "code": "TwoFactor.PasskeyNeedsApp",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
       "code": "TwoFactor.PasswordResetRequiredFirst",
       "status": 403,
       "source": "catalog"

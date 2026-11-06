@@ -103,7 +103,10 @@ public sealed class PasskeyRegistrationGate
             return PasskeyErrors.EmailRequired;
         }
 
-        return new PasskeyRegistrationSession(session.Value, factors, EmailCodeRequired: !factors.HasAny && emailOn);
+        return new PasskeyRegistrationSession(session.Value, factors, EmailCodeRequired: !factors.HasAny && emailOn)
+        {
+            AnotherFactorRequired = !emailOn,
+        };
     }
 }
 
@@ -114,4 +117,11 @@ public sealed class PasskeyRegistrationGate
 public sealed record PasskeyRegistrationSession(
     RecentSession Session,
     QualifyingSecondFactors FactorsBefore,
-    bool EmailCodeRequired);
+    bool EmailCodeRequired)
+{
+    /// <summary>
+    /// Whether email is off, so the row is written only while the account still holds another
+    /// factor, read again under a lock at the write (REVIEW-FIXES 150 F19, D-150-5 (a)).
+    /// </summary>
+    public bool AnotherFactorRequired { get; init; }
+}

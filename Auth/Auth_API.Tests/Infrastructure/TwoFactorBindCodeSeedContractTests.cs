@@ -81,6 +81,32 @@ public class TwoFactorBindCodeSeedContractTests
             "the catalog is the contract between the sender and the template; a variable in one and not the other renders empty");
     }
 
+    /// <summary>
+    /// REVIEW-FIXES 150 F17: the guarded insert gives Factor to a fresh database, and only this
+    /// update gives it to one that already holds the type — so the update is pinned like its
+    /// siblings: the catalog and the sample a fresh database gets, written once.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: Factor dropped from the update's catalog.</remarks>
+    [Fact]
+    public void ADatabaseThatHoldsTheType_GainsFactor_ByAnIdempotentUpdate()
+    {
+        var seed = File.ReadAllText(SeedPath(TypesSeed)).Replace("\r\n", "\n");
+        var insert = Regex.Match(seed,
+            @"'40000000-0000-0000-0000-000000000022',\s+N'two-factor-bind-code',.*?N'(?<vars>\[\{""name"".*?\])',\s+N'(?<sample>\{.*?\})',",
+            RegexOptions.Singleline);
+        var update = Regex.Match(seed,
+            @"UPDATE \[dbo\]\.\[NotificationTypes\]\s+SET \[VariablesJson\] = N'(?<vars>\[[^']*\])',\s+\[SampleDataJson\] = N'(?<sample>\{[^']*\})'\s+"
+            + @"WHERE \[Id\] = '40000000-0000-0000-0000-000000000022'\s+AND \[VariablesJson\] NOT LIKE N'%""name"":""Factor""%';");
+
+        insert.Success.Should().BeTrue();
+        update.Success.Should().BeTrue("the guarded insert never reaches a database that already holds the type");
+        update.Groups["vars"].Value.Should().Contain(@"{""name"":""Factor""", "the update brings the variable")
+            .And.Be(insert.Groups["vars"].Value, "the update writes the catalog a fresh database gets");
+        update.Groups["sample"].Value.Should().Contain(@"""Factor"":")
+            .And.Be(insert.Groups["sample"].Value, "and its sample, which the preview and the publish gate render");
+        update.Index.Should().BeLessThan(Regex.Match(seed, @"^\s*GO\s*$", RegexOptions.Multiline).Index, "inside the seed's single batch");
+    }
+
     [Fact]
     public void TheCode_IsSensitive()
     {

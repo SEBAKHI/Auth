@@ -593,6 +593,9 @@
   <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
     <value>بہت زیادہ غلط کوڈز کے بعد دو مرحلہ تصدیق مقفل ہو گئی ہے۔ سائن اِن صفحے سے اپنا پاس ورڈ ری سیٹ کریں، پھر کسی منتظم سے دو مرحلہ تصدیق ری سیٹ کرنے کو کہیں۔</value>
   </data>
+  <data name="TwoFactor.PasskeyNeedsApp" xml:space="preserve">
+    <value>جب تک ای میل بھیجنا بند ہے، اکاؤنٹ پر پاس کی موجود ہو تو تصدیقی ایپ بند نہیں کی جا سکتی۔ پہلے پاس کیز ہٹا دیں۔</value>
+  </data>
   <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
     <value>بہت زیادہ غلط کوڈز کے بعد اس اکاؤنٹ کی دو مرحلہ تصدیق مقفل ہو گئی ہے۔ آپ کے دو مرحلہ تصدیق ری سیٹ کرنے سے پہلے اس کے مالک کو ای میل کے ذریعے پاس ورڈ ری سیٹ کرنا ہوگا۔</value>
   </data>

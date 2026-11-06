@@ -199,6 +199,18 @@ public class TwoFactorStateStore : ITwoFactorStateStore
               AND [IsEnabled] = 1
               AND [RecoveryCodes] = @OldCodes";
 
+    // The passkeys a switch-off with email off keeps the app for (REVIEW-FIXES 150 F19, D-150-5
+    // (a)), read inside its transaction after the factor row's delete, under a range lock held to
+    // the commit: a registration that committed first is seen here; one that comes after reads
+    // the app's row under a lock this delete holds, waits for the commit, and finds the app gone.
+    // HOLDLOCK alone: the registration holds an update lock on the same range, and two would
+    // deadlock.
+    internal const string LivePasskeyUnderRangeLockSql = @"
+            SELECT CAST(CASE WHEN EXISTS (
+                SELECT 1 FROM [dbo].[UserPasskeys] WITH (HOLDLOCK)
+                WHERE [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL AND [IsUserVerified] = 1)
+            THEN 1 ELSE 0 END AS BIT)";
+
     // The account flag the sign-in gate reads, written only here and only inside
     // the transactions that switch the factor on or off. No condition on its own
     // value: switching off also repairs a flag that said on while no factor was.
@@ -921,16 +933,23 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     public async Task<LoginCommitOutcome> TryDisableAsync(
         Guid userId,
         SecondFactorProof proof,
+        bool keepWhilePasskeysLive,
         CancellationToken cancellationToken)
     {
         var remove = Removers[proof.Method];
 
+        // With email off a live passkey keeps the factor (REVIEW-FIXES 150 F19), only where a
+        // passkey of the RP ID in force can exist: the schema present and an RP ID set.
+        var keptForPasskeysOf = keepWhilePasskeysLive && _passkeyRpId.IsSet && await PasskeySchemaPresentAsync(cancellationToken)
+            ? _passkeyRpId.Value
+            : null;
+
         // The factory hands back an OPEN connection; opening it again throws.
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var outcome = await DisableAsync(connection, userId, proof, remove, cancellationToken);
+        var outcome = await DisableAsync(connection, userId, proof, remove, keptForPasskeysOf, cancellationToken);
 
-        if (outcome == LoginCommitOutcome.Committed)
+        if (outcome is LoginCommitOutcome.Committed or LoginCommitOutcome.PasskeysStillLive)
         {
             return outcome;
         }
@@ -1752,6 +1771,7 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         Guid userId,
         SecondFactorProof proof,
         SettleAsync remove,
+        string? keptForPasskeysOf,
         CancellationToken cancellationToken)
     {
         using var transaction = connection.BeginTransaction();
@@ -1762,6 +1782,17 @@ public class TwoFactorStateStore : ITwoFactorStateStore
         {
             transaction.Rollback();
             return removed;
+        }
+
+        if (keptForPasskeysOf is not null
+            && await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                LivePasskeyUnderRangeLockSql,
+                new { UserId = userId, RpId = keptForPasskeysOf },
+                transaction,
+                cancellationToken: cancellationToken)))
+        {
+            transaction.Rollback();
+            return LoginCommitOutcome.PasskeysStillLive;
         }
 
         if (!await SetAccountFlagAsync(connection, transaction, userId, false, cancellationToken))

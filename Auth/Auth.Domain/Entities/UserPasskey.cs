@@ -185,13 +185,20 @@ public sealed class UserPasskey : EntityBase
     }
 
     /// <summary>
-    /// The name a passkey may take: trimmed, blank as <see cref="DefaultName"/>, at most
-    /// <see cref="MaxNameCodePoints"/> code points. Counted in code points, never UTF-16
-    /// units: 64 emoji are 64 characters, not 128.
+    /// The name a passkey may take: without control characters or bidi controls, trimmed,
+    /// blank as <see cref="DefaultName"/>, at most <see cref="MaxNameCodePoints"/> code
+    /// points. Counted in code points, never UTF-16 units: 64 emoji are 64 characters, not 128.
     /// </summary>
+    /// <remarks>
+    /// The name is shown back in the owner's list, in the audit and in notices that may say
+    /// "if this was not you", so nothing in it may hide or reorder what it shows (REVIEW-FIXES
+    /// 150 F18 (h)): control characters (Cc) and the bidi embedding, override and isolate
+    /// controls (U+202A–U+202E, U+2066–U+2069) are dropped, at creation and on rename. ZWNJ and
+    /// ZWJ stay: Persian is written with them, and emoji sequences need ZWJ.
+    /// </remarks>
     public static ErrorOr<string> NormalizeName(string? name)
     {
-        var trimmed = name?.Trim();
+        var trimmed = WithoutHiddenControls(name)?.Trim();
         if (string.IsNullOrEmpty(trimmed))
         {
             return DefaultName;
@@ -232,6 +239,30 @@ public sealed class UserPasskey : EntityBase
         RevokedAt = revokedAt;
         RevokedReason = reason;
         RevokedBy = revokedBy;
+    }
+
+    /// <summary>The text without control characters and bidi embedding, override and isolate controls.</summary>
+    private static string? WithoutHiddenControls(string? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        var kept = new StringBuilder(value.Length);
+        foreach (var character in value)
+        {
+            if (char.IsControl(character)
+                || character is >= '‪' and <= '‮'
+                || character is >= '⁦' and <= '⁩')
+            {
+                continue;
+            }
+
+            kept.Append(character);
+        }
+
+        return kept.ToString();
     }
 
     private static int CountCodePoints(string value)

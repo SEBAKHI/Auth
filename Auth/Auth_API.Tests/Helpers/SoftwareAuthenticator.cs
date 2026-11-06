@@ -258,8 +258,15 @@ internal sealed class SoftwareAuthenticator : IDisposable
         writer.WriteTextString("fmt");
         writer.WriteTextString(format);
         writer.WriteTextString("attStmt");
-        writer.WriteStartMap(0);
-        writer.WriteEndMap();
+        if (tweaks.AttestationStatement is { } statement)
+        {
+            statement(writer);
+        }
+        else
+        {
+            writer.WriteStartMap(0);
+            writer.WriteEndMap();
+        }
         writer.WriteTextString("authData");
         writer.WriteByteString(tweaks.TruncateAuthData ? authData[..20] : authData);
         writer.WriteEndMap();
@@ -287,6 +294,9 @@ internal sealed record CeremonyTweaks
     public byte[]? CosePublicKey { get; init; }
     public byte[]? ResponseCredentialId { get; init; }
     public string? AttestationFormat { get; init; }
+
+    /// <summary>Writes the <c>attStmt</c> map in place of the empty one attestation <c>none</c> sends.</summary>
+    public Action<CborWriter>? AttestationStatement { get; init; }
     public string? CredentialType { get; init; }
     public string? RawAttestationObject { get; init; }
     public string? RawClientDataJson { get; init; }

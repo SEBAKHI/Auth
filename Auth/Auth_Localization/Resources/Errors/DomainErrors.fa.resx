@@ -593,6 +593,9 @@
   <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
     <value>احراز هویت دو مرحله‌ای پس از کدهای نادرست بسیار قفل شده است. رمز عبور خود را از صفحهٔ ورود بازنشانی کنید، سپس از یک مدیر بخواهید احراز هویت دو مرحله‌ای را بازنشانی کند.</value>
   </data>
+  <data name="TwoFactor.PasskeyNeedsApp" xml:space="preserve">
+    <value>تا زمانی که ارسال ایمیل خاموش است و کلید عبوری روی حساب هست، نمی‌توان برنامهٔ احراز هویت را خاموش کرد. نخست کلیدهای عبور را حذف کنید.</value>
+  </data>
   <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
     <value>احراز هویت دو مرحله‌ای این حساب پس از کدهای نادرست بسیار قفل شده است. پیش از آنکه بتوانید احراز هویت دو مرحله‌ای را بازنشانی کنید، صاحب حساب باید رمز عبور را از طریق ایمیل بازنشانی کند.</value>
   </data>

@@ -58,6 +58,7 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ISecondFactorLockout _secondFactorLockout;
     private readonly IPublisher _publisher;
+    private readonly ITwoFactorBindCodeRepository _bindCodes;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<ResetUserTwoFactorCommandHandler> _logger;
 
@@ -71,10 +72,12 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
         IDomainEventDispatcher eventDispatcher,
         ISecondFactorLockout secondFactorLockout,
         IPublisher publisher,
+        ITwoFactorBindCodeRepository bindCodes,
         TimeProvider timeProvider,
         ILogger<ResetUserTwoFactorCommandHandler> logger)
     {
         _publisher = publisher;
+        _bindCodes = bindCodes;
         _reauthenticationGuard = reauthenticationGuard;
         _userRepository = userRepository;
         _permissionRepository = permissionRepository;
@@ -164,8 +167,23 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
             return UserErrors.NotFound(request.UserId);
         }
 
-        // Recorded on the aggregate only now, for a change that happened.
-        user.ResetTwoFactor(request.ResetBy);
+        // Recorded on the aggregate only now, for a change that happened, with how many
+        // passkeys went with the factor: the owner's notice says so (REVIEW-FIXES 150 F16).
+        user.ResetTwoFactor(request.ResetBy, reset.RevokedPasskeys.Count);
+
+        // REVIEW-FIXES 150 F18 (g): the reset leaves the password as it was, so an emailed code
+        // to bind a factor, asked for before it, must not bind one after it. Never failing the
+        // reset, which is done.
+        try
+        {
+            await _bindCodes.InvalidateOutstandingForUserAsync(request.UserId, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex,
+                "Two-factor authentication of user {UserId} was reset, but the outstanding codes to bind a second factor could not be ended",
+                request.UserId);
+        }
 
         _logger.LogWarning(
             "Two-factor authentication of user {UserId} reset by administrator {ResetBy}; {SessionsEnded} sessions ended, {PasskeysRevoked} passkeys revoked",

@@ -275,6 +275,175 @@ public class Fido2WebAuthnSpikeTests
             .Should().Be(PasskeyErrors.VerificationFailed.Code, "no attested credential, no key to read");
     }
 
+    /// <summary>
+    /// REVIEW-FIXES 150 F15: only attestation none, or packed self-attestation with ES256 or
+    /// RS256, reaches the library. Its packed verifier reads an x5c certificate's key with whatever
+    /// algorithm the statement names, before any other check, so an Ed25519 certificate would load
+    /// libsodium. Called directly: no library runs.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the x5c refusal dropped (a certificate with ES256 passes).</remarks>
+    [Theory]
+    [InlineData("none", null, false, false, false, true)]
+    [InlineData("packed", -7, true, false, false, true)]
+    [InlineData("packed", -257, true, false, false, true)]
+    [InlineData("packed", -8, true, false, false, false)]
+    [InlineData("packed", null, true, false, false, false)]
+    [InlineData("packed", -7, true, true, false, false)]
+    [InlineData("packed", -8, true, true, false, false)]
+    [InlineData("packed", -7, true, false, true, false)]
+    [InlineData("tpm", -257, true, false, false, false)]
+    [InlineData("fido-u2f", null, true, true, false, false)]
+    public void TheAttestationStatement_OnlyNoneOrPackedSelfAttestation_ReachesTheLibrary(
+        string format, int? algorithm, bool signature, bool certificate, bool ecdaaKey, bool reaches)
+    {
+        var response = AttestationResponse(writer =>
+        {
+            writer.WriteStartMap(3);
+            writer.WriteTextString("fmt");
+            writer.WriteTextString(format);
+            writer.WriteTextString("attStmt");
+            WriteStatement(writer, algorithm, signature, certificate, ecdaaKey);
+            writer.WriteTextString("authData");
+            writer.WriteByteString(new byte[37]);
+            writer.WriteEndMap();
+        });
+
+        AttestedKeyType.IsNoneOrPackedSelfAttestation(response).Should().Be(reaches,
+            $"{format} with alg {algorithm?.ToString() ?? "absent"}, x5c {certificate}, ecdaaKeyId {ecdaaKey}");
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F15: an entry given twice — the format, or the statement's alg — could read
+    /// one way here and another in the library, so it is refused before it.
+    /// </summary>
+    [Fact]
+    public void AnAttestationEntryGivenTwice_IsRefused()
+    {
+        var formatTwice = AttestationResponse(writer =>
+        {
+            writer.WriteStartMap(4);
+            writer.WriteTextString("fmt");
+            writer.WriteTextString("none");
+            writer.WriteTextString("fmt");
+            writer.WriteTextString("tpm");
+            writer.WriteTextString("attStmt");
+            WriteStatement(writer, algorithm: null, signature: false, certificate: false, ecdaaKey: false);
+            writer.WriteTextString("authData");
+            writer.WriteByteString(new byte[37]);
+            writer.WriteEndMap();
+        });
+        var algorithmTwice = AttestationResponse(writer =>
+        {
+            writer.WriteStartMap(3);
+            writer.WriteTextString("fmt");
+            writer.WriteTextString("packed");
+            writer.WriteTextString("attStmt");
+            writer.WriteStartMap(2);
+            writer.WriteTextString("alg");
+            writer.WriteInt32(-7);
+            writer.WriteTextString("alg");
+            writer.WriteInt32(-8);
+            writer.WriteEndMap();
+            writer.WriteTextString("authData");
+            writer.WriteByteString(new byte[37]);
+            writer.WriteEndMap();
+        });
+
+        AttestedKeyType.IsNoneOrPackedSelfAttestation(formatTwice).Should().BeFalse();
+        AttestedKeyType.IsNoneOrPackedSelfAttestation(algorithmTwice).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F15: the verifier asks before the library. A packed statement carrying a
+    /// certificate chain is refused with the statement as the reason the log names, so the
+    /// library's packed verifier never reads the certificate.
+    /// </summary>
+    [Fact]
+    public async Task APackedStatementWithACertificate_IsRefusedByTheVerifier_BeforeTheLibraryRuns()
+    {
+        using var authenticator = SoftwareAuthenticator.Create(SoftwareAuthenticator.Es256);
+        var log = new CapturingLogger<Fido2WebAuthnVerifier>();
+        var verifier = new Fido2WebAuthnVerifier(log);
+        var options = verifier.CreateRegistrationOptions(
+            RelyingParty, new PasskeyRegistrationSubject(UserHandle, "someone@example.com", "Someone"), []);
+        var response = authenticator.Register(options, Origin, new CeremonyTweaks
+        {
+            AttestationFormat = "packed",
+            AttestationStatement = writer => WriteStatement(writer, algorithm: -7, signature: true, certificate: true, ecdaaKey: false),
+        });
+
+        var result = await verifier.VerifyRegistrationAsync(RelyingParty, options, response, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(PasskeyErrors.VerificationFailed.Code);
+        log.Entries.Should().ContainSingle()
+            .Which.Message.Should().Contain("the attestation is not none or packed self-attestation", "refused by the check, not by the library");
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F18 (f): a COSE kty given twice is refused however each is encoded — OKP
+    /// (1) then EC2 (2) written non-minimally (0x18 0x02), and the reverse — called directly.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: <c>keyType is not null</c> dropped (the second kty read as the key's).</remarks>
+    [Theory]
+    [InlineData(new byte[] { 0xA2, 0x01, 0x01, 0x01, 0x18, 0x02 })]
+    [InlineData(new byte[] { 0xA2, 0x01, 0x18, 0x02, 0x01, 0x01 })]
+    public void AKeyTypeGivenTwice_IsRefused_HoweverEachIsEncoded(byte[] coseKey)
+    {
+        using var authenticator = SoftwareAuthenticator.Create(SoftwareAuthenticator.Es256);
+        var response = authenticator.Register(RegistrationOptions(), Origin, new CeremonyTweaks { CosePublicKey = coseKey });
+
+        AttestedKeyType.IsEc2OrRsa(response).Should().BeFalse();
+    }
+
+    /// <summary>A registration response whose attestation object the given writer writes.</summary>
+    private static string AttestationResponse(Action<System.Formats.Cbor.CborWriter> attestationObject)
+    {
+        var writer = new System.Formats.Cbor.CborWriter(System.Formats.Cbor.CborConformanceMode.Lax);
+        attestationObject(writer);
+        return new System.Text.Json.Nodes.JsonObject
+        {
+            ["response"] = new System.Text.Json.Nodes.JsonObject
+            {
+                ["attestationObject"] = SoftwareAuthenticator.Base64Url(writer.Encode()),
+            },
+        }.ToJsonString();
+    }
+
+    /// <summary>An attestation statement map: alg, sig, an x5c chain and an ECDAA key id, each when asked.</summary>
+    private static void WriteStatement(
+        System.Formats.Cbor.CborWriter writer, int? algorithm, bool signature, bool certificate, bool ecdaaKey)
+    {
+        writer.WriteStartMap((algorithm is null ? 0 : 1) + (signature ? 1 : 0) + (certificate ? 1 : 0) + (ecdaaKey ? 1 : 0));
+        if (algorithm is { } alg)
+        {
+            writer.WriteTextString("alg");
+            writer.WriteInt32(alg);
+        }
+
+        if (signature)
+        {
+            writer.WriteTextString("sig");
+            writer.WriteByteString(new byte[64]);
+        }
+
+        if (certificate)
+        {
+            writer.WriteTextString("x5c");
+            writer.WriteStartArray(1);
+            writer.WriteByteString(new byte[] { 0x30, 0x03, 0x02, 0x01, 0x01 });
+            writer.WriteEndArray();
+        }
+
+        if (ecdaaKey)
+        {
+            writer.WriteTextString("ecdaaKeyId");
+            writer.WriteByteString(new byte[32]);
+        }
+
+        writer.WriteEndMap();
+    }
+
     /// <summary>A COSE OKP public key: kty 1 (OKP), alg -8 (EdDSA), crv 6 (Ed25519), x.</summary>
     private static byte[] OkpKey(byte[] x)
     {

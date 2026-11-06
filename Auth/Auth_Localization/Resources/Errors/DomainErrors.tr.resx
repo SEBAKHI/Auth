@@ -593,6 +593,9 @@
   <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
     <value>İki faktörlü kimlik doğrulama çok sayıda hatalı koddan sonra kilitlendi. Giriş sayfasından parolanızı sıfırlayın, ardından bir yöneticiden iki faktörlü kimlik doğrulamayı sıfırlamasını isteyin.</value>
   </data>
+  <data name="TwoFactor.PasskeyNeedsApp" xml:space="preserve">
+    <value>E-posta gönderimi kapalıyken, hesapta bir geçiş anahtarı varsa doğrulayıcı uygulama kapatılamaz. Önce geçiş anahtarlarını kaldırın.</value>
+  </data>
   <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
     <value>Bu hesabın iki faktörlü kimlik doğrulaması çok sayıda hatalı koddan sonra kilitlendi. İki faktörlü kimlik doğrulamayı sıfırlayabilmeniz için önce hesap sahibinin parolasını e-postayla sıfırlaması gerekir.</value>
   </data>

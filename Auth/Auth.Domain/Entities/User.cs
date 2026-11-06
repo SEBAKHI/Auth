@@ -740,11 +740,12 @@ public class User : AggregateRoot
     /// <see cref="EnsureTwoFactorResettableBy"/> allowed it.
     /// </summary>
     /// <param name="resetBy">The administrator who removed the factor.</param>
-    public void ResetTwoFactor(Guid resetBy)
+    /// <param name="passkeysRemoved">How many passkeys the store revoked with it, for the notice.</param>
+    public void ResetTwoFactor(Guid resetBy, int passkeysRemoved)
     {
         TwoFactorEnabled = false;
         SetModified(resetBy);
-        RaiseDomainEvent(new TwoFactorResetEvent(Id, resetBy, Email, NameToShow));
+        RaiseDomainEvent(new TwoFactorResetEvent(Id, resetBy, Email, NameToShow) { PasskeysRemoved = passkeysRemoved });
     }
 
     public void RequirePasswordChange(Guid modifiedBy)

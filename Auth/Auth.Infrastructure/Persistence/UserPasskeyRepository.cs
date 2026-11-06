@@ -36,6 +36,10 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
     // read under a lock its end must wait for (REVIEW 150 F1): a password change, a reset or a
     // lock ends the sessions before it revokes the recent passkeys, so an insert either commits
     // first, and that revocation catches it, or finds the session ended and stores nothing.
+    // With email off another factor must remain (REVIEW-FIXES 150 F19): the app's row, or another
+    // live passkey, read under a lock the app's switch-off waits for. The switch-off deletes that
+    // row first and then reads the passkeys under a range lock, so of the two at the same moment
+    // one sees the other: never a passkey as an account's only factor while email is off.
     internal const string InsertWithinLimitSql = @"
             INSERT INTO [dbo].[UserPasskeys]
                 ([Id], [UserId], [CredentialId], [PublicKey], [SignCount], [RpId],
@@ -45,14 +49,28 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
             WHERE (SELECT COUNT(*) FROM [dbo].[UserPasskeys] WITH (UPDLOCK, HOLDLOCK)
                    WHERE [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL) < @MaxLive
               AND EXISTS (SELECT 1 FROM [dbo].[UserSessions] WITH (UPDLOCK, HOLDLOCK)
-                          WHERE [Id] = @SessionId AND [UserId] = @UserId AND [EndedAt] IS NULL)";
+                          WHERE [Id] = @SessionId AND [UserId] = @UserId AND [EndedAt] IS NULL)
+              AND (@RequireAnotherFactor = 0
+                   OR EXISTS (SELECT 1 FROM [dbo].[TwoFactorAuth] WITH (UPDLOCK, HOLDLOCK)
+                              WHERE [UserId] = @UserId AND [IsEnabled] = 1)
+                   OR EXISTS (SELECT 1 FROM [dbo].[UserPasskeys] WITH (UPDLOCK, HOLDLOCK)
+                              WHERE [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL
+                                AND [IsUserVerified] = 1))";
 
-    // Which of the insert's two conditions failed, read in its transaction before the
-    // rollback: the session's lock is still held, so the answer is the one the insert saw.
+    // Which of the insert's conditions failed, read in its transaction before the rollback: the
+    // locks are still held, so the answer is the one the insert saw.
     internal const string SessionLiveSql = @"
             SELECT CAST(CASE WHEN EXISTS (
                 SELECT 1 FROM [dbo].[UserSessions]
                 WHERE [Id] = @SessionId AND [UserId] = @UserId AND [EndedAt] IS NULL)
+            THEN 1 ELSE 0 END AS BIT)";
+
+    internal const string AnotherFactorSql = @"
+            SELECT CAST(CASE WHEN EXISTS (
+                    SELECT 1 FROM [dbo].[TwoFactorAuth] WHERE [UserId] = @UserId AND [IsEnabled] = 1)
+                OR EXISTS (
+                    SELECT 1 FROM [dbo].[UserPasskeys]
+                    WHERE [UserId] = @UserId AND [RpId] = @RpId AND [RevokedAt] IS NULL AND [IsUserVerified] = 1)
             THEN 1 ELSE 0 END AS BIT)";
 
     // The handle is set once: only while the column is still empty. The read that follows
@@ -223,6 +241,7 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
         int maxLive,
         Guid? bindCodeId,
         Guid sessionId,
+        bool requireAnotherFactor,
         CancellationToken cancellationToken)
     {
         if (!await _schema.IsPresentAsync(cancellationToken))
@@ -265,6 +284,7 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
                     passkey.CreatedAt,
                     MaxLive = maxLive,
                     SessionId = sessionId,
+                    RequireAnotherFactor = requireAnotherFactor,
                 },
                 transaction,
                 cancellationToken: cancellationToken));
@@ -276,8 +296,16 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
                     new { SessionId = sessionId, passkey.UserId },
                     transaction,
                     cancellationToken: cancellationToken));
+                var anotherFactor = !requireAnotherFactor || !sessionLive
+                    || await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                        AnotherFactorSql,
+                        new { passkey.UserId, passkey.RpId },
+                        transaction,
+                        cancellationToken: cancellationToken));
                 transaction.Rollback();
-                return sessionLive ? PasskeyInsertOutcome.LimitReached : PasskeyInsertOutcome.SessionEnded;
+                return !sessionLive ? PasskeyInsertOutcome.SessionEnded
+                    : !anotherFactor ? PasskeyInsertOutcome.AnotherFactorRequired
+                    : PasskeyInsertOutcome.LimitReached;
             }
 
             transaction.Commit();

@@ -22,12 +22,14 @@ namespace Auth.Application.Features.Passkeys.Common;
 /// </para>
 /// <para>
 /// The caller runs it right after the change it follows has committed and the account's
-/// sessions were ended, before any step that takes the request's token (REVIEW 150 F1,
-/// F2): a client that disconnects cannot skip it, and a registration in flight either
-/// committed before it, and is revoked here, or finds its session ended and stores nothing.
-/// It takes no token a client can cancel, and never fails the request: the password is
-/// already changed, or the lock already set. A failure is logged at Error
-/// (<c>passkey.revocation-failed</c>) for the operator, and the passkeys stay as they were.
+/// sessions were ended (REVIEW 150 F1, F2), in a <c>finally</c> so that it runs even when
+/// ending them throws (REVIEW-FIXES 150 F14). From that write on no step takes the
+/// request's token, so a client that disconnects cannot skip it, and a registration in flight
+/// either committed before it, and is revoked here, or finds its session ended and stores
+/// nothing. It never fails the request: the password is already changed, or the lock already
+/// set. A failed revocation is logged at Error (<c>passkey.revocation-failed</c>) for the
+/// operator, and the passkeys stay as they were; a failed event is logged and the others
+/// still go.
 /// </para>
 /// <para>
 /// The notice's list is read after it (<see cref="StillLiveAsync"/>): every live passkey of
@@ -70,8 +72,18 @@ public sealed class RecentPasskeyRevocation
     /// that worked these are the ones registered before the cut; after one that failed, the
     /// recent ones too, so the owner sees every passkey that still signs in.
     /// </summary>
+    /// <remarks>
+    /// While no RP ID is set no passkey is of it, so the list is empty and no query runs
+    /// (REVIEW-FIXES 150 F14): every deployment that never turns passkeys on resets and
+    /// changes passwords without asking the database for them.
+    /// </remarks>
     public async Task<IReadOnlyList<PasskeySummary>> StillLiveAsync(Guid userId, CancellationToken cancellationToken)
     {
+        if (!_feature.HasRpId)
+        {
+            return [];
+        }
+
         var live = await _passkeyRepository.GetLiveAsync(userId, _feature.RpId, cancellationToken);
         return live
             .Select(passkey => new PasskeySummary(passkey.Name, passkey.CreatedAt, passkey.LastUsedAt))
@@ -109,19 +121,30 @@ public sealed class RecentPasskeyRevocation
                 "{EventCode}: passkey {PasskeyId} of user {UserId} revoked ({Reason}): registered in the 72 hours before",
                 PasskeySignalCodes.Removed, passkey.Id, user.Id, reason);
 
-            await _publisher.Publish(
-                new PasskeyRemovedEvent(
-                    user.Id,
-                    passkey.Id,
-                    passkey.Name,
-                    passkey.CreatedAt,
-                    reason,
-                    revokedBy,
-                    user.Email.Value,
-                    user.NameToShow,
-                    DeviceName: null,
-                    passkey.RevokedAt ?? _timeProvider.GetUtcNow().UtcDateTime),
-                CancellationToken.None);
+            // Each event on its own (REVIEW-FIXES 150 F18 (i)): the passkey is revoked whatever
+            // its audit row and notice do, so a failed one is logged and the others still go.
+            try
+            {
+                await _publisher.Publish(
+                    new PasskeyRemovedEvent(
+                        user.Id,
+                        passkey.Id,
+                        passkey.Name,
+                        passkey.CreatedAt,
+                        reason,
+                        revokedBy,
+                        user.Email.Value,
+                        user.NameToShow,
+                        DeviceName: null,
+                        passkey.RevokedAt ?? _timeProvider.GetUtcNow().UtcDateTime),
+                    CancellationToken.None);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex,
+                    "Passkey {PasskeyId} of user {UserId} was revoked ({Reason}), but its audit row or notice failed",
+                    passkey.Id, user.Id, reason);
+            }
         }
 
         return revoked.Count;

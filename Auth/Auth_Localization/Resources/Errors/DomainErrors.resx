@@ -595,6 +595,9 @@
   <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
     <value>Two-factor authentication is locked after too many wrong codes. Reset your password from the sign-in page, then ask an administrator to reset two-factor authentication.</value>
   </data>
+  <data name="TwoFactor.PasskeyNeedsApp" xml:space="preserve">
+    <value>While email sending is off, the authenticator app cannot be switched off while a passkey is on the account. Remove the passkeys first.</value>
+  </data>
   <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
     <value>This account's two-factor authentication is locked after too many wrong codes. Its owner must reset the password by email before you can reset two-factor authentication.</value>
   </data>

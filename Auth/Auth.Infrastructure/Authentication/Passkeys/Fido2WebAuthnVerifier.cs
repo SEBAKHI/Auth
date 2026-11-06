@@ -117,6 +117,14 @@ public sealed class Fido2WebAuthnVerifier : IWebAuthnVerifier
             return Refused("the credential key is not an EC2 or RSA key, or cannot be read");
         }
 
+        // And only attestation none, or packed self-attestation with ES256 or RS256: the
+        // library's packed verifier reads a certificate's key with whatever algorithm the
+        // statement names, before any other check (REVIEW-FIXES 150 F15).
+        if (!AttestedKeyType.IsNoneOrPackedSelfAttestation(responseJson))
+        {
+            return Refused("the attestation is not none or packed self-attestation with ES256 or RS256, or cannot be read");
+        }
+
         var fido2 = new Fido2(Configuration(relyingParty));
 
         try

@@ -165,11 +165,17 @@ public sealed class CompletePasskeyRegistrationCommandHandler
         // 6. The row, within the limit and only while the session the gate accepted is live,
         //    with the emailed code spent in the same transaction. A password change, a reset
         //    or a lock that ended the session meanwhile leaves nothing stored and the code
-        //    unspent (REVIEW 150 F1). From here on a client that disconnects must not stop it
-        //    halfway.
+        //    unspent (REVIEW 150 F1). With email off, only while the account still holds
+        //    another factor: the app switched off meanwhile leaves nothing stored (REVIEW-FIXES
+        //    150 F19). From here on a client that disconnects must not stop it halfway.
         var passkey = created.Value;
         var outcome = await _passkeyRepository.TryCreateAsync(
-            passkey, UserPasskey.MaxLivePerAccount, bindCodeId, allowed.Value.Session.SessionId, CancellationToken.None);
+            passkey,
+            UserPasskey.MaxLivePerAccount,
+            bindCodeId,
+            allowed.Value.Session.SessionId,
+            allowed.Value.AnotherFactorRequired,
+            CancellationToken.None);
         switch (outcome)
         {
             case PasskeyInsertOutcome.Inserted:
@@ -183,6 +189,11 @@ public sealed class CompletePasskeyRegistrationCommandHandler
                     "A passkey registration for user {UserId} stored nothing: its session ended before the row was written",
                     request.UserId);
                 return AuthErrors.ReauthenticationRequired;
+            case PasskeyInsertOutcome.AnotherFactorRequired:
+                _logger.LogInformation(
+                    "A passkey registration for user {UserId} stored nothing: email is off and the account's other factor went before the row was written",
+                    request.UserId);
+                return PasskeyErrors.EmailRequired;
             default:
                 return Refused(request.UserId, "the credential id is registered already");
         }

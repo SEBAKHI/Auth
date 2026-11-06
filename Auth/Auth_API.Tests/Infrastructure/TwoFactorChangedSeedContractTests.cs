@@ -55,7 +55,7 @@ public class TwoFactorChangedSeedContractTests
     private static readonly (string Kind, string EnglishHeadingWord)[] SystemRemovalKinds =
     [
         ("passkey-removed-password-change", "password was changed"),
-        ("passkey-removed-password-reset", "password was reset"),
+        ("passkey-removed-password-reset", "reset link"),
         ("passkey-removed-admin-lock", "account was locked"),
     ];
 
@@ -90,10 +90,13 @@ public class TwoFactorChangedSeedContractTests
     }
 
     private static readonly string[] Catalog =
-        ["UserName", "ChangeKind", "OccurredAtUtc", "DeviceName", "ManageSecurityLink", "PasskeyName", "PasskeyAddedAt"];
+        ["UserName", "ChangeKind", "OccurredAtUtc", "DeviceName", "ManageSecurityLink", "PasskeyName", "PasskeyAddedAt", "PasskeysRemoved"];
 
-    /// <summary>What a sender may leave out: the device, and the passkey a kind other than a removal does not name.</summary>
-    private static readonly string[] OptionalVariables = ["DeviceName", "PasskeyName", "PasskeyAddedAt"];
+    /// <summary>
+    /// What a sender may leave out: the device, the passkey a kind other than a removal does not
+    /// name, and the count only an administrator's reset passes (REVIEW-FIXES 150 F16).
+    /// </summary>
+    private static readonly string[] OptionalVariables = ["DeviceName", "PasskeyName", "PasskeyAddedAt", "PasskeysRemoved"];
 
     private readonly FluidTemplateRenderer _renderer = new(TimeProvider.System);
 
@@ -139,14 +142,15 @@ public class TwoFactorChangedSeedContractTests
     public void ADatabaseThatHoldsTheType_GainsThePasskeyVariables_ByAnIdempotentUpdate()
     {
         // REVIEW 150 F12, S24's way: the guarded insert carries the new catalog for a fresh
-        // database, and an update gives it to one that already holds the type.
+        // database, and an update gives it to one that already holds the type, guarded by the
+        // newest of the variables, PasskeysRemoved (REVIEW-FIXES 150 F16).
         var seed = File.ReadAllText(SeedPath(TypesSeed)).Replace("\r\n", "\n");
         var insert = Regex.Match(seed,
             @"'40000000-0000-0000-0000-000000000021',\s+N'two-factor-changed',.*?N'(?<vars>\[\{""name"".*?\])',\s+N'(?<sample>\{.*?\})',",
             RegexOptions.Singleline);
         var update = Regex.Match(seed,
             @"UPDATE \[dbo\]\.\[NotificationTypes\]\s+SET \[VariablesJson\] = N'(?<vars>\[[^']*\])',\s+\[SampleDataJson\] = N'(?<sample>\{[^']*\})'\s+"
-            + @"WHERE \[Id\] = '40000000-0000-0000-0000-000000000021'\s+AND \[VariablesJson\] NOT LIKE N'%""name"":""PasskeyName""%';");
+            + @"WHERE \[Id\] = '40000000-0000-0000-0000-000000000021'\s+AND \[VariablesJson\] NOT LIKE N'%""name"":""PasskeysRemoved""%';");
 
         insert.Success.Should().BeTrue();
         update.Success.Should().BeTrue("the guarded insert never reaches a database that already holds the type");
@@ -343,6 +347,12 @@ public class TwoFactorChangedSeedContractTests
             model["PasskeyAddedAt"] = "2026-09-17 08:00:00Z";
         }
 
+        // And an administrator's reset passes how many passkeys went with the factor (F16).
+        if (kind == "reset-by-administrator")
+        {
+            model["PasskeysRemoved"] = 0;
+        }
+
         return model;
     }
 
@@ -393,8 +403,9 @@ public class TwoFactorChangedSeedContractTests
 
     /// <summary>
     /// REVIEW 150 F12: the owner's own removal keeps the words version 3 was written with — no
-    /// name, no date, and the generic closing advice.
+    /// name, no date, and the generic closing advice — in every language (REVIEW-FIXES 150 F18 (a)).
     /// </summary>
+    /// <remarks>Deliberate break, verified red: one language's wording of the owner's removal changed.</remarks>
     [Fact]
     public void TheOwnersOwnRemoval_KeepsItsWords()
     {
@@ -405,14 +416,150 @@ public class TwoFactorChangedSeedContractTests
 
             Closing(own).Should().Be(Closing(generic), $"the {language} owner's removal keeps the generic closing advice");
             Explanation(own).Should().NotContain("Work &lt;laptop&gt;").And.NotContain("2026-09-17");
+
+            var words = _renderer.Render(bodySource, Model("passkey-removed", null), language, encodeHtml: true).Value;
+            Heading(words).Should().Be(OwnersOwnRemovalWords[language].Heading, $"the {language} heading keeps its words");
+            Explanation(words).Should().Be(OwnersOwnRemovalWords[language].Explanation, $"the {language} explanation keeps its words");
+        }
+    }
+
+    /// <summary>The owner's own removal, as version 3 words it: heading and explanation per language.</summary>
+    private static readonly IReadOnlyDictionary<string, (string Heading, string Explanation)> OwnersOwnRemovalWords =
+        new Dictionary<string, (string Heading, string Explanation)>(StringComparer.Ordinal)
+    {
+        ["en"] = ("A passkey was removed from your account",
+            "A passkey was just removed from your Example Platform account. It no longer signs in, and your other sessions were signed out."),
+        ["ar"] = ("أُزيل مفتاح مرور من حسابك",
+            "أُزيل للتوّ مفتاح مرور من حسابك على Example Platform. لم يعد يسجّل الدخول، وأُنهيت جلساتك الأخرى."),
+        ["tr"] = ("Hesabınızdan bir geçiş anahtarı kaldırıldı",
+            "Example Platform hesabınızdan az önce bir geçiş anahtarı kaldırıldı. Artık giriş yapamaz ve diğer oturumlarınız kapatıldı."),
+        ["fr"] = ("Une clé d'accès a été supprimée de votre compte",
+            "Une clé d'accès vient d'être supprimée de votre compte Example Platform. Elle ne permet plus de se connecter, et vos autres sessions ont été fermées."),
+        ["zh"] = ("您的账户移除了一个通行密钥",
+            "您的 Example Platform 账户刚刚移除了一个通行密钥。它已无法再登录，您的其他会话也已退出。"),
+        ["ur"] = ("آپ کے اکاؤنٹ سے ایک پاس کی ہٹا دی گئی",
+            "آپ کے Example Platform اکاؤنٹ سے ابھی ایک پاس کی ہٹا دی گئی ہے۔ اب یہ سائن اِن نہیں کر سکتی، اور آپ کے دوسرے سیشن ختم کر دیے گئے ہیں۔"),
+        ["fa"] = ("یک کلید عبور از حساب شما حذف شد",
+            "همین حالا یک کلید عبور از حساب Example Platform شما حذف شد. دیگر با آن نمی\u200cتوان وارد شد و نشست\u200cهای دیگر شما بسته شدند."),
+    };
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F16: an administrator's reset revokes every passkey, and its notice says
+    /// so only when there were some — they no longer sign in, and go back once two-factor
+    /// authentication is set up — while with none, or a sender that passes no count, the words
+    /// are version 2's exactly.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the condition dropped (the sentence printed with 0).</remarks>
+    [Fact]
+    public void TheAdministratorsReset_SaysThePasskeysWentToo_OnlyWhenThereWereSome()
+    {
+        var version2 = Translations(Version2).ToDictionary(row => row.Language, row => row.Body, StringComparer.Ordinal);
+        foreach (var (language, _, bodySource) in Translations(Version3))
+        {
+            var before = Model("reset-by-administrator", null).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+            before.Remove("PasskeysRemoved");
+            var words = Explanation(_renderer.Render(version2[language], before, language, encodeHtml: true).Value);
+
+            var none = Explanation(_renderer.Render(bodySource, WithPasskeysRemoved(0), language, encodeHtml: true).Value);
+            var absent = Explanation(_renderer.Render(bodySource, before, language, encodeHtml: true).Value);
+            var two = Explanation(_renderer.Render(bodySource, WithPasskeysRemoved(2), language, encodeHtml: true).Value);
+
+            none.Should().Be(words, $"the {language} notice of a reset that removed no passkey is version 2's");
+            absent.Should().Be(words, $"the {language} notice from a sender that passes no count is version 2's");
+            two.Should().StartWith(words, $"the {language} notice keeps version 2's words")
+                .And.Contain(PasskeysWord[language], $"the {language} notice says the passkeys went too");
+            two.Length.Should().BeGreaterThan(words.Length);
+        }
+
+        static IReadOnlyDictionary<string, object?> WithPasskeysRemoved(int count)
+        {
+            var model = Model("reset-by-administrator", null).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+            model["PasskeysRemoved"] = count;
+            return model;
+        }
+    }
+
+    /// <summary>The word for the account's passkeys, as each language's reset sentence writes it.</summary>
+    private static readonly IReadOnlyDictionary<string, string> PasskeysWord = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["en"] = "passkeys",
+        ["ar"] = "مفاتيح المرور",
+        ["tr"] = "geçiş anahtarları",
+        ["fr"] = "clés d'accès",
+        ["zh"] = "通行密钥",
+        ["ur"] = "پاس کیز",
+        ["fa"] = "کلیدهای عبور",
+    };
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F18 (b): a removal the system made names the passkey and its date only
+    /// when the sender passed them, so a render without them shows no empty quotes and no
+    /// dangling "added".
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: one language's name printed unconditionally.</remarks>
+    [Fact]
+    public void TheSystemsOwnRemovals_WithoutTheNameOrTheDate_ShowNoEmptyQuotes()
+    {
+        string[] emptyMarks = ["“”", "«»", "« »", "\"\"", "()", "،،", "، ،", ",,", ", ,", "  "];
+        foreach (var (language, _, bodySource) in Translations(Version3))
+        {
+            foreach (var (kind, _) in SystemRemovalKinds)
+            {
+                foreach (var (name, addedAt) in new (string?, string?)[] { (null, null), ("Laptop", null), (null, "2026-09-17 08:00:00Z") })
+                {
+                    var model = Model(kind, null).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+                    model["PasskeyName"] = name;
+                    model["PasskeyAddedAt"] = addedAt;
+
+                    var explanation = Explanation(_renderer.Render(bodySource, model, language, encodeHtml: true).Value);
+
+                    foreach (var mark in emptyMarks)
+                    {
+                        explanation.Should().NotContain(mark, $"the {language} {kind} notice with name {name ?? "absent"} and date {addedAt ?? "absent"}");
+                    }
+
+                    if (addedAt is null)
+                    {
+                        explanation.Should().NotContain(" added ,").And.NotContain("ajoutée le ,");
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F18 (d): a passkey removed by a reset may follow a first password a reset
+    /// link set — the account had none — so the wording says a password was set with a reset link,
+    /// true in both cases, in every language.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: one language's old "your password was reset" restored.</remarks>
+    [Fact]
+    public void ThePasswordResetWording_IsTrueForAFirstPasswordSetByALink_InEveryLanguage()
+    {
+        foreach (var (language, _, bodySource) in Translations(Version3))
+        {
+            var body = _renderer.Render(bodySource, Model("passkey-removed-password-reset", null), language, encodeHtml: true).Value;
+
+            Heading(body).Should().Contain(ResetLinkWord[language], $"the {language} heading names the reset link");
+            Explanation(body).Should().Contain(ResetLinkWord[language], $"the {language} explanation names the reset link");
         }
 
         var english = _renderer.Render(
-            Translations(Version3).Single(row => row.Language == "en").Body, Model("passkey-removed", null), "en", encodeHtml: true).Value;
-        Explanation(english).Should().Be(
-            "A passkey was just removed from your Example Platform account. It no longer signs in, and your other sessions were signed out.");
-        Heading(english).Should().Be("A passkey was removed from your account");
+            Translations(Version3).Single(row => row.Language == "en").Body, Model("passkey-removed-password-reset", null), "en", encodeHtml: true).Value;
+        Explanation(english).Should().NotContain("its password was reset", "an account a reset link gave its first password had none to reset");
     }
+
+    /// <summary>The words for a reset link, as each language's password-reset wording writes them.</summary>
+    private static readonly IReadOnlyDictionary<string, string> ResetLinkWord = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["en"] = "reset link",
+        ["ar"] = "برابط إعادة التعيين",
+        ["tr"] = "ıfırlama bağlantısıyla",
+        ["fr"] = "lien de réinitialisation",
+        ["zh"] = "重置链接",
+        ["ur"] = "ری سیٹ لنک",
+        ["fa"] = "پیوند بازنشانی",
+    };
 
     private static string Heading(string body) =>
         Regex.Match(body, "<h1>(.*?)</h1>", RegexOptions.Singleline).Groups[1].Value.Trim();
@@ -447,7 +594,10 @@ public class TwoFactorChangedSeedContractTests
             .Replace("''", "'");
 
         return JsonDocument.Parse(sampleJson).RootElement.EnumerateObject()
-            .ToDictionary(property => property.Name, property => (object?)property.Value.GetString(), StringComparer.Ordinal);
+            .ToDictionary(
+                property => property.Name,
+                property => property.Value.ValueKind == JsonValueKind.Number ? property.Value.GetInt32() : (object?)property.Value.GetString(),
+                StringComparer.Ordinal);
     }
 
     /// <summary>The guarded INSERT block for one type id, from its IF NOT EXISTS to its END.</summary>

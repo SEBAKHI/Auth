@@ -421,7 +421,7 @@ public class AccountActionMatrixTests
                     ? new RevokeUserPermissionCommand(_target, _applicationPermission, _application) { RevokedBy = _actor }
                     : new RevokeUserPermissionCommand(_target, _wildcardPermission) { RevokedBy = _actor }, ct),
             "Lock" => await new LockAccountCommandHandler(
-                    _users.Object, _policy, _revocation.Object, _dispatcher.Object, PasskeyTestDoubles.Revocation(), Mock.Of<ILogger<LockAccountCommandHandler>>())
+                    _users.Object, _policy, _revocation.Object, _dispatcher.Object, PasskeyTestDoubles.Revocation(), Mock.Of<ITwoFactorBindCodeRepository>(), Mock.Of<ILogger<LockAccountCommandHandler>>())
                 .Handle(new LockAccountCommand(_target, "Incident", 30, _actor), ct),
             "Unlock" => await new UnlockAccountCommandHandler(
                     _users.Object, _policy, _dispatcher.Object, Mock.Of<ILogger<UnlockAccountCommandHandler>>())

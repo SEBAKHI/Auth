@@ -113,7 +113,9 @@ public class TwoFactorChangedNotificationEventHandler :
             cancellationToken);
 
     // No device: the administrator's browser is not one of the owner's, and the
-    // notice must not suggest the owner made the change.
+    // notice must not suggest the owner made the change. How many passkeys went with the
+    // factor (REVIEW-FIXES 150 F16): the wording says they went too only above 0, and none
+    // gets a notice of its own.
     public Task Handle(TwoFactorResetEvent notification, CancellationToken cancellationToken) =>
         SendAsync(
             notification.UserId,
@@ -122,7 +124,8 @@ public class TwoFactorChangedNotificationEventHandler :
             notification.DisplayName,
             deviceName: null,
             TwoFactorChangeKinds.ResetByAdministrator,
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, object?> { ["PasskeysRemoved"] = notification.PasskeysRemoved });
 
     public Task Handle(TwoFactorEmailCodeEnabledEvent notification, CancellationToken cancellationToken) =>
         SendAsync(

@@ -55,6 +55,7 @@ public class DisableTwoFactorPolicyTests
             Mock.Of<IUserRepository>(),
             Mock.Of<ICredentialRevocationService>(),
             Mock.Of<IDomainEventDispatcher>(),
+            new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(new EmailSettings { Enabled = true })),
             Mock.Of<ILogger<DisableTwoFactorCommandHandler>>());
     }
 

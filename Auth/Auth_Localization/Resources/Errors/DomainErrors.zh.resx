@@ -593,6 +593,9 @@
   <data name="TwoFactor.LockedAdminResetRequired" xml:space="preserve">
     <value>由于错误代码过多，双因素身份验证已被锁定。请先在登录页面重置密码，然后请管理员重置双因素身份验证。</value>
   </data>
+  <data name="TwoFactor.PasskeyNeedsApp" xml:space="preserve">
+    <value>邮件发送关闭时，只要账户中有通行密钥，就无法关闭身份验证器应用。请先移除通行密钥。</value>
+  </data>
   <data name="TwoFactor.PasswordResetRequiredFirst" xml:space="preserve">
     <value>由于错误代码过多，此账户的双因素身份验证已被锁定。账户所有者必须先通过电子邮件重置密码，你才能重置双因素身份验证。</value>
   </data>

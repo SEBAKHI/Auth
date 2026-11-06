@@ -132,6 +132,25 @@ public class TwoFactorChangedNotificationEventHandlerTests
     }
 
     /// <summary>
+    /// REVIEW-FIXES 150 F16: the reset's notice says the passkeys went too only when there were
+    /// some, so the handler passes the count the reset recorded.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the count not passed.</remarks>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public async Task Handle_ResetByAnAdministrator_PassesHowManyPasskeysWent(int passkeysRemoved)
+    {
+        var owner = Guid.NewGuid();
+
+        await _handler.Handle(
+            new TwoFactorResetEvent(owner, Guid.NewGuid(), "owner@example.com", "Jane Doe") { PasskeysRemoved = passkeysRemoved },
+            CancellationToken.None);
+
+        _sent!.Variables["PasskeysRemoved"].Should().Be(passkeysRemoved);
+    }
+
+    /// <summary>
     /// The templates branch on these exact strings (seeded in deploy 1); a kind
     /// they do not know falls to the generic "changed" wording. So every kind the
     /// handler sends is one the seed branches on, and the list is the seed's.

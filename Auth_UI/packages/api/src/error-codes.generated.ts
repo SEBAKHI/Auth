@@ -504,6 +504,7 @@ export const PUBLISHED_ERROR_CODES = {
   "TwoFactor.MethodInvalid": "#/method",
   "TwoFactor.NoPendingReplacement": "catalog",
   "TwoFactor.NoRecoveryCodesAvailable": "catalog",
+  "TwoFactor.PasskeyNeedsApp": "catalog",
   "TwoFactor.PasswordResetRequiredFirst": "catalog",
   "TwoFactor.RecoveryCodeRequired": "#/code",
   "TwoFactor.RecoveryEmailCodeRequired": "catalog",

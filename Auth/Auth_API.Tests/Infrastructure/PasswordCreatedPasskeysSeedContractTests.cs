@@ -83,6 +83,31 @@ public class PasswordCreatedPasskeysSeedContractTests
         }
     }
 
+    /// <summary>
+    /// REVIEW-FIXES 150 F18 (c): during a rollout an API built before the passkeys may send the
+    /// notice published as version 2, and it passes neither PasskeyCount nor Passkeys: the
+    /// notice is then version 1's words, never an empty list.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: one language's guard made true for an absent count.</remarks>
+    [Fact]
+    public void AnOlderApiThatPassesNoPasskeyVariables_GetsVersion1sWords()
+    {
+        var version1 = Translations(Version1).ToDictionary(row => row.Language, row => row.Body);
+        var older = Model().ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        older.Remove("PasskeyCount");
+        older.Remove("Passkeys");
+
+        foreach (var (language, _, bodySource) in Translations(Version2))
+        {
+            var rendered = _renderer.Render(bodySource, older, language, encodeHtml: true);
+            var before = _renderer.Render(version1[language], older, language, encodeHtml: true).Value;
+
+            rendered.IsError.Should().BeFalse($"the {language} body renders without the passkey variables");
+            Regex.Replace(rendered.Value, @"\s+", " ").Should().Be(Regex.Replace(before, @"\s+", " "),
+                $"an older API's {language} notice is the one version 1 sent");
+        }
+    }
+
     [Fact]
     public void ADatabaseThatHoldsTheType_GainsBothVariables_ByAnIdempotentUpdate()
     {

@@ -113,7 +113,8 @@ public class BuildAsyncCallersRepairGuardTests
         var source = ApiSourceScan.ProductionSources()
             .Single(file => file.File.EndsWith("ChangePasswordCommandHandler.cs", StringComparison.Ordinal)).Source;
 
-        source.Should().Contain("_accountLockout.ClearAutomaticLockAsync(request.UserId, cancellationToken)");
+        // From the write on no step takes the request's token (REVIEW-FIXES 150 F14).
+        source.Should().Contain("_accountLockout.ClearAutomaticLockAsync(request.UserId, CancellationToken.None)");
         source.IndexOf("UpdatePasswordAsync", StringComparison.Ordinal).Should().BeLessThan(
             source.IndexOf("ClearAutomaticLockAsync", StringComparison.Ordinal),
             "the lock is lifted after the new password is written, never before");

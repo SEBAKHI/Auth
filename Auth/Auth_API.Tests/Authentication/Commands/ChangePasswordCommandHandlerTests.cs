@@ -499,16 +499,16 @@ public class ChangePasswordCommandHandlerTests
     }
 
     /// <summary>
-    /// REVIEW 150 F1, F2: from the write on, a client that disconnects cannot skip taking the
-    /// account back. The sessions end and the recent passkeys go with no request token, before
-    /// any step that takes it; a step after them may still stop on the cancelled token.
+    /// REVIEW 150 F1, F2 and REVIEW-FIXES 150 F14: from the write on, a client that disconnects
+    /// cannot skip any step. The sessions, the passkeys and their list, the lock, the history and
+    /// the event all run with no request token, so the owner is still told.
     /// </summary>
     /// <remarks>
-    /// Deliberate breaks, each verified red: the revocation moved back to the end; the request's
-    /// token given to the session revocation again.
+    /// Deliberate breaks, each verified red: the request's token back on the dispatch; the
+    /// revocation moved back to the end.
     /// </remarks>
     [Fact]
-    public async Task Handle_ACallerThatDisconnectsAfterTheWrite_CannotSkipTheSessionsOrThePasskeys()
+    public async Task Handle_ACallerThatDisconnectsAfterTheWrite_CannotSkipAnyStep()
     {
         var userId = Guid.NewGuid();
         var user = TestHelpers.CreateUser(id: userId);
@@ -518,7 +518,7 @@ public class ChangePasswordCommandHandlerTests
             .Setup(r => r.UpdatePasswordAsync(userId, "NewHashedPassword", userId, It.IsAny<CancellationToken>()))
             .Callback(() => request.Cancel())
             .Returns(Task.CompletedTask);
-        // Every step that takes a token stops on a cancelled one, as a database call does.
+        // Every later step that takes a token stops on a cancelled one, as a database call does.
         _credentialRevocationMock
             .Setup(s => s.RevokeCredentialsAsync(userId, It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns((Guid _, Guid? _, string? _, Guid? _, string _, CancellationToken token) =>
@@ -533,19 +533,56 @@ public class ChangePasswordCommandHandlerTests
                 token.ThrowIfCancellationRequested();
                 return Task.CompletedTask;
             });
+        _eventDispatcherMock
+            .Setup(d => d.DispatchEventsAsync(It.IsAny<Auth.Domain.Primitives.AggregateRoot>(), It.IsAny<CancellationToken>()))
+            .Returns((Auth.Domain.Primitives.AggregateRoot _, CancellationToken token) =>
+            {
+                token.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            });
         var recent = PasskeyTestDoubles.Live(userId, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
         PasskeyTestDoubles.AsTable(_passkeysMock, revocationFails: false, recent);
 
-        var act = () => _handler.Handle(
+        var result = await _handler.Handle(
             new ChangePasswordCommand(userId, "OldPass1!", "NewPass1!", TerminateSessions: true), request.Token);
 
-        await act.Should().ThrowAsync<OperationCanceledException>("a step after the account is taken back may still stop");
+        result.IsError.Should().BeFalse("the password is written: the rest runs whatever the client does");
         _credentialRevocationMock.Verify(s => s.RevokeCredentialsAsync(
             userId, It.IsAny<Guid?>(), It.IsAny<string?>(), userId, "Password changed", CancellationToken.None), Times.Once,
             "the sessions end whatever the client does");
         _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
             userId, It.IsAny<DateTime>(), Auth.Domain.Constants.PasskeyRemovalReasons.PasswordChange, userId, CancellationToken.None), Times.Once,
             "the recent passkeys go whatever the client does");
+        _passkeysMock.Verify(r => r.GetLiveAsync(userId, PasskeyTestDoubles.RpId, CancellationToken.None), Times.Once);
+        _userRepositoryMock.Verify(r => r.ClearAutomaticLockAsync(userId, CancellationToken.None), Times.Once);
+        _passwordHistoryRepositoryMock.Verify(r => r.CleanupOldHistoryAsync(userId, It.IsAny<int>(), CancellationToken.None), Times.Once);
+        _eventDispatcherMock.Verify(d => d.DispatchEventsAsync(user, CancellationToken.None), Times.Once, "the owner is still told");
+    }
+
+    /// <summary>
+    /// REVIEW-FIXES 150 F14: the recent passkeys go even when ending the other sessions throws,
+    /// and that exception then surfaces as before.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the revocation moved out of the <c>finally</c>.</remarks>
+    [Fact]
+    public async Task Handle_WhenEndingTheSessionsThrows_TheRecentPasskeysStillGo_AndTheErrorSurfaces()
+    {
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        SetupSuccessfulPasswordChange(userId, user);
+        _credentialRevocationMock
+            .Setup(s => s.RevokeCredentialsAsync(userId, It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("the token store is unreachable"));
+        var recent = PasskeyTestDoubles.Live(userId, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
+        PasskeyTestDoubles.AsTable(_passkeysMock, revocationFails: false, recent);
+
+        var act = () => _handler.Handle(
+            new ChangePasswordCommand(userId, "OldPass1!", "NewPass1!", TerminateSessions: true), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("the token store is unreachable");
+        _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
+            userId, It.IsAny<DateTime>(), Auth.Domain.Constants.PasskeyRemovalReasons.PasswordChange, userId, CancellationToken.None), Times.Once,
+            "the passkeys of the last 72 hours go whatever ending the sessions did");
     }
 
     private ChangePasswordCommandHandler Handler(Microsoft.Extensions.Logging.ILogger<Auth.Application.Features.Passkeys.Common.RecentPasskeyRevocation> log) =>

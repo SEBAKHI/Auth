@@ -86,7 +86,7 @@ public class TotpReplayGuardTests
                 Guid.NewGuid(), SecondFactorProof.RecoveryCode("[\"old\"]", "[]", qualified: false), "v2:ciphertext", "[]", Step, null,
                 new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None), EnableOverEmailCodeClaim),
         [nameof(ITwoFactorStateStore.TryDisableAsync)] = (store =>
-            store.TryDisableAsync(Guid.NewGuid(), SecondFactorProof.Totp(Step), CancellationToken.None), DisableClaim),
+            store.TryDisableAsync(Guid.NewGuid(), SecondFactorProof.Totp(Step), keepWhilePasskeysLive: false, CancellationToken.None), DisableClaim),
         // S08: a step-up inside a signed-in session settles the factor with the same
         // claim a sign-in uses, in the transaction that upgrades the session.
         [nameof(ITwoFactorStateStore.TryCommitStepUpAsync)] = (store =>

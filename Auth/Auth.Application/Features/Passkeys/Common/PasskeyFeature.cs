@@ -52,6 +52,12 @@ public sealed class PasskeyFeature
     /// <summary>The RP ID the process started with: what every read of a passkey names.</summary>
     public string RpId => _rpId.Value;
 
+    /// <summary>
+    /// Gets whether the process started with an RP ID. Without one no passkey is "of the RP ID
+    /// in force", so a read of them has nothing to find and is not made.
+    /// </summary>
+    public bool HasRpId => _rpId.IsSet;
+
     /// <summary>Assesses the configuration in force now.</summary>
     /// <remarks>
     /// While <c>Passkeys:Enabled</c> is off nothing else is read, so a deployment that never

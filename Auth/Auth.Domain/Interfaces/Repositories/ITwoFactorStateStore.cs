@@ -286,19 +286,28 @@ public interface ITwoFactorStateStore
     /// against — then clears the account flag, whatever it said, which also repairs
     /// a flag that disagreed with the row. Either both change or neither does.
     /// </summary>
+    /// <remarks>
+    /// With <paramref name="keepWhilePasskeysLive"/> (email off), the transaction reads the
+    /// account's live passkeys of the RP ID in force after the delete, under a range lock: one
+    /// keeps the factor (REVIEW-FIXES 150 F19). A passkey registration reads the app's row
+    /// under a lock this delete takes, so of the two at the same moment one sees the other.
+    /// </remarks>
     /// <param name="userId">The user switching the factor off.</param>
     /// <param name="proof">What the presented code proved.</param>
+    /// <param name="keepWhilePasskeysLive">Whether email is off, so a live passkey keeps the factor.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// <see cref="LoginCommitOutcome.Committed"/>
     /// when both changed; otherwise nothing was written, and the outcome names why:
     /// <see cref="LoginCommitOutcome.FactorLost"/> when no enabled factor is left,
     /// <see cref="LoginCommitOutcome.StepReused"/> when a TOTP step was not newer,
-    /// <see cref="LoginCommitOutcome.RecoveryCodesChanged"/> when the recovery-code set changed.
+    /// <see cref="LoginCommitOutcome.RecoveryCodesChanged"/> when the recovery-code set changed,
+    /// <see cref="LoginCommitOutcome.PasskeysStillLive"/> when a passkey keeps the factor.
     /// </returns>
     Task<LoginCommitOutcome> TryDisableAsync(
         Guid userId,
         SecondFactorProof proof,
+        bool keepWhilePasskeysLive,
         CancellationToken cancellationToken);
 
     /// <summary>

@@ -203,6 +203,36 @@ public class PasskeySettingsGuardTests
             "the gate's answer is the handler's: one read of the rows per request");
     }
 
+    /// <summary>
+    /// REVIEW-FIXES 150 F18 (e): the memo lives per request, not per process. The feature is
+    /// registered per scope (<c>AddScoped&lt;PasskeyFeature&gt;()</c>), so two requests read PK3's
+    /// rows twice: an old passkey retired between them is seen by the second.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the memo made a static field.</remarks>
+    [Fact]
+    public async Task Feature_InTwoRequests_ReadsTheRowsOnceEach()
+    {
+        var rows = PasskeyTestDoubles.OtherRpIdRows(live: false);
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddSingleton(Monitor(new PasskeySettings { Enabled = true, RpId = PasskeyTestDoubles.RpId }));
+        services.AddSingleton(Monitor(new IdentityProviderSettings { FirstPartySpaOrigins = BothOrigins }));
+        services.AddSingleton(new PasskeyRpIdAtStartup(PasskeyTestDoubles.RpId));
+        services.AddSingleton(PasskeyTestDoubles.Schema());
+        services.AddSingleton(rows.Object);
+        services.AddScoped<PasskeyFeature>();
+        using var provider = services.BuildServiceProvider();
+
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            using var request = provider.CreateScope();
+            (await request.ServiceProvider.GetRequiredService<PasskeyFeature>().AssessAsync(CancellationToken.None))
+                .IsAvailable.Should().BeTrue();
+        }
+
+        rows.Verify(r => r.HasLiveOfAnotherRpIdAsync(PasskeyTestDoubles.RpId, It.IsAny<CancellationToken>()), Times.Exactly(2),
+            "each request reads the rows once");
+    }
+
     // ── The posture (A124, A125) ──
 
     /// <summary>

@@ -116,6 +116,33 @@ public class UserPasskeyTests
         PasskeyRemovalReasons.RecentRegistrationWindow.Should().Be(TimeSpan.FromHours(72));
     }
 
+    /// <summary>
+    /// REVIEW-FIXES 150 F18 (h): the name is shown back in the owner's list, the audit and notices
+    /// that may say "if this was not you", so nothing in it may hide or reorder what it shows:
+    /// control characters and the bidi embedding, override and isolate controls are dropped, at
+    /// creation and on rename. ZWNJ and ZWJ stay: Persian is written with them, and emoji
+    /// sequences need ZWJ.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the filter removed.</remarks>
+    [Theory]
+    [InlineData("Lap\u0000top\u0007", "Laptop")]
+    [InlineData("‮potpaL", "potpaL")]
+    [InlineData("Work ‪laptop‬", "Work laptop")]
+    [InlineData("⁦Phone⁩ ⁧x⁨", "Phone x")]
+    [InlineData("Key\r\n\tTwo\u0085\u009B", "KeyTwo")]
+    [InlineData("\u0007‮", UserPasskey.DefaultName)]
+    [InlineData("کلید‌عبور", "کلید‌عبور")]
+    [InlineData("\U0001F469‍\U0001F4BB laptop", "\U0001F469‍\U0001F4BB laptop")]
+    public void TheName_DropsControlAndBidiCharacters_KeepsZwnjAndZwj(string name, string expected)
+    {
+        var created = UserPasskey.Create(Guid.NewGuid(), [1, 2, 3], [9, 9], 0, "example.com", true, true, false, name, Now);
+        created.Value.Name.Should().Be(expected, "at creation");
+
+        var passkey = Create().Value;
+        passkey.Rename(name).IsError.Should().BeFalse();
+        passkey.Name.Should().Be(expected, "on rename");
+    }
+
     private static ErrorOr.ErrorOr<UserPasskey> Create() =>
         UserPasskey.Create(Guid.NewGuid(), [1, 2, 3], [9, 9], 0, "example.com", true, true, false, "Laptop", Now);
 }
