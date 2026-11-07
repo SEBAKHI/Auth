@@ -27,6 +27,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly IAccountLockout _accountLockout;
+    private readonly PasskeyOnlyAdministratorRule _passkeyOnlyAdministrator;
     private readonly PasswordSettings _passwordSettings;
     private readonly ILogger<LoginCommandHandler> _logger;
 
@@ -39,6 +40,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         ITwoFactorChallengeService twoFactorChallengeService,
         IDomainEventDispatcher eventDispatcher,
         IAccountLockout accountLockout,
+        PasskeyOnlyAdministratorRule passkeyOnlyAdministrator,
         IOptionsSnapshot<PasswordSettings> passwordSettings,
         ILogger<LoginCommandHandler> logger)
     {
@@ -50,6 +52,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         _twoFactorChallengeService = twoFactorChallengeService;
         _eventDispatcher = eventDispatcher;
         _accountLockout = accountLockout;
+        _passkeyOnlyAdministrator = passkeyOnlyAdministrator;
         _passwordSettings = passwordSettings.Value;
         _logger = logger;
     }
@@ -221,6 +224,14 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             _logger.LogInformation("Rehashed password for user {UserId} due to parameter changes", user.Id);
         }
 
+        // D-S20-4 (ii-s): an administrator whose only usable second factor is a passkey
+        // signs in with the passkey alone. Asked after the password was proved and before
+        // any challenge or token; the refusal records no attempt and lifts no lock.
+        if (await _passkeyOnlyAdministrator.RefusalAsync(user.Id, PasskeyOnlyAdministratorDoors.Password, cancellationToken) is { } passkeyRequired)
+        {
+            return passkeyRequired;
+        }
+
         // Two-factor gate: no tokens are issued until the code is verified.
         // The client completes the login via the 2fa/verify endpoint.
         //
@@ -237,7 +248,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         }
 
         // Record successful login on entity (raises UserLoggedInEvent)
-        user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
+        user.RecordSuccessfulLogin(AuthenticationMethods.Password, request.IpAddress, request.UserAgent);
 
         // Delegate token generation to shared builder
         var loginResponse = await _loginResponseBuilder.BuildAsync(

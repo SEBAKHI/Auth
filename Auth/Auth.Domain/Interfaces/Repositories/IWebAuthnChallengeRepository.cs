@@ -33,6 +33,28 @@ public interface IWebAuthnChallengeRepository
     Task<bool> HasLiveRegistrationAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Spends the sign-in challenge whose handle is one of <paramref name="handleCandidates"/>,
+    /// in one statement: only an unused, unexpired assertion challenge that names no account
+    /// matches (S20 PR B, PK6).
+    /// </summary>
+    /// <returns>The options it carried, or null when nothing matched.</returns>
+    Task<string?> TryConsumeAssertionAsync(
+        CredentialHashCandidates handleCandidates,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The unused sign-in challenge whose handle is one of <paramref name="handleCandidates"/>,
+    /// while more than <see cref="WebAuthnChallenge.ReuseMargin"/> of its life remains by the
+    /// database's clock — never by when it was issued (T-B2, PK6): the options a sign-in page
+    /// asks for again are the ones it holds, so it writes no new row. Read only; it spends
+    /// nothing.
+    /// </summary>
+    /// <returns>The challenge, or null when none is live for long enough.</returns>
+    Task<WebAuthnChallenge?> GetReusableAssertionAsync(
+        CredentialHashCandidates handleCandidates,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Deletes challenges that expired before a cutoff, used or not, one batch at a time,
     /// for the retention sweep.
     /// </summary>

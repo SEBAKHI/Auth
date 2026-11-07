@@ -16,14 +16,19 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Auth_API.Tests.AccountDeletion;
 
 /// <summary>
-/// X12, LK6.4–6.5: recovering an account pending deletion refuses only a live
-/// administrator's lock. A lock raised by wrong passwords before the deletion
-/// request is admitted: the password entry lifts it (it proved the password), the
-/// provider entry leaves it (owner decision G8). Guessing is bounded by the per
-/// address ceiling, before the hash, with the generic answer, and every wrong
-/// password is recorded against the account.
+/// X12, LK6.4–6.5: no lock refuses the recovery of an account pending deletion. A lock
+/// raised by wrong passwords before the deletion request is admitted: the password entry
+/// lifts it (it proved the password), the provider entry leaves it (owner decision G8). An
+/// administrator's lock, and a deactivated or not yet activated account, have the deletion
+/// cancelled and get no session (REVIEW 151 F1, D-151-1 (b)): the account keeps its state.
+/// Guessing is bounded by the per address ceiling, before the hash, with the generic answer,
+/// and every wrong password is recorded against the account.
 /// </summary>
-/// <remarks>Deliberate break: refuse any live lock again (<c>IsLockedOut()</c>).</remarks>
+/// <remarks>
+/// Deliberate breaks: refuse any live lock again (<c>IsLockedOut()</c>); the recoverer's state
+/// check removed (a session is minted); an administrator's lock refused at the password door
+/// again (nothing is cancelled).
+/// </remarks>
 public class RecoverLockPolicyTests
 {
     private readonly Mock<IUserRepository> _users = new();
@@ -31,6 +36,7 @@ public class RecoverLockPolicyTests
     private readonly Mock<IPasswordHasher> _hasher = new();
     private readonly Mock<ILoginAttemptRepository> _attempts = new();
     private readonly Mock<ILoginResponseBuilder> _builder = new();
+    private readonly Mock<IPublisher> _publisher = new();
     private readonly List<LoginAttempt> _recorded = [];
 
     public RecoverLockPolicyTests()
@@ -59,7 +65,7 @@ public class RecoverLockPolicyTests
         new FakeCredentialHasher(),
         new Mock<IJwtTokenService>().Object,
         TestHelpers.CreateSecondFactorLockout(),
-        _builder.Object, new Mock<IPublisher>().Object, NullLogger<AccountDeletionRecoverer>.Instance);
+        _builder.Object, TestHelpers.PasskeyOnlyAdministratorRuleOff(), _publisher.Object, NullLogger<AccountDeletionRecoverer>.Instance);
 
     private RecoverAccountCommandHandler PasswordEntry() => new(
         _users.Object, _requests.Object, _hasher.Object, _attempts.Object, Recoverer(),
@@ -67,11 +73,11 @@ public class RecoverLockPolicyTests
 
     private static RecoverAccountCommand Command() => new("owner@example.com", "the-password", null, "203.0.113.7", "Agent/1.0");
 
-    private User GivenPendingDeletion(int count, int? minutes, bool passwordRight = true)
+    private User GivenPendingDeletion(int count, int? minutes, bool passwordRight = true, UserStatus? status = null)
     {
         var deleted = TestHelpers.CreateUser(
             email: "owner@example.com", isDeleted: true, deletedAt: DateTime.UtcNow,
-            status: count > 0 || minutes is not null ? UserStatus.Locked : UserStatus.Active,
+            status: status ?? (count > 0 || minutes is not null ? UserStatus.Locked : UserStatus.Active),
             failedLoginAttempts: count,
             lockoutEnd: minutes is { } m ? DateTime.UtcNow.AddMinutes(m) : null);
         _users.Setup(r => r.GetByEmailIncludeDeletedAsync("owner@example.com", It.IsAny<CancellationToken>())).ReturnsAsync(deleted);
@@ -106,29 +112,20 @@ public class RecoverLockPolicyTests
     }
 
     [Theory]
-    [InlineData(null, "User.AccountLocked")]
-    [InlineData(60, "User.AccountLockedUntil")]
-    public async Task PasswordEntry_UnderAnAdministratorsLock_IsRefused(int? minutes, string code)
+    [MemberData(nameof(DeletionCancelledAssertions.StatesThatRefuseASession), MemberType = typeof(DeletionCancelledAssertions))]
+    public async Task PasswordEntry_AStateThatRefusesASession_CancelsTheDeletion_AndIssuesNoSession(
+        string because, UserStatus status, int count, int? minutes, string code)
     {
-        GivenPendingDeletion(0, minutes);
-        if (minutes is null)
-        {
-            // An administrator's lock with no expiry: Locked, count 0.
-            var adminLocked = TestHelpers.CreateUser(
-                email: "owner@example.com", isDeleted: true, deletedAt: DateTime.UtcNow, status: UserStatus.Locked);
-            _users.Setup(r => r.GetByEmailIncludeDeletedAsync("owner@example.com", It.IsAny<CancellationToken>())).ReturnsAsync(adminLocked);
-            _hasher.Setup(h => h.VerifyPassword("the-password", adminLocked.PasswordHash!)).Returns(true);
-        }
+        // REVIEW 151 F1, D-151-1 (b): an administrator's lock no longer refuses at the door, so
+        // the account that asked to stay is not deleted at the end of its grace period.
+        var deleted = GivenPendingDeletion(count, minutes, status: status);
 
         var result = await PasswordEntry().Handle(Command(), CancellationToken.None);
 
-        result.FirstError.Code.Should().Be(code);
-        _builder.Verify(
-            b => b.BuildAsync(
-                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(),
-                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()),
-            Times.Never());
+        result.FirstError.Code.Should().Be(code, because);
+        result.FirstError.Type.Should().Be(ErrorOr.ErrorType.Forbidden, because);
+        DeletionCancelledAssertions.VerifyCancelledWithoutASession(_requests, _users, _builder, _publisher, deleted.Id, because);
+        _recorded.Should().BeEmpty($"{because}: the password was right, and no sign-in row is written");
     }
 
     [Fact]
@@ -206,20 +203,35 @@ public class RecoverLockPolicyTests
             Times.Never());
     }
 
-    [Theory]
-    [InlineData(100, null, false, null)]
-    [InlineData(0, null, true, "User.AccountLocked")]
-    public async Task ProviderEntry_AdmitsAnAutomaticLockWithoutLiftingIt_AndRefusesAnAdministrators(
-        int count, int? minutes, bool adminLocked, string? code)
+    [Fact]
+    public async Task ProviderEntry_AdmitsAnAutomaticLockWithoutLiftingIt()
     {
-        var deleted = adminLocked
-            ? TestHelpers.CreateUser(email: "owner@example.com", isDeleted: true, deletedAt: DateTime.UtcNow, status: UserStatus.Locked)
-            : GivenPendingDeletion(count, minutes);
-        if (adminLocked)
-        {
-            _users.Setup(r => r.GetByIdIncludeDeletedAsync(deleted.Id, It.IsAny<CancellationToken>())).ReturnsAsync(deleted);
-        }
+        var deleted = GivenPendingDeletion(100, null);
 
+        var result = await ProviderEntry(deleted).Handle(ProviderCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        VerifyRecovered(passwordProven: false);
+    }
+
+    [Theory]
+    [MemberData(nameof(DeletionCancelledAssertions.StatesThatRefuseASession), MemberType = typeof(DeletionCancelledAssertions))]
+    public async Task ProviderEntry_AStateThatRefusesASession_CancelsTheDeletion_AndIssuesNoSession(
+        string because, UserStatus status, int count, int? minutes, string code)
+    {
+        var deleted = GivenPendingDeletion(count, minutes, status: status);
+
+        var result = await ProviderEntry(deleted).Handle(ProviderCommand(), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(code, because);
+        DeletionCancelledAssertions.VerifyCancelledWithoutASession(_requests, _users, _builder, _publisher, deleted.Id, because);
+    }
+
+    private static RecoverAccountExternalCommand ProviderCommand() =>
+        new("google", "id-token", null, null, "203.0.113.7", "Agent/1.0", null, null);
+
+    private RecoverAccountExternalCommandHandler ProviderEntry(User deleted)
+    {
         var provider = new Mock<IExternalAuthProvider>();
         provider
             .Setup(p => p.ValidateTokenAsync("id-token", null, It.IsAny<CancellationToken>()))
@@ -230,21 +242,7 @@ public class RecoverLockPolicyTests
         links
             .Setup(r => r.GetByProviderAsync("google", "provider-user", It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateUserExternalLogin(userId: deleted.Id, provider: "google", providerUserId: "provider-user"));
-        var handler = new RecoverAccountExternalCommandHandler(
+        return new RecoverAccountExternalCommandHandler(
             providers.Object, links.Object, _users.Object, _requests.Object, Recoverer(), TestHelpers.CreateExternalNonceGuard());
-
-        var result = await handler.Handle(
-            new RecoverAccountExternalCommand("google", "id-token", null, null, "203.0.113.7", "Agent/1.0", null, null),
-            CancellationToken.None);
-
-        if (code is null)
-        {
-            result.IsError.Should().BeFalse();
-            VerifyRecovered(passwordProven: false);
-        }
-        else
-        {
-            result.FirstError.Code.Should().Be(code);
-        }
     }
 }

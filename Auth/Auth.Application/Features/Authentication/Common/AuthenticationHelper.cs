@@ -60,8 +60,8 @@ internal static class AuthenticationHelper
     }
 
     /// <summary>
-    /// Checks whether the user's account status allows login.
-    /// Returns an error for Inactive, Locked, or Pending accounts.
+    /// Checks whether the user's account status allows login: an error for Inactive or Pending.
+    /// A Locked status passes on to the lock rules that follow, which ask <see cref="User.LockKind(DateTime)"/>.
     /// </summary>
     internal static ErrorOr<Success> CheckAccountStatus(User user) => CheckAccountStatus(user.Status);
 

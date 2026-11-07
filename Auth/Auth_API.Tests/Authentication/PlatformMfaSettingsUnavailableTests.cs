@@ -31,7 +31,7 @@ public class PlatformMfaSettingsUnavailableTests
 
     private PlatformMfaPolicy Policy(bool fileSaysEnforce, ISystemSettingsReloader reloader) =>
         new(
-            _store.Object,
+            TestHelpers.UsableFactors(_store.Object),
             Mock.Of<ITokenClaimsResolver>(),
             TestHelpers.CreateOptions(new TwoFactorSettings { EnforceForPlatformAdmins = fileSaysEnforce }),
             reloader,

@@ -54,6 +54,7 @@ public class SendTwoFactorEmailCodeCommandHandlerTests
             guard ?? _guard.Object,
             new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_emailSettings)),
             stateStore ?? _stateStore.Object,
+            TestHelpers.UsableFactors(stateStore ?? _stateStore.Object),
             new FirstFactorEmailProof(
                 codes ?? _codes.Object,
                 users ?? _users.Object,

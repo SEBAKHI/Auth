@@ -40,6 +40,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly IAccountLockout _accountLockout;
+    private readonly PasskeyOnlyAdministratorRule _passkeyOnlyAdministrator;
     private readonly Auth.Application.Configuration.RegistrationSettings _registrationSettings;
     private readonly ILogger<ExternalLoginCommandHandler> _logger;
 
@@ -61,6 +62,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         IDomainEventDispatcher eventDispatcher,
         ILoginAttemptRepository loginAttemptRepository,
         IAccountLockout accountLockout,
+        PasskeyOnlyAdministratorRule passkeyOnlyAdministrator,
         Microsoft.Extensions.Options.IOptionsSnapshot<Auth.Application.Configuration.RegistrationSettings> registrationSettings,
         ILogger<ExternalLoginCommandHandler> logger)
     {
@@ -69,6 +71,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         _userRepository = userRepository;
         _loginAttemptRepository = loginAttemptRepository;
         _accountLockout = accountLockout;
+        _passkeyOnlyAdministrator = passkeyOnlyAdministrator;
         _registrationSettings = registrationSettings.Value;
         _permissionRepository = permissionRepository;
         _accountDeletionRequestRepository = accountDeletionRequestRepository;
@@ -330,6 +333,14 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
             _accountLockout.ReportFamiliarAdmission(user.Id, lockKind, user.FailedLoginAttempts);
         }
 
+        // D-S20-4 (ii-s): an administrator whose only usable second factor is a passkey
+        // signs in with the passkey alone. Asked after the provider proved who the person is
+        // and before any challenge or token.
+        if (await _passkeyOnlyAdministrator.RefusalAsync(user.Id, PasskeyOnlyAdministratorDoors.ExternalProvider, cancellationToken) is { } passkeyRequired)
+        {
+            return passkeyRequired;
+        }
+
         // Two-factor gate: the user opted into 2FA, so a provider login must
         // not bypass it. No tokens are issued until the code is verified.
         //
@@ -359,7 +370,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         }
 
         // Record successful login on entity (raises UserLoggedInEvent)
-        user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
+        user.RecordSuccessfulLogin(AuthenticationMethods.ExternalIdentity, request.IpAddress, request.UserAgent);
 
         // Return login response
         var loginResponse = await _loginResponseBuilder.BuildAsync(

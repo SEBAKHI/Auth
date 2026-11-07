@@ -642,6 +642,13 @@ builder.Services.AddScoped<IWebAuthnVerifier, Fido2WebAuthnVerifier>();
 builder.Services.AddScoped<PasskeyFeature>();
 builder.Services.AddScoped<PasskeyRegistrationGate>();
 builder.Services.AddScoped<RecentPasskeyRevocation>();
+// S20 PR B: the steps every passkey sign-in shares (the sign-in and the deletion recovery);
+// the second factors an account can use right now, which mask the passkey while passkeys do
+// not run (D-150-4); and the refusal of a passkey-only administrator at every other door
+// (D-S20-4 (ii-s)).
+builder.Services.AddScoped<PasskeyAssertionCeremony>();
+builder.Services.AddScoped<UsableSecondFactors>();
+builder.Services.AddScoped<PasskeyOnlyAdministratorRule>();
 builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
 builder.Services.AddScoped<IPendingRegistrationRepository, PendingRegistrationRepository>();
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();

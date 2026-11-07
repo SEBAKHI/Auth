@@ -17,8 +17,10 @@ public sealed class PasskeysEndpointAttribute : Attribute
 /// does not exist — for a signed-in caller and an anonymous one alike.
 /// </summary>
 /// <remarks>
-/// The switch is read per request (hot). Turning it off does not change which accounts have a
-/// qualifying second factor (FA2 counts a passkey whatever it says).
+/// The switch is read per request (hot). The same assessment decides whether a passkey can be
+/// used as a factor (D-150-4, <c>UsableSecondFactors</c>): while it answers 404 here, no policy
+/// demands a passkey or leans on one. The passkeys stay in the inventory (FA2), and nothing is
+/// revoked.
 /// </remarks>
 public sealed class PasskeysAvailabilityMiddleware
 {

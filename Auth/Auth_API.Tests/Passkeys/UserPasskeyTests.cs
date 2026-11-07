@@ -1,5 +1,6 @@
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 
 namespace Auth_API.Tests.Passkeys;
@@ -141,6 +142,63 @@ public class UserPasskeyTests
         var passkey = Create().Value;
         passkey.Rename(name).IsError.Should().BeFalse();
         passkey.Name.Should().Be(expected, "on rename");
+    }
+
+    // ── S20 PR B (PK9): the counter at a sign-in ──
+
+    [Theory]
+    [InlineData(0L, 0u, false)] // an authenticator that does not count (WebAuthn L3 §6.1.1)
+    [InlineData(0L, 1u, false)]
+    [InlineData(5L, 6u, false)]
+    [InlineData(5L, 5u, true)]
+    [InlineData(5L, 4u, true)]
+    [InlineData(5L, 0u, true)] // a counting authenticator answering zero: a copy, or one reset
+    [InlineData(4294967295L, 0u, true)]
+    public void IsCounterRegression_RefusesACounterThatDidNotGrow_UnlessNeitherCounts(long stored, uint incoming, bool regression) =>
+        UserPasskey.IsCounterRegression(stored, incoming).Should().Be(regression);
+
+    [Fact]
+    public void RecordAssertion_CounterThatGrew_TakesTheCounterTheFlagsAndTheTime()
+    {
+        var passkey = Create().Value;
+        var usedAt = Now.AddMinutes(5);
+
+        passkey.RecordAssertion(7, isBackupEligible: true, isBackedUp: true, usedAt).Should().Be(PasskeyCounterCheck.Advanced);
+
+        passkey.SignCount.Should().Be(7);
+        passkey.IsBackupEligible.Should().BeTrue();
+        passkey.IsBackedUp.Should().BeTrue();
+        passkey.LastUsedAt.Should().Be(usedAt);
+        passkey.LastCounterRegressionAt.Should().BeNull();
+        passkey.IsLive.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RecordAssertion_CounterThatDidNotGrow_SealsAndChangesNothingElse()
+    {
+        var passkey = UserPasskey.Create(Guid.NewGuid(), [1, 2, 3], [9, 9], 5, "example.com", true, true, false, "Laptop", Now).Value;
+        var at = Now.AddMinutes(5);
+
+        passkey.RecordAssertion(5, isBackupEligible: false, isBackedUp: true, at).Should().Be(PasskeyCounterCheck.Regressed);
+
+        passkey.LastCounterRegressionAt.Should().Be(at);
+        passkey.SignCount.Should().Be(5);
+        passkey.IsBackupEligible.Should().BeTrue("the flags of a refused answer are not taken");
+        passkey.IsBackedUp.Should().BeFalse();
+        passkey.LastUsedAt.Should().BeNull("a refused sign-in is no use");
+        passkey.IsLive.Should().BeTrue("its owner or an administrator removes it, never the counter (C5)");
+    }
+
+    [Fact]
+    public void RecordCounterRegression_SealsAndKeepsThePasskeyLive()
+    {
+        var passkey = Create().Value;
+
+        passkey.RecordCounterRegression(Now).Should().Be(PasskeyCounterCheck.Regressed);
+
+        passkey.LastCounterRegressionAt.Should().Be(Now);
+        passkey.LastUsedAt.Should().BeNull();
+        passkey.IsLive.Should().BeTrue();
     }
 
     private static ErrorOr.ErrorOr<UserPasskey> Create() =>

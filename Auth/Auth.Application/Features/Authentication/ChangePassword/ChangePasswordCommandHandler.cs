@@ -156,13 +156,23 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         var shouldTerminateSessions = request.TerminateSessions
             ?? _sessionSettings.TerminateSessionsOnPasswordChange;
 
+        var recentRevoked = 0;
         try
         {
             await EndOtherSessionsAsync(request, shouldTerminateSessions);
         }
         finally
         {
-            await _recentPasskeys.RevokeRecentAsync(user, passkeyCutoff, PasskeyRemovalReasons.PasswordChange, request.UserId);
+            recentRevoked = await _recentPasskeys.RevokeRecentAsync(user, passkeyCutoff, PasskeyRemovalReasons.PasswordChange, request.UserId);
+        }
+
+        // Write, then read, on both sides (REVIEW 151 F2): a passkey sign-in in flight with one
+        // of those passkeys writes its session, then reads the passkey again. One whose session
+        // was written after the sweep above is ended by this second one; a later one finds the
+        // passkey revoked and ends its own.
+        if (recentRevoked > 0 && shouldTerminateSessions)
+        {
+            await RevokeOtherCredentialsAsync(request);
         }
 
         // The entity raises PasswordChangedEvent with the passkeys still live now, read after
@@ -200,19 +210,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
             return;
         }
 
-        // Through the revocation service, never the session repository alone.
-        // Ending a UserSessions row evicts nobody: nothing on the refresh path
-        // consults it, so an unrevoked refresh token mints a new access token
-        // and walks the ended session straight back in. The service is what
-        // also revokes the refresh tokens, blacklists the session ids so
-        // already-issued access tokens die now, and revokes the SSO sessions.
-        await _credentialRevocation.RevokeCredentialsAsync(
-            request.UserId,
-            request.CurrentSessionId,
-            request.IdpSessionToken,
-            revokedBy: request.UserId,
-            "Password changed",
-            CancellationToken.None);
+        await RevokeOtherCredentialsAsync(request);
 
         _logger.LogInformation(
             request.CurrentSessionId.HasValue
@@ -220,4 +218,24 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
                 : "Password changed for user {UserId}, revoked all credentials",
             request.UserId);
     }
+
+    /// <summary>
+    /// Every credential of the account but the caller's own session and browser.
+    /// </summary>
+    /// <remarks>
+    /// Through the revocation service, never the session repository alone. Ending a
+    /// UserSessions row evicts nobody: nothing on the refresh path consults it, so an
+    /// unrevoked refresh token mints a new access token and walks the ended session
+    /// straight back in. The service is what also revokes the refresh tokens, blacklists
+    /// the session ids so already-issued access tokens die now, and revokes the SSO
+    /// sessions.
+    /// </remarks>
+    private Task<int> RevokeOtherCredentialsAsync(ChangePasswordCommand request) =>
+        _credentialRevocation.RevokeCredentialsAsync(
+            request.UserId,
+            request.CurrentSessionId,
+            request.IdpSessionToken,
+            revokedBy: request.UserId,
+            "Password changed",
+            CancellationToken.None);
 }

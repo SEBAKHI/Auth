@@ -75,6 +75,9 @@
   <data name="Auth.ReauthenticationRequired" xml:space="preserve">
     <value>For your security, sign in again to change two-factor authentication.</value>
   </data>
+  <data name="Auth.PasskeyRequired" xml:space="preserve">
+    <value>This account signs in with its passkey. Use your passkey to continue.</value>
+  </data>
   <data name="Auth.FirstPartyOriginRequired" xml:space="preserve">
     <value>This request must come from one of the platform's own sign-in pages. Open the sign-in page of the app you want to use and try again.</value>
   </data>
@@ -891,6 +894,15 @@
   </data>
   <data name="User.RecoveryWindowExpired" xml:space="preserve">
     <value>The recovery period for this account has ended. Deletion is being finalized.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountInactive" xml:space="preserve">
+    <value>Your account will not be deleted. It is deactivated, so you cannot sign in; your administrator can reactivate it.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountLocked" xml:space="preserve">
+    <value>Your account will not be deleted. An administrator has locked it, so you cannot sign in until it is unlocked.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountPending" xml:space="preserve">
+    <value>Your account will not be deleted. It is not activated yet, so you cannot sign in until it is.</value>
   </data>
   <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
     <value>The verification code is invalid or has expired.</value>

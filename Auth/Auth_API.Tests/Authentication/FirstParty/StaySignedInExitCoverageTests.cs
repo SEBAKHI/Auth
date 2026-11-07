@@ -3,12 +3,14 @@ using System.Text.RegularExpressions;
 using Auth.Application.Features.AccountDeletion.RecoverAccount;
 using Auth.Application.Features.AccountDeletion.RecoverAccountExternal;
 using Auth.Application.Features.AccountDeletion.RecoverAccountWithEmailCode;
+using Auth.Application.Features.AccountDeletion.RecoverAccountWithPasskey;
 using Auth.Application.Features.Authentication.CompleteRegistration;
 using Auth.Application.Features.Authentication.ExternalLogin;
 using Auth.Application.Features.Authentication.Login;
 using Auth.Application.Features.Authentication.SignInWithEmailCode;
 using Auth.Application.Features.Authentication.VerifyEmail;
 using Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
+using Auth.Application.Features.Passkeys.VerifyPasskeyAssertion;
 using Auth_API.Common.FirstParty;
 using Auth_API.Modules.Authentication.Controllers;
 using Auth_API.Tests.Infrastructure;
@@ -55,6 +57,10 @@ public class StaySignedInExitCoverageTests
         [$"{nameof(AuthController)}.{nameof(AuthController.SignInWithEmailCode)}"] = (Lifetime.PersonsChoice, typeof(SignInWithEmailCodeCommand)),
         [$"{nameof(AuthController)}.{nameof(AuthController.RecoverAccountWithEmailCode)}"] = (Lifetime.BrowserSession, typeof(RecoverAccountWithEmailCodeCommand)),
         [$"{nameof(AuthController)}.{nameof(AuthController.RefreshToken)}"] = (Lifetime.PresentedSession, null),
+        // S20 PR B: the passkey sign-in carries the choice, like the password; its recovery
+        // entry signs in for a browser session, like the other three.
+        [$"{nameof(PasskeysController)}.{nameof(PasskeysController.VerifyAssertion)}"] = (Lifetime.PersonsChoice, typeof(VerifyPasskeyAssertionCommand)),
+        [$"{nameof(PasskeysController)}.{nameof(PasskeysController.RecoverWithAssertion)}"] = (Lifetime.BrowserSession, typeof(RecoverAccountWithPasskeyCommand)),
     };
 
     private static List<MethodInfo> SessionActions() =>
@@ -118,6 +124,7 @@ public class StaySignedInExitCoverageTests
         ["CompleteRegistrationCommandHandler.cs"] = "<none>",
         ["AccountDeletionRecoverer.cs"] = "<none>",
         ["ExchangeAuthorizationCodeCommandHandler.cs"] = "<none>",
+        ["VerifyPasskeyAssertionCommandHandler.cs"] = "request.StaySignedIn",
     };
 
     [Theory]
@@ -153,7 +160,7 @@ public class StaySignedInExitCoverageTests
             }
         }
 
-        callers.Should().HaveCount(8, "eight sign-in exits today; a new one is listed here with its choice");
+        callers.Should().HaveCount(9, "nine sign-in exits today; a new one is listed here with its choice");
         callers.Select(c => c.Name).Should().BeEquivalentTo(PersistentArgument.Keys);
         foreach (var (name, argument) in callers)
         {

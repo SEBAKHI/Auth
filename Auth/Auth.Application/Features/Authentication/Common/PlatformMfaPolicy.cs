@@ -1,9 +1,9 @@
 using Auth.Application.Configuration;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Interfaces;
 using Auth.Application.SystemSettings;
 using Auth.Domain.Constants;
 using Auth.Domain.Enums;
-using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
 using Microsoft.Extensions.Options;
 
@@ -31,10 +31,17 @@ namespace Auth.Application.Features.Authentication.Common;
 /// failed refresh later keeps the values last read, so only the window before
 /// the first good read is affected (at most one refresh interval).
 /// </para>
+/// <para>
+/// S20 PR B, D-S20-4 (ii): an account whose only usable second factor is a passkey gets
+/// platform authority only from a passkey session, whatever the switch says — so an older
+/// password session of an account that became one loses it at its next refresh. The factors
+/// are the usable ones (<see cref="UsableSecondFactors"/>, D-150-4): while passkeys do not
+/// run no passkey is seen, and every account answers exactly as before passkeys.
+/// </para>
 /// </remarks>
 public class PlatformMfaPolicy : IPlatformMfaPolicy
 {
-    private readonly ITwoFactorStateStore _twoFactorStateStore;
+    private readonly UsableSecondFactors _usableFactors;
     private readonly ITokenClaimsResolver _tokenClaimsResolver;
     private readonly IOptionsMonitor<TwoFactorSettings> _settings;
     private readonly ISystemSettingsReloader _settingsReloader;
@@ -42,14 +49,14 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
     private readonly ILogger<PlatformMfaPolicy> _logger;
 
     public PlatformMfaPolicy(
-        ITwoFactorStateStore twoFactorStateStore,
+        UsableSecondFactors usableFactors,
         ITokenClaimsResolver tokenClaimsResolver,
         IOptionsMonitor<TwoFactorSettings> settings,
         ISystemSettingsReloader settingsReloader,
         EnforcedSettingsWarning enforcedSettingsWarning,
         ILogger<PlatformMfaPolicy> logger)
     {
-        _twoFactorStateStore = twoFactorStateStore;
+        _usableFactors = usableFactors;
         _tokenClaimsResolver = tokenClaimsResolver;
         _settings = settings;
         _settingsReloader = settingsReloader;
@@ -122,25 +129,32 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
             return PlatformMfaDecision.Unchanged(claims);
         }
 
-        // Read once: the switch is hot, and one mint decides once.
-        var enforce = IsEnforcing;
+        // Read once: the switch is hot, and one mint decides once. So is whether a passkey
+        // counts (D-150-4), read before the factors because it decides what their failure costs.
+        var switchedOn = IsEnforcing;
+        var passkeysCount = await _usableFactors.PasskeysCountAsync(cancellationToken);
 
         QualifyingSecondFactors factors;
         try
         {
-            factors = await _twoFactorStateStore.GetQualifyingFactorsAsync(userId, cancellationToken);
+            factors = await _usableFactors.GetAsync(userId, passkeysCount, cancellationToken);
         }
-        catch (Exception ex) when (!enforce && ex is not OperationCanceledException)
+        catch (Exception ex) when (!switchedOn && !passkeysCount && ex is not OperationCanceledException)
         {
-            // With the switch off the read serves only the readiness log below; a
-            // failure here must not cost a sign-in that never needed it. With the
-            // switch on it propagates and the mint fails, as any failed read on
-            // this path does: a token is never minted on a guess.
+            // With the switch off and no passkey counting, the read serves only the
+            // readiness log below; a failure here must not cost a sign-in that never
+            // needed it. Otherwise it propagates and the mint fails, as any failed read
+            // on this path does — a usable passkey could withhold the authority whatever
+            // the switch says: a token is never minted on a guess.
             _logger.LogWarning(ex,
                 "PlatformMfa.WouldRequire could not be assessed for user {UserId}: the two-factor row could not be read",
                 userId);
             return PlatformMfaDecision.Unchanged(claims);
         }
+
+        // D-S20-4 (ii): an account whose only usable factor is a passkey holds platform
+        // authority only through a passkey session, switch or no switch.
+        var enforce = switchedOn || factors.IsPasskeyOnly;
 
         var decision = Apply(claims, methods, factors, enforce);
 
@@ -181,7 +195,9 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
     /// <summary>
     /// The fixed order of the decision. Enroll comes before the session is looked
     /// at: a session that proved a factor which has since been removed must not
-    /// keep the authority on the strength of what it once proved.
+    /// keep the authority on the strength of what it once proved. So does the passkey:
+    /// once it is the account's only usable factor, only a passkey session holds the
+    /// authority, whatever the session proved before.
     /// </summary>
     private static MfaRequirement Assess(
         TokenClaims platformClaims,
@@ -198,17 +214,19 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
             return MfaRequirement.Enroll;
         }
 
+        // S20, D-S20-4 (ii): an account whose one usable factor is a passkey holds platform
+        // authority only through a passkey session — before the session's two factors are
+        // asked (REVIEW 151 F3): the password and the authenticator app, proved before the app
+        // was switched off, are not it. Signing in again with the password, or stepping up,
+        // has nothing to answer with.
+        if (factors.IsPasskeyOnly)
+        {
+            return methods.ProvesPasskey ? MfaRequirement.None : MfaRequirement.Passkey;
+        }
+
         if (methods.IsMfaSatisfied)
         {
             return MfaRequirement.None;
-        }
-
-        // S20: only a passkey sign-in proves two factors for an account whose one
-        // qualifying factor is a passkey — signing in again with the password, or stepping
-        // up, has nothing to answer with.
-        if (factors.IsPasskeyOnly)
-        {
-            return MfaRequirement.Passkey;
         }
 
         return methods.HasPrimary

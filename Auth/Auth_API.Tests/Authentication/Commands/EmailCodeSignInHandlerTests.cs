@@ -508,6 +508,85 @@ public class EmailCodeSignInHandlerTests
         scenario.Consumed.Should().Be(0);
     }
 
+    // ── S20 PR B, D-S20-4 (ii-s): an administrator whose only usable factor is a passkey ──
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SignIn_PasskeyOnlyAdministrator_IsRefusedBeforeThePasswordOrASecondStep(bool hasPassword)
+    {
+        // Asked first in the decision, so the page is not sent on to a password or a second
+        // step that would be refused in turn. The code was spent when it was accepted, as at
+        // the second step.
+        var scenario = new Scenario()
+            .WithAccount(TestHelpers.CreateUser(email: Address, passwordHash: hasPassword ? "TestPasswordHash" : null))
+            .WithPlatformPermission();
+        scenario.PasskeyRule = TestHelpers.PasskeyOnlyAdministratorRuleOn(
+                new QualifyingSecondFactors(Totp: false, Passkey: true), holdsPlatformAuthority: true);
+
+        var result = await scenario.SignInAsync();
+
+        result.FirstError.Code.Should().Be(AuthErrors.PasskeyRequired.Code);
+        scenario.Consumed.Should().Be(1);
+        scenario.Builder.Invocations.Should().BeEmpty();
+        scenario.ChallengeMethods.Should().BeNull();
+        scenario.DispatchedEvents.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Recover_PasskeyOnlyAdministratorWaitingForDeletion_IsRefusedAndSpendsNothing()
+    {
+        // The passkey's own recovery entry is the way through (D-S20-6 (a)).
+        var user = TestHelpers.CreateUser(email: Address, isDeleted: true, passwordHash: null);
+        var scenario = new Scenario().WithAccountWaitingForDeletion(user).WithPlatformPermission();
+        scenario.PasskeyRule = TestHelpers.PasskeyOnlyAdministratorRuleOn(
+                new QualifyingSecondFactors(Totp: false, Passkey: true), holdsPlatformAuthority: true);
+
+        var result = await scenario.RecoverAsync();
+
+        result.FirstError.Code.Should().Be(AuthErrors.PasskeyRequired.Code);
+        scenario.Consumed.Should().Be(0, "the emailed code is not spent on a refusal");
+        scenario.Users.Verify(u => u.RestoreAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        scenario.Builder.Invocations.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Recover_PasskeyOnlyAdministratorWithAPassword_IsRefusedBeforeThePasswordStep()
+    {
+        // REVIEW 151 F10 (S6): asked before the password step, as the sign-in by code asks it, so
+        // the page is not sent on to a password entry that would refuse in turn.
+        var user = TestHelpers.CreateUser(email: Address, isDeleted: true);
+        var scenario = new Scenario().WithAccountWaitingForDeletion(user).WithPlatformPermission();
+        scenario.PasskeyRule = TestHelpers.PasskeyOnlyAdministratorRuleOn(
+                new QualifyingSecondFactors(Totp: false, Passkey: true), holdsPlatformAuthority: true);
+
+        var result = await scenario.RecoverAsync();
+
+        result.IsError.Should().BeTrue("not nextStep: passwordRequired");
+        result.FirstError.Code.Should().Be(AuthErrors.PasskeyRequired.Code);
+        scenario.Consumed.Should().Be(0, "the emailed code is not spent on a refusal");
+        scenario.Users.Verify(u => u.RestoreAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [MemberData(nameof(DeletionCancelledAssertions.StatesThatRefuseASession), MemberType = typeof(DeletionCancelledAssertions))]
+    public async Task Recover_AStateThatRefusesASession_CancelsTheDeletion_AndIssuesNoSession(
+        string because, UserStatus status, int count, int? minutes, string code)
+    {
+        // REVIEW 151 F1, D-151-1 (b): an administrator's lock no longer refuses before the cancel.
+        var user = TestHelpers.CreateUser(
+            email: Address, isDeleted: true, passwordHash: null, status: status, failedLoginAttempts: count,
+            lockoutEnd: DeletionCancelledAssertions.LockEnd(minutes));
+        var scenario = new Scenario().WithAccountWaitingForDeletion(user);
+
+        var result = await scenario.RecoverAsync();
+
+        result.FirstError.Code.Should().Be(code, because);
+        scenario.Consumed.Should().Be(1, $"{because}: the code proved the recovery, which is accepted");
+        DeletionCancelledAssertions.VerifyCancelledWithoutASession(
+            scenario.Requests, scenario.Users, scenario.Builder, scenario.Publisher, user.Id, because);
+    }
+
     // ── Scenario ─────────────────────────────────────────────────────────────
 
     private sealed class Scenario
@@ -523,6 +602,10 @@ public class EmailCodeSignInHandlerTests
         public Mock<ILoginResponseBuilder> Builder { get; } = new();
         public Mock<IDomainEventDispatcher> Events { get; } = new();
         public Mock<ISecondFactorVerifier> SecondFactors { get; } = new();
+        public Mock<MediatR.IPublisher> Publisher { get; } = new();
+
+        /// <summary>The refusal of a passkey-only administrator: paused, as while passkeys do not run, unless a test sets it.</summary>
+        public PasskeyOnlyAdministratorRule PasskeyRule { get; set; } = TestHelpers.PasskeyOnlyAdministratorRuleOff();
 
         /// <summary>A stateful store in place of <see cref="Pending"/>, when a test needs one.</summary>
         public IPendingRegistrationRepository? PendingStore { get; init; }
@@ -630,14 +713,14 @@ public class EmailCodeSignInHandlerTests
             new SignInWithEmailCodeCommandHandler(
                 CodeCheck(), Accounts(), PendingRepository, Users.Object, Lockout.Object, Attempts.Object,
                 new EmailCodeFullProofRule(Claims.Object), Challenges.Object, Revocation.Object, Builder.Object,
-                Events.Object, Logger)
+                Events.Object, PasskeyRule, Logger)
                 .Handle(new SignInWithEmailCodeCommand(Handle, Code, requireFullProof, staySignedIn, "device", "203.0.113.7", "TestAgent/1.0"),
                     CancellationToken.None);
 
         public Task<ErrorOr<LoginResponse>> RecoverAsync(string? twoFactorCode = null) =>
             new RecoverAccountWithEmailCodeCommandHandler(
                 CodeCheck(), Accounts(), PendingRepository, new EmailCodeFullProofRule(Claims.Object), Challenges.Object,
-                Recoverer())
+                PasskeyRule, Recoverer())
                 .Handle(new RecoverAccountWithEmailCodeCommand(Handle, Code, twoFactorCode, false, "203.0.113.7", "TestAgent/1.0", "device"),
                     CancellationToken.None);
 
@@ -657,10 +740,14 @@ public class EmailCodeSignInHandlerTests
             new Mock<IJwtTokenService>().Object,
             new Mock<ISecondFactorLockout>().Object,
             Builder.Object,
-            new Mock<MediatR.IPublisher>().Object,
+            PasskeyRule,
+            Publisher.Object,
             new Mock<ILogger<Auth.Application.Features.AccountDeletion.Common.AccountDeletionRecoverer>>().Object);
 
-        private User Restored() => TestHelpers.CreateUser(id: _deleted!.Id, email: Address, passwordHash: _deleted.PasswordHash);
+        // The restore writes the deletion columns only: the status and the lock come back as they were.
+        private User Restored() => TestHelpers.CreateUser(
+            id: _deleted!.Id, email: Address, passwordHash: _deleted.PasswordHash, status: _deleted.Status,
+            failedLoginAttempts: _deleted.FailedLoginAttempts, lockoutEnd: _deleted.LockoutEnd);
     }
 
     /// <summary>The two starts, over one store, for an address that has <c>user</c>'s account.</summary>

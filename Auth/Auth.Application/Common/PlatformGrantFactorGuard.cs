@@ -1,3 +1,4 @@
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
@@ -24,20 +25,28 @@ namespace Auth.Application.Common;
 /// two-step verification stays optional for application users. With enforcement
 /// off nothing is read.
 /// </para>
+/// <para>
+/// The factor is a usable one (S20, D-150-4, <see cref="UsableSecondFactors"/>): while passkeys
+/// do not run, an account whose only factor is a passkey would be asked to enroll, so it is an
+/// account without a factor here too.
+/// </para>
 /// </remarks>
 public class PlatformGrantFactorGuard
 {
     private readonly IPlatformMfaPolicy _platformMfaPolicy;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
+    private readonly UsableSecondFactors _usableFactors;
     private readonly ILogger<PlatformGrantFactorGuard> _logger;
 
     public PlatformGrantFactorGuard(
         IPlatformMfaPolicy platformMfaPolicy,
         ITwoFactorStateStore twoFactorStateStore,
+        UsableSecondFactors usableFactors,
         ILogger<PlatformGrantFactorGuard> logger)
     {
         _platformMfaPolicy = platformMfaPolicy;
         _twoFactorStateStore = twoFactorStateStore;
+        _usableFactors = usableFactors;
         _logger = logger;
     }
 
@@ -69,7 +78,7 @@ public class PlatformGrantFactorGuard
             return Result.Success;
         }
 
-        if (await _twoFactorStateStore.HasEnabledFactorAsync(userId, cancellationToken))
+        if ((await _usableFactors.GetAsync(userId, cancellationToken)).HasAny)
         {
             return Result.Success;
         }
@@ -104,7 +113,8 @@ public class PlatformGrantFactorGuard
             return Result.Success;
         }
 
-        if (!await _twoFactorStateStore.HasPlatformRoleHolderWithoutFactorAsync(role.Id, cancellationToken))
+        if (!await _twoFactorStateStore.HasPlatformRoleHolderWithoutFactorAsync(
+                role.Id, await _usableFactors.PasskeysCountAsync(cancellationToken), cancellationToken))
         {
             return Result.Success;
         }

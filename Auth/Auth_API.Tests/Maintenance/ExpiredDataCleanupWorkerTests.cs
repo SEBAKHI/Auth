@@ -379,12 +379,16 @@ public class ExpiredDataCleanupWorkerTests
         bindCodeCutoff.Should().BeCloseTo(DateTime.UtcNow.AddDays(-3), TimeSpan.FromMinutes(1));
     }
 
+    /// <summary>
+    /// S20 (PK6), REVIEW 151 F4: a passkey ceremony's challenge lives five minutes, and the sign-in
+    /// options that write one are anonymous, so it is cut off at the run time with no retention
+    /// days, as the authorize requests are: an expired challenge proves nothing. Spent and unspent
+    /// alike, once expired, whatever DataRetention:TwoFactorChallengeDays says.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the challenge retention restored on the step.</remarks>
     [Fact]
-    public async Task RunSweep_SweepsWebAuthnChallenges_WithTheChallengeRetention()
+    public async Task RunSweep_SweepsWebAuthnChallenges_AtTheRunTime()
     {
-        // S20 (PK6): a passkey ceremony's challenge lives five minutes, like a sign-in
-        // challenge, so it shares DataRetention:TwoFactorChallengeDays. Spent and unspent
-        // alike, once expired.
         SetupAllDrained();
         var settings = new DataRetentionSettings { TwoFactorChallengeDays = 4 };
         DateTime cutoff = default;
@@ -392,9 +396,10 @@ public class ExpiredDataCleanupWorkerTests
         _webAuthnChallenges.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Callback<DateTime, int, CancellationToken>((c, _, _) => cutoff = c).ReturnsAsync(0);
 
+        var before = DateTime.UtcNow;
         await CreateWorker(settings).RunSweepAsync(CancellationToken.None);
 
-        cutoff.Should().BeCloseTo(DateTime.UtcNow.AddDays(-4), TimeSpan.FromMinutes(1));
+        cutoff.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow, "the run's own instant, no days back");
     }
 
     [Fact]

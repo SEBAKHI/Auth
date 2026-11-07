@@ -75,6 +75,9 @@
   <data name="Auth.ReauthenticationRequired" xml:space="preserve">
     <value>为了您的安全，请重新登录后再更改双因素身份验证。</value>
   </data>
+  <data name="Auth.PasskeyRequired" xml:space="preserve">
+    <value>此账户使用通行密钥登录。请使用您的通行密钥继续。</value>
+  </data>
   <data name="Auth.FirstPartyOriginRequired" xml:space="preserve">
     <value>此请求必须来自平台自身的登录页面。请打开您要使用的应用的登录页面，然后重试。</value>
   </data>
@@ -889,6 +892,15 @@
   </data>
   <data name="User.RecoveryWindowExpired" xml:space="preserve">
     <value>该账户的恢复期已结束，删除正在完成中。</value>
+  </data>
+  <data name="User.DeletionCancelledAccountInactive" xml:space="preserve">
+    <value>您的账户不会被删除。但它已停用，因此您无法登录；您的管理员可以重新启用它。</value>
+  </data>
+  <data name="User.DeletionCancelledAccountLocked" xml:space="preserve">
+    <value>您的账户不会被删除。但管理员已将其锁定，因此在解锁之前您无法登录。</value>
+  </data>
+  <data name="User.DeletionCancelledAccountPending" xml:space="preserve">
+    <value>您的账户不会被删除。但它尚未激活，因此在激活之前您无法登录。</value>
   </data>
   <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
     <value>验证码无效或已过期。</value>

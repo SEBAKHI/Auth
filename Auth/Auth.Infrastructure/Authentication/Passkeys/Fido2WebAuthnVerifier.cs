@@ -6,6 +6,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using ErrorOr;
 using Fido2NetLib;
+using Fido2NetLib.Exceptions;
 using Fido2NetLib.Objects;
 using Microsoft.Extensions.Logging;
 
@@ -164,11 +165,139 @@ public sealed class Fido2WebAuthnVerifier : IWebAuthnVerifier
         }
     }
 
-    private Error Refused(string reason)
+    /// <inheritdoc />
+    public string CreateAssertionOptions(PasskeyRelyingParty relyingParty)
+    {
+        var fido2 = new Fido2(Configuration(relyingParty));
+
+        // No credential named: the device offers the discoverable passkeys it holds for the
+        // RP ID, and the response's user handle says whose (PK5, PK8).
+        var options = fido2.GetAssertionOptions(new GetAssertionOptionsParams
+        {
+            AllowedCredentials = [],
+            UserVerification = UserVerificationRequirement.Required,
+        });
+
+        return options.ToJson();
+    }
+
+    /// <inheritdoc />
+    public async Task<ErrorOr<VerifiedPasskeyAssertion>> VerifyAssertionAsync(
+        PasskeyRelyingParty relyingParty,
+        string optionsJson,
+        string responseJson,
+        StoredPasskeyCredential storedCredential,
+        CancellationToken cancellationToken)
+    {
+        // The server's own inputs, outside the mapped call: the options it stored, the key it
+        // stored, its counter. A failure in any of them is the server's, so it propagates (N4).
+        var options = AssertionOptions.FromJson(optionsJson);
+
+        // Options stored under another RP ID (a restart with a new Passkeys:RpId inside a
+        // ceremony's five minutes) are refused before the library runs, as at registration.
+        if (!string.Equals(options.RpId, relyingParty.RpId, StringComparison.Ordinal))
+        {
+            return Refused("the stored options name another RP ID", Ceremony.SignIn);
+        }
+
+        // The stored key: only an EC2 or an RSA key is ever stored, and the library would read
+        // any other through the native libsodium. One that is not, or that does not parse, is a
+        // fault of the server's own data, never the client's: it throws, named by the passkey's
+        // row id alone, and the error contract answers 500.
+        if (!AttestedKeyType.IsStoredKeyEc2OrRsa(storedCredential.PublicKey))
+        {
+            throw new InvalidOperationException(
+                $"The stored public key of passkey {storedCredential.PasskeyId} is not an EC2 or RSA key, or cannot be read.");
+        }
+
+        // Parsed here, outside the mapped call: the library parses the same bytes inside it, and
+        // a key it cannot read would otherwise surface as a client fault raised by the library
+        // (an EC2 key without its y raises KeyNotFoundException from the library). Rethrown as
+        // this code's own, so no classifier can ever take it for the client's.
+        try
+        {
+            _ = new CredentialPublicKey(storedCredential.PublicKey);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new InvalidOperationException(
+                $"The stored public key of passkey {storedCredential.PasskeyId} cannot be read.", ex);
+        }
+
+        var storedCounter = checked((uint)storedCredential.SignCount);
+
+        var fido2 = new Fido2(Configuration(relyingParty));
+
+        try
+        {
+            var response = JsonSerializer.Deserialize<AuthenticatorAssertionRawResponse>(responseJson);
+            if (response?.Response is null)
+            {
+                return Refused("the response has no assertion", Ceremony.SignIn);
+            }
+
+            var result = await fido2.MakeAssertionAsync(
+                new MakeAssertionParams
+                {
+                    AssertionResponse = response,
+                    OriginalOptions = options,
+                    StoredPublicKey = storedCredential.PublicKey,
+                    StoredSignatureCounter = storedCounter,
+                    // The user handle is compared by the caller, explicitly and in constant time,
+                    // against the passkey owner's stored handle, BEFORE this runs (PK8): the
+                    // library's callback is never the check.
+                    IsUserHandleOwnerOfCredentialIdCallback = static (_, _) => Task.FromResult(true),
+                },
+                cancellationToken);
+
+            return new VerifiedPasskeyAssertion(
+                result.SignCount,
+                IsBackupEligible(response.Response.AuthenticatorData),
+                result.IsBackedUp,
+                CounterRegressed: false);
+        }
+        catch (Fido2VerificationException ex) when (ex.Code == Fido2ErrorCode.InvalidSignCount)
+        {
+            // Fido2 4.3.2 refuses a counter that did not grow only once the signature verified
+            // (the spike pins both): a copied or broken authenticator, never a forged answer. Its
+            // own outcome, never the plain refusal, so the passkey is sealed (PK9).
+            _logger.LogInformation(
+                "Passkey sign-in: the library refused the signature counter of passkey {PasskeyId}",
+                storedCredential.PasskeyId);
+            return new VerifiedPasskeyAssertion(SignCount: 0, IsBackupEligible: false, IsBackedUp: false, CounterRegressed: true);
+        }
+        catch (Exception ex) when (Fido2Failures.IsClientFault(ex, cancellationToken))
+        {
+            return Refused(Fido2Failures.Describe(ex), Ceremony.SignIn);
+        }
+    }
+
+    /// <summary>
+    /// The BE flag of an assertion's authenticator data (WebAuthn L3 §6.1: bit 3 of the flags
+    /// byte), read after the library verified the signature that covers it. The library's
+    /// result carries the BS flag and not this one.
+    /// </summary>
+    private static bool IsBackupEligible(byte[]? authenticatorData) =>
+        authenticatorData is { Length: > AuthenticatorDataFlagsOffset }
+        && (authenticatorData[AuthenticatorDataFlagsOffset] & BackupEligibleFlag) != 0;
+
+    private const int AuthenticatorDataFlagsOffset = 32;
+    private const byte BackupEligibleFlag = 0x08;
+
+    private enum Ceremony
+    {
+        Registration,
+        SignIn,
+    }
+
+    private Error Refused(string reason, Ceremony ceremony = Ceremony.Registration)
     {
         // The reason names the check, never a value the client sent (PK16): no credential
         // id, public key, user handle or client data reaches the log.
-        _logger.LogInformation("Passkey registration refused: {Reason}", reason);
+        _logger.LogInformation(
+            "Passkey {Ceremony} refused: {Reason}",
+            ceremony == Ceremony.Registration ? "registration" : "sign-in",
+            reason);
         return PasskeyErrors.VerificationFailed;
     }
 

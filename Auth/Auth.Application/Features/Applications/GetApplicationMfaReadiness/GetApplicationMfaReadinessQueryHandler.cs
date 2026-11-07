@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -9,8 +10,9 @@ namespace Auth.Application.Features.Applications.GetApplicationMfaReadiness;
 /// <summary>
 /// Counts the users who started a session in the application in the last
 /// <see cref="WindowDays"/> days, and how many of them hold a qualifying second factor, by
-/// the same definition the sign-in paths read (<see cref="ITwoFactorStateStore.HasEnabledFactorAsync"/>).
-/// One read; it changes nothing.
+/// the same definition the requirement reads: the usable factors (S20, D-150-4,
+/// <see cref="UsableSecondFactors"/>), so a passkey counts only while passkeys run, exactly when
+/// the requirement would accept one. One read; it changes nothing.
 /// </summary>
 public class GetApplicationMfaReadinessQueryHandler
     : IRequestHandler<GetApplicationMfaReadinessQuery, ErrorOr<ApplicationMfaReadinessDto>>
@@ -20,15 +22,18 @@ public class GetApplicationMfaReadinessQueryHandler
 
     private readonly IApplicationRepository _applicationRepository;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
+    private readonly UsableSecondFactors _usableFactors;
     private readonly TimeProvider _timeProvider;
 
     public GetApplicationMfaReadinessQueryHandler(
         IApplicationRepository applicationRepository,
         ITwoFactorStateStore twoFactorStateStore,
+        UsableSecondFactors usableFactors,
         TimeProvider timeProvider)
     {
         _applicationRepository = applicationRepository;
         _twoFactorStateStore = twoFactorStateStore;
+        _usableFactors = usableFactors;
         _timeProvider = timeProvider;
     }
 
@@ -42,7 +47,7 @@ public class GetApplicationMfaReadinessQueryHandler
 
         var since = _timeProvider.GetUtcNow().UtcDateTime.AddDays(-WindowDays);
         var readiness = await _twoFactorStateStore.GetApplicationMfaReadinessAsync(
-            request.ApplicationId, since, cancellationToken);
+            request.ApplicationId, since, await _usableFactors.PasskeysCountAsync(cancellationToken), cancellationToken);
 
         return new ApplicationMfaReadinessDto
         {

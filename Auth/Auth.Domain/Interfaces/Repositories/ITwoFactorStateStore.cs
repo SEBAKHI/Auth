@@ -36,8 +36,10 @@ public interface ITwoFactorStateStore
     /// <remarks>
     /// The emailed code (S24) is never such a factor: its row has <c>IsEnabled = 0</c>
     /// by <c>CK_TwoFactorAuth_SingleFactor</c>, so an administrator whose only second
-    /// factor is email is asked to enroll one that counts. A passkey counts whatever
-    /// <c>Passkeys:Enabled</c> says; without an RP ID or the passkey schema, none does.
+    /// factor is email is asked to enroll one that counts. This is the inventory: a passkey
+    /// counts here whatever <c>Passkeys:Enabled</c> says (without an RP ID or the passkey
+    /// schema, none does). The rules that must not lean on a passkey while passkeys do not
+    /// run read the usable factors instead (S20, D-150-4: <c>UsableSecondFactors</c>).
     /// </remarks>
     Task<bool> HasEnabledFactorAsync(Guid userId, CancellationToken cancellationToken);
 
@@ -55,8 +57,15 @@ public interface ITwoFactorStateStore
     /// after <paramref name="sinceUtc"/>, and how many of them have an enabled second factor
     /// by the same definition as <see cref="HasEnabledFactorAsync"/>, in one statement.
     /// </summary>
+    /// <param name="applicationId">The application.</param>
+    /// <param name="sinceUtc">The start of the window.</param>
+    /// <param name="countPasskeys">
+    /// Whether a passkey counts as a factor right now (S20, D-150-4): false while passkeys do
+    /// not run, so the count matches what the requirement would ask. The app always counts.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<ApplicationMfaReadiness> GetApplicationMfaReadinessAsync(
-        Guid applicationId, DateTime sinceUtc, CancellationToken cancellationToken);
+        Guid applicationId, DateTime sinceUtc, bool countPasskeys, CancellationToken cancellationToken);
 
     /// <summary>
     /// Whether a role is held at platform scope by a live account that has no
@@ -69,7 +78,13 @@ public interface ITwoFactorStateStore
     /// unexpired assignment with no application, of an active role that belongs
     /// to no application, to an account that is not deleted.
     /// </remarks>
-    Task<bool> HasPlatformRoleHolderWithoutFactorAsync(Guid roleId, CancellationToken cancellationToken);
+    /// <param name="roleId">The role.</param>
+    /// <param name="countPasskeys">
+    /// Whether a passkey counts as a factor right now (S20, D-150-4): false while passkeys do
+    /// not run, so a holder whose only factor is a passkey is one without a factor.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<bool> HasPlatformRoleHolderWithoutFactorAsync(Guid roleId, bool countPasskeys, CancellationToken cancellationToken);
 
     /// <summary>
     /// How many accounts have the emailed code as their second factor (S24): the

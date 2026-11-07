@@ -39,7 +39,7 @@ public class PlatformMfaPolicyTests
     private readonly TwoFactorSettings _settings = new();
 
     private PlatformMfaPolicy Policy() =>
-        new(_store.Object, _resolver.Object, TestHelpers.CreateOptions(_settings), TestHelpers.LoadedSettingsReloader(), new EnforcedSettingsWarning(), _logger.Object);
+        new(TestHelpers.UsableFactors(_store.Object), _resolver.Object, TestHelpers.CreateOptions(_settings), TestHelpers.LoadedSettingsReloader(), new EnforcedSettingsWarning(), _logger.Object);
 
     private void GivenFactor(bool enabled) =>
         _store.Setup(s => s.GetQualifyingFactorsAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync(AppOnly(enabled));

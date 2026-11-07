@@ -54,7 +54,7 @@ public class AccountDeletionRecovererEmailTests
         _totp.Setup(t => t.VerifyRecoveryCode(RecoveryCode, "h1")).Returns(true);
     }
 
-    private AccountDeletionRecoverer Recoverer() => new(
+    private AccountDeletionRecoverer Recoverer(PasskeyOnlyAdministratorRule? rule = null) => new(
         _requests.Object,
         _users.Object,
         new SecondFactorVerifier(
@@ -72,6 +72,7 @@ public class AccountDeletionRecovererEmailTests
         Mock.Of<IJwtTokenService>(j => j.GenerateRefreshToken() == "unhanded-token"),
         TestHelpers.CreateSecondFactorLockout(),
         _builder.Object,
+        rule ?? TestHelpers.PasskeyOnlyAdministratorRuleOff(),
         Mock.Of<IPublisher>(),
         NullLogger<AccountDeletionRecoverer>.Instance);
 
@@ -338,6 +339,64 @@ public class AccountDeletionRecovererEmailTests
         var noFactor = TestHelpers.CreateUser(id: _user.Id, twoFactorEnabled: false, isDeleted: true);
         (await Recoverer().SendEmailCodeAsync(noFactor, Request(), null, CancellationToken.None))
             .FirstError.Should().Be(UserErrors.InvalidCredentials);
+    }
+
+    /// <summary>
+    /// REVIEW 151 F10 (C9): the request for the recovery's emailed code asks the refusal of an
+    /// administrator whose only usable factor is a passkey first, as the recovery it precedes
+    /// does, so no code is mailed and no challenge opened for a recovery that would be refused.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the sender's refusal removed.</remarks>
+    [Fact]
+    public async Task AskingForAnEmailedCode_ForAPasskeyOnlyAdministrator_IsRefused_AndSendsNothing()
+    {
+        GivenRow(EmailRow(_user.Id));
+        var sender = new Mock<IEmailCodeSender>(MockBehavior.Strict);
+        var challenges = new Mock<ITwoFactorChallengeRepository>(MockBehavior.Strict);
+        var recoverer = new AccountDeletionRecoverer(
+            _requests.Object, _users.Object,
+            new SecondFactorVerifier(_store.Object, [], TestHelpers.CreateSecondFactorLockout()),
+            _store.Object, challenges.Object, sender.Object, new FakeCredentialHasher(),
+            Mock.Of<IJwtTokenService>(), TestHelpers.CreateSecondFactorLockout(), _builder.Object,
+            TestHelpers.PasskeyOnlyAdministratorRuleOn(new QualifyingSecondFactors(Totp: false, Passkey: true), holdsPlatformAuthority: true),
+            Mock.Of<IPublisher>(), NullLogger<AccountDeletionRecoverer>.Instance);
+
+        var sent = await recoverer.SendEmailCodeAsync(_user, Request(), "203.0.113.7", CancellationToken.None);
+
+        sent.FirstError.Code.Should().Be(AuthErrors.PasskeyRequired.Code);
+        sender.Invocations.Should().BeEmpty("no code is mailed");
+        challenges.Invocations.Should().BeEmpty("no challenge is opened");
+    }
+
+    /// <summary>
+    /// REVIEW 151 F1, D-151-1 (b): an administrator's lock no longer refuses the password entry
+    /// before the cancel, so the request for its emailed code is answered as for any accepted
+    /// recovery: the code goes, and the recovery it opens cancels the deletion without a session.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the administrator's lock refused at the door again.</remarks>
+    [Fact]
+    public async Task AskingForAnEmailedCode_ReachesAnAdministratorLockedAccountInItsGracePeriod()
+    {
+        var locked = TestHelpers.CreateUser(
+            id: _user.Id, email: "owner@example.com", status: UserStatus.Locked, failedLoginAttempts: 0,
+            twoFactorEnabled: true, isDeleted: true, deletedAt: DateTime.UtcNow);
+        locked.LockKind(DateTime.UtcNow).Should().Be(AccountLockKind.Admin);
+        GivenRow(EmailRow(_user.Id));
+        _users.Setup(u => u.GetByEmailIncludeDeletedAsync("owner@example.com", It.IsAny<CancellationToken>())).ReturnsAsync(locked);
+        _requests.Setup(r => r.GetActiveByUserIdAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(Request());
+        var hasher = new Mock<IPasswordHasher>();
+        hasher.Setup(h => h.VerifyPassword("the-password", locked.PasswordHash!)).Returns(true);
+        _sender.Setup(s => s.SendAsync(locked, It.IsAny<TwoFactorChallenge>(), "203.0.113.7", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EmailCodeSent(DateTime.UtcNow, "o***@example.com", 2));
+        var handler = new RecoverAccountCommandHandler(
+            _users.Object, _requests.Object, hasher.Object, new Mock<ILoginAttemptRepository>().Object, Recoverer(),
+            TestHelpers.CreateOptions(TestHelpers.CreatePasswordSettings()), NullLogger<RecoverAccountCommandHandler>.Instance);
+
+        var sent = await handler.Handle(
+            new SendDeletionRecoveryEmailCodeCommand("owner@example.com", "the-password", "203.0.113.7", "Agent/1.0"), CancellationToken.None);
+
+        sent.IsError.Should().BeFalse(sent.IsError ? sent.FirstError.Code : "");
+        _sender.Verify(s => s.SendAsync(locked, It.IsAny<TwoFactorChallenge>(), "203.0.113.7", It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

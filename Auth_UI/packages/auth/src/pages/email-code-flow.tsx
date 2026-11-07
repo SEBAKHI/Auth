@@ -35,6 +35,7 @@ import { Input } from "@authsystem/ui/input"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { useAuth, type EmailCodeSignInResult } from "../auth-context"
+import { deletionCancelledOutcome } from "../deletion-cancelled"
 import { detectedTimeZone } from "../detected-time-zone"
 import {
   startEmailCode,
@@ -619,6 +620,8 @@ function RecoverStage({
   const [submitting, setSubmitting] = React.useState(false)
   const submittingRef = React.useRef(false)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+  // The recovery was accepted but issued no session (D-151-1 (b)): its sentence.
+  const [outcome, setOutcome] = React.useState<string | null>(null)
 
   const recover = async () => {
     if (submittingRef.current) return
@@ -633,7 +636,10 @@ function RecoverStage({
       await onRecover(askTwoFactor ? twoFactorCode.trim() : undefined)
     } catch (error) {
       const codes = getErrorCodes(error)
-      if (codes.includes("User.TwoFactorRequired")) {
+      const cancelled = deletionCancelledOutcome(error)
+      if (cancelled) {
+        setOutcome(cancelled)
+      } else if (codes.includes("User.TwoFactorRequired")) {
         setAskTwoFactor(true)
       } else if (codes.some((code) => code.startsWith("EmailVerification."))) {
         onCodeRefused(error)
@@ -644,6 +650,34 @@ function RecoverStage({
       submittingRef.current = false
       setSubmitting(false)
     }
+  }
+
+  // D-151-1 (b): the deletion is cancelled and the account keeps the state
+  // that refuses it a session, so the outcome replaces the notice and the
+  // recovery is offered no more: a second press would only be refused.
+  if (outcome) {
+    return (
+      <AuthLayout
+        title={t("accountDeletion.recoveryTitle")}
+        pageFooter={pageFooter}
+        {...appHeader}
+      >
+        <FieldGroup>
+          <Alert>
+            <Info />
+            <AlertDescription>{outcome}</AlertDescription>
+          </Alert>
+          <Button
+            type="button"
+            variant="link"
+            className="text-muted-foreground"
+            onClick={onChangeAddress}
+          >
+            {t("auth.useDifferentEmail")}
+          </Button>
+        </FieldGroup>
+      </AuthLayout>
+    )
   }
 
   return (

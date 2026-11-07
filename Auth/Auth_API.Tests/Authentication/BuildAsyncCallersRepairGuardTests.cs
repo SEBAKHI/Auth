@@ -22,8 +22,10 @@ namespace Auth_API.Tests.Authentication;
 /// </para>
 /// <para>
 /// False: a provider, an emailed code, a completed registration, the code exchange,
-/// and a provider recovery. Seven callers today; the passkey command of P7 will be
-/// the eighth, with false.
+/// a provider recovery, and the passkey sign-in (S20 PR B, FA5 (5-1)): a passkey proves
+/// who the person is, never the password, so it lifts no lock. Nine callers today. The
+/// passkey recovery adds none: it signs in through the recoverer, whose argument is false
+/// for a passkey.
 /// </para>
 /// <para>
 /// A caller is any file that names the builder, by its interface or its concrete
@@ -46,6 +48,9 @@ public class BuildAsyncCallersRepairGuardTests
         // OI-215: an emailed code proves the mailbox, never the password (G8).
         ["SignInWithEmailCodeCommandHandler.cs"] = "false",
         ["ExchangeAuthorizationCodeCommandHandler.cs"] = "false",
+        // S20 PR B (FA5 (5-1), ARR-1043): admitted under a lock raised by wrong passwords,
+        // and lifting nothing.
+        ["VerifyPasskeyAssertionCommandHandler.cs"] = "false",
     };
 
     private static List<(string Name, string Argument)> Callers()
@@ -99,7 +104,7 @@ public class BuildAsyncCallersRepairGuardTests
     {
         var callers = Callers();
 
-        callers.Should().HaveCount(8, "eight sign-in exits today; a new one is listed here with its reason");
+        callers.Should().HaveCount(9, "nine sign-in exits today; a new one is listed here with its reason");
         callers.Select(c => c.Name).Should().BeEquivalentTo(Expected.Keys);
         foreach (var (name, argument) in callers)
         {

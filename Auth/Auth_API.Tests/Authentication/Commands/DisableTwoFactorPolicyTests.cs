@@ -40,7 +40,7 @@ public class DisableTwoFactorPolicyTests
     private DisableTwoFactorCommandHandler Handler()
     {
         var policy = new PlatformMfaPolicy(
-            Mock.Of<ITwoFactorStateStore>(),
+            TestHelpers.UsableFactors(Mock.Of<ITwoFactorStateStore>()),
             _claims.Object,
             TestHelpers.CreateOptions(_settings),
             TestHelpers.LoadedSettingsReloader(),

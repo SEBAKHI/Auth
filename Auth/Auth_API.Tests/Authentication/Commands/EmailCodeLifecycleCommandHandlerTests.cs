@@ -108,6 +108,7 @@ public class EmailCodeLifecycleCommandHandlerTests
         _guard.Object,
         Verifier(),
         _store.Object,
+        TestHelpers.UsableFactors(_store.Object),
         _totp.Object,
         new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_appBindEmail)),
         new FirstFactorEmailProof(
@@ -736,7 +737,7 @@ public class EmailCodeLifecycleCommandHandlerTests
     {
         // EO8: a first bind revokes nothing; only the replacements and switching off do.
         GivenRow(new TwoFactorSnapshot(_user.Id, AppSecret, null, isEnabled: false, failedAttempts: 0, lockedUntil: null));
-        _store.Setup(s => s.HasEnabledFactorAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _store.Setup(s => s.GetQualifyingFactorsAsync(_user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(QualifyingSecondFactors.None);
         _protector.Setup(p => p.UnprotectAsync(_user.Id, AppSecret, It.IsAny<CancellationToken>())).ReturnsAsync("PLAIN");
         _totp.Setup(t => t.ValidateCode("PLAIN", "123456")).Returns(Step);
         _store.Setup(s => s.TryEnableAsync(_user.Id, AppSecret, It.IsAny<string>(), Step, null,

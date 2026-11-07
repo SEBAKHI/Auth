@@ -289,6 +289,8 @@ public sealed class FirstPartyHost : IAsyncDisposable
             feature.Controllers.Clear();
             feature.Controllers.Add(typeof(AuthController).GetTypeInfo());
             feature.Controllers.Add(typeof(TwoFactorController).GetTypeInfo());
+            // S20 PR B: the passkey sign-in and its recovery are sign-in exits too.
+            feature.Controllers.Add(typeof(PasskeysController).GetTypeInfo());
         }
     }
 

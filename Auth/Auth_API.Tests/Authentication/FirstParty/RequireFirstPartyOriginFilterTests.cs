@@ -126,6 +126,9 @@ public class RequireFirstPartyOriginFilterTests
         { "/api/v1/auth/deletion/recover", """{"email":"a@b.c","password":"x"}""" },
         { "/api/v1/auth/deletion/recover-external", """{"provider":"google","idToken":"x"}""" },
         { "/api/v1/auth/2fa/verify", """{"challengeToken":"c","code":"123456"}""" },
+        // S20 PR B: the passkey sign-in, and the passkey recovery of an account waiting for deletion.
+        { "/api/v1/auth/passkeys/assertion/verify", """{"credential":{"id":"x"}}""" },
+        { "/api/v1/auth/passkeys/assertion/recover", """{"credential":{"id":"x"}}""" },
     };
 
     [Theory]
@@ -151,6 +154,44 @@ public class RequireFirstPartyOriginFilterTests
             // Past the barrier: the mocked mediator answers nothing, so the action
             // fails later - but never with the barrier's code.
             response.StatusCode.Should().NotBe(HttpStatusCode.Forbidden, path);
+            host.Sender.Invocations.Should().NotBeEmpty($"{path} from {origin ?? "no Origin"} must reach its command");
+        }
+    }
+
+    // ---- S20 PR B: the three calls of the passkey sign-in, anonymous and first-party only ----
+
+    public static TheoryData<string, string> PasskeySignInCalls => new()
+    {
+        { "/api/v1/auth/passkeys/assertion/options", "{}" },
+        { "/api/v1/auth/passkeys/assertion/verify", """{"credential":{"id":"x"}}""" },
+        { "/api/v1/auth/passkeys/assertion/recover", """{"credential":{"id":"x"}}""" },
+    };
+
+    [Theory]
+    [MemberData(nameof(PasskeySignInCalls))]
+    public async Task PasskeySignIn_FromTheApexASiblingOrAnOpaqueOrigin_IsRefusedBeforeTheHandler(string path, string body)
+    {
+        foreach (var origin in new[] { Apex, Sibling, "null" })
+        {
+            await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled: false);
+
+            await ShouldBeRefused(await host.PostAsync(path, body, origin: origin));
+            host.Sender.Invocations.Should().BeEmpty($"{path} from {origin} must refuse before any command is sent");
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(PasskeySignInCalls))]
+    public async Task PasskeySignIn_FromTheAccountsAppOrWithoutOrigin_ReachesItsCommand_SignedOut(string path, string body)
+    {
+        foreach (var origin in new[] { AccountsApp, null })
+        {
+            await using var host = await StartAsync([ConsoleApp, AccountsApp], cookieEnabled: false);
+
+            var response = await host.PostAsync(path, body, origin: origin);
+
+            response.StatusCode.Should().NotBe(HttpStatusCode.Forbidden, path);
+            response.StatusCode.Should().NotBe(HttpStatusCode.Unauthorized, $"{path} is anonymous: no one is signed in before a sign-in");
             host.Sender.Invocations.Should().NotBeEmpty($"{path} from {origin ?? "no Origin"} must reach its command");
         }
     }

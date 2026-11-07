@@ -61,6 +61,7 @@ public class VerifyTwoFactorLoginMethodTests
         _keys,
         _builder.Object,
         Mock.Of<IDomainEventDispatcher>(),
+        TestHelpers.PasskeyOnlyAdministratorRuleOff(),
         Mock.Of<ILogger<VerifyTwoFactorLoginCommandHandler>>());
 
     private TwoFactorChallenge GivenEmailSignIn(AuthenticationMethods primary, params string[] codes)

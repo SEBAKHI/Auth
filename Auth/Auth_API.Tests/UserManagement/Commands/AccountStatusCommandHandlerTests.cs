@@ -279,6 +279,49 @@ public class LockAccountCommandHandlerTests
     }
 
     /// <summary>
+    /// REVIEW 151 F2: a lock that revoked a recent passkey ends the sessions once more after it,
+    /// so a passkey sign-in in flight whose session was written after the first sweep is ended.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the second sweep dropped.</remarks>
+    [Fact]
+    public async Task Handle_ALockThatRevokesARecentPasskey_EndsTheSessionsOnceMoreAfterIt()
+    {
+        var userId = Guid.NewGuid();
+        var lockedBy = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        var calls = new List<string>();
+        _credentialRevocationMock
+            .Setup(c => c.RevokeAllCredentialsAsync(userId, lockedBy, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("sessions"))
+            .ReturnsAsync(1);
+        var recent = PasskeyTestDoubles.Live(userId, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
+        _passkeysMock
+            .Setup(r => r.RevokeRegisteredAfterAsync(userId, It.IsAny<DateTime>(), Auth.Domain.Constants.PasskeyRemovalReasons.AdminLock, lockedBy, It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("passkeys"))
+            .ReturnsAsync([recent]);
+
+        var result = await _handler.Handle(new LockAccountCommand(userId, "Suspicious activity", 30, lockedBy), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        calls.Should().Equal(["sessions", "passkeys", "sessions"]);
+    }
+
+    [Fact]
+    public async Task Handle_ALockThatRevokesNoPasskey_EndsTheSessionsOnce()
+    {
+        var userId = Guid.NewGuid();
+        var lockedBy = Guid.NewGuid();
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser(id: userId));
+
+        (await _handler.Handle(new LockAccountCommand(userId, "Suspicious activity", 30, lockedBy), CancellationToken.None))
+            .IsError.Should().BeFalse();
+
+        _credentialRevocationMock.Verify(
+            c => c.RevokeAllCredentialsAsync(userId, lockedBy, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once());
+    }
+
+    /// <summary>
     /// REVIEW 150 F1, F2 and REVIEW-FIXES 150 F14: from the commit on, an administrator's browser
     /// that disconnects cannot skip any step: the sessions, the recent passkeys, the bind codes and
     /// the event all run with no request token.

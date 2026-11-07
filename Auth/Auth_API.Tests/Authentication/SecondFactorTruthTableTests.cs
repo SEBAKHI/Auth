@@ -53,7 +53,7 @@ public class SecondFactorTruthTableTests
     public void AnEmailOnlyPlatformAdministrator_IsAskedToEnroll_NeverToStepUp()
     {
         var policy = new PlatformMfaPolicy(
-            Mock.Of<ITwoFactorStateStore>(),
+            TestHelpers.UsableFactors(Mock.Of<ITwoFactorStateStore>()),
             Mock.Of<ITokenClaimsResolver>(),
             TestHelpers.CreateOptions(new TwoFactorSettings { EnforceForPlatformAdmins = true }),
             TestHelpers.LoadedSettingsReloader(),

@@ -84,6 +84,8 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
         // from one of them either committed already, and the revocation below catches it, or
         // finds its session ended and stores nothing; then the passkeys, even when ending the
         // sessions throws, whose exception surfaces after it.
+        var revocationReason = $"Account locked: {request.Reason}";
+        var recentRevoked = 0;
         try
         {
             // An administrator locking an account is usually answering an incident, so
@@ -94,7 +96,7 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
             await _credentialRevocation.RevokeAllCredentialsAsync(
                 request.UserId,
                 request.LockedBy,
-                $"Account locked: {request.Reason}",
+                revocationReason,
                 CancellationToken.None);
         }
         finally
@@ -102,8 +104,21 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
             // S20 (D-T19 D): a lock answers an incident, and a passkey registered in the 72
             // hours before it may be the intruder's door; it goes, the older ones stay, and
             // the owner is told which one and why (REVIEW 150 F12).
-            await _recentPasskeys.RevokeRecentAsync(
+            recentRevoked = await _recentPasskeys.RevokeRecentAsync(
                 user, passkeyCutoff, PasskeyRemovalReasons.AdminLock, request.LockedBy);
+        }
+
+        // Write, then read, on both sides (REVIEW 151 F2): a passkey sign-in in flight with one
+        // of those passkeys writes its session, then reads the passkey again. One whose session
+        // was written after the sweep above is ended by this second one; a later one finds the
+        // passkey revoked and ends its own.
+        if (recentRevoked > 0)
+        {
+            await _credentialRevocation.RevokeAllCredentialsAsync(
+                request.UserId,
+                request.LockedBy,
+                revocationReason,
+                CancellationToken.None);
         }
 
         // REVIEW-FIXES 150 F18 (g): a lock leaves the password as it was, so an emailed code to

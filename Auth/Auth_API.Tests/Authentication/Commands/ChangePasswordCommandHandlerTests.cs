@@ -548,8 +548,8 @@ public class ChangePasswordCommandHandlerTests
 
         result.IsError.Should().BeFalse("the password is written: the rest runs whatever the client does");
         _credentialRevocationMock.Verify(s => s.RevokeCredentialsAsync(
-            userId, It.IsAny<Guid?>(), It.IsAny<string?>(), userId, "Password changed", CancellationToken.None), Times.Once,
-            "the sessions end whatever the client does");
+            userId, It.IsAny<Guid?>(), It.IsAny<string?>(), userId, "Password changed", CancellationToken.None), Times.Exactly(2),
+            "the sessions end whatever the client does, and once more after the recent passkey went (REVIEW 151 F2)");
         _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
             userId, It.IsAny<DateTime>(), Auth.Domain.Constants.PasskeyRemovalReasons.PasswordChange, userId, CancellationToken.None), Times.Once,
             "the recent passkeys go whatever the client does");
@@ -599,4 +599,36 @@ public class ChangePasswordCommandHandlerTests
             TestHelpers.CreateOptions(_sessionSettings),
             PasskeyTestDoubles.Revocation(_passkeysMock, _passkeyPublisherMock.Object, new FixedTimeProvider(PasskeyNow), log),
             _loggerMock.Object);
+
+    /// <summary>
+    /// REVIEW 151 F2: a change that revoked a recent passkey ends the other sessions once more after
+    /// it, so a passkey sign-in in flight whose session was written after the first sweep is ended.
+    /// With the sessions kept by configuration nothing is swept, before or after.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the second sweep dropped.</remarks>
+    [Theory]
+    [InlineData(true, new[] { "sessions", "passkeys", "sessions" })]
+    [InlineData(false, new[] { "passkeys" })]
+    public async Task Handle_AChangeThatRevokesARecentPasskey_EndsTheOtherSessionsOnceMoreAfterIt(bool terminateSessions, string[] expected)
+    {
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        SetupSuccessfulPasswordChange(userId, user);
+        var calls = new List<string>();
+        _credentialRevocationMock
+            .Setup(s => s.RevokeCredentialsAsync(userId, It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("sessions"))
+            .ReturnsAsync(1);
+        var recent = PasskeyTestDoubles.Live(userId, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
+        _passkeysMock
+            .Setup(r => r.RevokeRegisteredAfterAsync(userId, It.IsAny<DateTime>(), Auth.Domain.Constants.PasskeyRemovalReasons.PasswordChange, userId, It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("passkeys"))
+            .ReturnsAsync([recent]);
+
+        var result = await _handler.Handle(
+            new ChangePasswordCommand(userId, "OldPass1!", "NewPass1!", TerminateSessions: terminateSessions), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        calls.Should().Equal(expected);
+    }
 }
