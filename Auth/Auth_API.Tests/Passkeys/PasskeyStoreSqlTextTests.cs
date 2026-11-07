@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.RegularExpressions;
 using Auth.Application.Configuration;
 using Auth.Domain.Constants;
@@ -28,6 +29,7 @@ namespace Auth_API.Tests.Passkeys;
 /// dropped; the 72-hour cut written <c>&gt;=</c>. REVIEW 150: the session's EXISTS dropped
 /// from the insert (F1); the floor, or its lock hints, dropped (F4); the index dropped (F5);
 /// <c>[UserId] = @UserId</c> dropped from the list, and its order written <c>DESC</c> (F6, F8).
+/// S20 PR B's dev run: the challenge's expiry and creation time sent with Dapper's default type.
 /// </para>
 /// </remarks>
 public class PasskeyStoreSqlTextTests
@@ -71,6 +73,25 @@ public class PasskeyStoreSqlTextTests
         command.Parameters["HandleHash"].Should().Be("fingerprint");
         command.Parameters["Purpose"].Should().Be((byte)WebAuthnChallengePurpose.Registration);
         command.Parameters["ExpiresAt"].Should().Be(issuedAt.AddMinutes(5));
+    }
+
+    [Fact]
+    public async Task Create_WritesTheTimesAsDateTime2_SoAPageThatAsksAgainIsGivenTheSameExpiresAt()
+    {
+        // Found by S20 PR B's dev run: with Dapper's default DATETIME the stored expiry was
+        // rounded to a 300th of a second, so the options asked again (T-B2) answered an
+        // expiresAt up to 3 ms off the first answer.
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+        var issuedAt = new DateTime(2026, 11, 7, 3, 10, 33, DateTimeKind.Utc).AddTicks(239_882);
+        var challenge = WebAuthnChallenge.IssueForAssertion("fingerprint", "{\"challenge\":\"x\"}", issuedAt);
+
+        await Challenges(db).CreateAsync(challenge, CancellationToken.None);
+
+        var command = db.Commands.Single();
+        command.Parameters["ExpiresAt"].Should().Be(challenge.ExpiresAt);
+        command.ParameterTypes["ExpiresAt"].Should().Be(DbType.DateTime2,
+            "Dapper's default datetime rounds to 3 ms, and the options asked again would carry another expiresAt");
+        command.ParameterTypes["CreatedAt"].Should().Be(DbType.DateTime2);
     }
 
     [Fact]

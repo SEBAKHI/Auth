@@ -1,3 +1,4 @@
+using System.Data;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
@@ -87,20 +88,23 @@ public sealed class WebAuthnChallengeRepository : IWebAuthnChallengeRepository
             throw new InvalidOperationException("The passkey schema is not deployed: no challenge can be stored.");
         }
 
+        var parameters = new DynamicParameters(new
+        {
+            challenge.Id,
+            challenge.HandleHash,
+            Purpose = (byte)challenge.Purpose,
+            challenge.UserId,
+            challenge.OptionsJson,
+        });
+
+        // DATETIME2, not Dapper's default DATETIME, which rounds to a 300th of a second: the
+        // row then holds the exact expiry the options answered, and a page that asks again
+        // (T-B2) is given that same expiresAt back.
+        parameters.Add("ExpiresAt", challenge.ExpiresAt, DbType.DateTime2);
+        parameters.Add("CreatedAt", challenge.CreatedAt, DbType.DateTime2);
+
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        await connection.ExecuteAsync(new CommandDefinition(
-            InsertSql,
-            new
-            {
-                challenge.Id,
-                challenge.HandleHash,
-                Purpose = (byte)challenge.Purpose,
-                challenge.UserId,
-                challenge.OptionsJson,
-                challenge.ExpiresAt,
-                challenge.CreatedAt,
-            },
-            cancellationToken: cancellationToken));
+        await connection.ExecuteAsync(new CommandDefinition(InsertSql, parameters, cancellationToken: cancellationToken));
     }
 
     /// <inheritdoc />
