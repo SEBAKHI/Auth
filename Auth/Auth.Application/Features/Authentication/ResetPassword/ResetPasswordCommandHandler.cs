@@ -186,6 +186,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         var shouldTerminateSessions = request.TerminateSessions
             ?? _sessionSettings.TerminateSessionsOnPasswordReset;
 
+        var recentRevoked = 0;
         try
         {
             await EndSessionsAsync(user.Id, shouldTerminateSessions);
@@ -194,7 +195,16 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         {
             // S20 (D-T19 D): a passkey registered in the 72 hours before the reset may be the
             // door of whoever held the account; it goes now, never failing the reset.
-            await _recentPasskeys.RevokeRecentAsync(user, passkeyCutoff, PasskeyRemovalReasons.PasswordReset, user.Id);
+            recentRevoked = await _recentPasskeys.RevokeRecentAsync(user, passkeyCutoff, PasskeyRemovalReasons.PasswordReset, user.Id);
+        }
+
+        // Write, then read, on both sides (REVIEW 151 F2): a passkey sign-in in flight with one
+        // of those passkeys writes its session, then reads the passkey again. One whose session
+        // was written after the sweep above is ended by this second one; a later one finds the
+        // passkey revoked and ends its own.
+        if (recentRevoked > 0)
+        {
+            await SweepSessionsAsync(user.Id, shouldTerminateSessions);
         }
 
         // The entity raises its event with the passkeys still live now, read after the
@@ -288,37 +298,43 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     /// </summary>
     private async Task EndSessionsAsync(Guid userId, bool terminateSessions)
     {
+        var ended = await SweepSessionsAsync(userId, terminateSessions);
+
         if (terminateSessions)
         {
-            // The full wipe, not a session-row termination. Ending the rows alone
-            // evicts nobody: nothing on the refresh path consults the session, so
-            // an unrevoked refresh token mints a fresh access token and the reset
-            // locks nothing out. This also revokes the SSO sessions.
-            await _credentialRevocation.RevokeAllCredentialsAsync(
-                userId,
-                revokedBy: userId,
-                "Password reset",
-                CancellationToken.None);
-
             _logger.LogInformation(
                 "Password reset for user {UserId}, revoked all credentials",
                 userId);
             return;
         }
 
-        // Preserving application sessions is a usability choice the operator
-        // may make. Preserving single sign-on is not: this is the action
-        // someone takes when they believe they have been compromised, and an
-        // SSO cookie that predates the reset still mints authorization codes
-        // for every application the account can enter. So it goes regardless
-        // of the flag, and no caller can opt out.
-        var idpRevoked = await _credentialRevocation.RevokeIdpSessionsAsync(
-            userId,
-            exceptIdpSessionToken: null,
-            CancellationToken.None);
-
         _logger.LogInformation(
             "Password reset for user {UserId}, application sessions preserved per request/configuration; revoked {IdpSessionCount} SSO sessions",
-            userId, idpRevoked);
+            userId, ended);
     }
+
+    /// <summary>
+    /// The sweep itself: every credential, or the SSO sessions alone; how many ended.
+    /// </summary>
+    /// <remarks>
+    /// The full wipe, not a session-row termination. Ending the rows alone evicts nobody:
+    /// nothing on the refresh path consults the session, so an unrevoked refresh token mints
+    /// a fresh access token and the reset locks nothing out. It also revokes the SSO
+    /// sessions. Preserving application sessions is a usability choice the operator may
+    /// make. Preserving single sign-on is not: this is the action someone takes when they
+    /// believe they have been compromised, and an SSO cookie that predates the reset still
+    /// mints authorization codes for every application the account can enter. So it goes
+    /// regardless of the flag, and no caller can opt out.
+    /// </remarks>
+    private Task<int> SweepSessionsAsync(Guid userId, bool terminateSessions) =>
+        terminateSessions
+            ? _credentialRevocation.RevokeAllCredentialsAsync(
+                userId,
+                revokedBy: userId,
+                "Password reset",
+                CancellationToken.None)
+            : _credentialRevocation.RevokeIdpSessionsAsync(
+                userId,
+                exceptIdpSessionToken: null,
+                CancellationToken.None);
 }

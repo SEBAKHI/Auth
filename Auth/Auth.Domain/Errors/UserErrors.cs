@@ -261,6 +261,32 @@ public static class UserErrors
         code: "User.RecoveryWindowExpired",
         description: "The recovery period for this account has ended. Deletion is being finalized.");
 
+    /// <summary>
+    /// The person proved the recovery of their account waiting for deletion, and the deletion
+    /// is cancelled — but the account is deactivated, so no session is issued (owner decision
+    /// D-151-1 (b)): the account keeps the state it was in. Like
+    /// <see cref="AccountCreatedSignInRequired"/>, done but no session: the page shows the
+    /// sentence as the outcome and offers the recovery no more.
+    /// </summary>
+    public static Error DeletionCancelledAccountInactive => Error.Forbidden(
+        code: "User.DeletionCancelledAccountInactive",
+        description: "Your account will not be deleted. It is deactivated, so you cannot sign in; your administrator can reactivate it.");
+
+    /// <summary>
+    /// <see cref="DeletionCancelledAccountInactive"/> for an account that is not activated yet.
+    /// </summary>
+    public static Error DeletionCancelledAccountPending => Error.Forbidden(
+        code: "User.DeletionCancelledAccountPending",
+        description: "Your account will not be deleted. It is not activated yet, so you cannot sign in until it is.");
+
+    /// <summary>
+    /// <see cref="DeletionCancelledAccountInactive"/> for an account an administrator locked: the
+    /// lock stays as it was.
+    /// </summary>
+    public static Error DeletionCancelledAccountLocked => Error.Forbidden(
+        code: "User.DeletionCancelledAccountLocked",
+        description: "Your account will not be deleted. An administrator has locked it, so you cannot sign in until it is unlocked.");
+
     // Request-validation rules (ADR 0001): validators declare these with
     // WithErrorCode, and the validation behavior carries the offending property.
 

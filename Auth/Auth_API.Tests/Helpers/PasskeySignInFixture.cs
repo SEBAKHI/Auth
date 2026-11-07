@@ -70,6 +70,9 @@ internal sealed class PasskeySignInFixture : IDisposable
         Passkeys.Setup(p => p.GetUserHandleAsync(Owner.Id, It.IsAny<CancellationToken>())).ReturnsAsync(() => StoredOwnerHandle);
         Passkeys.Setup(p => p.TryRecordAssertionAsync(It.IsAny<UserPasskey>(), It.IsAny<long>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => RecordSucceeds);
+        // The read after the session (REVIEW 151 F2): live unless a test revokes it meanwhile.
+        Passkeys.Setup(p => p.GetLiveByIdAsync(Owner.Id, Passkey.Id, PasskeyTestDoubles.RpId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => PasskeyLiveAfterTheSession ? Passkey : null);
 
         Users.Setup(u => u.GetByIdAsync(Owner.Id, It.IsAny<CancellationToken>())).ReturnsAsync(() => OwnerDeleted ? null : Owner);
         Users.Setup(u => u.GetByIdIncludeDeletedAsync(Owner.Id, It.IsAny<CancellationToken>())).ReturnsAsync(() => DeletedOwner ?? Owner);
@@ -117,6 +120,12 @@ internal sealed class PasskeySignInFixture : IDisposable
     /// <summary>Whether the conditional record matches its row.</summary>
     public bool RecordSucceeds { get; set; } = true;
 
+    /// <summary>Whether the passkey is still live when it is read again after the session is written.</summary>
+    public bool PasskeyLiveAfterTheSession { get; set; } = true;
+
+    /// <summary>What ends a session the sign-in issued with a passkey revoked meanwhile.</summary>
+    public Mock<ICredentialRevocationService> Revocation { get; } = new();
+
     /// <summary>Whether the sign-in's read of the owner (deleted accounts excluded) finds nothing.</summary>
     public bool OwnerDeleted { get; set; }
 
@@ -130,7 +139,7 @@ internal sealed class PasskeySignInFixture : IDisposable
     public int ConsumeCalls => _consumed;
 
     public PasskeyAssertionCeremony Ceremony() =>
-        new(Feature, Challenges.Object, Passkeys.Object, Verifier, new FakeCredentialHasher(), TimeProvider.System, CeremonyLog);
+        new(Feature, Challenges.Object, Passkeys.Object, Verifier, new FakeCredentialHasher(), Revocation.Object, TimeProvider.System, CeremonyLog);
 
     public BeginPasskeyAssertionCommandHandler Begin() =>
         new(Feature, Challenges.Object, Verifier, Mock.Of<ISecureTokenGenerator>(t => t.Generate() == Handle), new FakeCredentialHasher(), TimeProvider.System);

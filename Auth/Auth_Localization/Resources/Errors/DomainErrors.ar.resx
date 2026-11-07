@@ -895,6 +895,15 @@
   <data name="User.RecoveryWindowExpired" xml:space="preserve">
     <value>انتهت مهلة استعادة هذا الحساب، وجارٍ إتمام الحذف.</value>
   </data>
+  <data name="User.DeletionCancelledAccountInactive" xml:space="preserve">
+    <value>لن يُحذف حسابك. لكنه معطّل، فلا يمكنك تسجيل الدخول؛ ويستطيع المسؤول إعادة تفعيله.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountLocked" xml:space="preserve">
+    <value>لن يُحذف حسابك. لكن مسؤولًا قفله، فلا يمكنك تسجيل الدخول حتى يُفتح قفله.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountPending" xml:space="preserve">
+    <value>لن يُحذف حسابك. لكنه لم يُفعَّل بعد، فلا يمكنك تسجيل الدخول حتى يُفعَّل.</value>
+  </data>
   <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
     <value>رمز التحقق غير صالح أو منتهي الصلاحية.</value>
   </data>

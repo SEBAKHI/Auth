@@ -39,13 +39,29 @@ public static class PasskeyLockAdmission
             return owner.LockRefusal(kind);
         }
 
+        ReportAdmission(owner, kind, logger);
+        return null;
+    }
+
+    /// <summary>
+    /// The passkey recovery of an account waiting for deletion: a lock raised by wrong passwords
+    /// admits it and lifts nothing, as at the sign-in, and is reported. An administrator's lock is
+    /// not judged here: the shared recovery cancels the deletion and refuses the session
+    /// (D-151-1 (b)), so the account is not deleted and stays locked.
+    /// </summary>
+    /// <param name="owner">The account the passkey belongs to.</param>
+    /// <param name="nowUtc">Now (UTC).</param>
+    /// <param name="logger">Where the admission under a lock is reported.</param>
+    public static void AdmitToRecovery(User owner, DateTime nowUtc, ILogger logger) =>
+        ReportAdmission(owner, owner.LockKind(nowUtc), logger);
+
+    private static void ReportAdmission(User owner, AccountLockKind kind, ILogger logger)
+    {
         if (kind is AccountLockKind.Timed or AccountLockKind.Hard)
         {
             logger.LogWarning(
                 "{EventCode}: the passkey sign-in of user {UserId} was admitted under a {LockKind} lock; nothing was lifted",
                 PasskeySignalCodes.AdmittedWhileLocked, owner.Id, kind);
         }
-
-        return null;
     }
 }

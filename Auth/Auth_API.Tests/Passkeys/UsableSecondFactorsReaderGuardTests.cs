@@ -71,6 +71,25 @@ public class UsableSecondFactorsReaderGuardTests
         holders.Should().BeEquivalentTo(UsableReaders);
     }
 
+    [Fact]
+    public void RemovingThePassword_CannotCountAPasskey()
+    {
+        // D-S20-5 (b), REVIEW 151 F8: its seventh condition (2b) reads the authenticator app alone.
+        // A passkey could only enter it through the passkey store or the FA2 reads, and it holds
+        // neither: an administrator with no password and a passkey alone would be opened by the
+        // mailbox while passkeys are off.
+        typeof(RemovePasswordCommandHandler).GetConstructors()
+            .SelectMany(constructor => constructor.GetParameters())
+            .Select(parameter => parameter.ParameterType)
+            .Should().NotContain(typeof(Auth.Domain.Interfaces.Repositories.IUserPasskeyRepository));
+
+        var source = ApiSourceScan.ProductionSources()
+            .Single(file => file.File.EndsWith("RemovePasswordCommandHandler.cs", StringComparison.Ordinal))
+            .Source;
+        Regex.IsMatch(source, @"\.\s*(GetQualifyingFactorsAsync|HasEnabledFactorAsync)\s*\(").Should().BeFalse(
+            "the app is read from the factor row's snapshot, never from the inventory that counts a passkey");
+    }
+
     [Theory]
     [InlineData(typeof(DisableTwoFactorCommandHandler))]
     [InlineData(typeof(RemovePasswordCommandHandler))]

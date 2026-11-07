@@ -893,6 +893,15 @@
   <data name="User.RecoveryWindowExpired" xml:space="preserve">
     <value>Bu hesabın kurtarma süresi sona erdi. Silme işlemi tamamlanıyor.</value>
   </data>
+  <data name="User.DeletionCancelledAccountInactive" xml:space="preserve">
+    <value>Hesabınız silinmeyecek. Ancak devre dışı bırakıldığı için giriş yapamazsınız; yöneticiniz hesabı yeniden etkinleştirebilir.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountLocked" xml:space="preserve">
+    <value>Hesabınız silinmeyecek. Ancak bir yönetici hesabı kilitlediği için kilit açılana kadar giriş yapamazsınız.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountPending" xml:space="preserve">
+    <value>Hesabınız silinmeyecek. Ancak henüz etkinleştirilmediği için etkinleştirilene kadar giriş yapamazsınız.</value>
+  </data>
   <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
     <value>Doğrulama kodu geçersiz veya süresi dolmuş.</value>
   </data>

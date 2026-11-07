@@ -64,11 +64,11 @@ public class TwoFactorHardLockAdminNotificationEventHandlerTests
             .ReturnsAsync(new QualifyingSecondFactors(Totp: true, Passkey: false));
     }
 
-    private TwoFactorHardLockAdminNotificationEventHandler Handler() =>
+    private TwoFactorHardLockAdminNotificationEventHandler Handler(bool passkeysRun = false) =>
         new(
             _users.Object,
             new TwoFactorResetAdministrators(
-                _permissions.Object, new PermissionGrantGuard(_permissions.Object), TestHelpers.UsableFactors(_factors.Object)),
+                _permissions.Object, new PermissionGrantGuard(_permissions.Object), TestHelpers.UsableFactors(_factors.Object, passkeysRun)),
             _notifications.Object,
             TestHelpers.CreateOptions(new EmailSettings { FrontendBaseUrl = "https://console.example.com/" }),
             _log);
@@ -190,6 +190,25 @@ public class TwoFactorHardLockAdminNotificationEventHandlerTests
             .Select(request => request.RecipientUserId).Should().Equal([eligible.UserId]);
         To(TwoFactorHardLockAdminNotificationEventHandler.Audiences.Owner).Should().ContainSingle(
             "the owner hears once, as the owner, even while holding platform authority");
+    }
+
+    /// <summary>
+    /// REVIEW 151 F6, D-150-4: an administrator whose only factor is a passkey can make the
+    /// two-factor sign-in a reset asks only while passkeys run, so only then are they told.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the passkey counted whatever passkeys say.</remarks>
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task APasskeyOnlyAdministrator_IsToldOnlyWhilePasskeysRun(bool passkeysRun, bool told)
+    {
+        var admin = Holder("passkey-admin@example.org", ["users:*"]);
+        _factors.Setup(s => s.GetQualifyingFactorsAsync(admin.UserId, It.IsAny<CancellationToken>())).ReturnsAsync(new QualifyingSecondFactors(Totp: false, Passkey: true));
+
+        await Handler(passkeysRun).Handle(Locked(), CancellationToken.None);
+
+        To(TwoFactorHardLockAdminNotificationEventHandler.Audiences.Administrator)
+            .Select(request => request.RecipientUserId).Should().Equal(told ? new Guid?[] { admin.UserId } : Array.Empty<Guid?>());
     }
 
     [Fact]

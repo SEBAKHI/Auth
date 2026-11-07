@@ -21,9 +21,11 @@ public interface IPlatformMfaPolicy
     /// The pure decision, in a fixed order (FA2 (2-1)). No platform permission: nothing
     /// required. No qualifying second factor on the account: enroll — before the
     /// session is looked at, so a session that proved a factor since removed loses
-    /// the authority at its next refresh. Two factors proved: nothing. A passkey is
-    /// the account's only qualifying factor (S20): sign in with it, since there is no
-    /// app to step up with. A first factor proved: step up. Otherwise (unknown, or an
+    /// the authority at its next refresh. A passkey is the account's only qualifying
+    /// factor (S20): nothing for a passkey session, and for any other sign in with the
+    /// passkey — before the session's two factors, so a session that proved the app since
+    /// switched off loses the authority too. Two factors proved: nothing. A first factor
+    /// proved: step up. Otherwise (unknown, or an
     /// emailed code first): sign in again. Platform permissions and roles are withheld
     /// only when something is required and <paramref name="enforce"/> is on;
     /// <c>org_perm</c> and the organization claims are always kept.

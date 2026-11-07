@@ -896,7 +896,8 @@ public class ResetPasswordCommandHandlerTests
         result.IsError.Should().BeFalse("the link is spent and the password written: the rest runs whatever the client does");
         order.Should().Equal(["link spent", "password written"], "the link is spent before the first write");
         _credentialRevocationMock.Verify(s => s.RevokeAllCredentialsAsync(
-            user.Id, user.Id, "Password reset", CancellationToken.None), Times.Once, "the sessions end whatever the client does");
+            user.Id, user.Id, "Password reset", CancellationToken.None), Times.Exactly(2),
+            "the sessions end whatever the client does, and once more after the recent passkey went (REVIEW 151 F2)");
         _passkeysMock.Verify(r => r.RevokeRegisteredAfterAsync(
             user.Id, It.IsAny<DateTime>(), Auth.Domain.Constants.PasskeyRemovalReasons.PasswordReset, user.Id, CancellationToken.None), Times.Once,
             "the recent passkeys go whatever the client does");
@@ -954,4 +955,41 @@ public class ResetPasswordCommandHandlerTests
             _twoFactorChallengeRepositoryMock.Object,
             PasskeyTestDoubles.Revocation(_passkeysMock, _passkeyPublisherMock.Object, new FixedTimeProvider(PasskeyNow), log),
             _loggerMock.Object);
+
+    /// <summary>
+    /// REVIEW 151 F2: a reset that revoked a recent passkey sweeps once more after it: every
+    /// credential, or, with the application sessions kept by configuration, the single sign-on
+    /// sessions, which a reset always ends.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the second sweep dropped.</remarks>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Handle_AResetThatRevokesARecentPasskey_SweepsOnceMoreAfterIt(bool terminateSessions)
+    {
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!", TerminateSessions: terminateSessions);
+        SetupValidResetScenario(user, resetToken, command);
+        var calls = new List<string>();
+        _credentialRevocationMock
+            .Setup(s => s.RevokeAllCredentialsAsync(user.Id, It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("sessions"))
+            .ReturnsAsync(1);
+        _credentialRevocationMock
+            .Setup(s => s.RevokeIdpSessionsAsync(user.Id, null, It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("sso"))
+            .ReturnsAsync(1);
+        var recent = PasskeyTestDoubles.Live(user.Id, PasskeyNow.UtcDateTime.AddHours(-71), "Recent");
+        _passkeysMock
+            .Setup(r => r.RevokeRegisteredAfterAsync(user.Id, It.IsAny<DateTime>(), Auth.Domain.Constants.PasskeyRemovalReasons.PasswordReset, user.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("passkeys"))
+            .ReturnsAsync([recent]);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        var sweep = terminateSessions ? "sessions" : "sso";
+        calls.Should().Equal([sweep, "passkeys", sweep]);
+    }
 }

@@ -165,7 +165,16 @@ public readonly record struct AuthenticationMethods
     /// </summary>
     public bool IsMfaSatisfied =>
         (HasPrimary && (Value & SecondFactorBits) != 0)
-        || (Value & (PasskeyBit | PasskeyUserVerifiedBit)) == (PasskeyBit | PasskeyUserVerifiedBit);
+        || ProvesPasskey;
+
+    /// <summary>
+    /// Gets whether the session proved a passkey the device verified the person for: both
+    /// <see cref="Passkey"/> and <see cref="PasskeyUserVerified"/> (M3). The one proof an
+    /// account whose only usable factor is a passkey holds platform authority with
+    /// (D-S20-4 (ii)); the authenticator app beside the password is not it.
+    /// </summary>
+    public bool ProvesPasskey =>
+        (Value & (PasskeyBit | PasskeyUserVerifiedBit)) == (PasskeyBit | PasskeyUserVerifiedBit);
 
     /// <summary>
     /// What a sign-in whose first proof is the emailed code records: the code, and the

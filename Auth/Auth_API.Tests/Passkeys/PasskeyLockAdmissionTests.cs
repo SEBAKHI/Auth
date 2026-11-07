@@ -40,10 +40,11 @@ public class PasskeyLockAdmissionTests
         var result = await fixture.SignInAsync();
 
         result.IsError.Should().BeFalse($"{kind}: the passkey is admitted (ARR-1043)");
+        // Nothing is lifted: the builder is told the session did not prove the password, and the
+        // sign-in writes nothing to the account itself (REVIEW 151 F10, C13).
         fixture.VerifySession();
-        fixture.Owner.Status.Should().Be(UserStatus.Locked);
-        fixture.Owner.FailedLoginAttempts.Should().Be(failures);
-        fixture.Owner.LockoutEnd.Should().Be(end);
+        fixture.Users.Invocations.Select(invocation => invocation.Method.Name)
+            .Should().OnlyContain(name => name.StartsWith("Get", StringComparison.Ordinal), $"{kind}: no unlock, no lift, no repair");
         fixture.VerifyLog.Entries.Should().ContainSingle(entry => entry.Level == LogLevel.Warning
                 && entry.Values.Contains(PasskeySignalCodes.AdmittedWhileLocked))
             .Which.Values.Should().Contain(kind, "the line names the lock's kind ([S20-O7] counts Admin = 0)");

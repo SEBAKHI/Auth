@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Nodes;
+using Auth.Application.DTOs;
 using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Features.Passkeys.VerifyPasskeyAssertion;
 using Auth.Application.Interfaces;
@@ -268,6 +269,47 @@ public class VerifyPasskeyAssertionCommandHandlerTests
 
         result.FirstError.Code.Should().Be(PasskeyErrors.VerificationFailed.Code);
         fixture.VerifyNoSession();
+    }
+
+    /// <summary>
+    /// REVIEW 151 F2: write, then read. A removal, an administrator's reset, a lock, or a password
+    /// change or reset that revoked the passkey between the record and the session is seen by the
+    /// read after the session: the session just issued and its single sign-on session end, the
+    /// sign-in event is dropped, and the answer is a failed ceremony.
+    /// </summary>
+    [Fact]
+    public async Task APasskeyRevokedWhileTheSessionWasWritten_EndsThatSession_AndRefuses()
+    {
+        using var fixture = new PasskeySignInFixture { PasskeyLiveAfterTheSession = false };
+        var sessionId = Guid.NewGuid();
+        fixture.Builder.Setup(b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(),
+                It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<bool>()))
+            .ReturnsAsync(new LoginResponse { SessionId = sessionId, IdpSessionToken = "idp-cookie-value" });
+
+        var result = await fixture.SignInAsync();
+
+        result.FirstError.Code.Should().Be(PasskeyErrors.VerificationFailed.Code);
+        fixture.Passkeys.Verify(p => p.GetLiveByIdAsync(fixture.Owner.Id, fixture.Passkey.Id, PasskeyTestDoubles.RpId, CancellationToken.None),
+            Times.Once, "read again, without the request's token, once the session is written");
+        fixture.Revocation.Verify(r => r.TerminateSessionAsync(
+                sessionId, fixture.Owner.Id, Auth.Domain.Constants.TokenRevocationReasons.PasskeyRevokedMeanwhile, CancellationToken.None),
+            Times.Once);
+        fixture.Revocation.Verify(r => r.RevokeIdpSessionAsync("idp-cookie-value", CancellationToken.None), Times.Once);
+        fixture.Events.Verify(e => e.DispatchEventsAsync(It.IsAny<Auth.Domain.Primitives.AggregateRoot>(), It.IsAny<CancellationToken>()),
+            Times.Never, "no sign-in is reported for a session that was ended");
+    }
+
+    [Fact]
+    public async Task APasskeyStillLiveAfterTheSession_SignsIn_AndEndsNothing()
+    {
+        using var fixture = new PasskeySignInFixture();
+
+        (await fixture.SignInAsync()).IsError.Should().BeFalse();
+
+        fixture.Passkeys.Verify(p => p.GetLiveByIdAsync(fixture.Owner.Id, fixture.Passkey.Id, PasskeyTestDoubles.RpId, CancellationToken.None), Times.Once);
+        fixture.Revocation.Invocations.Should().BeEmpty();
     }
 
     // ── 8. FA6: the codes of their own ──

@@ -893,6 +893,15 @@
   <data name="User.RecoveryWindowExpired" xml:space="preserve">
     <value>اس اکاؤنٹ کی بحالی کی مدت ختم ہو چکی ہے۔ حذف کرنے کا عمل مکمل کیا جا رہا ہے۔</value>
   </data>
+  <data name="User.DeletionCancelledAccountInactive" xml:space="preserve">
+    <value>آپ کا اکاؤنٹ حذف نہیں کیا جائے گا۔ لیکن یہ غیر فعال ہے، اس لیے آپ سائن اِن نہیں کر سکتے؛ آپ کا منتظم اسے دوبارہ فعال کر سکتا ہے۔</value>
+  </data>
+  <data name="User.DeletionCancelledAccountLocked" xml:space="preserve">
+    <value>آپ کا اکاؤنٹ حذف نہیں کیا جائے گا۔ لیکن ایک منتظم نے اسے مقفل کر دیا ہے، اس لیے جب تک یہ کھول نہ دیا جائے آپ سائن اِن نہیں کر سکتے۔</value>
+  </data>
+  <data name="User.DeletionCancelledAccountPending" xml:space="preserve">
+    <value>آپ کا اکاؤنٹ حذف نہیں کیا جائے گا۔ لیکن یہ ابھی فعال نہیں ہوا، اس لیے جب تک یہ فعال نہ ہو آپ سائن اِن نہیں کر سکتے۔</value>
+  </data>
   <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
     <value>تصدیقی کوڈ غلط ہے یا اس کی میعاد ختم ہو چکی ہے۔</value>
   </data>

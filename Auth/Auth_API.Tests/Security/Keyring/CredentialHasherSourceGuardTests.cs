@@ -27,7 +27,7 @@ public class CredentialHasherSourceGuardTests
     [
         // S24: the challenge a recovery's emailed code is checked against needs a unique
         // fingerprint in TokenHash; its token is never handed to anyone.
-        App + "AccountDeletion/Common/AccountDeletionRecoverer.cs:251 Hash TwoFactorChallenge",
+        App + "AccountDeletion/Common/AccountDeletionRecoverer.cs:310 Hash TwoFactorChallenge",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:440 Hash AuthorizationCode",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:730 Hash AuthorizationRequestHandle",
         App + "Authentication/Authorize/AuthorizeCommandHandler.cs:772 Candidates AuthorizationRequestHandle",
@@ -71,7 +71,7 @@ public class CredentialHasherSourceGuardTests
         // registration's: the page's re-issue read, the issue, and the consume of the ceremony.
         App + "Passkeys/BeginPasskeyAssertion/BeginPasskeyAssertionCommandHandler.cs:69 Candidates WebAuthnChallenge",
         App + "Passkeys/BeginPasskeyAssertion/BeginPasskeyAssertionCommandHandler.cs:81 Hash WebAuthnChallenge",
-        App + "Passkeys/Common/PasskeyAssertionCeremony.cs:99 Candidates WebAuthnChallenge",
+        App + "Passkeys/Common/PasskeyAssertionCeremony.cs:108 Candidates WebAuthnChallenge",
         App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:77 Candidates WebhookKey",
         // S11 PR B: the issuing form a matched webhook key is compared with, to re-fingerprint it.
         App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:97 Hash WebhookKey",

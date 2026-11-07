@@ -195,7 +195,9 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
     /// <summary>
     /// The fixed order of the decision. Enroll comes before the session is looked
     /// at: a session that proved a factor which has since been removed must not
-    /// keep the authority on the strength of what it once proved.
+    /// keep the authority on the strength of what it once proved. So does the passkey:
+    /// once it is the account's only usable factor, only a passkey session holds the
+    /// authority, whatever the session proved before.
     /// </summary>
     private static MfaRequirement Assess(
         TokenClaims platformClaims,
@@ -212,17 +214,19 @@ public class PlatformMfaPolicy : IPlatformMfaPolicy
             return MfaRequirement.Enroll;
         }
 
+        // S20, D-S20-4 (ii): an account whose one usable factor is a passkey holds platform
+        // authority only through a passkey session — before the session's two factors are
+        // asked (REVIEW 151 F3): the password and the authenticator app, proved before the app
+        // was switched off, are not it. Signing in again with the password, or stepping up,
+        // has nothing to answer with.
+        if (factors.IsPasskeyOnly)
+        {
+            return methods.ProvesPasskey ? MfaRequirement.None : MfaRequirement.Passkey;
+        }
+
         if (methods.IsMfaSatisfied)
         {
             return MfaRequirement.None;
-        }
-
-        // S20: only a passkey sign-in proves two factors for an account whose one
-        // qualifying factor is a passkey — signing in again with the password, or stepping
-        // up, has nothing to answer with.
-        if (factors.IsPasskeyOnly)
-        {
-            return MfaRequirement.Passkey;
         }
 
         return methods.HasPrimary

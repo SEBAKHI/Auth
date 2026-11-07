@@ -28,12 +28,15 @@ namespace Auth.Application.Features.AccountDeletion.RecoverAccountWithPasskey;
 /// Anything else — a live account, an unknown one, an administrator's deletion with no request —
 /// answers what the password entry answers for it, <c>User.InvalidCredentials</c>, and the caller
 /// learns nothing more.</item>
-/// <item>The lock, as at the sign-in (<see cref="PasskeyLockAdmission"/>): an administrator's lock
-/// refuses; a lock raised by wrong passwords admits and lifts nothing.</item>
+/// <item>A lock raised by wrong passwords admits and lifts nothing, as at the sign-in
+/// (<see cref="PasskeyLockAdmission.AdmitToRecovery"/>).</item>
 /// <item>The shared pipeline (<see cref="AccountDeletionRecoverer"/>): with the passkey's methods,
 /// which satisfy two factors, so no second step is asked; it cancels the request, restores the
 /// account, publishes the cancellation and builds a session that does not lift a lock
-/// (<c>passwordProven: false</c>).</item>
+/// (<c>passwordProven: false</c>). A deactivated, not yet activated or administrator-locked
+/// account keeps its state and gets no session (D-151-1 (b)).</item>
+/// <item>The passkey read again once the session is written (<see cref="PasskeyAssertionCeremony.StillLiveAfterTheSessionAsync"/>):
+/// one revoked meanwhile ends that session, and the deletion stays cancelled.</item>
 /// </list>
 /// </remarks>
 public sealed class RecoverAccountWithPasskeyCommandHandler
@@ -89,17 +92,15 @@ public sealed class RecoverAccountWithPasskeyCommandHandler
             return UserErrors.InvalidCredentials;
         }
 
-        // 3. The lock, as at the sign-in.
-        if (PasskeyLockAdmission.Judge(user, _timeProvider.GetUtcNow().UtcDateTime, _logger) is { } lockRefusal)
-        {
-            return lockRefusal;
-        }
+        // 3. A lock raised by wrong passwords, as at the sign-in. An administrator's lock is the
+        //    shared pipeline's, after the cancel (D-151-1 (b)).
+        PasskeyLockAdmission.AdmitToRecovery(user, _timeProvider.GetUtcNow().UtcDateTime, _logger);
 
         // 4. The shared pipeline: no second step for a passkey (M3), no lock lifted.
         _logger.LogInformation(
             "Recovery of account {UserId} with passkey {PasskeyId}", user.Id, passkey.Id);
 
-        return await _recoverer.RecoverAsync(
+        var recovered = await _recoverer.RecoverAsync(
             user,
             deletionRequest,
             AuthenticationMethods.Passkey.With(AuthenticationMethods.PasskeyUserVerified),
@@ -108,5 +109,18 @@ public sealed class RecoverAccountWithPasskeyCommandHandler
             request.UserAgent,
             request.DeviceId,
             cancellationToken);
+        if (recovered.IsError)
+        {
+            return recovered.Errors;
+        }
+
+        // 5. Write, then read: a passkey revoked while the session was written ends that session.
+        //    The deletion stays cancelled: the proof was valid when it ran.
+        if (!await _ceremony.StillLiveAfterTheSessionAsync(passkey, recovered.Value))
+        {
+            return PasskeyErrors.VerificationFailed;
+        }
+
+        return recovered;
     }
 }

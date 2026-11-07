@@ -81,14 +81,10 @@ public class RecoverAccountExternalCommandHandler
             return UserErrors.InvalidCredentials;
         }
 
-        // Only an administrator's lock refuses. A lock raised by wrong passwords is
-        // admitted and left in place: a provider proves who the person is, never
-        // the password (owner decision G8).
-        if (user.LockKind(DateTime.UtcNow) == AccountLockKind.Admin)
-        {
-            return user.LockRefusal(AccountLockKind.Admin);
-        }
-
+        // No lock refuses here. One raised by wrong passwords is admitted and left in
+        // place: a provider proves who the person is, never the password (owner decision
+        // G8). An administrator's lock stays too, and the shared recovery cancels the
+        // deletion without a session (D-151-1 (b)).
         var deletionRequest = await _requestRepository.GetActiveByUserIdAsync(user.Id, cancellationToken);
         if (deletionRequest is null || deletionRequest.Status != AccountDeletionStatus.PendingGrace)
         {

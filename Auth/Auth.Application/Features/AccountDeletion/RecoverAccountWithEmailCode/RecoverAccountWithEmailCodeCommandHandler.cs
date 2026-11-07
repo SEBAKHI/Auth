@@ -26,9 +26,10 @@ namespace Auth.Application.Features.AccountDeletion.RecoverAccountWithEmailCode;
 /// sign-in continues with the password sign-in.
 /// </para>
 /// <para>
-/// Only an administrator's lock refuses, as on the provider entry: a lock raised by
-/// wrong passwords is left in place, since a code proves the mailbox, never the
-/// password (owner decision G8). The emailed code is spent only after the second
+/// No lock refuses, as on the provider entry: a lock raised by wrong passwords is left
+/// in place, since a code proves the mailbox, never the password (owner decision G8),
+/// and an administrator's lock is the shared pipeline's, which cancels the deletion
+/// without a session (D-151-1 (b)). The emailed code is spent only after the second
 /// factor was accepted, inside the shared pipeline, so neither a missing nor a wrong
 /// authenticator code costs the person a new email.
 /// </para>
@@ -41,6 +42,7 @@ public class RecoverAccountWithEmailCodeCommandHandler
     private readonly IPendingRegistrationRepository _pendingRegistrations;
     private readonly EmailCodeFullProofRule _fullProof;
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
+    private readonly PasskeyOnlyAdministratorRule _passkeyOnlyAdministrator;
     private readonly AccountDeletionRecoverer _recoverer;
 
     public RecoverAccountWithEmailCodeCommandHandler(
@@ -49,6 +51,7 @@ public class RecoverAccountWithEmailCodeCommandHandler
         IPendingRegistrationRepository pendingRegistrations,
         EmailCodeFullProofRule fullProof,
         ITwoFactorChallengeService twoFactorChallengeService,
+        PasskeyOnlyAdministratorRule passkeyOnlyAdministrator,
         AccountDeletionRecoverer recoverer)
     {
         _codeCheck = codeCheck;
@@ -56,6 +59,7 @@ public class RecoverAccountWithEmailCodeCommandHandler
         _pendingRegistrations = pendingRegistrations;
         _fullProof = fullProof;
         _twoFactorChallengeService = twoFactorChallengeService;
+        _passkeyOnlyAdministrator = passkeyOnlyAdministrator;
         _recoverer = recoverer;
     }
 
@@ -86,9 +90,13 @@ public class RecoverAccountWithEmailCodeCommandHandler
         var user = account.Value.User!;
         var deletionRequest = account.Value.DeletionRequest!;
 
-        if (user.LockKind(DateTime.UtcNow) == AccountLockKind.Admin)
+        // D-S20-4 (ii-s), asked before the password step: an administrator whose only usable
+        // factor is a passkey recovers with the passkey's own entry, so the page is not sent on
+        // to a password entry that would refuse in turn (as the sign-in by code asks it). The
+        // shared recovery asks it again before anything is spent, for every entry.
+        if (await _passkeyOnlyAdministrator.RefusalAsync(user.Id, PasskeyOnlyAdministratorDoors.DeletionRecovery, cancellationToken) is { } passkeyRequired)
         {
-            return user.LockRefusal(AccountLockKind.Admin);
+            return passkeyRequired;
         }
 
         if (await _fullProof.RequiresPasswordAsync(user, request.RequireFullProof, cancellationToken))

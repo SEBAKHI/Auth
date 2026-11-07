@@ -88,4 +88,11 @@ public static class TokenRevocationReasons
     /// goes; the person's other applications are untouched.
     /// </summary>
     public const string ApplicationMfaRequired = "Application requires two-step verification";
+
+    /// <summary>
+    /// The passkey a sign-in proved was revoked while that sign-in wrote its session (S20 PR B,
+    /// REVIEW 151 F2): a removal, an administrator's reset, a lock, or a password change or reset
+    /// got there in between. The session just issued goes, and its tokens are never returned.
+    /// </summary>
+    public const string PasskeyRevokedMeanwhile = "Passkey revoked during the sign-in";
 }

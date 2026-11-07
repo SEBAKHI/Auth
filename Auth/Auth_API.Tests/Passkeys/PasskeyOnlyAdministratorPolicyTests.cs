@@ -20,7 +20,8 @@ namespace Auth_API.Tests.Passkeys;
 /// Deliberate breaks, each verified red: <c>enforce</c> read from the switch alone (the
 /// passkey-only rows keep their authority); the inventory read in place of the usable factors
 /// (the passkeys-off row withholds); the failed read swallowed whenever the switch is off (the
-/// read that can withhold propagates no more).
+/// read that can withhold propagates no more); the session's two factors asked before the
+/// passkey-only case (REVIEW 151 F3: the app-proven rows keep their authority).
 /// </remarks>
 public class PasskeyOnlyAdministratorPolicyTests
 {
@@ -29,6 +30,11 @@ public class PasskeyOnlyAdministratorPolicyTests
     private static readonly AuthenticationMethods PasswordSession = AuthenticationMethods.Password;
     private static readonly AuthenticationMethods PasskeySession =
         AuthenticationMethods.Passkey.With(AuthenticationMethods.PasskeyUserVerified);
+
+    // Two factors, but not the passkey: what a session that switched the app off proved.
+    private static readonly AuthenticationMethods AppSession = AuthenticationMethods.Password.With(AuthenticationMethods.Totp);
+    private static readonly AuthenticationMethods RecoveryCodeSession =
+        AuthenticationMethods.Password.With(AuthenticationMethods.RecoveryCode);
 
     private static readonly QualifyingSecondFactors PasskeyOnly = new(Totp: false, Passkey: true);
     private static readonly QualifyingSecondFactors Both = new(Totp: true, Passkey: true);
@@ -45,6 +51,14 @@ public class PasskeyOnlyAdministratorPolicyTests
         { "passkey-only, switch on, password session", PasskeyOnly, true, true, PasswordSession, MfaRequirement.Passkey },
         { "passkey-only, switch off, passkey session", PasskeyOnly, false, true, PasskeySession, MfaRequirement.None },
         { "passkey-only, switch on, passkey session", PasskeyOnly, true, true, PasskeySession, MfaRequirement.None },
+        // REVIEW 151 F3: two factors are not the passkey. The session that switched the app off,
+        // and one that proved a recovery code, lose the authority once the passkey is the only factor.
+        { "passkey-only, switch off, password and app session", PasskeyOnly, false, true, AppSession, MfaRequirement.Passkey },
+        { "passkey-only, switch on, password and app session", PasskeyOnly, true, true, AppSession, MfaRequirement.Passkey },
+        { "passkey-only, switch off, password and recovery-code session", PasskeyOnly, false, true, RecoveryCodeSession, MfaRequirement.Passkey },
+        { "passkey-only, switch on, password and recovery-code session", PasskeyOnly, true, true, RecoveryCodeSession, MfaRequirement.Passkey },
+        { "passkey-only, a passkey the device did not verify the person for", PasskeyOnly, false, true, AuthenticationMethods.Passkey, MfaRequirement.Passkey },
+        { "app and passkey, switch on, password and app session: as before", Both, true, true, AppSession, MfaRequirement.None },
         { "passkey-only while passkeys do not run, switch off: off means off", PasskeyOnly, false, false, PasswordSession, MfaRequirement.None },
         { "passkey-only while passkeys do not run, switch on: no usable factor", PasskeyOnly, true, false, PasswordSession, MfaRequirement.Enroll },
         { "app and passkey, switch off: the switch decides", Both, false, true, PasswordSession, MfaRequirement.None },

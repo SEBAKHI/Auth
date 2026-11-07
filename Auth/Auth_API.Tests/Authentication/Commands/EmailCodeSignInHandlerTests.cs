@@ -550,6 +550,43 @@ public class EmailCodeSignInHandlerTests
         scenario.Builder.Invocations.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task Recover_PasskeyOnlyAdministratorWithAPassword_IsRefusedBeforeThePasswordStep()
+    {
+        // REVIEW 151 F10 (S6): asked before the password step, as the sign-in by code asks it, so
+        // the page is not sent on to a password entry that would refuse in turn.
+        var user = TestHelpers.CreateUser(email: Address, isDeleted: true);
+        var scenario = new Scenario().WithAccountWaitingForDeletion(user).WithPlatformPermission();
+        scenario.PasskeyRule = TestHelpers.PasskeyOnlyAdministratorRuleOn(
+                new QualifyingSecondFactors(Totp: false, Passkey: true), holdsPlatformAuthority: true);
+
+        var result = await scenario.RecoverAsync();
+
+        result.IsError.Should().BeTrue("not nextStep: passwordRequired");
+        result.FirstError.Code.Should().Be(AuthErrors.PasskeyRequired.Code);
+        scenario.Consumed.Should().Be(0, "the emailed code is not spent on a refusal");
+        scenario.Users.Verify(u => u.RestoreAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [MemberData(nameof(DeletionCancelledAssertions.StatesThatRefuseASession), MemberType = typeof(DeletionCancelledAssertions))]
+    public async Task Recover_AStateThatRefusesASession_CancelsTheDeletion_AndIssuesNoSession(
+        string because, UserStatus status, int count, int? minutes, string code)
+    {
+        // REVIEW 151 F1, D-151-1 (b): an administrator's lock no longer refuses before the cancel.
+        var user = TestHelpers.CreateUser(
+            email: Address, isDeleted: true, passwordHash: null, status: status, failedLoginAttempts: count,
+            lockoutEnd: DeletionCancelledAssertions.LockEnd(minutes));
+        var scenario = new Scenario().WithAccountWaitingForDeletion(user);
+
+        var result = await scenario.RecoverAsync();
+
+        result.FirstError.Code.Should().Be(code, because);
+        scenario.Consumed.Should().Be(1, $"{because}: the code proved the recovery, which is accepted");
+        DeletionCancelledAssertions.VerifyCancelledWithoutASession(
+            scenario.Requests, scenario.Users, scenario.Builder, scenario.Publisher, user.Id, because);
+    }
+
     // ── Scenario ─────────────────────────────────────────────────────────────
 
     private sealed class Scenario
@@ -565,6 +602,7 @@ public class EmailCodeSignInHandlerTests
         public Mock<ILoginResponseBuilder> Builder { get; } = new();
         public Mock<IDomainEventDispatcher> Events { get; } = new();
         public Mock<ISecondFactorVerifier> SecondFactors { get; } = new();
+        public Mock<MediatR.IPublisher> Publisher { get; } = new();
 
         /// <summary>The refusal of a passkey-only administrator: paused, as while passkeys do not run, unless a test sets it.</summary>
         public PasskeyOnlyAdministratorRule PasskeyRule { get; set; } = TestHelpers.PasskeyOnlyAdministratorRuleOff();
@@ -682,7 +720,7 @@ public class EmailCodeSignInHandlerTests
         public Task<ErrorOr<LoginResponse>> RecoverAsync(string? twoFactorCode = null) =>
             new RecoverAccountWithEmailCodeCommandHandler(
                 CodeCheck(), Accounts(), PendingRepository, new EmailCodeFullProofRule(Claims.Object), Challenges.Object,
-                Recoverer())
+                PasskeyRule, Recoverer())
                 .Handle(new RecoverAccountWithEmailCodeCommand(Handle, Code, twoFactorCode, false, "203.0.113.7", "TestAgent/1.0", "device"),
                     CancellationToken.None);
 
@@ -703,10 +741,13 @@ public class EmailCodeSignInHandlerTests
             new Mock<ISecondFactorLockout>().Object,
             Builder.Object,
             PasskeyRule,
-            new Mock<MediatR.IPublisher>().Object,
+            Publisher.Object,
             new Mock<ILogger<Auth.Application.Features.AccountDeletion.Common.AccountDeletionRecoverer>>().Object);
 
-        private User Restored() => TestHelpers.CreateUser(id: _deleted!.Id, email: Address, passwordHash: _deleted.PasswordHash);
+        // The restore writes the deletion columns only: the status and the lock come back as they were.
+        private User Restored() => TestHelpers.CreateUser(
+            id: _deleted!.Id, email: Address, passwordHash: _deleted.PasswordHash, status: _deleted.Status,
+            failedLoginAttempts: _deleted.FailedLoginAttempts, lockoutEnd: _deleted.LockoutEnd);
     }
 
     /// <summary>The two starts, over one store, for an address that has <c>user</c>'s account.</summary>

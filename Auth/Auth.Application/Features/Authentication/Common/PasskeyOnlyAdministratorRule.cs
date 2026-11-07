@@ -14,9 +14,10 @@ namespace Auth.Application.Features.Authentication.Common;
 /// <remarks>
 /// <para>
 /// Asked by the password sign-in, the provider sign-in, the sign-in by emailed code, the three
-/// recovery entries of an account waiting for deletion (in their shared recoverer), the sign-in
-/// that follows a verified address, and the second step itself. Not asked by the passkey's own
-/// doors (its sign-in and its recovery: they are the passkey), by the refresh and the code
+/// recovery entries of an account waiting for deletion (in their shared recoverer, and once more
+/// by the emailed-code entry before its password step), the request for the recovery's emailed
+/// code, the sign-in that follows a verified address, and the second step itself. Not asked by
+/// the passkey's own doors (its sign-in and its recovery: they are the passkey), by the refresh and the code
 /// exchange (they keep the platform policy's withholding instead, D-S20-4 (ii)), nor by the
 /// completion of a registration (a new account holds no passkey).
 /// <c>PasskeyOnlyAdministratorDoorGuardTests</c> pins who asks, and where.
@@ -34,6 +35,13 @@ namespace Auth.Application.Features.Authentication.Common;
 /// presented again: the code of a sign-in by emailed code, and the code of the second step (whose
 /// ceremony row, opened by the first step, is left as it was). It writes one Information line
 /// (<see cref="PasskeySignalCodes.Required"/>) naming the door.
+/// </para>
+/// <para>
+/// One exception, by the door's own order: the provider sign-in links a provider identity whose
+/// verified address matches an existing account, and stores the provider's refresh token, before
+/// it judges the lock and asks this rule. A refused provider sign-in can therefore leave that new
+/// link. It signs nothing in while passkeys run; while they do not, the provider opens the account
+/// as such a link always has.
 /// </para>
 /// </remarks>
 public sealed class PasskeyOnlyAdministratorRule

@@ -28,7 +28,10 @@ namespace Auth.Application.Features.Passkeys.VerifyPasskeyAssertion;
 /// status (inactive, pending) and the lock (<see cref="PasskeyLockAdmission"/>).</item>
 /// <item>No second step: a passkey the device verified the person for proves two factors (M3).</item>
 /// <item>The session: the methods recorded on the account and given to the builder, which does
-/// not lift a lock (<c>passwordProven: false</c>, G8); then the events.</item>
+/// not lift a lock (<c>passwordProven: false</c>, G8).</item>
+/// <item>The passkey read again once the session is written
+/// (<see cref="PasskeyAssertionCeremony.StillLiveAfterTheSessionAsync"/>): one revoked meanwhile
+/// ends that session and refuses; then the events.</item>
 /// </list>
 /// No sign-in row is written for a refusal (FA4 (4-4)): a passkey has no failure count, and the
 /// rows a password sign-in writes feed the per-address ceiling of wrong passwords. Not asked: the
@@ -108,6 +111,13 @@ public sealed class VerifyPasskeyAssertionCommandHandler
         {
             // At the concurrent session limit: the pending UserLoggedInEvent is dropped.
             return loginResponse.Errors;
+        }
+
+        // 11. Write, then read: a passkey revoked while the session was written ends that
+        //     session, and the pending UserLoggedInEvent is dropped.
+        if (!await _ceremony.StillLiveAfterTheSessionAsync(passkey, loginResponse.Value))
+        {
+            return PasskeyErrors.VerificationFailed;
         }
 
         await _eventDispatcher.DispatchEventsAsync(owner, cancellationToken);

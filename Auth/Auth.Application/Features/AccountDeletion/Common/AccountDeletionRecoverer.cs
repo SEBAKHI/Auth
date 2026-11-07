@@ -17,9 +17,19 @@ namespace Auth.Application.Features.AccountDeletion.Common;
 /// The shared grace-period recovery pipeline behind the four recovery entry
 /// points (password, external identity, the emailed code of OI-215, and the passkey
 /// of S20 PR B): 2FA gate, deterministic cancel-vs-claim race, account restore,
-/// cancelled event and auto-login. Callers authenticate the user BEFORE invoking this.
+/// cancelled event, the account's state, and auto-login. Callers authenticate the user
+/// BEFORE invoking this.
 /// </summary>
 /// <remarks>
+/// <para>
+/// A proven recovery is accepted whatever the account's state, and the account keeps that
+/// state (owner decision D-151-1 (b)): a deactivated or not yet activated account, or one an
+/// administrator locked, has its deletion cancelled and gets no session, with a code of its
+/// own (<c>User.DeletionCancelledAccount*</c>). No entry judges those states before the
+/// cancel, so such an account is never deleted at the end of a grace period it asked to
+/// leave. A lock raised by wrong passwords keeps each entry's rule: the password entry
+/// lifts it, the others admit it and lift nothing (G8).
+/// </para>
 /// <para>
 /// An entry whose own proof already satisfies two factors — the passkey, which the device
 /// verified the person for (M3) — is the passkey's door: it is asked no second step, and it is
@@ -204,6 +214,18 @@ public class AccountDeletionRecoverer
             return UserErrors.NotFound(user.Id);
         }
 
+        // D-151-1 (b): the proven recovery is accepted and the deletion stays cancelled, but the
+        // account keeps the state it was in. A state that refuses a sign-in refuses the session
+        // here, read after the restore and before anything is minted: no token, no lock lifted,
+        // no sign-in row, no sign-in event.
+        if (StateRefusal(restored, DateTime.UtcNow) is { } stateRefusal)
+        {
+            _logger.LogInformation(
+                "Account {UserId} recovered from pending deletion without a session: {Reason}",
+                user.Id, stateRefusal.Code);
+            return stateRefusal;
+        }
+
         // The password entry point proved the password in this request, so its
         // success lifts an automatic lock carried from before the deletion; the
         // provider, the emailed-code and the passkey entry points proved who the
@@ -214,11 +236,43 @@ public class AccountDeletionRecoverer
     }
 
     /// <summary>
+    /// D-151-1 (b): the refusal of a session to a recovered account, or null. The status is the
+    /// sign-in's own rule (<see cref="AuthenticationHelper.CheckAccountStatus(User)"/>); of the
+    /// locks only an administrator's refuses here, which no recovery entry judges before the
+    /// cancel. A lock raised by wrong passwords keeps each entry's own rule (G8, FA6).
+    /// </summary>
+    private static Error? StateRefusal(User account, DateTime nowUtc)
+    {
+        var status = AuthenticationHelper.CheckAccountStatus(account);
+        if (status.IsError)
+        {
+            // A status a later change adds to the sign-in's refusals refuses here too, with the
+            // sign-in's own answer: never a session by default.
+            return status.FirstError.Code switch
+            {
+                var code when code == UserErrors.AccountInactive.Code => UserErrors.DeletionCancelledAccountInactive,
+                var code when code == UserErrors.AccountPending.Code => UserErrors.DeletionCancelledAccountPending,
+                _ => status.FirstError,
+            };
+        }
+
+        return account.LockKind(nowUtc) == AccountLockKind.Admin
+            ? UserErrors.DeletionCancelledAccountLocked
+            : null;
+    }
+
+    /// <summary>
     /// Emails a code for the recovery of an account whose second factor is the emailed
     /// code, on the password entry (S24). The code is checked by the next
     /// <see cref="RecoverAsync"/> of the same account, against this recovery's own
     /// challenge, which it opens when none is live.
     /// </summary>
+    /// <remarks>
+    /// The refusal of an administrator whose only usable factor is a passkey comes first, as
+    /// in the recovery it precedes: no code is mailed for a recovery that is refused. Neither
+    /// the status nor an administrator's lock refuses here (D-151-1 (b)): the recovery of such
+    /// an account is accepted and only its session is refused.
+    /// </remarks>
     /// <returns>
     /// Where the code went, or a refusal of the sender; or <c>User.InvalidCredentials</c>
     /// when the account's factor is not the emailed code. Only an account whose factor is
@@ -232,6 +286,11 @@ public class AccountDeletionRecoverer
         string? ipAddress,
         CancellationToken cancellationToken)
     {
+        if (await _passkeyOnlyAdministrator.RefusalAsync(user.Id, PasskeyOnlyAdministratorDoors.DeletionRecovery, cancellationToken) is { } passkeyRequired)
+        {
+            return passkeyRequired;
+        }
+
         var snapshot = await _twoFactorStateStore.GetSnapshotAsync(user.Id, cancellationToken);
         if (!user.TwoFactorEnabled || snapshot?.HasEmailCode != true)
         {

@@ -693,6 +693,8 @@ public class Fido2WebAuthnSpikeTests
         ("clientData type (webauthn.create)", new CeremonyTweaks { ClientDataType = "webauthn.create" }, Code(Fido2ErrorCode.InvalidAssertionResponse)),
         ("RP ID hash (another RP)", new CeremonyTweaks { RpId = "example.com" }, Code(Fido2ErrorCode.InvalidRpidHash)),
         ("user verification (absent)", new CeremonyTweaks { UserVerified = false }, Code(Fido2ErrorCode.UserVerificationRequirementNotMet)),
+        // REVIEW 151 F10 (S5): as the registration list has it.
+        ("user presence (absent)", new CeremonyTweaks { UserPresent = false }, Code(Fido2ErrorCode.UserPresentFlagNotSet)),
         ("crossOrigin (true)", new CeremonyTweaks { CrossOrigin = true }, Code(Fido2ErrorCode.CrossOriginRequestNotAllowed)),
         ("signature (corrupt)", new CeremonyTweaks { CorruptSignature = true }, Code(Fido2ErrorCode.InvalidSignature)),
         ("authenticator data (not base64url)", new CeremonyTweaks { RawAuthenticatorData = "%%%" }, nameof(JsonException)),

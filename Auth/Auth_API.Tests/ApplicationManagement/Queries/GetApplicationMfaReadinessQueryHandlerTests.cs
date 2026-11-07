@@ -25,8 +25,8 @@ public class GetApplicationMfaReadinessQueryHandlerTests
     private readonly Mock<ITwoFactorStateStore> _store = new();
     private readonly FixedTimeProvider _clock = new(new DateTimeOffset(2026, 11, 4, 10, 0, 0, TimeSpan.Zero));
 
-    private GetApplicationMfaReadinessQueryHandler Handler() =>
-        new(_applications.Object, _store.Object, TestHelpers.UsableFactors(_store.Object), _clock);
+    private GetApplicationMfaReadinessQueryHandler Handler(bool passkeysRun = false) =>
+        new(_applications.Object, _store.Object, TestHelpers.UsableFactors(_store.Object, passkeysRun), _clock);
 
     [Fact]
     public async Task Handle_KnownApplication_ReturnsTheCountsOverThirtyDays()
@@ -46,6 +46,53 @@ public class GetApplicationMfaReadinessQueryHandlerTests
         _store.Verify(s => s.GetApplicationMfaReadinessAsync(
             application.Id, new DateTime(2026, 10, 5, 10, 0, 0, DateTimeKind.Utc), false, It.IsAny<CancellationToken>()), Times.Once,
             "while passkeys do not run a passkey is no factor the requirement accepts, so the count leaves it out (D-150-4)");
+    }
+
+    /// <summary>
+    /// REVIEW 151 F6, D-150-4: the count includes a passkey exactly while passkeys run, when the
+    /// requirement accepts one.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: a constant <c>false</c> passed to the store.</remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Handle_CountsAPasskey_OnlyWhilePasskeysRun(bool passkeysRun)
+    {
+        var application = TestHelpers.CreateApplication(code: "CRM");
+        _applications.Setup(r => r.GetByIdAsync(application.Id, It.IsAny<CancellationToken>())).ReturnsAsync(application);
+        _store.Setup(s => s.GetApplicationMfaReadinessAsync(application.Id, It.IsAny<DateTime>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ApplicationMfaReadiness(ActiveUsers: 2, WithQualifyingFactor: 1));
+
+        (await Handler(passkeysRun).Handle(new GetApplicationMfaReadinessQuery(application.Id), CancellationToken.None))
+            .IsError.Should().BeFalse();
+
+        _store.Verify(s => s.GetApplicationMfaReadinessAsync(application.Id, It.IsAny<DateTime>(), passkeysRun, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>
+    /// REVIEW 151 F6: on a store that has an RP ID and the passkey schema, the readiness count and
+    /// the role-holder check read the passkey exactly when asked to; otherwise the app's statement
+    /// alone, the text before S20.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the passkey statements whatever <c>countPasskeys</c> says.</remarks>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Store_TheTwoSetStatements_ReadAPasskey_ExactlyWhenAsked(bool countPasskeys)
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 0, rowFor: _ => new { ActiveUsers = 0, WithQualifyingFactor = 0 }, scalarFor: _ => false);
+        var store = new TwoFactorStateStore(
+            db,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<TwoFactorStateStore>.Instance,
+            new Auth.Application.Configuration.PasskeyRpIdAtStartup(PasskeyTestDoubles.RpId),
+            PasskeyTestDoubles.Schema());
+
+        await store.GetApplicationMfaReadinessAsync(Guid.NewGuid(), DateTime.UtcNow, countPasskeys, CancellationToken.None);
+        await store.HasPlatformRoleHolderWithoutFactorAsync(Guid.NewGuid(), countPasskeys, CancellationToken.None);
+
+        db.Commands.Should().HaveCount(2);
+        db.Commands.Should().OnlyContain(command => command.CommandText.Contains("[UserPasskeys]") == countPasskeys);
     }
 
     [Fact]

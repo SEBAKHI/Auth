@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
@@ -39,6 +40,11 @@ namespace Auth.Application.Features.Passkeys.Common;
 /// <see cref="PasskeySignalCodes.VerificationFailed"/> and the reason's name; no sign-in row is
 /// written for it (FA4 (4-4)). No log line names a credential id, a public key, a user handle or
 /// client data (PK16).
+/// <para>
+/// After the door wrote its session, the passkey is read once more
+/// (<see cref="StillLiveAfterTheSessionAsync"/>), so a revocation that landed between the record
+/// and the session ends that session.
+/// </para>
 /// </remarks>
 public sealed class PasskeyAssertionCeremony
 {
@@ -47,6 +53,7 @@ public sealed class PasskeyAssertionCeremony
     private readonly IUserPasskeyRepository _passkeyRepository;
     private readonly IWebAuthnVerifier _verifier;
     private readonly ICredentialHasher _credentialHasher;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<PasskeyAssertionCeremony> _logger;
 
@@ -56,6 +63,7 @@ public sealed class PasskeyAssertionCeremony
         IUserPasskeyRepository passkeyRepository,
         IWebAuthnVerifier verifier,
         ICredentialHasher credentialHasher,
+        ICredentialRevocationService credentialRevocation,
         TimeProvider timeProvider,
         ILogger<PasskeyAssertionCeremony> logger)
     {
@@ -64,6 +72,7 @@ public sealed class PasskeyAssertionCeremony
         _passkeyRepository = passkeyRepository;
         _verifier = verifier;
         _credentialHasher = credentialHasher;
+        _credentialRevocation = credentialRevocation;
         _timeProvider = timeProvider;
         _logger = logger;
     }
@@ -160,6 +169,49 @@ public sealed class PasskeyAssertionCeremony
         }
 
         return passkey;
+    }
+
+    /// <summary>
+    /// The passkey read again once the session it signed is written (REVIEW 151 F2). Write, then
+    /// read, on both sides: the record above holds only while the passkey is live, and this read
+    /// runs only after the session exists; a removal, an administrator's reset, a lock, or a
+    /// password change or reset revokes the passkey and only then ends the account's sessions
+    /// (again, when it ended them first). A revocation this read does not see committed after
+    /// the session was written, so its sweep finds the session; one it sees, the sign-in answers
+    /// itself, by ending the session it just issued, as the code exchange does (OI-155).
+    /// </summary>
+    /// <remarks>
+    /// Nothing here takes the request's token: the session is written, and a client that leaves
+    /// now must not keep it past a revocation. A failed read fails the sign-in: its tokens are
+    /// then never returned, so the session it wrote is held by no one.
+    /// </remarks>
+    /// <param name="passkey">The passkey that signed (<see cref="ProveAsync"/>).</param>
+    /// <param name="issued">The session the door issued with it.</param>
+    /// <returns>
+    /// True while the passkey is live. False when it was revoked meanwhile: the issued session
+    /// and its single sign-on session are ended, and the door answers
+    /// <see cref="PasskeyErrors.VerificationFailed"/>.
+    /// </returns>
+    public async Task<bool> StillLiveAfterTheSessionAsync(UserPasskey passkey, LoginResponse issued)
+    {
+        if (await _passkeyRepository.GetLiveByIdAsync(passkey.UserId, passkey.Id, passkey.RpId, CancellationToken.None) is not null)
+        {
+            return true;
+        }
+
+        if (issued.SessionId is Guid sessionId)
+        {
+            await _credentialRevocation.TerminateSessionAsync(
+                sessionId, passkey.UserId, TokenRevocationReasons.PasskeyRevokedMeanwhile, CancellationToken.None);
+        }
+
+        // Its cookie was never sent, and the single sign-on session ends with the session.
+        await _credentialRevocation.RevokeIdpSessionAsync(issued.IdpSessionToken, CancellationToken.None);
+
+        _logger.LogWarning(
+            "{EventCode}: passkey {PasskeyId} of user {UserId} was revoked while its sign-in was written; the session just issued was ended",
+            PasskeySignalCodes.VerificationFailed, passkey.Id, passkey.UserId);
+        return false;
     }
 
     private Error Refused(string reason, UserPasskey? passkey = null)

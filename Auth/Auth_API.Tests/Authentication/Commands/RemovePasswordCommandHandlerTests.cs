@@ -153,11 +153,16 @@ public class RemovePasswordCommandHandlerTests
     /// see the passkey switch (<c>UsableSecondFactorsReaderGuardTests</c>). With the app bound the
     /// removal goes on, as above.
     /// </summary>
+    /// <remarks>
+    /// REVIEW 151 F8: the account holds a live, user-verified passkey, and the store says so to
+    /// any reader that asks, so a 2b that counted the passkey would let the removal through.
+    /// Deliberate break, verified red: a live passkey let through 2b.
+    /// </remarks>
     [Theory]
     [MemberData(nameof(PasskeyOnlyAdministratorSessions))]
     public async Task Handle_ForAPasskeyOnlyAdministrator_AsksForTheAppFirst(string session, AuthenticationMethods methods)
     {
-        var scenario = new Scenario().WithPlatformPermission().SignedInWith(methods);
+        var scenario = new Scenario().WithPlatformPermission().SignedInWith(methods).WithALivePasskey();
 
         var result = await scenario.RunAsync();
 
@@ -244,6 +249,15 @@ public class RemovePasswordCommandHandlerTests
         public Scenario WithPlatformPermission()
         {
             _permissions = ["users:read"];
+            return this;
+        }
+
+        /// <summary>A live, user-verified passkey of the RP ID in force: a qualifying factor of the inventory.</summary>
+        public Scenario WithALivePasskey()
+        {
+            Factors.Setup(f => f.GetQualifyingFactorsAsync(User.Id, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Auth.Domain.ValueObjects.QualifyingSecondFactors(Totp: false, Passkey: true));
+            Factors.Setup(f => f.HasEnabledFactorAsync(User.Id, It.IsAny<CancellationToken>())).ReturnsAsync(true);
             return this;
         }
 

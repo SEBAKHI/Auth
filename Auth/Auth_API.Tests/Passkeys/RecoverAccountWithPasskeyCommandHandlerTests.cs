@@ -12,6 +12,7 @@ using Auth.Domain.ValueObjects;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Auth_API.Tests.Passkeys;
@@ -27,7 +28,8 @@ namespace Auth_API.Tests.Passkeys;
 /// <remarks>
 /// Deliberate breaks, each verified red: the recoverer's second-step gate asked of a passkey;
 /// <c>passwordProven</c> true for the recovered session; the refusal asked of the passkey entry
-/// too.
+/// too; the restore skipped; the recoverer's state check removed (REVIEW 151 F1); the read of the
+/// passkey after the session dropped (F2).
 /// </remarks>
 public class RecoverAccountWithPasskeyCommandHandlerTests
 {
@@ -149,39 +151,86 @@ public class RecoverAccountWithPasskeyCommandHandlerTests
         fixture.VerifyNoSession();
     }
 
-    [Fact]
-    public async Task Handle_AdministratorsLock_RefusesWithThePasswordEntrysAnswer()
+    [Theory]
+    [MemberData(nameof(DeletionCancelledAssertions.StatesThatRefuseASession), MemberType = typeof(DeletionCancelledAssertions))]
+    public async Task Handle_AStateThatRefusesASession_CancelsTheDeletion_AndIssuesNoSession(
+        string because, UserStatus status, int count, int? minutes, string code)
     {
+        // REVIEW 151 F1, D-151-1 (b): the passkey proved the recovery, which is accepted; the
+        // account keeps its state, an administrator's lock included, and gets no session.
         using var fixture = Fixture();
-        fixture.DeletedOwner = Deleted(fixture, UserStatus.Locked, failures: 0);
+        fixture.DeletedOwner = Deleted(fixture, status, count, lockoutEnd: DeletionCancelledAssertions.LockEnd(minutes));
+        GivenTheRestoredRowOf(fixture);
         var deletion = WaitingFor(fixture);
 
         var result = await Recover(fixture, TestHelpers.PasskeyOnlyAdministratorRuleOff());
 
-        result.FirstError.Code.Should().Be(fixture.DeletedOwner.LockRefusal(AccountLockKind.Admin).Code);
-        deletion.Status.Should().Be(AccountDeletionStatus.PendingGrace);
-        fixture.Users.Verify(u => u.RestoreAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
-        fixture.VerifyNoSession();
+        result.FirstError.Code.Should().Be(code, because);
+        deletion.Status.Should().Be(AccountDeletionStatus.Cancelled, because);
+        DeletionCancelledAssertions.VerifyCancelledWithoutASession(
+            fixture.Deletions, fixture.Users, fixture.Builder, _publisher, fixture.Owner.Id, because);
+        fixture.Revocation.Invocations.Should().BeEmpty($"{because}: no session was issued, so none is ended");
     }
 
     [Fact]
     public async Task Handle_HardLockRaisedByWrongPasswords_AdmitsAndLiftsNothing()
     {
         using var fixture = Fixture();
-        var locked = Deleted(fixture, UserStatus.Locked, failures: 100);
-        fixture.DeletedOwner = locked;
+        fixture.DeletedOwner = Deleted(fixture, UserStatus.Locked, failures: 100);
+        GivenTheRestoredRowOf(fixture);
         WaitingFor(fixture);
 
         var result = await Recover(fixture, TestHelpers.PasskeyOnlyAdministratorRuleOff());
 
         result.IsError.Should().BeFalse("the hard lock admits a passkey (ARR-1043)");
-        locked.Status.Should().Be(UserStatus.Locked);
-        locked.FailedLoginAttempts.Should().Be(100);
         fixture.Builder.Verify(b => b.BuildAsync(
                 It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), PasskeyMethods,
                 false, It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
                 It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<bool>()),
             Times.Once, "admitted, and no lock lifted: the session does not prove the password (G8)");
+        fixture.Users.Invocations.Select(invocation => invocation.Method.Name)
+            .Where(name => !name.StartsWith("Get", StringComparison.Ordinal))
+            .Should().Equal(["RestoreAsync"], "nothing writes the lock: no unlock, no lift");
+        fixture.RecoverLog.Entries.Should().ContainSingle(entry => entry.Level == LogLevel.Warning
+                && entry.Values.Contains(Auth.Domain.Constants.PasskeySignalCodes.AdmittedWhileLocked))
+            .Which.Values.Should().Contain("Hard");
+    }
+
+    [Fact]
+    public async Task Handle_APasskeyRevokedWhileTheSessionWasWritten_EndsThatSession_AndTheDeletionStaysCancelled()
+    {
+        // REVIEW 151 F2: write, then read. The proof was valid when it ran, so the deletion stays
+        // cancelled; only the session ends.
+        using var fixture = Fixture();
+        var deletion = WaitingFor(fixture);
+        var sessionId = Guid.NewGuid();
+        GivenTheSessionIssued(fixture, sessionId, "idp-cookie-value");
+        fixture.PasskeyLiveAfterTheSession = false;
+
+        var result = await Recover(fixture, TestHelpers.PasskeyOnlyAdministratorRuleOff());
+
+        result.FirstError.Code.Should().Be(PasskeyErrors.VerificationFailed.Code);
+        deletion.Status.Should().Be(AccountDeletionStatus.Cancelled);
+        fixture.Users.Verify(u => u.RestoreAsync(fixture.Owner.Id, It.IsAny<CancellationToken>()), Times.Once);
+        fixture.Revocation.Verify(r => r.TerminateSessionAsync(
+                sessionId, fixture.Owner.Id, Auth.Domain.Constants.TokenRevocationReasons.PasskeyRevokedMeanwhile, CancellationToken.None),
+            Times.Once);
+        fixture.Revocation.Verify(r => r.RevokeIdpSessionAsync("idp-cookie-value", CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_APasskeyStillLiveAfterTheSession_KeepsIt()
+    {
+        using var fixture = Fixture();
+        WaitingFor(fixture);
+        GivenTheSessionIssued(fixture, Guid.NewGuid(), "idp-cookie-value");
+
+        var result = await Recover(fixture, TestHelpers.PasskeyOnlyAdministratorRuleOff());
+
+        result.IsError.Should().BeFalse();
+        fixture.Passkeys.Verify(p => p.GetLiveByIdAsync(fixture.Owner.Id, fixture.Passkey.Id, PasskeyTestDoubles.RpId, CancellationToken.None),
+            Times.Once, "read again, without the request's token, once the session is written");
+        fixture.Revocation.Invocations.Should().BeEmpty();
     }
 
     [Fact]
@@ -222,10 +271,31 @@ public class RecoverAccountWithPasskeyCommandHandlerTests
     }
 
     private static User Deleted(
-        PasskeySignInFixture fixture, UserStatus status = UserStatus.Active, int failures = 0, bool twoFactorEnabled = false) =>
+        PasskeySignInFixture fixture, UserStatus status = UserStatus.Active, int failures = 0, bool twoFactorEnabled = false,
+        DateTime? lockoutEnd = null) =>
         TestHelpers.CreateUser(
             id: fixture.Owner.Id, email: "owner@example.com", status: status, failedLoginAttempts: failures,
-            twoFactorEnabled: twoFactorEnabled, isDeleted: true, deletedAt: DateTime.UtcNow);
+            lockoutEnd: lockoutEnd, twoFactorEnabled: twoFactorEnabled, isDeleted: true, deletedAt: DateTime.UtcNow);
+
+    /// <summary>
+    /// The recoverer's read after the restore: the same row, live again. The restore writes the
+    /// deletion columns only, so the status and the lock come back as they were.
+    /// </summary>
+    private static void GivenTheRestoredRowOf(PasskeySignInFixture fixture)
+    {
+        var deleted = fixture.DeletedOwner!;
+        var restored = TestHelpers.CreateUser(
+            id: deleted.Id, email: "owner@example.com", status: deleted.Status, failedLoginAttempts: deleted.FailedLoginAttempts,
+            lockoutEnd: deleted.LockoutEnd, twoFactorEnabled: deleted.TwoFactorEnabled);
+        fixture.Users.Setup(u => u.GetByIdAsync(fixture.Owner.Id, It.IsAny<CancellationToken>())).ReturnsAsync(restored);
+    }
+
+    private static void GivenTheSessionIssued(PasskeySignInFixture fixture, Guid sessionId, string idpSessionToken) =>
+        fixture.Builder.Setup(b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(),
+                It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(),
+                It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>(), It.IsAny<bool>()))
+            .ReturnsAsync(new LoginResponse { SessionId = sessionId, IdpSessionToken = idpSessionToken });
 
     private static AccountDeletionRequest WaitingFor(PasskeySignInFixture fixture)
     {

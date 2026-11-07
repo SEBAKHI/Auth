@@ -5,6 +5,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
+using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
 
 namespace Auth_API.Tests.EventHandlers;
@@ -181,13 +182,20 @@ public class UserLoggedInAuditEventHandlerTests
     [Fact]
     public async Task Handle_WhenTheWriteFails_LogsAndDoesNotThrow()
     {
-        // Best-effort: the session is already minted when this runs.
+        // Best-effort: the session is already minted when this runs. The failure is an Error line
+        // with the exception, as the handler's remarks promise (REVIEW 151 F10, C13).
+        var failure = new InvalidOperationException("the audit store is unavailable");
         _repoMock.Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("the audit store is unavailable"));
+            .ThrowsAsync(failure);
+        var log = new CapturingLogger<UserLoggedInAuditEventHandler>();
+        var userId = Guid.NewGuid();
 
-        var act = () => _handler.Handle(new UserLoggedInEvent(Guid.NewGuid(), "test@example.com", null, null), CancellationToken.None);
+        var act = () => new UserLoggedInAuditEventHandler(_repoMock.Object, log)
+            .Handle(new UserLoggedInEvent(userId, "test@example.com", null, null), CancellationToken.None);
 
         await act.Should().NotThrowAsync();
+        log.Entries.Should().ContainSingle(entry => entry.Level == LogLevel.Error)
+            .Which.Should().Match<CapturedLogEntry>(entry => entry.Exception == failure && entry.Values.Contains(userId.ToString()));
     }
 
     [Fact]

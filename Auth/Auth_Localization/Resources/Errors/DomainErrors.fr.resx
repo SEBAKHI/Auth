@@ -893,6 +893,15 @@
   <data name="User.RecoveryWindowExpired" xml:space="preserve">
     <value>La période de récupération de ce compte est terminée. La suppression est en cours de finalisation.</value>
   </data>
+  <data name="User.DeletionCancelledAccountInactive" xml:space="preserve">
+    <value>Votre compte ne sera pas supprimé. Il est désactivé, vous ne pouvez donc pas vous connecter ; votre administrateur peut le réactiver.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountLocked" xml:space="preserve">
+    <value>Votre compte ne sera pas supprimé. Un administrateur l'a verrouillé, vous ne pouvez donc pas vous connecter tant qu'il n'est pas déverrouillé.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountPending" xml:space="preserve">
+    <value>Votre compte ne sera pas supprimé. Il n'est pas encore activé, vous ne pouvez donc pas vous connecter tant qu'il ne l'est pas.</value>
+  </data>
   <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
     <value>Le code de vérification est invalide ou a expiré.</value>
   </data>

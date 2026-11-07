@@ -893,6 +893,15 @@
   <data name="User.RecoveryWindowExpired" xml:space="preserve">
     <value>مهلت بازیابی این حساب به پایان رسیده است و حذف در حال نهایی شدن است.</value>
   </data>
+  <data name="User.DeletionCancelledAccountInactive" xml:space="preserve">
+    <value>حساب شما حذف نخواهد شد. اما غیرفعال است، بنابراین نمی‌توانید وارد شوید؛ مدیر شما می‌تواند آن را دوباره فعال کند.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountLocked" xml:space="preserve">
+    <value>حساب شما حذف نخواهد شد. اما یک مدیر آن را قفل کرده است، بنابراین تا باز شدن قفل آن نمی‌توانید وارد شوید.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountPending" xml:space="preserve">
+    <value>حساب شما حذف نخواهد شد. اما هنوز فعال نشده است، بنابراین تا فعال شدن آن نمی‌توانید وارد شوید.</value>
+  </data>
   <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
     <value>کد تأیید نامعتبر است یا منقضی شده است.</value>
   </data>

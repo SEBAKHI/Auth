@@ -188,6 +188,27 @@ public class RefreshTokenMfaPolicyTests
         _minted.Value.Authentication.Requirement.Should().Be(MfaRequirement.Passkey);
     }
 
+    /// <summary>
+    /// REVIEW 151 F3: a session that proved the password and the authenticator app, of an account
+    /// that switched the app off from it and so became passkey-only, refreshes withheld: two
+    /// factors are not the passkey (D-S20-4 (ii)).
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Handle_AnAppProvenSession_OfAnAccountThatBecamePasskeyOnly_IsWithheldWhateverTheSwitch(bool switchedOn)
+    {
+        GivenToken();
+        GivenSession(AuthenticationMethods.Password.With(AuthenticationMethods.Totp));
+
+        await Refresh(TestHelpers.CreatePlatformMfaPolicy(
+            enforce: switchedOn, factors: new QualifyingSecondFactors(Totp: false, Passkey: true), passkeysRun: true));
+
+        _minted!.Value.Permissions.Should().BeEmpty();
+        _minted.Value.Roles.Should().BeEmpty();
+        _minted.Value.Authentication.Requirement.Should().Be(MfaRequirement.Passkey);
+    }
+
     [Fact]
     public async Task Handle_PasskeyOnlyAdministratorsPasskeySession_KeepsPlatformAuthority()
     {

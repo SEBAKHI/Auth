@@ -2954,6 +2954,21 @@
       "source": "catalog"
     },
     {
+      "code": "User.DeletionCancelledAccountInactive",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.DeletionCancelledAccountLocked",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.DeletionCancelledAccountPending",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
       "code": "User.DuplicateEmail",
       "status": 409,
       "source": "catalog"

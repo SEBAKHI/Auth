@@ -893,6 +893,15 @@
   <data name="User.RecoveryWindowExpired" xml:space="preserve">
     <value>该账户的恢复期已结束，删除正在完成中。</value>
   </data>
+  <data name="User.DeletionCancelledAccountInactive" xml:space="preserve">
+    <value>您的账户不会被删除。但它已停用，因此您无法登录；您的管理员可以重新启用它。</value>
+  </data>
+  <data name="User.DeletionCancelledAccountLocked" xml:space="preserve">
+    <value>您的账户不会被删除。但管理员已将其锁定，因此在解锁之前您无法登录。</value>
+  </data>
+  <data name="User.DeletionCancelledAccountPending" xml:space="preserve">
+    <value>您的账户不会被删除。但它尚未激活，因此在激活之前您无法登录。</value>
+  </data>
   <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
     <value>验证码无效或已过期。</value>
   </data>

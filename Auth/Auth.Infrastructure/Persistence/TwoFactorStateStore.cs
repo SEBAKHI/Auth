@@ -246,9 +246,11 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     // policy reads: an enabled two-factor row — never the account flag, which can
     // disagree with the row — or (S20) a live, user-verified passkey of the current RP
     // ID. The emailed code is never one: its row has IsEnabled = 0
-    // (CK_TwoFactorAuth_SingleFactor). It ignores Passkeys:Enabled and the posture on
-    // purpose: switching the feature off must not turn an administrator whose only
-    // factor is a passkey into one with none.
+    // (CK_TwoFactorAuth_SingleFactor). It is the inventory, and ignores Passkeys:Enabled
+    // and the posture on purpose: it says what the account holds. The rules mask it
+    // (UsableSecondFactors, D-150-4): while passkeys do not run, a passkey is no usable
+    // factor, so an administrator whose only factor is a passkey is decided as one
+    // with none.
     // Every statement below is built from these two fragments, in two variants (see
     // FactorStatements): with the passkey schema and an RP ID, and without — code
     // deployed before its DACPAC, or no RP ID — which is exactly the text before S20,

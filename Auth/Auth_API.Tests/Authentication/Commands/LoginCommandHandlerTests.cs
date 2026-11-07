@@ -1216,6 +1216,32 @@ public class LoginCommandHandlerTests
         _eventDispatcherMock.Verify(d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    /// <summary>
+    /// REVIEW 151 F5: after its own proof. A wrong password is answered as any wrong password and
+    /// counted, and the rule is never asked: a refusal above the password check would tell anyone
+    /// who knows the address that the account is a passkey-only administrator.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the refusal moved above the password check.</remarks>
+    [Fact]
+    public async Task Handle_PasskeyOnlyAdministrator_WithAWrongPassword_IsAnsweredAsAnyWrongPassword_AndTheRuleIsNotAsked()
+    {
+        var user = TestHelpers.CreateUser();
+        var command = CreateCommand(email: user.Email, password: "WrongPassword!");
+        _userRepositoryMock.Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _passwordHasherMock.Setup(h => h.VerifyPassword("WrongPassword!", user.PasswordHash!)).Returns(false);
+        var factors = new Mock<ITwoFactorStateStore>();
+        factors.Setup(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new QualifyingSecondFactors(Totp: false, Passkey: true));
+
+        var result = await HandlerWith(TestHelpers.PasskeyOnlyAdministratorRuleOver(factors, holdsPlatformAuthority: true))
+            .Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(UserErrors.InvalidCredentials.Code, "not Auth.PasskeyRequired");
+        VerifyFailureRecorded("Invalid password", Times.Once());
+        factors.Verify(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never,
+            "the rule is asked only after the password proved the person");
+    }
+
     public static TheoryData<string, bool, bool> AccountsThatSignInAsBefore => new()
     {
         // Because, the app, platform permission.

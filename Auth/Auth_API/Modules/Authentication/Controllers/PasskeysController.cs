@@ -363,7 +363,9 @@ public class PasskeysController : ApiController
     /// </summary>
     /// <remarks>
     /// An account that is not waiting for deletion answers <c>User.InvalidCredentials</c>, as
-    /// the password entry does; an administrator's lock answers as it does there.
+    /// the password entry does. A deactivated, not yet activated or administrator-locked account
+    /// has its deletion cancelled and gets no session (<c>User.DeletionCancelledAccount*</c>,
+    /// D-151-1 (b)), as at every entry.
     /// </remarks>
     [HttpPost("assertion/recover")]
     [AllowAnonymous]
@@ -420,12 +422,20 @@ public sealed record PasskeyAssertionOptionsResponse(JsonElement Options, DateTi
 /// <param name="Credential">The browser's <c>PublicKeyCredential</c>, as JSON (AuthenticationResponseJSON).</param>
 /// <param name="DeviceId">The browser's own identifier, as the password sign-in sends it (the header wins).</param>
 /// <param name="StaySignedIn">Whether the person ticked "Stay signed in".</param>
-public sealed record PasskeyAssertionRequest(JsonElement Credential, string? DeviceId, bool StaySignedIn);
+public sealed record PasskeyAssertionRequest(JsonElement Credential, string? DeviceId, bool StaySignedIn)
+{
+    // The credential names the account (its user handle) and carries the signed client data (PK16).
+    public override string ToString() => $"PasskeyAssertionRequest {{ StaySignedIn = {StaySignedIn} }}";
+}
 
 /// <summary>The answer to a passkey sign-in that recovers an account waiting for deletion.</summary>
 /// <param name="Credential">The browser's <c>PublicKeyCredential</c>, as JSON (AuthenticationResponseJSON).</param>
 /// <param name="DeviceId">The browser's own identifier (the header wins).</param>
-public sealed record PasskeyRecoveryRequest(JsonElement Credential, string? DeviceId);
+public sealed record PasskeyRecoveryRequest(JsonElement Credential, string? DeviceId)
+{
+    // As the sign-in's: the credential is never printed.
+    public override string ToString() => "PasskeyRecoveryRequest { }";
+}
 
 /// <summary>The options of a passkey registration.</summary>
 /// <param name="Options">The options for <c>navigator.credentials.create()</c>, as JSON (WebAuthn L3 PublicKeyCredentialCreationOptionsJSON).</param>

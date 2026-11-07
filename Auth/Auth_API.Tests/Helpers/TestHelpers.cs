@@ -886,6 +886,18 @@ public static class TestHelpers
     {
         var store = new Mock<Auth.Domain.Interfaces.Repositories.ITwoFactorStateStore>();
         store.Setup(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(factors);
+        return PasskeyOnlyAdministratorRuleOver(store, holdsPlatformAuthority, logger);
+    }
+
+    /// <summary>
+    /// <see cref="PasskeyOnlyAdministratorRuleOn"/> over a store the test holds: while passkeys
+    /// run, a rule that is asked always reads the factors, so the store tells whether it was.
+    /// </summary>
+    public static Auth.Application.Features.Authentication.Common.PasskeyOnlyAdministratorRule PasskeyOnlyAdministratorRuleOver(
+        Mock<Auth.Domain.Interfaces.Repositories.ITwoFactorStateStore> store,
+        bool holdsPlatformAuthority,
+        Microsoft.Extensions.Logging.ILogger<Auth.Application.Features.Authentication.Common.PasskeyOnlyAdministratorRule>? logger = null)
+    {
         var claims = new Mock<ITokenClaimsResolver>();
         claims.Setup(c => c.ResolveAsync(It.IsAny<Guid>(), null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TokenClaims([], holdsPlatformAuthority ? ["users.read"] : [], []));
