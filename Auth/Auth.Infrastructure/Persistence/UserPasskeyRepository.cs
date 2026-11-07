@@ -133,6 +133,40 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
               AND [RevokedAt] IS NULL
               AND [CreatedAt] > @RegisteredAfter";
 
+    // A sign-in finds its passkey by the credential id the response names (S20 PR B, PK8): bytes
+    // compared as bytes (VARBINARY) through UX_UserPasskeys_CredentialId, live, of the RP ID in
+    // force. Any account's: the user handle the handler compares next says whose it must be.
+    internal const string LiveByCredentialIdSql = @"
+            SELECT" + Columns + @"
+            FROM [dbo].[UserPasskeys]
+            WHERE [CredentialId] = @CredentialId
+              AND [RpId] = @RpId
+              AND [RevokedAt] IS NULL";
+
+    // The owner's handle, and nothing else of the owner, whatever the account's state: a
+    // soft-deleted account included (FA6).
+    internal const string UserHandleSql = @"
+            SELECT [WebAuthnUserHandle] FROM [dbo].[Users] WHERE [Id] = @UserId";
+
+    // A verified sign-in, recorded in one statement (PK9, T-B4): only while the passkey is still
+    // live and its counter is the one the sign-in was checked against. A removal, a reset or
+    // another sign-in that got there first matches nothing, and the sign-in is refused.
+    internal const string RecordAssertionSql = @"
+            UPDATE [dbo].[UserPasskeys] SET
+                [SignCount] = @SignCount,
+                [LastUsedAt] = @LastUsedAt,
+                [IsBackupEligible] = @IsBackupEligible,
+                [IsBackedUp] = @IsBackedUp
+            WHERE [Id] = @Id
+              AND [RevokedAt] IS NULL
+              AND [SignCount] = @StoredSignCount";
+
+    // A counter that did not grow (PK9): the seal, and nothing else. The passkey is never
+    // removed or revoked by it; that is its owner's choice, or an administrator's.
+    internal const string SealCounterRegressionSql = @"
+            UPDATE [dbo].[UserPasskeys] SET [LastCounterRegressionAt] = @At
+            WHERE [Id] = @Id";
+
     internal const string RenameSql = @"
             UPDATE [dbo].[UserPasskeys] SET [Name] = @Name
             WHERE [Id] = @Id
@@ -198,6 +232,78 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
             CountLiveSql,
             new { UserId = userId, RpId = rpId },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <inheritdoc />
+    public async Task<UserPasskey?> GetLiveByCredentialIdAsync(byte[] credentialId, string rpId, CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var row = await connection.QuerySingleOrDefaultAsync<UserPasskeyDto>(new CommandDefinition(
+            LiveByCredentialIdSql,
+            // A byte[] is sent as VARBINARY: the comparison is of bytes, through the unique
+            // index, never of text under a case-insensitive collation.
+            new { CredentialId = credentialId, RpId = rpId },
+            cancellationToken: cancellationToken));
+
+        return row?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<byte[]?> GetUserHandleAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.QuerySingleOrDefaultAsync<byte[]?>(new CommandDefinition(
+            UserHandleSql,
+            new { UserId = userId },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> TryRecordAssertionAsync(UserPasskey passkey, long storedSignCount, CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return false;
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.ExecuteAsync(new CommandDefinition(
+            RecordAssertionSql,
+            new
+            {
+                passkey.Id,
+                passkey.SignCount,
+                passkey.LastUsedAt,
+                passkey.IsBackupEligible,
+                passkey.IsBackedUp,
+                StoredSignCount = storedSignCount,
+            },
+            cancellationToken: cancellationToken)) == 1;
+    }
+
+    /// <inheritdoc />
+    public async Task SealCounterRegressionAsync(Guid passkeyId, DateTime atUtc, CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return;
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(
+            SealCounterRegressionSql,
+            new { Id = passkeyId, At = atUtc },
             cancellationToken: cancellationToken));
     }
 

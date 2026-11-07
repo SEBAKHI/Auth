@@ -39,6 +39,9 @@ public class BuildAsyncCallerGuardTests
         // D-S23-2 (a)), Unknown only for a code issued without one. The session row records
         // it for the application's refreshes; the application token carries none.
         ["ExchangeAuthorizationCodeCommandHandler.cs"] = "methods",
+        // S20 PR B: the passkey sign-in: a passkey the device verified the person for
+        // (Passkey | PasskeyUserVerified), two factors on its own (M3).
+        ["VerifyPasskeyAssertionCommandHandler.cs"] = "methods",
     };
 
     /// <summary>

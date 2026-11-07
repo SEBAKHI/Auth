@@ -168,6 +168,74 @@ public class RefreshTokenMfaPolicyTests
         _minted.Value.Authentication.Requirement.Should().Be(MfaRequirement.Enroll);
     }
 
+    // ── S20 PR B, D-S20-4 (ii): an administrator whose only usable factor is a passkey ──
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Handle_PasskeyOnlyAdministratorsPasswordSession_IsWithheldWhateverTheSwitch(bool switchedOn)
+    {
+        // The refresh keeps the platform policy's withholding: such an account holds platform
+        // authority only through a passkey session.
+        GivenToken();
+        GivenSession(AuthenticationMethods.Password);
+
+        await Refresh(TestHelpers.CreatePlatformMfaPolicy(
+            enforce: switchedOn, factors: new QualifyingSecondFactors(Totp: false, Passkey: true), passkeysRun: true));
+
+        _minted!.Value.Permissions.Should().BeEmpty();
+        _minted.Value.Roles.Should().BeEmpty();
+        _minted.Value.Authentication.Requirement.Should().Be(MfaRequirement.Passkey);
+    }
+
+    /// <summary>
+    /// REVIEW 151 F3: a session that proved the password and the authenticator app, of an account
+    /// that switched the app off from it and so became passkey-only, refreshes withheld: two
+    /// factors are not the passkey (D-S20-4 (ii)).
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Handle_AnAppProvenSession_OfAnAccountThatBecamePasskeyOnly_IsWithheldWhateverTheSwitch(bool switchedOn)
+    {
+        GivenToken();
+        GivenSession(AuthenticationMethods.Password.With(AuthenticationMethods.Totp));
+
+        await Refresh(TestHelpers.CreatePlatformMfaPolicy(
+            enforce: switchedOn, factors: new QualifyingSecondFactors(Totp: false, Passkey: true), passkeysRun: true));
+
+        _minted!.Value.Permissions.Should().BeEmpty();
+        _minted.Value.Roles.Should().BeEmpty();
+        _minted.Value.Authentication.Requirement.Should().Be(MfaRequirement.Passkey);
+    }
+
+    [Fact]
+    public async Task Handle_PasskeyOnlyAdministratorsPasskeySession_KeepsPlatformAuthority()
+    {
+        GivenToken();
+        GivenSession(AuthenticationMethods.Passkey.With(AuthenticationMethods.PasskeyUserVerified));
+
+        await Refresh(TestHelpers.CreatePlatformMfaPolicy(
+            enforce: false, factors: new QualifyingSecondFactors(Totp: false, Passkey: true), passkeysRun: true));
+
+        _minted!.Value.Permissions.Should().Equal("*");
+        _minted.Value.Authentication.Requirement.Should().Be(MfaRequirement.None);
+    }
+
+    [Fact]
+    public async Task Handle_PasskeyOnlyAdministrator_WhilePasskeysDoNotRun_RefreshesAsBefore()
+    {
+        // D-150-4: off means off. The passkey is no usable factor, and the switch is off.
+        GivenToken();
+        GivenSession(AuthenticationMethods.Password);
+
+        await Refresh(TestHelpers.CreatePlatformMfaPolicy(
+            enforce: false, factors: new QualifyingSecondFactors(Totp: false, Passkey: true), passkeysRun: false));
+
+        _minted!.Value.Permissions.Should().Equal("*");
+        _minted.Value.Authentication.Requirement.Should().Be(MfaRequirement.None);
+    }
+
     [Fact]
     public async Task Handle_MissingSessionRow_IsUnknown_AndAWarning_NotAnError()
     {
@@ -241,7 +309,7 @@ public class RefreshTokenMfaPolicyTests
 
         var store = new Mock<ITwoFactorStateStore>(MockBehavior.Strict);
         var policy = new Auth.Application.Features.Authentication.Common.PlatformMfaPolicy(
-            store.Object, Mock.Of<ITokenClaimsResolver>(),
+            TestHelpers.UsableFactors(store.Object), Mock.Of<ITokenClaimsResolver>(),
             TestHelpers.CreateOptions(new TwoFactorSettings { EnforceForPlatformAdmins = true }),
             TestHelpers.LoadedSettingsReloader(),
             new Auth.Application.Features.Authentication.Common.EnforcedSettingsWarning(),

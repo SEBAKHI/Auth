@@ -1,5 +1,6 @@
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Authentication.Login;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
@@ -49,18 +50,22 @@ public class LoginCommandHandlerTests
             .Setup(r => r.GetLockStateAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountLockState(UserStatus.Active, 0, null));
 
-        _handler = new LoginCommandHandler(
-            _userRepositoryMock.Object,
-            _loginAttemptRepositoryMock.Object,
-            _accountDeletionRequestRepositoryMock.Object,
-            _passwordHasherMock.Object,
-            _loginResponseBuilderMock.Object,
-            _twoFactorChallengeServiceMock.Object,
-            _eventDispatcherMock.Object,
-            TestHelpers.CreateAccountLockout(_userRepositoryMock.Object, _passwordSettings),
-            TestHelpers.CreateOptions(_passwordSettings),
-            _loggerMock.Object);
+        _handler = HandlerWith(TestHelpers.PasskeyOnlyAdministratorRuleOff());
     }
+
+    /// <summary>The handler over the given refusal of a passkey-only administrator, every other part as <c>_handler</c>.</summary>
+    private LoginCommandHandler HandlerWith(PasskeyOnlyAdministratorRule passkeyOnlyAdministrator) => new(
+        _userRepositoryMock.Object,
+        _loginAttemptRepositoryMock.Object,
+        _accountDeletionRequestRepositoryMock.Object,
+        _passwordHasherMock.Object,
+        _loginResponseBuilderMock.Object,
+        _twoFactorChallengeServiceMock.Object,
+        _eventDispatcherMock.Object,
+        TestHelpers.CreateAccountLockout(_userRepositoryMock.Object, _passwordSettings),
+        passkeyOnlyAdministrator,
+        TestHelpers.CreateOptions(_passwordSettings),
+        _loggerMock.Object);
 
     private static LoginCommand CreateCommand(
         string email = "test@example.com",
@@ -1184,5 +1189,87 @@ public class LoginCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         VerifyBuiltWith(persistent: ticked);
+    }
+
+    // ── S20 PR B, D-S20-4 (ii-s): an administrator whose only usable factor is a passkey ──
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Handle_PasskeyOnlyAdministrator_ReturnsPasskeyRequiredAndChangesNothing(bool secondFactorOn)
+    {
+        // After the password and before the second step or any token: no challenge, no
+        // sign-in row, no session, no lock lifted, no event. With the second factor on, it is
+        // the emailed code (S24), which is no qualifying factor.
+        var user = TestHelpers.CreateUser(twoFactorEnabled: secondFactorOn);
+        var command = CreateCommand(email: user.Email);
+        GivenTheRightPassword(user, command);
+
+        var result = await HandlerWith(TestHelpers.PasskeyOnlyAdministratorRuleOn(
+                new QualifyingSecondFactors(Totp: false, Passkey: true), holdsPlatformAuthority: true))
+            .Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.PasskeyRequired.Code);
+        _twoFactorChallengeServiceMock.Verify(s => s.CreateChallengeAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()), Times.Never);
+        _loginAttemptRepositoryMock.Verify(r => r.CreateAsync(It.IsAny<LoginAttempt>(), It.IsAny<CancellationToken>()), Times.Never);
+        _loginResponseBuilderMock.Verify(b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()), Times.Never);
+        _eventDispatcherMock.Verify(d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    /// <summary>
+    /// REVIEW 151 F5: after its own proof. A wrong password is answered as any wrong password and
+    /// counted, and the rule is never asked: a refusal above the password check would tell anyone
+    /// who knows the address that the account is a passkey-only administrator.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the refusal moved above the password check.</remarks>
+    [Fact]
+    public async Task Handle_PasskeyOnlyAdministrator_WithAWrongPassword_IsAnsweredAsAnyWrongPassword_AndTheRuleIsNotAsked()
+    {
+        var user = TestHelpers.CreateUser();
+        var command = CreateCommand(email: user.Email, password: "WrongPassword!");
+        _userRepositoryMock.Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _passwordHasherMock.Setup(h => h.VerifyPassword("WrongPassword!", user.PasswordHash!)).Returns(false);
+        var factors = new Mock<ITwoFactorStateStore>();
+        factors.Setup(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new QualifyingSecondFactors(Totp: false, Passkey: true));
+
+        var result = await HandlerWith(TestHelpers.PasskeyOnlyAdministratorRuleOver(factors, holdsPlatformAuthority: true))
+            .Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(UserErrors.InvalidCredentials.Code, "not Auth.PasskeyRequired");
+        VerifyFailureRecorded("Invalid password", Times.Once());
+        factors.Verify(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never,
+            "the rule is asked only after the password proved the person");
+    }
+
+    public static TheoryData<string, bool, bool> AccountsThatSignInAsBefore => new()
+    {
+        // Because, the app, platform permission.
+        { "an administrator with the app as well", true, true },
+        { "a passkey-only account without platform permission", false, false },
+    };
+
+    [Theory]
+    [MemberData(nameof(AccountsThatSignInAsBefore))]
+    public async Task Handle_AnyOtherAccountWhilePasskeysRun_SignsInAsBefore(string because, bool app, bool administrator)
+    {
+        var user = TestHelpers.CreateUser();
+        var command = CreateCommand(email: user.Email);
+        GivenTheRightPassword(user, command);
+        _loginResponseBuilderMock.Setup(b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>())).ReturnsAsync(CreateLoginResponse());
+
+        var result = await HandlerWith(TestHelpers.PasskeyOnlyAdministratorRuleOn(
+                new QualifyingSecondFactors(Totp: app, Passkey: true), administrator))
+            .Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse(because);
+        VerifyBuiltWith(persistent: false);
+    }
+
+    private void GivenTheRightPassword(User user, LoginCommand command)
+    {
+        _userRepositoryMock.Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _passwordHasherMock.Setup(h => h.VerifyPassword(command.Password, user.PasswordHash!)).Returns(true);
+        _passwordHasherMock.Setup(h => h.NeedsRehash(user.PasswordHash!)).Returns(false);
     }
 }

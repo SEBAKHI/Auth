@@ -1,4 +1,5 @@
 using Auth.Application.Features.Authentication.Common;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Errors;
@@ -24,17 +25,20 @@ public class SendTwoFactorEmailCodeCommandHandler
     private readonly IReauthenticationGuard _reauthenticationGuard;
     private readonly FirstFactorEmailProofPolicy _emailProofPolicy;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
+    private readonly UsableSecondFactors _usableFactors;
     private readonly FirstFactorEmailProof _emailProof;
 
     public SendTwoFactorEmailCodeCommandHandler(
         IReauthenticationGuard reauthenticationGuard,
         FirstFactorEmailProofPolicy emailProofPolicy,
         ITwoFactorStateStore twoFactorStateStore,
+        UsableSecondFactors usableFactors,
         FirstFactorEmailProof emailProof)
     {
         _reauthenticationGuard = reauthenticationGuard;
         _emailProofPolicy = emailProofPolicy;
         _twoFactorStateStore = twoFactorStateStore;
+        _usableFactors = usableFactors;
         _emailProof = emailProof;
     }
 
@@ -70,10 +74,11 @@ public class SendTwoFactorEmailCodeCommandHandler
             return UserErrors.TwoFactorAlreadyEnabled;
         }
 
-        // S20: beside a passkey the app is a further factor, bound from a two-factor session
-        // with no emailed code (OI-48 (2)), so none is minted. With the app off, only a
-        // passkey makes this true: an account without one answers as it always has.
-        if (await _twoFactorStateStore.HasEnabledFactorAsync(request.UserId, cancellationToken))
+        // S20: beside a usable passkey the app is a further factor, bound from a two-factor
+        // session with no emailed code (OI-48 (2)), so none is minted. With the app off, only a
+        // passkey makes this true, and only while passkeys run (D-150-4): an account without
+        // one, or whose passkeys are switched off, answers as it always has.
+        if ((await _usableFactors.GetAsync(request.UserId, cancellationToken)).HasAny)
         {
             return new TwoFactorEmailCodeResponse(EmailCodeRequired: false, SentTo: null, ExpiresAt: null);
         }

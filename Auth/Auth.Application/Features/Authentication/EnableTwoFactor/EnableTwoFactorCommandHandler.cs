@@ -1,4 +1,5 @@
 using Auth.Application.Features.Authentication.Common;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -54,6 +55,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
     private readonly IReauthenticationGuard _reauthenticationGuard;
     private readonly ISecondFactorVerifier _secondFactorVerifier;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
+    private readonly UsableSecondFactors _usableFactors;
     private readonly ITotpService _totpService;
     private readonly FirstFactorEmailProofPolicy _emailProofPolicy;
     private readonly FirstFactorEmailProof _emailProof;
@@ -68,6 +70,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         IReauthenticationGuard reauthenticationGuard,
         ISecondFactorVerifier secondFactorVerifier,
         ITwoFactorStateStore twoFactorStateStore,
+        UsableSecondFactors usableFactors,
         ITotpService totpService,
         FirstFactorEmailProofPolicy emailProofPolicy,
         FirstFactorEmailProof emailProof,
@@ -81,6 +84,7 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         _reauthenticationGuard = reauthenticationGuard;
         _secondFactorVerifier = secondFactorVerifier;
         _twoFactorStateStore = twoFactorStateStore;
+        _usableFactors = usableFactors;
         _totpService = totpService;
         _emailProofPolicy = emailProofPolicy;
         _emailProof = emailProof;
@@ -120,10 +124,10 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         // anything is counted. With an authenticator on the account the reservation
         // below refuses anyway; the rule stands for every factor that can coexist
         // with one, and it is why the emailed code is never asked for here.
-        // Read once: whether the account already holds a qualifying factor (FA2) — the app,
-        // or a passkey (S20) — decides both the session rule and whether the emailed code
-        // of a FIRST factor applies.
-        var hasQualifyingFactor = await _twoFactorStateStore.HasEnabledFactorAsync(request.UserId, cancellationToken);
+        // Read once: whether the account already holds a usable qualifying factor — the app,
+        // or a passkey while passkeys run (S20, D-150-4) — decides both the session rule and
+        // whether the emailed code of a FIRST factor applies.
+        var hasQualifyingFactor = (await _usableFactors.GetAsync(request.UserId, cancellationToken)).HasAny;
         if (!session.Value.Methods.IsMfaSatisfied && hasQualifyingFactor)
         {
             _logger.LogInformation(
@@ -151,8 +155,9 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         // proof that the emailed code may go went through the mailbox: it is the
         // first-factor mailbox proof too, so that code is never asked as well. A
         // recovery code proves no mailbox, so it is.
-        // Beside a passkey (S20) the app is a further factor: the two-factor session above
-        // is its proof, and the emailed code of a first factor is not asked (OI-48 (2)).
+        // Beside a usable passkey (S20) the app is a further factor: the two-factor session
+        // above is its proof, and the emailed code of a first factor is not asked (OI-48 (2)).
+        // While passkeys do not run the app is a first factor, and the code is asked.
         var emailProofRequired = _emailProofPolicy.IsRequired
             && !hasQualifyingFactor
             && !(replacesEmailCode && !request.ReplacementProofIsRecoveryCode);

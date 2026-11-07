@@ -38,6 +38,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock;
     private readonly Mock<ILogger<VerifyTwoFactorLoginCommandHandler>> _loggerMock;
     private readonly TwoFactorSettings _twoFactorSettings = new();
+    private readonly SecondFactorVerifier _verifier;
     private readonly VerifyTwoFactorLoginCommandHandler _handler;
 
     public VerifyTwoFactorLoginCommandHandlerTests()
@@ -55,24 +56,28 @@ public class VerifyTwoFactorLoginCommandHandlerTests
 
         _refreshTokenKeyServiceMock.Map(ChallengeToken, ChallengeTokenHash);
 
-        var verifier = new SecondFactorVerifier(
+        _verifier = new SecondFactorVerifier(
             _stateStoreMock.Object,
             [
                 new TotpProofStrategy(_totpServiceMock.Object, _secretProtectorMock.Object),
                 new RecoveryCodeProofStrategy(_totpServiceMock.Object)
             ], TestHelpers.CreateSecondFactorLockout());
 
-        _handler = new VerifyTwoFactorLoginCommandHandler(
-            _challengeRepositoryMock.Object,
-            verifier,
-            _stateStoreMock.Object,
-            _userRepositoryMock.Object,
-            _loginAttemptRepositoryMock.Object,
-            _refreshTokenKeyServiceMock,
-            _loginResponseBuilderMock.Object,
-            _eventDispatcherMock.Object,
-            _loggerMock.Object);
+        _handler = HandlerWith(TestHelpers.PasskeyOnlyAdministratorRuleOff());
     }
+
+    /// <summary>The handler over the given refusal of a passkey-only administrator, every other part as <c>_handler</c>.</summary>
+    private VerifyTwoFactorLoginCommandHandler HandlerWith(PasskeyOnlyAdministratorRule passkeyOnlyAdministrator) => new(
+        _challengeRepositoryMock.Object,
+        _verifier,
+        _stateStoreMock.Object,
+        _userRepositoryMock.Object,
+        _loginAttemptRepositoryMock.Object,
+        _refreshTokenKeyServiceMock,
+        _loginResponseBuilderMock.Object,
+        _eventDispatcherMock.Object,
+        passkeyOnlyAdministrator,
+        _loggerMock.Object);
 
     private static VerifyTwoFactorLoginCommand CreateCommand(
         string code = "123456",
@@ -756,6 +761,35 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(user, It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    /// <summary>
+    /// S20 PR B, D-S20-4 (ii-s): a challenge opened before the account became an administrator
+    /// whose only usable factor is a passkey, or before passkeys ran, does not finish here. The
+    /// refusal comes after the commit, so the code that was accepted cannot be presented again,
+    /// and before anything is minted: no session, no event. The test's rule says what the
+    /// account's usable factors are; its code here stands for the emailed code (S24), which is
+    /// no qualifying factor.
+    /// </summary>
+    [Fact]
+    public async Task Handle_CorrectCodeForPasskeyOnlyAdministrator_SpendsTheCodeAndIssuesNothing()
+    {
+        var userId = Guid.NewGuid();
+        SetupHappyPath(userId, out var user, out var challenge);
+        _totpServiceMock.Setup(s => s.ValidateCode(PlainSecret, "123456")).Returns(MatchedStep);
+        SetupBuild(user, CreateLoginResponse());
+
+        var result = await HandlerWith(TestHelpers.PasskeyOnlyAdministratorRuleOn(
+                new QualifyingSecondFactors(Totp: false, Passkey: true), holdsPlatformAuthority: true))
+            .Handle(CreateCommand(), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(Auth.Domain.Errors.AuthErrors.PasskeyRequired.Code);
+        _stateStoreMock.Verify(
+            s => s.TryCommitLoginAsync(challenge.Id, userId, It.IsAny<SecondFactorProof>(), It.IsAny<CancellationToken>()),
+            Times.Once, "the code was spent before the refusal");
+        VerifyNothingIssued();
+        _eventDispatcherMock.Verify(
+            d => d.DispatchEventsAsync(It.IsAny<Auth.Domain.Primitives.AggregateRoot>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── X12: the lock, and whether the completed sign-in proved the password ──

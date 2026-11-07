@@ -62,6 +62,8 @@ public class SignInPageThrottleGuardTests
     [Theory]
     [InlineData("external-providers-route", "/api/v{version:int}/auth/external-providers")]
     [InlineData("external-nonce-route", "/api/v{version:int}/auth/external-nonce")]
+    // S20 PR B: the sign-in page fetches its passkey options on every load.
+    [InlineData("passkey-assertion-options-route", "/api/v{version:int}/auth/passkeys/assertion/options")]
     public void TheGateway_CarvesEachPageLoadOutOfTheAuthCatchAll(string routeName, string path)
     {
         var routes = GatewayRoutes();
@@ -76,6 +78,27 @@ public class SignInPageThrottleGuardTests
         route.Order.Should().BeLessThan(catchAll.Order,
             "a literal segment already outranks a catch-all, but the ordering a launch depends on "
             + "should not rest on that being remembered by whoever edits these routes next");
+    }
+
+    /// <summary>
+    /// S20 PR B: the passkey sign-in and its recovery are sign-in attempts. Only the options the
+    /// page fetches on load are carved out; the two calls that check a passkey stay on the auth
+    /// catch-all, at the sign-in limit, like the password sign-in.
+    /// </summary>
+    [Fact]
+    public void ThePasskeySignInAndItsRecovery_StayOnTheSignInLimit()
+    {
+        var routes = GatewayRoutes();
+
+        routes.Should().ContainSingle(route => route.Path.Contains("/auth/passkeys", StringComparison.OrdinalIgnoreCase),
+            "only the options are carved out of the catch-all");
+        routes.Single(route => route.Path.Contains("/auth/passkeys", StringComparison.OrdinalIgnoreCase))
+            .Path.Should().EndWith("/auth/passkeys/assertion/options", "an exact path, so nothing else under /auth/passkeys rides on it");
+
+        var source = ReadSource("Auth_API", "Modules", "Authentication", "Controllers", "PasskeysController.cs");
+        AttributeBlockAfter(source, "(\"assertion/options\")").Should().Contain($"[EnableRateLimiting(\"{PolicyName}\")]");
+        AttributeBlockAfter(source, "(\"assertion/verify\")").Should().Contain("[EnableRateLimiting(\"login\")]");
+        AttributeBlockAfter(source, "(\"assertion/recover\")").Should().Contain("[EnableRateLimiting(\"login\")]");
     }
 
     #region Helpers

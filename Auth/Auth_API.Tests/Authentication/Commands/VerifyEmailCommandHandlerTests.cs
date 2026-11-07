@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Authentication.VerifyEmail;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
@@ -33,15 +34,47 @@ public class VerifyEmailCommandHandlerTests
         _eventDispatcherMock = new Mock<IDomainEventDispatcher>();
         _loggerMock = new Mock<ILogger<VerifyEmailCommandHandler>>();
 
-        _handler = new VerifyEmailCommandHandler(
-            _userRepositoryMock.Object,
-            _tokenRepositoryMock.Object,
-            _otpHasherMock.Object,
-            _loginResponseBuilderMock.Object,
-            _twoFactorChallengeServiceMock.Object,
-            _eventDispatcherMock.Object,
-            TestHelpers.CreateAccountLockout(_userRepositoryMock.Object),
-            _loggerMock.Object);
+        _handler = HandlerWith(TestHelpers.PasskeyOnlyAdministratorRuleOff());
+    }
+
+    /// <summary>The handler over the given refusal of a passkey-only administrator, every other part as <c>_handler</c>.</summary>
+    private VerifyEmailCommandHandler HandlerWith(PasskeyOnlyAdministratorRule passkeyOnlyAdministrator) => new(
+        _userRepositoryMock.Object,
+        _tokenRepositoryMock.Object,
+        _otpHasherMock.Object,
+        _loginResponseBuilderMock.Object,
+        _twoFactorChallengeServiceMock.Object,
+        _eventDispatcherMock.Object,
+        TestHelpers.CreateAccountLockout(_userRepositoryMock.Object),
+        passkeyOnlyAdministrator,
+        _loggerMock.Object);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Handle_ValidOtpByEmail_PasskeyOnlyAdministrator_ConfirmsButRefusesTheSignIn(bool secondFactorOn)
+    {
+        // S20 PR B, D-S20-4 (ii-s): the address stays verified; only the courtesy sign-in is
+        // refused, before any challenge or token.
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, emailConfirmed: false, twoFactorEnabled: secondFactorOn);
+        var token = TestHelpers.CreateEmailVerificationToken(userId: userId);
+        var command = new VerifyEmailCommand(null, "123456", user.Email, "127.0.0.1", "TestAgent/1.0");
+        _userRepositoryMock.Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _tokenRepositoryMock.Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(token);
+        SetupCodeWins(token);
+        _otpHasherMock.Setup(h => h.Verify(It.IsAny<string>(), "123456", token.OtpHash)).Returns(true);
+        SetupTokenBuilder();
+
+        var result = await HandlerWith(TestHelpers.PasskeyOnlyAdministratorRuleOn(
+                new QualifyingSecondFactors(Totp: false, Passkey: true), holdsPlatformAuthority: true))
+            .Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.PasskeyRequired.Code);
+        _userRepositoryMock.Verify(r => r.ConfirmEmailAsync(userId, userId, It.IsAny<CancellationToken>()), Times.Once());
+        _twoFactorChallengeServiceMock.Verify(s => s.CreateChallengeAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()), Times.Never);
+        _loginResponseBuilderMock.Verify(b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()), Times.Never);
+        _eventDispatcherMock.Verify(d => d.DispatchEventsAsync(It.IsAny<Auth.Domain.Primitives.AggregateRoot>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using System.Text;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Primitives;
 using ErrorOr;
@@ -220,6 +221,54 @@ public sealed class UserPasskey : EntityBase
 
         Name = normalized.Value;
         return Result.Success;
+    }
+
+    /// <summary>
+    /// Whether a sign-in's counter is a regression (PK9): one of the stored or the incoming
+    /// counter counts — either is not zero — and the incoming one did not grow. Two zeros are
+    /// an authenticator that does not count, which is allowed (WebAuthn L3 §6.1.1).
+    /// </summary>
+    /// <param name="stored">The counter last accepted.</param>
+    /// <param name="incoming">The counter the verified assertion carries.</param>
+    public static bool IsCounterRegression(long stored, uint incoming) =>
+        (stored != 0 || incoming != 0) && incoming <= stored;
+
+    /// <summary>
+    /// Records a sign-in whose assertion the WebAuthn library verified (PK9). A counter that
+    /// did not grow seals the passkey (<see cref="LastCounterRegressionAt"/>) and changes
+    /// nothing else; otherwise the new counter, the BE and BS flags and the time are taken.
+    /// </summary>
+    /// <param name="signCount">The verified assertion's counter.</param>
+    /// <param name="isBackupEligible">The assertion's BE flag.</param>
+    /// <param name="isBackedUp">The assertion's BS flag.</param>
+    /// <param name="usedAt">When (UTC), from the caller's clock.</param>
+    /// <returns><see cref="PasskeyCounterCheck.Advanced"/>, or <see cref="PasskeyCounterCheck.Regressed"/>.</returns>
+    public PasskeyCounterCheck RecordAssertion(uint signCount, bool isBackupEligible, bool isBackedUp, DateTime usedAt)
+    {
+        if (IsCounterRegression(SignCount, signCount))
+        {
+            return RecordCounterRegression(usedAt);
+        }
+
+        SignCount = signCount;
+        IsBackupEligible = isBackupEligible;
+        IsBackedUp = isBackedUp;
+        LastUsedAt = usedAt;
+        return PasskeyCounterCheck.Advanced;
+    }
+
+    /// <summary>
+    /// Seals the passkey after a counter that did not grow, whoever saw it first: this code
+    /// (<see cref="RecordAssertion"/>) or the WebAuthn library, which refuses such a counter
+    /// itself once the signature verified. The passkey stays live: removing it is its owner's
+    /// choice, or an administrator's (C5).
+    /// </summary>
+    /// <param name="at">When (UTC), from the caller's clock.</param>
+    /// <returns><see cref="PasskeyCounterCheck.Regressed"/>.</returns>
+    public PasskeyCounterCheck RecordCounterRegression(DateTime at)
+    {
+        LastCounterRegressionAt = at;
+        return PasskeyCounterCheck.Regressed;
     }
 
     /// <summary>

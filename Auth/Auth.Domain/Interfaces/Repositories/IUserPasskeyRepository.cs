@@ -30,6 +30,41 @@ public interface IUserPasskeyRepository
     Task<int> CountLiveAsync(Guid userId, string rpId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The live passkey of <paramref name="rpId"/> whose credential id is exactly
+    /// <paramref name="credentialId"/>, of any account (S20 PR B, PK8): the id is compared as
+    /// bytes, through the unique index, so two ids that differ only in letter case are two
+    /// passkeys (P7-R15).
+    /// </summary>
+    /// <returns>The passkey, or null when no live one of the RP ID has the id.</returns>
+    Task<UserPasskey?> GetLiveByCredentialIdAsync(byte[] credentialId, string rpId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The account's WebAuthn user handle, read whatever the account's state — a soft-deleted
+    /// account included — and nothing else of it (PK8, FA6): a sign-in compares it with the
+    /// handle the authenticator answered before anything about the owner is read.
+    /// </summary>
+    /// <returns>The handle; null when the account has none or does not exist.</returns>
+    Task<byte[]?> GetUserHandleAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records a verified sign-in on the passkey (PK9, T-B4), in one statement: the new
+    /// counter, the BE and BS flags and the time, only while the passkey is live and its
+    /// counter is still <paramref name="storedSignCount"/>, the value the sign-in was checked
+    /// against. A removal, a reset or another sign-in that got there first matches nothing.
+    /// </summary>
+    /// <param name="passkey">The passkey as <see cref="UserPasskey.RecordAssertion"/> left it.</param>
+    /// <param name="storedSignCount">The counter read before the check.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True when the row was written; false when it matched nothing.</returns>
+    Task<bool> TryRecordAssertionAsync(UserPasskey passkey, long storedSignCount, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records that a sign-in's counter did not grow (PK9): <c>LastCounterRegressionAt</c>,
+    /// and nothing else. The passkey is never removed or revoked by it.
+    /// </summary>
+    Task SealCounterRegressionAsync(Guid passkeyId, DateTime atUtc, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Whether any account holds a live passkey bound to an RP ID other than
     /// <paramref name="rpId"/> (PK3): such passkeys sign in nowhere and count as no factor.
     /// </summary>

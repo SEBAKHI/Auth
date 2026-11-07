@@ -100,6 +100,24 @@ internal static class AttestedKeyType
         }
     }
 
+    /// <summary>
+    /// Whether a STORED COSE public key — the server's own, written at registration — is an EC2
+    /// or an RSA key that reads (S20 PR B, N4). Read before the library sees the key, because the
+    /// library reads an OKP key through the native libsodium; the caller treats false as a fault
+    /// of the server, never of the client.
+    /// </summary>
+    public static bool IsStoredKeyEc2OrRsa(byte[] coseKey)
+    {
+        try
+        {
+            return coseKey is { Length: > 0 } && CoseKeyTypeOf(coseKey) is CoseKeyTypeEc2 or CoseKeyTypeRsa;
+        }
+        catch (Exception ex) when (IsParseFailure(ex))
+        {
+            return false;
+        }
+    }
+
     private static bool IsParseFailure(Exception ex) =>
         ex is JsonException or FormatException or CborContentException or InvalidOperationException or OverflowException;
 
@@ -249,7 +267,16 @@ internal static class AttestedKeyType
         }
 
         // The key is the first CBOR item after the credential id; extensions may follow it.
-        var reader = new CborReader(authData.AsMemory(keyOffset), CborConformanceMode.Lax, allowMultipleRootLevelValues: true);
+        return CoseKeyTypeOf(authData.AsMemory(keyOffset));
+    }
+
+    /// <summary>
+    /// The <c>kty</c> of the COSE key that starts <paramref name="coseKey"/>, or null when it
+    /// cannot be read: given twice, or as text.
+    /// </summary>
+    private static int? CoseKeyTypeOf(ReadOnlyMemory<byte> coseKey)
+    {
+        var reader = new CborReader(coseKey, CborConformanceMode.Lax, allowMultipleRootLevelValues: true);
         var entries = reader.ReadStartMap();
         int? keyType = null;
         for (var index = 0; entries is null ? reader.PeekState() != CborReaderState.EndMap : index < entries; index++)

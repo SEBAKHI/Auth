@@ -781,10 +781,17 @@ public static class TestHelpers
     /// switch off, as shipped — every decision leaves the claims exactly as
     /// resolved, so a test that is not about the policy mints what it always did.
     /// </summary>
+    /// <param name="factors">
+    /// S20 PR B: the account's factor inventory, when it is not the app alone; it is masked as
+    /// usable factors are, so a passkey counts only while <paramref name="passkeysRun"/>.
+    /// </param>
+    /// <param name="passkeysRun">Whether passkeys run (D-150-4).</param>
     public static Auth.Application.Features.Authentication.Common.PlatformMfaPolicy CreatePlatformMfaPolicy(
         bool enforce = false,
         bool hasEnabledFactor = false,
-        ITokenClaimsResolver? claimsResolver = null)
+        ITokenClaimsResolver? claimsResolver = null,
+        Auth.Domain.ValueObjects.QualifyingSecondFactors? factors = null,
+        bool passkeysRun = false)
     {
         var store = new Mock<Auth.Domain.Interfaces.Repositories.ITwoFactorStateStore>();
         store
@@ -793,10 +800,10 @@ public static class TestHelpers
         // S20: the policy reads the breakdown; before passkeys the factor was the app alone.
         store
             .Setup(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Auth.Domain.ValueObjects.QualifyingSecondFactors(Totp: hasEnabledFactor, Passkey: false));
+            .ReturnsAsync(factors ?? new Auth.Domain.ValueObjects.QualifyingSecondFactors(Totp: hasEnabledFactor, Passkey: false));
 
         return new Auth.Application.Features.Authentication.Common.PlatformMfaPolicy(
-            store.Object,
+            UsableFactors(store.Object, passkeysRun),
             claimsResolver ?? Mock.Of<ITokenClaimsResolver>(),
             CreateOptions(new TwoFactorSettings { EnforceForPlatformAdmins = enforce }),
             LoadedSettingsReloader(),
@@ -831,14 +838,74 @@ public static class TestHelpers
         store
             .Setup(s => s.HasEnabledFactorAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(hasEnabledFactor);
+        // S20 PR B: the guard reads the usable factors; before passkeys the factor was the app alone.
         store
-            .Setup(s => s.HasPlatformRoleHolderWithoutFactorAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Auth.Domain.ValueObjects.QualifyingSecondFactors(Totp: hasEnabledFactor, Passkey: false));
+        store
+            .Setup(s => s.HasPlatformRoleHolderWithoutFactorAsync(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(!hasEnabledFactor);
 
         return new Auth.Application.Common.PlatformGrantFactorGuard(
             policy.Object,
             store.Object,
+            UsableFactors(store.Object),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Common.PlatformGrantFactorGuard>.Instance);
+    }
+
+    /// <summary>
+    /// The usable second factors over <paramref name="store"/> (S20 PR B, D-150-4): the
+    /// passkey is masked unless <paramref name="passkeysRun"/>, as on every deployment until
+    /// passkeys are switched on.
+    /// </summary>
+    public static Auth.Application.Features.Passkeys.Common.UsableSecondFactors UsableFactors(
+        Auth.Domain.Interfaces.Repositories.ITwoFactorStateStore store,
+        bool passkeysRun = false) =>
+        new(store, PasskeyTestDoubles.Feature(enabled: passkeysRun));
+
+    /// <summary>
+    /// The refusal of a passkey-only administrator (D-S20-4 (ii-s)) as it stands while passkeys
+    /// do not run: it reads nothing (its collaborators are strict) and refuses no one, so a door's
+    /// test that is not about it runs as before PR B.
+    /// </summary>
+    public static Auth.Application.Features.Authentication.Common.PasskeyOnlyAdministratorRule PasskeyOnlyAdministratorRuleOff() =>
+        new(
+            UsableFactors(new Mock<Auth.Domain.Interfaces.Repositories.ITwoFactorStateStore>(MockBehavior.Strict).Object),
+            new Auth.Application.Features.Authentication.Common.EmailCodeFullProofRule(
+                new Mock<ITokenClaimsResolver>(MockBehavior.Strict).Object),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Features.Authentication.Common.PasskeyOnlyAdministratorRule>.Instance);
+
+    /// <summary>
+    /// The refusal of a passkey-only administrator while passkeys run, over the account's factors
+    /// and platform permissions as a test says.
+    /// </summary>
+    public static Auth.Application.Features.Authentication.Common.PasskeyOnlyAdministratorRule PasskeyOnlyAdministratorRuleOn(
+        Auth.Domain.ValueObjects.QualifyingSecondFactors factors,
+        bool holdsPlatformAuthority,
+        Microsoft.Extensions.Logging.ILogger<Auth.Application.Features.Authentication.Common.PasskeyOnlyAdministratorRule>? logger = null)
+    {
+        var store = new Mock<Auth.Domain.Interfaces.Repositories.ITwoFactorStateStore>();
+        store.Setup(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(factors);
+        return PasskeyOnlyAdministratorRuleOver(store, holdsPlatformAuthority, logger);
+    }
+
+    /// <summary>
+    /// <see cref="PasskeyOnlyAdministratorRuleOn"/> over a store the test holds: while passkeys
+    /// run, a rule that is asked always reads the factors, so the store tells whether it was.
+    /// </summary>
+    public static Auth.Application.Features.Authentication.Common.PasskeyOnlyAdministratorRule PasskeyOnlyAdministratorRuleOver(
+        Mock<Auth.Domain.Interfaces.Repositories.ITwoFactorStateStore> store,
+        bool holdsPlatformAuthority,
+        Microsoft.Extensions.Logging.ILogger<Auth.Application.Features.Authentication.Common.PasskeyOnlyAdministratorRule>? logger = null)
+    {
+        var claims = new Mock<ITokenClaimsResolver>();
+        claims.Setup(c => c.ResolveAsync(It.IsAny<Guid>(), null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TokenClaims([], holdsPlatformAuthority ? ["users.read"] : [], []));
+
+        return new(
+            UsableFactors(store.Object, passkeysRun: true),
+            new Auth.Application.Features.Authentication.Common.EmailCodeFullProofRule(claims.Object),
+            logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Features.Authentication.Common.PasskeyOnlyAdministratorRule>.Instance);
     }
 
     /// <summary>

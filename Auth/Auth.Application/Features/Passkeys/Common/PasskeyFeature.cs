@@ -12,9 +12,11 @@ namespace Auth.Application.Features.Passkeys.Common;
 /// </summary>
 /// <remarks>
 /// <para>
-/// It never decides whether a passkey counts as a factor: that is FA2, which ignores it, so
-/// switching the feature off does not leave an administrator whose only factor is a passkey
-/// with none.
+/// It also decides whether a passkey can be USED as a factor right now (D-150-4, «off means
+/// off»): while it says unavailable, <see cref="UsableSecondFactors"/> masks the passkey, so no
+/// policy demands one or leans on one, and an administrator whose only factor is a passkey is
+/// treated as before passkeys. The inventory (FA2) still holds the passkey: nothing is revoked,
+/// and when passkeys run again every rule applies again.
 /// </para>
 /// <para>
 /// A new RP ID is refused while live passkeys carry another (PK3): passkeys stay off, and the

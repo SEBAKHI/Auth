@@ -98,7 +98,9 @@ public class RecoverAccountCommandHandler
     /// <summary>
     /// Every step before the second factor, shared by the recovery and the request for
     /// its emailed code: the account waiting for deletion, the per-address ceiling
-    /// around the password hash, an administrator's lock, and a live deletion request.
+    /// around the password hash, and a live deletion request. The account's state is the
+    /// shared recovery's, after the cancel (D-151-1 (b)), so the emailed code goes to an
+    /// administrator-locked account too.
     /// </summary>
     private async Task<ErrorOr<(User User, AccountDeletionRequest Request)>> AuthenticateAsync(
         PendingDeletionCredentials request, CancellationToken cancellationToken)
@@ -138,13 +140,10 @@ public class RecoverAccountCommandHandler
             return UserErrors.InvalidCredentials;
         }
 
-        // Only an administrator's lock refuses a recovery that proved the
-        // password. A lock raised by wrong passwords before the deletion request
-        // is lifted by this recovery's success, which proved the password.
-        if (user.LockKind(DateTime.UtcNow) == AccountLockKind.Admin)
-        {
-            return user.LockRefusal(AccountLockKind.Admin);
-        }
+        // No lock refuses a recovery that proved the password. One raised by wrong
+        // passwords before the deletion request is lifted by this recovery's success,
+        // which proved the password; an administrator's lock stays, and the shared
+        // recovery cancels the deletion without a session (D-151-1 (b)).
 
         // Admin-soft-deleted accounts have no request row: recovery stays an
         // admin decision, and the caller learns nothing.

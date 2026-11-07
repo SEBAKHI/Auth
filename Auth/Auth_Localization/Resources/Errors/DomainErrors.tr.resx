@@ -75,6 +75,9 @@
   <data name="Auth.ReauthenticationRequired" xml:space="preserve">
     <value>Güvenliğiniz için, iki faktörlü kimlik doğrulamayı değiştirmek üzere tekrar giriş yapın.</value>
   </data>
+  <data name="Auth.PasskeyRequired" xml:space="preserve">
+    <value>Bu hesap geçiş anahtarıyla giriş yapar. Devam etmek için geçiş anahtarınızı kullanın.</value>
+  </data>
   <data name="Auth.FirstPartyOriginRequired" xml:space="preserve">
     <value>Bu istek platformun kendi oturum açma sayfalarından birinden gelmelidir. Kullanmak istediğiniz uygulamanın oturum açma sayfasını açıp yeniden deneyin.</value>
   </data>
@@ -889,6 +892,15 @@
   </data>
   <data name="User.RecoveryWindowExpired" xml:space="preserve">
     <value>Bu hesabın kurtarma süresi sona erdi. Silme işlemi tamamlanıyor.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountInactive" xml:space="preserve">
+    <value>Hesabınız silinmeyecek. Ancak devre dışı bırakıldığı için giriş yapamazsınız; yöneticiniz hesabı yeniden etkinleştirebilir.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountLocked" xml:space="preserve">
+    <value>Hesabınız silinmeyecek. Ancak bir yönetici hesabı kilitlediği için kilit açılana kadar giriş yapamazsınız.</value>
+  </data>
+  <data name="User.DeletionCancelledAccountPending" xml:space="preserve">
+    <value>Hesabınız silinmeyecek. Ancak henüz etkinleştirilmediği için etkinleştirilene kadar giriş yapamazsınız.</value>
   </data>
   <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
     <value>Doğrulama kodu geçersiz veya süresi dolmuş.</value>

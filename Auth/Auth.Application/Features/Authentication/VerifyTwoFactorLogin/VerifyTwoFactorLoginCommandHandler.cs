@@ -41,6 +41,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
     private readonly ICredentialHasher _credentialHasher;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly PasskeyOnlyAdministratorRule _passkeyOnlyAdministrator;
     private readonly ILogger<VerifyTwoFactorLoginCommandHandler> _logger;
 
     public VerifyTwoFactorLoginCommandHandler(
@@ -52,6 +53,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         ICredentialHasher credentialHasher,
         ILoginResponseBuilder loginResponseBuilder,
         IDomainEventDispatcher eventDispatcher,
+        PasskeyOnlyAdministratorRule passkeyOnlyAdministrator,
         ILogger<VerifyTwoFactorLoginCommandHandler> logger)
     {
         _challengeRepository = challengeRepository;
@@ -62,6 +64,7 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         _credentialHasher = credentialHasher;
         _loginResponseBuilder = loginResponseBuilder;
         _eventDispatcher = eventDispatcher;
+        _passkeyOnlyAdministrator = passkeyOnlyAdministrator;
         _logger = logger;
     }
 
@@ -195,8 +198,14 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
             return TwoFactorErrors.ChallengeInvalid;
         }
 
-        // Record successful login on entity (raises UserLoggedInEvent)
-        user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
+        // D-S20-4 (ii-s): an administrator whose only usable second factor is a passkey
+        // signs in with the passkey alone — a challenge opened before the account became one,
+        // or before passkeys ran, does not finish here. Asked after the code was spent, so it
+        // cannot be presented again, and before anything is minted.
+        if (await _passkeyOnlyAdministrator.RefusalAsync(user.Id, PasskeyOnlyAdministratorDoors.SecondStep, cancellationToken) is { } passkeyRequired)
+        {
+            return passkeyRequired;
+        }
 
         // The whole sign-in: the first factor that opened the challenge and the
         // second one just settled. A challenge issued before first factors were
@@ -205,6 +214,9 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         // emailed code is recorded as such, and a recovery code issued without two
         // factors as nothing (FA3): neither makes the session a two-factor one.
         var methods = challenge.PrimaryMethod.With(proof.Value.Methods);
+
+        // Record successful login on entity (raises UserLoggedInEvent)
+        user.RecordSuccessfulLogin(methods, request.IpAddress, request.UserAgent);
 
         // The challenge id travels with the build so the success — or a late
         // session-limit refusal — settles the row this ceremony already owns

@@ -32,7 +32,8 @@ namespace Auth.Application.Features.Authentication.SignInWithEmailCode;
 /// <item>The first confirmation (D-215-5 (a)): an address proven here for the first
 /// time retires a password set before that proof, and every other credential of the
 /// account.</item>
-/// <item>The decision: a password account holding platform authority, or asked for full
+/// <item>The decision: an administrator whose only usable second factor is a passkey is refused
+/// (D-S20-4 (ii-s)); a password account holding platform authority, or asked for full
 /// proof, continues with the ordinary password sign-in; an account with the
 /// authenticator app gets its challenge; an account whose second factor is the emailed
 /// code asks for none (the code just proved that mailbox); otherwise the session.</item>
@@ -51,6 +52,7 @@ public class SignInWithEmailCodeCommandHandler : IRequestHandler<SignInWithEmail
     private readonly ICredentialRevocationService _credentialRevocation;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly PasskeyOnlyAdministratorRule _passkeyOnlyAdministrator;
     private readonly ILogger<SignInWithEmailCodeCommandHandler> _logger;
 
     public SignInWithEmailCodeCommandHandler(
@@ -65,8 +67,10 @@ public class SignInWithEmailCodeCommandHandler : IRequestHandler<SignInWithEmail
         ICredentialRevocationService credentialRevocation,
         ILoginResponseBuilder loginResponseBuilder,
         IDomainEventDispatcher eventDispatcher,
+        PasskeyOnlyAdministratorRule passkeyOnlyAdministrator,
         ILogger<SignInWithEmailCodeCommandHandler> logger)
     {
+        _passkeyOnlyAdministrator = passkeyOnlyAdministrator;
         _codeCheck = codeCheck;
         _accounts = accounts;
         _pendingRegistrations = pendingRegistrations;
@@ -167,6 +171,14 @@ public class SignInWithEmailCodeCommandHandler : IRequestHandler<SignInWithEmail
         // without a password its first factor (D-215-1).
         var methods = AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: user.PasswordHash is not null);
 
+        // D-S20-4 (ii-s) first: an administrator whose only usable second factor is a
+        // passkey signs in with the passkey alone, so the page is not sent on to a password
+        // or a second step that would be refused in turn.
+        if (await _passkeyOnlyAdministrator.RefusalAsync(user.Id, PasskeyOnlyAdministratorDoors.EmailCode, cancellationToken) is { } passkeyRequired)
+        {
+            return passkeyRequired;
+        }
+
         if (await _fullProof.RequiresPasswordAsync(user, request.RequireFullProof, cancellationToken))
         {
             _logger.LogInformation(
@@ -194,7 +206,7 @@ public class SignInWithEmailCodeCommandHandler : IRequestHandler<SignInWithEmail
             }
         }
 
-        user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
+        user.RecordSuccessfulLogin(methods, request.IpAddress, request.UserAgent);
 
         var loginResponse = await _loginResponseBuilder.BuildAsync(
             user, request.IpAddress, request.UserAgent, request.DeviceId, methods,

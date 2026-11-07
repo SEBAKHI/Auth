@@ -1,8 +1,11 @@
+using System.Text.Json;
 using Auth_API.Modules.AuditLog.EventHandlers;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
+using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
 
 namespace Auth_API.Tests.EventHandlers;
@@ -133,6 +136,79 @@ public class UserLoggedInAuditEventHandlerTests
         await _handler.Handle(evt, CancellationToken.None);
 
         _repoMock.Verify(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()), Times.Once());
+    }
+
+    public static TheoryData<string, int> SignInMethods => new()
+    {
+        // The exit, and the stored flags of what it proved (AuthenticationMethods.Value).
+        { "a passkey the device verified the person for", AuthenticationMethods.Passkey.With(AuthenticationMethods.PasskeyUserVerified).ToStored()!.Value },
+        { "the password", AuthenticationMethods.Password.ToStored()!.Value },
+        { "the password and the authenticator app", AuthenticationMethods.Password.With(AuthenticationMethods.Totp).ToStored()!.Value },
+    };
+
+    [Theory]
+    [MemberData(nameof(SignInMethods))]
+    public async Task Handle_RecordsWhatTheSignInProved_AsJson(string because, int stored)
+    {
+        // S20 PR B (R-EVT): the row's details carry the methods and the amr values a token
+        // would carry, written by System.Text.Json (ARR-1058).
+        var methods = AuthenticationMethods.FromStored(stored);
+        AuditLog? written = null;
+        _repoMock.Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditLog, CancellationToken>((log, _) => written = log);
+
+        await _handler.Handle(new UserLoggedInEvent(Guid.NewGuid(), "test@example.com", "127.0.0.1", "Agent", methods), CancellationToken.None);
+
+        using var details = JsonDocument.Parse(written!.AdditionalData!);
+        details.RootElement.GetProperty("methods").GetInt32().Should().Be(stored, because);
+        details.RootElement.GetProperty("amr").EnumerateArray().Select(value => value.GetString())
+            .Should().Equal(methods.ToAmrValues(), because);
+    }
+
+    [Fact]
+    public async Task Handle_SignInThatNamedNoMethods_RecordsNullAndNoAmr()
+    {
+        AuditLog? written = null;
+        _repoMock.Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditLog, CancellationToken>((log, _) => written = log);
+
+        await _handler.Handle(new UserLoggedInEvent(Guid.NewGuid(), "test@example.com", null, null), CancellationToken.None);
+
+        using var details = JsonDocument.Parse(written!.AdditionalData!);
+        details.RootElement.GetProperty("methods").ValueKind.Should().Be(JsonValueKind.Null);
+        details.RootElement.GetProperty("amr").GetArrayLength().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheWriteFails_LogsAndDoesNotThrow()
+    {
+        // Best-effort: the session is already minted when this runs. The failure is an Error line
+        // with the exception, as the handler's remarks promise (REVIEW 151 F10, C13).
+        var failure = new InvalidOperationException("the audit store is unavailable");
+        _repoMock.Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(failure);
+        var log = new CapturingLogger<UserLoggedInAuditEventHandler>();
+        var userId = Guid.NewGuid();
+
+        var act = () => new UserLoggedInAuditEventHandler(_repoMock.Object, log)
+            .Handle(new UserLoggedInEvent(userId, "test@example.com", null, null), CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
+        log.Entries.Should().ContainSingle(entry => entry.Level == LogLevel.Error)
+            .Which.Should().Match<CapturedLogEntry>(entry => entry.Exception == failure && entry.Values.Contains(userId.ToString()));
+    }
+
+    [Fact]
+    public async Task Handle_WhenItsOwnTokenIsCancelled_LetsTheCancellationThrough()
+    {
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+        _repoMock.Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), cancelled.Token))
+            .ThrowsAsync(new OperationCanceledException(cancelled.Token));
+
+        var act = () => _handler.Handle(new UserLoggedInEvent(Guid.NewGuid(), "test@example.com", null, null), cancelled.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
     }
 }
 

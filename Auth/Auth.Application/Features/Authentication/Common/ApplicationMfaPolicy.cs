@@ -1,6 +1,6 @@
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Enums;
-using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
 
 namespace Auth.Application.Features.Authentication.Common;
@@ -12,18 +12,20 @@ namespace Auth.Application.Features.Authentication.Common;
 /// one up, not let through on a proof it can no longer repeat.
 /// </summary>
 /// <remarks>
-/// The qualifying factors are FA2's (<see cref="ITwoFactorStateStore.GetQualifyingFactorsAsync"/>):
-/// the authenticator app, and (S20) a live, user-verified passkey of the current RP ID. An
-/// account whose only one is a passkey is <see cref="ApplicationMfaRequirement.Passkey"/>:
-/// stepping up needs an app it does not have.
+/// The qualifying factors are the usable ones (<see cref="UsableSecondFactors"/>): the
+/// authenticator app, and (S20) a live, user-verified passkey of the current RP ID while
+/// passkeys run (D-150-4). An account whose only one is a passkey is
+/// <see cref="ApplicationMfaRequirement.Passkey"/>: stepping up needs an app it does not have.
+/// While passkeys do not run such an account has no usable factor and is asked to set one up,
+/// as it was before passkeys.
 /// </remarks>
 public sealed class ApplicationMfaPolicy : IApplicationMfaPolicy
 {
-    private readonly ITwoFactorStateStore _twoFactorStateStore;
+    private readonly UsableSecondFactors _usableFactors;
 
-    public ApplicationMfaPolicy(ITwoFactorStateStore twoFactorStateStore)
+    public ApplicationMfaPolicy(UsableSecondFactors usableFactors)
     {
-        _twoFactorStateStore = twoFactorStateStore;
+        _usableFactors = usableFactors;
     }
 
     /// <inheritdoc />
@@ -68,7 +70,7 @@ public sealed class ApplicationMfaPolicy : IApplicationMfaPolicy
             return ApplicationMfaRequirement.None;
         }
 
-        var factors = await _twoFactorStateStore.GetQualifyingFactorsAsync(userId, cancellationToken);
+        var factors = await _usableFactors.GetAsync(userId, cancellationToken);
         return Evaluate(requireTwoFactor, methods, factors);
     }
 }

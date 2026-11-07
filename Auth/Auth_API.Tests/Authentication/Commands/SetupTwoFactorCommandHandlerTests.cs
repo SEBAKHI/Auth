@@ -63,6 +63,7 @@ public class SetupTwoFactorCommandHandlerTests
             _guardMock.Object,
             _userRepositoryMock.Object,
             _stateStoreMock.Object,
+            TestHelpers.UsableFactors(_stateStoreMock.Object),
             _secretProtectorMock.Object,
             new AuthenticatorKeyFactory(
                 _platformSettingsRepositoryMock.Object,

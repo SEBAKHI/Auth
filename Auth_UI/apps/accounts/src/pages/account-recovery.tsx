@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { TriangleAlert } from "lucide-react"
+import { Info, TriangleAlert } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -10,6 +10,7 @@ import { z } from "zod"
 import { api } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { useAuth, type LoginResult } from "@authsystem/auth/auth-context"
+import { deletionCancelledOutcome } from "@authsystem/auth/deletion-cancelled"
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 import type { ExternalCredential } from "@authsystem/auth/external/recovery-navigation"
 import { useLoginCompletion } from "@authsystem/auth/login-completion"
@@ -89,6 +90,8 @@ export function AccountRecoveryPage() {
   const sendingRef = React.useRef(false)
   const [externalCode, setExternalCode] = React.useState("")
   const [externalPending, setExternalPending] = React.useState(false)
+  // The recovery was accepted but issued no session (D-151-1 (b)): its sentence.
+  const [outcome, setOutcome] = React.useState<string | null>(null)
 
   const schema = z.object({
     email: z
@@ -123,6 +126,11 @@ export function AccountRecoveryPage() {
 
   const handleRecoveryError = React.useCallback(
     (error: unknown) => {
+      const cancelled = deletionCancelledOutcome(error)
+      if (cancelled) {
+        setOutcome(cancelled)
+        return
+      }
       const codes = getErrorCodes(error)
       if (codes.includes("User.TwoFactorRequired")) {
         setNeedsTwoFactor(true)
@@ -204,15 +212,29 @@ export function AccountRecoveryPage() {
     }
   }
 
+  const footer = (
+    <Link to="/login" className="underline-offset-4 hover:underline">
+      {t("auth.backToSignIn")}
+    </Link>
+  )
+
+  // D-151-1 (b): the deletion is cancelled, and the account keeps the state that
+  // refuses it a session (deactivated, not yet activated, locked by an
+  // administrator). The outcome replaces the form and the provider buttons: there
+  // is nothing left to recover, and a second press would only be refused.
+  if (outcome) {
+    return (
+      <AuthLayout title={t("accountDeletion.recoveryTitle")} footer={footer}>
+        <Alert>
+          <Info />
+          <AlertDescription>{outcome}</AlertDescription>
+        </Alert>
+      </AuthLayout>
+    )
+  }
+
   return (
-    <AuthLayout
-      title={t("accountDeletion.recoveryTitle")}
-      footer={
-        <Link to="/login" className="underline-offset-4 hover:underline">
-          {t("auth.backToSignIn")}
-        </Link>
-      }
-    >
+    <AuthLayout title={t("accountDeletion.recoveryTitle")} footer={footer}>
       <div className="flex flex-col gap-6">
         {/*
           Two sentences with two different jobs, and only the first is always

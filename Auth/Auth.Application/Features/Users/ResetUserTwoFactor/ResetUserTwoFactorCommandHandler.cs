@@ -167,6 +167,16 @@ public class ResetUserTwoFactorCommandHandler : IRequestHandler<ResetUserTwoFact
             return UserErrors.NotFound(request.UserId);
         }
 
+        // Write, then read, on both sides (REVIEW 151 F2): a passkey sign-in in flight records
+        // its assertion only while the passkey is live, writes its session, then reads the
+        // passkey again. One whose session was written after the sweep above is ended by this
+        // second one; one whose session comes later finds the passkey revoked and ends it itself.
+        if (reset.RevokedPasskeys.Count > 0)
+        {
+            sessionsEnded += await _credentialRevocationService.RevokeAllCredentialsAsync(
+                request.UserId, request.ResetBy, RevocationReason, CancellationToken.None);
+        }
+
         // Recorded on the aggregate only now, for a change that happened, with how many
         // passkeys went with the factor: the owner's notice says so (REVIEW-FIXES 150 F16).
         user.ResetTwoFactor(request.ResetBy, reset.RevokedPasskeys.Count);

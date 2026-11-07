@@ -67,6 +67,7 @@ public class FirstFactorEmailProofTests
             _guard.Object,
             verifier,
             _stateStore.Object,
+            TestHelpers.UsableFactors(_stateStore.Object),
             _totpService.Object,
             new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_emailSettings)),
             new FirstFactorEmailProof(
@@ -103,6 +104,10 @@ public class FirstFactorEmailProofTests
         _stateStore
             .Setup(s => s.HasEnabledFactorAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(enabled);
+        // S20 PR B: enable reads the usable factors; with no passkey they are the app alone.
+        _stateStore
+            .Setup(s => s.GetQualifyingFactorsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new QualifyingSecondFactors(Totp: enabled, Passkey: false));
         _stateStore
             .Setup(s => s.GetSnapshotAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TwoFactorSnapshot(

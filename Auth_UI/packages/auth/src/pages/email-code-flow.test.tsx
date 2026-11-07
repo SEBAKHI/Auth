@@ -357,6 +357,49 @@ describe("EmailCodeFlow", () => {
   })
 
   it.each([
+    "User.DeletionCancelledAccountInactive",
+    "User.DeletionCancelledAccountPending",
+    "User.DeletionCancelledAccountLocked",
+  ])(
+    // REVIEW 151 F1, D-151-1 (b): the recovery was accepted and the deletion cancelled, but
+    // the account's state refuses it a session. A second press would only be refused.
+    "ends the recovery on %s: the sentence is the outcome, and the recovery is offered no more",
+    async (code) => {
+      answerVerify({ step: "recover" })
+      mocks.recoverWithEmailCode.mockRejectedValueOnce({
+        status: 403,
+        code,
+        detail: `cancelled: ${code}`,
+      })
+      renderFlow()
+      await typeCode()
+      const user = userEvent.setup()
+
+      await user.click(
+        await screen.findByRole("button", { name: /restore my account/i })
+      )
+
+      const outcome = await screen.findByText(`cancelled: ${code}`)
+      expect(
+        outcome.closest('[data-slot="alert"]'),
+        "information, not an error"
+      ).toHaveAttribute("data-variant", "default")
+      expect(
+        screen.queryByRole("button", { name: /restore my account/i })
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByText(/scheduled for deletion/i),
+        "the deletion is cancelled: the notice no longer holds"
+      ).not.toBeInTheDocument()
+      expect(
+        screen.getByRole("button", { name: /use a different email/i })
+      ).toBeInTheDocument()
+      expect(mocks.recoverWithEmailCode).toHaveBeenCalledTimes(1)
+      expect(mocks.complete).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([
     "EmailVerification.TooManyAttempts",
     "EmailVerification.WrongCodeLimitReached",
   ])(

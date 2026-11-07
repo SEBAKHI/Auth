@@ -519,11 +519,17 @@ public class User : AggregateRoot
     /// sign-in lifts an automatic lock depends on whether it proved the password,
     /// and that is written by the one statement that records the success.
     /// </summary>
-    public void RecordSuccessfulLogin(string? ipAddress = null, string? userAgent = null)
+    /// <param name="methods">
+    /// What the sign-in proved: the methods the exit gives the session it mints (S20, R-EVT).
+    /// Required, so no exit can leave the audit row without them.
+    /// </param>
+    /// <param name="ipAddress">The client's address.</param>
+    /// <param name="userAgent">The client's user agent.</param>
+    public void RecordSuccessfulLogin(AuthenticationMethods methods, string? ipAddress = null, string? userAgent = null)
     {
         LastLoginAt = DateTime.UtcNow;
         LastLoginIp = ipAddress;
-        RaiseDomainEvent(new UserLoggedInEvent(Id, Email, ipAddress, userAgent));
+        RaiseDomainEvent(new UserLoggedInEvent(Id, Email, ipAddress, userAgent, methods));
     }
 
     /// <summary>

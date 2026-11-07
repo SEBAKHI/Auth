@@ -2,6 +2,7 @@ using Auth.Application.Features.Authentication.Common;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
+using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Authentication;
 
@@ -28,7 +29,7 @@ public class ApplicationMfaPolicyTruthTableTests
     private static readonly AuthenticationMethods CodeOfPasswordAccount = AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: true);
     private static readonly AuthenticationMethods CodeOfPasswordlessAccount = AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false);
 
-    private readonly ApplicationMfaPolicy _policy = new(new Mock<ITwoFactorStateStore>(MockBehavior.Strict).Object);
+    private readonly ApplicationMfaPolicy _policy = new(TestHelpers.UsableFactors(new Mock<ITwoFactorStateStore>(MockBehavior.Strict).Object));
 
     public static TheoryData<string, bool, AuthenticationMethods, bool, ApplicationMfaRequirement> Rows => new()
     {
@@ -97,7 +98,7 @@ public class ApplicationMfaPolicyTruthTableTests
         store.Setup(s => s.GetQualifyingFactorsAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new QualifyingSecondFactors(Totp: true, Passkey: false));
 
-        var outcome = await new ApplicationMfaPolicy(store.Object).EvaluateAsync(
+        var outcome = await new ApplicationMfaPolicy(TestHelpers.UsableFactors(store.Object)).EvaluateAsync(
             requireTwoFactor: true, userId, Password, CancellationToken.None);
 
         outcome.Should().Be(ApplicationMfaRequirement.StepUp);

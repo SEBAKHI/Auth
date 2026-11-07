@@ -26,8 +26,11 @@ public sealed class PasskeySettings
 
     /// <summary>
     /// Gets or sets whether passkeys can be added and used. Read per request (hot): off, every
-    /// passkey endpoint answers 404. Switching it off does not change which accounts have a
-    /// qualifying second factor: a passkey still counts (FA2).
+    /// passkey endpoint answers 404, and no rule demands a passkey or leans on one (D-150-4,
+    /// «off means off»): the MFA policies see none, setting up the app treats the account as
+    /// having no factor, and the refusal of a passkey-only administrator at the other doors
+    /// pauses. Nothing is revoked: the passkeys stay in the inventory (FA2), and when this is
+    /// switched on again every rule applies again.
     /// </summary>
     public bool Enabled { get; set; }
 

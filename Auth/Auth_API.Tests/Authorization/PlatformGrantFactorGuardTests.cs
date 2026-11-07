@@ -9,6 +9,7 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Auth.Domain.ValueObjects;
 
 namespace Auth_API.Tests.Authorization;
 
@@ -27,18 +28,21 @@ public class PlatformGrantFactorGuardTests
     private readonly Mock<IPlatformMfaPolicy> _policy = new();
     private readonly Mock<ITwoFactorStateStore> _store = new();
 
-    private PlatformGrantFactorGuard Guard() =>
-        new(_policy.Object, _store.Object, Mock.Of<ILogger<PlatformGrantFactorGuard>>());
+    private PlatformGrantFactorGuard Guard(bool passkeysRun = false) =>
+        new(_policy.Object, _store.Object, TestHelpers.UsableFactors(_store.Object, passkeysRun), Mock.Of<ILogger<PlatformGrantFactorGuard>>());
 
     private void Enforcing(bool on) => _policy.SetupGet(p => p.IsEnforcing).Returns(on);
 
+    // S20 PR B: the guard reads the usable factors; with no passkey they are the app alone.
     private void TargetHasFactor(bool has) =>
-        _store.Setup(s => s.HasEnabledFactorAsync(Target, It.IsAny<CancellationToken>())).ReturnsAsync(has);
+        _store.Setup(s => s.GetQualifyingFactorsAsync(Target, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new QualifyingSecondFactors(Totp: has, Passkey: false));
 
     private void VerifyNoFactorRead()
     {
+        _store.Verify(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         _store.Verify(s => s.HasEnabledFactorAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
-        _store.Verify(s => s.HasPlatformRoleHolderWithoutFactorAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _store.Verify(s => s.HasPlatformRoleHolderWithoutFactorAsync(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private static Role PlatformRole(Guid? id = null) => TestHelpers.CreateRole(id: id ?? Guid.NewGuid(), name: "operators");
@@ -107,14 +111,54 @@ public class PlatformGrantFactorGuardTests
     {
         Enforcing(true);
         var role = PlatformRole();
-        _store.Setup(s => s.HasPlatformRoleHolderWithoutFactorAsync(role.Id, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _store.Setup(s => s.HasPlatformRoleHolderWithoutFactorAsync(role.Id, It.IsAny<bool>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         var result = await Guard().EnsureRoleHoldersMayReceiveAsync(role, ActivePermission(), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(TwoFactorErrors.RequiredForPlatformGrant.Code);
-        _store.Verify(s => s.HasPlatformRoleHolderWithoutFactorAsync(role.Id, It.IsAny<CancellationToken>()), Times.Once);
-        _store.Verify(s => s.HasEnabledFactorAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never,
+        _store.Verify(s => s.HasPlatformRoleHolderWithoutFactorAsync(role.Id, false, It.IsAny<CancellationToken>()), Times.Once,
+            "while passkeys do not run a passkey is no factor here either (D-150-4)");
+        _store.Verify(s => s.GetQualifyingFactorsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never,
             "one query for every holder, never one read per account");
+    }
+
+    /// <summary>
+    /// REVIEW 151 F6, D-150-4 «off means off»: an account whose only factor is a passkey receives
+    /// platform authority while the switch is on only while passkeys run; otherwise the passkey is
+    /// no factor, and the account sets up the app first.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the inventory read in place of the usable factors.</remarks>
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task Enforcing_APasskeyOnlyTarget_ReceivesOnlyWhilePasskeysRun(bool passkeysRun, bool refused)
+    {
+        Enforcing(true);
+        _store.Setup(s => s.GetQualifyingFactorsAsync(Target, It.IsAny<CancellationToken>())).ReturnsAsync(new QualifyingSecondFactors(Totp: false, Passkey: true));
+
+        var result = await Guard(passkeysRun).EnsureAccountMayReceiveAsync(Target, true, [ActivePermission()], CancellationToken.None);
+
+        result.IsError.Should().Be(refused);
+    }
+
+    /// <summary>
+    /// REVIEW 151 F6: the role-holder check asks the store to count a passkey exactly while
+    /// passkeys run.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the guard passing a constant <c>false</c>.</remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Enforcing_TheRoleHolderCheck_CountsAPasskey_OnlyWhilePasskeysRun(bool passkeysRun)
+    {
+        Enforcing(true);
+        var role = PlatformRole();
+        _store.Setup(s => s.HasPlatformRoleHolderWithoutFactorAsync(role.Id, It.IsAny<bool>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+
+        (await Guard(passkeysRun).EnsureRoleHoldersMayReceiveAsync(role, ActivePermission(), CancellationToken.None))
+            .IsError.Should().BeFalse();
+
+        _store.Verify(s => s.HasPlatformRoleHolderWithoutFactorAsync(role.Id, passkeysRun, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // ── The three grant paths ──────────────────────────────────────────────
@@ -229,7 +273,7 @@ public class PlatformGrantFactorGuardTests
         ActorHoldsEverything();
         var role = PlatformRole();
         var permission = ActivePermission();
-        _store.Setup(s => s.HasPlatformRoleHolderWithoutFactorAsync(role.Id, It.IsAny<CancellationToken>())).ReturnsAsync(holderWithoutFactor);
+        _store.Setup(s => s.HasPlatformRoleHolderWithoutFactorAsync(role.Id, It.IsAny<bool>(), It.IsAny<CancellationToken>())).ReturnsAsync(holderWithoutFactor);
         _roles.Setup(r => r.GetByIdAsync(role.Id, It.IsAny<CancellationToken>())).ReturnsAsync(role);
         _permissions.Setup(r => r.GetByIdAsync(permission.Id, It.IsAny<CancellationToken>())).ReturnsAsync(permission);
         _permissions.Setup(r => r.GetRolePermissionsAsync(role.Id, It.IsAny<CancellationToken>())).ReturnsAsync([]);

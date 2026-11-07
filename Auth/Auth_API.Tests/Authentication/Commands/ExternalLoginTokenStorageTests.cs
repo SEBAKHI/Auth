@@ -73,6 +73,7 @@ public class ExternalLoginTokenStorageTests
             new Mock<IDomainEventDispatcher>().Object,
             new Mock<ILoginAttemptRepository>().Object,
             TestHelpers.CreateAccountLockout(new Mock<IUserRepository>().Object),
+            TestHelpers.PasskeyOnlyAdministratorRuleOff(),
             TestHelpers.CreateOptions(new Auth.Application.Configuration.RegistrationSettings()),
             new Mock<ILogger<ExternalLoginCommandHandler>>().Object);
     }

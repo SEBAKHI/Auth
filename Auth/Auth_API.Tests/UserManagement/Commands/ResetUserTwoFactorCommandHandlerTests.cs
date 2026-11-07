@@ -313,6 +313,29 @@ public class ResetUserTwoFactorCommandHandlerTests
         VerifyNothingChanged();
     }
 
+    /// <summary>
+    /// REVIEW 151 F2: write, then read, on both sides. A passkey sign-in in flight records its
+    /// assertion while the passkey is live, writes its session, then reads the passkey again; a
+    /// reset that revoked passkeys ends the sessions once more after them, so whichever write
+    /// lands second sees the other's.
+    /// </summary>
+    /// <remarks>Deliberate break, verified red: the second sweep dropped.</remarks>
+    [Fact]
+    public async Task AResetThatRevokesPasskeys_EndsTheSessionsOnceMoreAfterThem()
+    {
+        GivenTarget(Target);
+        GivenActorHolds("users:*");
+        _store.Setup(s => s.TryResetAsync(Target, Actor, It.IsAny<CancellationToken>()))
+            .Callback(() => _calls.Add("reset"))
+            .ReturnsAsync(new TwoFactorResetResult([PasskeyTestDoubles.Live(Target, Now.AddDays(-30))]));
+
+        var result = await Handler().Handle(Command(Target, Actor), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _calls.Should().Equal(["revoke", "reset", "revoke", "dispatch"],
+            "the sessions first, then the factor and the passkeys, then the sessions again");
+    }
+
     [Fact]
     public async Task HardLockedFactor_PasswordResetAfterTheLock_Proceeds()
     {

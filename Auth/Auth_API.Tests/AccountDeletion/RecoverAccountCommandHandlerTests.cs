@@ -68,6 +68,7 @@ public class RecoverAccountCommandHandlerTests
             new Mock<IJwtTokenService>().Object,
             TestHelpers.CreateSecondFactorLockout(),
             _loginResponseBuilderMock.Object,
+            TestHelpers.PasskeyOnlyAdministratorRuleOff(),
             _publisherMock.Object,
             _recovererLoggerMock.Object);
 

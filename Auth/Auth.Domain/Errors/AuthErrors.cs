@@ -101,6 +101,16 @@ public static class AuthErrors
         code: "Auth.ReauthenticationRequired",
         description: "For your security, sign in again to change two-factor authentication.");
 
+    /// <summary>
+    /// An account that administers the platform and whose only usable second factor is a
+    /// passkey signs in with that passkey alone (D-S20-4 (ii-s)): every other way in refuses it
+    /// once its own proof succeeded — the password, a provider, an emailed code, the recovery
+    /// entries and the second step. Forbidden: the proof was right, the door is not this one.
+    /// </summary>
+    public static readonly Error PasskeyRequired = Error.Forbidden(
+        code: "Auth.PasskeyRequired",
+        description: "This account signs in with its passkey. Use your passkey to continue.");
+
     public static Error InvalidClient => Error.Validation(
         code: "Auth.InvalidClient",
         description: "Client authentication failed, or the client_id is unknown or the application is inactive.");

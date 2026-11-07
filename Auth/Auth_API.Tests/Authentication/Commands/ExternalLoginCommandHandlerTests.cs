@@ -86,6 +86,7 @@ public class ExternalLoginCommandHandlerTests
             _eventDispatcherMock.Object,
             _loginAttemptRepositoryMock.Object,
             TestHelpers.CreateAccountLockout(_userRepositoryMock.Object),
+            TestHelpers.PasskeyOnlyAdministratorRuleOff(),
             TestHelpers.CreateOptions(new RegistrationSettings()),
             _loggerMock.Object);
     }
@@ -153,6 +154,7 @@ public class ExternalLoginCommandHandlerTests
             _eventDispatcherMock.Object,
             _loginAttemptRepositoryMock.Object,
             TestHelpers.CreateAccountLockout(_userRepositoryMock.Object),
+            TestHelpers.PasskeyOnlyAdministratorRuleOff(),
             TestHelpers.CreateOptions(new RegistrationSettings()),
             _loggerMock.Object);
 
@@ -179,6 +181,7 @@ public class ExternalLoginCommandHandlerTests
             _eventDispatcherMock.Object,
             _loginAttemptRepositoryMock.Object,
             TestHelpers.CreateAccountLockout(_userRepositoryMock.Object),
+            TestHelpers.PasskeyOnlyAdministratorRuleOff(),
             TestHelpers.CreateOptions(new RegistrationSettings { AllowExternalProvisioning = false }),
             _loggerMock.Object);
 
@@ -205,6 +208,7 @@ public class ExternalLoginCommandHandlerTests
             _eventDispatcherMock.Object,
             _loginAttemptRepositoryMock.Object,
             TestHelpers.CreateAccountLockout(_userRepositoryMock.Object),
+            TestHelpers.PasskeyOnlyAdministratorRuleOff(),
             TestHelpers.CreateOptions(new RegistrationSettings()),
             _loggerMock.Object);
 
@@ -819,7 +823,8 @@ public class ExternalLoginCommandHandlerTests
     }
 
     /// <summary>The handler over the given challenge service, every other part as <c>_handler</c>.</summary>
-    private ExternalLoginCommandHandler CreateHandlerWith(ITwoFactorChallengeService challenges) => new(
+    private ExternalLoginCommandHandler CreateHandlerWith(
+        ITwoFactorChallengeService challenges, PasskeyOnlyAdministratorRule? passkeyOnlyAdministrator = null) => new(
         _providerFactoryMock.Object,
         _externalLoginRepositoryMock.Object,
         _userRepositoryMock.Object,
@@ -838,8 +843,42 @@ public class ExternalLoginCommandHandlerTests
         _eventDispatcherMock.Object,
         _loginAttemptRepositoryMock.Object,
         TestHelpers.CreateAccountLockout(_userRepositoryMock.Object),
+        passkeyOnlyAdministrator ?? TestHelpers.PasskeyOnlyAdministratorRuleOff(),
         TestHelpers.CreateOptions(new RegistrationSettings()),
         _loggerMock.Object);
+
+    /// <summary>
+    /// S20 PR B, D-S20-4 (ii-s): after the provider proved who the person is and the lock was
+    /// judged, and before the second step or any token, an administrator whose only usable
+    /// factor is a passkey is refused. Nothing is asked of the second factor, nothing is minted
+    /// and no event is dispatched.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Handle_PasskeyOnlyAdministrator_ReturnsPasskeyRequiredAndChangesNothing(bool secondFactorOn)
+    {
+        var command = CreateCommand();
+        var user = TestHelpers.CreateUser(twoFactorEnabled: secondFactorOn);
+        var externalUser = CreateExternalUserInfo();
+        var externalLogin = TestHelpers.CreateUserExternalLogin(userId: user.Id);
+        _providerFactoryMock.Setup(f => f.GetProvider(command.Provider)).Returns(_providerMock.Object);
+        _providerMock.Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>())).ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalLogin);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+
+        var result = await CreateHandlerWith(_twoFactorChallengeServiceMock.Object, TestHelpers.PasskeyOnlyAdministratorRuleOn(
+                new QualifyingSecondFactors(Totp: false, Passkey: true), holdsPlatformAuthority: true))
+            .Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.PasskeyRequired.Code);
+        _twoFactorChallengeServiceMock.Verify(s => s.ProviderProvesMailboxAsync(It.IsAny<User>(), It.IsAny<ExternalUserInfo>(), It.IsAny<CancellationToken>()), Times.Never);
+        _twoFactorChallengeServiceMock.Verify(s => s.CreateChallengeAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<CancellationToken>()), Times.Never);
+        _loginResponseBuilderMock.Verify(b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<AuthenticationMethods>(), It.IsAny<bool>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<Guid?>()), Times.Never);
+        _eventDispatcherMock.Verify(d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 
     [Fact]
     public async Task Handle_NewExternalUserNoExistingAccount_CreatesUserAndReturnsResponse()
