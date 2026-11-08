@@ -21,12 +21,15 @@ import {
  *
  * What it proves: a passkey added in the console signs in at the accounts app
  * (one RP ID, the registrable domain both share); the ceremonies run under the
- * shipped CSP; the click starts them. What it does not: that the server checks
+ * shipped CSP; the click starts them; a sign-in an application asked for ends
+ * back at that application. What it does not: that the server checks
  * the signature, the origin or the counter (the xUnit suite and PasskeyDevRun
  * do), nor a real device (PasskeyRealDeviceCheck, the owner's hands).
  *
  * Deliberate break this file must catch: `isUserVerified: false` (the
- * authenticator cannot verify the person, and the ceremony is refused).
+ * authenticator cannot verify the person, and the ceremony is refused); and the
+ * sign-in page's passkey exit leaving by anything but `complete` (the application's
+ * request is dropped, and the person never gets back to it).
  */
 
 const USER = {
@@ -240,6 +243,77 @@ test("s20: where the browser offers it, the address field's suggestion signs in 
   release()
   await expect.poll(() => new URL(page.url()).pathname).not.toBe("/login")
 })
+
+/**
+ * An application sent the person to the accounts sign-in page, with its stored
+ * request in the URL. Every way of signing in with the passkey must end at that
+ * application: the page resumes the request with one top-level navigation, and
+ * the server's answer to the resume is a redirect to the application with its
+ * code. That answer is the model's here: that the real server takes this session
+ * for a signed-in browser is not proven here: FirstPartySignInExitCoverageTests
+ * holds that the verify endpoint delivers its session through the filter that
+ * writes the IdP cookie, and no real run has yet gone from an application through
+ * a passkey and back (PasskeyDevRun has no such leg).
+ */
+const HANDLE = "0123456789abcdef".repeat(4)
+const PENDING = `client_id=CRM&auth_request=${HANDLE}`
+
+const WAYS_BACK = [
+  {
+    name: "the button",
+    query: PENDING,
+    suggestion: false,
+  },
+  {
+    name: "the address field's suggestion",
+    query: PENDING,
+    suggestion: true,
+  },
+  {
+    name: "the button, when the application asks for the passkey (mfa_passkey)",
+    query: `${PENDING}&reason=mfa_passkey&method=password`,
+    suggestion: false,
+  },
+]
+
+for (const way of WAYS_BACK) {
+  test(`s20: signing in with ${way.name} ends back at the application that asked`, async ({
+    page,
+    api,
+    attacker,
+  }) => {
+    const authenticator = await attachVirtualAuthenticator(page)
+    const credentialId = await authenticator.addCredential()
+    const asserted: Asserted[] = []
+    const resumes: string[] = []
+    const passkeyModel = anonymousPasskeyModel(asserted)
+    const callback = attacker.serve(HOSTS.linkedApp, "/callback", "<!doctype html><title>The application</title>")
+    const landing = `${callback}?code=harness-code&state=harness-state`
+
+    await api.useAnonymous(async (route, url) => {
+      if (url.pathname.toLowerCase() === "/api/v1/auth/authorize/resume" && route.request().method() === "GET") {
+        resumes.push(url.search)
+        await route.fulfill({ status: 302, headers: { location: landing } })
+        return true
+      }
+      return passkeyModel(route, url)
+    })
+
+    if (!way.suggestion) await withoutSuggestion(page)
+    await page.goto(`${ORIGINS.accounts}/login?${way.query}`)
+
+    if (!way.suggestion) {
+      const passkey = page.getByTestId("passkey-sign-in").getByRole("button", { name: "Sign in with a passkey" })
+      await expect(passkey).toBeEnabled(FIRST_LOAD)
+      await passkey.click()
+    }
+
+    await expect.poll(() => page.url(), FIRST_LOAD).toBe(landing)
+    expect(asserted).toEqual([{ credentialId, origin: ORIGINS.accounts, type: "webauthn.get" }])
+    // One navigation, carrying the request and nothing of the sign-in's words.
+    expect(resumes).toEqual([`?${PENDING}`])
+  })
+}
 
 test("s20: a page on the apex obtains an assertion, and nothing more", async ({ page, attacker }) => {
   // H8: the RP ID alone does not protect. A page under the registrable domain
