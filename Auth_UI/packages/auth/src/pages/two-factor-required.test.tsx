@@ -449,6 +449,23 @@ describe("TwoFactorRequiredPage: the passkey step (S20 PR C)", () => {
   })
 
   it("names the way out for a lost passkey, and shows no button while passkeys do not run", async () => {
+    passkeysRun()
+    mocks.post.mockResolvedValue({ data: undefined, error: { status: 404 }, response: { status: 404, headers: new Headers() } })
+    mocks.auth.mfaRequirement = "passkey"
+    renderPage()
+
+    expect(await screen.findByTestId("passkey-lost-way-out")).toHaveTextContent(
+      "auth.mfaRequiredPasskeyLost"
+    )
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith("/api/v1/auth/passkeys/assertion/options")
+    )
+    await waitFor(() => expect(screen.queryByTestId("passkey-sign-in")).not.toBeInTheDocument())
+    expect(mocks.loadWebAuthn).not.toHaveBeenCalled()
+    expect(mocks.complete).not.toHaveBeenCalled()
+  })
+
+  it("names the same way out on a browser without WebAuthn, and asks nothing", async () => {
     mocks.auth.mfaRequirement = "passkey"
     renderPage()
 
@@ -456,6 +473,7 @@ describe("TwoFactorRequiredPage: the passkey step (S20 PR C)", () => {
       "auth.mfaRequiredPasskeyLost"
     )
     expect(screen.queryByTestId("passkey-sign-in")).not.toBeInTheDocument()
+    expect(mocks.post).not.toHaveBeenCalled()
     expect(mocks.complete).not.toHaveBeenCalled()
   })
 

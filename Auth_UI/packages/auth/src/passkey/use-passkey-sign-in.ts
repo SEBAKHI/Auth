@@ -11,7 +11,6 @@ import {
 } from "./passkey-errors"
 import {
   browserHasWebAuthn,
-  isCeremonyCancelled,
   loadWebAuthn,
   type AuthenticationResponseJSON,
   type PublicKeyCredentialRequestOptionsJSON,
@@ -301,10 +300,9 @@ export function usePasskeySignIn({
         setMessage(null)
         settle(await onCredentialRef.current(credential))
       })
-      .catch((error: unknown) => {
+      .catch(() => {
         // Aborted by a renewal, by the button or by leaving: nothing to say. A
         // suggestion the browser declined to show is no failure either.
-        if (!current || isCeremonyCancelled(error)) return
       })
     return () => {
       current = false
@@ -337,6 +335,9 @@ export function usePasskeySignIn({
   }, [prepare])
 
   const confirm = React.useCallback(() => {
+    // A browser without WebAuthn asks nothing and shows nothing, whatever a door
+    // said: a button there could only fail. The door's sentence stays.
+    if (!browserHasWebAuthn()) return
     if (knownRef.current) return
     knownRef.current = true
     // Options in hand already, or on their way: their answer, or the next

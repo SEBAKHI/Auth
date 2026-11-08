@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import { api } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import { toNumber } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
 import { passkeyFailureMessage, withRetryAfter } from "@authsystem/auth/passkey/passkey-errors"
 import {
@@ -36,6 +37,8 @@ import {
   CardTitle,
 } from "@authsystem/ui/card"
 import { OneTimeCodeField } from "@authsystem/ui/common/one-time-code-field"
+import { RESEND_COOLDOWN_MS } from "@authsystem/ui/common/otp-input"
+import { ResendCodeButton } from "@authsystem/ui/common/resend-code-button"
 import {
   Dialog,
   DialogContent,
@@ -72,20 +75,41 @@ import {
 } from "@authsystem/ui/item"
 import { Spinner } from "@authsystem/ui/spinner"
 
-import { PASSKEYS_QUERY_KEY, type usePasskeys } from "./passkey-list"
+import { PASSKEY_NAME_MAX_CODE_POINTS, PASSKEYS_QUERY_KEY, type usePasskeys } from "./passkey-list"
 
 type Passkey = Schemas["PasskeyDto"]
 
 /** A registration begun: the options, the helper, and whether the emailed code is needed. */
 interface Registration {
   options: PublicKeyCredentialCreationOptionsJSON
-  expiresAt: number
+  /** On this page's own clock; null when this device's clock could not say. */
+  usableUntil: number | null
   emailCodeRequired: boolean
   helper: WebAuthnHelper
 }
 
 /** A registration's options are not used in their last seconds: the click would only fail. */
 const OPTIONS_MARGIN_MS = 5_000
+/** The server's registration challenge lives five minutes. */
+const OPTIONS_MAX_LIFE_MS = 5 * 60_000
+/**
+ * Options are issued fresh for each registration, so one that seems to have less
+ * than this left says this device's clock runs ahead of the server's: its word
+ * would close the dialog at every press, and the person would never know why.
+ */
+const OPTIONS_CREDIBLE_LIFE_MS = 60_000
+
+/**
+ * Until when the options may be used, on `performance.now()`: the life left at
+ * receipt, measured from then on by a clock nobody can set. Null when the
+ * device's clock disagrees with the server's: nothing is decided here then, and
+ * the server's own answer (`Passkey.VerificationFailed`) starts the setup again.
+ */
+function optionsUsableUntil(expiresAt: string): number | null {
+  const life = (parseApiInstant(expiresAt)?.getTime() ?? Number.NaN) - Date.now()
+  if (!(life > OPTIONS_CREDIBLE_LIFE_MS)) return null
+  return performance.now() + Math.min(life, OPTIONS_MAX_LIFE_MS)
+}
 
 /**
  * Profile › Security › Passkeys (S20 PR C, PK15). Shown only while passkeys run
@@ -121,12 +145,15 @@ export function PasskeysCard({
   const [starting, setStarting] = React.useState(false)
   const startingRef = React.useRef(false)
   const [message, setMessage] = React.useState<string | null>(null)
-  const [reauthenticate, setReauthenticate] = React.useState(false)
+  // Which change asked for a fresh sign-in: the two ask for different ones.
+  const [reauthenticate, setReauthenticate] = React.useState<"add" | "remove" | null>(null)
   const [removing, setRemoving] = React.useState<Passkey | null>(null)
   const [renamingId, setRenamingId] = React.useState<string | null>(null)
 
-  // The account's only qualifying factor is a passkey, and passkeys run: a fresh
-  // two-factor session comes from the passkey alone (T-C7).
+  // The account's only qualifying factor is a passkey, and passkeys run: adding
+  // needs a two-factor session, which comes from the passkey alone (PK7, T-C7).
+  // Removing does not: a recent password or code will do, or a person who lost
+  // that passkey could never remove it.
   const passkeyOnly = me.qualifyingMfa === true && me.totpEnabled !== true
 
   // N9 (D-150-3 (c)): the first qualifying factor needs the emailed proof, and
@@ -151,14 +178,14 @@ export function PasskeysCard({
       const helper = await loadWebAuthn()
       setRegistration({
         options: data.options as PublicKeyCredentialCreationOptionsJSON,
-        expiresAt: parseApiInstant(data.expiresAt)?.getTime() ?? Date.now(),
+        usableUntil: optionsUsableUntil(data.expiresAt),
         emailCodeRequired: data.emailCodeRequired,
         helper,
       })
       setRegistrationSeq((seq) => seq + 1)
     } catch (error) {
       if (getErrorCodes(error).includes("Auth.ReauthenticationRequired")) {
-        setReauthenticate(true)
+        setReauthenticate("add")
       } else {
         setMessage(passkeyFailureMessage(error))
       }
@@ -177,6 +204,10 @@ export function PasskeysCard({
   }
 
   if (passkeys.isPending || list === null) return null
+  // A first read that failed says nothing of whether passkeys run here (the
+  // gateway answers before the API's 404): the page stays as it was, unless the
+  // account is known to hold one. A deployment without passkeys shows no card.
+  if (passkeys.isError && list === undefined && toNumber(me.passkeyCount ?? 0) === 0) return null
 
   return (
     <Card data-testid="passkeys-card">
@@ -266,7 +297,7 @@ export function PasskeysCard({
           }}
           onReauthenticate={() => {
             setRegistration(null)
-            setReauthenticate(true)
+            setReauthenticate("add")
           }}
         />
       ) : null}
@@ -277,7 +308,7 @@ export function PasskeysCard({
           passkey={removing}
           onSettled={(outcome) => {
             setRemoving(null)
-            if (outcome.reauthenticate) setReauthenticate(true)
+            if (outcome.reauthenticate) setReauthenticate("remove")
             setMessage(outcome.message ?? null)
             if (outcome.removed) {
               toast.success(t("profile.passkeys.removed", { name: removing.name }))
@@ -295,9 +326,9 @@ export function PasskeysCard({
       {reauthenticate ? (
         <ReauthenticateDialog
           open
-          onOpenChange={(open) => !open && setReauthenticate(false)}
+          onOpenChange={(open) => !open && setReauthenticate(null)}
           description={t("profile.passkeys.needsRecentSignIn")}
-          passkey={passkeyOnly}
+          passkey={passkeyOnly && reauthenticate === "add"}
         />
       ) : null}
     </Card>
@@ -320,6 +351,14 @@ function PasskeyRow({
   onRemove: () => void
 }) {
   const { t } = useTranslation()
+  // The rename form closes on its save and on Escape: the focus goes back to the
+  // button that opened it, not to the top of the page.
+  const renameButtonRef = React.useRef<HTMLButtonElement>(null)
+  const wasRenamingRef = React.useRef(false)
+  React.useEffect(() => {
+    if (wasRenamingRef.current && !renaming) renameButtonRef.current?.focus()
+    wasRenamingRef.current = renaming
+  }, [renaming])
 
   return (
     <Item role="listitem" variant="outline" data-testid="passkey-row">
@@ -346,7 +385,8 @@ function PasskeyRow({
                 : t("profile.passkeys.neverUsed")}
             </ItemDescription>
             {passkey.lastCounterRegressionAt ? (
-              <ItemDescription className="text-destructive" data-testid="passkey-counter-regressed">
+              // No clamp: the sentence's end is its way out, and a phone's row is narrow.
+              <ItemDescription className="line-clamp-none text-destructive" data-testid="passkey-counter-regressed">
                 {t("profile.passkeys.counterRegressed")}
               </ItemDescription>
             ) : null}
@@ -356,6 +396,7 @@ function PasskeyRow({
       {renaming ? null : (
         <ItemActions>
           <Button
+            ref={renameButtonRef}
             variant="ghost"
             size="icon"
             aria-label={t("profile.passkeys.renameNamed", { name: passkey.name })}
@@ -479,6 +520,8 @@ function AddPasskeyDialog({
   const [name, setName] = React.useState("")
   const [emailCode, setEmailCode] = React.useState("")
   const [sentTo, setSentTo] = React.useState<string | null>(null)
+  // When a new code may be asked for (the server's per-address window).
+  const [resendAt, setResendAt] = React.useState<Date | null>(null)
   const [sending, setSending] = React.useState(false)
   const sendingRef = React.useRef(false)
   const [busy, setBusy] = React.useState(false)
@@ -491,6 +534,11 @@ function AddPasskeyDialog({
   const codeNeeded = registration.emailCodeRequired
   const canConfirm = !busy && !over && (!codeNeeded || (sentTo !== null && emailCode.length === 6))
 
+  // Leaving the page leaves no ceremony behind: not the browser's prompt, and not
+  // a late request from it (T-C3's rule, as on the sign-in pages).
+  const { helper } = registration
+  React.useEffect(() => () => helper.WebAuthnAbortService.cancelCeremony(), [helper])
+
   const sendCode = async () => {
     if (sendingRef.current || busyRef.current) return
     sendingRef.current = true
@@ -499,8 +547,15 @@ function AddPasskeyDialog({
     try {
       const { data, error, response } = await api.POST("/api/v1/auth/passkeys/registration/email-code")
       if (error || !data) throw withRetryAfter(error ?? new Error("Email code failed"), response)
+      // The account gained a factor since these options asked for a code: none was
+      // sent, and none will come. Fresh options say what is asked now.
+      if (data.emailCodeRequired === false) {
+        onStartAgain()
+        return
+      }
       setSentTo(data.sentTo ?? "")
       setEmailCode("")
+      setResendAt(new Date(Date.now() + RESEND_COOLDOWN_MS))
     } catch (error) {
       // N6: no registration is waiting any more (another page started a sign-in
       // in this browser, or it expired). Its sentence would mislead: start again.
@@ -520,8 +575,18 @@ function AddPasskeyDialog({
 
   const confirm = () => {
     if (!canConfirm || busyRef.current) return
+    // The server checks the name after the ceremony, having spent its challenge:
+    // said here, before the device asks for a fingerprint and keeps a passkey
+    // the account would never hold. The server's limit is on code points.
+    if ([...name.trim()].length > PASSKEY_NAME_MAX_CODE_POINTS) {
+      setNameError(t("profile.passkeys.nameTooLong", { max: PASSKEY_NAME_MAX_CODE_POINTS }))
+      return
+    }
     // Options in their last seconds would only fail at the server: fresh ones.
-    if (Date.now() > registration.expiresAt - OPTIONS_MARGIN_MS) {
+    if (
+      registration.usableUntil !== null &&
+      performance.now() > registration.usableUntil - OPTIONS_MARGIN_MS
+    ) {
       onStartAgain()
       return
     }
@@ -545,15 +610,24 @@ function AddPasskeyDialog({
           onAdded(data.name)
         } catch (error) {
           const codes = getErrorCodes(error)
-          if (codes.includes("Passkey.NameTooLong")) {
-            setNameError(getErrorMessage(error))
-          } else if (codes.includes("Auth.ReauthenticationRequired")) {
+          if (codes.includes("Auth.ReauthenticationRequired")) {
             onReauthenticate()
             return
+          }
+          // These three come after the challenge was spent (T-C13 among the
+          // causes): only fresh options can go on, so the dialog offers them. No
+          // second ceremony on the options it holds, which could only be refused.
+          if (codes.includes("Passkey.NameTooLong")) {
+            setOver(true)
+            setNameError(getErrorMessage(error))
+          } else if (codes.includes("Passkey.LimitReached")) {
+            setOver(true)
+            setMessage(getErrorMessage(error))
+          } else if (codes.includes("Passkey.VerificationFailed")) {
+            // The person is signed in and adding a passkey: no sign-in advice.
+            setOver(true)
+            setMessage(`${getErrorMessage(error)} ${t("profile.passkeys.startAgain")}`)
           } else {
-            // A refused ceremony spends the challenge (T-C13 among the causes):
-            // the dialog offers to start again with fresh options.
-            if (codes.includes("Passkey.VerificationFailed")) setOver(true)
             setMessage(passkeyFailureMessage(error))
           }
         } finally {
@@ -614,29 +688,41 @@ function AddPasskeyDialog({
               sentTo === null ? (
                 <Field>
                   <FieldDescription>{t("profile.passkeys.emailCodeNeeded")}</FieldDescription>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="w-fit"
-                    disabled={sending || over}
-                    onClick={() => void sendCode()}
-                  >
-                    {sending ? <Spinner data-icon="inline-start" /> : null}
-                    {t("auth.emailMeACode")}
-                  </Button>
+                  {/* In a div: a vertical Field stretches its direct children. */}
+                  <div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={sending || over}
+                      onClick={() => void sendCode()}
+                    >
+                      {sending ? <Spinner data-icon="inline-start" /> : null}
+                      {t("auth.emailMeACode")}
+                    </Button>
+                  </div>
                 </Field>
               ) : (
-                <OneTimeCodeField
-                  id="new-passkey-email-code"
-                  label={t("profile.passkeys.emailCode")}
-                  value={emailCode}
-                  onChange={setEmailCode}
-                  disabled={busy || over}
-                >
-                  <FieldDescription aria-live="polite">
-                    {t("auth.emailCodeSentTo", { email: sentTo })}
-                  </FieldDescription>
-                </OneTimeCodeField>
+                <>
+                  <OneTimeCodeField
+                    id="new-passkey-email-code"
+                    label={t("profile.passkeys.emailCode")}
+                    value={emailCode}
+                    onChange={setEmailCode}
+                    disabled={busy || over}
+                  >
+                    <FieldDescription aria-live="polite">
+                      {t("auth.emailCodeSentTo", { email: sentTo })}
+                    </FieldDescription>
+                  </OneTimeCodeField>
+                  {/* A code that did not arrive, or that expired: a new one here. */}
+                  {over ? null : (
+                    <ResendCodeButton
+                      availableAt={resendAt}
+                      pending={sending}
+                      onResend={() => void sendCode()}
+                    />
+                  )}
+                </>
               )
             ) : null}
             {message ? (

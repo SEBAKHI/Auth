@@ -250,10 +250,10 @@ test("s20: where the browser offers it, the address field's suggestion signs in 
  * application: the page resumes the request with one top-level navigation, and
  * the server's answer to the resume is a redirect to the application with its
  * code. That answer is the model's here: that the real server takes this session
- * for a signed-in browser is not proven here: FirstPartySignInExitCoverageTests
+ * for a signed-in browser is not proven here. FirstPartySignInExitCoverageTests
  * holds that the verify endpoint delivers its session through the filter that
- * writes the IdP cookie, and no real run has yet gone from an application through
- * a passkey and back (PasskeyDevRun has no such leg).
+ * writes the IdP cookie, and PasskeyDevRun's `app-return` scenario runs the whole
+ * way against the real server.
  */
 const HANDLE = "0123456789abcdef".repeat(4)
 const PENDING = `client_id=CRM&auth_request=${HANDLE}`
@@ -314,6 +314,118 @@ for (const way of WAYS_BACK) {
     expect(resumes).toEqual([`?${PENDING}`])
   })
 }
+
+/**
+ * D-152-2: an application requires two steps, and the account's only factor is a
+ * lost passkey. A sign-in from this page would resume the request, and the server
+ * would end it at the application with `access_denied`, so the person would never
+ * see the Security page the sentence names. The link drops the request first.
+ * Deliberate break: remove the link.
+ */
+test("s20: the lost-passkey link under mfa_passkey drops the request: a password sign-in lands on Security, with no resume", async ({
+  page,
+  api,
+}) => {
+  const resumes: string[] = []
+  await api.useAnonymous(async (route, url) => {
+    const path = url.pathname.toLowerCase()
+    if (path === "/api/v1/auth/authorize/resume") {
+      resumes.push(url.search)
+      await route.fulfill({ status: 302, headers: { location: `${ORIGINS.accounts}/never` } })
+      return true
+    }
+    if (path === "/api/v1/auth/passkeys/assertion/options") {
+      await fulfillJson(route, assertionOptions())
+      return true
+    }
+    if (path === "/api/v1/auth/login") {
+      await fulfillJson(route, loginResponse(USER))
+      return true
+    }
+    return false
+  })
+
+  await withoutSuggestion(page)
+  await page.goto(`${ORIGINS.accounts}/login?${PENDING}&reason=mfa_passkey&method=password`)
+  await page.getByTestId("passkey-lost-link").click({ timeout: FIRST_LOAD.timeout })
+  await expect.poll(() => new URL(page.url()).search).toBe("")
+
+  await page.getByLabel("Email").fill(USER.email)
+  await page.getByLabel("Password").fill("the password")
+  await page.getByRole("button", { name: "Sign in", exact: true }).click()
+
+  await expect.poll(() => {
+    const { pathname, search } = new URL(page.url())
+    return `${pathname}${search}`
+  }).toBe("/profile?tab=security")
+  expect(resumes).toEqual([])
+})
+
+const ANOTHER_ACCOUNT = {
+  ...USER,
+  id: "22222222-2222-2222-2222-222222222222",
+  email: "another@example.com",
+  firstName: "Bea",
+  lastName: "Other",
+  displayName: "Bea Other",
+}
+
+/**
+ * A passkey of another account signs that account in, in place. The tab that signs
+ * in resets itself; another tab of the origin still holds the old account's page
+ * and rows, while the session it shares is now the new account's. A refresh there
+ * would then read and write as the new account under the old one's page. It is
+ * told, and starts again as the account the session holds. Deliberate break: remove
+ * the comparison that tells it (`publishAccountChanged` in the adoption).
+ */
+test("s20: a passkey of another account in one tab reaches the old account's other tabs", async ({
+  page,
+  context,
+  api,
+}) => {
+  const authenticator = await attachVirtualAuthenticator(page)
+  await authenticator.addCredential()
+  const state = { requirement: "passkey", me: USER as typeof USER }
+  await api.useAuthenticated(
+    ["users:read"],
+    async (route, url) => {
+      const path = url.pathname.toLowerCase()
+      if (path === "/api/v1/users/me") {
+        await fulfillJson(route, state.me)
+        return true
+      }
+      if (path === "/api/v1/auth/2fa/status") {
+        await fulfillJson(route, { recoveryCodesRemaining: 8 })
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/assertion/options") {
+        await fulfillJson(route, assertionOptions())
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/assertion/verify") {
+        state.requirement = "none"
+        state.me = ANOTHER_ACCOUNT
+        await fulfillJson(route, loginResponse(ANOTHER_ACCOUNT))
+        return true
+      }
+      return false
+    },
+    { mfaRequirement: () => state.requirement }
+  )
+
+  // The other tab, on the one page that stays open while a factor is owed.
+  const other = await context.newPage()
+  await other.goto(`${ORIGINS.console}/profile`)
+  await expect(other.getByText(USER.email)).toBeVisible(FIRST_LOAD)
+
+  await page.goto(`${ORIGINS.console}/two-factor/required`)
+  const passkey = page.getByTestId("passkey-sign-in").getByRole("button", { name: "Sign in with your passkey" })
+  await expect(passkey).toBeEnabled(FIRST_LOAD)
+  await passkey.click()
+
+  await expect(other.getByText(ANOTHER_ACCOUNT.email)).toBeVisible(FIRST_LOAD)
+  await expect(other.getByText(USER.email)).toHaveCount(0)
+})
 
 test("s20: a page on the apex obtains an assertion, and nothing more", async ({ page, attacker }) => {
   // H8: the RP ID alone does not protect. A page under the registrable domain

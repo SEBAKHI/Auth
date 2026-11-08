@@ -79,8 +79,3 @@ export function isAlreadyOnThisDevice(error: unknown): boolean {
     cause && typeof cause === "object" && (cause as { name?: unknown }).name === "InvalidStateError"
   )
 }
-
-/** Test seam: forget the loaded helper, so a test can load another. */
-export function resetWebAuthnForTests(): void {
-  loading = null
-}

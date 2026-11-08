@@ -2,6 +2,7 @@ using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -25,6 +26,7 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
     private readonly IPlatformMfaPolicy _platformMfaPolicy;
     private readonly IUserPasskeyRepository _passkeyRepository;
     private readonly PasskeyRpIdAtStartup _passkeyRpId;
+    private readonly UsableSecondFactors _usableSecondFactors;
 
     public GetUserByIdQueryHandler(
         IUserRepository userRepository,
@@ -36,10 +38,12 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
         IOptionsMonitor<EmailSettings> emailSettings,
         IPlatformMfaPolicy platformMfaPolicy,
         IUserPasskeyRepository passkeyRepository,
-        PasskeyRpIdAtStartup passkeyRpId)
+        PasskeyRpIdAtStartup passkeyRpId,
+        UsableSecondFactors usableSecondFactors)
     {
         _passkeyRepository = passkeyRepository;
         _passkeyRpId = passkeyRpId;
+        _usableSecondFactors = usableSecondFactors;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
@@ -75,8 +79,14 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
         var factor = await _twoFactorStateStore.GetSnapshotAsync(user.Id, cancellationToken);
 
         // FA2, the one definition every policy reads: the app or a live passkey (S20). The
-        // app's own flag stays TotpEnabled (FA12: each factor shown on its own).
-        var qualifyingMfa = await _twoFactorStateStore.HasEnabledFactorAsync(user.Id, cancellationToken);
+        // app's own flag stays TotpEnabled (FA12: each factor shown on its own). The account's
+        // own read says what it can USE (D-150-4): its pages offer "Continue" or the set-up from
+        // this answer, and while passkeys are off the server finds no factor on a passkey-only
+        // account, so "Continue" could only come back here. The console's user page says what
+        // the account holds.
+        var qualifyingMfa = request.ActorId == request.Id
+            ? (await _usableSecondFactors.GetAsync(user.Id, cancellationToken)).HasAny
+            : await _twoFactorStateStore.HasEnabledFactorAsync(user.Id, cancellationToken);
         var passkeyCount = await _passkeyRepository.CountLiveAsync(user.Id, _passkeyRpId.Value, cancellationToken);
 
         // The rule that refuses the app's switch-off and the emailed code in its place,

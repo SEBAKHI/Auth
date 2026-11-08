@@ -482,6 +482,24 @@ describe("the sign-in again of a passkey account (T-C7)", () => {
     expect(window.sessionStorage.getItem(FULL_PROOF_KEY)).toBeNull()
   })
 
+  it("a password sign-in from there clears the hint, so nothing keeps the page on the passkey by itself", async () => {
+    // T-C7's third line, as far as a page can hold it: if the change then asks
+    // again, the dialog opens again with the same words. That the person does not
+    // go round by a password is the dialog's sentence, and only the sentence.
+    passkeysRun()
+    mocks.login.mockResolvedValue(SIGNED_IN)
+    requestPasskeySignIn()
+    renderPage()
+    await passkeyButton()
+
+    await signInWithPassword()
+
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledTimes(1))
+    expect(mocks.complete).toHaveBeenCalledWith(SIGNED_IN, { proof: "password" })
+    expect(window.sessionStorage.getItem(FULL_PROOF_KEY)).toBeNull()
+    expect(window.localStorage.getItem(LAST_SIGN_IN_METHOD_KEY)).toBe("password")
+  })
+
   it("an application's requirement only the passkey meets (mfa_passkey) puts it first too", async () => {
     passkeysRun()
     mocks.completion.reason = { reason: "mfa_passkey", method: null }
@@ -490,5 +508,22 @@ describe("the sign-in again of a passkey account (T-C7)", () => {
     const passkey = await passkeyButton()
     expect(precedes(passkey, screen.getByLabelText("auth.email"))).toBe(true)
     expect(screen.getByTestId("sign-in-reason")).toHaveTextContent("auth.signInReasonPasskeyTitle")
+  })
+
+  it("under mfa_passkey offers the way out for a lost passkey; no other reason does (D-152-2)", async () => {
+    passkeysRun()
+    mocks.completion.reason = { reason: "mfa_passkey", method: null }
+    const { unmount } = renderPage()
+
+    expect(within(await screen.findByTestId("sign-in-reason")).getByTestId("passkey-lost-link")).toHaveAttribute(
+      "href",
+      "/login"
+    )
+    unmount()
+
+    mocks.completion.reason = { reason: "mfa_step_up", method: null }
+    renderPage()
+    expect(await screen.findByTestId("sign-in-reason")).toBeInTheDocument()
+    expect(screen.queryByTestId("passkey-lost-link")).not.toBeInTheDocument()
   })
 })

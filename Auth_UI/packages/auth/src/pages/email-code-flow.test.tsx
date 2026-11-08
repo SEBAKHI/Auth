@@ -474,6 +474,25 @@ describe("EmailCodeFlow: the account signs in with its passkey (S20)", () => {
     expect(window.localStorage.getItem(LAST_SIGN_IN_METHOD_KEY)).toBeNull()
   })
 
+  it("hands the sentence over from the recovery's step too (the account waits for deletion)", async () => {
+    answerVerify({ step: "recover" })
+    mocks.recoverWithEmailCode.mockRejectedValue({
+      status: 403,
+      code: "Auth.PasskeyRequired",
+      detail: "This account signs in with its passkey.",
+    })
+    const onPasskeyRequired = vi.fn()
+    renderFlow({ onPasskeyRequired })
+    await typeCode()
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: /restore my account/i }))
+
+    await waitFor(() =>
+      expect(onPasskeyRequired).toHaveBeenCalledWith("This account signs in with its passkey.")
+    )
+    expect(mocks.complete).not.toHaveBeenCalled()
+  })
+
   it("shows the sentence on the code screen where no page offers the passkey", async () => {
     answerVerify({ step: "signIn" })
     mocks.signInWithEmailCode.mockRejectedValue({

@@ -582,15 +582,30 @@ const ANONYMOUS_PATHS = new Set(
   ].map((path) => path.toLowerCase())
 )
 
-function isAuthFlow(url: string): boolean {
-  let pathname: string
+function lowerCasePathname(url: string): string | null {
   try {
-    pathname = new URL(url, API_BASE_URL).pathname
+    return new URL(url, API_BASE_URL).pathname.toLowerCase()
   } catch {
-    return false
+    return null
   }
+}
 
-  return ANONYMOUS_PATHS.has(pathname.toLowerCase())
+function isAuthFlow(url: string): boolean {
+  const pathname = lowerCasePathname(url)
+  return pathname !== null && ANONYMOUS_PATHS.has(pathname)
+}
+
+/**
+ * The sign-in page's question on every load, answered 404 while passkeys are off:
+ * the shipped default, not a failure. Its caller reads the status alone, so the
+ * body is not read, and a visitor whose every other request succeeds never
+ * downloads the error codes (published-codes.ts).
+ */
+function isPasskeysOffAnswer(request: Request, response: Response): boolean {
+  return (
+    response.status === 404 &&
+    lowerCasePathname(request.url) === PASSKEY_ASSERTION_OPTIONS_PATH.toLowerCase()
+  )
 }
 
 const authMiddleware: Middleware = {
@@ -640,6 +655,7 @@ const authMiddleware: Middleware = {
       return response
     }
     if (request.method === "HEAD") return response
+    if (isPasskeysOffAnswer(request, response)) return response
     const failure = await withTransportStatus(response)
     if (response.status === 403) await announceMfaRequirement(failure)
     if (response.status !== 401 || isAuthFlow(request.url)) return failure

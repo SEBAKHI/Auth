@@ -470,6 +470,27 @@ describe("a failed response", () => {
     expect(response.status).toBe(expected.status)
   })
 
+  it("leaves the passkey options' 404 unread: it is the shipped default, and reading it would download the error codes", async () => {
+    // F5: every other failure goes through readProblem (asserted above), whose
+    // first read of a code loads the published list (published-codes.ts).
+    const read = vi.fn(async () => JSON.stringify({ code: "Http.NotFound" }))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        const answer = new Response(null, { status: 404, headers: { "content-type": "application/problem+json" } })
+        return Object.assign(answer, { clone: () => answer, text: read })
+      })
+    )
+    const tab = await openTab()
+
+    const { response } = await tab.client.api.POST("/api/v1/auth/passkeys/assertion/options")
+
+    expect(response.status).toBe(404)
+    // The caller reads the status alone; the client rewrote nothing of the answer.
+    expect(response.headers.get("content-type")).toBe("application/problem+json")
+    expect(response.text).toBe(read)
+  })
+
   it("keeps Retry-After, the only place a wait travels", async () => {
     vi.stubGlobal(
       "fetch",

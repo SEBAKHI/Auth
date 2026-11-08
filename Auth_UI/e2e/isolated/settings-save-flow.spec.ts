@@ -171,6 +171,8 @@ interface Server {
   getStatus: number
   /** What the next PUT answers with. */
   putStatus: number
+  /** The problem a refused PUT carries, when it is not the conflict. */
+  putProblem?: Record<string, unknown>
   /** How many PUTs have actually gone out — the only honest "was it saved". */
   putCount: number
   /** Every PUT body, in order. */
@@ -229,7 +231,7 @@ async function install(page: Page, state: Server) {
           route,
           state.putStatus === 200
             ? {}
-            : { title: "Conflict", status: state.putStatus },
+            : (state.putProblem ?? { title: "Conflict", status: state.putStatus }),
           state.putStatus
         )
         return true
@@ -508,6 +510,29 @@ test("a setting that cannot lock you out saves without a dialog", async ({
       overrides: { TerminateSessionsOnPasswordChange: false },
     })
   )
+})
+
+test("a value the rules refused stays on screen until it is dismissed", async ({ page }) => {
+  // The refusal can hold a command to copy (the passkey RP ID's retirement): four
+  // seconds is not enough to read it, let alone copy it.
+  const reason = "The value for 'RpId' is invalid: retire them first with the setup tool."
+  const state = server([sessionSection()])
+  state.putStatus = 400
+  state.putProblem = { status: 400, code: "SystemSettings.InvalidFieldValue", detail: reason }
+  await install(page, state)
+  await open(page, "Session", "TerminateSessionsOnPasswordChange")
+
+  await row(page, "TerminateSessionsOnPasswordChange").getByRole("switch").click()
+  await barSave(page).click()
+
+  const toast = page.locator("[data-sonner-toast]").filter({ hasText: reason })
+  await expect(toast).toBeVisible()
+  // Past a default toast's four seconds.
+  await page.waitForTimeout(5_000)
+  await expect(toast).toBeVisible()
+
+  await toast.getByRole("button", { name: "Close toast" }).click()
+  await expect(toast).toHaveCount(0)
 })
 
 test("a prose value takes its direction from itself and a machine value does not", async ({

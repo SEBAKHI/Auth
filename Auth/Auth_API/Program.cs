@@ -117,8 +117,8 @@ builder.Services.Configure<RegistrationSettings>(builder.Configuration.GetSectio
 builder.Services.Configure<OrganizationSettings>(builder.Configuration.GetSection(OrganizationSettings.SectionName));
 builder.Services.Configure<IdentityProviderSettings>(builder.Configuration.GetSection(IdentityProviderSettings.SectionName));
 builder.Services.PostConfigure<IdentityProviderSettings>(SettingsArrayNormalizer.Apply);
-// S20: passkeys. Read from the settings files only (not in the console registry until the
-// screens ship): Enabled per request, the RP ID once, at start-up (restart required).
+// S20: passkeys. Enabled is read per request, the RP ID once, at start-up (restart required),
+// after the database settings layer joined: both are in the console's Passkeys section too.
 builder.Services.Configure<PasskeySettings>(builder.Configuration.GetSection(PasskeySettings.SectionName));
 // Password reset and email verification links are built from FrontendBaseUrl. An
 // empty value silently yields a relative URL, i.e. a dead link in every email, so

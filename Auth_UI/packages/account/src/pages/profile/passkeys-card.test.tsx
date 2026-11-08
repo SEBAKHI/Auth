@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   del: vi.fn(),
   loadWebAuthn: vi.fn(),
   startRegistration: vi.fn(),
+  cancelCeremony: vi.fn(),
   signal: vi.fn(),
   logout: vi.fn(),
   toastSuccess: vi.fn(),
@@ -143,7 +144,11 @@ beforeEach(() => {
   mocks.toastSuccess.mockReset()
   mocks.toastError.mockReset()
   mocks.startRegistration.mockReset().mockResolvedValue(CREATED)
-  mocks.loadWebAuthn.mockReset().mockResolvedValue({ startRegistration: mocks.startRegistration })
+  mocks.cancelCeremony.mockReset()
+  mocks.loadWebAuthn.mockReset().mockResolvedValue({
+    startRegistration: mocks.startRegistration,
+    WebAuthnAbortService: { cancelCeremony: mocks.cancelCeremony },
+  })
   vi.stubGlobal(
     "PublicKeyCredential",
     Object.assign(function PublicKeyCredential() {}, { signalAllAcceptedCredentials: mocks.signal })
@@ -164,6 +169,26 @@ describe("PasskeysCard: when it is shown", () => {
     await waitFor(() => expect(listReads()).toBe(1))
     expect(screen.queryByTestId("passkeys-card")).not.toBeInTheDocument()
     expect(mocks.signal).not.toHaveBeenCalled()
+  })
+
+  it("is not there when a first read fails and the account holds none: passkeys may not run here", async () => {
+    // The gateway answers before the API's 404, so a 429 or a 503 says nothing of
+    // whether passkeys run: a deployment without them must not show the card.
+    givenLists(problem(503, "General.Unavailable"))
+    const client = renderCard({ ...ME, passkeyCount: 0 })
+
+    await waitFor(() => expect(client.getQueryState(PASSKEYS_QUERY_KEY)?.status).toBe("error"))
+    expect(screen.queryByTestId("passkeys-card")).not.toBeInTheDocument()
+  })
+
+  it("says a failed first read, with a retry, for an account known to hold a passkey", async () => {
+    givenLists(problem(503, "General.Unavailable"), ok(list([LAPTOP])))
+    const user = userEvent.setup()
+    renderCard({ ...ME, passkeyCount: 1 })
+
+    await user.click(await screen.findByRole("button", { name: i18n.t("common.retry") }))
+
+    expect(await screen.findAllByTestId("passkey-row")).toHaveLength(1)
   })
 
   it("lists the passkeys: the owner's name in any script, synced, last used, and the counter's way out", async () => {
@@ -245,6 +270,34 @@ describe("PasskeysCard: the browser told which passkeys stay (IN 12, D-S20-7)", 
     await waitFor(() => expect(mocks.signal).toHaveBeenCalledTimes(1))
     expect(mocks.signal).toHaveBeenCalledWith(
       expect.objectContaining({ allAcceptedCredentialIds: [KEY.credentialId] })
+    )
+  })
+
+  it("is told nothing by a read that a newer read replaced, even when it answers last", async () => {
+    const answers: Array<(value: unknown) => void> = []
+    mocks.get.mockImplementation(() => new Promise((resolve) => answers.push(resolve)))
+    const client = renderCard()
+    await waitFor(() => expect(listReads()).toBe(1))
+    await act(async () => answers[0](ok(list([LAPTOP]))))
+    await waitFor(() => expect(mocks.signal).toHaveBeenCalledTimes(1))
+
+    // A change to the account reads the list again; the addition's own read replaces that one.
+    act(() => void client.invalidateQueries({ queryKey: PASSKEYS_QUERY_KEY }))
+    await waitFor(() => expect(listReads()).toBe(2))
+    act(() => void client.invalidateQueries({ queryKey: PASSKEYS_QUERY_KEY }))
+    await waitFor(() => expect(listReads()).toBe(3))
+
+    await act(async () => answers[2](ok(list([LAPTOP, KEY]))))
+    await waitFor(() => expect(mocks.signal).toHaveBeenCalledTimes(2))
+    // The older read, without the passkey just added, answers last.
+    await act(async () => answers[1](ok(list([LAPTOP]))))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(mocks.signal).toHaveBeenCalledTimes(2)
+    expect(mocks.signal).toHaveBeenLastCalledWith(
+      expect.objectContaining({ allAcceptedCredentialIds: [LAPTOP.credentialId, KEY.credentialId] })
     )
   })
 
@@ -383,6 +436,175 @@ describe("PasskeysCard: adding a passkey", () => {
 
     expect(await within(dialog).findByText("server sentence for Passkey.NameTooLong")).toBeInTheDocument()
     expect(within(dialog).getByLabelText(i18n.t("profile.passkeys.name"))).toHaveAttribute("aria-invalid", "true")
+    // The server checks the name after spending the challenge: only fresh options
+    // can go on, and no second ceremony runs on these.
+    expect(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.tryAgain") })).toBeInTheDocument()
+    expect(within(dialog).queryByRole("button", { name: i18n.t("profile.passkeys.create") })).not.toBeInTheDocument()
+  })
+
+  it("refuses a name over the limit before the device is asked: the limit is on code points", async () => {
+    givenLists(ok(list([])))
+    mocks.post.mockResolvedValue(ok(REGISTRATION))
+    const user = userEvent.setup()
+    renderCard()
+
+    const dialog = await openDialog(user)
+    const field = within(dialog).getByLabelText(i18n.t("profile.passkeys.name"))
+    const create = within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.create") })
+
+    fireEvent.change(field, { target: { value: "😀".repeat(65) } })
+    fireEvent.click(create)
+
+    expect(mocks.startRegistration).not.toHaveBeenCalled()
+    expect(
+      within(dialog).getByText(i18n.t("profile.passkeys.nameTooLong", { max: 64 }))
+    ).toBeInTheDocument()
+
+    // Sixty-four of them are 128 UTF-16 units, and fit.
+    fireEvent.change(field, { target: { value: "😀".repeat(64) } })
+    fireEvent.click(create)
+
+    expect(mocks.startRegistration).toHaveBeenCalledTimes(1)
+  })
+
+  it("the limit reached at the verify offers only fresh options", async () => {
+    givenLists(ok(list([])))
+    mocks.post.mockImplementation(async (path: string) =>
+      path === "/api/v1/auth/passkeys/registration/options"
+        ? ok(REGISTRATION)
+        : problem(409, "Passkey.LimitReached")
+    )
+    const user = userEvent.setup()
+    renderCard()
+
+    const dialog = await openDialog(user)
+    fireEvent.click(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.create") }))
+
+    expect(await within(dialog).findByTestId("add-passkey-message")).toHaveTextContent(
+      "server sentence for Passkey.LimitReached"
+    )
+    expect(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.tryAgain") })).toBeInTheDocument()
+  })
+
+  it("a refused ceremony gives no sign-in advice to a person who is signed in, and starts again with fresh options", async () => {
+    givenLists(ok(list([])))
+    mocks.post.mockImplementation(async (path: string) =>
+      path === "/api/v1/auth/passkeys/registration/options"
+        ? ok(REGISTRATION)
+        : problem(400, "Passkey.VerificationFailed")
+    )
+    const user = userEvent.setup()
+    renderCard()
+
+    const dialog = await openDialog(user)
+    fireEvent.click(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.create") }))
+
+    const message = await within(dialog).findByTestId("add-passkey-message")
+    expect(message).toHaveTextContent("server sentence for Passkey.VerificationFailed")
+    expect(message).toHaveTextContent(i18n.t("profile.passkeys.startAgain"))
+    expect(message).not.toHaveTextContent(i18n.t("auth.passkey.removedPasskeyWayOut"))
+
+    await user.click(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.tryAgain") }))
+    await waitFor(() =>
+      expect(
+        mocks.post.mock.calls.filter(([path]) => path === "/api/v1/auth/passkeys/registration/options")
+      ).toHaveLength(2)
+    )
+  })
+
+  it("a device clock ahead of the server's can still add a passkey: the server decides, not that clock", async () => {
+    givenLists(ok(list([])))
+    mocks.post.mockResolvedValue(
+      ok({ ...REGISTRATION, expiresAt: new Date(Date.now() - 60_000).toISOString() })
+    )
+    const user = userEvent.setup()
+    renderCard()
+
+    const dialog = await openDialog(user)
+    fireEvent.click(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.create") }))
+
+    expect(mocks.startRegistration).toHaveBeenCalledTimes(1)
+  })
+
+  it("asks for fresh options once these have outlived their five minutes on this page's own clock", async () => {
+    givenLists(ok(list([])))
+    mocks.post.mockResolvedValue(ok(REGISTRATION))
+    const user = userEvent.setup()
+    renderCard()
+
+    const dialog = await openDialog(user)
+    const start = performance.now()
+    vi.spyOn(performance, "now").mockReturnValue(start + 5 * 60_000)
+    fireEvent.click(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.create") }))
+
+    expect(mocks.startRegistration).not.toHaveBeenCalled()
+    await waitFor(() =>
+      expect(
+        mocks.post.mock.calls.filter(([path]) => path === "/api/v1/auth/passkeys/registration/options")
+      ).toHaveLength(2)
+    )
+  })
+
+  function emailCodePosts() {
+    return mocks.post.mock.calls.filter(([path]) => path === "/api/v1/auth/passkeys/registration/email-code").length
+  }
+
+  it("offers a new code once the wait is over, and asks for it", async () => {
+    givenLists(ok(list([])))
+    mocks.post.mockImplementation(async (path: string) =>
+      path === "/api/v1/auth/passkeys/registration/options"
+        ? ok({ ...REGISTRATION, emailCodeRequired: true })
+        : ok({ emailCodeRequired: true, sentTo: "a***@example.com", expiresAt: "2099-01-01T00:00:00Z" })
+    )
+    const user = userEvent.setup()
+    renderCard({ ...ME, qualifyingMfa: false, totpEnabled: false })
+
+    const dialog = await openDialog(user)
+    await user.click(within(dialog).getByRole("button", { name: i18n.t("auth.emailMeACode") }))
+    await waitFor(() => expect(emailCodePosts()).toBe(1))
+    expect(
+      await within(dialog).findByRole("button", { name: i18n.t("accountDeletion.resendIn", { seconds: 60 }) })
+    ).toBeDisabled()
+
+    const realNow = Date.now.bind(Date)
+    vi.spyOn(Date, "now").mockImplementation(() => realNow() + 61_000)
+    await user.click(await within(dialog).findByRole("button", { name: i18n.t("accountDeletion.resendCode") }))
+
+    await waitFor(() => expect(emailCodePosts()).toBe(2))
+  })
+
+  it("asks for fresh options when the server says no code is needed any more", async () => {
+    givenLists(ok(list([])))
+    mocks.post.mockImplementation(async (path: string) =>
+      path === "/api/v1/auth/passkeys/registration/options"
+        ? ok({ ...REGISTRATION, emailCodeRequired: true })
+        : ok({ emailCodeRequired: false, sentTo: null, expiresAt: null })
+    )
+    const user = userEvent.setup()
+    renderCard({ ...ME, qualifyingMfa: false, totpEnabled: false })
+
+    const dialog = await openDialog(user)
+    await user.click(within(dialog).getByRole("button", { name: i18n.t("auth.emailMeACode") }))
+
+    await waitFor(() =>
+      expect(
+        mocks.post.mock.calls.filter(([path]) => path === "/api/v1/auth/passkeys/registration/options")
+      ).toHaveLength(2)
+    )
+    expect(screen.queryByText(i18n.t("auth.emailCodeSentTo", { email: "" }))).not.toBeInTheDocument()
+  })
+
+  it("leaves no ceremony behind when the page goes", async () => {
+    givenLists(ok(list([])))
+    mocks.post.mockResolvedValue(ok(REGISTRATION))
+    const user = userEvent.setup()
+    renderCard()
+
+    await openDialog(user)
+    expect(mocks.cancelCeremony).not.toHaveBeenCalled()
+    cleanup()
+
+    expect(mocks.cancelCeremony).toHaveBeenCalled()
   })
 
   it("shows the limit in place when the account holds as many as it may", async () => {
@@ -475,6 +697,20 @@ describe("PasskeysCard: renaming and removing", () => {
       body: { name: "Home laptop" },
     })
     expect(await screen.findByText("Home laptop")).toBeInTheDocument()
+    // The form is gone: the focus goes back to the button that opened it.
+    expect(screen.getByRole("button", { name: i18n.t("profile.passkeys.renameNamed", { name: "Home laptop" }) })).toHaveFocus()
+  })
+
+  it("returns the focus to the rename button when Escape closes the form", async () => {
+    givenLists(ok(list([LAPTOP])))
+    const user = userEvent.setup()
+    renderCard()
+
+    const rename = await screen.findByRole("button", { name: i18n.t("profile.passkeys.renameNamed", { name: "Work laptop" }) })
+    await user.click(rename)
+    await user.keyboard("{Escape}")
+
+    expect(screen.getByRole("button", { name: i18n.t("profile.passkeys.renameNamed", { name: "Work laptop" }) })).toHaveFocus()
   })
 
   it("removes behind a confirmation that names the passkey and the other devices, held until the request settles", async () => {
@@ -537,7 +773,10 @@ describe("PasskeysCard: renaming and removing", () => {
     expect(screen.getAllByTestId("passkey-row")).toHaveLength(1)
   })
 
-  it("asks for a fresh sign-in when the removal needs one", async () => {
+  it("asks a passkey-only account removing a lost passkey for a plain recent sign-in, not for the passkey it lost", async () => {
+    // Adding beside a passkey needs a two-factor session (PK7); removing asks only
+    // for a recent first factor, or a person who lost the passkey could never
+    // remove it: their password counts here.
     givenLists(ok(list([LAPTOP])))
     mocks.del.mockResolvedValue(problem(403, "Auth.ReauthenticationRequired"))
     const user = userEvent.setup()
@@ -546,6 +785,12 @@ describe("PasskeysCard: renaming and removing", () => {
     await user.click(await screen.findByRole("button", { name: i18n.t("profile.passkeys.removeNamed", { name: "Work laptop" }) }))
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: i18n.t("profile.passkeys.remove") }))
 
-    expect(await screen.findByText(i18n.t("auth.reauthenticatePasskeyBody"))).toBeInTheDocument()
+    const dialog = await screen.findByText(i18n.t("profile.passkeys.needsRecentSignIn"))
+    expect(dialog).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t("auth.reauthenticatePasskeyBody"))).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: i18n.t("auth.reauthenticateAction") }))
+    await waitFor(() => expect(mocks.logout).toHaveBeenCalledTimes(1))
+    expect(window.sessionStorage.getItem(FULL_PROOF_KEY)).toBe("1")
   })
 })

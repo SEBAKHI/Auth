@@ -288,7 +288,8 @@ public class UserStatsMfaSplitTests
         var dto = (await new GetUserByIdQueryHandler(
                 users.Object, roles.Object, permissions.Object, AccountRules.Policy(), Mock.Of<IImageUrlComposer>(), store.Object,
                 TestHelpers.CreateOptions(new EmailSettings { Enabled = emailEnabled && available }), Mock.Of<IPlatformMfaPolicy>(),
-                PasskeyTestDoubles.EmptyRepository().Object, PasskeyTestDoubles.RpIdAtStartup)
+                PasskeyTestDoubles.EmptyRepository().Object, PasskeyTestDoubles.RpIdAtStartup,
+                new Auth.Application.Features.Passkeys.Common.UsableSecondFactors(store.Object, PasskeyTestDoubles.Feature()))
             .Handle(new GetUserByIdQuery(user.Id), CancellationToken.None)).Value;
 
         dto.TotpEnabled.Should().Be(totp);

@@ -36,7 +36,7 @@ Passkeys run only when `Passkeys:Enabled` is on and all of these hold; otherwise
 When live passkeys carry an RP ID other than the configured one, passkeys stay off and the posture logs `passkey.rpid-mismatch` at Critical, whatever the switch says. An empty `Passkeys:RpId` is such a value too: no passkey counts as a factor under it, so the line is logged while any live passkey exists. There are two ways out:
 
 - restore the previous value; or
-- move on purpose: announce the move and ask people to add another way to sign in, run `dotnet run --project Auth/Auth_Setup -- --retire-passkey-rp-id <old RP ID>` and execute the statement it prints against the database (one transaction; it revokes every live passkey of that RP ID and writes one audit row each, reason `rp-id-move`), then set `Passkeys:RpId` to the new domain and recycle the API.
+- move on purpose: announce the move and ask people to add another way to sign in, switch `Passkeys:Enabled` off (a passkey added before the recycle would otherwise be bound to the old value, and passkeys would stay off after it), run `dotnet run --project Auth/Auth_Setup -- --retire-passkey-rp-id <old RP ID>` and execute the statement it prints against the database (one transaction; it revokes every live passkey of that RP ID and writes one audit row each, reason `rp-id-move`), then set `Passkeys:RpId` to the new domain, recycle the API and switch `Passkeys:Enabled` on again.
 
 ### 5. Only the RP ID in force counts
 

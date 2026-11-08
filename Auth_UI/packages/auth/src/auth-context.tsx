@@ -15,6 +15,7 @@ import {
   type MfaRequirement,
 } from "@authsystem/api/mfa-requirement"
 import { resetUserScopedCache } from "@authsystem/api/query"
+import { publishAccountChanged } from "@authsystem/api/tab-sync"
 import {
   REFRESH_SENTINEL,
   clearCookieCheck,
@@ -452,6 +453,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // one is worth keeping — it is the only reset that runs on the path where
       // a mistake becomes someone else's data.
       void resetUserScopedCache(queryClient)
+      // Whose session this replaces, read before it goes: only this tab was reset
+      // above, and the others are told once the new account's tokens are stored.
+      const outgoingAccount = decodeJwt(getAccessToken() ?? "")?.sub ?? null
       // The one place a sign-in stores its tokens. The refresh value is stored
       // as the API delivered it: the cookie sentinel, or a real token while the
       // cookie delivery is off. A cookie sign-in is not proven until its first
@@ -459,6 +463,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTokens(data.token.accessToken, data.token.refreshToken)
       if (data.token.refreshToken === REFRESH_SENTINEL) markCookieUnconfirmed()
       else clearCookieCheck()
+      if (outgoingAccount !== null && outgoingAccount.toLowerCase() !== data.user.id?.toLowerCase()) {
+        publishAccountChanged()
+      }
       setUser(data.user)
       setStatus("authenticated")
       applyProfilePreferences(data.user)

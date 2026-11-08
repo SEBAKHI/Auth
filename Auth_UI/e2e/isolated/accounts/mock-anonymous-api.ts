@@ -42,8 +42,8 @@ export function loginResponse(
  * on every load (S20); unanswered, they get the default 404, which is passkeys
  * switched off, as shipped.
  */
-export function isPageLoadProbe(method: string, path: string): boolean {
-  return method === "POST" && path === "/api/v1/auth/passkeys/assertion/options"
+export function isPageLoadProbe(method: string, path: string, body: unknown): boolean {
+  return method === "POST" && path === "/api/v1/auth/passkeys/assertion/options" && body === undefined
 }
 
 /**
@@ -51,8 +51,8 @@ export function isPageLoadProbe(method: string, path: string): boolean {
  * so the app boots signed out, and only what a stranger's screens ask for is
  * answered by default - branding, the password policy, the provider list.
  *
- * Every non-GET request is recorded with its parsed body, in order, so a test
- * can assert what was SENT and not merely what was rendered: which fields the
+ * Every non-GET request but a page-load probe is recorded with its parsed body,
+ * in order, so a test can assert what was SENT and not merely what was rendered: which fields the
  * sign-up completion carried, whether the code screen asked for a code on
  * mount, how many times a form was submitted. Anything the handler does not
  * claim is refused with a distinct 404, never passed to the network.
@@ -68,7 +68,7 @@ export async function installAnonymousApi(
     const path = url.pathname.toLowerCase()
     const raw = request.postData()
     const body = raw ? (JSON.parse(raw) as unknown) : undefined
-    if (request.method() !== "GET" && !isPageLoadProbe(request.method(), path)) {
+    if (request.method() !== "GET" && !isPageLoadProbe(request.method(), path, body)) {
       options?.seen?.push({ method: request.method(), path, body })
     }
 

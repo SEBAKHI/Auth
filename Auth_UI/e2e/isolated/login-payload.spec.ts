@@ -183,11 +183,20 @@ test("the passkey helper is never downloaded while passkeys do not run", async (
   await answered
   await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: /passkey/i })).toHaveCount(0)
+  // Whatever the answer sets off has been fetched by now.
+  await page.waitForLoadState("networkidle")
 
   const fetched = await scripts()
   expect(fetched.length, "no JavaScript was measured at all").toBeGreaterThan(5)
   const carrying = fetched.filter((script) => PASSKEY_HELPER.test(script.text)).map((script) => script.url)
   expect(carrying, "the passkey helper was downloaded with passkeys off").toEqual([])
+  // The 404 is the shipped default, not a failure: its body is not read, so a
+  // visitor whose every request succeeds never downloads the error codes
+  // (published-codes.ts), and no budget here would have seen them.
+  expect(
+    fetched.map((script) => script.url).filter((url) => /error-codes\.generated/.test(url)),
+    "the error codes were downloaded for the options' 404"
+  ).toEqual([])
 })
 
 test("the passkey helper arrives as its own chunk, only after the options answered", async ({ page }) => {

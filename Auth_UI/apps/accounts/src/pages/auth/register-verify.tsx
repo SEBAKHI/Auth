@@ -59,6 +59,12 @@ export function RegisterVerifyPage() {
           { state: { email, method: "password" } }
         )
       }}
+      // An account that signs in with its passkey alone (D-S20-4 (ii-s)): the
+      // sign-in page has the passkey, and asks again at any other door it tries.
+      onPasskeyRequired={() => {
+        clearRegistrationFlow()
+        navigate({ pathname: "/login", search }, { state: { email: pending.email } })
+      }}
     />
   )
 }

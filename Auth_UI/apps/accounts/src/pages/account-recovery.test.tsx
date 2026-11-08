@@ -79,9 +79,9 @@ const CODES = [
   "User.DeletionCancelledAccountLocked",
 ] as const
 
-function renderPage() {
+function renderPage(state?: unknown) {
   return render(
-    <MemoryRouter initialEntries={["/account-recovery"]}>
+    <MemoryRouter initialEntries={[{ pathname: "/account-recovery", state }]}>
       <AccountRecoveryPage />
     </MemoryRouter>
   )
@@ -192,11 +192,29 @@ describe("AccountRecoveryPage: the passkey choice", () => {
     vi.unstubAllGlobals()
   })
 
-  it("is not offered while passkeys do not run", () => {
+  it("is not offered on a browser without WebAuthn, and nothing is asked", () => {
     renderPage()
 
     expect(screen.queryByTestId("passkey-sign-in")).not.toBeInTheDocument()
     expect(mocks.post).not.toHaveBeenCalled()
+  })
+
+  it("is not offered while passkeys do not run: the options answer 404", async () => {
+    passkeysRun()
+    mocks.post.mockResolvedValue({
+      data: undefined,
+      error: { status: 404 },
+      response: { status: 404, headers: new Headers() },
+    })
+    renderPage()
+
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith("/api/v1/auth/passkeys/assertion/options")
+    )
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(1))
+    expect(screen.queryByTestId("passkey-sign-in")).not.toBeInTheDocument()
+    expect(mocks.loadWebAuthn).not.toHaveBeenCalled()
+    expect(screen.getByRole("button", { name: /restore my account/i })).toBeInTheDocument()
   })
 
   it("cancels the deletion with the passkey, and resumes like the other entries", async () => {
@@ -261,5 +279,26 @@ describe("AccountRecoveryPage: the passkey choice", () => {
     )
     expect(mocks.toastError).not.toHaveBeenCalled()
     await waitFor(() => expect(button).toHaveFocus())
+  })
+
+  it("the provider's entry shows the sentence and the choice too, never nothing at all", async () => {
+    passkeysRun()
+    mocks.recoverAccountExternal.mockRejectedValueOnce({
+      status: 403,
+      code: "Auth.PasskeyRequired",
+      detail: "This account recovers with its passkey.",
+    })
+    renderPage({ external: { provider: "google", idToken: "id-token", nonce: "nonce" } })
+
+    // Holding the provider's credential, the page offers one button and no choice.
+    expect(screen.queryByTestId("passkey-sign-in")).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole("button", { name: /restore my account/i }))
+
+    expect(await screen.findByTestId("passkey-required-note")).toHaveTextContent(
+      "This account recovers with its passkey."
+    )
+    expect(await choice()).toBeInTheDocument()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+    expect(mocks.complete).not.toHaveBeenCalled()
   })
 })

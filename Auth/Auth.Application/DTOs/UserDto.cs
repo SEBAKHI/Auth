@@ -40,7 +40,9 @@ public class UserDto
     /// <summary>
     /// Whether the account has a second factor a two-factor policy accepts (FA2): the
     /// authenticator app, or a live passkey of the current RP ID (S20). The emailed code
-    /// never is one. Null where not read.
+    /// never is one. On the account's own read a passkey counts only while passkeys run, as
+    /// every policy reads it (D-150-4); on another account's page it counts whatever the switch
+    /// says, which shows what the account holds. Null where not read.
     /// </summary>
     public bool? QualifyingMfa { get; set; }
 

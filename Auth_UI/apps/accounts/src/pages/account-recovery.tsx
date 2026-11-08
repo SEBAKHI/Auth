@@ -189,6 +189,10 @@ export function AccountRecoveryPage() {
       }
       const notice = passkeyRequiredNotice(error)
       if (notice) {
+        // A provider's credential cannot recover this account: the page goes back
+        // to the branch that shows the sentence and the passkey choice, or the
+        // provider's entry would answer with nothing at all on screen (F1).
+        setExternal(undefined)
         askForPasskey(notice)
         return
       }

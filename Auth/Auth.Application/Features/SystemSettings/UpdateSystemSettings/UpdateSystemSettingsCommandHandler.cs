@@ -79,8 +79,17 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         // Whitelist + value validation, collecting every problem so the
         // admin fixes the form in one round trip.
         var errors = new List<Error>();
+        var named = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (path, value) in flattened)
         {
+            // The rules below read a field's first value, and the stored row's reader keeps its
+            // last: with two keys naming one field, the value judged is not the value used.
+            if (!named.Add(path))
+            {
+                errors.Add(SystemSettingsErrors.InvalidFieldValue(path, "the payload names this field more than once."));
+                continue;
+            }
+
             var field = SystemSettingsRegistry.TryGetField(section, path);
             if (field is null)
             {

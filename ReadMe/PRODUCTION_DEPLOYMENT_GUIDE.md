@@ -4184,8 +4184,11 @@ on is each deployment's own decision, after the steps below.
 
 For each existing deployment, in this order:
 
-1. **The DACPAC.** The privacy paragraph about passkeys is seed text for new installations only; an existing
-   deployment changes nothing in its tables. Check: the DeployReport lists no schema operation.
+1. **The DACPAC.** The first release with passkeys adds their schema: the tables `UserPasskeys` and
+   `WebAuthnChallenges`, the column `Users.WebAuthnUserHandle`, and their notification types and templates.
+   Once a deployment has those, this step adds nothing: the privacy paragraph about passkeys is seed text for
+   new installations only, and an existing deployment changes nothing in its tables. Check: the DeployReport
+   lists those objects at the first release with passkeys, and no schema operation after it.
 2. **The Auth API, then the Gateway, then both web applications**, with `Passkeys:Enabled` off. Checks:
    `/ready` reads Healthy; `POST /api/v1/auth/passkeys/assertion/options` answers 404; the sign-in page shows
    no passkey button; the console shows the **Passkeys** section under System settings, switched off.
@@ -4201,28 +4204,44 @@ For each existing deployment, in this order:
   `example.com` for `console.example.com` and `accounts.example.com`. **Put the applications under a
   dedicated parent host** that no other site shares — no marketing site, no third-party pages: any page
   under the RP ID can ask the browser for a passkey sign-in, so the domain alone does not protect it. The
-  value is permanent in practice: a passkey made under one domain never works under another.
+  value is permanent in practice: a passkey made under one domain never works under another. **Never run a
+  copy of this database under the same RP ID** (a restored test environment, say): each read of the passkey
+  list tells the browser which passkeys the account still has, and the copy's older list would tell it that
+  newer ones are gone.
 * **Platform administrators.** Where they exist, switch `TwoFactor:EnforceForPlatformAdmins` on first, after
   its own checklist ([K.1](#k1-before-you-switch-it-on) and [K.2](#k2-switching-it-on-and-back-off)).
 * **The log lines to watch.** `passkey.configuration` and `passkey.rpid-mismatch` are Critical: either one
-  means passkeys are off whatever the switch says. Count `passkey.admitted-while-locked` and
-  `passkey.required` from the log files.
+  means passkeys are off whatever the switch says. Count `passkey.verification-failed` and
+  `passkey.admitted-while-locked` from the log files.
 
 ### T.3 Switching it on
 
-1. Set `Passkeys:RpId`, in the console (System settings › Passkeys) or in the settings file.
+1. Set `Passkeys:RpId`, **preferably in the settings file**. The console takes it too (System settings ›
+   Passkeys), but its copy lives in the database, and a process that started while the database could not be
+   reached runs without it until the next recycle (T.4).
 2. **Recycle the Auth API's application pool**: the RP ID is read at start-up only, and the console shows the
    saved value as pending until then.
-3. Switch `Passkeys:Enabled` on. It takes effect at once.
+3. Switch `Passkeys:Enabled` on. It takes effect at once. The observation window of the last paragraph of T.4
+   starts here.
 
-**Checks:** no `passkey.configuration` or `passkey.rpid-mismatch` line in the log; on a real device, add a
-passkey in the console (Profile › Security › Passkeys), sign out, and sign in at the accounts application
-with **Sign in with a passkey**; the same on Safari, on iOS and on macOS; and on a computer that holds none
-of the person's passkeys, the button offers the phone (a QR code).
+**Checks:**
+
+* no `passkey.configuration` or `passkey.rpid-mismatch` line in the log;
+* on a real device, add a passkey in the console (Profile › Security › Passkeys), rename it, sign out, and sign
+  in at the accounts application with **Sign in with a passkey**. The rename is the API's only `PATCH`, so it
+  also shows that the hosting in front of the API lets that method through;
+* **start from an application, sign in with the passkey, and land back at that application**: with the button,
+  with the suggestion in the address field, and under an application that requires two-step verification;
+* the same on Safari, on iOS and on macOS;
+* on a computer that holds none of the person's passkeys, the button offers the phone (a QR code).
 
 **Rollback:** switch `Passkeys:Enabled` off. It is hot: every passkey route answers 404 at once, the pages
 hide the passkey, and no rule leans on one. Nothing is revoked, so switching it on again restores every
-passkey.
+passkey. If nobody can reach the console to do that (the only administrators sign in with a passkey that
+fails): put `false` in the settings file and clear the section's saved row, `DELETE FROM
+[dbo].[SystemSettingsOverrides] WHERE [SectionKey] = N'Passkeys'`, then recycle; or, if the database cannot be
+reached, set `AUTH_DISABLE_DB_SETTINGS` to `true` and recycle
+([Reference §B.6](#b6-recovery--a-bad-value-saved-in-the-console)), and remove it once the database is back.
 
 ### T.4 What switches passkeys off without the switch
 
@@ -4230,18 +4249,31 @@ passkey.
   not refuse it; the posture switches passkeys off (`passkey.configuration`, Critical) until the two agree
   again.
 * **An empty `Passkeys:RpId`.** Passkeys stop at the next start-up, and no live passkey counts as a factor.
-  It is also the way to switch them off from the file alone.
+  It is also the way to switch them off from the file alone, **as long as no value is saved in the console**:
+  the database layer wins over the file, so a saved value keeps its effect until its row is cleared (T.3).
 * **An `RpId` changed in the file while live passkeys carry the old one.** The console refuses that change
   (its sentence names `Auth_Setup --retire-passkey-rp-id`); the file does not. From the edit until the
   recycle the API runs with the old value; after the recycle, passkeys stay off and `passkey.rpid-mismatch`
   is logged. Put the old value back, or move on purpose (below).
+* **A start while the database could not be reached, with the RP ID saved only in the console.** The process
+  keeps the file's value until its next recycle, even after the database returns. Meanwhile passkeys are off
+  and the refusal of an administrator who signs in with a passkey alone is paused, so that administrator's
+  other doors are open again; `passkey.configuration` is logged and the console shows the RP ID as pending.
+  Recycle again once the database is back. An RP ID in the settings file avoids this case entirely.
 
 **Moving to another domain** is the one supported change: announce it, ask people to add another way to
-sign in, run `dotnet run --project Auth/Auth_Setup -- --retire-passkey-rp-id <old RP ID>` and execute the
-statement it prints, then set the new value and recycle (ADR 0006).
+sign in, switch `Passkeys:Enabled` off, run `dotnet run --project Auth/Auth_Setup -- --retire-passkey-rp-id
+<old RP ID>` and execute the statement it prints, set the new value and recycle, then switch it on again
+(ADR 0006). With the switch left on, a passkey added between the retirement and the recycle is bound to the old
+domain, and `passkey.rpid-mismatch` turns passkeys off after the recycle until the retirement runs again.
 
-**Every 90 days**, read the `passkey.admitted-while-locked` lines: none may carry the kind `Admin`, since an
-administrator's lock always refuses a passkey.
+**Every 90 days**, read the log files: none of the `passkey.admitted-while-locked` lines may carry the kind
+`Admin`, since an administrator's lock always refuses a passkey; count the `passkey.verification-failed` lines
+and read every `passkey.rpid-mismatch` line.
+
+**Retiring the switch.** Count 30 days from the moment passkeys were switched on. When they have stayed on
+throughout, with no Critical `passkey.configuration` or `passkey.rpid-mismatch` line in that time, the switch has
+done its job: a later release removes `Passkeys:Enabled`, and passkeys then run by their configuration alone.
 
 **Advice to administrators:** keep two ways in — a passkey and the authenticator app, or two passkeys on
 different devices — so that one lost device is never a lock-out.

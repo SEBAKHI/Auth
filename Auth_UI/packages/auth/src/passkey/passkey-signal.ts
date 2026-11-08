@@ -33,17 +33,18 @@ interface NavigatorWithClientHints {
 
 /**
  * Whether this device is Apple's (iPhone, iPad, Mac), in any browser: decided
- * here alone. The client-hints platform when the browser gives one, else the
- * user agent, where an iPad in desktop mode says `Macintosh`. A wrong "not
- * Apple" only exposes that device to the defect; a wrong "Apple" only skips the
- * clean-up.
+ * here alone. Either the client-hints platform or the user agent, where an iPad
+ * in desktop mode says `Macintosh`, is enough: a wrong "not Apple" exposes that
+ * device to the defect, a wrong "Apple" only skips the clean-up, so a platform
+ * of `Unknown` (or a browser that masks it) never overrules a Mac's user agent.
  */
 export function isApplePlatform(nav: NavigatorWithClientHints = navigator): boolean {
   const platform = nav.userAgentData?.platform
-  if (typeof platform === "string" && platform.trim().length > 0) {
-    return platform === "macOS" || platform === "iOS"
-  }
-  return /\b(iPhone|iPad|iPod|Macintosh)\b/.test(nav.userAgent)
+  return (
+    platform === "macOS" ||
+    platform === "iOS" ||
+    /\b(iPhone|iPad|iPod|Macintosh)\b/.test(nav.userAgent)
+  )
 }
 
 type SignalAllAccepted = (options: {

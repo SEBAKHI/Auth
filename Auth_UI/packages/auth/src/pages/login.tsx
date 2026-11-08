@@ -91,6 +91,9 @@ const REASON_TEXT: Record<SignInReasonWord, { title: string; body: string }> = {
   },
 }
 
+/** Where a person who lost their passkey removes it: Profile › Security. */
+const LOST_PASSKEY_DESTINATION = { pathname: "/profile", search: "?tab=security" }
+
 interface LocationState {
   email?: string
   /**
@@ -462,6 +465,21 @@ export function LoginPage({
                 <AlertTitle>{t(REASON_TEXT[reason.reason].title)}</AlertTitle>
                 <AlertDescription>
                   {t(REASON_TEXT[reason.reason].body)}
+                  {/* The way out that sentence names (D-152-2): a sign-in here would
+                      resume the request, and the server would end it at the
+                      application, so the person would never see Profile. The link
+                      drops the request; the guard and the completion both read `from`. */}
+                  {reason.reason === "mfa_passkey" ? (
+                    <Link
+                      to="/login"
+                      replace
+                      state={{ from: LOST_PASSKEY_DESTINATION }}
+                      className="underline underline-offset-4"
+                      data-testid="passkey-lost-link"
+                    >
+                      {t("auth.passkey.lostIt")}
+                    </Link>
+                  ) : null}
                 </AlertDescription>
               </Alert>
             ) : null}

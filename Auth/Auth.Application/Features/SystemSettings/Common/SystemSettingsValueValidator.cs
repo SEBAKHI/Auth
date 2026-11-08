@@ -328,10 +328,13 @@ internal static class SystemSettingsValueValidator
     /// PK2 for a change of <c>Passkeys:RpId</c>: the new value is empty (passkeys cannot run), or
     /// a host name — <c>localhost</c>, or a domain — that covers the host of every first-party
     /// origin as it runs now (<c>IdentityProvider:FirstPartySpaOrigins</c>), as a browser requires
-    /// (WebAuthn L3 §5.1.3). Judged only when the change moves the RP ID: a save that switches
-    /// <c>Enabled</c> off, or leaves the RP ID as it is, is never refused for it, so passkeys can
-    /// always be switched off. A later change of the origins that the RP ID does not cover is not
-    /// refused here: the posture switches passkeys off and says why (T-C9).
+    /// (WebAuthn L3 §5.1.3). Judged only when the change moves the RP ID: a console save that
+    /// switches <c>Enabled</c> off, or leaves the RP ID as it is, is never refused for it, since
+    /// the console sends every field that differs from the file, an RP ID held in the row
+    /// included. So passkeys can always be switched off from the console. A hand-made save that
+    /// omits an RP ID held in the row moves it to the file's value, and is judged as a move. A
+    /// later change of the origins that the RP ID does not cover is not refused here: the posture
+    /// switches passkeys off and says why (T-C9).
     /// </summary>
     private static void ValidatePasskeyRpId(
         IReadOnlyList<KeyValuePair<string, JsonElement>> values,

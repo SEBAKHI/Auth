@@ -3,6 +3,7 @@ using Auth.Application.Features.Users.GetUsers;
 using Auth.Application.Features.Users.GetUserRoles;
 using Auth.Application.Features.Users.GetUserPermissions;
 using Auth.Application.DTOs;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
@@ -25,11 +26,41 @@ public class GetUserByIdQueryHandlerTests
 
     public GetUserByIdQueryHandlerTests()
     {
-        _handler = new GetUserByIdQueryHandler(
+        _handler = Handler(passkeysRun: true);
+    }
+
+    private GetUserByIdQueryHandler Handler(bool passkeysRun) =>
+        new(
             _userRepositoryMock.Object, _roleRepositoryMock.Object, _permissionRepositoryMock.Object,
             AccountRules.Policy(), Mock.Of<IImageUrlComposer>(), _twoFactorStateStoreMock.Object,
             TestHelpers.CreateOptions(new Auth.Application.Configuration.EmailSettings()), _platformMfaPolicyMock.Object,
-            PasskeyTestDoubles.EmptyRepository().Object, PasskeyTestDoubles.RpIdAtStartup);
+            PasskeyTestDoubles.EmptyRepository().Object, PasskeyTestDoubles.RpIdAtStartup,
+            new UsableSecondFactors(_twoFactorStateStoreMock.Object, PasskeyTestDoubles.Feature(enabled: passkeysRun)));
+
+    // REVIEW 152, deviation row 338 (c), D-150-4: with passkeys off the server finds no factor
+    // on a passkey-only account, so the account's own read must not offer "Continue", which
+    // could only come back to the same page. The console's page of that account shows what it
+    // holds, whatever the switch says.
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task Handle_APasskeyOnlyAccount_ItsOwnReadSaysWhatItCanUse_AnotherAccountsReadWhatItHolds(
+        bool passkeysRun, bool ownRead)
+    {
+        var user = TestHelpers.CreateUser();
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _roleRepositoryMock.Setup(r => r.GetUserRolesAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(new List<Role>());
+        _permissionRepositoryMock.Setup(r => r.GetUserEffectivePermissionsAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(new List<string>());
+        _twoFactorStateStoreMock.Setup(s => s.HasEnabledFactorAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        _twoFactorStateStoreMock.Setup(s => s.GetQualifyingFactorsAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Auth.Domain.ValueObjects.QualifyingSecondFactors(Totp: false, Passkey: true));
+        var handler = Handler(passkeysRun);
+
+        var own = await handler.Handle(new GetUserByIdQuery(user.Id) { ActorId = user.Id }, CancellationToken.None);
+        var another = await handler.Handle(new GetUserByIdQuery(user.Id) { ActorId = Guid.NewGuid() }, CancellationToken.None);
+
+        own.Value.QualifyingMfa.Should().Be(ownRead);
+        another.Value.QualifyingMfa.Should().BeTrue();
     }
 
     // Review of #107 (F4): the screens learn from the server that the policy keeps the

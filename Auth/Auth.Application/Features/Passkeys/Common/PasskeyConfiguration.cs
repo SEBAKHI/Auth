@@ -111,7 +111,9 @@ public static class PasskeyConfiguration
     /// which switches passkeys off rather than being wrong. An origin that is not a bare https
     /// origin is the origin list's own problem, reported where that list is saved, and is
     /// skipped here. The console's save of <c>Passkeys:RpId</c> asks this before anything is
-    /// stored (T-C9), so an RP ID a browser would refuse is never saved.
+    /// stored (T-C9), so a value that is not a host name, or that does not cover an origin, is
+    /// never saved. A public suffix passes this check, and browsers refuse it: the developer
+    /// guide says so.
     /// </summary>
     /// <param name="rpId">The RP ID, normalized (trimmed and lower-case).</param>
     /// <param name="origins"><c>IdentityProvider:FirstPartySpaOrigins</c>.</param>

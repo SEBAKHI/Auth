@@ -165,6 +165,25 @@ describe("RegisterVerifyPage", () => {
     expect(mocks.post).not.toHaveBeenCalled()
   })
 
+  it("sends an account that signs in with its passkey to the sign-in page, with its address and the pending request", async () => {
+    savePendingRegistration(PENDING)
+    answerVerify({ step: "signIn" })
+    mocks.signInWithEmailCode.mockRejectedValue({
+      status: 403,
+      code: "Auth.PasskeyRequired",
+      detail: "This account signs in with its passkey.",
+    })
+    renderAt(`/register/verify${RETURN_TO_QUERY}`)
+
+    await userEvent.setup().type(codeField(), "123456")
+
+    const landing = await screen.findByTestId("landing")
+    expect(landing).toHaveTextContent(`/login${RETURN_TO_QUERY}`)
+    expect(landing).toHaveTextContent(PENDING.email)
+    expect(readPendingRegistration()).toBeNull()
+    expect(mocks.complete).not.toHaveBeenCalled()
+  })
+
   it("asks for nothing on arrival: the code is already on its way", () => {
     savePendingRegistration(PENDING)
     renderAt("/register/verify")

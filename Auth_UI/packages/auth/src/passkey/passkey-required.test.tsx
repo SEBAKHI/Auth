@@ -110,6 +110,12 @@ const files = Object.entries(sources).map(([key, source]) => ({
  * password, a provider, the emailed code, the three recovery entries, the sign-in
  * after a verified address and the second step. The two passkey methods are the
  * way the sentence points to, and cannot answer it.
+ *
+ * This guard is per file: one call of the reader anywhere makes a file green, so
+ * it says that a page knows the answer exists, and it does NOT prove each entry of
+ * a page that has several. A provider's entry on the recovery page once answered
+ * with nothing on screen while this stayed green. Each entry is its page's own
+ * test: `account-recovery.test.tsx`, `email-code-flow.test.tsx`, and the others.
  */
 const DOORS = [
   "login",

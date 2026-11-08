@@ -363,7 +363,9 @@ public class AccountActionMatrixTests
         var account = await new GetUserByIdQueryHandler(
                 _users.Object, _roles.Object, _permissions.Object, _policy, images, Mock.Of<ITwoFactorStateStore>(),
                 TestHelpers.CreateOptions(new EmailSettings()), Mock.Of<IPlatformMfaPolicy>(),
-                PasskeyTestDoubles.EmptyRepository().Object, PasskeyTestDoubles.RpIdAtStartup)
+                PasskeyTestDoubles.EmptyRepository().Object, PasskeyTestDoubles.RpIdAtStartup,
+                new Auth.Application.Features.Passkeys.Common.UsableSecondFactors(
+                    Mock.Of<ITwoFactorStateStore>(), PasskeyTestDoubles.Feature()))
             .Handle(new GetUserByIdQuery(_target) { ActorId = _actor }, CancellationToken.None);
 
         foreach (var actions in new[] { page.Value.Users.Single().AllowedActions!, account.Value.AllowedActions! })

@@ -322,7 +322,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           const path = url.pathname.toLowerCase()
           const raw = request.postData()
           const body = raw ? (JSON.parse(raw) as unknown) : undefined
-          if (request.method() !== "GET" && !isPageLoadProbe(request.method(), path)) {
+          if (request.method() !== "GET" && !isPageLoadProbe(request.method(), path, body)) {
             options?.seen?.push({ method: request.method(), path, body })
           }
           return (

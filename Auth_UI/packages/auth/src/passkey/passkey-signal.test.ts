@@ -41,10 +41,9 @@ describe("isApplePlatform", () => {
     expect(isApplePlatform({ userAgent: WINDOWS.userAgent, userAgentData: { platform } })).toBe(true)
   })
 
-  it("believes the client hints over the user agent", () => {
-    expect(
-      isApplePlatform({ userAgent: "Mozilla/5.0 (Macintosh)", userAgentData: { platform: "Windows" } })
-    ).toBe(false)
+  it.each(["Unknown", "Windows"])("takes a Mac's user agent over a client-hints platform of %s", (platform) => {
+    // A wrong "not Apple" costs the defect, a wrong "Apple" only skips a clean-up.
+    expect(isApplePlatform({ userAgent: "Mozilla/5.0 (Macintosh)", userAgentData: { platform } })).toBe(true)
   })
 
   it.each([

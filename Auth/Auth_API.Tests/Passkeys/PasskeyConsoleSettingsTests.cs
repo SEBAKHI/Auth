@@ -162,6 +162,17 @@ public class PasskeyConsoleSettingsTests
     }
 
     [Fact]
+    public void TheConsolesSwitchOff_WithTheRpIdInTheRow_IsNeverRefused()
+    {
+        // The console sends every field that differs from the file, so its switch-off carries an
+        // RP ID held in the row, unchanged, however the origins moved since.
+        var now = Running("example.com", Console, "https://accounts.example.net");
+        var baseline = Running("", Console, "https://accounts.example.net");
+
+        Save("""{"Enabled":false,"RpId":"example.com"}""", now, baseline).Should().BeEmpty();
+    }
+
+    [Fact]
     public void ASaveThatOmitsTheRpId_IsJudgedOnTheBaselineItFallsBackTo()
     {
         // The override row held the RP ID; the save of Enabled alone replaces the row, so the RP
@@ -225,6 +236,25 @@ public class PasskeyConsoleSettingsTests
         result.FirstError.Description.Should().Contain("--retire-passkey-rp-id",
             "the sentence names the setup tool's retirement ([S20-O10])");
         rows.Verify(r => r.HasLiveOfAnotherRpIdAsync(asked, It.IsAny<CancellationToken>()), Times.Once());
+        settings.Verify(
+            r => r.UpsertAsync(It.IsAny<SystemSettingsOverride>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Theory]
+    [InlineData("""{"RpId":"example.com","rpid":"other.example.net"}""")]
+    [InlineData("""{"RpId":"example.com","RpId":"other.example.net"}""")]
+    public async Task UpdateHandler_APayloadThatNamesOneFieldTwice_IsRefused_AndNothingIsSaved(string json)
+    {
+        // The rules read the first value and the stored row's reader keeps the last, so without
+        // this refusal the value judged is not the value used.
+        var (handler, settings) = UpdateHandler(Configuration(""), Rows(liveOfAnotherRpId: false).Object);
+
+        var result = await handler.Handle(SaveCommand(json), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("SystemSettings.InvalidFieldValue");
+        result.FirstError.Description.Should().Contain("more than once");
         settings.Verify(
             r => r.UpsertAsync(It.IsAny<SystemSettingsOverride>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()),
             Times.Never());

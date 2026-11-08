@@ -210,6 +210,19 @@ describe("when the options are asked for, and when the helper loads (T-C1, T-C4)
     expect(screen.getByTestId("phase")).toHaveTextContent("unavailable")
     expect(screen.queryByTestId("passkey-sign-in")).not.toBeInTheDocument()
   })
+
+  it("asks nothing of a browser without WebAuthn when a door asks for the passkey: a button there could only fail", async () => {
+    vi.unstubAllGlobals()
+    renderProbe()
+    await flush()
+
+    fireEvent.click(screen.getByRole("button", { name: "a door asked for the passkey" }))
+    await flush()
+
+    expect(mocks.post).not.toHaveBeenCalled()
+    expect(screen.getByTestId("phase")).toHaveTextContent("unavailable")
+    expect(screen.queryByTestId("passkey-sign-in")).not.toBeInTheDocument()
+  })
 })
 
 describe("the click (T-C2)", () => {
