@@ -5,6 +5,7 @@ import { DEVICE_ID_HEADER, getDeviceId } from "@authsystem/api/device-id"
 import type { PublishedErrorCode } from "@authsystem/api/error-codes.generated"
 import { readProblem } from "@authsystem/api/errors"
 import { MFA_REQUIRED_EVENT } from "@authsystem/api/mfa-requirement"
+import { retryAfterSeconds } from "@authsystem/api/retry-after"
 import i18n from "@authsystem/i18n"
 import {
   emitSessionExpired,
@@ -68,6 +69,14 @@ const ORGANIZATION_SETUP_PATH = "/api/v1/Auth/organization-setup"
 // its 401 says nothing about this tab's token. Its frames never load this client
 // (apps/accounts/src/embed/embed-api.ts); listed so no page that does can refresh on it.
 const ACCOUNT_BAR_PATH = "/api/v1/Auth/account-bar"
+// A sign-in with a passkey (S20): its options, the sign-in itself, and the recovery
+// of an account waiting for deletion. Made by someone who has no session yet (the
+// two-factor page makes them from a session it is about to replace): the passkey
+// is the credential, so a bearer here would only spend a refresh for nothing. None
+// answers 401 for a dead token, so none may end this tab's session.
+const PASSKEY_ASSERTION_OPTIONS_PATH = "/api/v1/auth/passkeys/assertion/options"
+const PASSKEY_ASSERTION_VERIFY_PATH = "/api/v1/auth/passkeys/assertion/verify"
+const PASSKEY_ASSERTION_RECOVER_PATH = "/api/v1/auth/passkeys/assertion/recover"
 
 export { SESSION_EXPIRED_EVENT } from "@authsystem/api/tab-sync"
 
@@ -162,19 +171,6 @@ function recordForcedOutcome(rejected: string, result: RefreshResult, now = Date
 
 /** De-duplicates concurrent refreshes within this tab into one lock acquisition. */
 let refreshPromise: Promise<RefreshResult> | null = null
-
-/**
- * The wait a 429 asked for, in whole seconds rounded up, from Retry-After as a
- * number or as a date; null when absent or unreadable. The gateway exposes the
- * header to the apps' origins.
- */
-function retryAfterSeconds(response: Response): number | null {
-  const value = response.headers.get("Retry-After")?.trim()
-  if (!value) return null
-  if (/^\d+$/.test(value)) return Number(value)
-  const at = Date.parse(value)
-  return Number.isNaN(at) ? null : Math.max(0, Math.ceil((at - Date.now()) / 1000))
-}
 
 /** The bearer token a request carried, or null when it carried none. */
 function bearerOf(request: Request): string | null {
@@ -580,6 +576,9 @@ const ANONYMOUS_PATHS = new Set(
     EMAIL_CODE_RECOVER_PATH,
     ORGANIZATION_SETUP_PATH,
     ACCOUNT_BAR_PATH,
+    PASSKEY_ASSERTION_OPTIONS_PATH,
+    PASSKEY_ASSERTION_VERIFY_PATH,
+    PASSKEY_ASSERTION_RECOVER_PATH,
   ].map((path) => path.toLowerCase())
 )
 

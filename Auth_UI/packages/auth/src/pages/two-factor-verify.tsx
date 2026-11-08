@@ -1,3 +1,4 @@
+import { KeyRound } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom"
@@ -23,6 +24,7 @@ import { useAuth } from "@authsystem/auth/auth-context"
 
 import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
+import { passkeyRequiredNotice } from "../passkey/passkey-required"
 import {
   clearPendingTwoFactorChallenge,
   getPendingEmailCodeSent,
@@ -130,6 +132,9 @@ export function TwoFactorVerifyPage({
   // limit: no code is accepted any more, so the page stops asking for one and
   // names the way out instead of a toast that disappears.
   const [lockedMessage, setLockedMessage] = React.useState<string | null>(null)
+  // S20 (D-S20-4 (ii-s)), a backstop: the account signs in with its passkey alone,
+  // so no code is asked for any more, and the way to the passkey is named.
+  const [passkeyNotice, setPasskeyNotice] = React.useState<string | null>(null)
   const codeInputRef = React.useRef<HTMLInputElement>(null)
 
   // The emailed code (S24). Each send replaces the code before it, so a second
@@ -182,7 +187,7 @@ export function TwoFactorVerifyPage({
     return <Navigate to={signInAgain} replace />
   }
 
-  const locked = lockedMessage !== null
+  const locked = lockedMessage !== null || passkeyNotice !== null
   const isEmail = method === "email"
   const isRecovery = method === "recovery"
   const emailOut = sendCapMessage !== null || emailSent?.sendsRemaining === 0
@@ -270,6 +275,12 @@ export function TwoFactorVerifyPage({
           return
         }
         setLockedMessage(getErrorMessage(error))
+        setCode("")
+        return
+      }
+      const notice = passkeyRequiredNotice(error)
+      if (notice) {
+        setPasskeyNotice(notice)
         setCode("")
         return
       }
@@ -361,7 +372,20 @@ export function TwoFactorVerifyPage({
       }
     >
       <div className="flex flex-col items-center gap-4">
-        {locked ? (
+        {passkeyNotice ? (
+          <Alert data-testid="passkey-required-note">
+            <KeyRound />
+            <AlertDescription>
+              <p>{passkeyNotice}</p>
+              <Button asChild size="sm">
+                <Link to={signInAgain} replace onClick={clearPendingTwoFactorChallenge}>
+                  {t("auth.passkey.signInWithYourPasskey")}
+                </Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {lockedMessage !== null ? (
           <Alert variant="destructive">
             <AlertTitle>{t("auth.twoFactorLockedTitle")}</AlertTitle>
             <AlertDescription>

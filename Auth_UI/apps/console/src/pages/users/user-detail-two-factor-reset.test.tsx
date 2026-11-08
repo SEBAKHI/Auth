@@ -242,7 +242,7 @@ describe("the two-factor row names the factor and whether it counts", () => {
   })
 
   afterEach(() => {
-    Object.assign(target, { twoFactorEnabled: false, totpEnabled: undefined, emailCodeEnabled: undefined, qualifyingMfa: undefined })
+    Object.assign(target, { twoFactorEnabled: false, totpEnabled: undefined, emailCodeEnabled: undefined, qualifyingMfa: undefined, passkeyCount: undefined })
   })
 
   it("an emailed code: named, and not counted as MFA", async () => {
@@ -266,5 +266,29 @@ describe("the two-factor row names the factor and whether it counts", () => {
     renderPage([PERMISSIONS.users.read])
 
     expect(await screen.findByText("Authenticator app · does not count as MFA")).toBeInTheDocument()
+  })
+
+  // S20 PR C (FA12): the passkey leg, only where the account holds one, with the
+  // server's standing. An account without one reads as it always did.
+  it("passkeys: counted, with the server's standing", async () => {
+    Object.assign(target, { twoFactorEnabled: true, totpEnabled: false, emailCodeEnabled: false, qualifyingMfa: true, passkeyCount: 2 })
+    renderPage([PERMISSIONS.users.read])
+
+    expect(await screen.findByText("Passkeys (2) · counts as MFA")).toBeInTheDocument()
+  })
+
+  it("passkeys beside the app: both named", async () => {
+    Object.assign(target, { twoFactorEnabled: true, totpEnabled: true, emailCodeEnabled: false, qualifyingMfa: true, passkeyCount: "1" })
+    renderPage([PERMISSIONS.users.read])
+
+    expect(await screen.findByText("Authenticator app · Passkeys (1) · counts as MFA")).toBeInTheDocument()
+  })
+
+  it("no passkey: the line reads as before", async () => {
+    Object.assign(target, { twoFactorEnabled: true, totpEnabled: true, emailCodeEnabled: false, qualifyingMfa: true, passkeyCount: 0 })
+    renderPage([PERMISSIONS.users.read])
+
+    expect(await screen.findByText("Authenticator app · counts as MFA")).toBeInTheDocument()
+    expect(screen.queryByText(/Passkeys \(/)).not.toBeInTheDocument()
   })
 })

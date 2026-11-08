@@ -11,12 +11,20 @@ import { getAccessToken } from "@authsystem/api/token-store"
  * - `step_up` — a code from the authenticator app (or a recovery code) upgrades
  *   this session;
  * - `reauthenticate` — the session's first factor is unknown: sign in again.
+ * - `passkey` — the account's only second factor is a passkey (S20): signing in
+ *   with it upgrades nothing, it replaces this session with one that proved two
+ *   factors.
  *
  * The server enforces it — the token simply lacks the permissions — so this only
  * decides which page the console shows. It arrives as the token's `mfa_req` claim
  * and as `mfaRequirement` in the user info a sign-in and `/me` return.
  */
-export type MfaRequirement = "none" | "enroll" | "step_up" | "reauthenticate"
+export type MfaRequirement =
+  | "none"
+  | "enroll"
+  | "step_up"
+  | "reauthenticate"
+  | "passkey"
 
 /**
  * Raised on `window` when a response is refused with `TwoFactor.RequiredByPolicy`:
@@ -26,7 +34,13 @@ export type MfaRequirement = "none" | "enroll" | "step_up" | "reauthenticate"
  */
 export const MFA_REQUIRED_EVENT = "auth:mfa-required"
 
-const KNOWN = new Set<MfaRequirement>(["none", "enroll", "step_up", "reauthenticate"])
+const KNOWN = new Set<MfaRequirement>([
+  "none",
+  "enroll",
+  "step_up",
+  "reauthenticate",
+  "passkey",
+])
 
 /**
  * The one reader of the requirement, from either source.

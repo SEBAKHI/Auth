@@ -69,6 +69,13 @@ describe("removePasswordOffer", () => {
     // D-110-1: platform authority keeps the app as a second proof.
     ["platform authority without the app", { ...ME, permissions: ["users:read"] }, true, "blockedByPlatformAuthority"],
     ["platform authority with the app", { ...ME, permissions: ["users:read"], totpEnabled: true }, true, "offered"],
+    // S20 (Fact 19): a passkey does not lift it. The app is the proof D-110-1 keeps.
+    [
+      "a passkey-only administrator",
+      { ...ME, permissions: ["users:read"], qualifyingMfa: true, totpEnabled: false, passkeyCount: 1 },
+      true,
+      "blockedByPlatformAuthority",
+    ],
     ["no platform authority", { ...ME, permissions: [] }, true, "offered"],
   ])("%s", (_label, me, codeSignInOffered, expected) => {
     expect(removePasswordOffer(me as typeof ME, codeSignInOffered)).toBe(expected)

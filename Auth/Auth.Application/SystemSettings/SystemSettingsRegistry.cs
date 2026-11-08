@@ -199,6 +199,27 @@ public static class SystemSettingsRegistry
             ]),
 
         new SettingSectionDefinition(
+            // Literals, as in every section: the console's seam test (sections.test.ts)
+            // reads this file for the keys it must label.
+            Key: "Passkeys",
+            ConfigRoot: "Passkeys",
+            Group: SettingGroups.Security,
+            Editable: true,
+            // Passkeys (S20, PK2, PK19), off by default and with no RP ID by default: a
+            // deployment that sets neither behaves as before passkeys. Enabled is read per
+            // request through IOptionsMonitor (PasskeyFeature): off, every passkey route
+            // answers 404 and no rule leans on a passkey. RpId is read once, at start-up
+            // (PasskeyRpIdAtStartup, after this database layer joins), so it needs a restart.
+            // Both are guarded where they are saved (SystemSettingsValueValidator, PK2; and
+            // PasskeyRpIdChange, PK3): an RP ID must be a host name that covers every
+            // first-party origin, and none may replace the one live passkeys are bound to.
+            Fields:
+            [
+                new SettingFieldDefinition("Enabled", SettingKind.Bool, DefaultValue: false),
+                new SettingFieldDefinition("RpId", SettingKind.String, RestartRequired: true, DefaultValue: "")
+            ]),
+
+        new SettingSectionDefinition(
             Key: "Gateway",
             ConfigRoot: "Gateway",
             Group: SettingGroups.Security,

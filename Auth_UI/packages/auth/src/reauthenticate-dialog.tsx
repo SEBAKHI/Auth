@@ -14,7 +14,7 @@ import { Button } from "@authsystem/ui/button"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { useAuth } from "./auth-context"
-import { requestFullProof } from "./sign-in-method"
+import { requestFullProof, requestPasskeySignIn } from "./sign-in-method"
 
 /**
  * Asks for a fresh sign-in when the API answers `Auth.ReauthenticationRequired`.
@@ -32,16 +32,24 @@ import { requestFullProof } from "./sign-in-method"
  *
  * The sign-out button is a plain Button, not the dialog's action button, which
  * would close the dialog before the sign-out has finished.
+ *
+ * An account whose qualifying second factor is a passkey (S20, T-C7) cannot be
+ * given a fresh two-factor session by its password or the emailed code: only
+ * the passkey proves two factors. The dialog says so, and the sign-in page it
+ * leads to offers the passkey first, so the person is not sent round again.
  */
 export function ReauthenticateDialog({
   open,
   onOpenChange,
   description,
+  passkey = false,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** Why a fresh sign-in is needed; the two-factor change's reason by default. */
   description?: string
+  /** The account's qualifying factor is a passkey, and passkeys run here. */
+  passkey?: boolean
 }) {
   const { t } = useTranslation()
   const { logout } = useAuth()
@@ -56,8 +64,10 @@ export function ReauthenticateDialog({
     setSigningOut(true)
     // Rides through the sign-out and the redirect: a sign-in by code from the
     // page they land on proves the password too where the account has one, or
-    // the change would ask for a fresh sign-in again (OI-215).
-    requestFullProof()
+    // the change would ask for a fresh sign-in again (OI-215). For a passkey
+    // account the page offers the passkey first (T-C7).
+    if (passkey) requestPasskeySignIn()
+    else requestFullProof()
     try {
       await logout()
     } finally {
@@ -77,7 +87,9 @@ export function ReauthenticateDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{t("auth.reauthenticateTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
-            {description ?? t("auth.reauthenticateBody")}
+            {passkey
+              ? t("auth.reauthenticatePasskeyBody")
+              : (description ?? t("auth.reauthenticateBody"))}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -86,7 +98,7 @@ export function ReauthenticateDialog({
           </AlertDialogCancel>
           <Button onClick={() => void signInAgain()} disabled={signingOut}>
             {signingOut ? <Spinner data-icon="inline-start" /> : null}
-            {t("auth.reauthenticateAction")}
+            {passkey ? t("auth.reauthenticateWithPasskeyAction") : t("auth.reauthenticateAction")}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

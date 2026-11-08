@@ -1,12 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import "@authsystem/i18n"
+import i18n from "@authsystem/i18n"
 
-const { post, completion } = vi.hoisted(() => ({
+const { post, completion, completeEmailVerification } = vi.hoisted(() => ({
   post: vi.fn(),
+  completeEmailVerification: vi.fn(),
   completion: {
     returnTo: null as string | null,
     complete: vi.fn(),
@@ -22,7 +24,7 @@ vi.mock("@authsystem/api/client", () => ({
   api: { POST: (...args: unknown[]) => post(...args) },
 }))
 vi.mock("@authsystem/auth/auth-context", () => ({
-  useAuth: () => ({ completeEmailVerification: vi.fn() }),
+  useAuth: () => ({ completeEmailVerification }),
 }))
 vi.mock("../login-completion", () => ({
   useLoginCompletion: () => completion,
@@ -84,6 +86,8 @@ describe("VerifyEmailPage", () => {
   beforeEach(() => {
     post.mockReset()
     post.mockResolvedValue({ data: { maskedEmail: "j***@one.example" } })
+    completeEmailVerification.mockReset()
+    completion.complete.mockReset()
     completion.returnTo = null
   })
 
@@ -150,5 +154,31 @@ describe("VerifyEmailPage", () => {
     renderWith(null)
 
     expect(screen.getByTestId("landing")).toHaveTextContent("/login")
+  })
+
+  // S20 PR C, IN 5: a backstop. The address is confirmed, and the account signs
+  // in with its passkey alone: the sentence stays, with the way to the passkey.
+  it("keeps the sentence that asks for the passkey, with the way to the sign-in page", async () => {
+    completeEmailVerification.mockRejectedValue({
+      status: 403,
+      code: "Auth.PasskeyRequired",
+      detail: "This account signs in with its passkey.",
+    })
+    renderWith({
+      email: "jane@one.example",
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    })
+
+    await userEvent.setup().type(
+      screen.getByLabelText(i18n.t("auth.verifyEmailCodeLabel")),
+      "123456"
+    )
+
+    const note = await screen.findByTestId("passkey-required-note")
+    expect(note).toHaveTextContent("This account signs in with its passkey.")
+    expect(
+      screen.getByRole("link", { name: i18n.t("auth.passkey.signInWithYourPasskey") })
+    ).toHaveAttribute("href", "/login")
+    expect(completion.complete).not.toHaveBeenCalled()
   })
 })

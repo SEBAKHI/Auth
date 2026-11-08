@@ -3,7 +3,11 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { answerAnonymousDefaults, type SeenRequest } from "../isolated/accounts/mock-anonymous-api"
+import {
+  answerAnonymousDefaults,
+  isPageLoadProbe,
+  type SeenRequest,
+} from "../isolated/accounts/mock-anonymous-api"
 import { answerAuthenticatedDefaults } from "../isolated/mock-authenticated-api"
 import { ApiHost } from "./api-host"
 import { AttackerPages } from "./attacker-origins"
@@ -318,7 +322,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           const path = url.pathname.toLowerCase()
           const raw = request.postData()
           const body = raw ? (JSON.parse(raw) as unknown) : undefined
-          if (request.method() !== "GET") {
+          if (request.method() !== "GET" && !isPageLoadProbe(request.method(), path)) {
             options?.seen?.push({ method: request.method(), path, body })
           }
           return (

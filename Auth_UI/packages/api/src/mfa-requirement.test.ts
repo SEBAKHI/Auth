@@ -17,14 +17,14 @@ describe("readMfaRequirement", () => {
     expect(readMfaRequirement(value)).toBe("none")
   })
 
-  it.each(["none", "enroll", "step_up", "reauthenticate"] as const)(
+  it.each(["none", "enroll", "step_up", "reauthenticate", "passkey"] as const)(
     "reads %s as itself",
     (value) => {
       expect(readMfaRequirement(value)).toBe(value)
     }
   )
 
-  it.each(["step-up", "STEP_UP", "passkey", 1, true, ["enroll"], { value: "enroll" }])(
+  it.each(["step-up", "STEP_UP", "PASSKEY", "passkey ", 1, true, ["enroll"], { value: "enroll" }])(
     "fails closed on a value it does not know (%s): sign in again",
     (value) => {
       expect(readMfaRequirement(value)).toBe("reauthenticate")

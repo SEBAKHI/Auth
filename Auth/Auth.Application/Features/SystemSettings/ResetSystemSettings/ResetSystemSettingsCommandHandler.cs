@@ -24,6 +24,7 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
     private readonly ISystemSettingsReloader _reloader;
     private readonly IPublisher _publisher;
     private readonly IIdpSessionIdleLimitChange _idleLimitChange;
+    private readonly IPasskeyRpIdChange _passkeyRpIdChange;
     private readonly ILogger<ResetSystemSettingsCommandHandler> _logger;
 
     public ResetSystemSettingsCommandHandler(
@@ -33,6 +34,7 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
         ISystemSettingsReloader reloader,
         IPublisher publisher,
         IIdpSessionIdleLimitChange idleLimitChange,
+        IPasskeyRpIdChange passkeyRpIdChange,
         ILogger<ResetSystemSettingsCommandHandler> logger)
     {
         _systemSettingsRepository = systemSettingsRepository;
@@ -41,6 +43,7 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
         _reloader = reloader;
         _publisher = publisher;
         _idleLimitChange = idleLimitChange;
+        _passkeyRpIdChange = passkeyRpIdChange;
         _logger = logger;
     }
 
@@ -78,6 +81,15 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
             if (resetErrors.Count > 0)
             {
                 return resetErrors;
+            }
+
+            // PK3 (S20 PR C, T-C9): the file value a reset brings back is a new RP ID like any
+            // other, and is refused the same way while live passkeys are bound to another.
+            if (await _passkeyRpIdChange.RefusalAsync(
+                    section, [], _startupSnapshot.Baseline, fullKey => _configuration[fullKey], cancellationToken)
+                is { } rpIdRefusal)
+            {
+                return rpIdRefusal;
             }
 
             // The file values may raise the idle limit or switch it off (OI-154).

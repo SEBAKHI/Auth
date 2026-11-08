@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — 2026-11-05 (S20, PR A; decision D-T12 A). Behind `Passkeys:Enabled`, off by default. PR A stores, registers, lists and removes passkeys and counts them as a second factor; signing in with one is PR B, and the pages are PR C. Until PR C ships on a deployment, every passkey route answers 404 there.
+Accepted — 2026-11-05 (S20, PR A; decision D-T12 A). Behind `Passkeys:Enabled`, off by default. PR A stores, registers, lists and removes passkeys and counts them as a second factor; signing in with one is PR B, and PR C (2026-11-08) ships the pages and puts both settings in the console, which refuses an RP ID that does not cover the first-party origins and any new one while a live passkey is bound to another (§3 and §4 below, as rules on a console edit). Every passkey route answers 404 on a deployment until it switches `Passkeys:Enabled` on.
 
 ## Context
 
@@ -20,7 +20,7 @@ The RP ID is `Passkeys:RpId`: the registrable domain the first-party apps share,
 
 ### 2. Read once, stored with every passkey
 
-The API reads it once at start-up, trimmed and lower-cased; a change applies after an application-pool recycle. Every passkey row stores the RP ID it was made under (`UserPasskeys.RpId`).
+The API reads it once at start-up, trimmed and lower-cased, after the database settings layer joined the configuration (PR C), so a value saved in the console is the one it starts with; a change applies after an application-pool recycle. Every passkey row stores the RP ID it was made under (`UserPasskeys.RpId`).
 
 ### 3. Validated before passkeys run
 
@@ -54,7 +54,7 @@ Only passkeys of the configured RP ID are listed, renamed, removed by their owne
 
 - A domain move retires every passkey: people sign in another way and add a passkey again under the new domain.
 - An RP ID chosen too narrowly (one application's own host) cannot cover the other application; the origin check refuses it, but only once both origins are listed.
-- Until PR C the two settings are edited in the settings file only; they are not in the console.
+- Before PR C the two settings were edited in the settings file only. Since PR C they are in the console too (System settings › Passkeys), and a later change of `IdentityProvider:FirstPartySpaOrigins` that the RP ID does not cover is not refused there: the posture switches passkeys off until the two agree.
 
 ### Neutral
 

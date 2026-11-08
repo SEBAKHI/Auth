@@ -19,10 +19,14 @@ import { Spinner } from "@authsystem/ui/spinner"
 import { useAuth } from "../auth-context"
 import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
+import { PasskeyButton } from "../passkey/passkey-button"
+import { passkeyFailureMessage } from "../passkey/passkey-errors"
+import { usePasskeySignIn, type PasskeyOutcome } from "../passkey/use-passkey-sign-in"
+import type { AuthenticationResponseJSON } from "../passkey/webauthn"
 import { ReauthenticateDialog } from "../reauthenticate-dialog"
 import { markRecoveryCodeSignIn } from "../recovery-code-notice"
 import { toAccountsSearch, validateReturnToUrl } from "../return-to"
-import { requestFullProof } from "../sign-in-method"
+import { passkeySignInEnded, requestFullProof } from "../sign-in-method"
 import { TwoFactorEnrollment } from "../two-factor-enrollment"
 
 /** Router state of the application mode, as the completion rule writes it. */
@@ -147,7 +151,10 @@ function ApplicationTwoFactorRequired({ returnTo }: { returnTo: string }) {
       ) : me.qualifyingMfa === true ? (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
-            {t("auth.mfaAppAlreadyEnrolled")}
+            {/* S20: an account whose qualifying factor is a passkey has no app. */}
+            {me.totpEnabled === true
+              ? t("auth.mfaAppAlreadyEnrolled")
+              : t("auth.mfaPasskeyAlreadyEnrolled")}
           </p>
           <Button className="w-full" onClick={() => void resume()}>
             {t("auth.mfaAppContinue")}
@@ -173,6 +180,7 @@ function ApplicationTwoFactorRequired({ returnTo }: { returnTo: string }) {
  * - enroll: set up the first factor (with the emailed code while the server asks
  *   for it — X02's flow, the profile's own component);
  * - step_up: a code from the authenticator app, or a recovery code;
+ * - passkey: sign in with the passkey, the account's only second factor (S20);
  * - reauthenticate: sign in again, which records how this session was proved.
  *
  * Every step ends the same way: a refreshed token (the authority comes back only
@@ -193,6 +201,18 @@ function PlatformTwoFactorRequired() {
   const [checking, setChecking] = React.useState(true)
   const [checkFailed, setCheckFailed] = React.useState(false)
   const started = React.useRef(false)
+  // One completion: a passkey sign-in completes with its own result (a password
+  // change it asks for included), and the requirement it clears must not
+  // complete a second time over it.
+  const leaving = React.useRef(false)
+  const completeOnce = React.useCallback(
+    (result: { requiresPasswordChange?: boolean }) => {
+      if (leaving.current) return
+      leaving.current = true
+      complete(result)
+    },
+    [complete]
+  )
 
   /** True when the token was refreshed and the account read; false otherwise. */
   const recheck = React.useCallback(async (): Promise<boolean> => {
@@ -219,8 +239,8 @@ function PlatformTwoFactorRequired() {
 
   // Nothing (left) to prove: the console, or wherever the user was going.
   React.useEffect(() => {
-    if (!checking && !checkFailed && mfaRequirement === "none") complete({})
-  }, [checking, checkFailed, mfaRequirement, complete])
+    if (!checking && !checkFailed && mfaRequirement === "none") completeOnce({})
+  }, [checking, checkFailed, mfaRequirement, completeOnce])
 
   return (
     <AuthLayout
@@ -255,6 +275,7 @@ function PlatformTwoFactorRequired() {
           requirement={mfaRequirement}
           account={{ id: user?.id, email: user?.email }}
           onDone={check}
+          onSignedIn={completeOnce}
         />
       )}
     </AuthLayout>
@@ -265,16 +286,21 @@ function TwoFactorRequiredStep({
   requirement,
   account,
   onDone,
+  onSignedIn,
 }: {
   requirement: Exclude<MfaRequirement, "none">
   account: { id?: string | null; email?: string | null }
   onDone: () => Promise<void>
+  /** A sign-in that replaced this session (the passkey step): completed once. */
+  onSignedIn: (result: { requiresPasswordChange?: boolean }) => void
 }) {
   switch (requirement) {
     case "enroll":
       return <EnrollStep account={account} onDone={onDone} />
     case "step_up":
       return <StepUpStep accountId={account.id} onDone={onDone} />
+    case "passkey":
+      return <PasskeyStep onSignedIn={onSignedIn} />
     default:
       return <ReauthenticateStep />
   }
@@ -431,6 +457,60 @@ function StepUpStep({
         />
       ) : null}
     </>
+  )
+}
+
+/**
+ * The account's only qualifying second factor is a passkey (S20, `mfa_req`
+ * "passkey"): nothing upgrades this session, a passkey sign-in replaces it with
+ * one that proved two factors. That sign-in is adopted like any other and the
+ * page leaves through the completion every sign-in uses — never a refresh,
+ * which would only renew the session that lacks the factor (TS10). A passkey
+ * of another account signs that account in. The session it replaces ends on
+ * its own (FA5).
+ *
+ * A lost passkey is named with its way out (M8(4)): another administrator
+ * resets the account's two-step verification, then the account sets one up.
+ * While passkeys do not run here the button is not shown, and that way out is
+ * all the step says (the server says why, and a deployment that switches
+ * passkeys off has this one way left).
+ */
+function PasskeyStep({
+  onSignedIn,
+}: {
+  onSignedIn: (result: { requiresPasswordChange?: boolean }) => void
+}) {
+  const { t } = useTranslation()
+  const { loginWithPasskey } = useAuth()
+
+  const signIn = async (credential: AuthenticationResponseJSON): Promise<PasskeyOutcome> => {
+    try {
+      const result = await loginWithPasskey(credential, false)
+      if (result.status !== "authenticated") {
+        return { message: t("auth.mfaRequiredCheckFailed") }
+      }
+      passkeySignInEnded()
+      onSignedIn(result)
+      return { leaving: true }
+    } catch (error) {
+      return { message: passkeyFailureMessage(error) }
+    }
+  }
+  // The requirement says passkeys run here: a first failure is said, with a retry.
+  const passkey = usePasskeySignIn({ onCredential: signIn, passkeysExpected: true })
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">{t("auth.mfaRequiredPasskey")}</p>
+      <PasskeyButton
+        ceremony={passkey}
+        label={t("auth.passkey.signInWithYourPasskey")}
+        variant="default"
+      />
+      <p className="text-sm text-muted-foreground" data-testid="passkey-lost-way-out">
+        {t("auth.mfaRequiredPasskeyLost")}
+      </p>
+    </div>
   )
 }
 

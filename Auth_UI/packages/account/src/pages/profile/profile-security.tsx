@@ -62,6 +62,8 @@ import {
 } from "./two-factor-maintenance"
 import { useRecoveryCodesRemaining } from "./two-factor-status"
 import { EmailCodeCard } from "./email-code-card"
+import { usePasskeys } from "./passkey-list"
+import { PasskeysCard } from "./passkeys-card"
 
 function ChangePasswordCard() {
   const { t } = useTranslation()
@@ -181,7 +183,14 @@ function ChangePasswordCard() {
   )
 }
 
-function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
+function TwoFactorCard({
+  me,
+  passkeysRun = false,
+}: {
+  me: Schemas["UserDto"]
+  /** Passkeys run here (their list answered): a passkey account binds the app with it. */
+  passkeysRun?: boolean
+}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   // The authenticator app itself (S24): the account flag also says "on" for an
@@ -373,6 +382,9 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
               if (codes.length) setRecoveryCodes(codes.join("\n"))
             }}
             onStale={() => void invalidateMe()}
+            passkeyOnly={
+              passkeysRun && me.qualifyingMfa === true && me.totpEnabled !== true
+            }
           />
         )}
       </CardContent>
@@ -444,6 +456,9 @@ export function ProfileSecurity({ me }: { me: Schemas["UserDto"] }) {
    * form from everyone. Failing back to the change form is the safe direction.
    */
   const hasNoPassword = me.hasPassword === false && Boolean(me.email)
+  // S20: null while passkeys do not run here, and the section reads as before.
+  const passkeys = usePasskeys()
+  const passkeysRun = passkeys.data != null
 
   return (
     <div className="flex flex-col gap-6">
@@ -461,9 +476,13 @@ export function ProfileSecurity({ me }: { me: Schemas["UserDto"] }) {
       <FieldSet className="min-w-0">
         <FieldLegend>{t("profile.twoStepVerification")}</FieldLegend>
         <FieldDescription>
-          {t("profile.twoStepVerificationBody")}
+          {passkeysRun
+            ? t("profile.twoStepVerificationBodyWithPasskeys")
+            : t("profile.twoStepVerificationBody")}
         </FieldDescription>
-        <TwoFactorCard me={me} />
+        {/* The safest first; nothing at all while passkeys do not run. */}
+        <PasskeysCard me={me} passkeys={passkeys} />
+        <TwoFactorCard me={me} passkeysRun={passkeysRun} />
         <EmailCodeCard me={me} />
       </FieldSet>
     </div>

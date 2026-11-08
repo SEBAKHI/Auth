@@ -61,7 +61,7 @@ public static class PasskeyConfiguration
         }
         else if (!IsHostName(rpId))
         {
-            problems.Add($"Passkeys:RpId '{rpId}' is not a host name (localhost, or a domain such as example.com)");
+            problems.Add(NotAHostName(rpId));
         }
         else
         {
@@ -85,7 +85,7 @@ public static class PasskeyConfiguration
 
             if (rpIdValid && !Covers(rpId, host))
             {
-                problems.Add($"Passkeys:RpId '{rpId}' does not cover the first-party origin '{origin}'");
+                problems.Add(DoesNotCover(rpId, origin));
             }
 
             normalized.Add(exact);
@@ -102,6 +102,41 @@ public static class PasskeyConfiguration
             IsConfigured: configured,
             RelyingParty: configured ? new PasskeyRelyingParty(rpId, rpId, normalized) : null,
             Problems: problems);
+    }
+
+    /// <summary>
+    /// What is wrong with <paramref name="rpId"/> as the RP ID of the first-party
+    /// <paramref name="origins"/> (PK2): it is not a host name, or it does not cover the host of a
+    /// listed origin. Empty when it can be every listed origin's RP ID, and for an empty RP ID,
+    /// which switches passkeys off rather than being wrong. An origin that is not a bare https
+    /// origin is the origin list's own problem, reported where that list is saved, and is
+    /// skipped here. The console's save of <c>Passkeys:RpId</c> asks this before anything is
+    /// stored (T-C9), so an RP ID a browser would refuse is never saved.
+    /// </summary>
+    /// <param name="rpId">The RP ID, normalized (trimmed and lower-case).</param>
+    /// <param name="origins"><c>IdentityProvider:FirstPartySpaOrigins</c>.</param>
+    public static IReadOnlyList<string> RpIdProblems(string rpId, IReadOnlyList<string> origins)
+    {
+        if (string.IsNullOrEmpty(rpId))
+        {
+            return [];
+        }
+
+        if (!IsHostName(rpId))
+        {
+            return [NotAHostName(rpId)];
+        }
+
+        var problems = new List<string>();
+        foreach (var origin in origins.Where(origin => !string.IsNullOrWhiteSpace(origin)))
+        {
+            if (TryParseOrigin(origin, out _, out var host) && !Covers(rpId, host))
+            {
+                problems.Add(DoesNotCover(rpId, origin));
+            }
+        }
+
+        return problems;
     }
 
     /// <summary>
@@ -137,6 +172,12 @@ public static class PasskeyConfiguration
             // The last label of a real domain is never all digits; this keeps "1.2.3.4" out.
             && !labels[^1].All(char.IsAsciiDigit);
     }
+
+    private static string NotAHostName(string rpId) =>
+        $"Passkeys:RpId '{rpId}' is not a host name (localhost, or a domain such as example.com)";
+
+    private static string DoesNotCover(string rpId, string origin) =>
+        $"Passkeys:RpId '{rpId}' does not cover the first-party origin '{origin}'";
 
     private static bool TryParseOrigin(string value, out string exact, out string host)
     {

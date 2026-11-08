@@ -15,15 +15,17 @@
  * state and in the in-memory challenge store, never in browser storage, and it
  * never goes back to the server: the resume URL carries only the handle.
  *
- * Three reasons are read. `mfa_passkey` is not, until the passkey button
- * exists (S20). Any other word, and a method word without a reason, are
- * ignored, silently.
+ * Four reasons are read. `mfa_passkey` (S20): the account's only qualifying
+ * second factor is a passkey, so the page offers the passkey first, and names
+ * the way out for a lost one. Any other word, and a method word without a
+ * reason, are ignored, silently.
  */
 
 export const SIGN_IN_REASONS = [
   "mfa_step_up",
   "mfa_enroll",
   "mfa_reauthenticate",
+  "mfa_passkey",
 ] as const
 
 export type SignInReasonWord = (typeof SIGN_IN_REASONS)[number]

@@ -113,6 +113,7 @@ export function TwoFactorEnrollment({
   onEnabled,
   onStale,
   onReauthenticationRequired,
+  passkeyOnly = false,
 }: {
   account: TwoFactorEnrollmentAccount
   /** The account's second factor is the emailed code, which the app replaces. */
@@ -127,6 +128,12 @@ export function TwoFactorEnrollment({
    * request would be lost, S23) answers it instead.
    */
   onReauthenticationRequired?: () => void
+  /**
+   * The account's qualifying factor is a passkey, and passkeys run (S20, T-C7):
+   * binding the app needs a session that proved two factors, which only the
+   * passkey gives, so the sign-in-again dialog names it.
+   */
+  passkeyOnly?: boolean
 }) {
   const { t } = useTranslation()
 
@@ -530,7 +537,11 @@ export function TwoFactorEnrollment({
 
       {/* Mounted only while needed, so closing it resets it. */}
       {reauthenticateOpen ? (
-        <ReauthenticateDialog open onOpenChange={setReauthenticateOpen} />
+        <ReauthenticateDialog
+          open
+          onOpenChange={setReauthenticateOpen}
+          passkey={passkeyOnly}
+        />
       ) : null}
 
       {/* The account's own address, confirmed through the user-id path: it

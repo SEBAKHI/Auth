@@ -62,11 +62,21 @@ const problem = (status: number, code: string) => ({
   error: { status, code, detail: `server sentence for ${code}` },
 })
 
+// Passkeys do not run in these tests: their list answers 404, and their card is
+// not shown (S20 PR C).
+const PASSKEYS_OFF = {
+  data: undefined,
+  error: { status: 404, code: "General.NotFound" },
+  response: { status: 404 },
+}
+
 function givenRemaining(count: number | null) {
   get.mockImplementation(async (path: string) =>
     path === "/api/v1/auth/2fa/status"
       ? { data: { recoveryCodesRemaining: count } }
-      : { data: undefined }
+      : path === "/api/v1/auth/passkeys"
+        ? PASSKEYS_OFF
+        : { data: undefined }
   )
 }
 
@@ -265,4 +275,66 @@ describe("a new authenticator app", () => {
     expect(await within(dialog).findByText("profile.replaceAuthenticatorProveBody")).toBeInTheDocument()
     expect(within(dialog).queryByDisplayValue(SECRET.manualEntryKey)).not.toBeInTheDocument()
   }, 20_000)
+})
+
+describe("the two-step section with passkeys (S20 PR C)", () => {
+  const LIST = {
+    rpId: "localhost",
+    userHandle: "dXNlci1oYW5kbGU",
+    passkeys: [
+      {
+        id: "aaaaaaaa-0000-0000-0000-000000000001",
+        name: "Work laptop",
+        createdAt: "2026-10-01T09:00:00Z",
+        lastUsedAt: null,
+        isBackupEligible: false,
+        isBackedUp: false,
+        lastCounterRegressionAt: null,
+        credentialId: "Y3JlZC1sYXB0b3A",
+      },
+    ],
+  }
+
+  function givenPasskeysRun() {
+    get.mockImplementation(async (path: string) =>
+      path === "/api/v1/auth/2fa/status"
+        ? { data: { recoveryCodesRemaining: 5 } }
+        : path === "/api/v1/auth/passkeys"
+          ? { data: LIST, error: undefined, response: { status: 200 } }
+          : { data: undefined }
+    )
+  }
+
+  it("reads as before while passkeys do not run", async () => {
+    givenRemaining(5)
+    renderTab()
+
+    expect(await screen.findByText("profile.twoStepVerificationBody")).toBeInTheDocument()
+    expect(screen.queryByText("profile.twoStepVerificationBodyWithPasskeys")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("passkeys-card")).not.toBeInTheDocument()
+  })
+
+  it("names the passkeys while they run, and puts their card first", async () => {
+    givenPasskeysRun()
+    renderTab()
+
+    const card = await screen.findByTestId("passkeys-card")
+    expect(screen.getByText("profile.twoStepVerificationBodyWithPasskeys")).toBeInTheDocument()
+    const app = screen.getByText("profile.twoFactor")
+    expect(card.compareDocumentPosition(app) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("says the passkey needs the app when the switch-off is refused for it (D-150-5)", async () => {
+    givenRemaining(5)
+    post.mockResolvedValue(problem(409, "TwoFactor.PasskeyNeedsApp"))
+    const user = userEvent.setup()
+    renderTab()
+
+    await user.type(screen.getByLabelText("auth.twoFactorCode"), "123456")
+    await user.click(screen.getByRole("button", { name: "profile.disableTwoFactor" }))
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith("server sentence for TwoFactor.PasskeyNeedsApp")
+    )
+  }, 15_000)
 })

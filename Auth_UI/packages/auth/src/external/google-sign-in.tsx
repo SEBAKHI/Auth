@@ -8,6 +8,7 @@ import { useAuth } from "@authsystem/auth/auth-context"
 import { useTheme } from "@authsystem/ui/theme-provider"
 
 import { useLoginCompletion } from "../login-completion"
+import { usePasskeyRequiredReporter } from "../passkey/passkey-required"
 import { useStaySignedIn } from "../stay-signed-in"
 import { navigateToRecovery } from "./recovery-navigation"
 import { requestExternalNonce } from "./request-nonce"
@@ -158,6 +159,8 @@ export function GoogleSignIn({
   const { googleEnabled, googleClientId, googleExpected } = useExternalProviders()
   const { complete, challenge } = useLoginCompletion()
   const readStaySignedIn = useStaySignedIn()
+  // The account signs in with its passkey alone (S20): the sign-in page says so.
+  const reportPasskeyRequired = usePasskeyRequiredReporter()
 
   const handleCredential = React.useCallback(
     async (credential: string) => {
@@ -202,6 +205,7 @@ export function GoogleSignIn({
           })
           return
         }
+        if (reportPasskeyRequired(error)) return
         toast.error(getErrorMessage(error))
       }
     },
@@ -214,6 +218,7 @@ export function GoogleSignIn({
       recoveryPath,
       onCredential,
       readStaySignedIn,
+      reportPasskeyRequired,
     ]
   )
 

@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import "@authsystem/i18n"
+import i18n from "@authsystem/i18n"
 
 /**
  * OI-215: the "sign in again" dialog carries an add-only full-proof reason
@@ -21,7 +21,11 @@ vi.mock("./auth-context", () => ({
 }))
 
 import { ReauthenticateDialog } from "./reauthenticate-dialog"
-import { FULL_PROOF_KEY, isFullProofRequested } from "./sign-in-method"
+import {
+  FULL_PROOF_KEY,
+  isFullProofRequested,
+  isPasskeySignInRequested,
+} from "./sign-in-method"
 
 describe("ReauthenticateDialog", () => {
   beforeEach(() => {
@@ -53,5 +57,42 @@ describe("ReauthenticateDialog", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
     expect(isFullProofRequested()).toBe(false)
     expect(mocks.logout).not.toHaveBeenCalled()
+  })
+
+  // S20, T-C7: a passkey is the account's qualifying factor. Neither the password
+  // nor the emailed code gives the session the change needs, so the dialog says
+  // so, and the sign-in page it leads to offers the passkey first: the person is
+  // not sent round again by a password sign-in.
+  it("names the passkey for a passkey account, and asks the sign-in page to offer it first", async () => {
+    render(
+      <ReauthenticateDialog
+        open
+        onOpenChange={vi.fn()}
+        description="Adding a passkey needs a recent sign-in."
+        passkey
+      />
+    )
+
+    expect(screen.getByText(i18n.t("auth.reauthenticatePasskeyBody"))).toBeInTheDocument()
+    expect(screen.queryByText("Adding a passkey needs a recent sign-in.")).not.toBeInTheDocument()
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: i18n.t("auth.reauthenticateWithPasskeyAction") }))
+
+    await waitFor(() => expect(mocks.logout).toHaveBeenCalledTimes(1))
+    expect(mocks.flagAtSignOut).toEqual(["passkey"])
+    expect(isPasskeySignInRequested()).toBe(true)
+    // A code sign-in from there still proves the password too.
+    expect(isFullProofRequested()).toBe(true)
+  })
+
+  it("keeps the usual words and reason for every other account", async () => {
+    render(<ReauthenticateDialog open onOpenChange={vi.fn()} description="Why it is needed." />)
+
+    expect(screen.getByText("Why it is needed.")).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole("button", { name: "Sign in again" }))
+
+    await waitFor(() => expect(mocks.logout).toHaveBeenCalledTimes(1))
+    expect(isPasskeySignInRequested()).toBe(false)
   })
 })

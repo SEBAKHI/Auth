@@ -1174,9 +1174,9 @@ export function UserDetailPage() {
 
 /**
  * The account's second factor as an administrator reads it (S24, FA12): which one —
- * the authenticator app or the emailed code — and whether it counts for a
- * two-factor policy, which only the app does. The account flag alone answers when
- * the API does not say which (an older build).
+ * the authenticator app or the emailed code, and the passkeys (S20) — and whether
+ * it counts for a two-factor policy, which the app and a passkey do. The account
+ * flag alone answers when the API does not say which (an older build).
  */
 function twoFactorSummary(
   user: {
@@ -1184,19 +1184,28 @@ function twoFactorSummary(
     totpEnabled?: boolean | null
     emailCodeEnabled?: boolean | null
     qualifyingMfa?: boolean | null
+    passkeyCount?: number | string | null
   },
-  t: (key: string) => string
+  t: (key: string, options?: Record<string, unknown>) => string
 ): string {
   // Whether it counts is the server's answer (qualifyingMfa), never derived here.
   const standing =
     user.qualifyingMfa === true
       ? t("users.twoFactorQualifies")
       : t("users.twoFactorDoesNotQualify")
-  if (user.totpEnabled === true) {
-    return `${t("users.twoFactorAuthenticatorApp")} · ${standing}`
+  // FA12: the passkey leg, only where the account holds one; the line of an
+  // account without one reads as it always did.
+  const passkeys = toNumber(user.passkeyCount ?? 0)
+  const factor =
+    user.totpEnabled === true
+      ? t("users.twoFactorAuthenticatorApp")
+      : user.emailCodeEnabled === true
+        ? t("users.twoFactorEmailCode")
+        : null
+  if (passkeys > 0) {
+    const leg = t("users.twoFactorPasskeys", { n: passkeys })
+    return `${factor ? `${factor} · ` : ""}${leg} · ${standing}`
   }
-  if (user.emailCodeEnabled === true) {
-    return `${t("users.twoFactorEmailCode")} · ${standing}`
-  }
+  if (factor) return `${factor} · ${standing}`
   return user.twoFactorEnabled ? t("common.enabled") : t("common.disabled")
 }

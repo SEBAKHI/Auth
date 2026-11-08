@@ -709,7 +709,7 @@ public class IdpSessionIdleTimelineTests
         var saved = await new UpdateSystemSettingsCommandHandler(
                 rows.Object, new Mock<IUserRepository>().Object, configuration,
                 SystemSettingsTestSupport.SnapshotOf(configuration), new Mock<ISystemSettingsReloader>().Object,
-                new Mock<IPublisher>().Object, IdleLimitChange(), NullLogger<UpdateSystemSettingsCommandHandler>.Instance)
+                new Mock<IPublisher>().Object, IdleLimitChange(), new Mock<IPasskeyRpIdChange>().Object, NullLogger<UpdateSystemSettingsCommandHandler>.Instance)
             .Handle(
                 new UpdateSystemSettingsCommand(
                     "IdentityProvider",
@@ -778,7 +778,7 @@ public class IdpSessionIdleTimelineTests
 
         var reset = await new ResetSystemSettingsCommandHandler(
                 rows.Object, file, SystemSettingsTestSupport.SnapshotOf(file), new Mock<ISystemSettingsReloader>().Object,
-                new Mock<IPublisher>().Object, IdleLimitChange(), NullLogger<ResetSystemSettingsCommandHandler>.Instance)
+                new Mock<IPublisher>().Object, IdleLimitChange(), new Mock<IPasskeyRpIdChange>().Object, NullLogger<ResetSystemSettingsCommandHandler>.Instance)
             .Handle(new ResetSystemSettingsCommand("IdentityProvider", Guid.NewGuid()), CancellationToken.None);
         reset.IsError.Should().BeFalse();
         _settings.IdpBrowserSessionIdleMinutes = 0;
@@ -903,6 +903,7 @@ public class IdpSessionIdleTimelineTests
             new Mock<IPublisher>().Object,
             new IdpSessionIdleLimitChange(
                 sessions, TestHelpers.CreateOptions(_settings), _clock, NullLogger<IdpSessionIdleLimitChange>.Instance),
+            new Mock<IPasskeyRpIdChange>().Object,
             NullLogger<UpdateSystemSettingsCommandHandler>.Instance);
     }
 
@@ -918,6 +919,7 @@ public class IdpSessionIdleTimelineTests
             new Mock<IPublisher>().Object,
             new IdpSessionIdleLimitChange(
                 sessions, TestHelpers.CreateOptions(_settings), _clock, NullLogger<IdpSessionIdleLimitChange>.Instance),
+            new Mock<IPasskeyRpIdChange>().Object,
             NullLogger<ResetSystemSettingsCommandHandler>.Instance);
     }
 

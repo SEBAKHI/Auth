@@ -452,7 +452,20 @@ describe("the sign-in reason (S23)", () => {
       } as InitialEntry,
       () => {}
     )
-    // mfa_passkey is not a reason this page reads before S20 (T-B3).
+    // mfa_passkey is read since the passkey button exists (S20 PR C).
+    expect(screen.getByTestId("reason")).toHaveTextContent(
+      JSON.stringify({ reason: "mfa_passkey", method: "code" })
+    )
+  })
+
+  it("drops a reason word it does not allow, from router state too", () => {
+    renderCompletion(
+      {
+        pathname: "/two-factor",
+        state: { returnTo: AUTHORIZE, reason: { reason: "mfa_otp", method: "code" } },
+      } as InitialEntry,
+      () => {}
+    )
     expect(screen.getByTestId("reason")).toHaveTextContent("null")
   })
 

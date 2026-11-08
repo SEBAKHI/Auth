@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Info, ShieldCheck } from "lucide-react"
+import { Info, KeyRound, ShieldCheck } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -37,12 +37,19 @@ import { startEmailCode, type PendingEmailCode } from "../email-code"
 import { isAbsoluteUrl } from "../external/recovery-navigation"
 import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
+import { PasskeyButton } from "../passkey/passkey-button"
+import { passkeyFailureMessage } from "../passkey/passkey-errors"
+import { PasskeyRequiredProvider, passkeyRequiredNotice } from "../passkey/passkey-required"
+import { usePasskeySignIn, type PasskeyOutcome } from "../passkey/use-passkey-sign-in"
+import type { AuthenticationResponseJSON } from "../passkey/webauthn"
 import { FullScreenLoader } from "../require-auth"
 import { toAccountsSearch } from "../return-to"
 import { canSkipSignIn } from "../sign-in-marker"
 import type { SignInReasonWord } from "../sign-in-reason"
 import {
   isFullProofRequested,
+  isPasskeySignInRequested,
+  passkeySignInEnded,
   primarySignInMethod,
   readLastSignInMethod,
   rememberMethodForChallenge,
@@ -75,6 +82,12 @@ const REASON_TEXT: Record<SignInReasonWord, { title: string; body: string }> = {
   mfa_reauthenticate: {
     title: "auth.signInReasonReauthenticateTitle",
     body: "auth.signInReasonReauthenticateBody",
+  },
+  // S20: the account's one qualifying factor is a passkey. The body names the way
+  // out for a lost one (sign in, remove it in Profile › Security, add another).
+  mfa_passkey: {
+    title: "auth.signInReasonPasskeyTitle",
+    body: "auth.signInReasonPasskeyBody",
   },
 }
 
@@ -129,7 +142,7 @@ export function LoginPage({
   recoveryPath?: string
 } = {}) {
   const { t, i18n } = useTranslation()
-  const { login, status } = useAuth()
+  const { login, loginWithPasskey, status } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as LocationState | null
@@ -188,6 +201,14 @@ export function LoginPage({
   const [fullProofAsked] = React.useState(isFullProofRequested)
   const fullProof = fullProofAsked || reason !== null
   const [step, setStep] = React.useState<Step>({ kind: "credentials" })
+  // S20 (D-S20-4 (ii-s)): a door answered that this account signs in with its
+  // passkey. Its sentence stays on the page, above the passkey button, which
+  // takes the focus; never a toast that goes.
+  const [passkeyNotice, setPasskeyNotice] = React.useState<string | null>(null)
+  // The "sign in again" dialog of a passkey account (T-C7), and an application's
+  // requirement only the passkey meets (`mfa_passkey`), put the passkey first.
+  const [passkeyAsked] = React.useState(isPasskeySignInRequested)
+  const passkeyButtonRef = React.useRef<HTMLButtonElement>(null)
 
   const passwordToFinish = step.kind === "password"
   const showPassword = passwordToFinish || method === "password"
@@ -227,6 +248,74 @@ export function LoginPage({
     [getValues]
   )
 
+  // Pending deletion (only surfaced on VALID credentials): route to the
+  // recovery screen instead of a dead-end error. The server's localized message
+  // carries the deletion deadline. True when the person was sent there.
+  const toRecovery = (error: unknown, email?: string): boolean => {
+    if (!recoveryPath || !getErrorCodes(error).includes("User.AccountPendingDeletion")) {
+      return false
+    }
+    if (isAbsoluteUrl(recoveryPath)) {
+      // Another origin owns the recovery screen; the email prefill cannot
+      // ride along, and the screen asks for it anyway.
+      window.location.assign(recoveryPath)
+      return true
+    }
+    navigate(recoveryPath, {
+      state: { email, message: getErrorMessage(error) },
+    })
+    return true
+  }
+
+  // S20: the passkey proves two factors, so no second step follows. It writes no
+  // method and leaves no proof (T-C6); a passkey of another account signs that
+  // account in. Everything but the verify is the ceremony's (usePasskeySignIn).
+  const signInWithPasskey = async (
+    credential: AuthenticationResponseJSON
+  ): Promise<PasskeyOutcome> => {
+    try {
+      const result = await loginWithPasskey(credential, readStaySignedIn())
+      if (result.status === "twoFactorRequired") {
+        challenge(result.challengeToken, result.methods)
+        return { leaving: true }
+      }
+      passkeySignInEnded()
+      toast.success(t("auth.welcomeBack"))
+      complete(result)
+      return { leaving: true }
+    } catch (error) {
+      if (toRecovery(error)) return { leaving: true }
+      return { message: passkeyFailureMessage(error) }
+    }
+  }
+  // Under these the server already said passkeys run here: a first failure is said.
+  const passkeyExpected = passkeyAsked || reason?.reason === "mfa_passkey"
+  const passkey = usePasskeySignIn({
+    suggestion: true,
+    passkeysExpected: passkeyExpected,
+    onCredential: signInWithPasskey,
+  })
+  const passkeyShown = passkey.phase !== "unavailable" && passkey.phase !== "checking"
+  const passkeyLeads = passkeyShown && (passkeyExpected || passkeyNotice !== null)
+  // A door answered that the account signs in with its passkey: passkeys run
+  // here, so the button is asked for at once, and a failure is said.
+  const { confirm: confirmPasskeys } = passkey
+  const askForPasskey = React.useCallback(
+    (notice: string) => {
+      setPasskeyNotice(notice)
+      confirmPasskeys()
+    },
+    [confirmPasskeys]
+  )
+
+  // The sentence asks for the passkey: its button takes the focus once it can be
+  // pressed (a disabled button cannot hold it, so a button still on its way gets
+  // it when its options arrive).
+  const passkeyReady = passkey.phase === "ready"
+  React.useEffect(() => {
+    if (passkeyNotice && passkeyReady) passkeyButtonRef.current?.focus()
+  }, [passkeyNotice, passkeyReady])
+
   const signInWithPassword = async (values: z.infer<typeof schema>) => {
     try {
       const result = await login(
@@ -253,22 +342,11 @@ export function LoginPage({
         interstitial("/verify-email", { email: values.email })
         return
       }
-      // Pending deletion (only surfaced on VALID credentials): route to the
-      // recovery screen instead of a dead-end error. The server's localized
-      // message carries the deletion deadline.
-      if (
-        recoveryPath &&
-        getErrorCodes(error).includes("User.AccountPendingDeletion")
-      ) {
-        if (isAbsoluteUrl(recoveryPath)) {
-          // Another origin owns the recovery screen; the email prefill cannot
-          // ride along, and the screen asks for it anyway.
-          window.location.assign(recoveryPath)
-          return
-        }
-        navigate(recoveryPath, {
-          state: { email: values.email, message: getErrorMessage(error) },
-        })
+      if (toRecovery(error, values.email)) return
+      // The account signs in with its passkey alone (D-S20-4 (ii-s)).
+      const notice = passkeyRequiredNotice(error)
+      if (notice) {
+        askForPasskey(notice)
         return
       }
       // One text for every wrong pair (OI-215): an unknown address, a wrong
@@ -295,6 +373,7 @@ export function LoginPage({
   }
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
+    setPasskeyNotice(null)
     if (!showPassword) return sendCode(values)
     if (values.password.length === 0) {
       form.setError("password", { message: t("validation.required") })
@@ -342,6 +421,10 @@ export function LoginPage({
           pageFooter={pageFooter}
           onChangeAddress={backToAddress}
           onPasswordRequired={continueWithPassword}
+          onPasskeyRequired={(notice) => {
+            backToAddress()
+            askForPasskey(notice)
+          }}
         />
       </React.Suspense>
     )
@@ -388,6 +471,20 @@ export function LoginPage({
                 <AlertDescription>{t("auth.cookiesBlockedNote")}</AlertDescription>
               </Alert>
             ) : null}
+            {passkeyNotice ? (
+              <Alert data-testid="passkey-required-note">
+                <KeyRound />
+                <AlertDescription>{passkeyNotice}</AlertDescription>
+              </Alert>
+            ) : null}
+            {passkeyLeads && !passwordToFinish ? (
+              <PasskeyButton
+                ceremony={passkey}
+                label={t("auth.passkey.signIn")}
+                variant="default"
+                buttonRef={passkeyButtonRef}
+              />
+            ) : null}
             <FormField
               control={form.control}
               name="email"
@@ -397,7 +494,11 @@ export function LoginPage({
                   <FormControl>
                     <Input
                       type="email"
-                      autoComplete="username"
+                      // The passkey suggestion (conditional UI, T-C5): only where
+                      // the browser offers it and passkeys run here.
+                      autoComplete={
+                        passkey.suggestionSupported ? "username webauthn" : "username"
+                      }
                       autoFocus={!passwordToFinish}
                       readOnly={passwordToFinish}
                       placeholder="name@example.com"
@@ -501,6 +602,7 @@ export function LoginPage({
             ) : null}
             <Button
               type="submit"
+              variant={passkeyLeads ? "secondary" : "default"}
               className="w-full"
               disabled={form.formState.isSubmitting}
             >
@@ -515,6 +617,15 @@ export function LoginPage({
                 t("auth.continueWithEmail")
               )}
             </Button>
+            {/* D-S20-9 (a): for every visitor, under the primary button, while
+                passkeys run here; nothing at all while they do not. */}
+            {!passkeyLeads && !passwordToFinish ? (
+              <PasskeyButton
+                ceremony={passkey}
+                label={t("auth.passkey.signIn")}
+                buttonRef={passkeyButtonRef}
+              />
+            ) : null}
             {/* The other method, always a visible link (D-215-2). */}
             {codeOffered && !passwordToFinish ? (
               <Button
@@ -536,7 +647,9 @@ export function LoginPage({
       </Form>
       {passwordToFinish ? null : (
         <StaySignedInProvider value={readStaySignedIn}>
-          {providers}
+          <PasskeyRequiredProvider onPasskeyRequired={askForPasskey}>
+            {providers}
+          </PasskeyRequiredProvider>
         </StaySignedInProvider>
       )}
     </AuthLayout>

@@ -126,6 +126,7 @@ public class RetiredTwoFactorSwitchOverrideTests
             new Mock<ISystemSettingsReloader>().Object,
             new Mock<IPublisher>().Object,
             new Mock<IIdpSessionIdleLimitChange>().Object,
+            new Mock<IPasskeyRpIdChange>().Object,
             new Mock<ILogger<UpdateSystemSettingsCommandHandler>>().Object);
 
         // The console sends the card's own fields: the read above shows no other.

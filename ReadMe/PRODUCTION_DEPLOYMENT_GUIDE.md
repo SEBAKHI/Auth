@@ -4169,6 +4169,85 @@ columns can stay; the previous API does not read them.
 
 ---
 
+## T. Passkeys (`Passkeys:Enabled`, `Passkeys:RpId`)
+
+A passkey (WebAuthn) is a sign-in key the person's device keeps, unlocked with a fingerprint, a face or the
+device PIN. It signs only for the domain it was made under, so a look-alike site has nothing to relay, and
+it proves both steps at once. The pages, the rules and the ways out for a lost passkey are in
+`ReadMe/DEVELOPER_GUIDE.md`, section 5.3b; the domain decision is `docs/adr/0006-passkey-rp-id.md`.
+
+**The release ships it off, and nothing in it switches it on.** While `Passkeys:Enabled` is off, every passkey
+route answers 404, every page reads as it did before passkeys, and no rule leans on a passkey. Switching it
+on is each deployment's own decision, after the steps below.
+
+### T.1 Deploying the release, switch off
+
+For each existing deployment, in this order:
+
+1. **The DACPAC.** The privacy paragraph about passkeys is seed text for new installations only; an existing
+   deployment changes nothing in its tables. Check: the DeployReport lists no schema operation.
+2. **The Auth API, then the Gateway, then both web applications**, with `Passkeys:Enabled` off. Checks:
+   `/ready` reads Healthy; `POST /api/v1/auth/passkeys/assertion/options` answers 404; the sign-in page shows
+   no passkey button; the console shows the **Passkeys** section under System settings, switched off.
+   **Rollback:** the previous builds.
+
+### T.2 Before switching it on
+
+* **The privacy text.** Publish a revision in the console (Notifications › Privacy Policy) with the passkey
+  paragraph in every language, taken from `Auth/Auth_DB/dbo/Scripts/SeedData/16_PrivacyPolicyContent.sql`:
+  an existing deployment does not get it from the seed. Check: `/privacy` shows it. Rollback: the previous
+  revision, while passkeys are off.
+* **The domain (the RP ID).** The registrable domain the console and the accounts application share:
+  `example.com` for `console.example.com` and `accounts.example.com`. **Put the applications under a
+  dedicated parent host** that no other site shares — no marketing site, no third-party pages: any page
+  under the RP ID can ask the browser for a passkey sign-in, so the domain alone does not protect it. The
+  value is permanent in practice: a passkey made under one domain never works under another.
+* **Platform administrators.** Where they exist, switch `TwoFactor:EnforceForPlatformAdmins` on first, after
+  its own checklist ([K.1](#k1-before-you-switch-it-on) and [K.2](#k2-switching-it-on-and-back-off)).
+* **The log lines to watch.** `passkey.configuration` and `passkey.rpid-mismatch` are Critical: either one
+  means passkeys are off whatever the switch says. Count `passkey.admitted-while-locked` and
+  `passkey.required` from the log files.
+
+### T.3 Switching it on
+
+1. Set `Passkeys:RpId`, in the console (System settings › Passkeys) or in the settings file.
+2. **Recycle the Auth API's application pool**: the RP ID is read at start-up only, and the console shows the
+   saved value as pending until then.
+3. Switch `Passkeys:Enabled` on. It takes effect at once.
+
+**Checks:** no `passkey.configuration` or `passkey.rpid-mismatch` line in the log; on a real device, add a
+passkey in the console (Profile › Security › Passkeys), sign out, and sign in at the accounts application
+with **Sign in with a passkey**; the same on Safari, on iOS and on macOS; and on a computer that holds none
+of the person's passkeys, the button offers the phone (a QR code).
+
+**Rollback:** switch `Passkeys:Enabled` off. It is hot: every passkey route answers 404 at once, the pages
+hide the passkey, and no rule leans on one. Nothing is revoked, so switching it on again restores every
+passkey.
+
+### T.4 What switches passkeys off without the switch
+
+* **A change of `IdentityProvider:FirstPartySpaOrigins` that the RP ID does not cover.** The console does
+  not refuse it; the posture switches passkeys off (`passkey.configuration`, Critical) until the two agree
+  again.
+* **An empty `Passkeys:RpId`.** Passkeys stop at the next start-up, and no live passkey counts as a factor.
+  It is also the way to switch them off from the file alone.
+* **An `RpId` changed in the file while live passkeys carry the old one.** The console refuses that change
+  (its sentence names `Auth_Setup --retire-passkey-rp-id`); the file does not. From the edit until the
+  recycle the API runs with the old value; after the recycle, passkeys stay off and `passkey.rpid-mismatch`
+  is logged. Put the old value back, or move on purpose (below).
+
+**Moving to another domain** is the one supported change: announce it, ask people to add another way to
+sign in, run `dotnet run --project Auth/Auth_Setup -- --retire-passkey-rp-id <old RP ID>` and execute the
+statement it prints, then set the new value and recycle (ADR 0006).
+
+**Every 90 days**, read the `passkey.admitted-while-locked` lines: none may carry the kind `Admin`, since an
+administrator's lock always refuses a passkey.
+
+**Advice to administrators:** keep two ways in — a passkey and the authenticator app, or two passkeys on
+different devices — so that one lost device is never a lock-out.
+
+---
+
 **The whole flow:** install the prerequisites → create the files the repository does not ship →
 build the two .NET projects → publish the database and give the seeded admin a password → write
 `appsettings.Production.json` → publish and upload the Auth API → publish and upload the Gateway →

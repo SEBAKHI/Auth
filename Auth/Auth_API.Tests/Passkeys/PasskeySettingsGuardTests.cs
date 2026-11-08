@@ -25,8 +25,7 @@ namespace Auth_API.Tests.Passkeys;
 /// S20 (PK2, PK3, PK19, T-A2, T-A3): passkeys run only when switched on AND configured — an RP
 /// ID that is a host name and covers every first-party origin, the schema deployed, and no live
 /// passkey bound to another RP ID. Otherwise every passkey route answers 404 before
-/// authentication, and the posture says why. Shipped off, in the file layer only, out of the
-/// console until PR C.
+/// authentication, and the posture says why. Shipped off, and in the console since PR C.
 /// </summary>
 /// <remarks>
 /// Deliberate breaks, each verified red: the live-rows query dropped from <c>PasskeyFeature</c>;
@@ -74,17 +73,19 @@ public class PasskeySettingsGuardTests
             if (document.RootElement.TryGetProperty("Passkeys", out var section)
                 && section.TryGetProperty("Enabled", out var enabled))
             {
-                enabled.ValueKind.Should().NotBe(JsonValueKind.True, $"{Path.GetFileName(path)} must not switch passkeys on before PR C");
+                enabled.ValueKind.Should().NotBe(JsonValueKind.True, $"{Path.GetFileName(path)} must not switch passkeys on: each deployment does, after its own steps");
             }
         }
     }
 
     [Fact]
-    public void TheSettings_StayOutOfTheConsole_UntilPrC()
+    public void TheSettings_AreInTheConsole_SincePrC()
     {
-        SystemSettingsRegistry.Sections.Should().NotBeEmpty();
-        SystemSettingsRegistry.Sections.Should().NotContain(section =>
-            section.ConfigRoot == PasskeySettings.SectionName || section.Key == PasskeySettings.SectionName);
+        // S20 PR C put the section in the console, off and without an RP ID, with the screens
+        // that use it; its rules (PK2, PK3) are PasskeyConsoleSettingsTests'.
+        var section = SystemSettingsRegistry.TryGet(PasskeySettings.SectionName);
+        section.Should().NotBeNull();
+        section!.ConfigRoot.Should().Be(PasskeySettings.SectionName);
     }
 
     // ── The assessment (PK2, PK19) ──

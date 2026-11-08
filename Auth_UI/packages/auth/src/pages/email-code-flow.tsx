@@ -36,6 +36,7 @@ import { Spinner } from "@authsystem/ui/spinner"
 
 import { useAuth, type EmailCodeSignInResult } from "../auth-context"
 import { deletionCancelledOutcome } from "../deletion-cancelled"
+import { passkeyRequiredNotice } from "../passkey/passkey-required"
 import { detectedTimeZone } from "../detected-time-zone"
 import {
   startEmailCode,
@@ -79,6 +80,7 @@ export function EmailCodeFlow({
   onEnded,
   completionOptions,
   startCode = startEmailCode,
+  onPasskeyRequired,
 }: {
   pending: PendingEmailCode
   /** The sign-in page's "Stay signed in" answer, false where the box is not offered. */
@@ -98,6 +100,13 @@ export function EmailCodeFlow({
   completionOptions?: CompletionOptions
   /** How a new code is asked for: the sign-up passes its own start. */
   startCode?: (email: string, preferredLanguage: string) => Promise<PendingEmailCode>
+  /**
+   * The account signs in with its passkey alone (S20, D-S20-4 (ii-s)): the code
+   * matched, and the sign-in, or the recovery, answered `Auth.PasskeyRequired`.
+   * The sign-in page goes back to its address with the sentence and its passkey
+   * button. Without it, the code screen shows the sentence as any refusal.
+   */
+  onPasskeyRequired?: (notice: string) => void
 }) {
   const { t } = useTranslation()
   const { signInWithEmailCode, recoverWithEmailCode, completeRegistration } =
@@ -147,6 +156,23 @@ export function EmailCodeFlow({
       return
     }
     await follow(otp, result.nextStep)
+  }
+
+  // The code matched, and the account signs in with its passkey alone: handed to
+  // the page that offers it, when there is one; any other failure is the caller's.
+  const passkeyRequired = (error: unknown): boolean => {
+    const notice = passkeyRequiredNotice(error)
+    if (!notice || !onPasskeyRequired) return false
+    onPasskeyRequired(notice)
+    return true
+  }
+
+  const followOrPasskey = async (otp: string, next: EmailCodeNextStep) => {
+    try {
+      await follow(otp, next)
+    } catch (error) {
+      if (!passkeyRequired(error)) throw error
+    }
   }
 
   // What the server said comes next, after the code matched.
@@ -219,13 +245,17 @@ export function EmailCodeFlow({
         pageFooter={pageFooter}
         onChangeAddress={onChangeAddress}
         onRecover={async (twoFactorCode) => {
-          const result = await recoverWithEmailCode({
-            pendingId: pending.pendingId,
-            otp: stage.otp,
-            twoFactorCode,
-            requireFullProof,
-          })
-          await finish(result, stage.otp, t("accountDeletion.restored"))
+          try {
+            const result = await recoverWithEmailCode({
+              pendingId: pending.pendingId,
+              otp: stage.otp,
+              twoFactorCode,
+              requireFullProof,
+            })
+            await finish(result, stage.otp, t("accountDeletion.restored"))
+          } catch (error) {
+            if (!passkeyRequired(error)) throw error
+          }
         }}
         onCodeRefused={backToCode}
       />
@@ -244,7 +274,7 @@ export function EmailCodeFlow({
         setPending(next)
         onPendingChange?.(next)
       }}
-      onVerified={follow}
+      onVerified={followOrPasskey}
     />
   )
 }

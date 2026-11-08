@@ -444,3 +444,48 @@ describe("EmailCodeFlow", () => {
     }
   )
 })
+
+// S20 PR C, IN 5: the code matched, and the account signs in with its passkey
+// alone. The sign-in page takes the sentence back to its address, beside its
+// passkey button; nothing is signed in, and nothing is remembered.
+describe("EmailCodeFlow: the account signs in with its passkey (S20)", () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+    window.sessionStorage.clear()
+    for (const mock of Object.values(mocks)) mock.mockReset()
+  })
+
+  it("hands the sentence to the sign-in page", async () => {
+    answerVerify({ step: "signIn" })
+    mocks.signInWithEmailCode.mockRejectedValue({
+      status: 403,
+      code: "Auth.PasskeyRequired",
+      detail: "This account signs in with its passkey.",
+    })
+    const onPasskeyRequired = vi.fn()
+    renderFlow({ onPasskeyRequired })
+
+    await typeCode()
+
+    await waitFor(() =>
+      expect(onPasskeyRequired).toHaveBeenCalledWith("This account signs in with its passkey.")
+    )
+    expect(mocks.complete).not.toHaveBeenCalled()
+    expect(window.localStorage.getItem(LAST_SIGN_IN_METHOD_KEY)).toBeNull()
+  })
+
+  it("shows the sentence on the code screen where no page offers the passkey", async () => {
+    answerVerify({ step: "signIn" })
+    mocks.signInWithEmailCode.mockRejectedValue({
+      status: 403,
+      code: "Auth.PasskeyRequired",
+      detail: "This account signs in with its passkey.",
+    })
+    renderFlow()
+
+    await typeCode()
+
+    expect(await screen.findByText("This account signs in with its passkey.")).toBeInTheDocument()
+    expect(mocks.complete).not.toHaveBeenCalled()
+  })
+})

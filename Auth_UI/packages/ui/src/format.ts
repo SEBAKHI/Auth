@@ -4,6 +4,8 @@ import { format, formatDistanceToNow, parseISO, type Locale } from "date-fns"
 import i18n, { dateLocaleFor } from "@authsystem/i18n"
 import { getActiveTimeZone } from "@authsystem/i18n/timezone"
 
+import { withUtcOffset } from "./api-instant"
+
 /**
  * The date-fns locale matching the active UI language (undefined = English). English needs
  * none, and date-fns ships no Urdu locale, so "en" and "ur" use the default English date
@@ -22,18 +24,15 @@ export function numberLocale(): string {
 /** Badge variants exposed by the shadcn Badge component (preset-styled). */
 export type BadgeVariant = "default" | "secondary" | "destructive" | "outline"
 
-// Datetime string carrying neither a "Z" nor a numeric offset. The API emits
-// UTC with "Z"; this is a belt-and-braces guard for older cached payloads.
-const DATETIME_WITHOUT_OFFSET = /^\d{4}-\d{2}-\d{2}T[\d:.]+$/
-
 // Pure calendar date ("2026-07-04") — rendered as-is, never zone-shifted.
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 
 function toDate(value: string | null | undefined): Date | null {
   if (!value) return null
   try {
-    const iso = DATETIME_WITHOUT_OFFSET.test(value) ? `${value}Z` : value
-    const date = parseISO(iso)
+    // The API emits UTC with "Z"; a value carrying no zone is UTC too, a
+    // belt-and-braces guard for older cached payloads (api-instant.ts).
+    const date = parseISO(withUtcOffset(value))
     return Number.isNaN(date.getTime()) ? null : date
   } catch {
     return null

@@ -522,3 +522,33 @@ describe("TwoFactorVerifyPage and the proof of the first step (OI-275)", () => {
     )
   })
 })
+
+// S20 PR C, IN 5: a backstop. The second step answers that the account signs in
+// with its passkey alone: no code is asked for any more, and the way to the
+// passkey is named where the person is looking, never as a toast.
+describe("TwoFactorVerifyPage: the account signs in with its passkey (S20)", () => {
+  beforeEach(() => {
+    mocks.completeTwoFactor.mockReset()
+    mocks.complete.mockReset()
+    mocks.toastError.mockReset()
+    mocks.returnTo = "https://api.example.com/api/v1/auth/authorize?client_id=app"
+  })
+
+  it("keeps the sentence, takes no further code, and links to the sign-in page", async () => {
+    mocks.completeTwoFactor.mockRejectedValue(problem(403, "Auth.PasskeyRequired"))
+    renderPage()
+
+    await submitRecoveryCode()
+
+    expect(await screen.findByTestId("passkey-required-note")).toHaveTextContent(
+      "server sentence for Auth.PasskeyRequired"
+    )
+    expect(
+      screen.getByRole("link", { name: "auth.passkey.signInWithYourPasskey" })
+    ).toHaveAttribute("href", expect.stringMatching(/^\/login/))
+    expect(screen.getByLabelText("auth.recoveryCode")).toBeDisabled()
+    expect(screen.getByRole("button", { name: "auth.verify" })).toBeDisabled()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+    expect(mocks.complete).not.toHaveBeenCalled()
+  })
+})

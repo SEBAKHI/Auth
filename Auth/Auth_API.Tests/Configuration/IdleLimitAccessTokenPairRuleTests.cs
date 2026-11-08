@@ -192,7 +192,7 @@ public class IdleLimitAccessTokenPairRuleTests
         return new UpdateSystemSettingsCommandHandler(
             rows.Object, new Mock<IUserRepository>().Object, running, SystemSettingsTestSupport.SnapshotOf(running),
             new Mock<ISystemSettingsReloader>().Object, new Mock<IPublisher>().Object,
-            new Mock<IIdpSessionIdleLimitChange>().Object, NullLogger<UpdateSystemSettingsCommandHandler>.Instance);
+            new Mock<IIdpSessionIdleLimitChange>().Object, new Mock<IPasskeyRpIdChange>().Object, NullLogger<UpdateSystemSettingsCommandHandler>.Instance);
     }
 
     [Fact]
@@ -229,6 +229,7 @@ public class IdleLimitAccessTokenPairRuleTests
         var result = await new ResetSystemSettingsCommandHandler(
                 rows.Object, running, SystemSettingsTestSupport.SnapshotOf(file), new Mock<ISystemSettingsReloader>().Object,
                 new Mock<IPublisher>().Object, new Mock<IIdpSessionIdleLimitChange>().Object,
+                new Mock<IPasskeyRpIdChange>().Object,
                 NullLogger<ResetSystemSettingsCommandHandler>.Instance)
             .Handle(new ResetSystemSettingsCommand("IdentityProvider", Guid.NewGuid()), CancellationToken.None);
 
@@ -259,6 +260,7 @@ public class IdleLimitAccessTokenPairRuleTests
         var result = await new ResetSystemSettingsCommandHandler(
                 rows.Object, running, SystemSettingsTestSupport.SnapshotOf(file), new Mock<ISystemSettingsReloader>().Object,
                 new Mock<IPublisher>().Object, new Mock<IIdpSessionIdleLimitChange>().Object,
+                new Mock<IPasskeyRpIdChange>().Object,
                 NullLogger<ResetSystemSettingsCommandHandler>.Instance)
             .Handle(new ResetSystemSettingsCommand("Jwt", Guid.NewGuid()), CancellationToken.None);
 
