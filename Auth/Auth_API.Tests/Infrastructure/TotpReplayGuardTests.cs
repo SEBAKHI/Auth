@@ -93,6 +93,15 @@ public class TotpReplayGuardTests
             store.TryCommitStepUpAsync(
                 Guid.NewGuid(), SecondFactorProof.Totp(Step),
                 new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Totp), CancellationToken.None), StepClaim),
+        // A signed-in person proving themself again settles the factor with the same claim, in the
+        // transaction that stamps the session.
+        [nameof(ITwoFactorStateStore.TryCommitSessionProofAsync)] = (store =>
+            store.TryCommitSessionProofAsync(
+                Guid.NewGuid(),
+                new SessionProofCommit(
+                    new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Password.With(AuthenticationMethods.Totp)),
+                    secondFactor: SecondFactorProof.Totp(Step)),
+                CancellationToken.None), StepClaim),
         // S08 PR B: new recovery codes, and starting an authenticator replacement,
         // prove the CURRENT factor and settle it with the sign-in's own claim, in
         // the transaction that makes the change.
@@ -178,6 +187,8 @@ public class TotpReplayGuardTests
         // verifier) and commits nothing; its callers commit it.
         "EmailCodeFactorProof.cs",
         "SecondFactorProof.cs",
+        // What a proof inside a session carries to the store's commit: it commits nothing itself.
+        "SessionProofCommit.cs",
         "ITwoFactorStateStore.cs",
         "TwoFactorStateStore.cs",
         "Program.cs",

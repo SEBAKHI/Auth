@@ -22,13 +22,14 @@ public class TwoFactorEmailCodeSeedContractTests
     private const string TemplateId = "42000000-0000-0000-0000-000000000024";
     private const string Version1 = "43000000-0000-0000-0000-000000000024";
     private const string Version2 = "43000000-0000-0000-0002-000000000024";
+    private const string Version3 = "43000000-0000-0000-0003-000000000024";
     private const string Code = "482913";
 
     // What EmailCodeSender.SendAsync passes, no more.
     private static readonly string[] Catalog = ["UserName", "OtpCode", "ExpirationMinutes", "RequestedAt", "IpAddress", "Purpose"];
 
-    /// <summary>Every seeded version: version 2 is published over version 1, and both must render.</summary>
-    public static TheoryData<string> Versions => new() { Version1, Version2 };
+    /// <summary>Every seeded version: each is published over the one before it, and all must render.</summary>
+    public static TheoryData<string> Versions => new() { Version1, Version2, Version3 };
 
     private readonly FluidTemplateRenderer _renderer = new(TimeProvider.System);
 
@@ -171,6 +172,63 @@ public class TwoFactorEmailCodeSeedContractTests
         Regex.Replace(block, @"\s+", " ").Should().Contain(
             $"UPDATE [dbo].[NotificationTemplates] SET [PublishedVersionId] = '{Version2}' WHERE [Id] = '{TemplateId}' "
             + $"AND [PublishedVersionId] = '{Version1}';");
+    }
+
+    /// <summary>
+    /// A code a signed-in person asked for to prove themself again must not read as a sign-in code:
+    /// the sign-in wording says someone entered the password, and an account without one receives
+    /// this code too, so it may not tell its owner to change a password either. Every other purpose
+    /// keeps version 2's text exactly.
+    /// </summary>
+    [Fact]
+    public void Version3_WordsAProofOfItsOwn_AndEveryOtherPurposeKeepsVersion2sTextExactly()
+    {
+        var version2 = Translations(Version2).ToDictionary(row => row.Language);
+
+        foreach (var (language, subjectSource, bodySource) in Translations(Version3))
+        {
+            string Render(string source, string purpose, bool html) =>
+                _renderer.Render(source, Model(purpose), language, encodeHtml: html).Value;
+
+            foreach (var purpose in new[]
+            {
+                TwoFactorEmailCodePurposes.SignIn,
+                TwoFactorEmailCodePurposes.Enrollment,
+                TwoFactorEmailCodePurposes.SwitchOff,
+                TwoFactorEmailCodePurposes.DeletionRecovery,
+            })
+            {
+                Render(subjectSource, purpose, false).Should().Be(Render(version2[language].Subject, purpose, false));
+                Render(bodySource, purpose, true).Should().Be(Render(version2[language].Body, purpose, true));
+            }
+
+            var signInBody = Render(bodySource, TwoFactorEmailCodePurposes.SignIn, true);
+            var enrollmentBody = Render(bodySource, TwoFactorEmailCodePurposes.Enrollment, true);
+            var body = Render(bodySource, TwoFactorEmailCodePurposes.Reauthentication, true);
+
+            body.Should().NotContain(FirstSentence(Lead(signInBody)), $"a {language} code to confirm it is you was not asked for by a sign-in");
+            Warning(body).Should().NotBe(Warning(signInBody));
+            Warning(body).Should().NotBe(Warning(enrollmentBody), "an account without a password has none to change");
+            Render(subjectSource, TwoFactorEmailCodePurposes.Reauthentication, false)
+                .Should().NotBe(Render(subjectSource, TwoFactorEmailCodePurposes.SignIn, false));
+        }
+    }
+
+    [Fact]
+    public void Version3_IsANewVersionPublishedOnlyWhileTheSeededVersion2IsThePublishedOne()
+    {
+        var seed = File.ReadAllText(SeedPath(TemplatesSeed));
+        var start = seed.IndexOf($"AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '{Version3}')", StringComparison.Ordinal);
+        start.Should().BePositive("version 3 is inserted once, guarded by its own id");
+        var block = seed[start..seed.IndexOf("\nEND", start, StringComparison.Ordinal)];
+
+        block.Should().Contain("ISNULL(MAX([VersionNumber]), 0) + 1");
+        Regex.Replace(block, @"\s+", " ").Should().Contain(
+            $"UPDATE [dbo].[NotificationTemplates] SET [PublishedVersionId] = '{Version3}' WHERE [Id] = '{TemplateId}' "
+            + $"AND [PublishedVersionId] = '{Version2}';");
+
+        seed.IndexOf(Version3, StringComparison.Ordinal).Should().BeGreaterThan(
+            seed.LastIndexOf(Version2, StringComparison.Ordinal) - block.Length, "a fresh database publishes them in order");
     }
 
     [Fact]

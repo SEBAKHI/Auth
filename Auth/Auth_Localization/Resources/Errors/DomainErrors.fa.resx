@@ -1403,6 +1403,9 @@
   <data name="Passkey.NotFound" xml:space="preserve">
     <value>کلید عبور پیدا نشد.</value>
   </data>
+  <data name="Passkey.NotThisAccount" xml:space="preserve">
+    <value>این کلید عبور متعلق به حساب دیگری است. کلید عبور حسابی را که با آن وارد شده‌اید انتخاب کنید.</value>
+  </data>
   <data name="Passkey.VerificationFailed" xml:space="preserve">
     <value>کلید عبور تأیید نشد. دوباره تلاش کنید.</value>
   </data>

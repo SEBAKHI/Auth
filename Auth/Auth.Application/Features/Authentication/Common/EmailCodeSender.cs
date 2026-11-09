@@ -88,11 +88,11 @@ public sealed class EmailCodeSender : IEmailCodeSender
                 challenge.Purpose,
                 _otpHasher.Hash(EmailCodeProofStrategy.HashScope(challenge.Id), code),
                 lifetimeMinutes,
-                RequireBoundFactor: challenge.Purpose != TwoFactorChallengePurpose.EmailEnrollment,
+                RequireBoundFactor: challenge.RequiresBoundEmailFactor,
                 hardLimit,
                 _emailSettings.RateLimitWindowSeconds,
                 _emailSettings.MaxOtpRequestsPerWindow,
-                TwoFactorAuth.MaxEmailCodesPerDay),
+                challenge.DailyEmailCodeCeiling),
             cancellationToken);
 
         if (receipt is null)
@@ -161,7 +161,7 @@ public sealed class EmailCodeSender : IEmailCodeSender
         }
 
         var snapshot = await _twoFactorStateStore.GetSnapshotAsync(userId, cancellationToken);
-        var needsFactor = challenge.Purpose != TwoFactorChallengePurpose.EmailEnrollment;
+        var needsFactor = challenge.RequiresBoundEmailFactor;
 
         if (needsFactor && snapshot?.HasEmailCode != true)
         {

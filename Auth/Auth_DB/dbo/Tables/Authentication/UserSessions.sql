@@ -17,6 +17,9 @@ CREATE TABLE [dbo].[UserSessions]
     [DeviceId] NVARCHAR(64) NULL,
     [DeviceHash] CHAR(64) NULL,
     [AuthMethods] INT NULL,                     -- P3 deploy-1 batch: the authentication methods this session proved, as AuthenticationMethods flags (S08). NULL = recorded before the column existed, or nothing proved: since S23 an application's session records what the IdP session behind its code proved, which its refreshes read
+    -- The proof in place (owner decision, 2026-11-09): the person proved themself again inside this session, with no new sign-in. Appended last and nullable, so the publish is a plain ALTER TABLE ADD.
+    [LastProofAt] DATETIME2 NULL,               -- when; NULL = never since the session began. ReauthenticationGuard reads it once StartedAt is too old
+    [LastProofMethods] INT NULL,                -- what that one proof proved, as AuthenticationMethods flags: never the union of what the session ever proved, which AuthMethods holds
 
     CONSTRAINT [PK_UserSessions] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_UserSessions_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id]),

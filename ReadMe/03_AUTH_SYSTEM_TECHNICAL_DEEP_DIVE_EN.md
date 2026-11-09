@@ -542,10 +542,14 @@ an administrator's reset (`POST /api/v1/users/{id}/two-factor/reset`), which ans
 first lines state the same rule.
 
 **Switching two-factor on and off are guarded twice more.** Setup, enable and disable first need a session
-whose sign-in is no older than `TwoFactor:ReauthenticationMaxAgeMinutes` (default 15, hot), measured on the
+whose sign-in, or whose last proof of the person inside the session, is no older than
+`TwoFactor:ReauthenticationMaxAgeMinutes` (default 15, hot), measured on the
 session row the token's `sid` names — a refreshed token keeps its session, so refreshing does not make an old
 sign-in recent; an older session, or a token with no session, is answered 403 `Auth.ReauthenticationRequired`
-before anything is read or counted. And the factor row and the account flag the sign-in gate reads
+before anything is read or counted. The person then proves themself where they stand, in a small window, with
+what a sign-in of the same account would ask for and nothing signed out (`auth/reauthentication`). What counts
+past the sign-in is what that one proof proved, never what the session ever proved, so a stolen session and a
+stolen password never pass for two factors. And the factor row and the account flag the sign-in gate reads
 (`Users.IsTwoFactorEnabled`) change together, in one transaction of `ITwoFactorStateStore` — nothing else
 writes the flag, so a stale copy of the user saved by an unrelated path can no longer switch two-factor off.
 Disable accepts an authenticator code or a recovery code, signs out every other session and browser after the
@@ -679,7 +683,7 @@ is a five-minute cleanup pass. The multi-instance consequence is stated in secti
 one comes first is the deployment's choice (`Registration:PasswordAtSignUp` off puts the code first), or the
 method that last worked on that browser — one word in its storage, never the address. Before the code, only
 what the visitor already knows decides the page: the options, their own click, and an add-only reason from the
-"sign in again" dialog. Nothing about the address — whether it has an account, a password, an app or
+proof window's way out, "sign in again". Nothing about the address — whether it has an account, a password, an app or
 authority — changes the page, the answer, its timing class or the number of messages: the start sends one
 message to every address, and only its kind differs (a sign-in code, the registration code, or a notice), seen
 only by the mailbox's holder. After the code matched, the server names the next step.
@@ -720,7 +724,7 @@ its password — binding the authenticator app included: its setup and its enabl
 sign-in behind a code the owner does not have.
 
 **Full proof.** The sign-in by code does not finish for a password account that holds any platform permission,
-or when the "sign in again" dialog asked for full proof: the answer is `passwordRequired` and the ordinary
+or when the proof window's way out asked for full proof: the answer is `passwordRequired` and the ordinary
 password sign-in continues it. The rule reads the platform claims, never `TwoFactor:EnforceForPlatformAdmins`:
 keyed on the switch, a mailbox holder would reach an administrator whenever it is off.
 

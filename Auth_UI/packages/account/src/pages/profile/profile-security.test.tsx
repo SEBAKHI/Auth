@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { fireEvent, render, screen, within } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -33,9 +33,10 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }))
 
-const { logout, toastError } = vi.hoisted(() => ({
+const { logout, toastError, toastInfo } = vi.hoisted(() => ({
   logout: vi.fn(),
   toastError: vi.fn(),
+  toastInfo: vi.fn(),
 }))
 
 // The sign-in-again dialog signs out through the session; nothing else here
@@ -45,7 +46,7 @@ vi.mock("@authsystem/auth/auth-context", () => ({
 }))
 
 vi.mock("sonner", () => ({
-  toast: { error: toastError, success: vi.fn() },
+  toast: { error: toastError, success: vi.fn(), info: toastInfo },
 }))
 
 import { api } from "@authsystem/api/client"
@@ -258,33 +259,138 @@ describe("the Security tab two-factor card", () => {
   }, 15_000)
 
   it.each(["setup", "enable", "disable"] as const)(
-    "asks to sign in again on Auth.ReauthenticationRequired from %s",
+    "asks for a proof where the person stands on Auth.ReauthenticationRequired from %s, signing nothing out",
     async (change) => {
-      post.mockImplementation(async (path: string) =>
-        path === "/api/v1/auth/2fa/setup" && change !== "setup"
-          ? { data: SETUP }
-          : problem(403, "Auth.ReauthenticationRequired")
-      )
+      let proved = false
+      post.mockImplementation(async (path: string) => {
+        if (path === "/api/v1/auth/reauthentication") {
+          proved = true
+          return { data: undefined }
+        }
+        if (path === "/api/v1/auth/2fa/setup" && (change !== "setup" || proved)) return { data: SETUP }
+        if (proved) return { data: undefined }
+        return problem(403, "Auth.ReauthenticationRequired")
+      })
+      vi.mocked(api.GET).mockImplementation((async (path: string) =>
+        path === "/api/v1/auth/reauthentication"
+          ? { data: { passkey: false, password: true, emailCode: false, secondStep: "None", canProveInPlace: true } }
+          : { data: undefined }) as never)
       const user = userEvent.setup()
 
       await changes[change](user)
 
-      const dialog = await screen.findByRole("alertdialog", {
-        name: "auth.reauthenticateTitle",
+      const dialog = await screen.findByRole("dialog", {
+        name: "auth.reauthenticate.title",
       })
       expect(toastError).not.toHaveBeenCalled()
 
-      // Its way forward is signing out; the route guard and the sign-in
-      // completion bring the user back to this tab.
-      await user.click(
-        within(dialog).getByRole("button", {
-          name: "auth.reauthenticateAction",
-        })
+      await user.type(await within(dialog).findByLabelText("auth.password"), "my password")
+      await user.click(within(dialog).getByRole("button", { name: "auth.reauthenticate.confirm" }))
+
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: "auth.reauthenticate.title" })).not.toBeInTheDocument()
       )
-      expect(logout).toHaveBeenCalledTimes(1)
+      expect(logout).not.toHaveBeenCalled()
+
+      // What was asked goes on where the page still holds it: setup starts, and a switch-off
+      // is sent again. An enable keeps its page and its typed code, for the person to press.
+      const called = (path: string) => post.mock.calls.filter(([called]) => called === path)
+      if (change === "setup") {
+        expect(called("/api/v1/auth/2fa/setup")).toHaveLength(2)
+      } else if (change === "disable") {
+        expect(called("/api/v1/auth/2fa/disable")).toHaveLength(2)
+      } else {
+        expect(called("/api/v1/auth/2fa/setup")).toHaveLength(1)
+        expect(screen.getByLabelText("auth.twoFactorCode")).toBeInTheDocument()
+      }
     },
     15_000
   )
+
+  describe("a switch-off whose code the proof may have spent", () => {
+    const disables = () => post.mock.calls.filter(([called]) => called === "/api/v1/auth/2fa/disable")
+
+    function givenAProofThatTakesTheApp() {
+      toastInfo.mockReset()
+      let proved = false
+      post.mockImplementation(async (path: string) => {
+        if (path === "/api/v1/auth/reauthentication") {
+          proved = true
+          return { data: undefined }
+        }
+        return proved ? { data: undefined } : problem(403, "Auth.ReauthenticationRequired")
+      })
+      vi.mocked(api.GET).mockImplementation((async (path: string) =>
+        path === "/api/v1/auth/reauthentication"
+          ? { data: { passkey: false, password: true, emailCode: false, secondStep: "AuthenticatorApp", canProveInPlace: true } }
+          : { data: undefined }) as never)
+    }
+
+    const closed = () =>
+      waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: "auth.reauthenticate.title" })).not.toBeInTheDocument()
+      )
+
+    // The review of the window. Deliberate break, verified red: sent again whatever the proof spent
+    // (counted against the factor, and answered as a code someone else used).
+    it("sends nothing the replay rule would refuse, and asks for the next code", async () => {
+      givenAProofThatTakesTheApp()
+      const user = userEvent.setup()
+
+      await changes.disable(user)
+      const dialog = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+      await user.type(await within(dialog).findByLabelText("auth.password"), "my password")
+      await user.type(within(dialog).getByLabelText("auth.twoFactorCode"), "654321")
+      await user.click(within(dialog).getByRole("button", { name: "auth.reauthenticate.confirm" }))
+      await closed()
+
+      expect(disables()).toHaveLength(1)
+      expect(toastInfo).toHaveBeenCalledWith("profile.twoFactorNextCode")
+      const field = screen.getByLabelText("auth.twoFactorCode")
+      expect(field).toHaveValue("")
+
+      await user.type(field, "111222")
+      await user.click(screen.getByRole("button", { name: "profile.disableTwoFactor" }))
+
+      await waitFor(() => expect(disables()).toHaveLength(2))
+      expect(disables()[1]![1]).toEqual({ body: { code: "111222", useRecoveryCode: false } })
+    }, 15_000)
+
+    it("sends the code again when the proof did not touch the app", async () => {
+      givenAProofThatTakesTheApp()
+      const user = userEvent.setup()
+
+      await changes.disable(user)
+      const dialog = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+      await user.type(await within(dialog).findByLabelText("auth.password"), "my password")
+      await user.click(within(dialog).getByRole("button", { name: "auth.useRecoveryCode" }))
+      await user.type(within(dialog).getByLabelText("auth.recoveryCode"), "RECOVERY-1")
+      await user.click(within(dialog).getByRole("button", { name: "auth.reauthenticate.confirm" }))
+      await closed()
+
+      await waitFor(() => expect(disables()).toHaveLength(2))
+      expect(disables()[1]![1]).toEqual({ body: { code: "123456", useRecoveryCode: false } })
+      expect(toastInfo).not.toHaveBeenCalled()
+    }, 15_000)
+
+    it("sends a recovery code again: the app's time step does not touch it", async () => {
+      givenAProofThatTakesTheApp()
+      const user = userEvent.setup()
+      renderCard({ twoFactorEnabled: true })
+
+      await user.click(screen.getByRole("button", { name: "auth.useRecoveryCode" }))
+      await user.type(screen.getByLabelText("auth.recoveryCode"), "ABCD-1234")
+      await user.click(screen.getByRole("button", { name: "profile.disableTwoFactor" }))
+      const dialog = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+      await user.type(await within(dialog).findByLabelText("auth.password"), "my password")
+      await user.type(within(dialog).getByLabelText("auth.twoFactorCode"), "654321")
+      await user.click(within(dialog).getByRole("button", { name: "auth.reauthenticate.confirm" }))
+      await closed()
+
+      await waitFor(() => expect(disables()).toHaveLength(2))
+      expect(disables()[1]![1]).toEqual({ body: { code: "ABCD-1234", useRecoveryCode: true } })
+    }, 15_000)
+  })
 
   it("keeps a locked factor a toast: a 403 is not a stale sign-in", async () => {
     post.mockResolvedValue(problem(403, "TwoFactor.LockedOut"))

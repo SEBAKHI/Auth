@@ -382,6 +382,16 @@ export const zh: TranslationResources = {
     mfaRequiredPasskeyLost: "丢失了存有通行密钥的设备？另一位平台管理员可以重置您的两步验证，之后您再设置新的因素。",
     signInReasonPasskeyTitle: "使用您的通行密钥登录",
     signInReasonPasskeyBody: "此应用要求双因素身份验证（2FA），而您账户的第二因素是通行密钥（passkey）：请用它登录。如果您丢失了它，请用其他方式登录，在“个人资料 › 安全”中将其删除，然后添加身份验证器应用或新的通行密钥。",
+    reauthenticate: {
+      title: "确认是您本人",
+      body: "为保障您的安全，此更改需要您确认是本人操作。您会留在此页面。",
+      passkeyBody: "为保障您的安全，此更改需要您的通行密钥：它是您账户的第二因素，仅凭密码或邮件验证码不够。",
+      withPasskey: "使用我的通行密钥确认",
+      or: "或",
+      confirm: "确认",
+      proved: "已确认，您可以继续。",
+      signOutLink: "无法在此确认？请退出后重新登录",
+    },
     reauthenticatePasskeyBody: "为了您的安全，此更改需要最近一次证明了两个步骤的登录。您账户的第二因素是通行密钥，仅凭密码或电子邮件验证码不够：请退出后用通行密钥重新登录，您将回到此页面。",
     reauthenticateWithPasskeyAction: "用我的通行密钥重新登录",
     passkey: {
@@ -510,8 +520,8 @@ export const zh: TranslationResources = {
     mfaRequiredSubtitle: "平台管理员必须先证明第二因素，才能管理平台。",
     mfaRequiredEnroll: "您的账户尚无第二因素。请设置验证器应用以继续。",
     mfaRequiredStepUp: "请输入验证器应用中的验证码或恢复码以继续。",
-    mfaRequiredReauthenticate: "此会话未记录您的登录方式。请使用密码和第二因素重新登录以继续。",
-    mfaRequiredReauthenticateBody: "请退出后使用密码和验证器应用中的验证码重新登录。您将返回到原本要去的页面。",
+    mfaRequiredReauthenticate: "此会话未记录您的登录方式。请使用密码和第二因素确认是本人操作以继续。",
+    mfaRequiredReauthenticateBody: "请使用密码和第二因素确认是本人操作。",
     mfaRequiredCheckFailedTitle: "无法检查您的会话",
     mfaRequiredCheckFailed: "服务器没有响应。请检查网络连接后重试，或退出登录。",
     signInReasonStepUpTitle: "需要您的第二因素",
@@ -792,7 +802,7 @@ export const zh: TranslationResources = {
     resetTwoFactorDescription: "这将移除 {{name}} 账户的第二因素和恢复代码，并结束其所有会话。账户所有者下次登录时需重新设置双重认证，并会收到邮件通知。",
     resetTwoFactorConfirm: "重置",
     resetTwoFactorSuccess: "已重置双重认证。",
-    resetTwoFactorNeedsRecentSignIn: "重置其他账户的双重认证，需要您本人最近一次使用双重认证登录。请使用验证码重新登录，然后重试。",
+    resetTwoFactorNeedsRecentSignIn: "为其他账户重置双重验证，需要您用自己的第二因素确认是本人操作。",
     resetTwoFactorNeedsOwnFactorTitle: "请先为您自己的账户设置双重认证",
     resetTwoFactorNeedsOwnFactor: "只有自己的账户使用双重认证的管理员才能重置他人的双重认证。请在安全设置中开启，使用验证码重新登录，然后重试。",
     resetTwoFactorOpenSecurity: "打开安全设置",
@@ -1442,6 +1452,7 @@ export const zh: TranslationResources = {
       twofactorEmailCodeEnabled: "邮件验证码已开启",
       twofactorEmailCodeDisabled: "邮件验证码已关闭",
       twofactorSteppedUp: "在会话中完成两步验证",
+      sessionReauthenticated: "在会话中重新验证身份",
       passkeyRegistered: "已添加通行密钥",
       passkeyRemoved: "已移除通行密钥",
       userLocked: "锁定账户",
@@ -3114,7 +3125,7 @@ export const zh: TranslationResources = {
       removeBody: "它将无法再让您登录，您的账户也会在其他设备上退出登录；此设备保持登录。也请将其从此设备保存的通行密钥中删除。",
       remove: "删除",
       removed: "已删除通行密钥“{{name}}”。您的其他设备已退出登录。",
-      needsRecentSignIn: "为了您的安全，添加或删除通行密钥需要最近的登录。请退出后重新登录，您将回到此页面。",
+      needsRecentSignIn: "为保障您的安全，添加或删除通行密钥需要您确认是本人操作。",
     },
     title: "我的资料",
     subtitle: "管理您的账户、会话和安全设置。",
@@ -3191,7 +3202,7 @@ export const zh: TranslationResources = {
     removePasswordConfirmBody:
       "从现在起，您将使用发送到 {{email}} 的验证码登录；除非启用了身份验证器应用，任何控制该邮箱的人都能登录您的账户。所有其他已登录您账户的设备都将被登出，我们会发邮件告知您密码已移除。",
     removePasswordReauthenticate:
-      "移除密码需要您最近使用密码（以及已启用的身份验证器应用）登录过。请重新登录，然后再移除。",
+      "移除密码需要您用密码（以及已开启的身份验证器应用）确认是本人操作。",
     passwordRemoved: "密码已移除。从现在起请使用发送到您邮箱的验证码登录。",
     setPasswordBody:
       "此账户尚未设置密码：它通过发送到您邮箱的验证码或 Google 等关联账户登录。我们会向您发送创建密码的链接，之后也可以使用密码登录。",
@@ -3264,7 +3275,9 @@ export const zh: TranslationResources = {
     replaceAuthenticatorScanBody: "现在设置新应用并输入它显示的验证码。在您确认之前，当前应用仍然有效。如果等待太久，请重新开始。",
     replaceAuthenticatorConfirm: "确认新应用",
     replaceAuthenticatorToast: "已更换验证器应用。",
-    twoFactorChangeNeedsRecentSignIn: "此操作需要最近一次使用验证器应用或恢复代码的登录：邮件验证码在此不计入。如果要求您重新登录，请使用应用中的验证码登录后再回到这里。",
+    twoFactorNextCode: "已确认。每个验证码只能使用一次，请输入应用中的下一个验证码。",
+
+    twoFactorChangeNeedsRecentSignIn: "这需要您用身份验证器应用或恢复代码确认是本人操作：邮件验证码在此不算。",
   },
   accountDeletion: {
     recoverWithPasskey: "使用您的通行密钥取消删除",

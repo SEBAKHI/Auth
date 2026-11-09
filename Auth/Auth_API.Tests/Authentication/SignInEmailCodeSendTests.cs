@@ -88,6 +88,7 @@ public class SignInEmailCodeSendTests
     [InlineData(TwoFactorChallengePurpose.EmailEnrollment, TwoFactorEmailCodePurposes.Enrollment)]
     [InlineData(TwoFactorChallengePurpose.EmailDisable, TwoFactorEmailCodePurposes.SwitchOff)]
     [InlineData(TwoFactorChallengePurpose.DeletionRecovery, TwoFactorEmailCodePurposes.DeletionRecovery)]
+    [InlineData(TwoFactorChallengePurpose.Reauthentication, TwoFactorEmailCodePurposes.Reauthentication)]
     public async Task TheEmail_NamesWhatTheCodeIsFor(TwoFactorChallengePurpose purpose, string expected)
     {
         var challenge = ChallengeWith(_user.Id, AuthenticationMethods.Password, purpose);
@@ -96,6 +97,25 @@ public class SignInEmailCodeSendTests
         (await Sender().SendAsync(_user, challenge, "203.0.113.7", hardLimit: 100, CancellationToken.None)).IsError.Should().BeFalse();
 
         _sent!.Variables["Purpose"].Should().Be(expected);
+    }
+
+    // Review of the window: it serves the sessions past their recency, so a stolen token reaches
+    // it. It stops at half the account's budget: what is left stays the owner's, for a sign-in.
+    // Deliberate break, verified red: the one ceiling for every purpose.
+    [Theory]
+    [InlineData(TwoFactorChallengePurpose.SignIn, 10)]
+    [InlineData(TwoFactorChallengePurpose.EmailEnrollment, 10)]
+    [InlineData(TwoFactorChallengePurpose.EmailDisable, 10)]
+    [InlineData(TwoFactorChallengePurpose.DeletionRecovery, 10)]
+    [InlineData(TwoFactorChallengePurpose.Reauthentication, 5)]
+    public async Task TheDailyCeiling_LeavesTheOwnerASignIn(TwoFactorChallengePurpose purpose, int ceiling)
+    {
+        GivenReceipt(new EmailCodeSendReceipt(SendCount: 1, DateTime.UtcNow.AddMinutes(7)));
+
+        await Sender().SendAsync(
+            _user, ChallengeWith(_user.Id, AuthenticationMethods.Password, purpose), "203.0.113.7", hardLimit: 100, CancellationToken.None);
+
+        _reserved!.DailyMax.Should().Be(ceiling);
     }
 
     [Fact]

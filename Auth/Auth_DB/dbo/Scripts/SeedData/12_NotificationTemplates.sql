@@ -4479,6 +4479,173 @@ END
 GO
 
 -- ============================================================
+-- Template 24, version 3: two-factor-email-code, a code to confirm it is you
+--
+-- Version 2 with one more purpose: the code a signed-in person asks for in the
+-- window that proves them again before a change to their security settings, with
+-- no new sign-in ("reauthentication"). Its "if this was not you" block says someone
+-- is signed in and to end the sessions the owner does not recognise. It does not say
+-- to change the password: the accounts that receive this code as their first proof
+-- have none. Every other purpose keeps version 2's text exactly.
+--
+-- Published only while the seeded version 2 is the published one: a version an
+-- administrator wrote and published stays published. The version number is the
+-- next free one, so a version an administrator added is never collided with.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000024')
+   AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '43000000-0000-0000-0003-000000000024')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    SELECT '43000000-0000-0000-0003-000000000024', '42000000-0000-0000-0000-000000000024',
+           ISNULL(MAX([VersionNumber]), 0) + 1, N'One more purpose: a code to confirm it is you, with no new sign-in', GETUTCDATE(), @SystemUserId
+    FROM [dbo].[NotificationTemplateVersions]
+    WHERE [TemplateId] = '42000000-0000-0000-0000-000000000024';
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0003-0024-000000000001', '43000000-0000-0000-0003-000000000024', N'en', N'{% case Purpose %}{% when "enrollment" %}Your code to turn on sign-in codes by email{% when "switch-off" %}Your code to change your second sign-in step{% when "deletion-recovery" %}Your code to restore your account{% when "reauthentication" %}Your code to confirm it is you{% else %}Your sign-in code{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}Your code to turn on sign-in codes by email{% when "switch-off" %}Your code to turn off sign-in codes by email{% when "deletion-recovery" %}Your code to restore your account{% when "reauthentication" %}Your code to confirm it is you{% else %}Your code to finish signing in{% endcase %}</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}Someone signed in to your {{ Platform.Name }} account asked to turn on sign-in codes by email. If it is you, enter the code below in your account''s security settings. It expires in {{ ExpirationMinutes }} minutes, and a newer code replaces it.{% when "switch-off" %}Someone signed in to your {{ Platform.Name }} account asked to turn off sign-in codes by email, or to replace them with an authenticator app. If it is you, enter the code below in your account''s security settings. It expires in {{ ExpirationMinutes }} minutes, and a newer code replaces it.{% when "deletion-recovery" %}Someone entered your password to restore your {{ Platform.Name }} account, which is waiting to be deleted, and asked for a code to finish. If it is you, enter the code below on the account recovery page. It expires in {{ ExpirationMinutes }} minutes, and a newer code replaces it.{% when "reauthentication" %}Someone signed in to your {{ Platform.Name }} account asked to confirm it is them before changing a security setting. If it is you, enter the code below in the window that asked for it. It expires in {{ ExpirationMinutes }} minutes, and a newer code replaces it.{% else %}Someone entered your password to sign in to your {{ Platform.Name }} account and asked for a code to finish. If it is you, enter the code below on the sign-in page. It expires in {{ ExpirationMinutes }} minutes, and a newer code replaces it.{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Request details</p>
+    <p class="notice-text">When: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />From: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">If this was not you</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}Someone who is signed in to your account asked for this code. Do not enter it anywhere, and never share it with anyone — {{ Platform.Name }} will never ask you for it. Change your password now, and tell your administrator.{% when "switch-off" %}Someone who is signed in to your account asked for this code. Do not enter it anywhere, and never share it with anyone — {{ Platform.Name }} will never ask you for it. Change your password now, and tell your administrator.{% when "reauthentication" %}Someone who is signed in to your account asked for this code. Do not enter it anywhere, and never share it with anyone — {{ Platform.Name }} will never ask you for it. End the sessions you do not recognise in your account, and tell your administrator.{% else %}Do not enter the code, and never share it with anyone — {{ Platform.Name }} will never ask you for it. Someone else knows your password: change it now. Without this code they cannot sign in.{% endcase %}</p>
+</div>'),
+    ('44000000-0000-0003-0024-000000000002', '43000000-0000-0000-0003-000000000024', N'ar', N'{% case Purpose %}{% when "enrollment" %}رمز تفعيل رموز الدخول بالبريد في حسابك{% when "switch-off" %}رمز تغيير الخطوة الثانية لدخولك{% when "deletion-recovery" %}رمز استعادة حسابك{% when "reauthentication" %}رمز تأكيد هويتك{% else %}رمز إكمال تسجيل الدخول إلى حسابك{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}رمزك لتفعيل رموز الدخول بالبريد{% when "switch-off" %}رمزك لإيقاف رموز الدخول بالبريد{% when "deletion-recovery" %}رمزك لاستعادة حسابك{% when "reauthentication" %}رمزك لتأكيد هويتك{% else %}رمزك لإكمال تسجيل الدخول{% endcase %}</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}طلب شخصٌ مسجَّل الدخول إلى حسابك على {{ Platform.Name }} تفعيلَ رموز الدخول بالبريد. فإن كنت أنت، فأدخل الرمز أدناه في إعدادات الأمان بحسابك. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة، ويحلّ محلّه أيّ رمز أحدث منه.{% when "switch-off" %}طلب شخصٌ مسجَّل الدخول إلى حسابك على {{ Platform.Name }} إيقافَ رموز الدخول بالبريد، أو استبدالَ تطبيق مصادقة بها. فإن كنت أنت، فأدخل الرمز أدناه في إعدادات الأمان بحسابك. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة، ويحلّ محلّه أيّ رمز أحدث منه.{% when "deletion-recovery" %}أدخل أحدهم كلمة مرور حسابك على {{ Platform.Name }} لاستعادته، وهو في انتظار الحذف، وطلب رمزًا لإكمال ذلك. فإن كنت أنت، فأدخل الرمز أدناه في صفحة استعادة الحساب. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة، ويحلّ محلّه أيّ رمز أحدث منه.{% when "reauthentication" %}طلب شخصٌ مسجَّل الدخول إلى حسابك على {{ Platform.Name }} تأكيدَ هويته قبل تغيير إعداد أمني. فإن كنت أنت، فأدخل الرمز أدناه في النافذة التي طلبته. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة، ويحلّ محلّه أيّ رمز أحدث منه.{% else %}أدخل أحدهم كلمة مرور حسابك على {{ Platform.Name }} لتسجيل الدخول، وطلب رمزًا لإكماله. فإن كنت أنت، فأدخل الرمز أدناه في صفحة تسجيل الدخول. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة، ويحلّ محلّه أيّ رمز أحدث منه.{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">تفاصيل الطلب</p>
+    <p class="notice-text">الوقت: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />من العنوان: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">إن لم تكن أنت</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}طلب هذا الرمزَ شخصٌ مسجَّل الدخول إلى حسابك. لا تُدخله في أي مكان، ولا تشاركه مع أي شخص — لن يطلبه منك فريق {{ Platform.Name }} أبدًا. غيّر كلمة مرورك الآن، وأبلغ مسؤول النظام.{% when "switch-off" %}طلب هذا الرمزَ شخصٌ مسجَّل الدخول إلى حسابك. لا تُدخله في أي مكان، ولا تشاركه مع أي شخص — لن يطلبه منك فريق {{ Platform.Name }} أبدًا. غيّر كلمة مرورك الآن، وأبلغ مسؤول النظام.{% when "reauthentication" %}طلب هذا الرمزَ شخصٌ مسجَّل الدخول إلى حسابك. لا تُدخله في أي مكان، ولا تشاركه مع أي شخص — لن يطلبه منك فريق {{ Platform.Name }} أبدًا. أنهِ من حسابك الجلسات التي لا تعرفها، وأبلغ مسؤول النظام.{% else %}لا تُدخل الرمز، ولا تشاركه مع أي شخص — لن يطلبه منك فريق {{ Platform.Name }} أبدًا. فشخص آخر يعرف كلمة مرورك: غيّرها الآن. ولن يستطيع تسجيل الدخول بدون هذا الرمز.{% endcase %}</p>
+</div>'),
+    ('44000000-0000-0003-0024-000000000003', '43000000-0000-0000-0003-000000000024', N'tr', N'{% case Purpose %}{% when "enrollment" %}E-postayla giriş kodlarını açma kodunuz{% when "switch-off" %}İkinci giriş adımınızı değiştirme kodunuz{% when "deletion-recovery" %}Hesabınızı geri yükleme kodunuz{% when "reauthentication" %}Siz olduğunuzu doğrulama kodunuz{% else %}Giriş kodunuz{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}E-postayla giriş kodlarını açma kodunuz{% when "switch-off" %}E-postayla giriş kodlarını kapatma kodunuz{% when "deletion-recovery" %}Hesabınızı geri yükleme kodunuz{% when "reauthentication" %}Siz olduğunuzu doğrulama kodunuz{% else %}Girişi tamamlama kodunuz{% endcase %}</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}{{ Platform.Name }} hesabınızda oturum açmış biri, e-postayla giriş kodlarının açılmasını istedi. Bu sizseniz, aşağıdaki kodu hesabınızın güvenlik ayarlarına girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolar ve daha yeni bir kod bu kodun yerini alır.{% when "switch-off" %}{{ Platform.Name }} hesabınızda oturum açmış biri, e-postayla giriş kodlarının kapatılmasını ya da bir kimlik doğrulama uygulamasıyla değiştirilmesini istedi. Bu sizseniz, aşağıdaki kodu hesabınızın güvenlik ayarlarına girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolar ve daha yeni bir kod bu kodun yerini alır.{% when "deletion-recovery" %}Biri, silinmeyi bekleyen {{ Platform.Name }} hesabınızı geri yüklemek için parolanızı girdi ve işlemi tamamlamak için bir kod istedi. Bu sizseniz, aşağıdaki kodu hesap kurtarma sayfasına girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolar ve daha yeni bir kod bu kodun yerini alır.{% when "reauthentication" %}{{ Platform.Name }} hesabınızda oturum açmış biri, bir güvenlik ayarını değiştirmeden önce kendisini doğrulamak istedi. Bu sizseniz, aşağıdaki kodu onu isteyen pencereye girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolar ve daha yeni bir kod bu kodun yerini alır.{% else %}Biri {{ Platform.Name }} hesabınıza giriş yapmak için parolanızı girdi ve girişi tamamlamak için bir kod istedi. Bu sizseniz, aşağıdaki kodu giriş sayfasına girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolar ve daha yeni bir kod bu kodun yerini alır.{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">İstek ayrıntıları</p>
+    <p class="notice-text">Zaman: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />Nereden: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Bu siz değilseniz</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}Bu kodu hesabınızda oturum açmış biri istedi. Kodu hiçbir yere girmeyin ve kimseyle paylaşmayın — {{ Platform.Name }} bu kodu sizden asla istemez. Parolanızı hemen değiştirin ve yöneticinize haber verin.{% when "switch-off" %}Bu kodu hesabınızda oturum açmış biri istedi. Kodu hiçbir yere girmeyin ve kimseyle paylaşmayın — {{ Platform.Name }} bu kodu sizden asla istemez. Parolanızı hemen değiştirin ve yöneticinize haber verin.{% when "reauthentication" %}Bu kodu hesabınızda oturum açmış biri istedi. Kodu hiçbir yere girmeyin ve kimseyle paylaşmayın — {{ Platform.Name }} bu kodu sizden asla istemez. Tanımadığınız oturumları hesabınızdan sonlandırın ve yöneticinize haber verin.{% else %}Kodu girmeyin ve kimseyle paylaşmayın — {{ Platform.Name }} bu kodu sizden asla istemez. Başka biri parolanızı biliyor: parolanızı hemen değiştirin. Bu kod olmadan giriş yapamaz.{% endcase %}</p>
+</div>'),
+    ('44000000-0000-0003-0024-000000000004', '43000000-0000-0000-0003-000000000024', N'fr', N'{% case Purpose %}{% when "enrollment" %}Votre code pour activer les codes de connexion par e-mail{% when "switch-off" %}Votre code pour modifier votre deuxième étape de connexion{% when "deletion-recovery" %}Votre code pour restaurer votre compte{% when "reauthentication" %}Votre code pour confirmer que c''est bien vous{% else %}Votre code de connexion{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}Votre code pour activer les codes de connexion par e-mail{% when "switch-off" %}Votre code pour désactiver les codes de connexion par e-mail{% when "deletion-recovery" %}Votre code pour restaurer votre compte{% when "reauthentication" %}Votre code pour confirmer que c''est bien vous{% else %}Votre code pour terminer la connexion{% endcase %}</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}Une personne connectée à votre compte {{ Platform.Name }} a demandé à activer les codes de connexion par e-mail. Si c''est vous, saisissez le code ci-dessous dans les paramètres de sécurité de votre compte. Il expirera dans {{ ExpirationMinutes }} minutes, et un code plus récent le remplace.{% when "switch-off" %}Une personne connectée à votre compte {{ Platform.Name }} a demandé à désactiver les codes de connexion par e-mail, ou à les remplacer par une application d''authentification. Si c''est vous, saisissez le code ci-dessous dans les paramètres de sécurité de votre compte. Il expirera dans {{ ExpirationMinutes }} minutes, et un code plus récent le remplace.{% when "deletion-recovery" %}Quelqu''un a saisi votre mot de passe pour restaurer votre compte {{ Platform.Name }}, en attente de suppression, et a demandé un code pour terminer. Si c''est vous, saisissez le code ci-dessous sur la page de récupération du compte. Il expirera dans {{ ExpirationMinutes }} minutes, et un code plus récent le remplace.{% when "reauthentication" %}Une personne connectée à votre compte {{ Platform.Name }} a demandé à confirmer son identité avant de modifier un paramètre de sécurité. Si c''est vous, saisissez le code ci-dessous dans la fenêtre qui l''a demandé. Il expirera dans {{ ExpirationMinutes }} minutes, et un code plus récent le remplace.{% else %}Quelqu''un a saisi votre mot de passe pour se connecter à votre compte {{ Platform.Name }} et a demandé un code pour terminer. Si c''est vous, saisissez le code ci-dessous sur la page de connexion. Il expirera dans {{ ExpirationMinutes }} minutes, et un code plus récent le remplace.{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Détails de la demande</p>
+    <p class="notice-text">Date : {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />Origine : {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Si ce n''est pas vous</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}Une personne connectée à votre compte a demandé ce code. Ne le saisissez nulle part et ne le partagez avec personne — {{ Platform.Name }} ne vous le demandera jamais. Changez votre mot de passe dès maintenant et prévenez votre administrateur.{% when "switch-off" %}Une personne connectée à votre compte a demandé ce code. Ne le saisissez nulle part et ne le partagez avec personne — {{ Platform.Name }} ne vous le demandera jamais. Changez votre mot de passe dès maintenant et prévenez votre administrateur.{% when "reauthentication" %}Une personne connectée à votre compte a demandé ce code. Ne le saisissez nulle part et ne le partagez avec personne — {{ Platform.Name }} ne vous le demandera jamais. Mettez fin depuis votre compte aux sessions que vous ne reconnaissez pas et prévenez votre administrateur.{% else %}Ne saisissez pas le code et ne le partagez avec personne — {{ Platform.Name }} ne vous le demandera jamais. Quelqu''un d''autre connaît votre mot de passe : changez-le dès maintenant. Sans ce code, il ne peut pas se connecter.{% endcase %}</p>
+</div>'),
+    ('44000000-0000-0003-0024-000000000005', '43000000-0000-0000-0003-000000000024', N'zh', N'{% case Purpose %}{% when "enrollment" %}您的验证码：开启邮件登录验证码{% when "switch-off" %}您的验证码：更改第二步登录验证{% when "deletion-recovery" %}您的验证码：恢复您的账户{% when "reauthentication" %}您的验证码：确认是您本人{% else %}您的登录验证码{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}开启邮件登录验证码所需的验证码{% when "switch-off" %}关闭邮件登录验证码所需的验证码{% when "deletion-recovery" %}恢复账户所需的验证码{% when "reauthentication" %}确认是您本人所需的验证码{% else %}完成登录的验证码{% endcase %}</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}已登录您的 {{ Platform.Name }} 账户的某人请求开启邮件登录验证码。如果是您本人，请在账户的安全设置中输入以下验证码。验证码将在 {{ ExpirationMinutes }} 分钟后失效，更新的验证码会取代它。{% when "switch-off" %}已登录您的 {{ Platform.Name }} 账户的某人请求关闭邮件登录验证码，或改用身份验证器应用。如果是您本人，请在账户的安全设置中输入以下验证码。验证码将在 {{ ExpirationMinutes }} 分钟后失效，更新的验证码会取代它。{% when "deletion-recovery" %}有人输入了您的密码，以恢复您正在等待删除的 {{ Platform.Name }} 账户，并请求验证码以完成操作。如果是您本人，请在账户恢复页面输入以下验证码。验证码将在 {{ ExpirationMinutes }} 分钟后失效，更新的验证码会取代它。{% when "reauthentication" %}已登录您的 {{ Platform.Name }} 账户的某人请求在更改安全设置前确认身份。如果是您本人，请在请求此验证码的窗口中输入以下验证码。验证码将在 {{ ExpirationMinutes }} 分钟后失效，更新的验证码会取代它。{% else %}有人输入了您的密码以登录您的 {{ Platform.Name }} 账户，并请求验证码以完成登录。如果是您本人，请在登录页面输入以下验证码。验证码将在 {{ ExpirationMinutes }} 分钟后失效，更新的验证码会取代它。{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">请求详情</p>
+    <p class="notice-text">时间：{{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />来源：{{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">如果不是您本人</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}请求此验证码的是已登录您账户的人。请不要在任何地方输入它，也不要透露给任何人 — {{ Platform.Name }} 绝不会向您索要。请立即修改密码，并通知您的管理员。{% when "switch-off" %}请求此验证码的是已登录您账户的人。请不要在任何地方输入它，也不要透露给任何人 — {{ Platform.Name }} 绝不会向您索要。请立即修改密码，并通知您的管理员。{% when "reauthentication" %}请求此验证码的是已登录您账户的人。请不要在任何地方输入它，也不要透露给任何人 — {{ Platform.Name }} 绝不会向您索要。请在账户中结束您不认识的会话，并通知您的管理员。{% else %}请不要输入此验证码，也不要透露给任何人 — {{ Platform.Name }} 绝不会向您索要。他人已知道您的密码：请立即修改密码。没有此验证码，对方无法登录。{% endcase %}</p>
+</div>'),
+    ('44000000-0000-0003-0024-000000000006', '43000000-0000-0000-0003-000000000024', N'ur', N'{% case Purpose %}{% when "enrollment" %}ای میل سے سائن اِن کوڈ آن کرنے کا آپ کا کوڈ{% when "switch-off" %}سائن اِن کا دوسرا مرحلہ بدلنے کا آپ کا کوڈ{% when "deletion-recovery" %}اپنا اکاؤنٹ بحال کرنے کا آپ کا کوڈ{% when "reauthentication" %}آپ کی شناخت کی تصدیق کا کوڈ{% else %}آپ کا سائن اِن کوڈ{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}ای میل سے سائن اِن کوڈ آن کرنے کا کوڈ{% when "switch-off" %}ای میل سے سائن اِن کوڈ بند کرنے کا کوڈ{% when "deletion-recovery" %}اکاؤنٹ بحال کرنے کا کوڈ{% when "reauthentication" %}آپ کی شناخت کی تصدیق کا کوڈ{% else %}سائن اِن مکمل کرنے کا کوڈ{% endcase %}</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کسی شخص نے ای میل سے سائن اِن کوڈ آن کرنے کی درخواست کی ہے۔ اگر یہ آپ ہیں تو نیچے دیا گیا کوڈ اپنے اکاؤنٹ کی سیکیورٹی سیٹنگز میں درج کریں۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی، اور نیا کوڈ اس کی جگہ لے لیتا ہے۔{% when "switch-off" %}آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کسی شخص نے ای میل سے سائن اِن کوڈ بند کرنے، یا ان کی جگہ تصدیقی ایپ لگانے کی درخواست کی ہے۔ اگر یہ آپ ہیں تو نیچے دیا گیا کوڈ اپنے اکاؤنٹ کی سیکیورٹی سیٹنگز میں درج کریں۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی، اور نیا کوڈ اس کی جگہ لے لیتا ہے۔{% when "deletion-recovery" %}کسی نے حذف کے انتظار میں موجود آپ کا {{ Platform.Name }} اکاؤنٹ بحال کرنے کے لیے آپ کا پاس ورڈ درج کیا ہے اور اسے مکمل کرنے کے لیے کوڈ مانگا ہے۔ اگر یہ آپ ہیں تو نیچے دیا گیا کوڈ اکاؤنٹ بحالی کے صفحے پر درج کریں۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی، اور نیا کوڈ اس کی جگہ لے لیتا ہے۔{% when "reauthentication" %}آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کسی شخص نے سیکیورٹی سیٹنگ بدلنے سے پہلے اپنی شناخت کی تصدیق کی درخواست کی ہے۔ اگر یہ آپ ہیں تو نیچے دیا گیا کوڈ اس ونڈو میں درج کریں جس نے اسے مانگا ہے۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی، اور نیا کوڈ اس کی جگہ لے لیتا ہے۔{% else %}کسی نے آپ کے {{ Platform.Name }} اکاؤنٹ میں سائن اِن کرنے کے لیے آپ کا پاس ورڈ درج کیا ہے اور سائن اِن مکمل کرنے کے لیے کوڈ مانگا ہے۔ اگر یہ آپ ہیں تو نیچے دیا گیا کوڈ سائن اِن صفحے پر درج کریں۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی، اور نیا کوڈ اس کی جگہ لے لیتا ہے۔{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">درخواست کی تفصیلات</p>
+    <p class="notice-text">وقت: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />کہاں سے: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">اگر یہ آپ نہیں ہیں</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}یہ کوڈ آپ کے اکاؤنٹ میں سائن اِن کسی شخص نے مانگا ہے۔ اسے کہیں بھی درج نہ کریں اور نہ کسی کے ساتھ شیئر کریں — {{ Platform.Name }} آپ سے یہ کوڈ کبھی نہیں مانگے گا۔ ابھی اپنا پاس ورڈ تبدیل کریں اور اپنے منتظم کو اطلاع دیں۔{% when "switch-off" %}یہ کوڈ آپ کے اکاؤنٹ میں سائن اِن کسی شخص نے مانگا ہے۔ اسے کہیں بھی درج نہ کریں اور نہ کسی کے ساتھ شیئر کریں — {{ Platform.Name }} آپ سے یہ کوڈ کبھی نہیں مانگے گا۔ ابھی اپنا پاس ورڈ تبدیل کریں اور اپنے منتظم کو اطلاع دیں۔{% when "reauthentication" %}یہ کوڈ آپ کے اکاؤنٹ میں سائن اِن کسی شخص نے مانگا ہے۔ اسے کہیں بھی درج نہ کریں اور نہ کسی کے ساتھ شیئر کریں — {{ Platform.Name }} آپ سے یہ کوڈ کبھی نہیں مانگے گا۔ جن سیشنز کو آپ نہیں پہچانتے انہیں اپنے اکاؤنٹ سے ختم کریں اور اپنے منتظم کو اطلاع دیں۔{% else %}کوڈ درج نہ کریں اور نہ کسی کے ساتھ شیئر کریں — {{ Platform.Name }} آپ سے یہ کوڈ کبھی نہیں مانگے گا۔ کسی اور کو آپ کا پاس ورڈ معلوم ہے: ابھی اپنا پاس ورڈ تبدیل کریں۔ اس کوڈ کے بغیر وہ سائن اِن نہیں کر سکتا۔{% endcase %}</p>
+</div>'),
+    ('44000000-0000-0003-0024-000000000007', '43000000-0000-0000-0003-000000000024', N'fa', N'{% case Purpose %}{% when "enrollment" %}کد شما برای روشن کردن کدهای ورود ایمیلی{% when "switch-off" %}کد شما برای تغییر مرحلهٔ دوم ورود{% when "deletion-recovery" %}کد شما برای بازیابی حساب‌تان{% when "reauthentication" %}کد شما برای تأیید هویت{% else %}کد ورود شما{% endcase %}',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>{% case Purpose %}{% when "enrollment" %}کد شما برای روشن کردن کدهای ورود ایمیلی{% when "switch-off" %}کد شما برای خاموش کردن کدهای ورود ایمیلی{% when "deletion-recovery" %}کد شما برای بازیابی حساب‌تان{% when "reauthentication" %}کد شما برای تأیید هویت{% else %}کد شما برای تکمیل ورود{% endcase %}</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">{% case Purpose %}{% when "enrollment" %}کسی که به حساب شما در {{ Platform.Name }} وارد شده است، درخواست روشن کردن کدهای ورود ایمیلی را داده است. اگر خودتان هستید، کد زیر را در تنظیمات امنیتی حساب‌تان وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود و هر کد جدیدتر جای آن را می‌گیرد.{% when "switch-off" %}کسی که به حساب شما در {{ Platform.Name }} وارد شده است، درخواست خاموش کردن کدهای ورود ایمیلی یا جایگزینی آن‌ها با یک برنامهٔ احراز هویت را داده است. اگر خودتان هستید، کد زیر را در تنظیمات امنیتی حساب‌تان وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود و هر کد جدیدتر جای آن را می‌گیرد.{% when "deletion-recovery" %}کسی رمز عبور شما را برای بازیابی حساب‌تان در {{ Platform.Name }} که در انتظار حذف است وارد کرده و برای تکمیل آن، کدی خواسته است. اگر خودتان هستید، کد زیر را در صفحهٔ بازیابی حساب وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود و هر کد جدیدتر جای آن را می‌گیرد.{% when "reauthentication" %}کسی که به حساب شما در {{ Platform.Name }} وارد شده است، پیش از تغییر یک تنظیم امنیتی درخواست تأیید هویت داده است. اگر خودتان هستید، کد زیر را در پنجره‌ای که آن را خواسته است وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود و هر کد جدیدتر جای آن را می‌گیرد.{% else %}کسی رمز عبور شما را برای ورود به حساب‌تان در {{ Platform.Name }} وارد کرده و برای تکمیل ورود، کدی خواسته است. اگر خودتان هستید، کد زیر را در صفحهٔ ورود وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود و هر کد جدیدتر جای آن را می‌گیرد.{% endcase %}</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">جزئیات درخواست</p>
+    <p class="notice-text">زمان: {{ RequestedAt }}{% if IpAddress and IpAddress != "" %}<br />از نشانی: {{ IpAddress }}{% endif %}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">اگر شما نبودید</p>
+    <p class="notice-text">{% case Purpose %}{% when "enrollment" %}این کد را کسی خواسته است که به حساب شما وارد شده است. آن را هیچ‌جا وارد نکنید و با هیچ‌کس در میان نگذارید — {{ Platform.Name }} هرگز این کد را از شما نمی‌خواهد. همین حالا رمز عبور خود را تغییر دهید و به مدیر سیستم اطلاع دهید.{% when "switch-off" %}این کد را کسی خواسته است که به حساب شما وارد شده است. آن را هیچ‌جا وارد نکنید و با هیچ‌کس در میان نگذارید — {{ Platform.Name }} هرگز این کد را از شما نمی‌خواهد. همین حالا رمز عبور خود را تغییر دهید و به مدیر سیستم اطلاع دهید.{% when "reauthentication" %}این کد را کسی خواسته است که به حساب شما وارد شده است. آن را هیچ‌جا وارد نکنید و با هیچ‌کس در میان نگذارید — {{ Platform.Name }} هرگز این کد را از شما نمی‌خواهد. نشست‌هایی را که نمی‌شناسید از حساب خود پایان دهید و به مدیر سیستم اطلاع دهید.{% else %}کد را وارد نکنید و آن را با هیچ‌کس در میان نگذارید — {{ Platform.Name }} هرگز این کد را از شما نمی‌خواهد. شخص دیگری رمز عبور شما را می‌داند: همین حالا آن را تغییر دهید. بدون این کد، او نمی‌تواند وارد شود.{% endcase %}</p>
+</div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0003-000000000024'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000024'
+      AND [PublishedVersionId] = '43000000-0000-0000-0002-000000000024';
+
+    PRINT 'Created two-factor-email-code template version 3 (7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'two-factor-email-code template version 3 already exists, or the template does not';
+END
+GO
+
+-- ============================================================
 -- Template 25: email-sign-in-code (global, Email channel, OI-215)
 --
 -- The code an existing account enters to sign in by email. Sent when someone

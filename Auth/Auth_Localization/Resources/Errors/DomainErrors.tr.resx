@@ -1403,6 +1403,9 @@
   <data name="Passkey.NotFound" xml:space="preserve">
     <value>Geçiş anahtarı bulunamadı.</value>
   </data>
+  <data name="Passkey.NotThisAccount" xml:space="preserve">
+    <value>Bu geçiş anahtarı başka bir hesaba ait. Oturum açtığınız hesabın geçiş anahtarını seçin.</value>
+  </data>
   <data name="Passkey.VerificationFailed" xml:space="preserve">
     <value>Geçiş anahtarı doğrulanamadı. Tekrar deneyin.</value>
   </data>

@@ -62,7 +62,8 @@ public class LoginCommandHandlerTests
         _loginResponseBuilderMock.Object,
         _twoFactorChallengeServiceMock.Object,
         _eventDispatcherMock.Object,
-        TestHelpers.CreateAccountLockout(_userRepositoryMock.Object, _passwordSettings),
+        TestHelpers.CreatePasswordDoor(
+            _userRepositoryMock.Object, _loginAttemptRepositoryMock.Object, _passwordHasherMock.Object, _passwordSettings),
         passkeyOnlyAdministrator,
         TestHelpers.CreateOptions(_passwordSettings),
         _loggerMock.Object);

@@ -1403,6 +1403,9 @@
   <data name="Passkey.NotFound" xml:space="preserve">
     <value>پاس کی نہیں ملی۔</value>
   </data>
+  <data name="Passkey.NotThisAccount" xml:space="preserve">
+    <value>یہ پاس کی کسی اور اکاؤنٹ کی ہے۔ جس اکاؤنٹ میں آپ سائن اِن ہیں اس کی پاس کی منتخب کریں۔</value>
+  </data>
   <data name="Passkey.VerificationFailed" xml:space="preserve">
     <value>پاس کی کی تصدیق نہیں ہو سکی۔ دوبارہ کوشش کریں۔</value>
   </data>

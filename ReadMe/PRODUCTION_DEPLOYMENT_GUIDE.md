@@ -1461,7 +1461,7 @@ very different mornings.
 - [ ] Nothing to set for replay protection: an authenticator code is accepted once only, and no setting turns that off. An incident in which genuine users are refused is handled by deploying the previous API build, not by a switch. **But a previous build reads the two retired switches again** — `TwoFactor:RejectReusedCodes` and `TwoFactor:RequireEmailCodeForFirstFactor` — so after a rollback each comes back as this deployment had it before: on by default, off wherever a stored override, a configuration file or an environment variable (`TwoFactor__RejectReusedCodes`, `TwoFactor__RequireEmailCodeForFirstFactor`) still sets it off. This release ignores those values and no longer shows them. So right after deploying it, and before you rely on a rollback: at **System settings → Two-factor authentication**, change one field (for example the re-authentication window by one minute), save, then set it back and save again — the Save bar appears only for a changed card, and each save replaces the stored row with the remaining fields only (do not use *Reset to defaults*: it drops every override of the section); and remove either key from every configuration file and environment variable.
 - [ ] `Email:Enabled` is `true`. It makes an account that turns on its first second factor also type a code emailed to its confirmed address, so somebody who holds only a stolen password cannot bind an authenticator app of their own and lock the owner out; no other setting turns this off. With email off, the password alone is enough to bind one — and no mail goes out at all. **And every account that holds `system-settings:manage` has its own second factor:** such an account can switch email off itself, so its password alone would otherwise still be enough. The seeded administrator is such an account, and it can bind its factor only once its address is yours: Phase 2 Step 5, and the check two lines above.
 - [ ] `TwoFactor:EnforceForPlatformAdmins` is a decision, not a default: it ships `false`. **No account gets a platform role or permission in production before it has its own second factor** — while it is off, that manual rule is the only thing standing in for the switch; while it is on, the product refuses such a grant itself (`TwoFactor.RequiredForPlatformGrant`). Switch it on only after the five preconditions — deploy 2, the refresh fix OI-101, a clean inventory and two quiet days, the drill, and your own word that production is stable — in [Reference §K](#k-two-factor-authentication-for-platform-administrators-twofactorenforceforplatformadmins).
-- [ ] `TwoFactor:ReauthenticationMaxAgeMinutes` is the shipped 15 (it accepts 5 to 60) — how recent a sign-in must be before a session may set up, switch on or switch off two-factor. A longer window lets an older session — one left open on a shared computer, or a stolen token — change the second factor. No value turns the check off.
+- [ ] `TwoFactor:ReauthenticationMaxAgeMinutes` is the shipped 15 (it accepts 5 to 60) — how recent a sign-in, or a proof of the person inside the session (a small window, with nothing signed out), must be before a session may set up, switch on or switch off two-factor. A longer window lets an older session — one left open on a shared computer, or a stolen token — change the second factor. No value turns the check off.
 - [ ] **The Auth API host is restricted at the firewall or in IIS to the Gateway's address.** The application does not do this for you, and the consequences are in [Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what).
 - [ ] Nothing — no content delivery network, no second reverse proxy — sits in front of the Gateway ([Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what)).
 - [ ] **Secrets backed up:** `secrets.dpapi` **and** the key-ring folder **and** the `.pfx`. All three, or the set restores nothing. Losing them invalidates every token, and a Dpapi-mode file cannot be recovered on a different machine at all.
@@ -2771,9 +2771,9 @@ which offers exactly one step:
 |---|---|---|
 | Set up two-factor | The account has no second factor | Sets up an authenticator app (with the emailed code, while `Email:Enabled` is on) and saves the recovery codes |
 | Enter a code | The session signed in with the password alone | Types a code from the authenticator app or a recovery code |
-| Sign in again | This session's sign-in does not count as a first factor: it was opened before this version was deployed, it began with an emailed code (the sign-in that confirms an email address), or its record is gone | Signs out and back in with the password and the code |
+| Confirm it's you | This session's sign-in does not count as a first factor: it was opened before this version was deployed, it began with an emailed code (the sign-in that confirms an email address), or its record is gone | Confirms in a small window with the password and the code, in the same session; signing out and back in stays as its way out |
 
-After the first two steps they return to the page they were going to; signing in again starts from the sign-in page. Nothing else changes: tokens issued to
+After any of them they return to the page they were going to; the way out, signing in again, starts from the sign-in page. Nothing else changes: tokens issued to
 **applications** (with an application id), organization permissions, and every account without a
 platform permission are never affected. While the switch is on, a platform administrator cannot turn
 their own two-factor off (`403 TwoFactor.RequiredByPolicy`).
@@ -2868,7 +2868,7 @@ login without `SELECT` on `SystemSettingsOverrides`). It logs one warning starti
 `PlatformMfa.EnforcedSettingsUnavailable` when the window opens. Before you switch on, that window
 behaves as if the switch were on: an administrator without a factor sees the "Set up two-factor" page;
 a platform administrator whose session did not prove two factors (signed in with the password alone,
-or before this version) is asked to step up or sign in again at the next token refresh; a platform
+or before this version) is asked to step up or confirm it is them at the next token refresh; a platform
 administrator cannot switch two-factor off; and a platform role or permission for an account without a
 factor is refused (`TwoFactor.RequiredForPlatformGrant`). A refresh that fails
 later keeps the values it last read, so it changes nothing. With `AUTH_DISABLE_DB_SETTINGS` set
@@ -2941,18 +2941,18 @@ Four ways back for someone who loses part of their second factor, from the light
 | Everything, and no other administrator | The emergency script ([K.4](#k4-the-owners-emergency-script-break-glass)) | The owner | The database and the server |
 
 New codes and a new authenticator both need a sign-in from the last
-`TwoFactor:ReauthenticationMaxAgeMinutes` (15 by default) **that proved two factors** — at sign-in or
-by a step-up. A session opened before this version, or with the password alone, is asked to sign in
-again first (`403 Auth.ReauthenticationRequired`). The old codes stop working as soon as the new ones
+`TwoFactor:ReauthenticationMaxAgeMinutes` (15 by default) **that proved two factors** — at sign-in,
+by a step-up, or by confirming in the window. A session opened before this version, or with the password
+alone, is asked to confirm first, where it stands (`403 Auth.ReauthenticationRequired`). The old codes stop working as soon as the new ones
 are created; a new authenticator keeps the old one working until a code from the new app confirms it
 (within ten minutes, or the replacement starts again), and confirming it signs out every other session
 and browser of the account (the one confirming stays). The owner is told by email each time.
 
 **An administrator's reset** first asks the administrator for their own proof, whatever the switch
-says: a sign-in from the last `TwoFactor:ReauthenticationMaxAgeMinutes` (15 by default) that proved
-two factors — the rule for changing one's own factor. Otherwise it answers `403
-Auth.ReauthenticationRequired` before the account is read, and the console offers to sign in again —
-or, to an administrator with no second factor of their own, to set one up first (**Profile → Security**).
+says: a sign-in, or a confirmation in the window, from the last `TwoFactor:ReauthenticationMaxAgeMinutes`
+(15 by default) that proved two factors — the rule for changing one's own factor. Otherwise it answers `403
+Auth.ReauthenticationRequired` before the account is read, and the console opens that window —
+or, to an administrator with no second factor of their own, offers to set one up first (**Profile → Security**).
 It is rate-limited like the sign-in. Then it signs the account out everywhere (sessions, refresh
 tokens, single sign-on sessions, and every access token it holds), removes its second factor and
 recovery codes, and emails its owner; the audit log records it as `twofactor.reset-by-administrator`,
@@ -3036,8 +3036,8 @@ to show anything: with it off, an account without a factor signs in normally.
    their code (the reset asks for a recent two-step sign-in).
 1. As the acting administrator, reset the other one's second factor from the console (**Users → the
    account → Reset two-factor**). Sign in as that account: the console must show "Set up two-factor",
-   with the emailed code first when email is on. A failure looks like: the reset answers "sign in
-   again" (the acting session is not a recent two-step one — sign in again with the code), or the
+   with the emailed code first when email is on. A failure looks like: the reset opens "Confirm it's
+   you" (the acting session is not a recent two-step one — confirm there with the password and the code), or the
    account reaches the dashboard (the switch is off, or the reset did not run).
 2. Run the emergency script of [K.4](#k4-the-owners-emergency-script-break-glass) for the same
    account (after it set its factor up again) on the development database, then restart the
@@ -4186,9 +4186,17 @@ For each existing deployment, in this order:
 
 1. **The DACPAC.** The first release with passkeys adds their schema: the tables `UserPasskeys` and
    `WebAuthnChallenges`, the column `Users.WebAuthnUserHandle`, and their notification types and templates.
-   Once a deployment has those, this step adds nothing: the privacy paragraph about passkeys is seed text for
+   The same release adds, whether passkeys are on or off, what lets a signed-in person confirm it is them with
+   nothing signed out: the columns `UserSessions.LastProofAt` and `UserSessions.LastProofMethods`, and version 3
+   of the `two-factor-email-code` template, with the wording of that code in seven languages. **This step comes
+   before the API.** Without the columns `/ready` reads Degraded, so the deploy stops there. If it goes on, sign-in
+   and a change on a recent session still work, but a change on an older session fails with a server error, so
+   nothing passes that should not. Version 3 is published only where the
+   seeded version 2 is still the published one; a version your administrators wrote stays published, and that code
+   then goes out under its general wording until they add the new purpose (`reauthentication`).
+   Once a deployment has all of this, this step adds nothing: the privacy paragraph about passkeys is seed text for
    new installations only, and an existing deployment changes nothing in its tables. Check: the DeployReport
-   lists those objects at the first release with passkeys, and no schema operation after it.
+   lists those objects at this release, and no schema operation after it.
 2. **The Auth API, then the Gateway, then both web applications**, with `Passkeys:Enabled` off. Checks:
    `/ready` reads Healthy; `POST /api/v1/auth/passkeys/assertion/options` answers 404; the sign-in page shows
    no passkey button; the console shows the **Passkeys** section under System settings, switched off.

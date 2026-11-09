@@ -1403,6 +1403,9 @@
   <data name="Passkey.NotFound" xml:space="preserve">
     <value>未找到该通行密钥。</value>
   </data>
+  <data name="Passkey.NotThisAccount" xml:space="preserve">
+    <value>此通行密钥属于另一个账户。请选择您当前登录账户的通行密钥。</value>
+  </data>
   <data name="Passkey.VerificationFailed" xml:space="preserve">
     <value>无法验证通行密钥。请重试。</value>
   </data>

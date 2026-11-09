@@ -70,9 +70,9 @@ export function TwoFactorRequiredPage() {
  * - "Cancel" resumes it too, unmet: the server ends the request with
  *   `access_denied`, which the application shows. That is the way out, not a
  *   dead end.
- * - A demand to sign in again does not sign out, which would lose the request:
- *   the sign-in page opens with the request and the reason, and the sign-in
- *   comes back here.
+ * - A demand for a fresh proof opens the window, with nothing signed out. Its way out
+ *   does not sign out either, which would lose the request: the sign-in page opens
+ *   with the request and the reason, and the sign-in comes back here.
  *
  * Every exit is the completion every sign-in uses. Router state here holds the
  * request without its reason, so that completion resumes the application.
@@ -164,7 +164,7 @@ function ApplicationTwoFactorRequired({ returnTo }: { returnTo: string }) {
         <EnrollStep
           account={{ id: user?.id, email: user?.email }}
           onDone={resume}
-          onReauthenticationRequired={signInAgain}
+          onSignInAgain={signInAgain}
         />
       )}
     </AuthLayout>
@@ -181,7 +181,7 @@ function ApplicationTwoFactorRequired({ returnTo }: { returnTo: string }) {
  *   for it — X02's flow, the profile's own component);
  * - step_up: a code from the authenticator app, or a recovery code;
  * - passkey: sign in with the passkey, the account's only second factor (S20);
- * - reauthenticate: sign in again, which records how this session was proved.
+ * - reauthenticate: prove the person again, which records how this session was proved.
  *
  * Every step ends the same way: a refreshed token (the authority comes back only
  * in a newly minted one), the account read again, and the completion every
@@ -302,19 +302,19 @@ function TwoFactorRequiredStep({
     case "passkey":
       return <PasskeyStep onSignedIn={onSignedIn} />
     default:
-      return <ReauthenticateStep />
+      return <ReauthenticateStep onDone={onDone} />
   }
 }
 
 function EnrollStep({
   account,
   onDone,
-  onReauthenticationRequired,
+  onSignInAgain,
 }: {
   account: { id?: string | null; email?: string | null }
   onDone: () => Promise<void>
-  /** The application mode's answer to a demand to sign in again; the dialog otherwise. */
-  onReauthenticationRequired?: () => void
+  /** The application mode's way out of the window: the sign-in page, never a sign-out. */
+  onSignInAgain?: () => void
 }) {
   const { t } = useTranslation()
   const [recoveryCodes, setRecoveryCodes] = React.useState<string>()
@@ -341,7 +341,7 @@ function EnrollStep({
         key={replacesEmailCode ? "replaces-email-code" : "first-factor"}
         account={account}
         replacesEmailCode={replacesEmailCode}
-        onReauthenticationRequired={onReauthenticationRequired}
+        onSignInAgain={onSignInAgain}
         onEnabled={(codes) => {
           // The codes are shown once; the console waits until they are saved.
           if (codes.length) setRecoveryCodes(codes.join("\n"))
@@ -454,6 +454,7 @@ function StepUpStep({
           open
           onOpenChange={setReauthenticateOpen}
           description={t("auth.mfaRequiredReauthenticateBody")}
+          onProved={() => void onDone()}
         />
       ) : null}
     </>
@@ -514,7 +515,7 @@ function PasskeyStep({
   )
 }
 
-function ReauthenticateStep() {
+function ReauthenticateStep({ onDone }: { onDone: () => Promise<void> }) {
   const { t } = useTranslation()
   const [open, setOpen] = React.useState(false)
 
@@ -522,13 +523,14 @@ function ReauthenticateStep() {
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">{t("auth.mfaRequiredReauthenticate")}</p>
       <Button className="w-full" onClick={() => setOpen(true)}>
-        {t("auth.reauthenticateAction")}
+        {t("auth.reauthenticate.confirm")}
       </Button>
       {open ? (
         <ReauthenticateDialog
           open
           onOpenChange={setOpen}
           description={t("auth.mfaRequiredReauthenticateBody")}
+          onProved={() => void onDone()}
         />
       ) : null}
     </div>

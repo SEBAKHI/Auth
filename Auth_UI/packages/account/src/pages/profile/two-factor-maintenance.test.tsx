@@ -23,9 +23,10 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }))
 
-const { logout, toastError } = vi.hoisted(() => ({
+const { logout, toastError, toastInfo } = vi.hoisted(() => ({
   logout: vi.fn(),
   toastError: vi.fn(),
+  toastInfo: vi.fn(),
 }))
 
 vi.mock("@authsystem/auth/auth-context", () => ({
@@ -33,7 +34,7 @@ vi.mock("@authsystem/auth/auth-context", () => ({
 }))
 
 vi.mock("sonner", () => ({
-  toast: { error: toastError, success: vi.fn() },
+  toast: { error: toastError, success: vi.fn(), info: toastInfo },
 }))
 
 import { api } from "@authsystem/api/client"
@@ -76,7 +77,9 @@ function givenRemaining(count: number | null) {
       ? { data: { recoveryCodesRemaining: count } }
       : path === "/api/v1/auth/passkeys"
         ? PASSKEYS_OFF
-        : { data: undefined }
+        : path === "/api/v1/auth/reauthentication"
+          ? { data: { passkey: false, password: true, emailCode: false, secondStep: "AuthenticatorApp", canProveInPlace: true } }
+          : { data: undefined }
   )
 }
 
@@ -175,7 +178,7 @@ describe("new recovery codes", () => {
     })
   }, 15_000)
 
-  it("asks to sign in again when the session is not a recent two-factor one", async () => {
+  it("asks for a proof of two factors where the person stands", async () => {
     givenRemaining(5)
     post.mockResolvedValue(problem(403, "Auth.ReauthenticationRequired"))
     const user = userEvent.setup()
@@ -186,9 +189,41 @@ describe("new recovery codes", () => {
     await user.type(within(dialog).getByLabelText("auth.twoFactorCode"), "123456")
     await user.click(within(dialog).getByRole("button", { name: "profile.regenerateRecoveryCodes" }))
 
-    expect(await screen.findByRole("alertdialog", { name: "auth.reauthenticateTitle" })).toBeInTheDocument()
+    expect(await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })).toBeInTheDocument()
     expect(screen.getByText("profile.twoFactorChangeNeedsRecentSignIn")).toBeInTheDocument()
     expect(toastError).not.toHaveBeenCalled()
+  }, 15_000)
+
+  // The review of the window. Deliberate break, verified red: nothing opened again.
+  it("opens the dialog again once the proof is given, empty, and says to wait for the next code", async () => {
+    givenRemaining(5)
+    toastInfo.mockReset()
+    let proved = false
+    post.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/auth/reauthentication") {
+        proved = true
+        return { data: undefined }
+      }
+      return proved ? { data: { recoveryCodes: ["NEW1-AAAA"] } } : problem(403, "Auth.ReauthenticationRequired")
+    })
+    const user = userEvent.setup()
+    renderTab()
+
+    await user.click(await screen.findByRole("button", { name: "profile.regenerateRecoveryCodes" }))
+    const first = await screen.findByRole("dialog", { name: "profile.regenerateRecoveryCodesTitle" })
+    await user.type(within(first).getByLabelText("auth.twoFactorCode"), "123456")
+    await user.click(within(first).getByRole("button", { name: "profile.regenerateRecoveryCodes" }))
+
+    const proof = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+    await user.type(await within(proof).findByLabelText("auth.password"), "my password")
+    await user.type(within(proof).getByLabelText("auth.twoFactorCode"), "654321")
+    await user.click(within(proof).getByRole("button", { name: "auth.reauthenticate.confirm" }))
+
+    const again = await screen.findByRole("dialog", { name: "profile.regenerateRecoveryCodesTitle" })
+    expect(within(again).getByLabelText("auth.twoFactorCode")).toHaveValue("")
+    expect(screen.queryByRole("dialog", { name: "auth.reauthenticate.title" })).not.toBeInTheDocument()
+    expect(toastInfo).toHaveBeenCalledWith("profile.twoFactorNextCode")
+    expect(post.mock.calls.filter(([called]) => called === "/api/v1/auth/2fa/recovery-codes")).toHaveLength(1)
   }, 15_000)
 
   it("leaves switching off with its own reason: a recent sign-in, two factors not required", async () => {
@@ -200,8 +235,8 @@ describe("new recovery codes", () => {
     await user.type(screen.getByLabelText("auth.twoFactorCode"), "123456")
     await user.click(screen.getByRole("button", { name: "profile.disableTwoFactor" }))
 
-    expect(await screen.findByRole("alertdialog", { name: "auth.reauthenticateTitle" })).toBeInTheDocument()
-    expect(screen.getByText("auth.reauthenticateBody")).toBeInTheDocument()
+    expect(await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })).toBeInTheDocument()
+    expect(screen.getByText("auth.reauthenticate.body")).toBeInTheDocument()
     expect(screen.queryByText("profile.twoFactorChangeNeedsRecentSignIn")).not.toBeInTheDocument()
   }, 15_000)
 

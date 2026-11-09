@@ -385,6 +385,16 @@ export const fr: TranslationResources = {
     mfaRequiredPasskeyLost: "Vous avez perdu l’appareil qui porte votre clé d’accès ? Un autre administrateur de la plateforme peut réinitialiser votre validation en deux étapes ; vous configurez ensuite un nouveau facteur.",
     signInReasonPasskeyTitle: "Connectez-vous avec votre clé d’accès",
     signInReasonPasskeyBody: "Cette application exige l’authentification à deux facteurs (2FA), et le second facteur de votre compte est une clé d’accès (passkey) : connectez-vous avec elle. Si vous l’avez perdue, connectez-vous autrement, supprimez-la dans Profil › Sécurité, puis ajoutez une application d’authentification ou une nouvelle clé d’accès.",
+    reauthenticate: {
+      title: "Confirmez que c'est bien vous",
+      body: "Pour votre sécurité, cette modification nécessite de confirmer que c'est bien vous. Vous restez sur cette page.",
+      passkeyBody: "Pour votre sécurité, cette modification nécessite votre clé d'accès : c'est le second facteur de votre compte, et un mot de passe ou un code reçu par e-mail ne suffit pas à lui seul.",
+      withPasskey: "Confirmer avec ma clé d'accès",
+      or: "ou",
+      confirm: "Confirmer",
+      proved: "C'est confirmé. Vous pouvez continuer.",
+      signOutLink: "Impossible de confirmer ici ? Déconnectez-vous et reconnectez-vous",
+    },
     reauthenticatePasskeyBody: "Pour votre sécurité, ce changement exige une connexion récente qui a prouvé deux étapes. Le second facteur de votre compte est une clé d’accès, et un mot de passe ou un code envoyé par e-mail seul ne suffit pas : déconnectez-vous et reconnectez-vous avec votre clé d’accès, et vous reviendrez sur cette page.",
     reauthenticateWithPasskeyAction: "Me reconnecter avec ma clé d’accès",
     passkey: {
@@ -523,8 +533,8 @@ export const fr: TranslationResources = {
     mfaRequiredSubtitle: "Les administrateurs de la plateforme doivent prouver un second facteur avant de pouvoir gérer la plateforme.",
     mfaRequiredEnroll: "Votre compte n'a pas encore de second facteur. Configurez une application d'authentification pour continuer.",
     mfaRequiredStepUp: "Saisissez le code de votre application d'authentification, ou un code de récupération, pour continuer.",
-    mfaRequiredReauthenticate: "La manière dont vous vous êtes connecté n'a pas été enregistrée pour cette session. Reconnectez-vous avec votre mot de passe et votre second facteur pour continuer.",
-    mfaRequiredReauthenticateBody: "Déconnectez-vous puis reconnectez-vous avec votre mot de passe et le code de votre application d'authentification. Vous reviendrez à la page où vous alliez.",
+    mfaRequiredReauthenticate: "La façon dont vous vous êtes connecté n'a pas été enregistrée pour cette session. Confirmez que c'est bien vous avec votre mot de passe et votre second facteur pour continuer.",
+    mfaRequiredReauthenticateBody: "Confirmez que c'est bien vous avec votre mot de passe et votre second facteur.",
     mfaRequiredCheckFailedTitle: "Impossible de vérifier votre session",
     mfaRequiredCheckFailed: "Le serveur n'a pas répondu. Vérifiez votre connexion et réessayez, ou déconnectez-vous.",
     signInReasonStepUpTitle: "Votre second facteur est requis",
@@ -831,7 +841,7 @@ export const fr: TranslationResources = {
     resetTwoFactorDescription: "Cette action supprime le second facteur et les codes de récupération du compte de {{name}} et met fin à toutes ses sessions. Le titulaire du compte configure de nouveau la double authentification à sa prochaine connexion, et en est informé par e-mail.",
     resetTwoFactorConfirm: "Réinitialiser",
     resetTwoFactorSuccess: "Double authentification réinitialisée.",
-    resetTwoFactorNeedsRecentSignIn: "Réinitialiser la double authentification d'un autre compte exige votre propre connexion récente avec la double authentification. Reconnectez-vous avec votre code, puis réessayez.",
+    resetTwoFactorNeedsRecentSignIn: "Réinitialiser l'authentification à deux facteurs d'un autre compte nécessite de confirmer que c'est bien vous avec votre propre second facteur.",
     resetTwoFactorNeedsOwnFactorTitle: "Activez d'abord votre propre double authentification",
     resetTwoFactorNeedsOwnFactor: "Seul un administrateur dont le compte utilise la double authentification peut réinitialiser celle d'un autre. Activez-la dans vos paramètres de sécurité, reconnectez-vous avec votre code, puis réessayez.",
     resetTwoFactorOpenSecurity: "Ouvrir les paramètres de sécurité",
@@ -1523,6 +1533,7 @@ export const fr: TranslationResources = {
       twofactorEmailCodeEnabled: "Codes par e-mail activés",
       twofactorEmailCodeDisabled: "Codes par e-mail désactivés",
       twofactorSteppedUp: "Second facteur prouvé dans une session",
+      sessionReauthenticated: "Identité reconfirmée dans une session",
       passkeyRegistered: "Clé d'accès ajoutée",
       passkeyRemoved: "Clé d'accès supprimée",
       userLocked: "Compte verrouillé",
@@ -3354,7 +3365,7 @@ export const fr: TranslationResources = {
       removeBody: "Elle ne vous connectera plus, et votre compte sera déconnecté de vos autres appareils ; celui-ci reste connecté. Supprimez-la aussi des clés d’accès enregistrées sur cet appareil.",
       remove: "Supprimer",
       removed: "Clé d’accès « {{name}} » supprimée. Vos autres appareils ont été déconnectés.",
-      needsRecentSignIn: "Pour votre sécurité, ajouter ou supprimer une clé d’accès exige une connexion récente. Déconnectez-vous et reconnectez-vous, et vous reviendrez sur cette page.",
+      needsRecentSignIn: "Pour votre sécurité, ajouter ou supprimer une clé d'accès nécessite de confirmer que c'est bien vous.",
     },
     title: "Mon profil",
     subtitle: "Gérez votre compte, vos sessions et votre sécurité.",
@@ -3436,7 +3447,7 @@ export const fr: TranslationResources = {
     removePasswordConfirmBody:
       "Désormais, vous vous connectez avec un code envoyé à {{email}}, et quiconque contrôle cette boîte peut se connecter à votre compte, sauf si votre application d'authentification est activée. Tous les autres appareils connectés à votre compte sont déconnectés, et nous vous informons par e-mail de la suppression du mot de passe.",
     removePasswordReauthenticate:
-      "Supprimer votre mot de passe demande une connexion récente avec votre mot de passe (et votre application d'authentification, si elle est activée). Reconnectez-vous, puis supprimez-le.",
+      "Supprimer votre mot de passe nécessite de confirmer que c'est bien vous avec votre mot de passe (et votre application d'authentification, si elle est activée).",
     passwordRemoved: "Mot de passe supprimé. Connectez-vous désormais avec un code envoyé à votre adresse e-mail.",
     setPasswordBody:
       "Ce compte n'a pas encore de mot de passe : il se connecte avec un code envoyé à votre adresse e-mail ou avec un compte associé comme Google. Nous vous enverrons un lien pour en créer un, et le mot de passe fonctionnera ensuite aussi.",
@@ -3511,7 +3522,9 @@ export const fr: TranslationResources = {
     replaceAuthenticatorScanBody: "Configurez maintenant la nouvelle application et saisissez le code qu'elle affiche. Votre application actuelle continue de fonctionner jusqu'à la confirmation. Si vous attendez trop longtemps, recommencez.",
     replaceAuthenticatorConfirm: "Confirmer la nouvelle application",
     replaceAuthenticatorToast: "Application d'authentification remplacée.",
-    twoFactorChangeNeedsRecentSignIn: "Cette action exige une connexion récente avec votre application d'authentification ou un code de récupération : un code par e-mail ne compte pas ici. Si l'on vous demande de vous reconnecter, connectez-vous avec le code de votre application, puis revenez ici.",
+    twoFactorNextCode: "C'est confirmé. Un code ne sert qu'une fois : saisissez le code suivant de votre application.",
+
+    twoFactorChangeNeedsRecentSignIn: "Pour cela, confirmez que c'est bien vous avec votre application d'authentification ou un code de récupération : un code reçu par e-mail ne compte pas ici.",
   },
   accountDeletion: {
     recoverWithPasskey: "Annuler la suppression avec votre clé d’accès",

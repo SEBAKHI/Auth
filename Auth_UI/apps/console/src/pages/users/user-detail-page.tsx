@@ -654,13 +654,15 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
  * fails, the answer is yes — "sign in again" is still a way forward, and the next
  * refusal asks again.
  */
-async function hasOwnSecondFactor(): Promise<boolean> {
+async function ownProofForReset(): Promise<"proof" | "passkey-proof" | "own-factor"> {
   try {
     const { data, error } = await api.GET("/api/v1/auth/2fa/status")
-    if (error) return true
-    return data?.recoveryCodesRemaining != null
+    if (error || data?.recoveryCodesRemaining != null) return "proof"
+    // No authenticator app: a qualifying factor is then a passkey, which only itself proves.
+    const me = await api.GET("/api/v1/Users/me")
+    return me.data?.qualifyingMfa === true ? "passkey-proof" : "own-factor"
   } catch {
-    return true
+    return "proof"
   }
 }
 
@@ -702,7 +704,7 @@ export function UserDetailPage() {
   // The reset needs the administrator's own recent two-step sign-in. "Sign in
   // again" only helps someone who has a second factor to sign in with; one who
   // has none is sent to set it up first — never a dialog with no way forward.
-  const [resetNeeds, setResetNeeds] = React.useState<"sign-in" | "own-factor">()
+  const [resetNeeds, setResetNeeds] = React.useState<"proof" | "passkey-proof" | "own-factor">()
 
   const detailQuery = useQuery({
     queryKey: ["users", userId],
@@ -750,7 +752,7 @@ export function UserDetailPage() {
     onSuccess: () => toast.success(t("users.resetTwoFactorSuccess")),
     onError: async (error) => {
       if (getErrorCodes(error).includes("Auth.ReauthenticationRequired")) {
-        setResetNeeds((await hasOwnSecondFactor()) ? "sign-in" : "own-factor")
+        setResetNeeds(await ownProofForReset())
         return
       }
       toast.error(getErrorMessage(error))
@@ -1137,11 +1139,16 @@ export function UserDetailPage() {
       ) : null}
 
       <ReauthenticateDialog
-        open={resetNeeds === "sign-in"}
+        open={resetNeeds === "proof" || resetNeeds === "passkey-proof"}
+        passkey={resetNeeds === "passkey-proof"}
         onOpenChange={(open) => {
           if (!open) setResetNeeds(undefined)
         }}
         description={t("users.resetTwoFactorNeedsRecentSignIn")}
+        onProved={() => {
+          setResetNeeds(undefined)
+          resetTwoFactor.mutate()
+        }}
       />
 
       <ConfirmDialog

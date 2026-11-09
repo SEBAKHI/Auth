@@ -4,6 +4,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
@@ -174,5 +175,110 @@ public class ReauthenticationGuardTests
         var result = await _guard.EnsureRecentSignInAsync(userId, session.Id, CancellationToken.None);
 
         result.IsError.Should().Be(refused);
+    }
+
+    // ── A proof inside the session, with no new sign-in ──
+
+    private void GivenProof(UserSession session, TimeSpan age, AuthenticationMethods methods) =>
+        _sessionRepositoryMock
+            .Setup(r => r.GetLastProofAsync(session.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SessionProof(Now.UtcDateTime - age, methods));
+
+    private UserSession GivenOldSession(AuthenticationMethods methods)
+    {
+        var userId = Guid.NewGuid();
+        var session = TestHelpers.CreateUserSession(
+            id: Guid.NewGuid(), userId: userId, createdAt: Now.UtcDateTime.AddHours(-3), methods: methods);
+        GivenSession(session);
+        return session;
+    }
+
+    [Fact]
+    public async Task EnsureRecentSignInAsync_AnOldSignIn_WithARecentProof_Passes_WithWhatTheProofProved()
+    {
+        var session = GivenOldSession(AuthenticationMethods.Password.With(AuthenticationMethods.Totp));
+        GivenProof(session, TimeSpan.FromMinutes(14), AuthenticationMethods.Password);
+
+        var result = await _guard.EnsureRecentSignInAsync(session.UserId, session.Id, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Methods.Should().Be(
+            AuthenticationMethods.Password, "what that proof proved, never what the session ever proved");
+    }
+
+    [Fact]
+    public async Task EnsureRecentSignInAsync_AnOldSignIn_WithAnOldProof_AsksToProveAgain()
+    {
+        var session = GivenOldSession(AuthenticationMethods.Password);
+        GivenProof(session, TimeSpan.FromMinutes(16), AuthenticationMethods.Password);
+
+        ShouldRequireReauthentication(await _guard.EnsureRecentSignInAsync(session.UserId, session.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EnsureRecentSignInAsync_AnOldSignIn_WithNoProof_AsksToProve()
+    {
+        var session = GivenOldSession(AuthenticationMethods.Password);
+
+        ShouldRequireReauthentication(await _guard.EnsureRecentSignInAsync(session.UserId, session.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EnsureRecentSignInAsync_ARecentSignIn_ReadsNoProof()
+    {
+        // An API that reaches a database without the proof's columns must keep every recent
+        // session working: the columns are read on this one path, and only for an old session.
+        var userId = Guid.NewGuid();
+        var session = Session(Guid.NewGuid(), userId, TimeSpan.FromMinutes(1));
+        GivenSession(session);
+
+        (await _guard.EnsureRecentSignInAsync(userId, session.Id, CancellationToken.None)).IsError.Should().BeFalse();
+
+        _sessionRepositoryMock.Verify(r => r.GetLastProofAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task EnsureRecentTwoFactorSignInAsync_TwoFactorsOnceAndAPasswordNow_IsNotTwoFactors()
+    {
+        // A stolen session and a stolen password together: the session proved two factors hours
+        // ago, and this is all the thief can prove now.
+        var session = GivenOldSession(AuthenticationMethods.Password.With(AuthenticationMethods.Totp));
+        GivenProof(session, TimeSpan.FromMinutes(1), AuthenticationMethods.Password);
+
+        ShouldRequireReauthentication(await _guard.EnsureRecentTwoFactorSignInAsync(session.UserId, session.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EnsureRecentTwoFactorSignInAsync_AProofOfTwoFactors_Passes()
+    {
+        var session = GivenOldSession(AuthenticationMethods.Password);
+        GivenProof(session, TimeSpan.FromMinutes(1), AuthenticationMethods.Password.With(AuthenticationMethods.Totp));
+
+        (await _guard.EnsureRecentTwoFactorSignInAsync(session.UserId, session.Id, CancellationToken.None)).IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task EnsureLiveSessionAsync_WhateverItsAge_AnswersTheUsersLiveSession()
+    {
+        var session = GivenOldSession(AuthenticationMethods.Password);
+
+        var result = await _guard.EnsureLiveSessionAsync(session.UserId, session.Id, CancellationToken.None);
+
+        result.Value.Id.Should().Be(session.Id);
+        _sessionRepositoryMock.Verify(r => r.GetLastProofAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task EnsureLiveSessionAsync_NoId_SomeoneElses_OrEnded_AsksToSignIn()
+    {
+        var userId = Guid.NewGuid();
+        var ended = Session(Guid.NewGuid(), userId, TimeSpan.FromMinutes(1), isActive: false);
+        var someoneElses = Session(Guid.NewGuid(), Guid.NewGuid(), TimeSpan.FromMinutes(1));
+        GivenSession(ended);
+        GivenSession(someoneElses);
+
+        (await _guard.EnsureLiveSessionAsync(userId, null, CancellationToken.None)).FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
+        (await _guard.EnsureLiveSessionAsync(userId, ended.Id, CancellationToken.None)).FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
+        (await _guard.EnsureLiveSessionAsync(userId, someoneElses.Id, CancellationToken.None)).FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
     }
 }

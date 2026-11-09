@@ -118,8 +118,9 @@ function optionsUsableUntil(expiresAt: string): number | null {
  * - Add in two clicks: the first asks for the options and loads the helper,
  *   opening a dialog with a name and, for a first qualifying factor while email
  *   is on, the emailed code (X02); its confirm calls `startRegistration` before
- *   awaiting anything (T-C2). A demand for a fresh sign-in opens the sign-in-again
- *   dialog (T-C7), naming the passkey for an account whose factor is one.
+ *   awaiting anything (T-C2). A demand for a fresh proof opens the window that
+ *   takes it where the person stands, the passkey alone for an account whose factor
+ *   is one (T-C7), and the addition goes on from there.
  * - No "add" while email is off and the account has no qualifying factor (N9,
  *   D-150-3 (c)): the first passkey needs the emailed proof, so the card says to
  *   add the authenticator app first. `Passkey.EmailRequired` is the fallback.
@@ -145,8 +146,11 @@ export function PasskeysCard({
   const [starting, setStarting] = React.useState(false)
   const startingRef = React.useRef(false)
   const [message, setMessage] = React.useState<string | null>(null)
-  // Which change asked for a fresh sign-in: the two ask for different ones.
-  const [reauthenticate, setReauthenticate] = React.useState<"add" | "remove" | null>(null)
+  // Which change asked for a fresh proof: the two ask for different ones, and each
+  // goes on once it is given.
+  const [reauthenticate, setReauthenticate] = React.useState<
+    { change: "add" } | { change: "remove"; passkey: Passkey } | null
+  >(null)
   const [removing, setRemoving] = React.useState<Passkey | null>(null)
   const [renamingId, setRenamingId] = React.useState<string | null>(null)
 
@@ -185,7 +189,7 @@ export function PasskeysCard({
       setRegistrationSeq((seq) => seq + 1)
     } catch (error) {
       if (getErrorCodes(error).includes("Auth.ReauthenticationRequired")) {
-        setReauthenticate("add")
+        setReauthenticate({ change: "add" })
       } else {
         setMessage(passkeyFailureMessage(error))
       }
@@ -297,7 +301,7 @@ export function PasskeysCard({
           }}
           onReauthenticate={() => {
             setRegistration(null)
-            setReauthenticate("add")
+            setReauthenticate({ change: "add" })
           }}
         />
       ) : null}
@@ -308,7 +312,7 @@ export function PasskeysCard({
           passkey={removing}
           onSettled={(outcome) => {
             setRemoving(null)
-            if (outcome.reauthenticate) setReauthenticate("remove")
+            if (outcome.reauthenticate) setReauthenticate({ change: "remove", passkey: removing })
             setMessage(outcome.message ?? null)
             if (outcome.removed) {
               toast.success(t("profile.passkeys.removed", { name: removing.name }))
@@ -328,7 +332,12 @@ export function PasskeysCard({
           open
           onOpenChange={(open) => !open && setReauthenticate(null)}
           description={t("profile.passkeys.needsRecentSignIn")}
-          passkey={passkeyOnly && reauthenticate === "add"}
+          passkey={passkeyOnly && reauthenticate.change === "add"}
+          onProved={() => {
+            // Removing is what the person confirmed, but on a stale list: asked once more.
+            if (reauthenticate.change === "remove") setRemoving(reauthenticate.passkey)
+            else void begin()
+          }}
         />
       ) : null}
     </Card>

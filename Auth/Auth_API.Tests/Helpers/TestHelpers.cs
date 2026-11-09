@@ -959,6 +959,30 @@ public static class TestHelpers
     }
 
     /// <summary>
+    /// The real <see cref="Auth.Application.Features.Authentication.Common.PasswordDoor"/> over
+    /// the given mocks and the real lockout, so a test of a door that takes a password runs the
+    /// lock rules themselves.
+    /// </summary>
+    public static Auth.Application.Features.Authentication.Common.PasswordDoor CreatePasswordDoor(
+        Auth.Domain.Interfaces.Repositories.IUserRepository userRepository,
+        Auth.Domain.Interfaces.Repositories.ILoginAttemptRepository loginAttempts,
+        IPasswordHasher passwordHasher,
+        PasswordSettings? passwordSettings = null,
+        Microsoft.Extensions.Logging.ILogger<Auth.Application.Features.Authentication.Common.AccountLockout>? lockoutLogger = null,
+        Microsoft.Extensions.Logging.ILogger<Auth.Application.Features.Authentication.Common.PasswordDoor>? logger = null)
+    {
+        var settings = passwordSettings ?? CreatePasswordSettings();
+
+        return new Auth.Application.Features.Authentication.Common.PasswordDoor(
+            userRepository,
+            loginAttempts,
+            passwordHasher,
+            CreateAccountLockout(userRepository, settings, logger: lockoutLogger),
+            CreateOptions(settings),
+            logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Features.Authentication.Common.PasswordDoor>.Instance);
+    }
+
+    /// <summary>
     /// The real <see cref="Auth.Application.Features.Authentication.Common.SecondFactorLockout"/>,
     /// so a test of a second-factor path runs with the limit the host applies:
     /// <c>Password:ConsecutiveFailureLimit</c> (100) under Enforce, normalized as the

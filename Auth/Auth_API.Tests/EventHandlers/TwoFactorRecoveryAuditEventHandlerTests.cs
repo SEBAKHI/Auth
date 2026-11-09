@@ -72,6 +72,41 @@ public class TwoFactorRecoveryAuditEventHandlerTests
     }
 
     [Fact]
+    public async Task Reauthenticated_WritesTheSessionAndWhatTheProofProved_AsJson()
+    {
+        var session = Guid.NewGuid();
+        var methods = Auth.Domain.ValueObjects.AuthenticationMethods.Password
+            .With(Auth.Domain.ValueObjects.AuthenticationMethods.Totp);
+
+        await new UserReauthenticatedAuditEventHandler(
+                _repository.Object, Mock.Of<ILogger<UserReauthenticatedAuditEventHandler>>())
+            .Handle(new UserReauthenticatedEvent(Owner, session, methods), CancellationToken.None);
+
+        _written!.Action.Should().Be(AuditActions.SessionReauthenticated);
+        _written.ActionType.Should().Be(AuditActionTypes.Security);
+        _written.SessionId.Should().Be(session);
+        var details = JsonDocument.Parse(_written.AdditionalData!).RootElement;
+        details.GetProperty("methods").GetInt32().Should().Be(methods.Value);
+        details.GetProperty("amr").EnumerateArray().Select(value => value.GetString())
+            .Should().Equal("pwd", "otp", "mfa");
+    }
+
+    [Fact]
+    public async Task Reauthenticated_AFailedWrite_NeverReachesTheProof()
+    {
+        _repository.Setup(r => r.CreateAsync(It.IsAny<Auth.Domain.Entities.AuditLog>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("no database"));
+
+        var act = () => new UserReauthenticatedAuditEventHandler(
+                _repository.Object, Mock.Of<ILogger<UserReauthenticatedAuditEventHandler>>())
+            .Handle(
+                new UserReauthenticatedEvent(Owner, Guid.NewGuid(), Auth.Domain.ValueObjects.AuthenticationMethods.Password),
+                CancellationToken.None);
+
+        await act.Should().NotThrowAsync("the session is already stamped");
+    }
+
+    [Fact]
     public async Task SteppedUp_WritesTheSessionAndTheMethod_AsJson()
     {
         var session = Guid.NewGuid();

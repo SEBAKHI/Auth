@@ -31,9 +31,18 @@ vi.mock("@authsystem/ui/branding", () => ({
   }),
 }))
 vi.mock("@authsystem/auth/reauthenticate-dialog", () => ({
-  ReauthenticateDialog: ({ description }: { description?: string }) => (
-    <div role="dialog" aria-label="sign in again">
+  ReauthenticateDialog: ({
+    description,
+    passwordOnly,
+    onProved,
+  }: {
+    description?: string
+    passwordOnly?: boolean
+    onProved?: () => void
+  }) => (
+    <div role="dialog" aria-label="confirm it is you" data-password-only={String(passwordOnly)}>
       {description}
+      <button onClick={onProved}>proved</button>
     </div>
   ),
 }))
@@ -132,7 +141,7 @@ describe("RemovePasswordCard", () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it("asks a session too old for it to sign in again", async () => {
+  it("asks a session too old for it for the password, and removes it once that is given", async () => {
     mocks.post.mockResolvedValue({
       error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "Sign in again" },
     })
@@ -144,8 +153,13 @@ describe("RemovePasswordCard", () => {
       (await screen.findAllByRole("button", { name: "Remove password" })).at(-1)!
     )
 
-    expect(
-      await screen.findByRole("dialog", { name: "sign in again" })
-    ).toHaveTextContent(/recent sign-in with your password/)
+    const proof = await screen.findByRole("dialog", { name: "confirm it is you" })
+    expect(proof).toHaveTextContent(/confirm it's you with your password/)
+    expect(proof).toHaveAttribute("data-password-only", "true")
+
+    await user.click(screen.getByRole("button", { name: "proved" }))
+    await waitFor(() =>
+      expect(mocks.post.mock.calls.filter(([path]) => path === "/api/v1/Auth/remove-password")).toHaveLength(2)
+    )
   })
 })

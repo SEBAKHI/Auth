@@ -54,6 +54,8 @@ public class CredentialHasherSourceGuardTests
         // challenge by the token exactly as verify does.
         App + "Authentication/SendSignInEmailCode/SendSignInEmailCodeCommandHandler.cs:65 Candidates TwoFactorChallenge",
         App + "Authentication/ServerSignOut/ServerSignOutCommandHandler.cs:94 Candidates RefreshToken",
+        App + "Authentication/Reauthenticate/ReauthenticateCommandHandler.cs:136 Candidates IdpSession",
+        App + "Passkeys/ReauthenticateWithPasskey/ReauthenticateWithPasskeyCommandHandler.cs:122 Candidates IdpSession",
         App + "Authentication/StepUpTwoFactor/StepUpTwoFactorCommandHandler.cs:117 Candidates IdpSession",
         App + "Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:137 Candidates AuthorizationCode",
         App + "Authentication/VerifyTwoFactorLogin/VerifyTwoFactorLoginCommandHandler.cs:79 Candidates TwoFactorChallenge",

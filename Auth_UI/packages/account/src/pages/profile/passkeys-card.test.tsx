@@ -99,9 +99,14 @@ function problem(status: number, code: string) {
 }
 
 /** The list the server answers, one read after another; the last one repeats. */
+/** What the window that proves the person again asks for. */
+const PROOF_OPTIONS = { passkey: false, password: true, emailCode: false, secondStep: "None", canProveInPlace: true }
+let proofOptions: typeof PROOF_OPTIONS = PROOF_OPTIONS
+
 function givenLists(...answers: unknown[]) {
   const queue = [...answers]
   mocks.get.mockImplementation(async (path: string) => {
+    if (path === "/api/v1/auth/reauthentication") return { data: proofOptions, error: undefined }
     if (path !== "/api/v1/auth/passkeys") return { data: undefined, error: { status: 404 }, response: response(404) }
     const next = queue.length > 1 ? queue.shift() : queue[0]
     return next
@@ -348,6 +353,10 @@ describe("PasskeysCard: the browser told which passkeys stay (IN 12, D-S20-7)", 
 })
 
 describe("PasskeysCard: adding a passkey", () => {
+  beforeEach(() => {
+    proofOptions = PROOF_OPTIONS
+  })
+
   async function openDialog(user: ReturnType<typeof userEvent.setup>) {
     await user.click(await screen.findByRole("button", { name: i18n.t("profile.passkeys.add") }))
     return screen.findByRole("dialog")
@@ -621,7 +630,8 @@ describe("PasskeysCard: adding a passkey", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   })
 
-  it("asks for a fresh sign-in that names the passkey, for an account whose factor is one (T-C7)", async () => {
+  it("asks for the passkey alone in place, for an account whose factor is one (T-C7), and its way out names it", async () => {
+    proofOptions = { ...PROOF_OPTIONS, passkey: true }
     givenLists(ok(list([LAPTOP])))
     mocks.post.mockResolvedValue(problem(403, "Auth.ReauthenticationRequired"))
     const user = userEvent.setup()
@@ -629,7 +639,12 @@ describe("PasskeysCard: adding a passkey", () => {
 
     await user.click(await screen.findByRole("button", { name: i18n.t("profile.passkeys.add") }))
 
-    const dialog = await screen.findByRole("alertdialog")
+    const dialog = await screen.findByRole("dialog", { name: i18n.t("auth.reauthenticate.title") })
+    expect(within(dialog).getByText(i18n.t("auth.reauthenticate.passkeyBody"))).toBeInTheDocument()
+    expect(within(dialog).queryByLabelText(i18n.t("auth.password"))).not.toBeInTheDocument()
+    expect(mocks.logout).not.toHaveBeenCalled()
+
+    await user.click(within(dialog).getByRole("button", { name: i18n.t("auth.reauthenticate.signOutLink") }))
     expect(within(dialog).getByText(i18n.t("auth.reauthenticatePasskeyBody"))).toBeInTheDocument()
     await user.click(
       within(dialog).getByRole("button", { name: i18n.t("auth.reauthenticateWithPasskeyAction") })
@@ -639,16 +654,29 @@ describe("PasskeysCard: adding a passkey", () => {
     expect(window.sessionStorage.getItem(FULL_PROOF_KEY)).toBe("passkey")
   })
 
-  it("asks for a fresh sign-in in the usual words for an account with the app", async () => {
+  it("asks for the proof where the person stands, and the addition goes on from there", async () => {
     givenLists(ok(list([])))
-    mocks.post.mockResolvedValue(problem(403, "Auth.ReauthenticationRequired"))
+    let proved = false
+    mocks.post.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/auth/reauthentication") {
+        proved = true
+        return ok(undefined)
+      }
+      return proved ? ok(REGISTRATION) : problem(403, "Auth.ReauthenticationRequired")
+    })
     const user = userEvent.setup()
     renderCard()
 
     await user.click(await screen.findByRole("button", { name: i18n.t("profile.passkeys.add") }))
 
-    const dialog = await screen.findByRole("alertdialog")
-    expect(within(dialog).getByText(i18n.t("profile.passkeys.needsRecentSignIn"))).toBeInTheDocument()
+    const proof = await screen.findByRole("dialog", { name: i18n.t("auth.reauthenticate.title") })
+    expect(within(proof).getByText(i18n.t("profile.passkeys.needsRecentSignIn"))).toBeInTheDocument()
+    await user.type(await within(proof).findByLabelText(i18n.t("auth.password")), "my password")
+    await user.click(within(proof).getByRole("button", { name: i18n.t("auth.reauthenticate.confirm") }))
+
+    // The person is where they were, and the dialog that adds the passkey is open.
+    expect(await screen.findByRole("dialog", { name: i18n.t("profile.passkeys.addTitle") })).toBeInTheDocument()
+    expect(mocks.logout).not.toHaveBeenCalled()
   })
 
   it("starts again when the emailed code finds no registration waiting (N6), never with its sentence", async () => {
@@ -680,6 +708,10 @@ describe("PasskeysCard: adding a passkey", () => {
 })
 
 describe("PasskeysCard: renaming and removing", () => {
+  beforeEach(() => {
+    proofOptions = PROOF_OPTIONS
+  })
+
   it("renames in place, and reads the list again", async () => {
     givenLists(ok(list([LAPTOP])), ok(list([{ ...LAPTOP, name: "Home laptop" }])))
     mocks.patch.mockResolvedValue({ error: undefined, response: response(204) })
@@ -773,7 +805,8 @@ describe("PasskeysCard: renaming and removing", () => {
     expect(screen.getAllByTestId("passkey-row")).toHaveLength(1)
   })
 
-  it("asks a passkey-only account removing a lost passkey for a plain recent sign-in, not for the passkey it lost", async () => {
+  it("asks a passkey-only account removing a lost passkey for a plain proof, not for the passkey it lost, and asks its confirmation again", async () => {
+    proofOptions = { ...PROOF_OPTIONS, passkey: true }
     // Adding beside a passkey needs a two-factor session (PK7); removing asks only
     // for a recent first factor, or a person who lost the passkey could never
     // remove it: their password counts here.
@@ -785,12 +818,15 @@ describe("PasskeysCard: renaming and removing", () => {
     await user.click(await screen.findByRole("button", { name: i18n.t("profile.passkeys.removeNamed", { name: "Work laptop" }) }))
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: i18n.t("profile.passkeys.remove") }))
 
-    const dialog = await screen.findByText(i18n.t("profile.passkeys.needsRecentSignIn"))
-    expect(dialog).toBeInTheDocument()
-    expect(screen.queryByText(i18n.t("auth.reauthenticatePasskeyBody"))).not.toBeInTheDocument()
+    const proof = await screen.findByRole("dialog", { name: i18n.t("auth.reauthenticate.title") })
+    expect(within(proof).getByText(i18n.t("profile.passkeys.needsRecentSignIn"))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t("auth.reauthenticate.passkeyBody"))).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole("button", { name: i18n.t("auth.reauthenticateAction") }))
-    await waitFor(() => expect(mocks.logout).toHaveBeenCalledTimes(1))
-    expect(window.sessionStorage.getItem(FULL_PROOF_KEY)).toBe("1")
+    mocks.post.mockResolvedValue(ok(undefined))
+    await user.type(await within(proof).findByLabelText(i18n.t("auth.password")), "my password")
+    await user.click(within(proof).getByRole("button", { name: i18n.t("auth.reauthenticate.confirm") }))
+
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument()
+    expect(mocks.logout).not.toHaveBeenCalled()
   })
 })

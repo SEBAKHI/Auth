@@ -1405,6 +1405,9 @@
   <data name="Passkey.NotFound" xml:space="preserve">
     <value>لم يُعثر على مفتاح المرور.</value>
   </data>
+  <data name="Passkey.NotThisAccount" xml:space="preserve">
+    <value>مفتاح المرور هذا تابع لحساب آخر. اختر مفتاح المرور الخاص بالحساب الذي سجّلت الدخول إليه.</value>
+  </data>
   <data name="Passkey.VerificationFailed" xml:space="preserve">
     <value>تعذّر التحقق من مفتاح المرور. حاول مرة أخرى.</value>
   </data>

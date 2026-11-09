@@ -112,7 +112,7 @@ export function TwoFactorEnrollment({
   replacesEmailCode = false,
   onEnabled,
   onStale,
-  onReauthenticationRequired,
+  onSignInAgain,
   passkeyOnly = false,
 }: {
   account: TwoFactorEnrollmentAccount
@@ -123,15 +123,14 @@ export function TwoFactorEnrollment({
   /** The caller's picture of two-factor is out of date: refetch it. */
   onStale?: () => void
   /**
-   * The server wants a fresher sign-in. By default a dialog offers to sign out
-   * and back in; a caller that must not sign out (an application's pending
-   * request would be lost, S23) answers it instead.
+   * The way out of the window that proves the person again, for a caller that must
+   * not sign out: an application's pending request would be lost (S23).
    */
-  onReauthenticationRequired?: () => void
+  onSignInAgain?: () => void
   /**
    * The account's qualifying factor is a passkey, and passkeys run (S20, T-C7):
-   * binding the app needs a session that proved two factors, which only the
-   * passkey gives, so the sign-in-again dialog names it.
+   * binding the app needs a proof of two factors, which only the passkey gives,
+   * so the window asks for it alone.
    */
   passkeyOnly?: boolean
 }) {
@@ -199,8 +198,7 @@ export function TwoFactorEnrollment({
   const onTwoFactorError = (error: unknown) => {
     const codes = getErrorCodes(error)
     if (codes.includes("Auth.ReauthenticationRequired")) {
-      if (onReauthenticationRequired) onReauthenticationRequired()
-      else setReauthenticateOpen(true)
+      setReauthenticateOpen(true)
       return
     }
 
@@ -535,12 +533,17 @@ export function TwoFactorEnrollment({
         </Button>
       )}
 
-      {/* Mounted only while needed, so closing it resets it. */}
+      {/* Mounted only while needed, so closing it resets it. Nothing here was lost: with
+          no setup yet it starts now, and otherwise the page is as it was. */}
       {reauthenticateOpen ? (
         <ReauthenticateDialog
           open
           onOpenChange={setReauthenticateOpen}
           passkey={passkeyOnly}
+          onSignInAgain={onSignInAgain}
+          onProved={() => {
+            if (!setup) setupMutation.mutate()
+          }}
         />
       ) : null}
 

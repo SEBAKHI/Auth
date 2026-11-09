@@ -1405,6 +1405,9 @@
   <data name="Passkey.NotFound" xml:space="preserve">
     <value>The passkey was not found.</value>
   </data>
+  <data name="Passkey.NotThisAccount" xml:space="preserve">
+    <value>That passkey belongs to another account. Choose the passkey of the account you are signed in to.</value>
+  </data>
   <data name="Passkey.VerificationFailed" xml:space="preserve">
     <value>The passkey could not be verified. Try again.</value>
   </data>

@@ -26,7 +26,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
     private readonly IDomainEventDispatcher _eventDispatcher;
-    private readonly IAccountLockout _accountLockout;
+    private readonly PasswordDoor _passwordDoor;
     private readonly PasskeyOnlyAdministratorRule _passkeyOnlyAdministrator;
     private readonly PasswordSettings _passwordSettings;
     private readonly ILogger<LoginCommandHandler> _logger;
@@ -39,7 +39,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         ILoginResponseBuilder loginResponseBuilder,
         ITwoFactorChallengeService twoFactorChallengeService,
         IDomainEventDispatcher eventDispatcher,
-        IAccountLockout accountLockout,
+        PasswordDoor passwordDoor,
         PasskeyOnlyAdministratorRule passkeyOnlyAdministrator,
         IOptionsSnapshot<PasswordSettings> passwordSettings,
         ILogger<LoginCommandHandler> logger)
@@ -51,7 +51,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         _loginResponseBuilder = loginResponseBuilder;
         _twoFactorChallengeService = twoFactorChallengeService;
         _eventDispatcher = eventDispatcher;
-        _accountLockout = accountLockout;
+        _passwordDoor = passwordDoor;
         _passkeyOnlyAdministrator = passkeyOnlyAdministrator;
         _passwordSettings = passwordSettings.Value;
         _logger = logger;
@@ -80,120 +80,18 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             return UserErrors.InvalidCredentials;
         }
 
-        // A lapsed lock (its expiry has passed) is repaired to active first, and
-        // everything below judges the row as it is after the repair, not as it was
-        // read: a concurrent failure may have locked it again in between. The
-        // count is KEPT: waiting out a lock used to wipe it, so it never passed
-        // five and a guesser had ~480 tries a day.
-        if (user.LockKind(DateTime.UtcNow) == AccountLockKind.Lapsed)
+        // The lapsed lock, the status, the lock, the per-address ceiling, the hash and
+        // the second judgement.
+        var attempt = new PasswordAttempt(
+            request.Email, request.Password, request.IpAddress, request.UserAgent, request.DeviceId);
+        var accepted = await _passwordDoor.CheckAsync(user, attempt, cancellationToken);
+        if (accepted.IsError)
         {
-            var repaired = await _accountLockout.RepairLapsedLockAsync(user.Id, cancellationToken);
-            if (repaired is null)
-            {
-                // Deleted in between: nothing left to sign in to.
-                return UserErrors.InvalidCredentials;
-            }
-
-            user = repaired;
+            return accepted.Errors;
         }
 
-        // Check account status
-        var statusCheck = AuthenticationHelper.CheckAccountStatus(user);
-        if (statusCheck.IsError)
-        {
-            await RecordFailureAsync(user.Id, request.Email,statusCheck.FirstError.Description,
-                request.IpAddress, request.UserAgent, cancellationToken);
-
-            return statusCheck.Errors;
-        }
-
-        // The lock. One classifier decides which lock the row holds
-        // (AccountLockState.Kind), and each kind has one rule:
-        //  - lapsed: repaired above; the sign-in goes on.
-        //  - timed or hard (raised by wrong passwords): strangers are refused, a
-        //    timed lock with its end, a hard one with the reset it needs. A
-        //    FAMILIAR source (an address this account signed in from within
-        //    thirty days, or a device with a live session) may still prove the
-        //    password, because the lock exists to stop the strangers, not the
-        //    owner. The door is sealed once the count passes the hard limit by a
-        //    full timed-lock threshold, and the per-source ceiling below bounds it
-        //    per address. Admission lifts nothing: only the completed sign-in does.
-        //  - administrator: refused for everyone.
-        var admission = await AdmitAsync(user.Id, user.LockState, request, cancellationToken);
-        if (admission.Refusal is { } lockRefusal)
-        {
-            return lockRefusal;
-        }
-
-        // Per-source ceiling: the same number of WRONG PASSWORDS from one address
-        // refuses that address for the lockout window, locked account or not. It
-        // is what keeps the familiar-source door above from being an unlimited
-        // guessing slot for an attacker who shares the owner's network, and it
-        // stops a guessing address before its next Argon2 verify rather than
-        // after. Only genuine password failures count: this refusal, the
-        // account-locked refusal and open two-factor ceremonies are recorded but
-        // never extend the window, so an address is free again exactly one
-        // window after its last wrong guess. No address (proxy-less tests, odd
-        // clients) means nothing to attribute to, so nothing extra to refuse.
-        if (await AuthenticationHelper.IsSourceCeilingReachedAsync(
-                _loginAttemptRepository, _passwordSettings, user.Id, request.IpAddress, cancellationToken))
-        {
-            await RecordFailureAsync(user.Id, request.Email, LoginFailureReasons.SourceLocked,
-                request.IpAddress, request.UserAgent, cancellationToken);
-
-            // No timestamp: the account is not locked, this address is, and
-            // its window ends one lockout period after its last wrong guess —
-            // a moment this branch does not know. The generic locked answer
-            // is the honest one.
-            return UserErrors.AccountLockedUntil(null);
-        }
-
-        // Said only once the address is let through to the password check.
-        if (admission.AdmittedUnder != AccountLockKind.None)
-        {
-            _accountLockout.ReportFamiliarAdmission(user.Id, admission.AdmittedUnder, user.FailedLoginAttempts);
-        }
-
-        // Guard: external-only users (no password) cannot use password login
-        if (user.PasswordHash is null)
-        {
-            await RecordFailureAsync(user.Id, request.Email,"No password set",
-                request.IpAddress, request.UserAgent, cancellationToken);
-
-            return UserErrors.InvalidCredentials;
-        }
-
-        // Verify password. The hash it verified is kept: a re-hash below may write
-        // only over that one.
-        var verifiedHash = user.PasswordHash;
-        if (!_passwordHasher.VerifyPassword(request.Password, verifiedHash))
-        {
-            // Count it: every Max'-th consecutive failure locks for a while, and
-            // the hard limit locks until a password proof, a reset or an
-            // administrator.
-            await _accountLockout.RecordPasswordFailureAsync(user.Id, cancellationToken);
-
-            await RecordFailureAsync(user.Id, request.Email, LoginFailureReasons.InvalidPassword,
-                request.IpAddress, request.UserAgent, cancellationToken);
-
-            _logger.LogWarning("Failed login attempt for user {UserId} from {IpAddress}",
-                user.Id, request.IpAddress);
-
-            return UserErrors.InvalidCredentials;
-        }
-
-        // The password is right, but the lock and the per-address ceiling were read
-        // before the hash, and requests that arrive together all read the same row.
-        // So both are judged again, for EVERY request, as they are now: a burst of
-        // wrong passwords may have locked the account, sealed the familiar door or
-        // used up this address's ceiling while this one hashed, and a correct guess
-        // inside that burst must not sign in where its siblings are refused, nor
-        // lift the lock they set. An administrator's lock or a deactivation
-        // committed during the hash refuses it too.
-        if (await JudgeAfterThePasswordAsync(user.Id, admission, request, cancellationToken) is { } lateRefusal)
-        {
-            return lateRefusal;
-        }
+        user = accepted.Value.User;
+        var verifiedHash = accepted.Value.VerifiedHash;
 
         // An automatic lock a familiar source was let through is NOT lifted yet:
         // the statement that records the completed sign-in lifts it (BuildAsync,
@@ -269,104 +167,6 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
     }
 
     /// <summary>
-    /// What the lock columns <paramref name="lockState"/> let this request do:
-    /// nothing to stop it (no lock, or a lapsed one), a familiar source let through
-    /// an automatic lock (<see cref="LockAdmission.AdmittedUnder"/>), or a refusal,
-    /// recorded as such. Strangers are refused any live lock; a familiar source is
-    /// let through a timed or hard lock until the door is sealed; nobody passes an
-    /// administrator's lock.
-    /// </summary>
-    private async Task<LockAdmission> AdmitAsync(
-        Guid userId, AccountLockState lockState, LoginCommand request, CancellationToken cancellationToken)
-    {
-        var kind = lockState.Kind(DateTime.UtcNow);
-        if (kind is AccountLockKind.None or AccountLockKind.Lapsed)
-        {
-            return new LockAdmission(null, AccountLockKind.None);
-        }
-
-        var familiar = kind != AccountLockKind.Admin
-            && !lockState.IsFamiliarDoorSealed(_passwordSettings.ConsecutiveFailureLimit, _passwordSettings.MaxFailedAttempts)
-            && await AuthenticationHelper.IsFamiliarSourceAsync(
-                _loginAttemptRepository, userId, request.IpAddress, request.DeviceId, cancellationToken);
-        if (familiar)
-        {
-            return new LockAdmission(null, kind);
-        }
-
-        await RecordFailureAsync(userId, request.Email, LoginFailureReasons.AccountLocked,
-            request.IpAddress, request.UserAgent, cancellationToken);
-
-        return new LockAdmission(lockState.LockRefusal(kind), kind);
-    }
-
-    /// <summary>
-    /// The second judgement of a sign-in whose password was right, on the row as it
-    /// is now (a read of the lock columns alone): the status, the lock by the same
-    /// rules as the first read, and, for a source let through a lock as familiar at
-    /// either read, this address's wrong passwords counted again. Null when the
-    /// sign-in may go on.
-    /// </summary>
-    /// <remarks>
-    /// The window this closes is the hash itself: every request of a concurrent
-    /// burst passes the first read together. The residual is that each of them
-    /// still gets its password checked (an exact bound needs the attempt counted
-    /// before the hash, OI-133).
-    /// </remarks>
-    private async Task<Error?> JudgeAfterThePasswordAsync(
-        Guid userId, LockAdmission admission, LoginCommand request, CancellationToken cancellationToken)
-    {
-        if (await _userRepository.GetLockStateAsync(userId, cancellationToken) is not { } now)
-        {
-            // Deleted while this request hashed: nothing left to sign in to.
-            return UserErrors.InvalidCredentials;
-        }
-
-        var statusCheck = AuthenticationHelper.CheckAccountStatus(now.Status);
-        if (statusCheck.IsError)
-        {
-            await RecordFailureAsync(userId, request.Email, statusCheck.FirstError.Description,
-                request.IpAddress, request.UserAgent, cancellationToken);
-
-            return statusCheck.FirstError;
-        }
-
-        var late = await AdmitAsync(userId, now, request, cancellationToken);
-        if (late.Refusal is { } refusal)
-        {
-            return refusal;
-        }
-
-        if (admission.AdmittedUnder == AccountLockKind.None && late.AdmittedUnder == AccountLockKind.None)
-        {
-            return null;
-        }
-
-        // A familiar source, at the first read or this one: the per-address
-        // ceiling bounds the door, and its siblings' wrong passwords may have
-        // reached it while this request hashed.
-        if (await AuthenticationHelper.IsSourceCeilingReachedAsync(
-                _loginAttemptRepository, _passwordSettings, userId, request.IpAddress, cancellationToken))
-        {
-            await RecordFailureAsync(userId, request.Email, LoginFailureReasons.SourceLocked,
-                request.IpAddress, request.UserAgent, cancellationToken);
-
-            return UserErrors.AccountLockedUntil(null);
-        }
-
-        if (admission.AdmittedUnder == AccountLockKind.None)
-        {
-            _accountLockout.ReportFamiliarAdmission(userId, late.AdmittedUnder, now.FailedAttempts);
-        }
-
-        return null;
-    }
-
-    /// <param name="Refusal">The answer when the lock refuses this request; null when it may go on.</param>
-    /// <param name="AdmittedUnder">The automatic lock a familiar source was let through; None when no lock stood.</param>
-    private readonly record struct LockAdmission(Error? Refusal, AccountLockKind AdmittedUnder);
-
-    /// <summary>
     /// The answer for an email that belongs to an account awaiting deletion, or
     /// null when it does not. The pending-deletion error (with the grace deadline)
     /// needs the correct password: deletion state is never revealed without valid
@@ -436,20 +236,17 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
     }
 
     /// <summary>
-    /// Records a sign-in this handler rejected. Only failures are written here:
-    /// a success is recorded by the response builder, and a two-factor gate opens
-    /// its ceremony row in the challenge service.
+    /// Records a sign-in this handler rejected, through the door's one writer: a success is
+    /// recorded by the response builder, and a two-factor gate opens its ceremony row in the
+    /// challenge service.
     /// </summary>
-    private async Task RecordFailureAsync(
+    private Task RecordFailureAsync(
         Guid? userId,
         string email,
         string failureReason,
         string? ipAddress,
         string? userAgent,
-        CancellationToken cancellationToken)
-    {
-        var attempt = LoginAttempt.CreateFailure(email, failureReason, ipAddress, userAgent, userId);
-
-        await _loginAttemptRepository.CreateAsync(attempt, cancellationToken);
-    }
+        CancellationToken cancellationToken) =>
+        _passwordDoor.RecordFailureAsync(
+            userId, new PasswordAttempt(email, string.Empty, ipAddress, userAgent, null), failureReason, cancellationToken);
 }

@@ -392,6 +392,16 @@ export const en = {
     mfaRequiredPasskeyLost: "Lost the device with your passkey? Another platform administrator can reset your 2-Step Verification; you then set up a new factor.",
     signInReasonPasskeyTitle: "Sign in with your passkey",
     signInReasonPasskeyBody: "This application requires two-factor authentication (2FA), and your account's second factor is a passkey: sign in with it. If you lost it, sign in another way, remove it in Profile › Security, then add an authenticator app or a new passkey.",
+    reauthenticate: {
+      title: "Confirm it's you",
+      body: "For your security, this change needs you to confirm it's you. You stay on this page.",
+      passkeyBody: "For your security, this change needs your passkey: it is your account's second factor, and a password or an emailed code alone does not count.",
+      withPasskey: "Confirm with my passkey",
+      or: "or",
+      confirm: "Confirm",
+      proved: "Confirmed. You can go on.",
+      signOutLink: "Can't confirm it here? Sign out and sign in again",
+    },
     reauthenticatePasskeyBody: "For your security, this change needs a recent sign-in that proved two steps. Your account's second factor is a passkey, and a password or an emailed code alone does not count: sign out and sign back in with your passkey, and you will come back to this page.",
     reauthenticateWithPasskeyAction: "Sign in again with my passkey",
     passkey: {
@@ -522,8 +532,8 @@ export const en = {
     mfaRequiredSubtitle: "Platform administrators must prove a second factor before they can manage the platform.",
     mfaRequiredEnroll: "Your account has no second factor yet. Set up an authenticator app to continue.",
     mfaRequiredStepUp: "Enter the code from your authenticator app, or a recovery code, to continue.",
-    mfaRequiredReauthenticate: "How you signed in was not recorded for this session. Sign in again with your password and your second factor to continue.",
-    mfaRequiredReauthenticateBody: "Sign out and sign back in with your password and your authenticator code. You will come back to the page you were going to.",
+    mfaRequiredReauthenticate: "How you signed in was not recorded for this session. Confirm it's you with your password and your second factor to continue.",
+    mfaRequiredReauthenticateBody: "Confirm it's you with your password and your second factor.",
     mfaRequiredCheckFailedTitle: "We could not check your session",
     mfaRequiredCheckFailed: "The server did not answer. Check your connection and try again, or sign out.",
     signInReasonStepUpTitle: "Your second factor is needed",
@@ -820,7 +830,7 @@ export const en = {
     resetTwoFactorDescription: "This removes the second factor and the recovery codes of {{name}}'s account and ends all of its sessions. The account's owner sets two-factor up again at the next sign-in, and is told by email.",
     resetTwoFactorConfirm: "Reset",
     resetTwoFactorSuccess: "Two-factor authentication reset.",
-    resetTwoFactorNeedsRecentSignIn: "Resetting another account's two-factor authentication needs your own recent sign-in with two-factor authentication. Sign in again with your code, then try again.",
+    resetTwoFactorNeedsRecentSignIn: "Resetting two-factor authentication for another account needs you to confirm it's you with your own second factor.",
     resetTwoFactorNeedsOwnFactorTitle: "Set up your own two-factor authentication first",
     resetTwoFactorNeedsOwnFactor: "Only an administrator whose own account uses two-factor authentication can reset someone else's. Turn it on in your security settings, sign in again with your code, then try again.",
     resetTwoFactorOpenSecurity: "Open security settings",
@@ -1509,6 +1519,7 @@ export const en = {
       twofactorEmailCodeEnabled: "Codes by email turned on",
       twofactorEmailCodeDisabled: "Codes by email turned off",
       twofactorSteppedUp: "Second factor proved in a session",
+      sessionReauthenticated: "Person proved again in a session",
       passkeyRegistered: "Passkey added",
       passkeyRemoved: "Passkey removed",
       userLocked: "Account locked",
@@ -3308,7 +3319,7 @@ export const en = {
       removeBody: "It will no longer sign you in, and your account is signed out on your other devices; this one stays signed in. Delete it from this device's saved passkeys too.",
       remove: "Remove",
       removed: "Passkey “{{name}}” removed. Your other devices were signed out.",
-      needsRecentSignIn: "For your security, adding or removing a passkey needs a recent sign-in. Sign out and sign back in, and you will come back to this page.",
+      needsRecentSignIn: "For your security, adding or removing a passkey needs you to confirm it's you.",
     },
     title: "My profile",
     subtitle: "Manage your account, sessions, and security.",
@@ -3389,7 +3400,7 @@ export const en = {
     removePasswordConfirmBody:
       "From now on you sign in with a code sent to {{email}}, and anyone who controls that mailbox can sign in to your account unless your authenticator app is on. Every other device signed in to your account is signed out, and we email you that the password was removed.",
     removePasswordReauthenticate:
-      "Removing your password needs a recent sign-in with your password (and your authenticator app, when it is on). Sign in again, then remove it.",
+      "Removing your password needs you to confirm it's you with your password (and your authenticator app, when it is on).",
     passwordRemoved: "Password removed. Sign in with a code sent to your email from now on.",
     setPasswordBody:
       "This account has no password yet: it signs in with a code sent to your email, or through a connected account like Google. We'll email you a link to create one, and after that the password works too.",
@@ -3464,7 +3475,9 @@ export const en = {
     replaceAuthenticatorScanBody: "Now set up the new app and enter the code it shows. Your current app keeps working until you confirm. If you wait too long, start again.",
     replaceAuthenticatorConfirm: "Confirm new app",
     replaceAuthenticatorToast: "Authenticator app replaced.",
-    twoFactorChangeNeedsRecentSignIn: "This needs a recent sign-in with your authenticator app or a recovery code: a code by email does not count here. If you are asked to sign in again, sign in with your app's code, then come back here.",
+    twoFactorNextCode: "Confirmed. A code works only once, so enter the next code from your app.",
+
+    twoFactorChangeNeedsRecentSignIn: "This needs you to confirm it's you with your authenticator app or a recovery code: a code by email does not count here.",
   },
   accountDeletion: {
     recoverWithPasskey: "Cancel the deletion with your passkey",

@@ -385,6 +385,16 @@ export const tr: TranslationResources = {
     mfaRequiredPasskeyLost: "Geçiş anahtarınızın bulunduğu cihazı mı kaybettiniz? Başka bir platform yöneticisi iki adımlı doğrulamanızı sıfırlayabilir; ardından yeni bir faktör kurarsınız.",
     signInReasonPasskeyTitle: "Geçiş anahtarınızla oturum açın",
     signInReasonPasskeyBody: "Bu uygulama iki faktörlü kimlik doğrulama (2FA) gerektiriyor ve hesabınızın ikinci faktörü bir geçiş anahtarı (passkey): onunla oturum açın. Kaybettiyseniz başka bir yolla oturum açın, onu Profil › Güvenlik bölümünden kaldırın, ardından bir doğrulama uygulaması veya yeni bir geçiş anahtarı ekleyin.",
+    reauthenticate: {
+      title: "Siz olduğunuzu doğrulayın",
+      body: "Güvenliğiniz için bu değişiklik, siz olduğunuzu doğrulamanızı gerektirir. Bu sayfada kalırsınız.",
+      passkeyBody: "Güvenliğiniz için bu değişiklik geçiş anahtarınızı gerektirir: hesabınızın ikinci faktörü odur; parola veya e-postayla gönderilen kod tek başına yetmez.",
+      withPasskey: "Geçiş anahtarımla doğrula",
+      or: "veya",
+      confirm: "Doğrula",
+      proved: "Doğrulandı. Devam edebilirsiniz.",
+      signOutLink: "Burada doğrulayamıyor musunuz? Oturumu kapatıp yeniden açın",
+    },
     reauthenticatePasskeyBody: "Güvenliğiniz için bu değişiklik, iki adımı kanıtlamış yakın tarihli bir oturum açma gerektirir. Hesabınızın ikinci faktörü bir geçiş anahtarı; yalnızca parola veya e-postayla gelen kod yetmez: oturumu kapatıp geçiş anahtarınızla yeniden açın, bu sayfaya geri dönersiniz.",
     reauthenticateWithPasskeyAction: "Geçiş anahtarımla yeniden oturum aç",
     passkey: {
@@ -517,8 +527,8 @@ export const tr: TranslationResources = {
     mfaRequiredSubtitle: "Platform yöneticileri, platformu yönetmeden önce ikinci bir faktör kanıtlamalıdır.",
     mfaRequiredEnroll: "Hesabınızın henüz ikinci bir faktörü yok. Devam etmek için bir doğrulayıcı uygulama kurun.",
     mfaRequiredStepUp: "Devam etmek için doğrulayıcı uygulamanızdaki kodu veya bir kurtarma kodunu girin.",
-    mfaRequiredReauthenticate: "Bu oturum için nasıl giriş yaptığınız kaydedilmedi. Devam etmek için parolanız ve ikinci faktörünüzle yeniden oturum açın.",
-    mfaRequiredReauthenticateBody: "Oturumu kapatın ve parolanız ile doğrulayıcı kodunuzla yeniden oturum açın. Gitmek istediğiniz sayfaya geri döneceksiniz.",
+    mfaRequiredReauthenticate: "Bu oturum için nasıl giriş yaptığınız kaydedilmedi. Devam etmek için parolanız ve ikinci faktörünüzle siz olduğunuzu doğrulayın.",
+    mfaRequiredReauthenticateBody: "Parolanız ve ikinci faktörünüzle siz olduğunuzu doğrulayın.",
     mfaRequiredCheckFailedTitle: "Oturumunuz denetlenemedi",
     mfaRequiredCheckFailed: "Sunucu yanıt vermedi. Bağlantınızı kontrol edip yeniden deneyin ya da oturumu kapatın.",
     signInReasonStepUpTitle: "İkinci faktörünüz gerekli",
@@ -819,7 +829,7 @@ export const tr: TranslationResources = {
     resetTwoFactorDescription: "Bu işlem {{name}} hesabının ikinci faktörünü ve kurtarma kodlarını kaldırır ve hesabın tüm oturumlarını sonlandırır. Hesap sahibi bir sonraki oturum açışında iki adımlı doğrulamayı yeniden kurar ve e-postayla bilgilendirilir.",
     resetTwoFactorConfirm: "Sıfırla",
     resetTwoFactorSuccess: "İki adımlı doğrulama sıfırlandı.",
-    resetTwoFactorNeedsRecentSignIn: "Başka bir hesabın iki adımlı doğrulamasını sıfırlamak için iki adımlı doğrulamayla yakın zamanda kendi oturumunuzu açmış olmanız gerekir. Kodunuzla yeniden oturum açın, sonra tekrar deneyin.",
+    resetTwoFactorNeedsRecentSignIn: "Başka bir hesabın iki adımlı doğrulamasını sıfırlamak, kendi ikinci faktörünüzle siz olduğunuzu doğrulamanızı gerektirir.",
     resetTwoFactorNeedsOwnFactorTitle: "Önce kendi iki adımlı doğrulamanızı kurun",
     resetTwoFactorNeedsOwnFactor: "Başkasınınkini yalnızca kendi hesabında iki adımlı doğrulama kullanan bir yönetici sıfırlayabilir. Güvenlik ayarlarınızdan açın, kodunuzla yeniden oturum açın, sonra tekrar deneyin.",
     resetTwoFactorOpenSecurity: "Güvenlik ayarlarını aç",
@@ -1501,6 +1511,7 @@ export const tr: TranslationResources = {
       twofactorEmailCodeEnabled: "E-postayla kodlar açıldı",
       twofactorEmailCodeDisabled: "E-postayla kodlar kapatıldı",
       twofactorSteppedUp: "Oturum içinde ikinci faktör kanıtlandı",
+      sessionReauthenticated: "Oturum içinde kimlik yeniden kanıtlandı",
       passkeyRegistered: "Geçiş anahtarı eklendi",
       passkeyRemoved: "Geçiş anahtarı kaldırıldı",
       userLocked: "Hesap kilitlendi",
@@ -3297,7 +3308,7 @@ export const tr: TranslationResources = {
       removeBody: "Artık oturum açmanızı sağlamayacak ve hesabınızın diğer cihazlardaki oturumları kapatılacak; bu cihaz açık kalır. Onu bu cihazda kayıtlı geçiş anahtarlarından da silin.",
       remove: "Kaldır",
       removed: "“{{name}}” geçiş anahtarı kaldırıldı. Diğer cihazlarınızın oturumu kapatıldı.",
-      needsRecentSignIn: "Güvenliğiniz için geçiş anahtarı eklemek veya kaldırmak yakın tarihli bir oturum açma gerektirir. Oturumu kapatıp yeniden açın, bu sayfaya geri dönersiniz.",
+      needsRecentSignIn: "Güvenliğiniz için geçiş anahtarı eklemek veya kaldırmak, siz olduğunuzu doğrulamanızı gerektirir.",
     },
     title: "Profilim",
     subtitle: "Hesabınızı, oturumlarınızı ve güvenliğinizi yönetin.",
@@ -3377,7 +3388,7 @@ export const tr: TranslationResources = {
     removePasswordConfirmBody:
       "Bundan sonra {{email}} adresine gönderilen bir kodla oturum açarsınız ve kimlik doğrulayıcı uygulamanız açık değilse o posta kutusunu kontrol eden herkes hesabınıza girebilir. Hesabınızda oturum açmış diğer tüm cihazların oturumu kapatılır ve parolanın kaldırıldığını size e-postayla bildiririz.",
     removePasswordReauthenticate:
-      "Parolanızı kaldırmak için parolanızla (ve açıksa kimlik doğrulayıcı uygulamanızla) yakın zamanda oturum açmış olmanız gerekir. Yeniden oturum açın, ardından kaldırın.",
+      "Parolanızı kaldırmak, parolanızla (ve açıksa kimlik doğrulama uygulamanızla) siz olduğunuzu doğrulamanızı gerektirir.",
     passwordRemoved: "Parola kaldırıldı. Bundan sonra e-postanıza gönderilen bir kodla oturum açın.",
     setPasswordBody:
       "Bu hesabın henüz bir parolası yok: e-postanıza gönderilen bir kodla veya Google gibi bağlı bir hesapla oturum açıyor. Parola oluşturmanız için size bir bağlantı göndereceğiz; sonrasında parola da çalışır.",
@@ -3453,7 +3464,9 @@ export const tr: TranslationResources = {
     replaceAuthenticatorScanBody: "Şimdi yeni uygulamayı kurun ve gösterdiği kodu girin. Onaylayana kadar mevcut uygulamanız çalışmaya devam eder. Çok beklerseniz yeniden başlayın.",
     replaceAuthenticatorConfirm: "Yeni uygulamayı onayla",
     replaceAuthenticatorToast: "Doğrulayıcı uygulama değiştirildi.",
-    twoFactorChangeNeedsRecentSignIn: "Bunun için doğrulayıcı uygulamanızla ya da bir kurtarma koduyla yakın zamanda açılmış bir oturum gerekir: e-postayla kod burada sayılmaz. Yeniden oturum açmanız istenirse uygulamanızın koduyla oturum açın, sonra buraya dönün.",
+    twoFactorNextCode: "Doğrulandı. Bir kod yalnızca bir kez çalışır, bu yüzden uygulamanızdaki bir sonraki kodu girin.",
+
+    twoFactorChangeNeedsRecentSignIn: "Bunun için kimlik doğrulama uygulamanızla veya bir kurtarma koduyla siz olduğunuzu doğrulamanız gerekir: e-postayla gelen kod burada sayılmaz.",
   },
   accountDeletion: {
     recoverWithPasskey: "Silmeyi geçiş anahtarınızla iptal edin",

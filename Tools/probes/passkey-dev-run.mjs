@@ -62,12 +62,51 @@
  *                       wrong passwords admits it and moves no count.
  *   passkey-only-admin  A passkey-only administrator's password shows the API's sentence
  *                       and the passkey first; then the passkey signs in, with the
- *                       platform authority.
+ *                       platform authority; then, on a session past the window, the window
+ *                       asks for that passkey alone, and the addition goes on from it.
  *   recovery            An account in its deletion grace period: the passkey sign-in goes
  *                       to the recovery page, whose passkey choice cancels the deletion.
- *   sign-in-again       A password session of a passkey-only account adds a passkey: the
- *                       dialog names the passkey, the passkey signs in and comes back
- *                       to the page; the device is then asked. Then the removal.
+ *   proof-password      A session past the window adds a passkey: the window opens where
+ *                       the person stands. A wrong password is refused there, counted as at
+ *                       the sign-in page and stamps nothing; the right one closes it, and
+ *                       the addition goes on by itself: same document, same session, the
+ *                       session stamped with a password, the count kept, the audit row
+ *                       written. The proof survives a reload. Then the passkey is added.
+ *   proof-passkey       A password session of a passkey-only account adds a passkey (T-C7):
+ *                       the window asks for the passkey alone, it proves the person, and the
+ *                       addition goes on; the device is then asked. Then the removal.
+ *   proof-app           An account with an authenticator app, past the window: a wrong code
+ *                       is refused and stamps nothing; the password and a code that nothing
+ *                       used go on. Past the window again, the passkey alone goes on.
+ *   proof-disable       Switching the app off, past the window. A proof with the app's code
+ *                       spends that time step, so the code the page held is not sent again:
+ *                       no failure is counted, the field is empty and the person is asked for
+ *                       the next code, which goes on. A proof with the passkey leaves the held
+ *                       code good, and the switch-off goes on by itself.
+ *   proof-new-codes     New recovery codes, past the window: the dialog closes for the proof,
+ *                       opens again by itself, empty, and the next code makes new codes.
+ *   proof-removal       Removing a passkey, past the window: the confirmation, the window with
+ *                       the passkey and the password, the confirmation again by itself, the
+ *                       removal; and the page still answers a click after two dialogs in a tick.
+ *   proof-not-the-union A session that proved two factors an hour ago and a password now
+ *                       has proved a password now: the change that needs two still refuses.
+ *   proof-other-account A passkey of another account, on the same device, proves nothing,
+ *                       with its own code, and stamps nothing.
+ *   proof-email         An account with no password: the window sends a code by email, under
+ *                       the seeded template's own wording; a wrong one is refused, the right
+ *                       one goes on, and the addition still asks for its own emailed code.
+ *   proof-way-out       The window's way out asks first, ends the session, and the sign-in
+ *                       comes back to the page.
+ *   proof-unrecorded    With enforcement on, an administrator's session whose sign-in is not
+ *                       recorded lands on the required page; the window proves the person and
+ *                       they go where they were going, in the same session. The switch is
+ *                       set and reset through the settings API, so this overrides nothing
+ *                       else in the section: run it on a database with no TwoFactor overrides.
+ *   before-the-columns  What an API deployed before the DACPAC does: it drops the two columns
+ *                       (this database is a throwaway), shows /ready says Degraded so a deploy
+ *                       stops, a sign-in and a change on a recent session still work and a stale
+ *                       session fails closed, then puts them back and /ready recovers. Last in
+ *                       the order, for that reason.
  *   all                 All of them, in order.
  *
  * Verdicts: PASS, FAIL, INCONCLUSIVE (a precondition the probe cannot meet).
@@ -311,13 +350,18 @@ async function signInToConsole(page, account, appSecret) {
   await page.waitForURL((url) => !/\/(login|two-factor)/.test(url.pathname), { timeout: 30_000 })
 }
 
-async function addPasskey(page, account, name) {
+/** Profile › Security, with its passkeys card ready. */
+async function openSecurity(page) {
   await page.goto(`${consoleUrl()}/profile?tab=security`)
   const card = page.getByTestId("passkeys-card")
-  await card.waitFor({ timeout: 30_000 })
-  await card.getByRole("button", { name: "Add a passkey" }).click()
-  const dialog = page.getByRole("dialog", { name: "Add a passkey" })
-  await dialog.waitFor()
+  await card.getByRole("button", { name: "Add a passkey" }).waitFor({ timeout: 30_000 })
+  return card
+}
+
+const addDialog = (page) => page.getByRole("dialog", { name: "Add a passkey" })
+
+/** Finishes the addition from its open dialog. */
+async function createInDialog(card, dialog, account, name) {
   await dialog.getByLabel("Name").fill(name)
   const send = dialog.getByRole("button", { name: "Email me a code" })
   if (await send.isVisible()) {
@@ -328,6 +372,14 @@ async function addPasskey(page, account, name) {
   }
   await dialog.getByRole("button", { name: "Create the passkey" }).click()
   await card.getByText(name).waitFor({ timeout: 30_000 })
+}
+
+async function addPasskey(page, account, name) {
+  const card = await openSecurity(page)
+  await card.getByRole("button", { name: "Add a passkey" }).click()
+  const dialog = addDialog(page)
+  await dialog.waitFor()
+  await createInDialog(card, dialog, account, name)
   return card
 }
 
@@ -345,6 +397,72 @@ function rowOf(id) {
     CASE WHEN LockoutEndUtc IS NULL THEN 'none' WHEN LockoutEndUtc > SYSUTCDATETIME() THEN 'future' ELSE 'past' END)
     FROM dbo.Users WHERE Id = '${id}';`)[0].split("|")
   return { status: Number(status), count: Number(count), end }
+}
+
+// ── The window that proves a person in place ───────────────────────────────
+
+/** LastProofMethods reads these fixed bits (AuthenticationMethods): the column's own numbers. */
+const STORED = { password: 1, passwordAndApp: 9, passkey: 96, emailCodeFirstFactor: 132 }
+
+/** The account's newest live session: the one a sign-in just opened. */
+function newestSession(userId) {
+  const rows = sql(`SELECT TOP 1 Id FROM dbo.UserSessions WHERE UserId = '${userId}' AND EndedAt IS NULL ORDER BY StartedAt DESC;`)
+  if (!rows[0]) throw new Inconclusive(`no live session for ${userId}`)
+  return rows[0]
+}
+
+const liveSessions = (userId) =>
+  Number(sql(`SELECT COUNT(*) FROM dbo.UserSessions WHERE UserId = '${userId}' AND EndedAt IS NULL;`)[0])
+
+/** What the row says of a session: is it live, what its last proof proved, what it ever proved. */
+function sessionRow(sessionId) {
+  const [live, proof, methods] = sql(`SELECT CONCAT(CASE WHEN EndedAt IS NULL THEN 'live' ELSE 'ended' END, '|',
+    ISNULL(CONVERT(NVARCHAR(12), LastProofMethods), 'none'), '|', ISNULL(CONVERT(NVARCHAR(12), AuthMethods), 'none'))
+    FROM dbo.UserSessions WHERE Id = '${sessionId}';`)[0].split("|")
+  return { live: live === "live", proof, methods }
+}
+
+/** Past any window an operator can set (60 minutes at most), the sign-in and the last proof both. */
+function ageSession(sessionId) {
+  sql(`UPDATE dbo.UserSessions SET StartedAt = DATEADD(MINUTE, -100, SYSUTCDATETIME()),
+    LastProofAt = CASE WHEN LastProofAt IS NULL THEN NULL ELSE DATEADD(MINUTE, -100, SYSUTCDATETIME()) END
+    WHERE Id = '${sessionId}';`)
+}
+
+/** Marks this document: nothing but a reload or a navigation away can take the mark off. */
+const markDocument = (page) =>
+  page.evaluate(() => {
+    window.__devRunDocument = true
+  })
+const sameDocument = (page) => page.evaluate(() => window.__devRunDocument === true)
+
+const proofWindow = (page) => page.getByRole("dialog", { name: "Confirm it's you" })
+const confirmProof = (proof) => proof.getByRole("button", { name: "Confirm", exact: true }).click()
+const passkeyInWindow = (proof) => proof.getByRole("button", { name: "Confirm with my passkey" })
+
+/** Waits for a code that nothing used yet: a code offered twice is refused as replayed. */
+async function unusedCode(secret, used) {
+  for (let waited = 0; waited < 35 && totp(secret) === used; waited++) await sleep(1000)
+  return totp(secret)
+}
+
+/** Another code, never the current one: the next number along. */
+const notTheCode = (code) => String((Number(code) + 1) % 1_000_000).padStart(6, "0")
+
+async function auditCount(userId, since) {
+  let count = 0
+  for (let attempt = 0; attempt < 20 && count === 0; attempt++) {
+    count = Number(sql(`SELECT COUNT(*) FROM dbo.AuditLogs WHERE UserId = '${userId}' AND Action = N'session.reauthenticated' AND [Timestamp] >= '${since}';`)[0])
+    if (count === 0) await sleep(500)
+  }
+  return count
+}
+
+async function apiSession(account) {
+  const signedIn = await call("POST", "/api/v1/auth/login", { body: { email: account.email, password: account.password } })
+  const token = signedIn.json?.token?.accessToken
+  if (!token) throw new Inconclusive(`${account.email} cannot sign in: ${signedIn.status} ${signedIn.text.slice(0, 200)}`)
+  return token
 }
 
 // ── add-and-sign-in ─────────────────────────────────────────────────────────
@@ -633,6 +751,20 @@ async function passkeyOnlyAdmin() {
     await page.locator('[data-slot="sidebar-inset"]').waitFor({ timeout: 30_000 })
     const where = new URL(page.url()).pathname
     check("the passkey signs in with the platform authority", where === "/users", where)
+
+    // Past the window, this account's proof is that passkey, and nothing else.
+    const session = newestSession(account.id)
+    ageSession(session)
+    const card = await openSecurity(page)
+    await markDocument(page)
+    await card.getByRole("button", { name: "Add a passkey" }).click()
+    const proof = proofWindow(page)
+    await proof.waitFor({ timeout: 30_000 })
+    await passkeyInWindow(proof).waitFor({ timeout: 30_000 })
+    check("its window asks for the passkey alone", (await proof.locator('input[type="password"]').count()) === 0)
+    await passkeyInWindow(proof).click()
+    await addDialog(page).waitFor({ timeout: 30_000 })
+    check("and the addition goes on from it", await sameDocument(page), JSON.stringify(sessionRow(session)))
   })
 }
 
@@ -664,9 +796,57 @@ async function recovery() {
   })
 }
 
-// ── sign-in-again ───────────────────────────────────────────────────────────
+// ── proof-password ──────────────────────────────────────────────────────────
 
-async function signInAgain() {
+async function proofPassword() {
+  const account = await freshAccount("password")
+  await withAuthenticator(async (page) => {
+    await signInToConsole(page, account)
+    const card = await openSecurity(page)
+    const session = newestSession(account.id)
+    const sessionsBefore = liveSessions(account.id)
+    ageSession(session)
+    await markDocument(page)
+    const startedAt = sqlNow()
+
+    await card.getByRole("button", { name: "Add a passkey" }).click()
+    const proof = proofWindow(page)
+    await proof.waitFor({ timeout: 30_000 })
+
+    await proof.getByLabel("Password", { exact: true }).fill("not the password")
+    await confirmProof(proof)
+    const said = await proof.getByTestId("reauthenticate-message").innerText({ timeout: 30_000 })
+    check("a wrong password is refused in the window", said.length > 0, said.slice(0, 120))
+    check("and counted, as at the sign-in page", rowOf(account.id).count === 1, JSON.stringify(rowOf(account.id)))
+    check("and stamps nothing", sessionRow(session).proof === "none", JSON.stringify(sessionRow(session)))
+
+    await proof.getByLabel("Password", { exact: true }).fill(account.password)
+    await confirmProof(proof)
+    const add = addDialog(page)
+    await add.waitFor({ timeout: 30_000 })
+    check("the right password closes the window, and the addition goes on by itself", (await proof.count()) === 0)
+    check("nothing reloaded: the person is where they were", await sameDocument(page), page.url())
+    check("the same session, and no new one", sessionRow(session).live && liveSessions(account.id) === sessionsBefore, `${sessionsBefore} before, ${liveSessions(account.id)} after`)
+    check("the session is stamped with what this proof proved", sessionRow(session).proof === String(STORED.password), JSON.stringify(sessionRow(session)))
+    check("a proof clears no count of wrong passwords", rowOf(account.id).count === 1, JSON.stringify(rowOf(account.id)))
+    const audited = await auditCount(account.id, startedAt)
+    check("audit session.reauthenticated", audited === 1, String(audited))
+
+    // A refreshed token keeps its session, and so its proof.
+    await page.reload()
+    await card.getByRole("button", { name: "Add a passkey" }).click({ timeout: 30_000 })
+    await add.waitFor({ timeout: 30_000 })
+    check("the proof outlives a reload: nothing is asked again", (await proof.count()) === 0)
+
+    await createInDialog(card, add, account, "InPlace")
+    const row = sql(`SELECT CASE WHEN RevokedAt IS NULL THEN 'live' ELSE 'revoked' END FROM dbo.UserPasskeys WHERE UserId = '${account.id}' AND Name = N'InPlace'`)
+    check("and the passkey is added", row.length === 1 && row[0] === "live", JSON.stringify(row))
+  })
+}
+
+// ── proof-passkey ───────────────────────────────────────────────────────────
+
+async function proofPasskey() {
   const account = await freshAccount("again")
   await withAuthenticator(async (page, clear) => {
     await signInToConsole(page, account)
@@ -677,18 +857,23 @@ async function signInAgain() {
     // A password session of an account whose only factor is a passkey: adding beside it
     // needs a session that proved two factors, which only the passkey can give (T-C7).
     await signInToConsole(page, account)
-    await page.goto(`${consoleUrl()}/profile?tab=security`)
-    const card = page.getByTestId("passkeys-card")
-    await card.getByRole("button", { name: "Add a passkey" }).click({ timeout: 30_000 })
-    await page.getByRole("alertdialog").getByRole("button", { name: "Sign in again with my passkey" }).click()
-    await page.waitForURL((url) => url.pathname === "/login", { timeout: 30_000 })
-    await pressPasskey(page)
-    await page.waitForURL((url) => url.pathname === "/profile", { timeout: 30_000 })
-    check("sign in again names the passkey, and comes back to the page", page.url().endsWith("/profile?tab=security"), page.url())
+    const card = await openSecurity(page)
+    const session = newestSession(account.id)
+    const sessionsBefore = liveSessions(account.id)
+    await markDocument(page)
+    await card.getByRole("button", { name: "Add a passkey" }).click()
+    const proof = proofWindow(page)
+    await proof.waitFor({ timeout: 30_000 })
+    await passkeyInWindow(proof).waitFor({ timeout: 30_000 })
+    check("the window names the passkey, and asks for nothing else", (await proof.locator('input[type="password"]').count()) === 0)
+    await passkeyInWindow(proof).click()
+    const add = addDialog(page)
+    await add.waitFor({ timeout: 30_000 })
+    check("the passkey goes on from the window, with nothing reloaded", await sameDocument(page), page.url())
+    check("in the same session", sessionRow(session).live && liveSessions(account.id) === sessionsBefore, JSON.stringify(sessionRow(session)))
+    check("stamped with what it proved", sessionRow(session).proof === String(STORED.passkey), JSON.stringify(sessionRow(session)))
 
     // Now the device itself is asked, and it holds a passkey of this account already.
-    await card.getByRole("button", { name: "Add a passkey" }).click({ timeout: 30_000 })
-    const add = page.getByRole("dialog", { name: "Add a passkey" })
     await add.getByRole("button", { name: "Create the passkey" }).click()
     const said = await add.getByTestId("add-passkey-message").innerText({ timeout: 30_000 })
     check("a session that proved two factors reaches the device", /already holds/.test(said), said)
@@ -702,6 +887,423 @@ async function signInAgain() {
   })
 }
 
+// ── proof-app ───────────────────────────────────────────────────────────────
+
+async function proofApp() {
+  const account = await freshAccount("app")
+  const secret = await bindApp(account)
+  await withAuthenticator(async (page) => {
+    await signInToConsole(page, account, secret)
+    const usedAtSignIn = totp(secret)
+    const card = await addPasskey(page, account, "App")
+    const session = newestSession(account.id)
+    ageSession(session)
+    await markDocument(page)
+
+    await card.getByRole("button", { name: "Add a passkey" }).click()
+    const proof = proofWindow(page)
+    await proof.waitFor({ timeout: 30_000 })
+    await passkeyInWindow(proof).waitFor({ timeout: 30_000 })
+    const password = proof.getByLabel("Password", { exact: true })
+    const code = proof.getByLabel("Verification code", { exact: true })
+    check("the window offers the passkey, the password and the app's code", (await password.count()) === 1 && (await code.count()) === 1)
+
+    await password.fill(account.password)
+    await code.fill(notTheCode(totp(secret)))
+    await confirmProof(proof)
+    const said = await proof.getByTestId("reauthenticate-message").innerText({ timeout: 30_000 })
+    check("a wrong code is refused, and stamps nothing", sessionRow(session).proof === "none", said.slice(0, 120))
+    check("and the password stays, not typed twice", (await password.inputValue()) === account.password)
+
+    await code.fill(await unusedCode(secret, usedAtSignIn))
+    await confirmProof(proof)
+    const add = addDialog(page)
+    await add.waitFor({ timeout: 30_000 })
+    check("the password and an unused code go on", await sameDocument(page), JSON.stringify(sessionRow(session)))
+    check("stamped with the password and the app", sessionRow(session).proof === String(STORED.passwordAndApp), JSON.stringify(sessionRow(session)))
+    await add.getByRole("button", { name: "Cancel" }).click()
+
+    // Past the window again: this proof is old as well, and the passkey alone is enough.
+    ageSession(session)
+    await card.getByRole("button", { name: "Add a passkey" }).click()
+    await proof.waitFor({ timeout: 30_000 })
+    await passkeyInWindow(proof).click({ timeout: 30_000 })
+    await add.waitFor({ timeout: 30_000 })
+    check("past the window again, the passkey alone goes on", sessionRow(session).proof === String(STORED.passkey), JSON.stringify(sessionRow(session)))
+    check("still the same document", await sameDocument(page), page.url())
+  })
+}
+
+// ── proof-disable ───────────────────────────────────────────────────────────
+
+const failedAppCodes = (userId) =>
+  Number(sql(`SELECT FailedAttempts FROM dbo.TwoFactorAuth WHERE UserId = '${userId}';`)[0])
+const appStillOn = (userId) =>
+  sql(`SELECT COUNT(*) FROM dbo.TwoFactorAuth WHERE UserId = '${userId}' AND IsEnabled = 1;`)[0] === "1"
+
+async function proofDisable() {
+  // The proof takes the app's code.
+  const account = await freshAccount("disable")
+  const secret = await bindApp(account)
+  await withAuthenticator(async (page) => {
+    await signInToConsole(page, account, secret)
+    const usedAtSignIn = totp(secret)
+    await openSecurity(page)
+    const session = newestSession(account.id)
+    ageSession(session)
+    await markDocument(page)
+    const sent = []
+    page.on("request", (request) => {
+      if (/\/auth\/2fa\/disable$/i.test(new URL(request.url()).pathname) && request.method() === "POST") sent.push(request.postDataJSON())
+    })
+    const field = page.locator("#disable-code")
+    const turnOff = page.getByRole("button", { name: "Turn off the authenticator app" })
+
+    const held = await unusedCode(secret, usedAtSignIn)
+    await field.fill(held)
+    await turnOff.click()
+    const proof = proofWindow(page)
+    await proof.waitFor({ timeout: 30_000 })
+    await proof.getByLabel("Password", { exact: true }).fill(account.password)
+    await proof.getByLabel("Verification code", { exact: true }).fill(held)
+    await confirmProof(proof)
+    const told = page.getByText("A code works only once, so enter the next code from your app.")
+    await told.waitFor({ timeout: 30_000 })
+    check("a proof with the app's code: the held code is not sent again", sent.length === 1, `${sent.length} sent`)
+    check("so no failure is counted against the factor", failedAppCodes(account.id) === 0, String(failedAppCodes(account.id)))
+    check("the field is empty, and the person is asked for the next code", (await field.inputValue()) === "")
+    check("still on, in the same session, on the same page", appStillOn(account.id) && sessionRow(session).live && (await sameDocument(page)), JSON.stringify(sessionRow(session)))
+
+    await field.fill(await unusedCode(secret, held))
+    await turnOff.click()
+    await page.getByText("The authenticator app is off.").waitFor({ timeout: 30_000 })
+    check("the next code turns it off, with nothing signed out", !appStillOn(account.id) && sessionRow(session).live && (await sameDocument(page)), JSON.stringify(sessionRow(session)))
+  })
+
+  // The proof takes the passkey: the held code is untouched.
+  const other = await freshAccount("disablepk")
+  const otherSecret = await bindApp(other)
+  await withAuthenticator(async (page) => {
+    await signInToConsole(page, other, otherSecret)
+    const usedAtSignIn = totp(otherSecret)
+    await addPasskey(page, other, "Disable")
+    const session = newestSession(other.id)
+    ageSession(session)
+    await markDocument(page)
+    const held = await unusedCode(otherSecret, usedAtSignIn)
+    await page.locator("#disable-code").fill(held)
+    await page.getByRole("button", { name: "Turn off the authenticator app" }).click()
+    const proof = proofWindow(page)
+    await proof.waitFor({ timeout: 30_000 })
+    await passkeyInWindow(proof).click({ timeout: 30_000 })
+    await page.getByText("The authenticator app is off.").waitFor({ timeout: 30_000 })
+    check("a proof with the passkey: the switch-off goes on by itself", !appStillOn(other.id) && (await sameDocument(page)), JSON.stringify(sessionRow(session)))
+  })
+}
+
+// ── proof-new-codes ─────────────────────────────────────────────────────────
+
+async function proofNewCodes() {
+  const account = await freshAccount("newcodes")
+  const secret = await bindApp(account)
+  await withAuthenticator(async (page) => {
+    await signInToConsole(page, account, secret)
+    const usedAtSignIn = totp(secret)
+    await openSecurity(page)
+    const session = newestSession(account.id)
+    ageSession(session)
+    await markDocument(page)
+    const before = sql(`SELECT CHECKSUM(RecoveryCodes) FROM dbo.TwoFactorAuth WHERE UserId = '${account.id}';`)[0]
+
+    await page.getByRole("button", { name: "Generate new codes" }).first().click()
+    const dialog = page.getByRole("dialog", { name: "Generate new recovery codes" })
+    await dialog.waitFor({ timeout: 30_000 })
+    const held = await unusedCode(secret, usedAtSignIn)
+    await dialog.getByLabel("Verification code", { exact: true }).fill(held)
+    await dialog.getByRole("button", { name: "Generate new codes" }).click()
+    const proof = proofWindow(page)
+    await proof.waitFor({ timeout: 30_000 })
+    await proof.getByLabel("Password", { exact: true }).fill(account.password)
+    await proof.getByLabel("Verification code", { exact: true }).fill(held)
+    await confirmProof(proof)
+
+    await dialog.waitFor({ timeout: 30_000 })
+    check("the dialog opens again by itself, empty", (await dialog.getByLabel("Verification code", { exact: true }).inputValue()) === "")
+    check("no failure was counted", failedAppCodes(account.id) === 0, String(failedAppCodes(account.id)))
+    await dialog.getByLabel("Verification code", { exact: true }).fill(await unusedCode(secret, held))
+    await dialog.getByRole("button", { name: "Generate new codes" }).click()
+    await dialog.waitFor({ state: "hidden", timeout: 30_000 })
+    const after = sql(`SELECT CHECKSUM(RecoveryCodes) FROM dbo.TwoFactorAuth WHERE UserId = '${account.id}';`)[0]
+    check("the next code makes new codes, on the same page", after !== before && (await sameDocument(page)))
+  })
+}
+
+// ── proof-removal ───────────────────────────────────────────────────────────
+
+async function proofRemoval() {
+  const account = await freshAccount("removal")
+  await withAuthenticator(async (page, clear) => {
+    await signInToConsole(page, account)
+    await addPasskey(page, account, "Removal")
+    await clear()
+    await withoutSuggestion(page)
+    await signInToConsole(page, account)
+    const card = await openSecurity(page)
+    const session = newestSession(account.id)
+    ageSession(session)
+    await markDocument(page)
+
+    await card.getByRole("button", { name: "Remove Removal" }).click({ timeout: 30_000 })
+    const confirm = page.getByRole("alertdialog")
+    await confirm.getByRole("button", { name: "Remove", exact: true }).click()
+    const proof = proofWindow(page)
+    await proof.waitFor({ timeout: 30_000 })
+    await passkeyInWindow(proof).waitFor({ timeout: 30_000 })
+    check("a removal's window offers the passkey and the password", (await proof.locator('input[type="password"]').count()) === 1)
+    await proof.getByLabel("Password", { exact: true }).fill(account.password)
+    await confirmProof(proof)
+
+    await confirm.waitFor({ timeout: 30_000 })
+    check("its confirmation opens again, by itself", (await proof.count()) === 0)
+    await confirm.getByRole("button", { name: "Remove", exact: true }).click()
+    await card.getByText("No passkeys yet").waitFor({ timeout: 30_000 })
+    const row = sql(`SELECT CASE WHEN RevokedAt IS NULL THEN 'live' ELSE 'revoked' END FROM dbo.UserPasskeys WHERE UserId = '${account.id}'`)
+    check("and the removal goes on, on the same page", row[0] === "revoked" && (await sameDocument(page)), JSON.stringify(row))
+    check("two dialogs in one tick leave the page alive", (await page.evaluate(() => document.body.style.pointerEvents)) !== "none")
+    await card.getByRole("button", { name: "Add a passkey" }).click({ timeout: 30_000 })
+    await addDialog(page).waitFor({ timeout: 30_000 })
+    check("the page still answers a click", true)
+  })
+}
+
+// ── proof-not-the-union ─────────────────────────────────────────────────────
+
+async function proofNotTheUnion() {
+  const account = await freshAccount("union")
+  await withAuthenticator(async (page) => {
+    await signInToConsole(page, account)
+    await addPasskey(page, account, "Union")
+  })
+
+  const token = await apiSession(account)
+  const session = newestSession(account.id)
+  // Past the window, and it proved two factors once, as a passkey proof an hour ago records.
+  sql(`UPDATE dbo.UserSessions SET StartedAt = DATEADD(MINUTE, -100, SYSUTCDATETIME()), AuthMethods = 97,
+    LastProofAt = DATEADD(MINUTE, -100, SYSUTCDATETIME()), LastProofMethods = 96 WHERE Id = '${session}';`)
+
+  const proved = await call("POST", "/api/v1/auth/reauthentication", {
+    token,
+    body: { password: account.password, emailCode: null, secondStepCode: null, useRecoveryCode: false },
+  })
+  check("a password proves this person now", proved.status === 204, `${proved.status} ${proved.text.slice(0, 160)}`)
+  const row = sessionRow(session)
+  check("and records a password, never what the session once proved", row.proof === String(STORED.password) && row.methods === "97", JSON.stringify(row))
+  const change = await call("POST", "/api/v1/auth/passkeys/registration/options", { token })
+  check(
+    "so the change that needs two factors still refuses it",
+    change.status === 403 && change.json?.code === "Auth.ReauthenticationRequired",
+    `${change.status} ${change.json?.code}`
+  )
+}
+
+// ── proof-other-account ─────────────────────────────────────────────────────
+
+async function proofOtherAccount() {
+  const mine = await freshAccount("mine")
+  const theirs = await freshAccount("theirs")
+  await withAuthenticator(async (page) => {
+    await signInToConsole(page, theirs)
+    await addPasskey(page, theirs, "Theirs")
+
+    const token = await apiSession(mine)
+    const session = newestSession(mine.id)
+    ageSession(session)
+    const hex = sql(`SELECT CONVERT(NVARCHAR(MAX), CredentialId, 2) FROM dbo.UserPasskeys WHERE UserId = '${theirs.id}';`)[0]
+
+    const answer = await page.evaluate(
+      async ({ base, bearer, credentialId }) => {
+        const begun = await fetch(`${base}/api/v1/auth/passkeys/assertion/options`, { method: "POST", credentials: "include" })
+        const { options } = await begun.json()
+        const publicKey = PublicKeyCredential.parseRequestOptionsFromJSON({
+          ...options,
+          allowCredentials: [{ type: "public-key", id: credentialId }],
+        })
+        const credential = await navigator.credentials.get({ publicKey })
+        const response = await fetch(`${base}/api/v1/auth/reauthentication/passkey`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${bearer}` },
+          body: JSON.stringify({ credential: credential.toJSON() }),
+        })
+        const body = await response.json().catch(() => ({}))
+        return { status: response.status, code: body.code }
+      },
+      { base: apiUrl(), bearer: token, credentialId: Buffer.from(hex, "hex").toString("base64url") }
+    )
+    check("a passkey of another account proves nothing, with its own code", answer.status === 400 && answer.code === "Passkey.NotThisAccount", JSON.stringify(answer))
+    check("and stamps nothing", sessionRow(session).proof === "none", JSON.stringify(sessionRow(session)))
+  })
+}
+
+// ── proof-email ─────────────────────────────────────────────────────────────
+
+async function proofEmail() {
+  const account = await freshAccount("mailbox")
+  await withAuthenticator(async (page) => {
+    await signInToConsole(page, account)
+    const session = newestSession(account.id)
+    // No password from here on, as an account made by an invitation or a sign-in by code has.
+    sql(`UPDATE dbo.Users SET PasswordHash = NULL WHERE Id = '${account.id}';`)
+    ageSession(session)
+    const card = await openSecurity(page)
+    await markDocument(page)
+
+    await card.getByRole("button", { name: "Add a passkey" }).click()
+    const proof = proofWindow(page)
+    await proof.waitFor({ timeout: 30_000 })
+    const send = proof.getByRole("button", { name: "Email me a code" })
+    await send.waitFor({ timeout: 30_000 })
+    check("with no password, the window has no password field", (await proof.locator('input[type="password"]').count()) === 0)
+
+    const since = sqlNow()
+    await send.click()
+    const code = await emailedCode(account.email, since, "two-factor-email-code")
+    const subject = sql(`SELECT TOP 1 Subject FROM dbo.NotificationOutbox WHERE Recipient = N'${account.email}' AND NotificationTypeCode = N'two-factor-email-code' AND CreatedAt >= '${since}' ORDER BY CreatedAt DESC;`)[0]
+    check("the email says what its code is for (template version 3)", /confirm it is you/i.test(subject ?? ""), subject)
+
+    const field = proof.getByLabel("Code from the email", { exact: true })
+    await field.fill(notTheCode(code))
+    await confirmProof(proof)
+    const said = await proof.getByTestId("reauthenticate-message").innerText({ timeout: 30_000 })
+    check("a wrong code is refused, and stamps nothing", sessionRow(session).proof === "none", said.slice(0, 120))
+
+    await field.fill(code)
+    await confirmProof(proof)
+    const add = addDialog(page)
+    await add.waitFor({ timeout: 30_000 })
+    check("the right code goes on, with nothing reloaded", await sameDocument(page), page.url())
+    check("stamped with the mailbox as this account's first factor", sessionRow(session).proof === String(STORED.emailCodeFirstFactor), JSON.stringify(sessionRow(session)))
+    const own = add.getByRole("button", { name: "Email me a code" })
+    await own.waitFor({ timeout: 30_000 })
+    check("the addition still asks for its own emailed code (OI-280 is not here)", await own.isVisible())
+  })
+}
+
+// ── proof-way-out ───────────────────────────────────────────────────────────
+
+async function proofWayOut() {
+  const account = await freshAccount("wayout")
+  await withAuthenticator(async (page) => {
+    await signInToConsole(page, account)
+    const session = newestSession(account.id)
+    ageSession(session)
+    const card = await openSecurity(page)
+
+    await card.getByRole("button", { name: "Add a passkey" }).click()
+    const proof = proofWindow(page)
+    await proof.waitFor({ timeout: 30_000 })
+    await proof.getByRole("button", { name: "Can't confirm it here? Sign out and sign in again" }).click()
+    const again = page.getByRole("dialog", { name: "Sign in again to continue" })
+    await again.waitFor({ timeout: 30_000 })
+    check("the way out asks first: the session is still alive", sessionRow(session).live)
+
+    await again.getByRole("button", { name: "Sign in again" }).click()
+    await page.waitForURL((url) => url.pathname === "/login", { timeout: 30_000 })
+    let ended = false
+    for (let attempt = 0; attempt < 20 && !ended; attempt++) {
+      ended = !sessionRow(session).live
+      if (!ended) await sleep(500)
+    }
+    check("signing out ends that session", ended)
+
+    await typePassword(page, account)
+    await page.waitForURL((url) => url.pathname === "/profile", { timeout: 30_000 })
+    check("and the sign-in comes back to the page", page.url().endsWith("/profile?tab=security"), page.url())
+  })
+}
+
+// ── proof-unrecorded ────────────────────────────────────────────────────────
+
+async function proofUnrecorded() {
+  const account = await freshAccount("unrecorded", { administrator: true })
+  const secret = await bindApp(account)
+  // Minted before the switch, so it keeps its authority for its 15 minutes: the seeded
+  // administrator has no second factor, and could neither set the switch back nor sign in.
+  const token = await administratorToken()
+  const read = await call("GET", "/api/v1/admin/system-settings", { token })
+  const rowVersion = read.json?.sections?.find((section) => section.key === "TwoFactor")?.rowVersion ?? null
+  const set = await call("PUT", "/api/v1/admin/system-settings/TwoFactor", {
+    token,
+    body: { overrides: { EnforceForPlatformAdmins: true }, rowVersion },
+  })
+  if (set.status !== 200) throw new Inconclusive(`cannot set the switch: ${set.status} ${set.text.slice(0, 200)}`)
+  try {
+    await withAuthenticator(async (page) => {
+      await signInToConsole(page, account, secret)
+      const usedAtSignIn = totp(secret)
+      const session = newestSession(account.id)
+      // A session recorded before methods were, or whose record is gone.
+      sql(`UPDATE dbo.UserSessions SET AuthMethods = NULL WHERE Id = '${session}';`)
+
+      await page.goto(`${consoleUrl()}/users`)
+      await page.waitForURL((url) => url.pathname === "/two-factor/required", { timeout: 30_000 })
+      await page.getByRole("button", { name: "Confirm", exact: true }).click({ timeout: 30_000 })
+      const proof = proofWindow(page)
+      await proof.waitFor({ timeout: 30_000 })
+      await proof.getByLabel("Password", { exact: true }).fill(account.password)
+      await proof.getByLabel("Verification code", { exact: true }).fill(await unusedCode(secret, usedAtSignIn))
+      await confirmProof(proof)
+      await page.waitForURL((url) => url.pathname === "/users", { timeout: 30_000 })
+      check("an unrecorded session proves itself in place, and goes where it was going", true, page.url())
+      const row = sessionRow(session)
+      check("in the same session, now recorded", row.live && row.methods === String(STORED.passwordAndApp), JSON.stringify(row))
+      await page.locator('[data-slot="sidebar-inset"]').waitFor({ timeout: 30_000 })
+    })
+  } finally {
+    const reset = await call("POST", "/api/v1/admin/system-settings/TwoFactor/reset", { token })
+    if (reset.status !== 200) verdict("the switch is set back", "FAIL", `${reset.status}: drop this database`)
+  }
+}
+
+// ── before-the-columns ──────────────────────────────────────────────────────
+
+/** /ready caches its answer for a few seconds: asks until it says so, and says what it said. */
+async function readyBecomes(expected) {
+  let status = "no answer"
+  for (let attempt = 0; attempt < 15 && status !== expected; attempt++) {
+    const answer = await call("GET", "/ready")
+    status = answer.json?.status ?? String(answer.status)
+    if (status !== expected) await sleep(1000)
+  }
+  return status
+}
+
+async function beforeTheColumns() {
+  const account = await freshAccount("order")
+  sql("ALTER TABLE dbo.UserSessions DROP COLUMN LastProofAt, LastProofMethods;")
+  try {
+    const degraded = await readyBecomes("Degraded")
+    check("/ready says Degraded, so a deploy stops there", degraded === "Degraded", degraded)
+    const token = await apiSession(account)
+    check("with neither column, a sign-in works", Boolean(token))
+    const recent = await call("POST", "/api/v1/auth/passkeys/registration/options", { token })
+    check("and so does a change on a recent session", recent.status === 200, String(recent.status))
+
+    sql(`UPDATE dbo.UserSessions SET StartedAt = DATEADD(MINUTE, -100, SYSUTCDATETIME()) WHERE Id = '${newestSession(account.id)}';`)
+    const stale = await call("POST", "/api/v1/auth/passkeys/registration/options", { token })
+    check("a change on a stale session fails closed", stale.status >= 500, String(stale.status))
+    const proved = await call("POST", "/api/v1/auth/reauthentication", {
+      token,
+      body: { password: account.password, emailCode: null, secondStepCode: null, useRecoveryCode: false },
+    })
+    check("and a proof cannot be stamped", proved.status >= 500, String(proved.status))
+  } finally {
+    sql("ALTER TABLE dbo.UserSessions ADD LastProofAt DATETIME2 NULL, LastProofMethods INT NULL;")
+  }
+  const healthy = await readyBecomes("Healthy")
+  check("with the columns back, /ready recovers", healthy === "Healthy", healthy)
+}
+
 const scenarios = {
   "add-and-sign-in": addAndSignIn,
   origin,
@@ -709,7 +1311,18 @@ const scenarios = {
   locks,
   "passkey-only-admin": passkeyOnlyAdmin,
   recovery,
-  "sign-in-again": signInAgain,
+  "proof-password": proofPassword,
+  "proof-passkey": proofPasskey,
+  "proof-app": proofApp,
+  "proof-disable": proofDisable,
+  "proof-new-codes": proofNewCodes,
+  "proof-removal": proofRemoval,
+  "proof-not-the-union": proofNotTheUnion,
+  "proof-other-account": proofOtherAccount,
+  "proof-email": proofEmail,
+  "proof-way-out": proofWayOut,
+  "proof-unrecorded": proofUnrecorded,
+  "before-the-columns": beforeTheColumns,
 }
 const chosen = process.argv[2] === "all" ? Object.keys(scenarios) : [process.argv[2]]
 if (!chosen[0] || chosen.some((name) => !scenarios[name])) {

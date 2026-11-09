@@ -1041,6 +1041,10 @@ builder.Services.AddScoped<EmailCodeFactorProof>();
 // A recent sign-in before any change to the second factor:
 // TwoFactor:ReauthenticationMaxAgeMinutes, read per call, so it is hot.
 builder.Services.AddScoped<IReauthenticationGuard, ReauthenticationGuard>();
+// The window a signed-in person proves themself again in, with no new sign-in: the one read of
+// what the account must prove, and the password door it shares with the password sign-in.
+builder.Services.AddScoped<ReauthenticationPolicy>();
+builder.Services.AddScoped<PasswordDoor>();
 // The code an account with no second factor enters before it binds its first one:
 // required while Email:Enabled is on, read per call.
 builder.Services.AddSingleton<FirstFactorEmailProofPolicy>();

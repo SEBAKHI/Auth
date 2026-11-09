@@ -151,6 +151,10 @@ public static class AuditActions
     /// <summary>A signed-in session proved the second factor (a step-up).</summary>
     public const string TwoFactorSteppedUp = "twofactor.stepped-up";
 
+    /// <summary>A signed-in person proved themself again inside a session, with no new sign-in;
+    /// the row's details say what the proof proved.</summary>
+    public const string SessionReauthenticated = "session.reauthenticated";
+
     /// <summary>The emailed code became the account's second factor (S24); the row's
     /// details say whether it took the place of an authenticator app.</summary>
     public const string TwoFactorEmailCodeEnabled = "twofactor.email-code-enabled";
@@ -281,6 +285,7 @@ public static class AuditActions
             [TwoFactorAuthenticatorReplaced] = AuditActionTypes.Security,
             [TwoFactorResetByAdministrator] = AuditActionTypes.Security,
             [TwoFactorSteppedUp] = AuditActionTypes.Security,
+            [SessionReauthenticated] = AuditActionTypes.Security,
             [TwoFactorEmailCodeEnabled] = AuditActionTypes.Security,
             [TwoFactorEmailCodeDisabled] = AuditActionTypes.Security,
             [PasskeyRegistered] = AuditActionTypes.Security,

@@ -13,13 +13,14 @@ import type { Schemas } from "@authsystem/api/types"
  * card that cannot act says why instead of offering a button that would fail.
  */
 const mocks = vi.hoisted(() => ({
+  get: vi.fn(),
   post: vi.fn(),
   logout: vi.fn(),
   toastError: vi.fn(),
 }))
 
 vi.mock("@authsystem/api/client", () => ({
-  api: { POST: mocks.post, GET: vi.fn(), DELETE: vi.fn() },
+  api: { POST: mocks.post, GET: mocks.get, DELETE: vi.fn() },
 }))
 
 vi.mock("react-i18next", () => ({
@@ -181,7 +182,8 @@ describe("EmailCodeCard", () => {
     ])
   })
 
-  it("a stale sign-in asks to sign in again instead of a toast", async () => {
+  it("a stale sign-in asks for a proof where the person stands, instead of a toast", async () => {
+    mocks.get.mockResolvedValue({ data: { passkey: false, password: true, emailCode: false, secondStep: "None", canProveInPlace: true } })
     mocks.post.mockResolvedValue({
       data: undefined,
       error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "sign in again" },
@@ -193,7 +195,8 @@ describe("EmailCodeCard", () => {
 
     // Switching the emailed code needs a recent sign-in, not one with the app: the
     // general sentence (review of #108, F7).
-    expect(await screen.findByText("auth.reauthenticateBody")).toBeInTheDocument()
+    expect(await screen.findByText("auth.reauthenticate.body")).toBeInTheDocument()
+    expect(mocks.logout).not.toHaveBeenCalled()
     expect(screen.queryByText("profile.twoFactorChangeNeedsRecentSignIn")).not.toBeInTheDocument()
     expect(mocks.toastError).not.toHaveBeenCalled()
   })

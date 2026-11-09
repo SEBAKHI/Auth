@@ -41,7 +41,7 @@ import {
   applyPasswordServerErrors,
   passwordSchema,
 } from "@authsystem/auth/password-rules"
-import { ReauthenticateDialog } from "@authsystem/auth/reauthenticate-dialog"
+import { ReauthenticateDialog, type ReauthenticationProof } from "@authsystem/auth/reauthenticate-dialog"
 import { RemovePasswordCard } from "./remove-password-card"
 import {
   clearRecoveryCodeSignIn,
@@ -207,10 +207,11 @@ function TwoFactorCard({
   const [useRecoveryCode, setUseRecoveryCode] = React.useState(false)
   const [recoveryCodes, setRecoveryCodes] = React.useState<string>()
   // Open with the reason it is shown for: the recency every change needs (the
-  // dialog's own text), or, for new codes and a new app, a recent sign-in that
-  // also proved two factors.
+  // window's own text), or, for new codes and a new app, a recent proof of two
+  // factors; and what goes on once it is given, when the page still holds it.
   const [reauthenticate, setReauthenticate] = React.useState<{
     description?: string
+    onProved?: (proof: ReauthenticationProof) => void
   }>()
   const [regenerateOpen, setRegenerateOpen] = React.useState(false)
   const [replaceOpen, setReplaceOpen] = React.useState(false)
@@ -236,13 +237,20 @@ function TwoFactorCard({
     if (codes.length) setRecoveryCodes(codes.join("\n"))
   }
 
-  const changeHandlers = {
+  // A dialog closes when it is asked for a proof, and opens again, empty, once it is given. The
+  // code it held was never counted; but a proof with the app's code leaves it unusable, so the
+  // person is told to wait for the next one rather than be refused for a code they just used.
+  const changeHandlersOf = (reopen: () => void) => ({
     onReauthenticate: () =>
       setReauthenticate({
         description: t("profile.twoFactorChangeNeedsRecentSignIn"),
+        onProved: ({ spentAppCode }) => {
+          reopen()
+          if (spentAppCode) toast.info(t("profile.twoFactorNextCode"))
+        },
       }),
     onStale: () => void invalidateMe(),
-  }
+  })
 
   /*
    * One answer to a failure of disable, keyed by the published code — never by
@@ -253,7 +261,18 @@ function TwoFactorCard({
   const onDisableError = (error: unknown) => {
     const codes = getErrorCodes(error)
     if (codes.includes("Auth.ReauthenticationRequired")) {
-      setReauthenticate({})
+      // The guard refused before the code was counted, so it can be sent again as it is: unless
+      // the proof just spent the app's time step, which no code up to it can pass.
+      setReauthenticate({
+        onProved: ({ spentAppCode }) => {
+          if (spentAppCode && !useRecoveryCode) {
+            setDisableCode("")
+            toast.info(t("profile.twoFactorNextCode"))
+          } else {
+            disableMutation.mutate()
+          }
+        },
+      })
       return
     }
 
@@ -405,14 +424,14 @@ function TwoFactorCard({
         <RegenerateRecoveryCodesDialog
           onOpenChange={setRegenerateOpen}
           onRegenerated={showNewCodes}
-          {...changeHandlers}
+          {...changeHandlersOf(() => setRegenerateOpen(true))}
         />
       ) : null}
       {replaceOpen ? (
         <ReplaceAuthenticatorDialog
           onOpenChange={setReplaceOpen}
           onReplaced={showNewCodes}
-          {...changeHandlers}
+          {...changeHandlersOf(() => setReplaceOpen(true))}
         />
       ) : null}
 
@@ -422,6 +441,7 @@ function TwoFactorCard({
           open
           onOpenChange={(open) => !open && setReauthenticate(undefined)}
           description={reauthenticate.description}
+          onProved={reauthenticate.onProved}
         />
       ) : null}
     </Card>

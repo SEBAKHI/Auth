@@ -48,6 +48,7 @@ public class UsableSecondFactorsReaderGuardTests
         "GetApplicationMfaReadinessQueryHandler.cs",
         "PasskeyOnlyAdministratorRule.cs",
         "GetUserByIdQueryHandler.cs",
+        "ReauthenticationPolicy.cs",
     ];
 
     [Fact]

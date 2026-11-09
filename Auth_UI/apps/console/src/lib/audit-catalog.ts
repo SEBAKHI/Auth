@@ -58,6 +58,7 @@ export const AUDIT_ACTIONS: readonly AuditActionEntry[] = [
   { code: "twofactor.authenticator-replaced", actionType: "Security" },
   { code: "twofactor.reset-by-administrator", actionType: "Security" },
   { code: "twofactor.stepped-up", actionType: "Security" },
+  { code: "session.reauthenticated", actionType: "Security" },
   { code: "twofactor.email-code-enabled", actionType: "Security" },
   { code: "twofactor.email-code-disabled", actionType: "Security" },
   { code: "passkey.registered", actionType: "Security" },

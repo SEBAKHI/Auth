@@ -145,16 +145,18 @@ test("s08: an account without a factor is offered enrolment", async ({ page, api
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible()
 })
 
-test("s08: a session whose sign-in is unknown is asked to sign in again", async ({ page, api }) => {
+test("s08: a session whose sign-in is unknown proves the person where they stand", async ({ page, api }) => {
   await serveConsole(api, { requirement: "reauthenticate", stepUps: [] })
 
   await page.goto(`${ORIGINS.console}/users`)
   await expect(page).toHaveURL(`${ORIGINS.console}${TWO_FACTOR_REQUIRED}`, FIRST_LOAD)
-  await page.getByRole("button", { name: "Sign in again" }).click()
+  await page.getByRole("button", { name: "Confirm" }).click()
 
-  const dialog = page.getByRole("alertdialog", { name: "Sign in again to continue" })
+  const dialog = page.getByRole("dialog", { name: "Confirm it's you" })
   await expect(dialog).toBeVisible()
-  await expect(dialog).toContainText("Sign out and sign back in with your password and your authenticator code.")
+  await expect(dialog).toContainText("Confirm it's you with your password and your second factor.")
+  await expect(dialog.getByLabel("Password")).toBeVisible()
+  expect(api.firstParty.logouts).toHaveLength(0)
 })
 
 test("s08: the accounts app guards its own shell the same way", async ({ page, api }) => {

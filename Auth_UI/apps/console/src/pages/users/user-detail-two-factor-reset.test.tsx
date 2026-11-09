@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -21,6 +21,7 @@ const grantedPermissions = new Set<string>()
 const signedIn = { id: "admin-id" }
 let postAnswer: { error?: unknown; data?: unknown } = { data: undefined }
 let ownRecoveryCodes: number | null = 4
+let ownQualifyingMfa = false
 
 let allowedActions: { resetTwoFactor?: boolean } | undefined
 
@@ -42,6 +43,10 @@ vi.mock("@authsystem/api/client", () => {
       return Promise.resolve({ data: { ...target, allowedActions } })
     if (path === "/api/v1/auth/2fa/status")
       return Promise.resolve({ data: { recoveryCodesRemaining: ownRecoveryCodes } })
+    if (path === "/api/v1/auth/reauthentication")
+      return Promise.resolve({ data: { passkey: false, password: true, emailCode: false, secondStep: "None", canProveInPlace: true } })
+    if (path === "/api/v1/Users/me")
+      return Promise.resolve({ data: { qualifyingMfa: ownQualifyingMfa } })
     return Promise.resolve({ data: [] })
   }
   return {
@@ -103,6 +108,7 @@ describe("resetting another account's two-factor", () => {
     apiCall.mockClear()
     postAnswer = { data: undefined }
     ownRecoveryCodes = 4
+    ownQualifyingMfa = false
     signedIn.id = "admin-id"
     allowedActions = undefined
     await i18n.changeLanguage("en")
@@ -170,7 +176,7 @@ describe("resetting another account's two-factor", () => {
     )
   }, 15_000)
 
-  it("asks the administrator to sign in again when their own session is not a recent two-factor one", async () => {
+  it("asks the administrator to prove themself where they stand, then goes on with the reset", async () => {
     postAnswer = {
       error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
     }
@@ -180,13 +186,37 @@ describe("resetting another account's two-factor", () => {
     await user.click(await screen.findByRole("button", { name: RESET }))
     await user.click(await screen.findByRole("button", { name: "Reset" }))
 
-    const signInAgain = await screen.findByRole("alertdialog", {
-      name: "Sign in again to continue",
-    })
-    expect(signInAgain).toHaveTextContent(
-      "Resetting another account's two-factor authentication needs your own recent sign-in"
+    const proof = await screen.findByRole("dialog", { name: "Confirm it's you" })
+    expect(proof).toHaveTextContent(
+      "Resetting two-factor authentication for another account needs you to confirm it's you"
     )
     expect(apiCall).toHaveBeenCalledWith("/api/v1/auth/2fa/status", undefined)
+
+    postAnswer = { error: undefined }
+    await user.type(await within(proof).findByLabelText("Password"), "my password")
+    await user.click(within(proof).getByRole("button", { name: "Confirm" }))
+
+    await waitFor(() =>
+      expect(apiCall.mock.calls.filter(([path]) => path === "/api/v1/Users/{id}/two-factor/reset")).toHaveLength(2)
+    )
+    expect(screen.queryByRole("dialog", { name: "Confirm it's you" })).not.toBeInTheDocument()
+  }, 15_000)
+
+  it("asks an administrator whose factor is a passkey for that passkey, not to set a factor up", async () => {
+    ownRecoveryCodes = null
+    ownQualifyingMfa = true
+    postAnswer = {
+      error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
+    }
+    const user = userEvent.setup()
+    renderPage([PERMISSIONS.users.read, PERMISSIONS.users.resetTwoFactor])
+
+    await user.click(await screen.findByRole("button", { name: RESET }))
+    await user.click(await screen.findByRole("button", { name: "Reset" }))
+
+    expect(await screen.findByRole("dialog", { name: "Sign in again to continue" })).toHaveTextContent(
+      "Your account's second factor is a passkey"
+    )
   }, 15_000)
 
   it("sends an administrator without a factor to set one up first", async () => {

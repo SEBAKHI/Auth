@@ -1,5 +1,6 @@
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
+using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -31,7 +32,7 @@ public class ReauthenticationGuard : IReauthenticationGuard
     }
 
     /// <inheritdoc />
-    public async Task<ErrorOr<RecentSession>> EnsureRecentSignInAsync(
+    public async Task<ErrorOr<UserSession>> EnsureLiveSessionAsync(
         Guid userId,
         Guid? sessionId,
         CancellationToken cancellationToken)
@@ -55,6 +56,23 @@ public class ReauthenticationGuard : IReauthenticationGuard
             return Refuse(userId, "the session has ended");
         }
 
+        return session;
+    }
+
+    /// <inheritdoc />
+    public async Task<ErrorOr<RecentSession>> EnsureRecentSignInAsync(
+        Guid userId,
+        Guid? sessionId,
+        CancellationToken cancellationToken)
+    {
+        var live = await EnsureLiveSessionAsync(userId, sessionId, cancellationToken);
+        if (live.IsError)
+        {
+            return live.Errors;
+        }
+
+        var session = live.Value;
+
         // Read per request, so the window can be changed without a restart, and
         // brought inside its range: no value — a typo in a file included — turns the
         // check off.
@@ -64,12 +82,21 @@ public class ReauthenticationGuard : IReauthenticationGuard
             TwoFactorSettings.MaxReauthenticationMaxAgeMinutes);
 
         var oldestAccepted = _timeProvider.GetUtcNow().UtcDateTime.AddMinutes(-maxAgeMinutes);
-        if (session.CreatedAt < oldestAccepted)
+        if (session.CreatedAt >= oldestAccepted)
         {
-            return Refuse(userId, $"the sign-in is older than {maxAgeMinutes} minutes");
+            return new RecentSession(session.Id, session.DeviceName, session.Methods);
         }
 
-        return new RecentSession(session.Id, session.DeviceName, session.Methods);
+        // Past its sign-in, what counts is what the last proof inside the session proved, never
+        // what the session ever proved: two factors an hour ago and a password just now are a
+        // password just now. Read apart, and only here: see GetLastProofAsync.
+        var proof = await _sessionRepository.GetLastProofAsync(session.Id, cancellationToken);
+        if (proof is not null && proof.ProvedAtUtc >= oldestAccepted)
+        {
+            return new RecentSession(session.Id, session.DeviceName, proof.Methods);
+        }
+
+        return Refuse(userId, $"the sign-in, and any proof since, is older than {maxAgeMinutes} minutes");
     }
 
     /// <inheritdoc />

@@ -121,7 +121,7 @@ export function SecondFactorCodeField({
 
 /** What a change to the factor answers, besides success. */
 interface TwoFactorChangeHandlers {
-  /** The session is not a recent two-factor one: sign in again. */
+  /** The session is not a recent two-factor one: the person proves themself where they stand. */
   onReauthenticate: () => void
   /** The account's picture of two-factor is out of date: refetch it. */
   onStale: () => void
@@ -130,7 +130,7 @@ interface TwoFactorChangeHandlers {
 /**
  * One answer to a failure of a change to the factor, keyed by the published code
  * — never by the status: TwoFactor.LockedOut is a 403 too, and only a session
- * that is not a recent two-factor one is fixed by signing in again.
+ * that is not a recent two-factor one is fixed by a proof of the person.
  * @returns whether the dialog should close.
  */
 function answerFailure(error: unknown, handlers: TwoFactorChangeHandlers): boolean {

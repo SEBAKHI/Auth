@@ -200,7 +200,8 @@ describe("TwoFactorRequiredPage", () => {
     expect(mocks.markRecoveryCodeSignIn).not.toHaveBeenCalled()
   })
 
-  it("asks to sign in again when the session cannot be upgraded", async () => {
+  it("asks for a proof where the person stands when the session cannot be upgraded", async () => {
+    mocks.get.mockResolvedValue({ data: { passkey: false, password: true, emailCode: false, secondStep: "None", canProveInPlace: true } })
     mocks.post.mockResolvedValue({
       error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
     })
@@ -210,9 +211,10 @@ describe("TwoFactorRequiredPage", () => {
     await user.type(await screen.findByLabelText("auth.twoFactorCode"), "123456")
     await user.click(screen.getByRole("button", { name: "auth.verify" }))
 
-    expect(await screen.findByRole("alertdialog", { name: "auth.reauthenticateTitle" })).toBeInTheDocument()
+    expect(await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })).toBeInTheDocument()
     expect(screen.getByText("auth.mfaRequiredReauthenticateBody")).toBeInTheDocument()
     expect(mocks.calls).toEqual(["refresh", "me"])
+    expect(mocks.auth.logout).not.toHaveBeenCalled()
   })
 
   it("offers enrolment when the account has no factor", async () => {
@@ -243,14 +245,21 @@ describe("TwoFactorRequiredPage", () => {
     expect(screen.getByText("profile.replaceEmailCodeTitle")).toBeInTheDocument()
   })
 
-  it("offers to sign in again when the session's first factor is unknown", async () => {
+  it("asks for a proof when the session's first factor is unknown, and reads the account again after it", async () => {
     mocks.auth.mfaRequirement = "reauthenticate"
+    mocks.get.mockResolvedValue({ data: { passkey: false, password: true, emailCode: false, secondStep: "None", canProveInPlace: true } })
+    mocks.post.mockResolvedValue({ data: undefined, error: undefined })
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole("button", { name: "auth.reauthenticateAction" }))
+    await user.click(await screen.findByRole("button", { name: "auth.reauthenticate.confirm" }))
 
-    expect(await screen.findByRole("alertdialog", { name: "auth.reauthenticateTitle" })).toBeInTheDocument()
+    const proof = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+    await user.type(await within(proof).findByLabelText("auth.password"), "my password")
+    await user.click(within(proof).getByRole("button", { name: "auth.reauthenticate.confirm" }))
+
+    await waitFor(() => expect(mocks.calls).toEqual(["refresh", "me", "refresh", "me"]))
+    expect(mocks.auth.logout).not.toHaveBeenCalled()
   })
 
   // S08 PR B (review follow-up): a failed read shows an error with "try again",
@@ -369,20 +378,28 @@ describe("TwoFactorRequiredPage in application mode (S23)", () => {
     expect(screen.queryByRole("button", { name: "common.signOut" })).toBeNull()
   })
 
-  it("answers a demand to sign in again with the sign-in page, never a sign-out", async () => {
+  it("answers a demand for a proof in place, and its way out is the sign-in page, never a sign-out", async () => {
     mocks.post.mockResolvedValue({
       error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
     })
+    mocks.get.mockImplementation(async (path: string) =>
+      path === "/api/v1/auth/reauthentication"
+        ? { data: { passkey: false, password: true, emailCode: false, secondStep: "None", canProveInPlace: true } }
+        : { data: { id: "u-1", email: "admin@example.com", qualifyingMfa: false } }
+    )
     const user = userEvent.setup()
     renderPage(APPLICATION)
 
     await user.click(await screen.findByRole("button", { name: "profile.enableTwoFactor" }))
 
+    const proof = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+    await user.click(await within(proof).findByRole("button", { name: "auth.reauthenticate.signOutLink" }))
+    await user.click(within(proof).getByRole("button", { name: "auth.reauthenticateAction" }))
+
     expect(await screen.findByTestId("sign-in")).toHaveTextContent(
       `/login?client_id=app&auth_request=${HANDLE}&reason=mfa_enroll`
     )
     expect(mocks.auth.logout).not.toHaveBeenCalled()
-    expect(screen.queryByRole("alertdialog")).toBeNull()
     // A sign-in by code from there proves the password too (OI-215).
     expect(window.sessionStorage.getItem("auth.signIn.fullProof")).toBe("1")
   })

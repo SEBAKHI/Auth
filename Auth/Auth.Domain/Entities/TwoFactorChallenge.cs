@@ -159,6 +159,25 @@ public class TwoFactorChallenge : EntityBase
     }
 
     /// <summary>
+    /// Gets whether a code may be emailed for this challenge only while the account's second
+    /// factor is the emailed code. Not while that factor is being bound, and not for an account
+    /// without a password proving itself again: there the code is its first factor, with no
+    /// factor row at all (D-215-1), so its challenge was opened with no first proof before it.
+    /// </summary>
+    public bool RequiresBoundEmailFactor =>
+        Purpose != TwoFactorChallengePurpose.EmailEnrollment
+        && !(Purpose == TwoFactorChallengePurpose.Reauthentication && PrimaryMethod.IsUnknown);
+
+    /// <summary>
+    /// How many second-factor codes the account may have been emailed in 24 hours, every purpose
+    /// together, for this challenge to send one more.
+    /// </summary>
+    public int DailyEmailCodeCeiling =>
+        Purpose == TwoFactorChallengePurpose.Reauthentication
+            ? TwoFactorAuth.MaxEmailCodesPerDayForReauthentication
+            : TwoFactorAuth.MaxEmailCodesPerDay;
+
+    /// <summary>
     /// Creates a new two-factor login challenge.
     /// </summary>
     /// <param name="userId">The user ID.</param>
