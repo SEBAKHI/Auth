@@ -328,12 +328,30 @@ describe("the sign-in page while passkeys do not run", () => {
   it("keeps the address and the password on one screen while the hint is false, and asks nothing about the address", async () => {
     passkeysRun()
     mocks.login.mockResolvedValue(SIGNED_IN)
+    // The browser offers the address field's suggestion, which waits for the
+    // person, as a browser's does.
+    mocks.loadWebAuthn.mockResolvedValue({
+      ...HELPER,
+      browserSupportsWebAuthnAutofill: async () => true,
+    })
+    mocks.startAuthentication.mockImplementation(() => new Promise(() => {}))
     mocks.branding.signInOptions = {
       ...PASSKEYS_PASSWORD_ONLY,
       passkeySignInOffered: false,
     }
     renderPage()
     await optionsAsked()
+    // Ready (REVIEW 159 F6): the options answered and the helper came, so the
+    // address field offers the passkeys. A passkey button for every visitor
+    // would be on the screen by now (the same render), so the absence checks
+    // below can fail. Deliberate break, verified red: that button brought back
+    // under a false hint.
+    await waitFor(() =>
+      expect(screen.getByLabelText("auth.email")).toHaveAttribute(
+        "autocomplete",
+        "username webauthn"
+      )
+    )
 
     expect(screen.getByLabelText("auth.password")).toBeInTheDocument()
     expect(
@@ -437,6 +455,113 @@ describe("the first screen while passkeys may run (OI-280, D-S20-11)", () => {
 
     expect(await screen.findByText("code flow")).toBeInTheDocument()
     expect(posted()).toEqual([LOOKUP_PATH, CODE_START_PATH])
+  })
+
+  // REVIEW 159 F1. Deliberate break, verified red: "Sending code…" for every
+  // press in code mode, as before.
+  it("code mode says it is sending a code only once a code is on its way", async () => {
+    let answerLookup!: (value: unknown) => void
+    let answerCode!: (value: unknown) => void
+    mocks.post.mockImplementation(async (path: string) => {
+      if (path === OPTIONS_PATH) return OPTIONS_ANSWER()
+      if (path === LOOKUP_PATH)
+        return new Promise((resolve) => {
+          answerLookup = resolve
+        })
+      if (path === CODE_START_PATH)
+        return new Promise((resolve) => {
+          answerCode = resolve
+        })
+      return { data: undefined, error: { status: 404 }, response: response(404) }
+    })
+    mocks.branding.signInOptions = PASSKEYS_CODE_FIRST
+    const { container } = renderPage()
+    await optionsAsked()
+    const submit = () => container.querySelector('button[type="submit"]')
+
+    await continueWith("someone@example.com", "auth.continueWithEmail")
+    await waitFor(() => expect(posted()).toEqual([LOOKUP_PATH]))
+    // The question is on its way, not a code: the button keeps its words.
+    expect(submit()).toBeDisabled()
+    expect(submit()).toHaveTextContent("auth.continueWithEmail")
+    expect(submit()).not.toHaveTextContent("auth.sendingCode")
+
+    await act(async () =>
+      answerLookup({ data: { passkey: false }, response: response(200) })
+    )
+
+    // Now the code is on its way, and the button says so.
+    await waitFor(() => expect(posted()).toEqual([LOOKUP_PATH, CODE_START_PATH]))
+    expect(submit()).toBeDisabled()
+    expect(submit()).toHaveTextContent("auth.sendingCode")
+
+    await act(async () => answerCode(CODE_STARTED))
+    expect(await screen.findByText("code flow")).toBeInTheDocument()
+  })
+
+  // REVIEW 159 F2. Deliberate break, verified red (both cases): the answer acted
+  // on whatever the page has become since the press.
+  it("drops an answer that comes after the person took the other method: no code is sent", async () => {
+    let answer!: (value: unknown) => void
+    serverWithLookup(
+      () =>
+        new Promise((resolve) => {
+          answer = resolve
+        })
+    )
+    mocks.branding.signInOptions = PASSKEYS_CODE_FIRST
+    renderPage()
+    await optionsAsked()
+
+    await continueWith("someone@example.com", "auth.continueWithEmail")
+    await waitFor(() => expect(posted()).toEqual([LOOKUP_PATH]))
+    // While the question is on its way, the person takes the password instead.
+    await userEvent
+      .setup()
+      .click(
+        screen.getByRole("button", { name: "auth.signInWithPasswordInstead" })
+      )
+
+    await act(async () =>
+      answer({ data: { passkey: false }, response: response(200) })
+    )
+
+    // The answer was for "Continue with email": dropped. The page is password
+    // mode's first screen, and no code went out.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "auth.continue" })
+      ).toBeEnabled()
+    )
+    expect(screen.queryByLabelText("auth.password")).not.toBeInTheDocument()
+    expect(screen.queryByText("code flow")).not.toBeInTheDocument()
+    expect(posted()).toEqual([LOOKUP_PATH])
+  })
+
+  it("drops an answer that comes after the page is gone: no code is sent", async () => {
+    let answer!: (value: unknown) => void
+    serverWithLookup(
+      () =>
+        new Promise((resolve) => {
+          answer = resolve
+        })
+    )
+    mocks.branding.signInOptions = PASSKEYS_CODE_FIRST
+    const { unmount } = renderPage()
+    await optionsAsked()
+
+    await continueWith("someone@example.com", "auth.continueWithEmail")
+    await waitFor(() => expect(posted()).toEqual([LOOKUP_PATH]))
+    // The sign-in ended another way meanwhile (the suggestion, a provider): the
+    // page is gone.
+    unmount()
+
+    await act(async () => {
+      answer({ data: { passkey: false }, response: response(200) })
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(posted()).toEqual([LOOKUP_PATH])
   })
 
   it("password mode, `none`: the password step, with the address read-only and the way back", async () => {
@@ -586,6 +711,24 @@ describe("the passkey screen (OI-280, T-A7)", () => {
     expect(posted()).toEqual([LOOKUP_PATH])
     expect(screen.queryByLabelText("auth.password")).not.toBeInTheDocument()
     expect(mocks.startAuthentication).not.toHaveBeenCalled()
+  })
+
+  // REVIEW 159 F5. Deliberate break, verified red: the note left on the first
+  // screen alone.
+  it("says the browser withheld the sign-in cookie, above the address, as the first screen does", async () => {
+    // The last session ended at its first refresh without the cookie (token-store).
+    window.localStorage.setItem("auth.cookieCheck", "blocked")
+    serverWithLookup()
+    mocks.branding.signInOptions = PASSKEYS_PASSWORD_ONLY
+    renderPage()
+    expect(screen.getByTestId("cookies-blocked-note")).toBeInTheDocument()
+
+    await onPasskeyScreen()
+
+    // A passkey sign-in needs the same cookie.
+    const note = screen.getByTestId("cookies-blocked-note")
+    expect(note).toHaveTextContent("auth.cookiesBlockedNote")
+    expect(precedes(note, screen.getByLabelText("auth.email"))).toBe(true)
   })
 
   it("signs in through the completion rule from the button's click, with no proof and no method remembered (T-C2, T-C6)", async () => {

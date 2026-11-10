@@ -491,6 +491,33 @@ describe("a failed response", () => {
     expect(response.text).toBe(read)
   })
 
+  it("leaves the passkey lookup's 404 unread too: reading it would download the error codes inside the lookup's three seconds", async () => {
+    // OI-280, REVIEW 159 F4. The page reads the lookup's status alone: 404 is
+    // "passkeys do not run here", and the page stops asking. Read through
+    // readProblem, the answer would wait for the published list first, and on a
+    // slow link come back after the page's deadline as "unknown".
+    // Deliberate break, verified red: the lookup taken out of the passkeys-off paths.
+    const read = vi.fn(async () => JSON.stringify({ code: "Http.NotFound" }))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        const answer = new Response(null, { status: 404, headers: { "content-type": "application/problem+json" } })
+        return Object.assign(answer, { clone: () => answer, text: read })
+      })
+    )
+    const tab = await openTab()
+
+    const { response } = await tab.client.api.POST("/api/v1/auth/passkeys/lookup", {
+      body: { email: "someone@example.com" },
+    })
+
+    expect(response.status).toBe(404)
+    // The caller reads the status alone; the client rewrote nothing of the answer,
+    // so readProblem never ran.
+    expect(response.headers.get("content-type")).toBe("application/problem+json")
+    expect(response.text).toBe(read)
+  })
+
   it("keeps Retry-After, the only place a wait travels", async () => {
     vi.stubGlobal(
       "fetch",

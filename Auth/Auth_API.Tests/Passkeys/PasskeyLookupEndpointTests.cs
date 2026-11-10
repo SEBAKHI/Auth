@@ -47,7 +47,8 @@ namespace Auth_API.Tests.Passkeys;
 /// </para>
 /// <para>
 /// Deliberate breaks, each verified red: the passkey count answered instead of the boolean;
-/// <c>[RequireFirstPartyOrigin]</c> dropped; the address logged raw by the handler.
+/// <c>[RequireFirstPartyOrigin]</c> dropped; the address logged raw by the handler; a line only
+/// the holder's answer writes, once the lines were grouped by request (REVIEW 159 round).
 /// </para>
 /// </remarks>
 public sealed class PasskeyLookupEndpointTests
@@ -157,26 +158,68 @@ public sealed class PasskeyLookupEndpointTests
         // The first request builds what the host builds once (its route table, its formatters):
         // those lines are the host's, not an answer's.
         await host.PostAsync(Body("warm-up@example.com"), PasskeyTestDoubles.AccountsOrigin);
-        await host.TakeRequestLinesAsync();
-
         await host.PostAsync(Body(Holder), PasskeyTestDoubles.AccountsOrigin);
-        var forTrue = await host.TakeRequestLinesAsync();
         await host.PostAsync(Body(Plain), PasskeyTestDoubles.AccountsOrigin);
-        var forFalse = await host.TakeRequestLinesAsync();
+        var lines = await host.TakeLinesOfRequestsAsync(3);
 
-        forTrue.Should().NotBeEmpty("the host's lines are captured at every level");
-        forTrue.Concat(forFalse).Should().OnlyContain(
+        lines.Should().OnlyContain(
             line => !line.Rendered.Contains("ada.holder", StringComparison.OrdinalIgnoreCase)
                 && !line.Rendered.Contains("bea.plain", StringComparison.OrdinalIgnoreCase),
             "the address is personal data (PK16 and its address rule)");
-        // The pipeline warns of a request slower than 500 ms: a line about the machine's load,
-        // written for either answer alike, so it is left out of the comparison.
+
+        // Each answer's own lines: those written inside its request's logging scope, not whatever
+        // arrived between two reads of the log. A line the host writes outside any request is not
+        // an answer's.
+        var requests = ByRequest(lines);
+        requests.Should().HaveCount(3, "three requests were sent");
+        var (forTrue, forFalse) = (requests[1], requests[2]);
+        forTrue.Should().NotBeEmpty("the host's lines are captured at every level");
+        forTrue.Should().Contain(
+            line => line.Template == "Handling {RequestName}",
+            "the query's own lines are inside its request's scope, so a line only some answers write is compared");
+        // Two lines are left out of the comparison, each written for either answer alike: the
+        // pipeline's warning of a request slower than 500 ms (about the machine's load), and the
+        // MediatR library's notice about its own license key, which it writes once, in whichever
+        // request happens to reach it first (the REVIEW 159 round's two failures were this line).
         static IEnumerable<(LogLevel, string)> Shape(IEnumerable<LoggedLine> lines) =>
-            lines.Where(line => !line.Template.StartsWith("Long-running request", StringComparison.Ordinal))
+            lines.Where(line => !line.Template.StartsWith("Long-running request", StringComparison.Ordinal)
+                    && line.Category != MediatRLicenseCategory)
                 .Select(line => (line.Level, line.Template));
         Shape(forTrue).Should().Equal(
             Shape(forFalse),
-            "a line that only some answers write would be a record of who holds a passkey");
+            "a line that only some answers write would be a record of who holds a passkey ({0})",
+            Difference(forTrue, forFalse));
+    }
+
+    /// <summary>
+    /// Each request's lines, in the order the requests started: those written inside the logging
+    /// scope the host opens for the request (its <c>RequestId</c>), from «Request starting» to
+    /// «Request finished».
+    /// </summary>
+    private static List<List<LoggedLine>> ByRequest(List<LoggedLine> lines)
+    {
+        var starts = lines
+            .Where(line => line.Category == HostingCategory
+                && line.Template.StartsWith("Request starting", StringComparison.Ordinal))
+            .ToList();
+        starts.Should().OnlyContain(
+            start => start.RequestId != null,
+            "the host opens a logging scope for every request");
+        return starts.Select(start => lines.Where(line => line.RequestId == start.RequestId).ToList()).ToList();
+    }
+
+    /// <summary>The lines one answer wrote and the other did not, by category and text, for the failure message.</summary>
+    private static string Difference(List<LoggedLine> forTrue, List<LoggedLine> forFalse)
+    {
+        static string Describe(LoggedLine line) => $"{line.Level} {line.Category}: {line.Template}";
+        var onlyTrue = forTrue.Select(Describe).ToList();
+        var onlyFalse = forFalse.Select(Describe).ToList();
+        foreach (var line in forTrue.Select(Describe))
+        {
+            if (onlyFalse.Remove(line)) onlyTrue.Remove(line);
+        }
+
+        return $"only for true: [{string.Join(" | ", onlyTrue)}]; only for false: [{string.Join(" | ", onlyFalse)}]";
     }
 
     private static List<string> HeaderNames(HttpResponseMessage response) =>
@@ -297,16 +340,16 @@ public sealed class PasskeyLookupEndpointTests
         }
 
         /// <summary>
-        /// One request's lines. The host logs the last of them, «Request finished», after the
-        /// client already holds the answer, so they are taken once that line is in; otherwise it
-        /// would land among the next request's lines.
+        /// The lines of the last <paramref name="requests"/> requests. The host logs the last line of
+        /// each, «Request finished», after the client already holds the answer, so they are taken
+        /// once every one of those lines is in.
         /// </summary>
-        public async Task<List<LoggedLine>> TakeRequestLinesAsync()
+        public async Task<List<LoggedLine>> TakeLinesOfRequestsAsync(int requests)
         {
             var deadline = DateTime.UtcNow.AddSeconds(10);
-            while (!_lines.Lines.Any(line =>
-                       line.Category == "Microsoft.AspNetCore.Hosting.Diagnostics"
-                       && line.Template.StartsWith("Request finished", StringComparison.Ordinal))
+            while (_lines.Lines.Count(line =>
+                       line.Category == HostingCategory
+                       && line.Template.StartsWith("Request finished", StringComparison.Ordinal)) < requests
                    && DateTime.UtcNow < deadline)
             {
                 await Task.Delay(10);
@@ -335,22 +378,53 @@ public sealed class PasskeyLookupEndpointTests
         }
     }
 
-    internal sealed record LoggedLine(LogLevel Level, string Category, string Template, string Rendered);
+    /// <summary>The category of the host's «Request starting» and «Request finished».</summary>
+    private const string HostingCategory = "Microsoft.AspNetCore.Hosting.Diagnostics";
 
-    /// <summary>Every line the host logs, at every level, with its template and its text.</summary>
-    private sealed class LineCollector : ILoggerProvider
+    /// <summary>The category MediatR writes its license-key notice under.</summary>
+    private const string MediatRLicenseCategory = "LuckyPennySoftware.MediatR.License";
+
+    /// <param name="RequestId">The request whose logging scope the line was written in; null outside any.</param>
+    internal sealed record LoggedLine(LogLevel Level, string Category, string Template, string Rendered, string? RequestId);
+
+    /// <summary>
+    /// Every line the host logs, at every level, with its template, its text, and the request it was
+    /// written in: the <c>RequestId</c> of the scope the host opens for each request, read through the
+    /// logger factory's scopes as any logging provider reads them.
+    /// </summary>
+    private sealed class LineCollector : ILoggerProvider, ISupportExternalScope
     {
+        private IExternalScopeProvider _scopes = new LoggerExternalScopeProvider();
+
         public ConcurrentQueue<LoggedLine> Lines { get; } = new();
 
-        public ILogger CreateLogger(string categoryName) => new Collector(categoryName, Lines);
+        public ILogger CreateLogger(string categoryName) => new Collector(categoryName, this);
+
+        public void SetScopeProvider(IExternalScopeProvider scopeProvider) => _scopes = scopeProvider;
 
         public void Dispose()
         {
         }
 
-        private sealed class Collector(string category, ConcurrentQueue<LoggedLine> lines) : ILogger
+        private string? CurrentRequestId()
         {
-            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            string? requestId = null;
+            _scopes.ForEachScope(
+                (scope, _) =>
+                {
+                    if (scope is not IEnumerable<KeyValuePair<string, object?>> pairs) return;
+                    foreach (var pair in pairs.Where(pair => pair.Key == "RequestId"))
+                    {
+                        requestId = pair.Value?.ToString();
+                    }
+                },
+                (object?)null);
+            return requestId;
+        }
+
+        private sealed class Collector(string category, LineCollector owner) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => owner._scopes.Push(state);
 
             public bool IsEnabled(LogLevel logLevel) => true;
 
@@ -364,7 +438,8 @@ public sealed class PasskeyLookupEndpointTests
                     ? pairs.FirstOrDefault(pair => pair.Key == "{OriginalFormat}").Value?.ToString() ?? string.Empty
                     : string.Empty;
                 // Timings are not answers: a template, not its numbers, says what a line is.
-                lines.Enqueue(new LoggedLine(logLevel, category, template, formatter(state, exception)));
+                owner.Lines.Enqueue(new LoggedLine(
+                    logLevel, category, template, formatter(state, exception), owner.CurrentRequestId()));
             }
         }
     }

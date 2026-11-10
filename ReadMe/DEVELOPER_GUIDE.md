@@ -4071,7 +4071,7 @@ The order is the guarantee: no cookie, or **two** cookies (one may have been pla
 
 **Nothing is written or logged.** No row, audit line, event, notice or challenge comes of it, and no line names the address: a line per answer would be a record of who holds a passkey. The request pipeline's two generic lines (`Handling PasskeyLookupQuery`, `Completed PasskeyLookupQuery in … ms`) carry neither the address nor the answer, and are the same for both answers. Detecting a flood beyond the limiter is the bot defence's, not this endpoint's.
 
-**Off means off.** It answers 404 while passkeys do not run, like every route here, and the page then stops asking. The branding answer (`GET /api/v1/Platform/branding`) carries `passkeySignInOffered` (`Passkeys:Enabled` on and an RP ID in force, read from the settings, no database read), which the page shapes its first screen by at first paint: a hint, cached with the branding, and this route's 404 stays the authority.
+**Off means off.** It answers 404 while passkeys do not run, like every route here, and the page then stops asking. The branding answer (`GET /api/v1/Platform/branding`) carries `passkeySignInOffered` (`Passkeys:Enabled` on, an RP ID in force, and every origin in `IdentityProvider:FirstPartySpaOrigins` covered by it, at least one listed: the settings part of this route's own check, with no database read), which the page shapes its first screen by at first paint: a hint, cached with the branding, and this route's 404 stays the authority.
 
 #### POST `/api/v1/auth/passkeys/assertion/options`
 

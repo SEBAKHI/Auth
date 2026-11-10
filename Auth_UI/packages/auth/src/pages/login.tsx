@@ -44,7 +44,7 @@ import { passkeyFailureMessage } from "../passkey/passkey-errors"
 import { PasskeyRequiredProvider, passkeyRequiredNotice } from "../passkey/passkey-required"
 import { usePasskeySignIn, type PasskeyOutcome } from "../passkey/use-passkey-sign-in"
 import type { AuthenticationResponseJSON } from "../passkey/webauthn"
-import { lookUpPasskey } from "../passkey-lookup"
+import { lookUpPasskey, type PasskeyLookup } from "../passkey-lookup"
 import { FullScreenLoader } from "../require-auth"
 import { toAccountsSearch } from "../return-to"
 import { canSkipSignIn } from "../sign-in-marker"
@@ -217,6 +217,17 @@ export function LoginPage({
   // OI-280: the lookup answered that passkeys do not run here; it is not asked
   // again for the rest of this page's life, which is then the page as before.
   const [lookupOff, setLookupOff] = React.useState(false)
+  // The lookup on its way, as the press's own handle (REVIEW 159 F1, F2). While
+  // it is out, the question is on its way, not a code, so the button keeps its
+  // words. Leaving the page, another step or the other method gives it up: its
+  // answer is then dropped, and nothing is sent.
+  const [pendingLookup, setPendingLookup] =
+    React.useState<AbortController | null>(null)
+  React.useEffect(() => {
+    if (!pendingLookup) return
+    return () => pendingLookup.abort()
+  }, [pendingLookup, method, step.kind])
+  const lookingUp = pendingLookup !== null
   // S20 (D-S20-4 (ii-s)): a door answered that this account signs in with its
   // passkey. Its sentence stays on the page, above the passkey button, which
   // takes the focus; never a toast that goes.
@@ -468,10 +479,20 @@ export function LoginPage({
   // screen; anything else, the next step as before — the code, or the password
   // step — and nothing said. No code is sent before the answer.
   const continueAfterAddress = async (values: z.infer<typeof schema>) => {
-    const answer = await lookUpPasskey(values.email)
-    // The person changed the address while the answer was on its way: it is
-    // not this address's, and "Continue" asks again.
-    if (form.getValues("email") !== values.email) return
+    // The method "Continue" was pressed in.
+    const pressedIn = method
+    const press = new AbortController()
+    setPendingLookup(press)
+    // Never rejects: every failure is the answer `unknown`.
+    const answer: PasskeyLookup = await lookUpPasskey(values.email)
+    // The answer is acted on only where the press left the page (REVIEW 159
+    // F2). Given up meanwhile: the page is gone (the sign-in ended another
+    // way), the step changed, or the person took the other method.
+    const dropped = press.signal.aborted
+    setPendingLookup(null)
+    // Dropped, and nothing sent; so too when the person changed the address,
+    // whose answer this is not: "Continue" asks again.
+    if (dropped || form.getValues("email") !== values.email) return
     if (answer === "passkey") {
       // The server said passkeys run here, for this address.
       confirmPasskeys()
@@ -480,8 +501,7 @@ export function LoginPage({
       return
     }
     if (answer === "off") setLookupOff(true)
-    // The method "Continue" was pressed in.
-    if (method === "code") return sendCode(values)
+    if (pressedIn === "code") return sendCode(values)
     toPasswordStep(values.email)
   }
 
@@ -634,6 +654,16 @@ export function LoginPage({
     </StaySignedInProvider>
   )
 
+  // The last session ended because the browser withheld the sign-in cookie: said
+  // on the first screen and on the passkey screen, whose sign-in needs the same
+  // cookie (REVIEW 159 F5).
+  const cookiesBlockedNote = cookieBlocked ? (
+    <Alert data-testid="cookies-blocked-note">
+      <Info />
+      <AlertDescription>{t("auth.cookiesBlockedNote")}</AlertDescription>
+    </Alert>
+  ) : null
+
   if (step.kind === "passkey") {
     // OI-280 (T-A7, T-A8): the passkey screen. The button uses the options the
     // page fetched on load, and the ceremony starts inside its click (T-C2);
@@ -655,6 +685,7 @@ export function LoginPage({
       >
         <Form {...form}>
           <FieldGroup>
+            {cookiesBlockedNote}
             {addressField}
             {staySignedInField}
             {/* A provider in the list answered that this account signs in with
@@ -797,12 +828,7 @@ export function LoginPage({
                 </AlertDescription>
               </Alert>
             ) : null}
-            {cookieBlocked ? (
-              <Alert data-testid="cookies-blocked-note">
-                <Info />
-                <AlertDescription>{t("auth.cookiesBlockedNote")}</AlertDescription>
-              </Alert>
-            ) : null}
+            {cookiesBlockedNote}
             {passkeyNotice ? (
               <Alert data-testid="passkey-required-note">
                 <KeyRound />
@@ -872,7 +898,11 @@ export function LoginPage({
                     ? t("auth.signingIn")
                     : addressFirst
                       ? t("auth.continue")
-                      : t("auth.sendingCode")}
+                      : lookingUp
+                        ? // Code mode while the question after the address is
+                          // on its way: no code yet (REVIEW 159 F1).
+                          t("auth.continueWithEmail")
+                        : t("auth.sendingCode")}
                 </>
               ) : showPassword ? (
                 t("auth.signIn")

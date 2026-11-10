@@ -2,6 +2,7 @@ using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.LoginDesigns.Common;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
@@ -70,9 +71,16 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
             HiddenLanguages = settings.HiddenLanguages.Codes,
             StaySignedInOffered = _idpSettings.StaySignedInOffered,
             CodeSignInOffered = _emailSettings.Enabled,
-            // OI-280 (D6): the switch, and the RP ID the process runs with (a new one waits for a
-            // restart). Read per request, from settings only: no database read for a hint.
-            PasskeySignInOffered = _passkeySettings.Enabled && _passkeyRpId.IsSet,
+            // OI-280 (D6, refined by REVIEW 159 F3): the settings part of the passkey routes' own
+            // check: the switch, the RP ID the process runs with (a new one waits for a restart),
+            // and the first-party origins it must cover. Read per request, from settings only: no
+            // database read for a hint. The schema and another RP ID's live passkeys need the
+            // database, and stay the routes' 404 gate's.
+            PasskeySignInOffered = PasskeyConfiguration.Assess(
+                _passkeySettings.Enabled,
+                _passkeyRpId.Value,
+                _idpSettings.FirstPartySpaOrigins,
+                schemaPresent: true).IsAvailable,
             PrimaryMethod = signUp.PasswordRequired ? SignInMethods.Password : SignInMethods.Code,
             SelfRegistrationOpen = _registrationSettings.AllowSelfRegistration,
             PasswordAtSignUp = signUp.PasswordRequired,

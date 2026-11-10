@@ -102,25 +102,37 @@ public class GetPlatformBrandingQueryHandlerTests
     }
 
     /// <summary>
-    /// OI-280 (T-A4, D6): the sign-in page shapes its first screen by whether passkeys may run,
-    /// at the moment it picks the method. True only while the switch is on AND the process runs
-    /// with an RP ID; read from the settings alone, never the database.
+    /// OI-280 (T-A4, D6 as REVIEW 159 F3 refined it): the sign-in page shapes its first screen by
+    /// whether passkeys may run, at the moment it picks the method. True only while the settings
+    /// part of the passkey routes' own check holds: the switch on, the process running with an RP
+    /// ID, and at least one first-party origin listed, every one covered by that RP ID. Read from
+    /// the settings alone, never the database.
     /// </summary>
     /// <remarks>
-    /// Deliberate break, verified red: the hint computed from <c>Enabled</c> alone (the "on, no
-    /// RP ID" row then answers true).
+    /// Deliberate breaks, verified red: the hint computed from <c>Enabled</c> alone (the "on, no
+    /// RP ID" row then answers true); and from <c>Enabled</c> and the RP ID alone, as first built
+    /// (the rows with no origin, or an origin the RP ID does not cover, then answer true).
     /// </remarks>
     [Theory]
-    [InlineData(true, "example.com", true)]
-    [InlineData(true, "", false)]
-    [InlineData(false, "example.com", false)]
-    [InlineData(false, "", false)]
-    public async Task Handle_OffersPasskeySignIn_OnlyWhileSwitchedOnWithAnRpId(bool enabled, string rpIdAtStartup, bool offered)
+    [InlineData(true, "example.com", "https://app.example.com", true)]
+    [InlineData(true, "example.com", "https://example.com,https://app.example.com", true)]
+    [InlineData(true, "example.com", "", false)]
+    [InlineData(true, "example.com", "https://app.example.org", false)]
+    [InlineData(true, "example.com", "https://app.example.com,https://app.example.org", false)]
+    [InlineData(true, "", "https://app.example.com", false)]
+    [InlineData(false, "example.com", "https://app.example.com", false)]
+    [InlineData(false, "", "", false)]
+    public async Task Handle_OffersPasskeySignIn_OnlyWhileTheSettingsLetPasskeysRun(
+        bool enabled, string rpIdAtStartup, string origins, bool offered)
     {
         _settingsRepoMock.Setup(r => r.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync((PlatformSettings?)null);
 
         var result = await Handler(
-                new IdentityProviderSettings(),
+                new IdentityProviderSettings
+                {
+                    // The origins a passkey ceremony may come from: the RP ID must cover every one.
+                    FirstPartySpaOrigins = origins.Split(',', StringSplitOptions.RemoveEmptyEntries),
+                },
                 // The setting's own RP ID is not what runs: the one the process started with is.
                 passkeys: new PasskeySettings { Enabled = enabled, RpId = "example.com" },
                 passkeyRpId: new PasskeyRpIdAtStartup(rpIdAtStartup))

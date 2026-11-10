@@ -603,16 +603,22 @@ function isAuthFlow(url: string): boolean {
 }
 
 /**
- * The sign-in page's question on every load, answered 404 while passkeys are off:
- * the shipped default, not a failure. Its caller reads the status alone, so the
- * body is not read, and a visitor whose every other request succeeds never
- * downloads the error codes (published-codes.ts).
+ * The sign-in page's two passkey questions, answered 404 while passkeys are off: the
+ * options on every load, and the lookup after the address (OI-280, REVIEW 159 F4).
+ * That 404 is the shipped default, not a failure. Their callers read the status
+ * alone, so the body is not read: a visitor whose every other request succeeds never
+ * downloads the error codes (published-codes.ts), and the lookup's answer never waits
+ * for them inside its three seconds, where a slow link would turn "off" into "unknown"
+ * and the page would ask again at every "Continue".
  */
+const PASSKEYS_OFF_PATHS = new Set(
+  [PASSKEY_ASSERTION_OPTIONS_PATH, PASSKEY_LOOKUP_PATH].map((path) => path.toLowerCase())
+)
+
 function isPasskeysOffAnswer(request: Request, response: Response): boolean {
-  return (
-    response.status === 404 &&
-    lowerCasePathname(request.url) === PASSKEY_ASSERTION_OPTIONS_PATH.toLowerCase()
-  )
+  if (response.status !== 404) return false
+  const pathname = lowerCasePathname(request.url)
+  return pathname !== null && PASSKEYS_OFF_PATHS.has(pathname)
 }
 
 const authMiddleware: Middleware = {
