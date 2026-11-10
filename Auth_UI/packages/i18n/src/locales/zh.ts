@@ -3111,6 +3111,7 @@ export const zh: TranslationResources = {
       emailCode: "邮件中的验证码",
       create: "创建通行密钥",
       alreadyOnThisDevice: "此设备上已有您账户的通行密钥。",
+      deviceRefused: "此设备或浏览器无法在此创建通行密钥。请重试，或在其他设备上添加。",
       startAgain: "此设置已结束。请重新开始以添加通行密钥。",
       tryAgain: "重新开始",
       added: "已添加通行密钥“{{name}}”。",

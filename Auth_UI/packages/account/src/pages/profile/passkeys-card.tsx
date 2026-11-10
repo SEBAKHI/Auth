@@ -648,10 +648,12 @@ function AddPasskeyDialog({
         busyRef.current = false
         setBusy(false)
         if (isCeremonyCancelled(error)) return
+        // What the ceremony raised is the browser's, whatever its name: never the
+        // server's unknown fault, and no sign-in advice to a person signed in.
         setMessage(
           isAlreadyOnThisDevice(error)
             ? t("profile.passkeys.alreadyOnThisDevice")
-            : passkeyFailureMessage(error)
+            : t("profile.passkeys.deviceRefused")
         )
       }
     )

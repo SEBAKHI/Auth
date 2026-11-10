@@ -3294,6 +3294,7 @@ export const tr: TranslationResources = {
       emailCode: "E-postadaki kod",
       create: "Geçiş anahtarını oluştur",
       alreadyOnThisDevice: "Bu cihazda hesabınız için zaten bir geçiş anahtarı var.",
+      deviceRefused: "Bu cihaz veya tarayıcı burada geçiş anahtarı oluşturamadı. Yeniden deneyin veya başka bir cihazdan ekleyin.",
       startAgain: "Bu kurulum sona erdi. Geçiş anahtarını eklemek için yeniden başlayın.",
       tryAgain: "Yeniden başla",
       added: "“{{name}}” geçiş anahtarı eklendi.",

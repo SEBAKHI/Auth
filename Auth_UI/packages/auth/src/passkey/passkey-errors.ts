@@ -75,6 +75,20 @@ export function passkeyFailureMessage(error: unknown): string | null {
   return getErrorMessage(error)
 }
 
+/**
+ * The sentence for a sign-in ceremony that ended without an answer: nothing when
+ * it was cancelled, else that this device or browser refused. Every rejection of
+ * the ceremony is the browser's, whatever its name: the helper passes the names
+ * it does not know through as they are (an `OperationError`), and throws a plain
+ * Error when the browser answered with no credential. None of them is the
+ * server's unknown fault, whose sentence sends the person to support (seen on a
+ * device check, 2026-11-10: the browser refused the press without asking the
+ * platform's authenticator).
+ */
+export function ceremonyFailureMessage(error: unknown): string | null {
+  return isCeremonyCancelled(error) ? null : i18n.t("auth.passkey.deviceRefused")
+}
+
 /** Whether the failure is worth another try by itself (a server or network fault). */
 export function isPasskeyFailureRetryable(error: unknown): boolean {
   if (isCeremonyCancelled(error)) return false

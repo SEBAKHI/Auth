@@ -3305,6 +3305,7 @@ export const en = {
       emailCode: "Code from the email",
       create: "Create the passkey",
       alreadyOnThisDevice: "This device already holds a passkey for your account.",
+      deviceRefused: "This device or browser could not create a passkey here. Try again, or add one from another device.",
       startAgain: "This setup has ended. Start again to add the passkey.",
       tryAgain: "Start again",
       added: "Passkey “{{name}}” added.",

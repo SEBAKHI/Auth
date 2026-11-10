@@ -416,6 +416,28 @@ describe("PasskeysCard: adding a passkey", () => {
     )
   })
 
+  // Whatever the ceremony raised is the browser's: never the server's unknown
+  // fault, whose sentence sends the person to support, and no sign-in advice to a
+  // person who is signed in.
+  it.each([
+    ["a name the helper knows", Object.assign(new Error("no"), { name: "SecurityError" })],
+    ["a name the helper passes through as it is", new DOMException("A request is already pending.", "OperationError")],
+    ["no credential from the browser (the helper's plain Error)", new Error("Registration was not completed")],
+  ])("says that the device refused, in the words of adding a passkey: %s", async (_label, error) => {
+    givenLists(ok(list([])))
+    mocks.post.mockResolvedValue(ok(REGISTRATION))
+    mocks.startRegistration.mockRejectedValue(error)
+    const user = userEvent.setup()
+    renderCard()
+
+    const dialog = await openDialog(user)
+    fireEvent.click(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.create") }))
+
+    expect(await within(dialog).findByTestId("add-passkey-message")).toHaveTextContent(
+      i18n.t("profile.passkeys.deviceRefused")
+    )
+  })
+
   it("says nothing when the person cancels the browser's dialog", async () => {
     givenLists(ok(list([])))
     mocks.post.mockResolvedValue(ok(REGISTRATION))

@@ -4,6 +4,7 @@ import { api } from "@authsystem/api/client"
 import { parseApiInstant } from "@authsystem/ui/api-instant"
 
 import {
+  ceremonyFailureMessage,
   isPasskeyFailureRetryable,
   passkeyFailureMessage,
   retryDelayMs,
@@ -273,11 +274,12 @@ export function usePasskeySignIn({
     [prepare]
   )
 
-  // A ceremony that ended without an answer: the options are still good.
+  // A ceremony that ended without an answer: the options are still good. What it
+  // raised is the browser's, whatever its name, never the server's.
   const abandon = React.useCallback((error: unknown) => {
     busyRef.current = false
     if (!mountedRef.current) return
-    setMessage(passkeyFailureMessage(error))
+    setMessage(ceremonyFailureMessage(error))
     setRetryable(false)
     setPhase(preparedRef.current ? "ready" : "preparing")
     // Restart the suggestion, which the ceremony aborted.

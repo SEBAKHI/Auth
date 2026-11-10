@@ -344,9 +344,18 @@ describe("what a failure says (T-C4, ARR-0668)", () => {
     expect(optionsRequests()).toBe(1)
   })
 
-  it("says that the device refused, without a retry of its own", async () => {
+  // Whatever the ceremony raised is the browser's: never the server's unknown
+  // fault, whose sentence sends the person to support. A device check (2026-11-10)
+  // saw the browser refuse the press without asking the platform's authenticator,
+  // and the page say to contact support.
+  it.each([
+    ["a name the helper knows", Object.assign(new Error("no"), { name: "SecurityError" })],
+    ["a name the helper passes through as it is", new DOMException("A request is already pending.", "OperationError")],
+    ["another name it does not know", new DOMException("The operation failed.", "NotReadableError")],
+    ["no credential from the browser (the helper's plain Error)", new Error("Authentication was not completed")],
+  ])("says that the device refused, without a retry of its own: %s", async (_label, error) => {
     mocks.post.mockResolvedValueOnce(optionsAnswer("c1"))
-    mocks.startAuthentication.mockRejectedValueOnce(Object.assign(new Error("no"), { name: "SecurityError" }))
+    mocks.startAuthentication.mockRejectedValueOnce(error)
     renderProbe()
     await flush()
 
@@ -354,7 +363,10 @@ describe("what a failure says (T-C4, ARR-0668)", () => {
     await flush()
 
     expect(screen.getByTestId("passkey-message")).toHaveTextContent(i18n.t("auth.passkey.deviceRefused"))
+    expect(screen.queryByRole("button", { name: i18n.t("common.retry") })).not.toBeInTheDocument()
     expect(button()).toBeEnabled()
+    // The challenge was not spent: the same options stay in hand.
+    expect(optionsRequests()).toBe(1)
   })
 
   it("says nothing of a first failure: the page stays as it was, and asks again by itself", async () => {

@@ -3351,6 +3351,7 @@ export const fr: TranslationResources = {
       emailCode: "Code reçu par e-mail",
       create: "Créer la clé d’accès",
       alreadyOnThisDevice: "Cet appareil a déjà une clé d’accès pour votre compte.",
+      deviceRefused: "Cet appareil ou ce navigateur n’a pas pu créer de clé d’accès ici. Réessayez, ou ajoutez-en une depuis un autre appareil.",
       startAgain: "Cette configuration est terminée. Recommencez pour ajouter la clé d’accès.",
       tryAgain: "Recommencer",
       added: "Clé d’accès « {{name}} » ajoutée.",
