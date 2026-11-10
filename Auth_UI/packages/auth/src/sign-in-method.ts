@@ -21,6 +21,16 @@ import type { SignInMethod, SignInOptions } from "@authsystem/ui/branding"
  * redirect, and it can only make a sign-in harder: a forged one costs its
  * forger a password prompt, nothing else.
  *
+ * THE PASSKEY REASON (S20, T-C7). The same slot, with another word: the account's
+ * qualifying second factor is a passkey, and the change asked for a session that
+ * proved two factors. Neither the password nor the emailed code can give one,
+ * only the passkey, so the page offers the passkey first. A code sign-in from
+ * there still proves the password too. A forged one costs its forger a
+ * reordered page.
+ *
+ * A PASSKEY SIGN-IN writes no method and leaves no proof (T-C6): it answers the
+ * reason in the slot, and the next visit opens as the last method decided.
+ *
  * Every read and write is wrapped: a browser that blocks storage falls back to
  * the deployment's setting and to an ordinary sign-in.
  */
@@ -61,21 +71,43 @@ export function primarySignInMethod(
   return serverNamed ?? remembered ?? options.primaryMethod
 }
 
+const FULL_PROOF = "1"
+const PASSKEY_FIRST = "passkey"
+
 export function requestFullProof(): void {
   try {
-    window.sessionStorage.setItem(FULL_PROOF_KEY, "1")
+    window.sessionStorage.setItem(FULL_PROOF_KEY, FULL_PROOF)
   } catch {
     // Not carried: the code sign-in then proves the mailbox only, and the
     // change asks for a fresh sign-in again, which the password answers.
   }
 }
 
-export function isFullProofRequested(): boolean {
+/** The "sign in again" dialog of an account whose qualifying factor is a passkey. */
+export function requestPasskeySignIn(): void {
   try {
-    return window.sessionStorage.getItem(FULL_PROOF_KEY) === "1"
+    window.sessionStorage.setItem(FULL_PROOF_KEY, PASSKEY_FIRST)
   } catch {
-    return false
+    // Not carried: the page opens as usual, with the passkey button in its place.
   }
+}
+
+function readReason(): string | null {
+  try {
+    return window.sessionStorage.getItem(FULL_PROOF_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function isFullProofRequested(): boolean {
+  const reason = readReason()
+  return reason === FULL_PROOF || reason === PASSKEY_FIRST
+}
+
+/** Whether the page should offer the passkey first (T-C7). */
+export function isPasskeySignInRequested(): boolean {
+  return readReason() === PASSKEY_FIRST
 }
 
 function clearFullProofRequest(): void {
@@ -92,6 +124,15 @@ function clearFullProofRequest(): void {
  */
 export function signInEnded(method: SignInMethod): void {
   writeLastSignInMethod(method)
+  clearFullProofRequest()
+}
+
+/**
+ * A passkey sign-in ended in a session: the reason that asked for it is
+ * answered, and no method is remembered (T-C6), so the next visit opens with
+ * the method the last password or code sign-in left.
+ */
+export function passkeySignInEnded(): void {
   clearFullProofRequest()
 }
 

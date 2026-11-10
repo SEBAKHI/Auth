@@ -117,10 +117,9 @@ builder.Services.Configure<RegistrationSettings>(builder.Configuration.GetSectio
 builder.Services.Configure<OrganizationSettings>(builder.Configuration.GetSection(OrganizationSettings.SectionName));
 builder.Services.Configure<IdentityProviderSettings>(builder.Configuration.GetSection(IdentityProviderSettings.SectionName));
 builder.Services.PostConfigure<IdentityProviderSettings>(SettingsArrayNormalizer.Apply);
-// S20: passkeys. Read from the settings files only (not in the console registry until the
-// screens ship): Enabled per request, the RP ID once, at start-up (restart required).
+// S20: passkeys. Enabled is read per request, the RP ID once, at start-up (restart required),
+// after the database settings layer joined: both are in the console's Passkeys section too.
 builder.Services.Configure<PasskeySettings>(builder.Configuration.GetSection(PasskeySettings.SectionName));
-builder.Services.AddSingleton(PasskeyRpIdAtStartup.From(builder.Configuration));
 // Password reset and email verification links are built from FrontendBaseUrl. An
 // empty value silently yields a relative URL, i.e. a dead link in every email, so
 // it is validated up front - but only when email is actually enabled. It is on in
@@ -586,6 +585,12 @@ else
     builder.Services.AddSingleton<ISystemSettingsReloader, NullSystemSettingsReloader>();
 }
 
+// The passkeys' RP ID, read once (PK2, restart required) and AFTER the database layer
+// joined: an RP ID saved in the console takes effect at the next start, as the console
+// says. Read before it, a saved value would never reach the passkeys, while the snapshot
+// below showed it as the one this process started with (S20 PR C).
+builder.Services.AddSingleton(PasskeyRpIdAtStartup.From(builder.Configuration));
+
 // Startup snapshot AFTER the database layer: what this process actually
 // booted with — the reference for "pending restart" badges.
 builder.Services.AddSingleton<IStartupValuesSnapshot>(
@@ -997,6 +1002,7 @@ builder.Services.AddScoped<IIdpSessionReader, IdpSessionReader>();
 builder.Services.AddScoped<IClientAuthenticator, ClientAuthenticator>();
 // Run by the console's settings save and reset before they change the idle limit.
 builder.Services.AddScoped<IIdpSessionIdleLimitChange, IdpSessionIdleLimitChange>();
+builder.Services.AddScoped<IPasskeyRpIdChange, PasskeyRpIdChange>();
 // Whether a sign-in came from a browser page: only then is it tied to its IAM session.
 builder.Services.AddScoped<IBrowserSignInContext, RequestOriginBrowserSignInContext>();
 builder.Services.AddScoped<IAccountLockout, AccountLockout>();
@@ -1033,8 +1039,14 @@ builder.Services.AddScoped<IEmailCodeSender, EmailCodeSender>();
 builder.Services.AddScoped<AccountEmailCodeChallenge>();
 builder.Services.AddScoped<EmailCodeFactorProof>();
 // A recent sign-in before any change to the second factor:
-// TwoFactor:ReauthenticationMaxAgeMinutes, read per call, so it is hot.
+// TwoFactor:ReauthenticationMaxAgeMinutes, read per call, so it is hot. A proof inside the
+// session counts only for the tokens issued after it, so the guard reads the request's iat.
 builder.Services.AddScoped<IReauthenticationGuard, ReauthenticationGuard>();
+builder.Services.AddScoped<ICurrentAccessToken, RequestAccessToken>();
+// The window a signed-in person proves themself again in, with no new sign-in: the one read of
+// what the account must prove, and the password door it shares with the password sign-in.
+builder.Services.AddScoped<ReauthenticationPolicy>();
+builder.Services.AddScoped<PasswordDoor>();
 // The code an account with no second factor enters before it binds its first one:
 // required while Email:Enabled is on, read per call.
 builder.Services.AddSingleton<FirstFactorEmailProofPolicy>();

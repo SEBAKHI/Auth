@@ -20,6 +20,14 @@ public static class PasskeyErrors
         code: "Passkey.VerificationFailed",
         description: "The passkey could not be verified. Try again.");
 
+    /// <summary>
+    /// The passkey chosen to prove a signed-in person belongs to another account: a device may hold
+    /// passkeys of several. Said only to the holder of that passkey, whose device just signed.
+    /// </summary>
+    public static readonly Error NotThisAccount = Error.Validation(
+        code: "Passkey.NotThisAccount",
+        description: "That passkey belongs to another account. Choose the passkey of the account you are signed in to.");
+
     /// <summary>The account already has the most live passkeys it may hold.</summary>
     public static readonly Error LimitReached = Error.Conflict(
         code: "Passkey.LimitReached",

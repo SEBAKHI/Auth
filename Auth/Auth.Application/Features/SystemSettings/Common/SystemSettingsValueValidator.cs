@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Auth.Application.Configuration;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.SystemSettings;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -295,6 +296,62 @@ internal static class SystemSettingsValueValidator
             case "GatewayRateLimiting":
                 ValidateGatewayRateCeiling(values, section, errors, effectiveValue);
                 break;
+
+            case PasskeySettings.SectionName:
+                ValidatePasskeyRpId(values, section, errors, baselineValue ?? effectiveValue, liveValue ?? effectiveValue);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// The RP ID a save or a reset of the Passkeys section leaves (payload first, then what an
+    /// omitted field falls back to), and the one configured now, both normalized as every reader
+    /// compares them (S20 PR C, T-C9). Equal when the change leaves the RP ID as it is.
+    /// </summary>
+    /// <param name="values">The payload (empty for a reset).</param>
+    /// <param name="section">The Passkeys section.</param>
+    /// <param name="afterChange">What an omitted field reads once the change is made.</param>
+    /// <param name="now">The running configuration.</param>
+    internal static (string After, string Now) PasskeyRpIds(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        SettingSectionDefinition section,
+        Func<string, string?> afterChange,
+        Func<string, string?> now)
+    {
+        const string field = nameof(PasskeySettings.RpId);
+        return (
+            PasskeyRpIdAtStartup.Normalize(PayloadOrEffective(values, section, field, afterChange)),
+            PasskeyRpIdAtStartup.Normalize(now(section.FullKey(field))));
+    }
+
+    /// <summary>
+    /// PK2 for a change of <c>Passkeys:RpId</c>: the new value is empty (passkeys cannot run), or
+    /// a host name — <c>localhost</c>, or a domain — that covers the host of every first-party
+    /// origin as it runs now (<c>IdentityProvider:FirstPartySpaOrigins</c>), as a browser requires
+    /// (WebAuthn L3 §5.1.3). Judged only when the change moves the RP ID: a console save that
+    /// switches <c>Enabled</c> off, or leaves the RP ID as it is, is never refused for it, since
+    /// the console sends every field that differs from the file, an RP ID held in the row
+    /// included. So passkeys can always be switched off from the console. A hand-made save that
+    /// omits an RP ID held in the row moves it to the file's value, and is judged as a move. A
+    /// later change of the origins that the RP ID does not cover is not refused here: the posture
+    /// switches passkeys off and says why (T-C9).
+    /// </summary>
+    private static void ValidatePasskeyRpId(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        SettingSectionDefinition section,
+        List<Error> errors,
+        Func<string, string?> afterChange,
+        Func<string, string?> now)
+    {
+        var (after, current) = PasskeyRpIds(values, section, afterChange, now);
+        if (after == current)
+        {
+            return;
+        }
+
+        foreach (var problem in PasskeyConfiguration.RpIdProblems(after, EffectiveArray(now, FirstPartySpaOriginsKey)))
+        {
+            errors.Add(SystemSettingsErrors.InvalidFieldValue(nameof(PasskeySettings.RpId), problem));
         }
     }
 

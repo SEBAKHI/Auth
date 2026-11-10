@@ -350,6 +350,7 @@ export const PUBLISHED_ERROR_CODES = {
   "Passkey.LimitReached": "catalog",
   "Passkey.NameTooLong": "#/name",
   "Passkey.NotFound": "catalog",
+  "Passkey.NotThisAccount": "catalog",
   "Passkey.VerificationFailed": "catalog",
   "Password.CommonPattern": "catalog",
   "Password.ConfirmationMismatch": "#/confirmNewPassword",

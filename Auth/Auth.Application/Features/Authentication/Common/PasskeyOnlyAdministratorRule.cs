@@ -13,7 +13,7 @@ namespace Auth.Application.Features.Authentication.Common;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Asked by the password sign-in, the provider sign-in, the sign-in by emailed code, the three
+/// Asked by a signed-in person proving themself again with a password or an emailed code, by the password sign-in, the provider sign-in, the sign-in by emailed code, the three
 /// recovery entries of an account waiting for deletion (in their shared recoverer, and once more
 /// by the emailed-code entry before its password step), the request for the recovery's emailed
 /// code, the sign-in that follows a verified address, and the second step itself. Not asked by
@@ -61,6 +61,25 @@ public sealed class PasskeyOnlyAdministratorRule
     }
 
     /// <summary>
+    /// Whether the account administers the platform and its only usable second factor is a
+    /// passkey, for a reader that refuses nothing: the window that says what it will accept.
+    /// </summary>
+    public async Task<bool> AppliesToAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        // Off means off: while passkeys do not run nothing is read at all.
+        if (!await _usableFactors.PasskeysCountAsync(cancellationToken))
+        {
+            return false;
+        }
+
+        // The factors first: one statement, and false for every account without a passkey,
+        // so the claims are resolved only for the accounts the rule can concern.
+        var factors = await _usableFactors.GetAsync(userId, passkeysCount: true, cancellationToken);
+        return factors.IsPasskeyOnly
+            && await _platformAuthority.HoldsPlatformAuthorityAsync(userId, cancellationToken);
+    }
+
+    /// <summary>
     /// The refusal for <paramref name="userId"/> at <paramref name="door"/>, or null when the
     /// door may go on.
     /// </summary>
@@ -69,17 +88,7 @@ public sealed class PasskeyOnlyAdministratorRule
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<Error?> RefusalAsync(Guid userId, string door, CancellationToken cancellationToken)
     {
-        // Off means off: while passkeys do not run nothing is read at all.
-        if (!await _usableFactors.PasskeysCountAsync(cancellationToken))
-        {
-            return null;
-        }
-
-        // The factors first: one statement, and false for every account without a passkey,
-        // so the claims are resolved only for the accounts the rule can concern.
-        var factors = await _usableFactors.GetAsync(userId, passkeysCount: true, cancellationToken);
-        if (!factors.IsPasskeyOnly
-            || !await _platformAuthority.HoldsPlatformAuthorityAsync(userId, cancellationToken))
+        if (!await AppliesToAsync(userId, cancellationToken))
         {
             return null;
         }
@@ -111,4 +120,7 @@ public static class PasskeyOnlyAdministratorDoors
 
     /// <summary>The second step of a sign-in.</summary>
     public const string SecondStep = "second-step";
+
+    /// <summary>A signed-in person proving themself again with a password or an emailed code.</summary>
+    public const string Reauthentication = "reauthentication";
 }

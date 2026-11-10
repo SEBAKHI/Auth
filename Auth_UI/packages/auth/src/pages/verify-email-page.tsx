@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query"
+import { KeyRound } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Link, Navigate, useLocation } from "react-router-dom"
@@ -7,6 +8,7 @@ import { toast } from "sonner"
 import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { useAuth } from "@authsystem/auth/auth-context"
+import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Spinner } from "@authsystem/ui/spinner"
 import { Button } from "@authsystem/ui/button"
@@ -20,6 +22,7 @@ import {
 
 import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
+import { passkeyRequiredNotice } from "../passkey/passkey-required"
 import { toAccountsSearch } from "../return-to"
 
 const CODE_LENGTH = 6
@@ -66,6 +69,8 @@ export function VerifyEmailPage() {
     state?.maskedEmail ?? null
   )
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+  // S20: the refusal that asks for the passkey, with the way to it.
+  const [passkeyNotice, setPasskeyNotice] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
   const countdown = useCountdown(expiresAt)
 
@@ -118,7 +123,11 @@ export function VerifyEmailPage() {
         toast.success(t("auth.welcomeBack"))
         complete(result)
       } catch (error) {
-        setErrorMessage(getErrorMessage(error))
+        // The address is confirmed, and the account signs in with its passkey
+        // alone (S20, D-S20-4 (ii-s)): the sign-in page has the passkey button.
+        const notice = passkeyRequiredNotice(error)
+        if (notice) setPasskeyNotice(notice)
+        else setErrorMessage(getErrorMessage(error))
         setOtp("")
       } finally {
         setSubmitting(false)
@@ -193,6 +202,26 @@ export function VerifyEmailPage() {
 
         {errorMessage ? (
           <p className="text-center text-sm text-destructive">{errorMessage}</p>
+        ) : null}
+
+        {passkeyNotice ? (
+          <Alert data-testid="passkey-required-note">
+            <KeyRound />
+            <AlertDescription>
+              <p>{passkeyNotice}</p>
+              <Button asChild size="sm">
+                <Link
+                  to={{
+                    pathname: "/login",
+                    search: toAccountsSearch(returnTo, reason),
+                  }}
+                  state={{ from }}
+                >
+                  {t("auth.passkey.signInWithYourPasskey")}
+                </Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
         ) : null}
 
         <Button

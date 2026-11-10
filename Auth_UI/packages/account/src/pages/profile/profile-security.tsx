@@ -41,7 +41,7 @@ import {
   applyPasswordServerErrors,
   passwordSchema,
 } from "@authsystem/auth/password-rules"
-import { ReauthenticateDialog } from "@authsystem/auth/reauthenticate-dialog"
+import { ReauthenticateDialog, type ReauthenticationProof } from "@authsystem/auth/reauthenticate-dialog"
 import { RemovePasswordCard } from "./remove-password-card"
 import {
   clearRecoveryCodeSignIn,
@@ -62,6 +62,8 @@ import {
 } from "./two-factor-maintenance"
 import { useRecoveryCodesRemaining } from "./two-factor-status"
 import { EmailCodeCard } from "./email-code-card"
+import { usePasskeys } from "./passkey-list"
+import { PasskeysCard } from "./passkeys-card"
 
 function ChangePasswordCard() {
   const { t } = useTranslation()
@@ -181,7 +183,14 @@ function ChangePasswordCard() {
   )
 }
 
-function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
+function TwoFactorCard({
+  me,
+  passkeysRun = false,
+}: {
+  me: Schemas["UserDto"]
+  /** Passkeys run here (their list answered): a passkey account binds the app with it. */
+  passkeysRun?: boolean
+}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   // The authenticator app itself (S24): the account flag also says "on" for an
@@ -198,10 +207,11 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
   const [useRecoveryCode, setUseRecoveryCode] = React.useState(false)
   const [recoveryCodes, setRecoveryCodes] = React.useState<string>()
   // Open with the reason it is shown for: the recency every change needs (the
-  // dialog's own text), or, for new codes and a new app, a recent sign-in that
-  // also proved two factors.
+  // window's own text), or, for new codes and a new app, a recent proof of two
+  // factors; and what goes on once it is given, when the page still holds it.
   const [reauthenticate, setReauthenticate] = React.useState<{
     description?: string
+    onProved?: (proof: ReauthenticationProof) => void
   }>()
   const [regenerateOpen, setRegenerateOpen] = React.useState(false)
   const [replaceOpen, setReplaceOpen] = React.useState(false)
@@ -227,10 +237,14 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
     if (codes.length) setRecoveryCodes(codes.join("\n"))
   }
 
+  // A dialog asked for a proof stays open under the window, with what was typed, and goes on from
+  // the proof by itself (D-152-5, REVIEW-FIXES 152 F26, F27): the dialog knows what it held, and
+  // what a proof with the app's code leaves unusable.
   const changeHandlers = {
-    onReauthenticate: () =>
+    onReauthenticate: (resume: (proof: ReauthenticationProof) => void) =>
       setReauthenticate({
         description: t("profile.twoFactorChangeNeedsRecentSignIn"),
+        onProved: resume,
       }),
     onStale: () => void invalidateMe(),
   }
@@ -244,7 +258,18 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
   const onDisableError = (error: unknown) => {
     const codes = getErrorCodes(error)
     if (codes.includes("Auth.ReauthenticationRequired")) {
-      setReauthenticate({})
+      // The guard refused before the code was counted, so it can be sent again as it is: unless
+      // the proof just spent the app's time step, which no code up to it can pass.
+      setReauthenticate({
+        onProved: ({ spentAppCode }) => {
+          if (spentAppCode && !useRecoveryCode) {
+            setDisableCode("")
+            toast.info(t("profile.twoFactorNextCode"))
+          } else {
+            disableMutation.mutate()
+          }
+        },
+      })
       return
     }
 
@@ -373,6 +398,9 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
               if (codes.length) setRecoveryCodes(codes.join("\n"))
             }}
             onStale={() => void invalidateMe()}
+            passkeyOnly={
+              passkeysRun && me.qualifyingMfa === true && me.totpEnabled !== true
+            }
           />
         )}
       </CardContent>
@@ -410,6 +438,7 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
           open
           onOpenChange={(open) => !open && setReauthenticate(undefined)}
           description={reauthenticate.description}
+          onProved={reauthenticate.onProved}
         />
       ) : null}
     </Card>
@@ -444,6 +473,9 @@ export function ProfileSecurity({ me }: { me: Schemas["UserDto"] }) {
    * form from everyone. Failing back to the change form is the safe direction.
    */
   const hasNoPassword = me.hasPassword === false && Boolean(me.email)
+  // S20: null while passkeys do not run here, and the section reads as before.
+  const passkeys = usePasskeys()
+  const passkeysRun = passkeys.data != null
 
   return (
     <div className="flex flex-col gap-6">
@@ -461,9 +493,13 @@ export function ProfileSecurity({ me }: { me: Schemas["UserDto"] }) {
       <FieldSet className="min-w-0">
         <FieldLegend>{t("profile.twoStepVerification")}</FieldLegend>
         <FieldDescription>
-          {t("profile.twoStepVerificationBody")}
+          {passkeysRun
+            ? t("profile.twoStepVerificationBodyWithPasskeys")
+            : t("profile.twoStepVerificationBody")}
         </FieldDescription>
-        <TwoFactorCard me={me} />
+        {/* The safest first; nothing at all while passkeys do not run. */}
+        <PasskeysCard me={me} passkeys={passkeys} />
+        <TwoFactorCard me={me} passkeysRun={passkeysRun} />
         <EmailCodeCard me={me} />
       </FieldSet>
     </div>

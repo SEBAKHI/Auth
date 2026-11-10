@@ -67,6 +67,7 @@ public class ResetUserTwoFactorCommandHandlerTests
             new ReauthenticationGuard(
                 _sessions.Object,
                 TestHelpers.CreateOptions(new TwoFactorSettings()),
+                TestHelpers.AccessToken(Now),
                 new FixedTimeProvider(new DateTimeOffset(Now)),
                 Mock.Of<ILogger<ReauthenticationGuard>>()),
             _users.Object,

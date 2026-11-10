@@ -33,9 +33,22 @@ vi.mock("@authsystem/api/env", async (importOriginal) => ({
   privacyPolicyUrl: () => "/privacy/en",
 }))
 // A real button, so the test can ask where it sits relative to the form.
-vi.mock("@authsystem/auth/external/external-providers", () => ({
-  ExternalProviders: () => <button type="button">Continue with Google</button>,
-}))
+vi.mock("@authsystem/auth/external/external-providers", async () => {
+  const { usePasskeyRequiredReporter } = await import("@authsystem/auth/passkey/passkey-required")
+  return {
+    ExternalProviders: function ExternalProviders() {
+      const report = usePasskeyRequiredReporter()
+      return (
+        <button
+          type="button"
+          onClick={() => report({ status: 403, code: "Auth.PasskeyRequired", detail: "Use your passkey." })}
+        >
+          Continue with Google
+        </button>
+      )
+    },
+  }
+})
 // Chrome only: the real layout drags in the theme and language toggles and
 // their provider stack. Keep the parts the form renders into.
 vi.mock("@authsystem/ui/auth-layout", () => ({
@@ -121,6 +134,18 @@ const OPEN = {
   passwordAtSignUp: true,
   nameAtSignUp: true,
 }
+
+describe("RegisterPage: a provider's account that signs in with its passkey", () => {
+  it("goes to the sign-in page, which has the passkey, with the pending request; never a toast that goes", async () => {
+    branding.signInOptions = OPEN
+    renderAt(`/register${RETURN_TO_QUERY}`)
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Continue with Google" }))
+
+    expect(await screen.findByTestId("landing")).toHaveTextContent(`/login${RETURN_TO_QUERY}`)
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+})
 
 describe("RegisterPage", () => {
   beforeEach(() => {

@@ -48,7 +48,8 @@ public class PasskeyOnlyAdministratorDoorGuardTests
     /// </summary>
     private static readonly Dictionary<string, string[]> BeforeTheRefusal = new()
     {
-        ["LoginCommandHandler.cs"] = [@"\.\s*VerifyPassword\s*\(", @"await\s+JudgeAfterThePasswordAsync\s*\("],
+        // The door checks the password and judges the lock again after the hash (PasswordDoor).
+        ["LoginCommandHandler.cs"] = [@"_passwordDoor\s*\.\s*CheckAsync\s*\("],
         ["ExternalLoginCommandHandler.cs"] = [@"\.\s*ValidateTokenAsync\s*\("],
         ["SignInWithEmailCodeCommandHandler.cs"] = [@"\.\s*TryConsumeSignInCodeAsync\s*\("],
         ["VerifyEmailCommandHandler.cs"] = [@"\.\s*TryConsumeAsync\s*\("],
@@ -83,6 +84,24 @@ public class PasskeyOnlyAdministratorDoorGuardTests
             .Where(file => Regex.IsMatch(file.Source, @"\bILoginResponseBuilder\b")
                 && Regex.IsMatch(file.Source, @"\.\s*BuildAsync\s*\("))
             .ToDictionary(file => Path.GetFileName(file.File), file => file.Source);
+
+    /// <summary>
+    /// A signed-in person proving themself again mints no session, so the scan above does not see
+    /// it: pinned by name. It asks before it reads what the account takes, and before anything is
+    /// hashed or counted: the caller is signed in as that account, so there is nobody to hide the
+    /// answer from.
+    /// </summary>
+    [Fact]
+    public void TheProofInsideASession_AsksItsOwnDoor_BeforeAnyProof()
+    {
+        var source = ApiSourceScan.ProductionSources()
+            .Single(file => Path.GetFileName(file.File) == "ReauthenticateCommandHandler.cs").Source;
+
+        var refusal = Regex.Match(source, @"\.\s*RefusalAsync\s*\(\s*user\.Id,\s*PasskeyOnlyAdministratorDoors\.Reauthentication");
+        refusal.Success.Should().BeTrue();
+        refusal.Index.Should().BeLessThan(Regex.Match(source, @"await\s+ProvePasswordAsync\s*\(").Index);
+        refusal.Index.Should().BeLessThan(Regex.Match(source, @"await\s+ProveEmailCodeAsync\s*\(").Index);
+    }
 
     [Fact]
     public void EverySessionExit_AsksTheRefusalOrSaysWhyNot()

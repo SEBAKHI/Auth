@@ -295,6 +295,27 @@ public interface ITwoFactorStateStore
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Commits one proof a signed-in person gave with no new sign-in, in one transaction: spends
+    /// what it spends (the emailed code, the authenticator step, the recovery code), then stamps
+    /// the session with the proof and raises it and its SSO session by what was proved.
+    /// </summary>
+    /// <param name="userId">The account proving itself.</param>
+    /// <param name="commit">What was proved, what to spend and the session to stamp.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// <see cref="LoginCommitOutcome.Committed"/> when all of it was written; otherwise nothing
+    /// was: <see cref="LoginCommitOutcome.ChallengeLost"/> when a concurrent request spent the
+    /// emailed code or a newer send replaced it, <see cref="LoginCommitOutcome.StepReused"/> when a
+    /// TOTP step was not newer, <see cref="LoginCommitOutcome.RecoveryCodesChanged"/> when the
+    /// recovery-code set changed, <see cref="LoginCommitOutcome.FactorLost"/> when the factor is
+    /// gone, <see cref="LoginCommitOutcome.SessionLost"/> when the session ended first.
+    /// </returns>
+    Task<LoginCommitOutcome> TryCommitSessionProofAsync(
+        Guid userId,
+        SessionProofCommit commit,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Switches the factor off in one transaction: deletes the enabled row — for a
     /// TOTP proof only while the code's step is newer than the last one accepted,
     /// for a recovery code only while the stored set is the one it was checked

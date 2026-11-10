@@ -11,6 +11,7 @@ import { Button } from "@authsystem/ui/button"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { useLoginCompletion } from "../login-completion"
+import { usePasskeyRequiredReporter } from "../passkey/passkey-required"
 import { useStaySignedIn } from "../stay-signed-in"
 import { navigateToRecovery } from "./recovery-navigation"
 import { requestExternalNonce } from "./request-nonce"
@@ -119,6 +120,8 @@ export function AppleSignIn({
 }: AppleSignInProps = {}) {
   const { i18n, t } = useTranslation()
   const { loginExternal } = useAuth()
+  // The account signs in with its passkey alone (S20): the sign-in page says so.
+  const reportPasskeyRequired = usePasskeyRequiredReporter()
   const navigate = useNavigate()
   // Replaced with the server-issued value before Apple is initialised.
   const nonceRef = React.useRef<string>(crypto.randomUUID())
@@ -196,6 +199,7 @@ export function AppleSignIn({
         })
         return
       }
+      if (reportPasskeyRequired(error)) return
       toast.error(getErrorMessage(error))
     } finally {
       setPending(false)
@@ -211,6 +215,7 @@ export function AppleSignIn({
     recoveryPath,
     onCredential,
     readStaySignedIn,
+    reportPasskeyRequired,
   ])
 
   if (!appleEnabled) return null

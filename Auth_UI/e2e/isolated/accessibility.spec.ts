@@ -84,6 +84,18 @@ async function installConsole(
   )
 }
 
+/** The passkey options of a deployment that runs passkeys (S20). */
+const PASSKEY_OPTIONS = {
+  options: {
+    challenge: "c2lnbi1pbi1jaGFsbGVuZ2U",
+    rpId: "localhost",
+    allowCredentials: [],
+    userVerification: "required",
+    timeout: 300_000,
+  },
+  expiresAt: "2099-01-01T00:00:00Z",
+}
+
 /** No session at all: the screen a person meets before signing in. */
 async function installAnonymous(
   page: Page,
@@ -91,7 +103,14 @@ async function installAnonymous(
     theme,
     language,
     staySignedInOffered = true,
-  }: { theme: "light" | "dark"; language: string; staySignedInOffered?: boolean }
+    passkeys = false,
+  }: {
+    theme: "light" | "dark"
+    language: string
+    staySignedInOffered?: boolean
+    /** Passkeys run here (S20); off as shipped, when their options answer 404. */
+    passkeys?: boolean
+  }
 ) {
   await page.addInitScript(
     ([themeValue, languageValue]) => {
@@ -104,6 +123,11 @@ async function installAnonymous(
     const path = new URL(request.url()).pathname.toLowerCase()
     if (path === "/api/v1/platform/branding") {
       await fulfillJson(route, { platformName: "AuthSystem", staySignedInOffered })
+      return
+    }
+    if (path === "/api/v1/auth/passkeys/assertion/options") {
+      if (passkeys) await fulfillJson(route, PASSKEY_OPTIONS)
+      else await fulfillJson(route, { title: "Not Found" }, 404)
       return
     }
     await fulfillJson(route, { title: "Unauthenticated" }, 401)
@@ -171,6 +195,142 @@ for (const theme of ["light", "dark"] as const) {
       const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
 
       expect(actionable(results), describeViolations(results)).toEqual([])
+    })
+  }
+}
+
+// S20: the sign-in screen while passkeys run, with its passkey button.
+for (const theme of ["light", "dark"] as const) {
+  for (const language of ["en", "ar"] as const) {
+    test(`the sign-in screen with passkeys passes WCAG AA in ${theme} ${language}`, async ({
+      page,
+    }) => {
+      await installAnonymous(page, { theme, language, passkeys: true })
+      await page.goto("/login")
+      await expect(page.getByTestId("passkey-sign-in").getByRole("button")).toBeEnabled()
+
+      const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+
+      expect(actionable(results), describeViolations(results)).toEqual([])
+    })
+  }
+}
+
+// S20: Profile › Security › Passkeys, its add dialog and its removal's
+// confirmation. One passkey carries the counter's warning, and one name is in
+// Arabic: the owner's own text, in any script.
+const PASSKEY_LIST = {
+  rpId: "localhost",
+  userHandle: "dXNlci1oYW5kbGU",
+  passkeys: [
+    {
+      id: "aaaaaaaa-0000-0000-0000-000000000001",
+      name: "Work laptop",
+      createdAt: "2026-10-01T09:00:00Z",
+      lastUsedAt: "2026-11-01T09:00:00Z",
+      isBackupEligible: true,
+      isBackedUp: true,
+      lastCounterRegressionAt: null,
+      credentialId: "Y3JlZC1sYXB0b3A",
+    },
+    {
+      id: "aaaaaaaa-0000-0000-0000-000000000002",
+      name: "مفتاح الأمان",
+      createdAt: "2026-10-02T09:00:00Z",
+      lastUsedAt: null,
+      isBackupEligible: false,
+      isBackedUp: false,
+      lastCounterRegressionAt: "2026-11-02T09:00:00Z",
+      credentialId: "Y3JlZC1rZXk",
+    },
+  ],
+}
+
+async function installProfile(
+  page: Page,
+  { theme, language }: { theme: "light" | "dark"; language: string }
+) {
+  await page.addInitScript((value) => {
+    localStorage.setItem("theme", value)
+  }, theme)
+  await installAuthenticatedApi(
+    page,
+    ["users:read"],
+    async (route, url) => {
+      const path = url.pathname.toLowerCase()
+      if (path === "/api/v1/users/me") {
+        await fulfillJson(route, {
+          ...user,
+          id: "99999999-9999-9999-9999-999999999999",
+          hasPassword: true,
+          twoFactorEnabled: true,
+          totpEnabled: true,
+          qualifyingMfa: true,
+          emailCodeAvailable: true,
+          passkeyCount: 2,
+          preferredLanguage: language,
+        })
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys") {
+        await fulfillJson(route, PASSKEY_LIST)
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/registration/options") {
+        await fulfillJson(route, {
+          options: {
+            challenge: "cmVnaXN0cmF0aW9uLWNoYWxsZW5nZQ",
+            rp: { id: "localhost", name: "AuthSystem" },
+            user: { id: "dXNlci1oYW5kbGU", name: "ada@example.test", displayName: "Ada Lovelace" },
+            pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+          },
+          expiresAt: "2099-01-01T00:00:00Z",
+          emailCodeRequired: false,
+        })
+        return true
+      }
+      if (path === "/api/v1/auth/2fa/status") {
+        await fulfillJson(route, { recoveryCodesRemaining: 8 })
+        return true
+      }
+      return false
+    },
+    { preferredLanguage: language }
+  )
+}
+
+for (const theme of ["light", "dark"] as const) {
+  for (const language of ["en", "ar"] as const) {
+    test(`the profile's passkeys, their add dialog and their removal pass WCAG AA in ${theme} ${language}`, async ({
+      page,
+    }) => {
+      await installProfile(page, { theme, language })
+      await page.goto("/profile?tab=security")
+      const card = page.getByTestId("passkeys-card")
+      await expect(card.getByTestId("passkey-row")).toHaveCount(2)
+
+      const scan = async () => {
+        // An overlay measured mid-animation blends with the backdrop: let every
+        // open animation finish first (as platform-settings-tabs.spec.ts does).
+        await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)))
+        const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+        expect(actionable(results), describeViolations(results)).toEqual([])
+      }
+      await scan()
+
+      // The add dialog: its first click asks for the options and the helper.
+      await card.locator('button[data-variant="outline"]').click()
+      const dialog = page.getByRole("dialog")
+      await expect(dialog).toBeVisible()
+      await scan()
+      await page.keyboard.press("Escape")
+      await expect(dialog).toHaveCount(0)
+
+      // The removal's confirmation.
+      await card.getByTestId("passkey-row").first().getByRole("button").nth(1).click()
+      const confirmation = page.getByRole("alertdialog")
+      await expect(confirmation).toBeVisible()
+      await scan()
     })
   }
 }

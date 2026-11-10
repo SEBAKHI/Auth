@@ -303,7 +303,7 @@ describe("toAccountsSearch", () => {
       toAccountsSearch("https://evil.example.com/api/v1/auth/authorize", ENROLL)
     ).toBe("")
     expect(
-      toAccountsSearch(RESUME, { reason: "mfa_passkey", method: "code" } as never)
+      toAccountsSearch(RESUME, { reason: "mfa_otp", method: "code" } as never)
     ).toBe(HANDLE_SEARCH)
     expect(toAccountsSearch(RESUME, null)).toBe(HANDLE_SEARCH)
   })

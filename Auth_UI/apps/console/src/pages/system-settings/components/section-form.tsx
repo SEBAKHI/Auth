@@ -13,7 +13,7 @@ import { Link, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { api } from "@authsystem/api/client"
-import { getErrorMessage } from "@authsystem/api/errors"
+import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { RequirePermission } from "@authsystem/auth/require-permission"
 import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
 import { Button } from "@authsystem/ui/button"
@@ -966,7 +966,14 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
   const handleFailure = React.useCallback(
     async (error: unknown, status?: number) => {
       if (status !== 409) {
-        toast.error(getErrorMessage(error))
+        // A value the rules refused says what to do about it, sometimes a command
+        // to copy: it stays until it is dismissed, not for four seconds.
+        toast.error(
+          getErrorMessage(error),
+          getErrorCodes(error).includes("SystemSettings.InvalidFieldValue")
+            ? { duration: Number.POSITIVE_INFINITY, closeButton: true }
+            : undefined
+        )
         requestAnimationFrame(() => saveRef.current?.focus())
         return
       }

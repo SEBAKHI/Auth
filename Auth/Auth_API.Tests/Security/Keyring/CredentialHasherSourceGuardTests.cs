@@ -54,6 +54,8 @@ public class CredentialHasherSourceGuardTests
         // challenge by the token exactly as verify does.
         App + "Authentication/SendSignInEmailCode/SendSignInEmailCodeCommandHandler.cs:65 Candidates TwoFactorChallenge",
         App + "Authentication/ServerSignOut/ServerSignOutCommandHandler.cs:94 Candidates RefreshToken",
+        App + "Authentication/Reauthenticate/ReauthenticateCommandHandler.cs:143 Candidates IdpSession",
+        App + "Passkeys/ReauthenticateWithPasskey/ReauthenticateWithPasskeyCommandHandler.cs:118 Candidates IdpSession",
         App + "Authentication/StepUpTwoFactor/StepUpTwoFactorCommandHandler.cs:117 Candidates IdpSession",
         App + "Authentication/TokenExchange/ExchangeAuthorizationCodeCommandHandler.cs:137 Candidates AuthorizationCode",
         App + "Authentication/VerifyTwoFactorLogin/VerifyTwoFactorLoginCommandHandler.cs:79 Candidates TwoFactorChallenge",
@@ -71,7 +73,7 @@ public class CredentialHasherSourceGuardTests
         // registration's: the page's re-issue read, the issue, and the consume of the ceremony.
         App + "Passkeys/BeginPasskeyAssertion/BeginPasskeyAssertionCommandHandler.cs:69 Candidates WebAuthnChallenge",
         App + "Passkeys/BeginPasskeyAssertion/BeginPasskeyAssertionCommandHandler.cs:81 Hash WebAuthnChallenge",
-        App + "Passkeys/Common/PasskeyAssertionCeremony.cs:108 Candidates WebAuthnChallenge",
+        App + "Passkeys/Common/PasskeyAssertionCeremony.cs:118 Candidates WebAuthnChallenge",
         App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:77 Candidates WebhookKey",
         // S11 PR B: the issuing form a matched webhook key is compared with, to re-fingerprint it.
         App + "WebhookKeys/ValidateWebhookKey/ValidateWebhookKeyQueryHandler.cs:97 Hash WebhookKey",

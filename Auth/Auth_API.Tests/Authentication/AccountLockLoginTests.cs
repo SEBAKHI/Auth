@@ -54,7 +54,7 @@ internal sealed class LoginLockFixture
         Builder.Object,
         Challenges.Object,
         new Mock<IDomainEventDispatcher>().Object,
-        TestHelpers.CreateAccountLockout(Users.Object, Settings, logger: LockLog),
+        TestHelpers.CreatePasswordDoor(Users.Object, Attempts.Object, Hasher.Object, Settings, LockLog),
         TestHelpers.PasskeyOnlyAdministratorRuleOff(),
         TestHelpers.CreateOptions(Settings),
         NullLogger<LoginCommandHandler>.Instance);

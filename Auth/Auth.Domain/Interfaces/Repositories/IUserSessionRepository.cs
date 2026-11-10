@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Interfaces.Repositories;
 
@@ -23,6 +24,14 @@ public interface IUserSessionRepository
     /// Gets a session by its ID.
     /// </summary>
     Task<UserSession?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The session's last proof with no new sign-in, or null when it made none. Read apart from
+    /// the session, and only once its own sign-in is too old to count, so an API that reaches a
+    /// database without these columns fails only on the change it was asked for, never on a
+    /// sign-in.
+    /// </summary>
+    Task<SessionProof?> GetLastProofAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets a session by its token hash.

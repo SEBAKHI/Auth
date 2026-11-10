@@ -1403,6 +1403,9 @@
   <data name="Passkey.NotFound" xml:space="preserve">
     <value>La clé d'accès est introuvable.</value>
   </data>
+  <data name="Passkey.NotThisAccount" xml:space="preserve">
+    <value>Cette clé d'accès appartient à un autre compte. Choisissez la clé d'accès du compte auquel vous êtes connecté.</value>
+  </data>
   <data name="Passkey.VerificationFailed" xml:space="preserve">
     <value>La clé d'accès n'a pas pu être vérifiée. Réessayez.</value>
   </data>

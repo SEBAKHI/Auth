@@ -28,6 +28,7 @@ export const SECTION_I18N: Record<string, string> = {
   Password: "password",
   Session: "session",
   TwoFactor: "twoFactor",
+  Passkeys: "passkeys",
   Gateway: "gateway",
   GeoIp: "geoIp",
   Cors: "cors",
@@ -153,6 +154,10 @@ export const HIGH_IMPACT_PATHS: Record<string, string[]> = {
   // administrator without a second factor the moment it is saved on (S08) — and
   // gives it back to a leaked password when saved off.
   TwoFactor: ["EnforceForPlatformAdmins"],
+  // Passkeys (S20): switching them on offers every person a new way in, and
+  // switching them off leaves a passkey-only administrator one way out (M8(4));
+  // the RP ID binds every passkey made under it, and a new one orphans them (PK3).
+  Passkeys: ["Enabled", "RpId"],
   Gateway: ["ValidationEnabled"],
   Cors: ["AllowedOrigins", "AllowCredentials"],
   RateLimiting: ["LoginPermitLimit"],

@@ -84,6 +84,7 @@ public class UpdateSystemSettingsCommandHandlerTests
             _reloaderMock.Object,
             _publisherMock.Object,
             new Mock<IIdpSessionIdleLimitChange>().Object,
+            new Mock<IPasskeyRpIdChange>().Object,
             new Mock<ILogger<UpdateSystemSettingsCommandHandler>>().Object);
     }
 
@@ -574,6 +575,7 @@ public class ResetSystemSettingsCommandHandlerTests
             _reloaderMock.Object,
             _publisherMock.Object,
             new Mock<IIdpSessionIdleLimitChange>().Object,
+            new Mock<IPasskeyRpIdChange>().Object,
             new Mock<ILogger<ResetSystemSettingsCommandHandler>>().Object);
     }
 
@@ -592,6 +594,7 @@ public class ResetSystemSettingsCommandHandlerTests
             _reloaderMock.Object,
             _publisherMock.Object,
             new Mock<IIdpSessionIdleLimitChange>().Object,
+            new Mock<IPasskeyRpIdChange>().Object,
             new Mock<ILogger<ResetSystemSettingsCommandHandler>>().Object);
     }
 
@@ -982,6 +985,7 @@ public class FirstPartySpaOriginsSaveRuleTests
             new Mock<ISystemSettingsReloader>().Object,
             _publisherMock.Object,
             new Mock<IIdpSessionIdleLimitChange>().Object,
+            new Mock<IPasskeyRpIdChange>().Object,
             new Mock<ILogger<UpdateSystemSettingsCommandHandler>>().Object);
     }
 
@@ -1089,6 +1093,7 @@ public class FirstPartySpaOriginsSaveRuleTests
             new Mock<ISystemSettingsReloader>().Object,
             _publisherMock.Object,
             new Mock<IIdpSessionIdleLimitChange>().Object,
+            new Mock<IPasskeyRpIdChange>().Object,
             new Mock<ILogger<UpdateSystemSettingsCommandHandler>>().Object);
     }
 

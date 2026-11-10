@@ -1905,6 +1905,12 @@
       "source": "catalog"
     },
     {
+      "code": "Passkey.NotThisAccount",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "Passkey.VerificationFailed",
       "status": 400,
       "source": "catalog",

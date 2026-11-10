@@ -112,7 +112,8 @@ export function TwoFactorEnrollment({
   replacesEmailCode = false,
   onEnabled,
   onStale,
-  onReauthenticationRequired,
+  onSignInAgain,
+  passkeyOnly = false,
 }: {
   account: TwoFactorEnrollmentAccount
   /** The account's second factor is the emailed code, which the app replaces. */
@@ -122,11 +123,16 @@ export function TwoFactorEnrollment({
   /** The caller's picture of two-factor is out of date: refetch it. */
   onStale?: () => void
   /**
-   * The server wants a fresher sign-in. By default a dialog offers to sign out
-   * and back in; a caller that must not sign out (an application's pending
-   * request would be lost, S23) answers it instead.
+   * The way out of the window that proves the person again, for a caller that must
+   * not sign out: an application's pending request would be lost (S23).
    */
-  onReauthenticationRequired?: () => void
+  onSignInAgain?: () => void
+  /**
+   * The account's qualifying factor is a passkey, and passkeys run (S20, T-C7):
+   * binding the app needs a proof of two factors, which only the passkey gives,
+   * so the window asks for it alone.
+   */
+  passkeyOnly?: boolean
 }) {
   const { t } = useTranslation()
 
@@ -143,7 +149,9 @@ export function TwoFactorEnrollment({
 
   const [setup, setup_set] = React.useState<Schemas["TwoFactorSetupResponse"]>()
   const [code, setCode] = React.useState("")
-  const [reauthenticateOpen, setReauthenticateOpen] = React.useState(false)
+  // The request a stale sign-in refused, sent again once the person proved themself (D-152-5,
+  // REVIEW-FIXES 152 F26): what was typed stays under the window. Set while it is open.
+  const [resume, setResume] = React.useState<(() => void) | null>(null)
   // The account's FIRST factor, while email is on, also needs a code sent to its
   // address: shown when setup says so, or when enable answers that it is needed.
   const [emailStep, setEmailStep] = React.useState(false)
@@ -187,13 +195,13 @@ export function TwoFactorEnrollment({
   /*
    * One answer to a failure for setup, the email code and enable, keyed by the
    * published code — never by the status: TwoFactor.LockedOut is a 403 as well,
-   * and only a stale sign-in can be fixed by signing in again.
+   * and only a stale sign-in is fixed by a proof of the person, which then sends
+   * the refused request again (`again`), with what was typed.
    */
-  const onTwoFactorError = (error: unknown) => {
+  const onTwoFactorError = (error: unknown, again: () => void) => {
     const codes = getErrorCodes(error)
     if (codes.includes("Auth.ReauthenticationRequired")) {
-      if (onReauthenticationRequired) onReauthenticationRequired()
-      else setReauthenticateOpen(true)
+      setResume(() => again)
       return
     }
 
@@ -234,7 +242,7 @@ export function TwoFactorEnrollment({
       setEmailCode("")
       setEmailCodeSent(undefined)
     },
-    onError: onTwoFactorError,
+    onError: (error) => onTwoFactorError(error, () => setupMutation.mutate()),
   })
 
   const sendEmailCodeMutation = useMutation({
@@ -254,7 +262,7 @@ export function TwoFactorEnrollment({
       // could only fail — and count against the five tries.
       setEmailCode("")
     },
-    onError: onTwoFactorError,
+    onError: (error) => onTwoFactorError(error, () => sendEmailCode()),
   })
 
   // The code that lets the emailed factor go: the switch-off's own send, which
@@ -283,7 +291,7 @@ export function TwoFactorEnrollment({
       })
       setProofCode("")
     },
-    onError: onTwoFactorError,
+    onError: (error) => onTwoFactorError(error, () => sendProof()),
   })
 
   const sendProof = () => {
@@ -330,7 +338,7 @@ export function TwoFactorEnrollment({
       clearSetup()
       onEnabled(data?.recoveryCodes ?? [])
     },
-    onError: onTwoFactorError,
+    onError: (error) => onTwoFactorError(error, () => enable()),
   })
 
   const enable = () => {
@@ -528,9 +536,17 @@ export function TwoFactorEnrollment({
         </Button>
       )}
 
-      {/* Mounted only while needed, so closing it resets it. */}
-      {reauthenticateOpen ? (
-        <ReauthenticateDialog open onOpenChange={setReauthenticateOpen} />
+      {/* Mounted only while needed, so closing it resets it. Nothing here was lost: the
+          page stays as it was under it, and the proof sends the refused request again —
+          setup, a code's send or Enable — with what was typed, once. */}
+      {resume ? (
+        <ReauthenticateDialog
+          open
+          onOpenChange={(open) => !open && setResume(null)}
+          passkey={passkeyOnly}
+          onSignInAgain={onSignInAgain}
+          onProved={() => resume()}
+        />
       ) : null}
 
       {/* The account's own address, confirmed through the user-id path: it

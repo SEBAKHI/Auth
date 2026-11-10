@@ -203,6 +203,13 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
             "SELECT CASE WHEN COL_LENGTH('dbo.TwoFactorChallenges', 'EmailCodeSendCount') IS NOT NULL THEN 1 ELSE 0 END"),
         new("TwoFactorChallenges.Purpose column",
             "SELECT CASE WHEN COL_LENGTH('dbo.TwoFactorChallenges', 'Purpose') IS NOT NULL THEN 1 ELSE 0 END"),
+        // A proof of the person inside a session: without them a sign-in and a change on a recent
+        // session still work, and every change on an older session, and every proof, answers 500
+        // ("Invalid column name"). A deploy stops while /ready says Degraded: the DACPAC goes first.
+        new("UserSessions.LastProofAt column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.UserSessions', 'LastProofAt') IS NOT NULL THEN 1 ELSE 0 END"),
+        new("UserSessions.LastProofMethods column",
+            "SELECT CASE WHEN COL_LENGTH('dbo.UserSessions', 'LastProofMethods') IS NOT NULL THEN 1 ELSE 0 END"),
     ];
 
     private readonly Func<CancellationToken, Task<HealthCheckResult>> _probe;

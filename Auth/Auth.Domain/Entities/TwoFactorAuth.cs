@@ -33,6 +33,13 @@ public class TwoFactorAuth : EntityBase
     public const int MaxEmailCodesPerDay = 10;
 
     /// <summary>
+    /// How many of those may already have gone out for the window that proves a signed-in person to
+    /// send one more. That window serves exactly the sessions past their recency, so a stolen token
+    /// reaches it; what it cannot spend stays the owner's, for a sign-in.
+    /// </summary>
+    public const int MaxEmailCodesPerDayForReauthentication = 5;
+
+    /// <summary>
     /// Gets the ID of the user.
     /// </summary>
     public Guid UserId { get; private set; }

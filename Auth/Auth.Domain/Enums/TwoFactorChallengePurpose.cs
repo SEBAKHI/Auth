@@ -23,5 +23,8 @@ public enum TwoFactorChallengePurpose : byte
     DeletionRecovery = 3,
 
     /// <summary>Switching the emailed code off with a code sent to the mailbox.</summary>
-    EmailDisable = 4
+    EmailDisable = 4,
+
+    /// <summary>A signed-in person proving themself again with a code sent to the mailbox, with no new sign-in.</summary>
+    Reauthentication = 5
 }

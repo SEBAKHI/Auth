@@ -31,6 +31,7 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
     private readonly ISystemSettingsReloader _reloader;
     private readonly IPublisher _publisher;
     private readonly IIdpSessionIdleLimitChange _idleLimitChange;
+    private readonly IPasskeyRpIdChange _passkeyRpIdChange;
     private readonly ILogger<UpdateSystemSettingsCommandHandler> _logger;
 
     public UpdateSystemSettingsCommandHandler(
@@ -41,6 +42,7 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         ISystemSettingsReloader reloader,
         IPublisher publisher,
         IIdpSessionIdleLimitChange idleLimitChange,
+        IPasskeyRpIdChange passkeyRpIdChange,
         ILogger<UpdateSystemSettingsCommandHandler> logger)
     {
         _systemSettingsRepository = systemSettingsRepository;
@@ -50,6 +52,7 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         _reloader = reloader;
         _publisher = publisher;
         _idleLimitChange = idleLimitChange;
+        _passkeyRpIdChange = passkeyRpIdChange;
         _logger = logger;
     }
 
@@ -76,8 +79,17 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         // Whitelist + value validation, collecting every problem so the
         // admin fixes the form in one round trip.
         var errors = new List<Error>();
+        var named = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (path, value) in flattened)
         {
+            // The rules below read a field's first value, and the stored row's reader keeps its
+            // last: with two keys naming one field, the value judged is not the value used.
+            if (!named.Add(path))
+            {
+                errors.Add(SystemSettingsErrors.InvalidFieldValue(path, "the payload names this field more than once."));
+                continue;
+            }
+
             var field = SystemSettingsRegistry.TryGetField(section, path);
             if (field is null)
             {
@@ -108,6 +120,15 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         if (errors.Count > 0)
         {
             return errors;
+        }
+
+        // PK3 (S20 PR C, T-C9), before anything is read for the write or written: a new RP ID,
+        // the empty one included, is refused while live passkeys are bound to another.
+        if (await _passkeyRpIdChange.RefusalAsync(
+                section, flattened, _startupSnapshot.Baseline, fullKey => _configuration[fullKey], cancellationToken)
+            is { } rpIdRefusal)
+        {
+            return rpIdRefusal;
         }
 
         byte[]? expectedRowVersion = null;

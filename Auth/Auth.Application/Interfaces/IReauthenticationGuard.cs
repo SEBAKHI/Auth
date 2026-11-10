@@ -1,4 +1,5 @@
 using Auth.Application.Features.Authentication.Common;
+using Auth.Domain.Entities;
 using ErrorOr;
 
 namespace Auth.Application.Interfaces;
@@ -12,14 +13,34 @@ namespace Auth.Application.Interfaces;
 /// or a stolen token, would otherwise be enough to switch two-factor off or bind an
 /// authenticator of the holder's choosing. The session the token belongs to records
 /// when its sign-in happened, and a refreshed token keeps that session, so the age
-/// of the sign-in is the age of the session row — not of the token.
+/// of the sign-in is the age of the session row — not of the token. A person who proved
+/// themself again inside the session (<see cref="Domain.ValueObjects.SessionProof"/>) counts
+/// from that proof, with what that one proof proved, and only with an access token issued at or
+/// after it (<see cref="ICurrentAccessToken"/>): a copy of the session's token taken before the
+/// proof does not ride on it.
 /// </remarks>
 public interface IReauthenticationGuard
 {
     /// <summary>
+    /// Checks that the request's session belongs to the user and is still active, whatever its
+    /// age: the session a person may prove themself again in. Changes nothing.
+    /// </summary>
+    /// <param name="userId">The authenticated user.</param>
+    /// <param name="sessionId">The session the access token belongs to, or null when it names none.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// The session, or <c>Auth.ReauthenticationRequired</c> when it ended, is someone else's, or
+    /// there is no session row: such a token can only sign in again.
+    /// </returns>
+    Task<ErrorOr<UserSession>> EnsureLiveSessionAsync(
+        Guid userId,
+        Guid? sessionId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Checks that the request's session belongs to the user, is still active, and
-    /// began no longer ago than <c>TwoFactor:ReauthenticationMaxAgeMinutes</c>.
-    /// Changes nothing.
+    /// began, or last proved itself again, no longer ago than
+    /// <c>TwoFactor:ReauthenticationMaxAgeMinutes</c>. Changes nothing.
     /// </summary>
     /// <param name="userId">The authenticated user.</param>
     /// <param name="sessionId">
@@ -28,8 +49,9 @@ public interface IReauthenticationGuard
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
-    /// The session, or <c>Auth.ReauthenticationRequired</c> when it is too old, ended,
-    /// someone else's, or there is no session row to measure.
+    /// The session, with what its sign-in proved or, past that, what its last proof proved; or
+    /// <c>Auth.ReauthenticationRequired</c> when it is too old, ended, someone else's, there is
+    /// no session row to measure, or the token was issued before the proof that would count.
     /// </returns>
     Task<ErrorOr<RecentSession>> EnsureRecentSignInAsync(
         Guid userId,

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — 2026-11-05 (S20, PR A; decision D-T12 A). Behind `Passkeys:Enabled`, off by default. PR A stores, registers, lists and removes passkeys and counts them as a second factor; signing in with one is PR B, and the pages are PR C. Until PR C ships on a deployment, every passkey route answers 404 there.
+Accepted — 2026-11-05 (S20, PR A; decision D-T12 A). Behind `Passkeys:Enabled`, off by default. PR A stores, registers, lists and removes passkeys and counts them as a second factor; signing in with one is PR B, and PR C (2026-11-08) ships the pages and puts both settings in the console, which refuses an RP ID that does not cover the first-party origins and any new one while a live passkey is bound to another (§3 and §4 below, as rules on a console edit). Every passkey route answers 404 on a deployment until it switches `Passkeys:Enabled` on.
 
 ## Context
 
@@ -20,7 +20,7 @@ The RP ID is `Passkeys:RpId`: the registrable domain the first-party apps share,
 
 ### 2. Read once, stored with every passkey
 
-The API reads it once at start-up, trimmed and lower-cased; a change applies after an application-pool recycle. Every passkey row stores the RP ID it was made under (`UserPasskeys.RpId`).
+The API reads it once at start-up, trimmed and lower-cased, after the database settings layer joined the configuration (PR C), so a value saved in the console is the one it starts with; a change applies after an application-pool recycle. Every passkey row stores the RP ID it was made under (`UserPasskeys.RpId`).
 
 ### 3. Validated before passkeys run
 
@@ -36,7 +36,7 @@ Passkeys run only when `Passkeys:Enabled` is on and all of these hold; otherwise
 When live passkeys carry an RP ID other than the configured one, passkeys stay off and the posture logs `passkey.rpid-mismatch` at Critical, whatever the switch says. An empty `Passkeys:RpId` is such a value too: no passkey counts as a factor under it, so the line is logged while any live passkey exists. There are two ways out:
 
 - restore the previous value; or
-- move on purpose: announce the move and ask people to add another way to sign in, run `dotnet run --project Auth/Auth_Setup -- --retire-passkey-rp-id <old RP ID>` and execute the statement it prints against the database (one transaction; it revokes every live passkey of that RP ID and writes one audit row each, reason `rp-id-move`), then set `Passkeys:RpId` to the new domain and recycle the API.
+- move on purpose: announce the move and ask people to add another way to sign in, switch `Passkeys:Enabled` off (a passkey added before the recycle would otherwise be bound to the old value, and passkeys would stay off after it), run `dotnet run --project Auth/Auth_Setup -- --retire-passkey-rp-id <old RP ID>` and execute the statement it prints against the database (one transaction; it revokes every live passkey of that RP ID and writes one audit row each, reason `rp-id-move`), then set `Passkeys:RpId` to the new domain, recycle the API and switch `Passkeys:Enabled` on again.
 
 ### 5. Only the RP ID in force counts
 
@@ -54,7 +54,7 @@ Only passkeys of the configured RP ID are listed, renamed, removed by their owne
 
 - A domain move retires every passkey: people sign in another way and add a passkey again under the new domain.
 - An RP ID chosen too narrowly (one application's own host) cannot cover the other application; the origin check refuses it, but only once both origins are listed.
-- Until PR C the two settings are edited in the settings file only; they are not in the console.
+- Before PR C the two settings were edited in the settings file only. Since PR C they are in the console too (System settings › Passkeys), and a later change of `IdentityProvider:FirstPartySpaOrigins` that the RP ID does not cover is not refused there: the posture switches passkeys off until the two agree.
 
 ### Neutral
 

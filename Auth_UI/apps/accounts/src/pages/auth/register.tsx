@@ -29,6 +29,7 @@ import { Spinner } from "@authsystem/ui/spinner"
 import { startSignUpCode } from "@authsystem/auth/email-code"
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 import { useFlowBranding } from "@authsystem/auth/flow-branding"
+import { PasskeyRequiredProvider } from "@authsystem/auth/passkey/passkey-required"
 import { useReloadOnRestore } from "@authsystem/auth/reload-on-restore"
 import { getValidReturnTo } from "@authsystem/auth/return-to"
 
@@ -107,6 +108,21 @@ export function RegisterPage() {
     }
   }
 
+  // The provider's account signs in with its passkey alone (D-S20-4 (ii-s)): the
+  // sign-in page has the passkey, and a toast here would go with nothing offered.
+  const providers = (
+    <PasskeyRequiredProvider
+      onPasskeyRequired={() =>
+        navigate(
+          { pathname: "/login", search },
+          { state: { email: form.getValues("email") } }
+        )
+      }
+    >
+      <ExternalProviders recoveryPath="/account-recovery" />
+    </PasskeyRequiredProvider>
+  )
+
   if (unavailable) {
     return (
       <AuthLayout
@@ -134,7 +150,7 @@ export function RegisterPage() {
         </div>
         {/* Google and Apple have their own switch (Registration:AllowExternalProvisioning),
             and neither needs email: their door stays where it always was. */}
-        <ExternalProviders recoveryPath="/account-recovery" />
+        {providers}
       </AuthLayout>
     )
   }
@@ -211,7 +227,7 @@ export function RegisterPage() {
           </FieldGroup>
         </form>
       </Form>
-      <ExternalProviders recoveryPath="/account-recovery" />
+      {providers}
     </AuthLayout>
   )
 }

@@ -35,6 +35,12 @@ function packageOf(id: string): string | null {
  * route-level splitting already isolates them.
  *
  * Most specific first: `react` would otherwise swallow `react-i18next`.
+ *
+ * `@simplewebauthn/browser` (passkeys, S20) is in no group on purpose: only the
+ * passkey loader imports it, by dynamic import, so it builds into a chunk of its
+ * own that a page fetches once the passkey options answered 200. Naming it here
+ * could put it beside an eager vendor. `login-payload.spec.ts` checks that the
+ * sign-in page's first load never carries it.
  */
 const GROUPS: Array<[chunk: string, packages: RegExp]> = [
   // The source editor is one 586 kB chunk, entirely CodeMirror, and a third of

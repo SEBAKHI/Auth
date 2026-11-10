@@ -2,6 +2,7 @@ using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ValueObjects;
 using Dapper;
 
 namespace Auth.Infrastructure.Persistence;
@@ -71,6 +72,14 @@ public class UserSessionRepository : IUserSessionRepository
         inserted.[AuthMethods],
         CAST(CASE WHEN inserted.[EndedAt] IS NULL THEN 1 ELSE 0 END AS BIT) AS [IsActive]";
 
+    // Apart from SelectColumns on purpose, which serves every session read: an API that reaches a
+    // database without these columns then fails on the one change that asked, never on a sign-in.
+    internal const string GetLastProofSql = @"
+            SELECT [LastProofAt], [LastProofMethods]
+            FROM [dbo].[UserSessions]
+            WHERE [Id] = @Id
+              AND [LastProofAt] IS NOT NULL";
+
     public UserSessionRepository(IDbConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory;
@@ -86,6 +95,19 @@ public class UserSessionRepository : IUserSessionRepository
             FROM [dbo].[UserSessions]
             WHERE [Id] = @Id",
             new { Id = id });
+    }
+
+    /// <inheritdoc />
+    public async Task<SessionProof?> GetLastProofAsync(Guid id, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var row = await connection.QueryFirstOrDefaultAsync<SessionProofRow>(new CommandDefinition(
+            GetLastProofSql, new { Id = id }, cancellationToken: cancellationToken));
+
+        return row is null
+            ? null
+            : new SessionProof(row.LastProofAt, AuthenticationMethods.FromStored(row.LastProofMethods));
     }
 
     /// <inheritdoc />
@@ -437,5 +459,11 @@ public class UserSessionRepository : IUserSessionRepository
             WHERE [EndedAt] IS NULL
               AND [ExpiresAt] < GETUTCDATE()",
             new { BatchSize = batchSize });
+    }
+
+    private sealed record SessionProofRow
+    {
+        public DateTime LastProofAt { get; init; }
+        public int? LastProofMethods { get; init; }
     }
 }

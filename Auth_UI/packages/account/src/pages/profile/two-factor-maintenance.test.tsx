@@ -13,6 +13,8 @@ import type { Schemas } from "@authsystem/api/types"
  */
 vi.mock("@authsystem/api/client", () => ({
   api: { POST: vi.fn(), GET: vi.fn(), DELETE: vi.fn() },
+  // The window refreshes this browser's token before it hands back (REVIEW-FIXES 152 F23).
+  refreshSessionNow: () => Promise.resolve(true),
 }))
 
 vi.mock("react-i18next", () => ({
@@ -23,9 +25,10 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }))
 
-const { logout, toastError } = vi.hoisted(() => ({
+const { logout, toastError, toastInfo } = vi.hoisted(() => ({
   logout: vi.fn(),
   toastError: vi.fn(),
+  toastInfo: vi.fn(),
 }))
 
 vi.mock("@authsystem/auth/auth-context", () => ({
@@ -33,7 +36,7 @@ vi.mock("@authsystem/auth/auth-context", () => ({
 }))
 
 vi.mock("sonner", () => ({
-  toast: { error: toastError, success: vi.fn() },
+  toast: { error: toastError, success: vi.fn(), info: toastInfo },
 }))
 
 import { api } from "@authsystem/api/client"
@@ -62,11 +65,23 @@ const problem = (status: number, code: string) => ({
   error: { status, code, detail: `server sentence for ${code}` },
 })
 
+// Passkeys do not run in these tests: their list answers 404, and their card is
+// not shown (S20 PR C).
+const PASSKEYS_OFF = {
+  data: undefined,
+  error: { status: 404, code: "General.NotFound" },
+  response: { status: 404 },
+}
+
 function givenRemaining(count: number | null) {
   get.mockImplementation(async (path: string) =>
     path === "/api/v1/auth/2fa/status"
       ? { data: { recoveryCodesRemaining: count } }
-      : { data: undefined }
+      : path === "/api/v1/auth/passkeys"
+        ? PASSKEYS_OFF
+        : path === "/api/v1/auth/reauthentication"
+          ? { data: { passkey: false, password: true, emailCode: false, secondStep: "AuthenticatorApp", canProveInPlace: true } }
+          : { data: undefined }
   )
 }
 
@@ -165,7 +180,7 @@ describe("new recovery codes", () => {
     })
   }, 15_000)
 
-  it("asks to sign in again when the session is not a recent two-factor one", async () => {
+  it("asks for a proof of two factors where the person stands", async () => {
     givenRemaining(5)
     post.mockResolvedValue(problem(403, "Auth.ReauthenticationRequired"))
     const user = userEvent.setup()
@@ -176,9 +191,81 @@ describe("new recovery codes", () => {
     await user.type(within(dialog).getByLabelText("auth.twoFactorCode"), "123456")
     await user.click(within(dialog).getByRole("button", { name: "profile.regenerateRecoveryCodes" }))
 
-    expect(await screen.findByRole("alertdialog", { name: "auth.reauthenticateTitle" })).toBeInTheDocument()
-    expect(screen.getByText("profile.twoFactorChangeNeedsRecentSignIn")).toBeInTheDocument()
+    const proof = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+    expect(within(proof).getByText("profile.twoFactorChangeNeedsRecentSignIn")).toBeInTheDocument()
     expect(toastError).not.toHaveBeenCalled()
+    // REVIEW-FIXES 152 F26: the dialog stays under the window, with what was typed.
+    expect(dialog).toBeInTheDocument()
+    expect(within(dialog).getByLabelText("auth.twoFactorCode")).toHaveValue("123456")
+  }, 15_000)
+
+  // The review of the window, and REVIEW-FIXES 152 F26: the dialog stays under the window; a proof
+  // that spent the app's time step leaves its code unusable, so nothing goes again.
+  it("keeps the dialog; after a proof with the app's code, empties it, says to wait for the next code, and sends nothing again", async () => {
+    givenRemaining(5)
+    toastInfo.mockReset()
+    let proved = false
+    post.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/auth/reauthentication") {
+        proved = true
+        return { data: undefined }
+      }
+      return proved ? { data: { recoveryCodes: ["NEW1-AAAA"] } } : problem(403, "Auth.ReauthenticationRequired")
+    })
+    const user = userEvent.setup()
+    renderTab()
+
+    await user.click(await screen.findByRole("button", { name: "profile.regenerateRecoveryCodes" }))
+    const first = await screen.findByRole("dialog", { name: "profile.regenerateRecoveryCodesTitle" })
+    await user.type(within(first).getByLabelText("auth.twoFactorCode"), "123456")
+    await user.click(within(first).getByRole("button", { name: "profile.regenerateRecoveryCodes" }))
+
+    const proof = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+    await user.type(await within(proof).findByLabelText("auth.password"), "my password")
+    await user.type(within(proof).getByLabelText("auth.twoFactorCode"), "654321")
+    await user.click(within(proof).getByRole("button", { name: "auth.reauthenticate.confirm" }))
+
+    const again = await screen.findByRole("dialog", { name: "profile.regenerateRecoveryCodesTitle" })
+    expect(again).toBe(first)
+    expect(within(again).getByLabelText("auth.twoFactorCode")).toHaveValue("")
+    expect(screen.queryByRole("dialog", { name: "auth.reauthenticate.title" })).not.toBeInTheDocument()
+    expect(toastInfo).toHaveBeenCalledWith("profile.twoFactorNextCode")
+    expect(post.mock.calls.filter(([called]) => called === "/api/v1/auth/2fa/recovery-codes")).toHaveLength(1)
+  }, 15_000)
+
+  // REVIEW-FIXES 152 F26. Deliberate break, verified red: the dialog's hand-back dropped.
+  it("sends the held code again, once, after a proof that did not spend the app's step", async () => {
+    givenRemaining(5)
+    let proved = false
+    post.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/auth/reauthentication") {
+        proved = true
+        return { data: undefined }
+      }
+      return proved ? { data: { recoveryCodes: ["NEW1-AAAA"] } } : problem(403, "Auth.ReauthenticationRequired")
+    })
+    const user = userEvent.setup()
+    renderTab()
+
+    await user.click(await screen.findByRole("button", { name: "profile.regenerateRecoveryCodes" }))
+    const dialog = await screen.findByRole("dialog", { name: "profile.regenerateRecoveryCodesTitle" })
+    await user.type(within(dialog).getByLabelText("auth.twoFactorCode"), "123456")
+    await user.click(within(dialog).getByRole("button", { name: "profile.regenerateRecoveryCodes" }))
+
+    // A recovery code proves the person: the app's time step is untouched.
+    const proof = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+    await user.type(await within(proof).findByLabelText("auth.password"), "my password")
+    await user.click(within(proof).getByRole("button", { name: "auth.useRecoveryCode" }))
+    await user.type(within(proof).getByLabelText("auth.recoveryCode"), "ABCD-1234")
+    await user.click(within(proof).getByRole("button", { name: "auth.reauthenticate.confirm" }))
+
+    expect(await screen.findByRole("dialog", { name: "profile.recoveryCodesTitle" })).toBeInTheDocument()
+    expect(
+      post.mock.calls.filter(([called]) => called === "/api/v1/auth/2fa/recovery-codes").map(([, options]) => options.body)
+    ).toEqual([
+      { code: "123456", useRecoveryCode: false },
+      { code: "123456", useRecoveryCode: false },
+    ])
   }, 15_000)
 
   it("leaves switching off with its own reason: a recent sign-in, two factors not required", async () => {
@@ -190,8 +277,8 @@ describe("new recovery codes", () => {
     await user.type(screen.getByLabelText("auth.twoFactorCode"), "123456")
     await user.click(screen.getByRole("button", { name: "profile.disableTwoFactor" }))
 
-    expect(await screen.findByRole("alertdialog", { name: "auth.reauthenticateTitle" })).toBeInTheDocument()
-    expect(screen.getByText("auth.reauthenticateBody")).toBeInTheDocument()
+    expect(await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })).toBeInTheDocument()
+    expect(screen.getByText("auth.reauthenticate.body")).toBeInTheDocument()
     expect(screen.queryByText("profile.twoFactorChangeNeedsRecentSignIn")).not.toBeInTheDocument()
   }, 15_000)
 
@@ -243,6 +330,84 @@ describe("a new authenticator app", () => {
     expect(await screen.findByRole("dialog", { name: "profile.recoveryCodesTitle" })).toBeInTheDocument()
   }, 20_000)
 
+  // REVIEW-FIXES 152 F27. Deliberate break, verified red: the dialog closed on the confirm's 403,
+  // as before this round, which took the secret just scanned with it.
+  it("keeps the secret just scanned under the window, and confirms the new app's next code after the proof", async () => {
+    givenRemaining(8)
+    toastInfo.mockReset()
+    let confirms = 0
+    post.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/auth/2fa/replace") return { data: SECRET }
+      if (path === "/api/v1/auth/reauthentication") return { data: undefined }
+      confirms += 1
+      return confirms === 1 ? problem(403, "Auth.ReauthenticationRequired") : { data: { recoveryCodes: ["NEW-1"] } }
+    })
+    const user = userEvent.setup()
+    renderTab()
+
+    await user.click(await screen.findByRole("button", { name: "profile.replaceAuthenticator" }))
+    const dialog = await screen.findByRole("dialog", { name: "profile.replaceAuthenticatorTitle" })
+    await user.type(within(dialog).getByLabelText("auth.twoFactorCode"), "111111")
+    await user.click(within(dialog).getByRole("button", { name: "common.next" }))
+    await user.type(await within(dialog).findByLabelText("auth.twoFactorCode"), "222222")
+    await user.click(within(dialog).getByRole("button", { name: "profile.replaceAuthenticatorConfirm" }))
+
+    // The proof takes the current app's code.
+    const proof = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+    await user.type(await within(proof).findByLabelText("auth.password"), "my password")
+    await user.type(within(proof).getByLabelText("auth.twoFactorCode"), "654321")
+    await user.click(within(proof).getByRole("button", { name: "auth.reauthenticate.confirm" }))
+
+    // The confirm step, with the same secret, and the new app's field empty.
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "auth.reauthenticate.title" })).not.toBeInTheDocument())
+    expect(within(dialog).getByDisplayValue(SECRET.manualEntryKey)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText("auth.twoFactorCode")).toHaveValue("")
+    expect(toastInfo).toHaveBeenCalledWith("profile.twoFactorNextCode")
+
+    await user.type(within(dialog).getByLabelText("auth.twoFactorCode"), "333333")
+    await user.click(within(dialog).getByRole("button", { name: "profile.replaceAuthenticatorConfirm" }))
+
+    expect(await screen.findByRole("dialog", { name: "profile.recoveryCodesTitle" })).toBeInTheDocument()
+    expect(post.mock.calls.filter(([called]) => called === "/api/v1/auth/2fa/replace")).toHaveLength(1)
+    expect(
+      post.mock.calls.filter(([called]) => called === "/api/v1/auth/2fa/replace/confirm").map(([, options]) => options.body)
+    ).toEqual([{ code: "222222" }, { code: "333333" }])
+  }, 20_000)
+
+  it("sends the current factor's code again after a proof that did not spend the app's step", async () => {
+    // The first step of the same dialog, as new recovery codes do (REVIEW-FIXES 152 F26).
+    givenRemaining(8)
+    let proved = false
+    post.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/auth/reauthentication") {
+        proved = true
+        return { data: undefined }
+      }
+      return proved ? { data: SECRET } : problem(403, "Auth.ReauthenticationRequired")
+    })
+    const user = userEvent.setup()
+    renderTab()
+
+    await user.click(await screen.findByRole("button", { name: "profile.replaceAuthenticator" }))
+    const dialog = await screen.findByRole("dialog", { name: "profile.replaceAuthenticatorTitle" })
+    await user.type(within(dialog).getByLabelText("auth.twoFactorCode"), "111111")
+    await user.click(within(dialog).getByRole("button", { name: "common.next" }))
+
+    const proof = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+    await user.type(await within(proof).findByLabelText("auth.password"), "my password")
+    await user.click(within(proof).getByRole("button", { name: "auth.useRecoveryCode" }))
+    await user.type(within(proof).getByLabelText("auth.recoveryCode"), "ABCD-1234")
+    await user.click(within(proof).getByRole("button", { name: "auth.reauthenticate.confirm" }))
+
+    expect(await within(dialog).findByDisplayValue(SECRET.manualEntryKey)).toBeInTheDocument()
+    expect(
+      post.mock.calls.filter(([called]) => called === "/api/v1/auth/2fa/replace").map(([, options]) => options.body)
+    ).toEqual([
+      { code: "111111", useRecoveryCode: false },
+      { code: "111111", useRecoveryCode: false },
+    ])
+  }, 20_000)
+
   it("starts again when the new secret expired", async () => {
     givenRemaining(8)
     post.mockImplementation(async (path: string) =>
@@ -265,4 +430,66 @@ describe("a new authenticator app", () => {
     expect(await within(dialog).findByText("profile.replaceAuthenticatorProveBody")).toBeInTheDocument()
     expect(within(dialog).queryByDisplayValue(SECRET.manualEntryKey)).not.toBeInTheDocument()
   }, 20_000)
+})
+
+describe("the two-step section with passkeys (S20 PR C)", () => {
+  const LIST = {
+    rpId: "localhost",
+    userHandle: "dXNlci1oYW5kbGU",
+    passkeys: [
+      {
+        id: "aaaaaaaa-0000-0000-0000-000000000001",
+        name: "Work laptop",
+        createdAt: "2026-10-01T09:00:00Z",
+        lastUsedAt: null,
+        isBackupEligible: false,
+        isBackedUp: false,
+        lastCounterRegressionAt: null,
+        credentialId: "Y3JlZC1sYXB0b3A",
+      },
+    ],
+  }
+
+  function givenPasskeysRun() {
+    get.mockImplementation(async (path: string) =>
+      path === "/api/v1/auth/2fa/status"
+        ? { data: { recoveryCodesRemaining: 5 } }
+        : path === "/api/v1/auth/passkeys"
+          ? { data: LIST, error: undefined, response: { status: 200 } }
+          : { data: undefined }
+    )
+  }
+
+  it("reads as before while passkeys do not run", async () => {
+    givenRemaining(5)
+    renderTab()
+
+    expect(await screen.findByText("profile.twoStepVerificationBody")).toBeInTheDocument()
+    expect(screen.queryByText("profile.twoStepVerificationBodyWithPasskeys")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("passkeys-card")).not.toBeInTheDocument()
+  })
+
+  it("names the passkeys while they run, and puts their card first", async () => {
+    givenPasskeysRun()
+    renderTab()
+
+    const card = await screen.findByTestId("passkeys-card")
+    expect(screen.getByText("profile.twoStepVerificationBodyWithPasskeys")).toBeInTheDocument()
+    const app = screen.getByText("profile.twoFactor")
+    expect(card.compareDocumentPosition(app) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("says the passkey needs the app when the switch-off is refused for it (D-150-5)", async () => {
+    givenRemaining(5)
+    post.mockResolvedValue(problem(409, "TwoFactor.PasskeyNeedsApp"))
+    const user = userEvent.setup()
+    renderTab()
+
+    await user.type(screen.getByLabelText("auth.twoFactorCode"), "123456")
+    await user.click(screen.getByRole("button", { name: "profile.disableTwoFactor" }))
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith("server sentence for TwoFactor.PasskeyNeedsApp")
+    )
+  }, 15_000)
 })

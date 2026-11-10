@@ -31,7 +31,8 @@ public class UsableSecondFactorsReaderGuardTests
         ["ResetUserTwoFactorCommandHandler.cs"] = "M8(4): an administrator's reset sees what the account holds",
         ["PasskeyRegistrationGate.cs"] = "the passkey routes themselves, which answer 404 while passkeys do not run",
         ["RemovePasskeyCommandHandler.cs"] = "the passkey routes themselves",
-        ["GetUserByIdQueryHandler.cs"] = "the console's user page shows what the account holds",
+        ["GetUserByIdQueryHandler.cs"] =
+            "the console's page of another account shows what the account holds; the account's own read holds the usable reader",
     };
 
     /// <summary>The rules that weigh a factor, each through the usable reader.</summary>
@@ -46,6 +47,8 @@ public class UsableSecondFactorsReaderGuardTests
         "TwoFactorResetAdministrators.cs",
         "GetApplicationMfaReadinessQueryHandler.cs",
         "PasskeyOnlyAdministratorRule.cs",
+        "GetUserByIdQueryHandler.cs",
+        "ReauthenticationPolicy.cs",
     ];
 
     [Fact]

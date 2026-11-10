@@ -15,6 +15,7 @@ import {
   type MfaRequirement,
 } from "@authsystem/api/mfa-requirement"
 import { resetUserScopedCache } from "@authsystem/api/query"
+import { publishAccountChanged } from "@authsystem/api/tab-sync"
 import {
   REFRESH_SENTINEL,
   clearCookieCheck,
@@ -44,6 +45,8 @@ import {
   type TwoFactorMethod,
 } from "./pending-challenge"
 import { toEmailCodeNextStep, type EmailCodeNextStep } from "./email-code"
+import { withRetryAfter } from "./passkey/passkey-errors"
+import type { AuthenticationResponseJSON } from "./passkey/webauthn"
 import { permissionMatches } from "./permission-matching"
 import { markRecoveryCodeSignIn } from "./recovery-code-notice"
 import { challengeEnded } from "./sign-in-method"
@@ -199,6 +202,18 @@ interface AuthContextValue {
   signInWithEmailCode: (input: EmailCodeSignInInput) => Promise<EmailCodeSignInResult>
   /** Spends a matched emailed code to recover an account waiting for deletion. */
   recoverWithEmailCode: (input: EmailCodeRecoveryInput) => Promise<EmailCodeSignInResult>
+  /**
+   * Signs in with a passkey (S20): the browser's answer to the options the page
+   * fetched. The passkey proves two factors, so no second step follows, and a
+   * passkey of another account signs that account in. `staySignedIn` is the
+   * sign-in page's box; absent or false, the sign-in ends with the browser.
+   */
+  loginWithPasskey: (credential: AuthenticationResponseJSON, staySignedIn?: boolean) => Promise<LoginResult>
+  /**
+   * Cancels the pending deletion of the passkey's account and signs it in
+   * (D-S20-6 (a)), as the recovery's password, provider and emailed-code entries do.
+   */
+  recoverWithPasskey: (credential: AuthenticationResponseJSON) => Promise<LoginResult>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
   /**
@@ -438,6 +453,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // one is worth keeping — it is the only reset that runs on the path where
       // a mistake becomes someone else's data.
       void resetUserScopedCache(queryClient)
+      // Whose session this replaces, read before it goes: only this tab was reset
+      // above, and the others are told once the new account's tokens are stored.
+      const outgoingAccount = decodeJwt(getAccessToken() ?? "")?.sub ?? null
       // The one place a sign-in stores its tokens. The refresh value is stored
       // as the API delivered it: the cookie sentinel, or a real token while the
       // cookie delivery is off. A cookie sign-in is not proven until its first
@@ -445,6 +463,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTokens(data.token.accessToken, data.token.refreshToken)
       if (data.token.refreshToken === REFRESH_SENTINEL) markCookieUnconfirmed()
       else clearCookieCheck()
+      if (outgoingAccount !== null && outgoingAccount.toLowerCase() !== data.user.id?.toLowerCase()) {
+        publishAccountChanged()
+      }
       setUser(data.user)
       setStatus("authenticated")
       applyProfilePreferences(data.user)
@@ -691,6 +712,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [adoptEmailCodeResponse]
   )
 
+  // A passkey sign-in and the recovery with a passkey answer a sign-in body, and
+  // ride the same shared tail as every other sign-in, so a page that adopts the
+  // new session (the two-factor page among them) leaves through the completion
+  // rule like the rest. The browser identifier rides as the client's header, as
+  // for the password; a 429 keeps the wait it asked for (Retry-After).
+  const loginWithPasskey = React.useCallback(
+    async (credential: AuthenticationResponseJSON, staySignedIn = false): Promise<LoginResult> => {
+      const { data, error, response } = await api.POST("/api/v1/auth/passkeys/assertion/verify", {
+        body: { credential, deviceId: null, staySignedIn },
+      })
+      if (error || !data) {
+        throw withRetryAfter(error ?? new Error("Passkey sign-in failed"), response)
+      }
+
+      return adoptLoginResponse(data, staySignedIn)
+    },
+    [adoptLoginResponse]
+  )
+
+  const recoverWithPasskey = React.useCallback(
+    async (credential: AuthenticationResponseJSON): Promise<LoginResult> => {
+      const { data, error, response } = await api.POST("/api/v1/auth/passkeys/assertion/recover", {
+        body: { credential, deviceId: null },
+      })
+      if (error || !data) {
+        throw withRetryAfter(error ?? new Error("Account recovery failed"), response)
+      }
+
+      return adoptLoginResponse(data)
+    },
+    [adoptLoginResponse]
+  )
+
   const logout = React.useCallback(async () => {
     // Written before the request: clearing local state below no longer ends a
     // cookie session by itself, so a sign-out that never reaches the server is
@@ -763,6 +817,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       completeRegistration,
       signInWithEmailCode,
       recoverWithEmailCode,
+      loginWithPasskey,
+      recoverWithPasskey,
       logout,
       refreshUser: loadCurrentUser,
       rereadUser,
@@ -784,6 +840,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       completeRegistration,
       signInWithEmailCode,
       recoverWithEmailCode,
+      loginWithPasskey,
+      recoverWithPasskey,
       logout,
       loadCurrentUser,
       rereadUser,

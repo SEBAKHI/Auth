@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Info, TriangleAlert } from "lucide-react"
+import { Info, KeyRound, TriangleAlert } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -14,6 +14,14 @@ import { deletionCancelledOutcome } from "@authsystem/auth/deletion-cancelled"
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 import type { ExternalCredential } from "@authsystem/auth/external/recovery-navigation"
 import { useLoginCompletion } from "@authsystem/auth/login-completion"
+import { PasskeyButton } from "@authsystem/auth/passkey/passkey-button"
+import { passkeyFailureMessage } from "@authsystem/auth/passkey/passkey-errors"
+import { passkeyRequiredNotice } from "@authsystem/auth/passkey/passkey-required"
+import {
+  usePasskeySignIn,
+  type PasskeyOutcome,
+} from "@authsystem/auth/passkey/use-passkey-sign-in"
+import type { AuthenticationResponseJSON } from "@authsystem/auth/passkey/webauthn"
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Button } from "@authsystem/ui/button"
@@ -50,7 +58,10 @@ interface LocationState {
  * the pending-deletion gate (email + message in state), an external login that
  * hit it (credential in state — restore is one click), or the recovery link
  * from the confirmation email. Recovering cancels the deletion, restores the
- * account, and signs the user in.
+ * account, and signs the user in. A passkey sign-in that hit the gate lands
+ * here too (S20): its way back is the passkey choice under the form (D-S20-6
+ * (a)), "cancel the deletion with your passkey", which asks for the same
+ * options as the sign-in and spends them on the recovery.
  *
  * The emailed link is the case that shaped this page. It is a bare URL with no
  * token, no address and no hint of how the account signs in, so it arrives with
@@ -66,7 +77,7 @@ interface LocationState {
  */
 export function AccountRecoveryPage() {
   const { t } = useTranslation()
-  const { recoverAccount, recoverAccountExternal } = useAuth()
+  const { recoverAccount, recoverAccountExternal, recoverWithPasskey } = useAuth()
   const location = useLocation()
   const state = location.state as LocationState | null
   const { complete, challenge } = useLoginCompletion()
@@ -92,6 +103,10 @@ export function AccountRecoveryPage() {
   const [externalPending, setExternalPending] = React.useState(false)
   // The recovery was accepted but issued no session (D-151-1 (b)): its sentence.
   const [outcome, setOutcome] = React.useState<string | null>(null)
+  // S20 (D-S20-4 (ii-s)): an entry answered that this account signs in with its
+  // passkey alone. The sentence stays above the passkey choice, which takes the focus.
+  const [passkeyNotice, setPasskeyNotice] = React.useState<string | null>(null)
+  const passkeyButtonRef = React.useRef<HTMLButtonElement>(null)
 
   const schema = z.object({
     email: z
@@ -124,11 +139,61 @@ export function AccountRecoveryPage() {
     [challenge, complete, t]
   )
 
+  // The passkey choice (D-S20-6 (a)): the same answers as the other entries. An
+  // account that is not waiting for deletion is told so as the password entry
+  // tells it (User.InvalidCredentials); a cancelled deletion without a session is
+  // the outcome (D-151-1 (b)).
+  const recoverByPasskey = async (
+    credential: AuthenticationResponseJSON
+  ): Promise<PasskeyOutcome> => {
+    try {
+      onRecovered(await recoverWithPasskey(credential))
+      return { leaving: true }
+    } catch (error) {
+      const cancelled = deletionCancelledOutcome(error)
+      if (cancelled) {
+        setOutcome(cancelled)
+        return { leaving: true }
+      }
+      if (getErrorCodes(error).includes("User.InvalidCredentials")) {
+        toast.error(getErrorMessage(error))
+        return {}
+      }
+      return { message: passkeyFailureMessage(error) }
+    }
+  }
+  const passkey = usePasskeySignIn({ onCredential: recoverByPasskey })
+  // An entry answered that the account recovers with its passkey alone: the
+  // choice below says how, and passkeys run here, so it is asked for at once.
+  const { confirm: confirmPasskeys } = passkey
+  const askForPasskey = React.useCallback(
+    (notice: string) => {
+      setPasskeyNotice(notice)
+      confirmPasskeys()
+    },
+    [confirmPasskeys]
+  )
+  // The choice takes the focus once it can be pressed (a disabled button cannot
+  // hold it, so one still on its way gets it when its options arrive).
+  const passkeyReady = passkey.phase === "ready"
+  React.useEffect(() => {
+    if (passkeyNotice && passkeyReady) passkeyButtonRef.current?.focus()
+  }, [passkeyNotice, passkeyReady])
+
   const handleRecoveryError = React.useCallback(
     (error: unknown) => {
       const cancelled = deletionCancelledOutcome(error)
       if (cancelled) {
         setOutcome(cancelled)
+        return
+      }
+      const notice = passkeyRequiredNotice(error)
+      if (notice) {
+        // A provider's credential cannot recover this account: the page goes back
+        // to the branch that shows the sentence and the passkey choice, or the
+        // provider's entry would answer with nothing at all on screen (F1).
+        setExternal(undefined)
+        askForPasskey(notice)
         return
       }
       const codes = getErrorCodes(error)
@@ -145,7 +210,7 @@ export function AccountRecoveryPage() {
       }
       toast.error(getErrorMessage(error))
     },
-    [emailCodeSent]
+    [askForPasskey, emailCodeSent]
   )
 
   // The code goes only with the credentials that recover the account, and only
@@ -174,7 +239,9 @@ export function AccountRecoveryPage() {
       form.setValue("twoFactorCode", "")
       toast.success(t("auth.emailCodeSentTo", { email: maskedEmail }))
     } catch (error) {
-      toast.error(getErrorMessage(error))
+      const notice = passkeyRequiredNotice(error)
+      if (notice) askForPasskey(notice)
+      else toast.error(getErrorMessage(error))
     } finally {
       sendingRef.current = false
       setSendingEmailCode(false)
@@ -400,6 +467,23 @@ export function AccountRecoveryPage() {
               </FieldGroup>
             </form>
           </Form>
+        )}
+
+        {/* The passkey choice: nothing while passkeys do not run here. */}
+        {external ? null : (
+          <>
+            {passkeyNotice ? (
+              <Alert data-testid="passkey-required-note">
+                <KeyRound />
+                <AlertDescription>{passkeyNotice}</AlertDescription>
+              </Alert>
+            ) : null}
+            <PasskeyButton
+              ceremony={passkey}
+              label={t("accountDeletion.recoverWithPasskey")}
+              buttonRef={passkeyButtonRef}
+            />
+          </>
         )}
 
         {/*

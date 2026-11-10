@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, within } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -13,13 +13,16 @@ import type { Schemas } from "@authsystem/api/types"
  * card that cannot act says why instead of offering a button that would fail.
  */
 const mocks = vi.hoisted(() => ({
+  get: vi.fn(),
   post: vi.fn(),
   logout: vi.fn(),
   toastError: vi.fn(),
 }))
 
 vi.mock("@authsystem/api/client", () => ({
-  api: { POST: mocks.post, GET: vi.fn(), DELETE: vi.fn() },
+  api: { POST: mocks.post, GET: mocks.get, DELETE: vi.fn() },
+  // The window refreshes this browser's token before it hands back (REVIEW-FIXES 152 F23).
+  refreshSessionNow: () => Promise.resolve(true),
 }))
 
 vi.mock("react-i18next", () => ({
@@ -181,7 +184,8 @@ describe("EmailCodeCard", () => {
     ])
   })
 
-  it("a stale sign-in asks to sign in again instead of a toast", async () => {
+  it("a stale sign-in asks for a proof where the person stands, instead of a toast", async () => {
+    mocks.get.mockResolvedValue({ data: { passkey: false, password: true, emailCode: false, secondStep: "None", canProveInPlace: true } })
     mocks.post.mockResolvedValue({
       data: undefined,
       error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "sign in again" },
@@ -193,8 +197,88 @@ describe("EmailCodeCard", () => {
 
     // Switching the emailed code needs a recent sign-in, not one with the app: the
     // general sentence (review of #108, F7).
-    expect(await screen.findByText("auth.reauthenticateBody")).toBeInTheDocument()
+    expect(await screen.findByText("auth.reauthenticate.body")).toBeInTheDocument()
+    expect(mocks.logout).not.toHaveBeenCalled()
     expect(screen.queryByText("profile.twoFactorChangeNeedsRecentSignIn")).not.toBeInTheDocument()
     expect(mocks.toastError).not.toHaveBeenCalled()
+  })
+
+  // ── REVIEW-FIXES 152 F26: the change goes on from the proof by itself ──
+  //
+  // The step and what was typed stay under the window, and the proof sends the refused request
+  // again with it, once: never a second press, which would email another code. Deliberate break,
+  // verified red: the window's hand-back dropped.
+
+  /** The API refuses the first call of `refused` as a stale sign-in, and answers the rest. */
+  function givenAStaleSignInOnce(refused: string) {
+    mocks.get.mockResolvedValue({ data: { passkey: false, password: true, emailCode: false, secondStep: "None", canProveInPlace: true } })
+    let staleOnce = true
+    mocks.post.mockImplementation(async (path: string, options?: { body?: Record<string, unknown> }) => {
+      if (path === "/api/v1/auth/reauthentication") return { data: undefined, error: undefined }
+      if (path === refused && staleOnce) {
+        staleOnce = false
+        return { data: undefined, error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "sign in again" } }
+      }
+      if (path === "/api/v1/auth/2fa/email/enable") return SENT
+      if (path === "/api/v1/auth/2fa/email/disable") return options?.body?.code ? { data: undefined, error: undefined } : SENT
+      return { data: { recoveryCodes: ["AAAA-BBBB"] }, error: undefined }
+    })
+  }
+
+  async function prove(user: ReturnType<typeof userEvent.setup>) {
+    const proof = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+    await user.type(await within(proof).findByLabelText("auth.password"), "my password")
+    await user.click(within(proof).getByRole("button", { name: "auth.reauthenticate.confirm" }))
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "auth.reauthenticate.title" })).not.toBeInTheDocument())
+  }
+
+  it("turning on: the refused send goes again after the proof, once", async () => {
+    givenAStaleSignInOnce("/api/v1/auth/2fa/email/enable")
+    const user = userEvent.setup()
+    renderCard({})
+
+    await user.click(screen.getByRole("button", { name: "profile.emailCodeTurnOn" }))
+    await prove(user)
+
+    const dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).getByText("profile.emailCodeConfirmTitle")).toBeInTheDocument()
+    expect(posted("/api/v1/auth/2fa/email/enable")).toHaveLength(2)
+  })
+
+  it("confirming: the code as typed goes again after the proof, once, and nothing else is emailed", async () => {
+    givenAStaleSignInOnce("/api/v1/auth/2fa/email/confirm")
+    const user = userEvent.setup()
+    renderCard({})
+
+    await user.click(screen.getByRole("button", { name: "profile.emailCodeTurnOn" }))
+    const dialog = await screen.findByRole("alertdialog")
+    await user.type(within(dialog).getByLabelText("auth.emailCode"), "123456")
+    await user.click(within(dialog).getByRole("button", { name: "auth.verify" }))
+    await prove(user)
+
+    expect(await screen.findByText(/AAAA-BBBB/)).toBeInTheDocument()
+    expect(posted("/api/v1/auth/2fa/email/confirm")).toEqual([{ body: { code: "123456" } }, { body: { code: "123456" } }])
+    expect(posted("/api/v1/auth/2fa/email/enable")).toHaveLength(1)
+  })
+
+  it("turning off: the code as typed goes again after the proof, once", async () => {
+    givenAStaleSignInOnce("/api/v1/auth/2fa/email/disable")
+    const user = userEvent.setup()
+    renderCard({ emailCodeEnabled: true, twoFactorEnabled: true })
+
+    await user.click(screen.getByRole("button", { name: "profile.emailCodeTurnOff" }))
+    const dialog = await screen.findByRole("alertdialog")
+    await user.click(within(dialog).getByRole("button", { name: "auth.useRecoveryCode" }))
+    await user.type(within(dialog).getByLabelText("auth.recoveryCode"), "ABCD-EFGH")
+    await user.click(within(dialog).getByRole("button", { name: "profile.emailCodeTurnOff" }))
+    await prove(user)
+
+    await waitFor(() =>
+      expect(posted("/api/v1/auth/2fa/email/disable")).toEqual([
+        { body: { code: "ABCD-EFGH", useRecoveryCode: true } },
+        { body: { code: "ABCD-EFGH", useRecoveryCode: true } },
+      ])
+    )
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument())
   })
 })

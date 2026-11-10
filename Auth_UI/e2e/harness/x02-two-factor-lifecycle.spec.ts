@@ -14,14 +14,17 @@ import { ORIGINS, expect, test, type HarnessApi } from "./fixtures"
  * other sessions and emails the owner is pinned by the xUnit suite and proven live
  * by Tools/probes/two-factor-race.mjs (lifecycle-disable, lifecycle-enable). What
  * is proven here is what only a built bundle in a browser decides: that the
- * published code Auth.ReauthenticationRequired opens a titled dialog rather than a
- * toast; that signing out from it and back in lands on /profile?tab=security; that
+ * published code Auth.ReauthenticationRequired opens the titled window that proves the
+ * person where they stand, with nothing signed out, rather than a toast; that the
+ * change goes on from there; that its way out, signing out and back in, lands on
+ * /profile?tab=security; that
  * the disable form offers the recovery-code toggle; that the code the user just
  * signed in with is answered with X01's own sentence; and that all of it reads
  * right to left in Arabic.
  *
- * Deliberate break this file must catch: the Auth.ReauthenticationRequired branch
- * removed from the card's error handler (a toast shows and no dialog opens).
+ * Deliberate breaks this file must catch: the Auth.ReauthenticationRequired branch
+ * removed from the card's error handler (a toast shows and no window opens); the window
+ * signing out as it opens (the person is taken away, so it is never seen).
  */
 
 const PROFILE = {
@@ -59,6 +62,9 @@ const REAUTHENTICATION_REQUIRED =
 interface LifecycleServer {
   disables: unknown[]
   signedInAgain: boolean
+  proofs?: unknown[]
+  /** The next code of the app, once the proof spent the one before it. */
+  nextCode?: string
 }
 
 async function problem(
@@ -100,8 +106,11 @@ async function serveProfile(
       }
 
       if (path === "/api/v1/auth/2fa/disable" && method === "POST") {
-        state.disables.push(route.request().postDataJSON())
-        if (state.signedInAgain) {
+        const body = route.request().postDataJSON() as { code: string }
+        state.disables.push(body)
+        if (state.nextCode && body.code === state.nextCode) {
+          await route.fulfill({ status: 204 })
+        } else if (state.signedInAgain) {
           await problem(
             route,
             400,
@@ -119,6 +128,13 @@ async function serveProfile(
         return true
       }
 
+      if (path === "/api/v1/auth/reauthentication" && method === "POST") {
+        state.proofs?.push(route.request().postDataJSON())
+        state.signedInAgain = true
+        await route.fulfill({ status: 204 })
+        return true
+      }
+
       if (path === "/api/v1/auth/login" && method === "POST") {
         state.signedInAgain = true
         await api.firstParty.answerSignIn(
@@ -131,7 +147,8 @@ async function serveProfile(
 
       return false
     },
-    { preferredLanguage }
+    // The account has the app: the window asks for its code after the password.
+    { preferredLanguage, reauthentication: { secondStep: "AuthenticatorApp" } }
   )
 }
 
@@ -147,12 +164,12 @@ async function openSecurityTab(page: Page, origin: string = ORIGINS.console) {
  * package under their own RequireAuth and login page, so each must bring the
  * user back to its own security tab.
  */
-async function staleDisableReturns(
+async function staleDisableAsksInPlace(
   page: Page,
   api: HarnessApi,
   origin: string
 ) {
-  const state: LifecycleServer = { disables: [], signedInAgain: false }
+  const state: LifecycleServer = { disables: [], signedInAgain: false, proofs: [], nextCode: "111222" }
   await serveProfile(api, state)
   await openSecurityTab(page, origin)
 
@@ -169,17 +186,73 @@ async function staleDisableReturns(
   await disableCode(page, "Verification code").fill("123456")
   await page.getByRole("button", { name: "Turn off the authenticator app" }).click()
 
-  const dialog = page.getByRole("alertdialog", {
-    name: "Sign in again to continue",
-  })
+  const dialog = page.getByRole("dialog", { name: "Confirm it's you" })
   await expect(dialog).toBeVisible()
-  await expect(dialog).toContainText(
-    "changing two-factor authentication needs a recent sign-in"
-  )
+  await expect(dialog).toContainText("You stay on this page.")
   expect(state.disables).toEqual([{ code: "123456", useRecoveryCode: false }])
 
-  // Signing out from the dialog, then in, lands back on the security tab.
-  await dialog.getByRole("button", { name: "Sign in again" }).click()
+  await dialog.getByLabel("Password", { exact: true }).fill("Harness1!")
+  await dialog.getByLabel("Verification code", { exact: true }).fill("654321")
+  await dialog.getByRole("button", { name: "Confirm", exact: true }).click()
+
+  // The window closed and the person never left. The proof spent the app's time step, so the
+  // code the page held can never pass: sending it would be counted and answered as a code someone
+  // else used. So nothing is sent, and the person is asked for the next one.
+  await expect(dialog).toHaveCount(0)
+  await expect(page.getByText("A code works only once, so enter the next code from your app.")).toBeVisible()
+  await expect(page).toHaveURL(`${origin}/profile?tab=security`)
+  expect(state.proofs).toEqual([
+    { password: "Harness1!", emailCode: null, secondStepCode: "654321", useRecoveryCode: false },
+  ])
+  expect(state.disables).toHaveLength(1)
+  await expect(disableCode(page, "Verification code")).toHaveValue("")
+  await expect(page.getByText(CODE_ALREADY_USED)).toHaveCount(0)
+
+  await disableCode(page, "Verification code").fill("111222")
+  await page.getByRole("button", { name: "Turn off the authenticator app" }).click()
+  await expect(page.getByText("The authenticator app is off.")).toBeVisible()
+  expect(state.disables).toEqual([
+    { code: "123456", useRecoveryCode: false },
+    { code: "111222", useRecoveryCode: false },
+  ])
+  expect(api.firstParty.logouts).toHaveLength(0)
+}
+
+test("x02: a stale disable proves the person where they stand, and goes on", async ({
+  page,
+  api,
+}) => {
+  await staleDisableAsksInPlace(page, api, ORIGINS.console)
+})
+
+test("x02: in the accounts app, the same profile asks in place too", async ({
+  page,
+  api,
+}) => {
+  await staleDisableAsksInPlace(page, api, ORIGINS.accounts)
+})
+
+test("x02: the window's way out signs out, and the sign-in returns to the security tab", async ({
+  page,
+  api,
+}) => {
+  const origin = ORIGINS.console
+  const state: LifecycleServer = { disables: [], signedInAgain: false }
+  await serveProfile(api, state)
+  await openSecurityTab(page, origin)
+
+  await disableCode(page, "Verification code").fill("123456")
+  await page.getByRole("button", { name: "Turn off the authenticator app" }).click()
+
+  const proof = page.getByRole("dialog", { name: "Confirm it's you" })
+  await proof.getByRole("button", { name: "Can't confirm it here? Sign out and sign in again" }).click()
+  expect(api.firstParty.logouts).toHaveLength(0)
+
+  const signInAgain = page.getByRole("dialog", { name: "Sign in again to continue" })
+  await expect(signInAgain).toContainText(
+    "changing your 2-Step Verification needs a recent sign-in"
+  )
+  await signInAgain.getByRole("button", { name: "Sign in again" }).click()
   await expect(page).toHaveURL(/\/login(\?|$)/)
   await expect.poll(() => api.firstParty.logouts.length).toBe(1)
 
@@ -191,30 +264,9 @@ async function staleDisableReturns(
     "aria-selected",
     "true"
   )
-
-  // The code just used to sign in is refused in X01's own words: wait for the next.
-  await disableCode(page, "Verification code").fill("123456")
-  await page.getByRole("button", { name: "Turn off the authenticator app" }).click()
-  await expect(page.getByText(CODE_ALREADY_USED)).toBeVisible()
-  await expect(page.getByRole("alertdialog")).toHaveCount(0)
-  expect(state.disables).toHaveLength(2)
-}
-
-test("x02: stale disable re-authenticates and returns", async ({
-  page,
-  api,
-}) => {
-  await staleDisableReturns(page, api, ORIGINS.console)
 })
 
-test("x02: in the accounts app, the same profile returns to its own security tab", async ({
-  page,
-  api,
-}) => {
-  await staleDisableReturns(page, api, ORIGINS.accounts)
-})
-
-test("x02: the sign-in-again dialog and the disable form read right to left in Arabic", async ({
+test("x02: the window and the disable form read right to left in Arabic", async ({
   page,
   api,
 }) => {
@@ -226,25 +278,19 @@ test("x02: the sign-in-again dialog and the disable form read right to left in A
   await expect(page.getByText("تعطيلها يُنهي كل جلساتك الأخرى")).toBeVisible()
 
   await disableCode(page, "رمز التحقق").fill("123456")
-  await page.getByRole("button", { name: "تعطيل المصادقة الثنائية" }).click()
+  await page.getByRole("button", { name: "عطّل تطبيق المصادقة" }).click()
 
-  const dialog = page.getByRole("alertdialog", {
-    name: "سجّل الدخول مجددًا للمتابعة",
-  })
+  const dialog = page.getByRole("dialog", { name: "أكّد أنك أنت" })
   await expect(dialog).toBeVisible()
-  await expect(dialog).toContainText(
-    "يتطلّب تغيير المصادقة الثنائية تسجيل دخول حديثًا"
-  )
-  await expect(
-    dialog.getByRole("button", { name: "تسجيل الدخول مجددًا" })
-  ).toBeVisible()
+  await expect(dialog).toContainText("ستبقى في هذه الصفحة")
+  await expect(dialog.getByRole("button", { name: "تأكيد", exact: true })).toBeVisible()
   expect(
     await dialog.evaluate((element) => getComputedStyle(element).direction)
   ).toBe("rtl")
 
   // Cancel leaves everything as it was: still signed in, still on the tab.
   await dialog.getByRole("button", { name: "إلغاء" }).click()
-  await expect(page.getByRole("alertdialog")).toHaveCount(0)
+  await expect(page.getByRole("dialog")).toHaveCount(0)
   await expect(page).toHaveURL(`${ORIGINS.console}/profile?tab=security`)
   expect(api.firstParty.logouts).toHaveLength(0)
 })
@@ -253,7 +299,7 @@ test("x02: the sign-in-again dialog and the disable form read right to left in A
  * S08 PR B on the same harness: the recovery layer of an enabled factor. New
  * recovery codes and a new authenticator app each prove the factor once more in a
  * titled dialog and show the new codes once; a session that is not a recent
- * two-factor one opens the sign-in-again dialog with its reason; the security tab
+ * two-factor one opens the window that proves the person, with its reason; the security tab
  * says how many codes are left and warns while few are (AM-S08-1). And in the
  * console, the administrator's reset asks in a dialog whose accessible name is its
  * title, offered only with users:reset-two-factor.
@@ -282,44 +328,55 @@ const RECOVERY_ANSWERS: Record<string, unknown> = {
 }
 
 async function serveRecoveryLayer(api: HarnessApi, state: RecoveryServer) {
-  await api.useAuthenticated([], async (route, url) => {
-    const path = url.pathname.toLowerCase()
-    const method = route.request().method()
+  await api.useAuthenticated(
+    [],
+    async (route, url) => {
+      const path = url.pathname.toLowerCase()
+      const method = route.request().method()
 
-    if (path === "/api/v1/users/me" && method === "GET") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ ...PROFILE, preferredLanguage: "en" }),
-      })
-      return true
-    }
-
-    if (path === "/api/v1/auth/2fa/status" && method === "GET") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ recoveryCodesRemaining: state.remaining }),
-      })
-      return true
-    }
-
-    if (method === "POST" && path in RECOVERY_ANSWERS) {
-      state.posts.push({ path, body: route.request().postDataJSON() })
-      if (state.reauthenticate) {
-        await problem(route, 403, "Auth.ReauthenticationRequired", REAUTHENTICATION_REQUIRED)
-      } else {
+      if (path === "/api/v1/users/me" && method === "GET") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify(RECOVERY_ANSWERS[path]),
+          body: JSON.stringify({ ...PROFILE, preferredLanguage: "en" }),
         })
+        return true
       }
-      return true
-    }
 
-    return false
-  })
+      if (path === "/api/v1/auth/2fa/status" && method === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ recoveryCodesRemaining: state.remaining }),
+        })
+        return true
+      }
+
+      if (method === "POST" && path === "/api/v1/auth/reauthentication") {
+        state.reauthenticate = false
+        await route.fulfill({ status: 204 })
+        return true
+      }
+
+      if (method === "POST" && path in RECOVERY_ANSWERS) {
+        state.posts.push({ path, body: route.request().postDataJSON() })
+        if (state.reauthenticate) {
+          await problem(route, 403, "Auth.ReauthenticationRequired", REAUTHENTICATION_REQUIRED)
+        } else {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(RECOVERY_ANSWERS[path]),
+          })
+        }
+        return true
+      }
+
+      return false
+    },
+    // The account has the app: the window asks for its code after the password.
+    { reauthentication: { secondStep: "AuthenticatorApp" } }
+  )
 }
 
 test("s08: new recovery codes from the warning, in a titled dialog, shown once", async ({
@@ -375,7 +432,7 @@ test("s08: a new authenticator app — prove, scan, confirm", async ({ page, api
   expect(state.posts[1].body).toEqual({ code: "654321" })
 })
 
-test("s08: a session that is not a recent two-factor one signs in again, and is told why", async ({
+test("s08: a session that is not a recent two-factor one proves the person in place, and is told why", async ({
   page,
   api,
 }) => {
@@ -388,12 +445,30 @@ test("s08: a session that is not a recent two-factor one signs in again, and is 
   await dialog.getByLabel("Verification code", { exact: true }).fill("123456")
   await dialog.getByRole("button", { name: "Generate new codes" }).click()
 
-  const signInAgain = page.getByRole("alertdialog", { name: "Sign in again to continue" })
-  await expect(signInAgain).toBeVisible()
-  await expect(signInAgain).toContainText(
-    "This needs a recent sign-in that used two-factor authentication"
+  const proof = page.getByRole("dialog", { name: "Confirm it's you" })
+  await expect(proof).toBeVisible()
+  await expect(proof).toContainText(
+    "This needs you to confirm it's you with your authenticator app or a recovery code"
   )
-  await expect(page.getByRole("dialog", { name: "Generate new recovery codes" })).toHaveCount(0)
+
+  // REVIEW-FIXES 152 F26: the dialog stays under the window, and goes on from the proof by itself.
+  // This proof spends the app's time step, so the code the dialog held is not sent again: its
+  // field is empty, with the next-code sentence. And the page behind still answers a click when
+  // the window closes over a dialog that stays.
+  await proof.getByLabel("Password", { exact: true }).fill("Harness1!")
+  await proof.getByLabel("Verification code", { exact: true }).fill("654321")
+  await proof.getByRole("button", { name: "Confirm", exact: true }).click()
+  const again = page.getByRole("dialog", { name: "Generate new recovery codes" })
+  await expect(again).toBeVisible()
+  await expect(again.getByLabel("Verification code", { exact: true })).toHaveValue("")
+  await expect(page.getByText("Confirmed. A code works only once, so enter the next code from your app.")).toBeVisible()
+  await expect(proof).toHaveCount(0)
+  expect(state.posts.map((post) => post.path)).toEqual(["/api/v1/auth/2fa/recovery-codes"])
+  await again.getByRole("button", { name: "Cancel" }).click()
+  await expect(again).toHaveCount(0)
+  expect(await page.evaluate(() => document.body.style.pointerEvents)).not.toBe("none")
+  await page.getByRole("button", { name: "Generate new codes" }).click()
+  await expect(again).toBeVisible()
 })
 
 test("s08: after a sign-in with a recovery code, the security tab says so once", async ({

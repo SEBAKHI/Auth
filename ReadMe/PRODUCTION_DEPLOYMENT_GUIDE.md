@@ -1461,7 +1461,7 @@ very different mornings.
 - [ ] Nothing to set for replay protection: an authenticator code is accepted once only, and no setting turns that off. An incident in which genuine users are refused is handled by deploying the previous API build, not by a switch. **But a previous build reads the two retired switches again** — `TwoFactor:RejectReusedCodes` and `TwoFactor:RequireEmailCodeForFirstFactor` — so after a rollback each comes back as this deployment had it before: on by default, off wherever a stored override, a configuration file or an environment variable (`TwoFactor__RejectReusedCodes`, `TwoFactor__RequireEmailCodeForFirstFactor`) still sets it off. This release ignores those values and no longer shows them. So right after deploying it, and before you rely on a rollback: at **System settings → Two-factor authentication**, change one field (for example the re-authentication window by one minute), save, then set it back and save again — the Save bar appears only for a changed card, and each save replaces the stored row with the remaining fields only (do not use *Reset to defaults*: it drops every override of the section); and remove either key from every configuration file and environment variable.
 - [ ] `Email:Enabled` is `true`. It makes an account that turns on its first second factor also type a code emailed to its confirmed address, so somebody who holds only a stolen password cannot bind an authenticator app of their own and lock the owner out; no other setting turns this off. With email off, the password alone is enough to bind one — and no mail goes out at all. **And every account that holds `system-settings:manage` has its own second factor:** such an account can switch email off itself, so its password alone would otherwise still be enough. The seeded administrator is such an account, and it can bind its factor only once its address is yours: Phase 2 Step 5, and the check two lines above.
 - [ ] `TwoFactor:EnforceForPlatformAdmins` is a decision, not a default: it ships `false`. **No account gets a platform role or permission in production before it has its own second factor** — while it is off, that manual rule is the only thing standing in for the switch; while it is on, the product refuses such a grant itself (`TwoFactor.RequiredForPlatformGrant`). Switch it on only after the five preconditions — deploy 2, the refresh fix OI-101, a clean inventory and two quiet days, the drill, and your own word that production is stable — in [Reference §K](#k-two-factor-authentication-for-platform-administrators-twofactorenforceforplatformadmins).
-- [ ] `TwoFactor:ReauthenticationMaxAgeMinutes` is the shipped 15 (it accepts 5 to 60) — how recent a sign-in must be before a session may set up, switch on or switch off two-factor. A longer window lets an older session — one left open on a shared computer, or a stolen token — change the second factor. No value turns the check off.
+- [ ] `TwoFactor:ReauthenticationMaxAgeMinutes` is the shipped 15 (it accepts 5 to 60) — how recent a sign-in, or a proof of the person inside the session (a small window, with nothing signed out), must be before a session may set up, switch on or switch off two-factor. A longer window lets an older session — one left open on a shared computer, or a stolen token — change the second factor. No value turns the check off.
 - [ ] **The Auth API host is restricted at the firewall or in IIS to the Gateway's address.** The application does not do this for you, and the consequences are in [Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what).
 - [ ] Nothing — no content delivery network, no second reverse proxy — sits in front of the Gateway ([Reference §G](#g-network-topology--what-must-and-must-not-sit-in-front-of-what)).
 - [ ] **Secrets backed up:** `secrets.dpapi` **and** the key-ring folder **and** the `.pfx`. All three, or the set restores nothing. Losing them invalidates every token, and a Dpapi-mode file cannot be recovered on a different machine at all.
@@ -2771,9 +2771,9 @@ which offers exactly one step:
 |---|---|---|
 | Set up two-factor | The account has no second factor | Sets up an authenticator app (with the emailed code, while `Email:Enabled` is on) and saves the recovery codes |
 | Enter a code | The session signed in with the password alone | Types a code from the authenticator app or a recovery code |
-| Sign in again | This session's sign-in does not count as a first factor: it was opened before this version was deployed, it began with an emailed code (the sign-in that confirms an email address), or its record is gone | Signs out and back in with the password and the code |
+| Confirm it's you | This session's sign-in does not count as a first factor: it was opened before this version was deployed, it began with an emailed code (the sign-in that confirms an email address), or its record is gone | Confirms in a small window with the password and the code, in the same session; signing out and back in stays as its way out |
 
-After the first two steps they return to the page they were going to; signing in again starts from the sign-in page. Nothing else changes: tokens issued to
+After any of them they return to the page they were going to; the way out, signing in again, starts from the sign-in page. Nothing else changes: tokens issued to
 **applications** (with an application id), organization permissions, and every account without a
 platform permission are never affected. While the switch is on, a platform administrator cannot turn
 their own two-factor off (`403 TwoFactor.RequiredByPolicy`).
@@ -2868,7 +2868,7 @@ login without `SELECT` on `SystemSettingsOverrides`). It logs one warning starti
 `PlatformMfa.EnforcedSettingsUnavailable` when the window opens. Before you switch on, that window
 behaves as if the switch were on: an administrator without a factor sees the "Set up two-factor" page;
 a platform administrator whose session did not prove two factors (signed in with the password alone,
-or before this version) is asked to step up or sign in again at the next token refresh; a platform
+or before this version) is asked to step up or confirm it is them at the next token refresh; a platform
 administrator cannot switch two-factor off; and a platform role or permission for an account without a
 factor is refused (`TwoFactor.RequiredForPlatformGrant`). A refresh that fails
 later keeps the values it last read, so it changes nothing. With `AUTH_DISABLE_DB_SETTINGS` set
@@ -2941,18 +2941,18 @@ Four ways back for someone who loses part of their second factor, from the light
 | Everything, and no other administrator | The emergency script ([K.4](#k4-the-owners-emergency-script-break-glass)) | The owner | The database and the server |
 
 New codes and a new authenticator both need a sign-in from the last
-`TwoFactor:ReauthenticationMaxAgeMinutes` (15 by default) **that proved two factors** — at sign-in or
-by a step-up. A session opened before this version, or with the password alone, is asked to sign in
-again first (`403 Auth.ReauthenticationRequired`). The old codes stop working as soon as the new ones
+`TwoFactor:ReauthenticationMaxAgeMinutes` (15 by default) **that proved two factors** — at sign-in,
+by a step-up, or by confirming in the window. A session opened before this version, or with the password
+alone, is asked to confirm first, where it stands (`403 Auth.ReauthenticationRequired`). The old codes stop working as soon as the new ones
 are created; a new authenticator keeps the old one working until a code from the new app confirms it
 (within ten minutes, or the replacement starts again), and confirming it signs out every other session
 and browser of the account (the one confirming stays). The owner is told by email each time.
 
 **An administrator's reset** first asks the administrator for their own proof, whatever the switch
-says: a sign-in from the last `TwoFactor:ReauthenticationMaxAgeMinutes` (15 by default) that proved
-two factors — the rule for changing one's own factor. Otherwise it answers `403
-Auth.ReauthenticationRequired` before the account is read, and the console offers to sign in again —
-or, to an administrator with no second factor of their own, to set one up first (**Profile → Security**).
+says: a sign-in, or a confirmation in the window, from the last `TwoFactor:ReauthenticationMaxAgeMinutes`
+(15 by default) that proved two factors — the rule for changing one's own factor. Otherwise it answers `403
+Auth.ReauthenticationRequired` before the account is read, and the console opens that window —
+or, to an administrator with no second factor of their own, offers to set one up first (**Profile → Security**).
 It is rate-limited like the sign-in. Then it signs the account out everywhere (sessions, refresh
 tokens, single sign-on sessions, and every access token it holds), removes its second factor and
 recovery codes, and emails its owner; the audit log records it as `twofactor.reset-by-administrator`,
@@ -3036,8 +3036,8 @@ to show anything: with it off, an account without a factor signs in normally.
    their code (the reset asks for a recent two-step sign-in).
 1. As the acting administrator, reset the other one's second factor from the console (**Users → the
    account → Reset two-factor**). Sign in as that account: the console must show "Set up two-factor",
-   with the emailed code first when email is on. A failure looks like: the reset answers "sign in
-   again" (the acting session is not a recent two-step one — sign in again with the code), or the
+   with the emailed code first when email is on. A failure looks like: the reset opens "Confirm it's
+   you" (the acting session is not a recent two-step one — confirm there with the password and the code), or the
    account reaches the dashboard (the switch is off, or the reset did not run).
 2. Run the emergency script of [K.4](#k4-the-owners-emergency-script-break-glass) for the same
    account (after it set its factor up again) on the development database, then restart the
@@ -4166,6 +4166,136 @@ in them for that flow, and write them nothing the user owns. Details for applica
 
 **Rollback:** redeploy the previous Auth API and accounts application; each may go back on its own. The two
 columns can stay; the previous API does not read them.
+
+---
+
+## T. Passkeys (`Passkeys:Enabled`, `Passkeys:RpId`)
+
+A passkey (WebAuthn) is a sign-in key the person's device keeps, unlocked with a fingerprint, a face or the
+device PIN. It signs only for the domain it was made under, so a look-alike site has nothing to relay, and
+it proves both steps at once. The pages, the rules and the ways out for a lost passkey are in
+`ReadMe/DEVELOPER_GUIDE.md`, section 5.3b; the domain decision is `docs/adr/0006-passkey-rp-id.md`.
+
+**The release ships it off, and nothing in it switches it on.** While `Passkeys:Enabled` is off, every passkey
+route answers 404, every page reads as it did before passkeys, and no rule leans on a passkey. Switching it
+on is each deployment's own decision, after the steps below.
+
+### T.1 Deploying the release, switch off
+
+For each existing deployment, in this order:
+
+1. **The DACPAC.** The first release with passkeys adds their schema: the tables `UserPasskeys` and
+   `WebAuthnChallenges`, the column `Users.WebAuthnUserHandle`, and their notification types and templates.
+   The same release adds, whether passkeys are on or off, what lets a signed-in person confirm it is them with
+   nothing signed out: the columns `UserSessions.LastProofAt` and `UserSessions.LastProofMethods`, and version 3
+   of the `two-factor-email-code` template, with the wording of that code in seven languages. **This step comes
+   before the API.** Without the columns `/ready` reads Degraded, so the deploy stops there; it still answers
+   HTTP 200, so an automated deploy check must read the word, not the status. If it goes on, sign-in
+   and a change on a recent session still work, but a change on an older session fails with a server error, so
+   nothing passes that should not. One cost remains there: a proof that carries an authenticator code has that
+   attempt counted before it fails, so five such retries lock the app for 15 minutes. Version 3 is published
+   only where the seeded version 2 is still the published one; a version your administrators wrote stays
+   published, and that code then goes out under its general wording until they add the new purpose
+   (`reauthentication`). Until they do, an account without a password is sent its proof's code under that
+   general wording.
+   Once a deployment has all of this, this step adds nothing: the privacy paragraph about passkeys is seed text for
+   new installations only, and an existing deployment changes nothing in its tables. Checks: the DeployReport
+   lists those objects at this release, and no schema operation after it; and Notifications › Templates ›
+   `two-factor-email-code` shows version 3 published. Where it shows a version your administrators wrote,
+   add a `reauthentication` case to that version.
+2. **The Auth API, then the Gateway, then both web applications**, with `Passkeys:Enabled` off. Checks:
+   `/ready` reads Healthy; `POST /api/v1/auth/passkeys/assertion/options` answers 404; the sign-in page shows
+   no passkey button; the console shows the **Passkeys** section under System settings, switched off. And the
+   window **Confirm it's you**, which works with passkeys off: in a session older than
+   `TwoFactor:ReauthenticationMaxAgeMinutes`, a change to two-step verification opens it, and the password
+   (with the code, where the account has one) lets the change go on, with nothing signed out.
+   **Rollback:** the previous builds.
+
+### T.2 Before switching it on
+
+* **The privacy text.** Publish a revision in the console (Notifications › Privacy Policy) with the passkey
+  paragraph in every language, taken from `Auth/Auth_DB/dbo/Scripts/SeedData/16_PrivacyPolicyContent.sql`:
+  an existing deployment does not get it from the seed. Check: `/privacy` shows it. Rollback: the previous
+  revision, while passkeys are off.
+* **The domain (the RP ID).** The registrable domain the console and the accounts application share:
+  `example.com` for `console.example.com` and `accounts.example.com`. **Put the applications under a
+  dedicated parent host** that no other site shares — no marketing site, no third-party pages: any page
+  under the RP ID can ask the browser for a passkey sign-in, so the domain alone does not protect it. The
+  value is permanent in practice: a passkey made under one domain never works under another. **Never run a
+  copy of this database under the same RP ID** (a restored test environment, say): each read of the passkey
+  list tells the browser which passkeys the account still has, and the copy's older list would tell it that
+  newer ones are gone.
+* **Platform administrators.** Where they exist, switch `TwoFactor:EnforceForPlatformAdmins` on first, after
+  its own checklist ([K.1](#k1-before-you-switch-it-on) and [K.2](#k2-switching-it-on-and-back-off)).
+* **The log lines to watch.** `passkey.configuration` and `passkey.rpid-mismatch` are Critical: either one
+  means passkeys are off whatever the switch says. Count `passkey.verification-failed` and
+  `passkey.admitted-while-locked` from the log files. A signed-in person who answers **Confirm it's you**
+  with another account's passkey writes `passkey.not-this-account` instead: a passkey that verified, under
+  the wrong account, so it is not counted among the failed verifications.
+
+### T.3 Switching it on
+
+1. Set `Passkeys:RpId`, **preferably in the settings file**. The console takes it too (System settings ›
+   Passkeys), but its copy lives in the database, and a process that started while the database could not be
+   reached runs without it until the next recycle (T.4).
+2. **Recycle the Auth API's application pool**: the RP ID is read at start-up only, and the console shows the
+   saved value as pending until then.
+3. Switch `Passkeys:Enabled` on. It takes effect at once. The observation window of the last paragraph of T.4
+   starts here.
+
+**Checks:**
+
+* no `passkey.configuration` or `passkey.rpid-mismatch` line in the log;
+* on a real device, add a passkey in the console (Profile › Security › Passkeys), rename it, sign out, and sign
+  in at the accounts application with **Sign in with a passkey**. The rename is the API's only `PATCH`, so it
+  also shows that the hosting in front of the API lets that method through;
+* **start from an application, sign in with the passkey, and land back at that application**: with the button,
+  with the suggestion in the address field, and under an application that requires two-step verification;
+* the same on Safari, on iOS and on macOS;
+* on a computer that holds none of the person's passkeys, the button offers the phone (a QR code).
+
+**Rollback:** switch `Passkeys:Enabled` off. It is hot: every passkey route answers 404 at once, the pages
+hide the passkey, and no rule leans on one. Nothing is revoked, so switching it on again restores every
+passkey. If nobody can reach the console to do that (the only administrators sign in with a passkey that
+fails): put `false` in the settings file and clear the section's saved row, `DELETE FROM
+[dbo].[SystemSettingsOverrides] WHERE [SectionKey] = N'Passkeys'`, then recycle; or, if the database cannot be
+reached, set `AUTH_DISABLE_DB_SETTINGS` to `true` and recycle
+([Reference §B.6](#b6-recovery--a-bad-value-saved-in-the-console)), and remove it once the database is back.
+
+### T.4 What switches passkeys off without the switch
+
+* **A change of `IdentityProvider:FirstPartySpaOrigins` that the RP ID does not cover.** The console does
+  not refuse it; the posture switches passkeys off (`passkey.configuration`, Critical) until the two agree
+  again.
+* **An empty `Passkeys:RpId`.** Passkeys stop at the next start-up, and no live passkey counts as a factor.
+  It is also the way to switch them off from the file alone, **as long as no value is saved in the console**:
+  the database layer wins over the file, so a saved value keeps its effect until its row is cleared (T.3).
+* **An `RpId` changed in the file while live passkeys carry the old one.** The console refuses that change
+  (its sentence names `Auth_Setup --retire-passkey-rp-id`); the file does not. From the edit until the
+  recycle the API runs with the old value; after the recycle, passkeys stay off and `passkey.rpid-mismatch`
+  is logged. Put the old value back, or move on purpose (below).
+* **A start while the database could not be reached, with the RP ID saved only in the console.** The process
+  keeps the file's value until its next recycle, even after the database returns. Meanwhile passkeys are off
+  and the refusal of an administrator who signs in with a passkey alone is paused, so that administrator's
+  other doors are open again; `passkey.configuration` is logged and the console shows the RP ID as pending.
+  Recycle again once the database is back. An RP ID in the settings file avoids this case entirely.
+
+**Moving to another domain** is the one supported change: announce it, ask people to add another way to
+sign in, switch `Passkeys:Enabled` off, run `dotnet run --project Auth/Auth_Setup -- --retire-passkey-rp-id
+<old RP ID>` and execute the statement it prints, set the new value and recycle, then switch it on again
+(ADR 0006). With the switch left on, a passkey added between the retirement and the recycle is bound to the old
+domain, and `passkey.rpid-mismatch` turns passkeys off after the recycle until the retirement runs again.
+
+**Every 90 days**, read the log files: none of the `passkey.admitted-while-locked` lines may carry the kind
+`Admin`, since an administrator's lock always refuses a passkey; count the `passkey.verification-failed` lines
+(`passkey.not-this-account` apart) and read every `passkey.rpid-mismatch` line.
+
+**Retiring the switch.** Count 30 days from the moment passkeys were switched on. When they have stayed on
+throughout, with no Critical `passkey.configuration` or `passkey.rpid-mismatch` line in that time, the switch has
+done its job: a later release removes `Passkeys:Enabled`, and passkeys then run by their configuration alone.
+
+**Advice to administrators:** keep two ways in — a passkey and the authenticator app, or two passkeys on
+different devices — so that one lost device is never a lock-out.
 
 ---
 

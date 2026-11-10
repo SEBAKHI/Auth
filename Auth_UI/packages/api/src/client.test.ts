@@ -470,6 +470,27 @@ describe("a failed response", () => {
     expect(response.status).toBe(expected.status)
   })
 
+  it("leaves the passkey options' 404 unread: it is the shipped default, and reading it would download the error codes", async () => {
+    // F5: every other failure goes through readProblem (asserted above), whose
+    // first read of a code loads the published list (published-codes.ts).
+    const read = vi.fn(async () => JSON.stringify({ code: "Http.NotFound" }))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        const answer = new Response(null, { status: 404, headers: { "content-type": "application/problem+json" } })
+        return Object.assign(answer, { clone: () => answer, text: read })
+      })
+    )
+    const tab = await openTab()
+
+    const { response } = await tab.client.api.POST("/api/v1/auth/passkeys/assertion/options")
+
+    expect(response.status).toBe(404)
+    // The caller reads the status alone; the client rewrote nothing of the answer.
+    expect(response.headers.get("content-type")).toBe("application/problem+json")
+    expect(response.text).toBe(read)
+  })
+
   it("keeps Retry-After, the only place a wait travels", async () => {
     vi.stubGlobal(
       "fetch",
@@ -863,6 +884,61 @@ describe("deciding which requests carry a token", () => {
     expect(expired).not.toHaveBeenCalled()
     expect(server.refreshCalls()).toBe(0)
     expect(tab.tokenStore.getRefreshToken()).toBe("R0")
+  })
+
+  it.each([
+    "/api/v1/auth/passkeys/assertion/options",
+    "/api/v1/auth/passkeys/assertion/verify",
+    "/api/v1/auth/passkeys/assertion/recover",
+    // The route as another spelling of the controller would write it: matched
+    // whole and case-insensitively, like every entry.
+    "/api/v1/Auth/Passkeys/Assertion/Options",
+  ])("sends the passkey sign-in step %s without a bearer, and its 401 ends no session", async (path) => {
+    // S20. The passkey is the credential: the options name no account, and the
+    // sign-in and the recovery mint a session of their own. The two-factor page
+    // makes them from a session they replace, so unlisted the client would
+    // refresh to attach a bearer the API ignores, and read a 401 as this tab's
+    // dead token and sign it out. (The API answers these 404 while passkeys are
+    // off, never 401; the stand-in server answers 401 to any request without a
+    // bearer, which is what shows that none was sent.)
+    storage.set(REFRESH_KEY, "R0")
+    const server = installServer()
+    const tab = await openTab()
+    const expired = vi.fn()
+    window.addEventListener(tab.tabSync.SESSION_EXPIRED_EVENT, expired)
+
+    const { response } = await tab.client.api.POST(path as never, {
+      body: {},
+    } as never)
+
+    window.removeEventListener(tab.tabSync.SESSION_EXPIRED_EVENT, expired)
+    expect(response.status).toBe(401)
+    expect(expired).not.toHaveBeenCalled()
+    expect(server.refreshCalls()).toBe(0)
+    expect(tab.tokenStore.getRefreshToken()).toBe("R0")
+  })
+
+  it("authenticates the signed-in passkey routes, and a sibling of an anonymous one", async () => {
+    // Only the three sign-in steps are anonymous: listing the whole passkeys
+    // prefix would send the list, the registration and the removal without the
+    // bearer they need. Each of these is answered 200 only with one.
+    storage.set(REFRESH_KEY, "R0")
+    installServer()
+    const tab = await openTab()
+
+    const list = await tab.client.api.GET("/api/v1/auth/passkeys" as never, {} as never)
+    const options = await tab.client.api.POST(
+      "/api/v1/auth/passkeys/registration/options" as never,
+      { body: {} } as never
+    )
+    const sibling = await tab.client.api.POST(
+      "/api/v1/auth/passkeys/assertion/options-preview" as never,
+      { body: {} } as never
+    )
+
+    expect(list.response.status).toBe(200)
+    expect(options.response.status).toBe(200)
+    expect(sibling.response.status).toBe(200)
   })
 
   it("authenticates a sibling that merely starts with a registration path", async () => {

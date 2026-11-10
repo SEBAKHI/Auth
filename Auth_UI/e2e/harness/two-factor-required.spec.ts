@@ -1,6 +1,9 @@
 import type { Page } from "@playwright/test"
 
 import { ORIGINS, expect, test, type HarnessApi } from "./fixtures"
+import { loginResponse } from "../isolated/accounts/mock-anonymous-api"
+import { fulfillJson } from "../isolated/mock-authenticated-api"
+import { assertionOptions, attachVirtualAuthenticator, clientData } from "./passkey-authenticator"
 
 /**
  * S08 in a real browser: while the server withholds a platform administrator's
@@ -142,16 +145,18 @@ test("s08: an account without a factor is offered enrolment", async ({ page, api
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible()
 })
 
-test("s08: a session whose sign-in is unknown is asked to sign in again", async ({ page, api }) => {
+test("s08: a session whose sign-in is unknown proves the person where they stand", async ({ page, api }) => {
   await serveConsole(api, { requirement: "reauthenticate", stepUps: [] })
 
   await page.goto(`${ORIGINS.console}/users`)
   await expect(page).toHaveURL(`${ORIGINS.console}${TWO_FACTOR_REQUIRED}`, FIRST_LOAD)
-  await page.getByRole("button", { name: "Sign in again" }).click()
+  await page.getByRole("button", { name: "Confirm" }).click()
 
-  const dialog = page.getByRole("alertdialog", { name: "Sign in again to continue" })
+  const dialog = page.getByRole("dialog", { name: "Confirm it's you" })
   await expect(dialog).toBeVisible()
-  await expect(dialog).toContainText("Sign out and sign back in with your password and your authenticator code.")
+  await expect(dialog).toContainText("Confirm it's you with your password and your second factor.")
+  await expect(dialog.getByLabel("Password")).toBeVisible()
+  expect(api.firstParty.logouts).toHaveLength(0)
 })
 
 test("s08: the accounts app guards its own shell the same way", async ({ page, api }) => {
@@ -253,4 +258,64 @@ test("s08: turning enforcement on asks first, says who it applies to, and writes
   await dialog.getByRole("button", { name: "Confirm" }).click()
   await expect.poll(() => puts.length).toBe(1)
   expect(puts[0]).toEqual(expect.objectContaining({ overrides: { EnforceForPlatformAdmins: true } }))
+})
+
+/**
+ * S20 PR C: an administrator whose only qualifying factor is a passkey
+ * (`mfa_req: passkey`). Nothing upgrades the session: a passkey sign-in
+ * replaces it with one that proved two factors, adopted like any other sign-in,
+ * and the page leaves through the completion rule, back where they were going.
+ * Deliberate break this test must catch: `refreshSessionNow` in place of the
+ * adoption (the step would only renew the session that lacks the factor).
+ */
+test("s20: the passkey step signs in with the passkey, adopts that session and leaves", async ({ page, api }) => {
+  const authenticator = await attachVirtualAuthenticator(page)
+  await authenticator.addCredential()
+  const state = { requirement: "passkey" }
+  const asserted: Array<{ origin: string; type: string }> = []
+  await api.useAuthenticated(
+    ["users:read"],
+    async (route, url) => {
+      const path = url.pathname.toLowerCase()
+      if (path === "/api/v1/auth/passkeys/assertion/options") {
+        await fulfillJson(route, assertionOptions())
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/assertion/verify") {
+        const body = route.request().postDataJSON() as { credential: unknown }
+        asserted.push(clientData(body.credential))
+        // The new session proved two factors: nothing is owed any more.
+        state.requirement = "none"
+        await fulfillJson(
+          route,
+          loginResponse({
+            id: "99999999-9999-9999-9999-999999999999",
+            email: "isolated@example.test",
+            firstName: "Isolated",
+            lastName: "Operator",
+            preferredLanguage: "en",
+            timeZone: "UTC",
+            roles: [],
+            permissions: ["users:read"],
+          })
+        )
+        return true
+      }
+      return false
+    },
+    { mfaRequirement: () => state.requirement }
+  )
+
+  await page.goto(`${ORIGINS.console}/users`)
+  await expect(page).toHaveURL(`${ORIGINS.console}${TWO_FACTOR_REQUIRED}`, FIRST_LOAD)
+  await expect(page.getByTestId("passkey-lost-way-out")).toBeVisible()
+  const passkey = page
+    .getByTestId("passkey-sign-in")
+    .getByRole("button", { name: "Sign in with your passkey" })
+  await expect(passkey).toBeEnabled()
+  await passkey.click()
+
+  await expect.poll(() => asserted.length).toBe(1)
+  expect(asserted[0]).toMatchObject({ origin: ORIGINS.console, type: "webauthn.get" })
+  await expect.poll(() => pathOf(page)).toBe("/users")
 })

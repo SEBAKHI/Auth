@@ -79,7 +79,7 @@ public class PrivacyPolicyDeleteTests
         public void NothingDeleted()
         {
             Versions.Verify(r => r.TryDeleteDraftAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-            Publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
+            Publisher.Verify(p => p.Publish(It.IsAny<PrivacyPolicyVersionDeletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
         }
     }
 
@@ -129,7 +129,7 @@ public class PrivacyPolicyDeleteTests
     {
         var raced = new World(Revision(), deleted: false);
         (await raced.Delete()).FirstError.Code.Should().Be("PrivacyPolicy.NotDeletable");
-        raced.Publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
+        raced.Publisher.Verify(p => p.Publish(It.IsAny<PrivacyPolicyVersionDeletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
 
         var gone = new World(Revision(), deleted: false);
         gone.Versions.SetupSequence(r => r.GetByIdAsync(gone.Revision.Id, It.IsAny<CancellationToken>()))

@@ -62,6 +62,11 @@ A pnpm workspace hosting the frontend apps of the Auth system, built with
   from the API's OpenAPI document
 - **react-hook-form + zod** (forms), **react-i18next** — **7 display languages**
   (en, ar, tr, fr, zh, ur, fa; ar/ur/fa are RTL)
+- **@simplewebauthn/browser** (MIT, `packages/auth` only) — the passkey
+  ceremonies (S20). One loader imports it, by dynamic import, and only once the
+  passkey options answered 200 (`packages/auth/src/passkey/webauthn.ts`): no
+  first chunk carries it, and a deployment with passkeys off never downloads it.
+  `webauthn-import.test.ts` fails on any other import of it
 - **Vitest + Testing Library** (unit) and **Playwright** in three tiers, with
   **axe-core** for automated WCAG — see [Testing](#testing)
 

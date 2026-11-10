@@ -29,13 +29,15 @@ public class LockStatementCallersSourceGuardTests
     private static readonly Dictionary<string, string[]> Allowed = new()
     {
         // The lockout's own writes: one class each owns the decision to call them.
-        ["IAccountLockout.RecordPasswordFailureAsync"] = ["LoginCommandHandler.cs"],
+        // The door a password goes through: the password sign-in, and a signed-in person
+        // proving themself again.
+        ["IAccountLockout.RecordPasswordFailureAsync"] = ["PasswordDoor.cs"],
         ["IAccountLockout.RecordSignInAsync"] = ["LoginResponseBuilder.cs"],
         ["IAccountLockout.ClearAutomaticLockAsync"] = ["ResetPasswordCommandHandler.cs", "ChangePasswordCommandHandler.cs"],
         // OI-215: the sign-in by emailed code repairs a lapsed lock as the provider
         // sign-in does, and lifts none.
         ["IAccountLockout.RepairLapsedLockAsync"] =
-            ["LoginCommandHandler.cs", "ExternalLoginCommandHandler.cs", "VerifyEmailCommandHandler.cs",
+            ["PasswordDoor.cs", "ExternalLoginCommandHandler.cs", "VerifyEmailCommandHandler.cs",
              "SignInWithEmailCodeCommandHandler.cs"],
 
         // The repository's statements: only through the lockout, which applies the

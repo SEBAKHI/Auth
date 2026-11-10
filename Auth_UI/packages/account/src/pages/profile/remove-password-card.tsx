@@ -109,6 +109,8 @@ export function RemovePasswordCard({ me }: { me: Schemas["UserDto"] }) {
           open
           onOpenChange={(open) => !open && setReauthenticate(false)}
           description={t("profile.removePasswordReauthenticate")}
+          passwordOnly
+          onProved={() => mutation.mutate()}
         />
       ) : null}
     </Card>

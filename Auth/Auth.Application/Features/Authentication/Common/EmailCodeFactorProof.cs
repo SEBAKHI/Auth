@@ -12,7 +12,9 @@ namespace Auth.Application.Features.Authentication.Common;
 /// The proof that the emailed second factor may go (S24, EO8, D-T34 B): switched off,
 /// or replaced by an authenticator app. Either a code emailed for that purpose — the
 /// switch-off challenge (<see cref="TwoFactorChallengePurpose.EmailDisable"/>) — or one
-/// of the account's recovery codes, for an owner whose mailbox is out of reach.
+/// of the account's recovery codes, for an owner whose mailbox is out of reach. A signed-in
+/// person proving themself again gives the same proof of the same factor, on a challenge of
+/// its own (<see cref="TwoFactorChallengePurpose.Reauthentication"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -55,8 +57,19 @@ public sealed class EmailCodeFactorProof
     /// email on, three codes per challenge, the per-window and daily caps, and no code
     /// for an emailed code that is locked.
     /// </summary>
+    public Task<ErrorOr<EmailCodeSent>> SendAsync(
+        User user,
+        string? ipAddress,
+        CancellationToken cancellationToken) =>
+        SendAsync(user, TwoFactorChallengePurpose.EmailDisable, ipAddress, cancellationToken);
+
+    /// <summary>
+    /// Emails a code on the account's live challenge of <paramref name="purpose"/>, which is
+    /// opened when none is live, under every limit of the sender.
+    /// </summary>
     public async Task<ErrorOr<EmailCodeSent>> SendAsync(
         User user,
+        TwoFactorChallengePurpose purpose,
         string? ipAddress,
         CancellationToken cancellationToken)
     {
@@ -65,7 +78,7 @@ public sealed class EmailCodeFactorProof
         // Recorded as opened after the password, the only first factor the emailed code
         // may follow (an account binds it only with a password).
         var challenge = await _accountChallenge.GetOrOpenAsync(
-            user.Id, TwoFactorChallengePurpose.EmailDisable, AuthenticationMethods.Password, ipAddress, cancellationToken);
+            user.Id, purpose, AuthenticationMethods.Password, ipAddress, cancellationToken);
 
         return await _emailCodeSender.SendAsync(user, challenge, ipAddress, _lockout.HardLimit, cancellationToken);
     }
@@ -88,9 +101,18 @@ public sealed class EmailCodeFactorProof
         string code,
         bool isRecoveryCode,
         CancellationToken cancellationToken) =>
+        VerifyAsync(userId, code, isRecoveryCode, TwoFactorChallengePurpose.EmailDisable, cancellationToken);
+
+    /// <summary>The same check, for a code emailed on a challenge of <paramref name="purpose"/>.</summary>
+    public Task<ErrorOr<SecondFactorProof>> VerifyAsync(
+        Guid userId,
+        string code,
+        bool isRecoveryCode,
+        TwoFactorChallengePurpose purpose,
+        CancellationToken cancellationToken) =>
         isRecoveryCode
             ? VerifyRecoveryCodeAsync(userId, code, cancellationToken)
-            : VerifyEmailCodeAsync(userId, code, cancellationToken);
+            : VerifyEmailCodeAsync(userId, code, purpose, cancellationToken);
 
     private async Task<ErrorOr<SecondFactorProof>> VerifyRecoveryCodeAsync(
         Guid userId,
@@ -112,10 +134,10 @@ public sealed class EmailCodeFactorProof
     private async Task<ErrorOr<SecondFactorProof>> VerifyEmailCodeAsync(
         Guid userId,
         string code,
+        TwoFactorChallengePurpose purpose,
         CancellationToken cancellationToken)
     {
-        var challenge = await _challengeRepository.GetLiveForUserAsync(
-            userId, TwoFactorChallengePurpose.EmailDisable, cancellationToken);
+        var challenge = await _challengeRepository.GetLiveForUserAsync(userId, purpose, cancellationToken);
         if (challenge is null)
         {
             // No code was sent, or it expired: nothing could match, so nothing is
@@ -133,7 +155,7 @@ public sealed class EmailCodeFactorProof
         }
 
         if (await _challengeRepository.TryReserveAttemptAsync(
-                challenge.Id, TwoFactorChallengePurpose.EmailDisable, TwoFactorChallenge.MaxAttempts, cancellationToken) is null)
+                challenge.Id, purpose, TwoFactorChallenge.MaxAttempts, cancellationToken) is null)
         {
             return TwoFactorErrors.RecoveryEmailCodeRequired;
         }

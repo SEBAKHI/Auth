@@ -3,7 +3,11 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { answerAnonymousDefaults, type SeenRequest } from "../isolated/accounts/mock-anonymous-api"
+import {
+  answerAnonymousDefaults,
+  isPageLoadProbe,
+  type SeenRequest,
+} from "../isolated/accounts/mock-anonymous-api"
 import { answerAuthenticatedDefaults } from "../isolated/mock-authenticated-api"
 import { ApiHost } from "./api-host"
 import { AttackerPages } from "./attacker-origins"
@@ -113,6 +117,11 @@ export interface HarnessApi {
       mfaRequirement?: () => string | undefined
       /** What /platform/branding answers (default: no appearance, the shipped preset). */
       branding?: Record<string, unknown>
+      /**
+       * What the "Confirm it's you" window's GET answers, over the mock's default: the password
+       * alone, as for an account without the app.
+       */
+      reauthentication?: Record<string, unknown>
     }
   ): Promise<void>
   /** The model's state for this test: delivery mode, refreshes seen, sign-outs seen. */
@@ -318,7 +327,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           const path = url.pathname.toLowerCase()
           const raw = request.postData()
           const body = raw ? (JSON.parse(raw) as unknown) : undefined
-          if (request.method() !== "GET") {
+          if (request.method() !== "GET" && !isPageLoadProbe(request.method(), path, body)) {
             options?.seen?.push({ method: request.method(), path, body })
           }
           return (

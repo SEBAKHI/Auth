@@ -242,6 +242,12 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             FROM [dbo].[TwoFactorAuth]
             WHERE [UserId] = @UserId";
 
+    // Whether a second factor still stands, of either kind: an emailed code's row is not enabled.
+    internal const string ReadFactorStandsSql = @"
+            SELECT CAST(CASE WHEN [IsEnabled] = 1 OR [EmailCodeEnabledAt] IS NOT NULL THEN 1 ELSE 0 END AS BIT)
+            FROM [dbo].[TwoFactorAuth]
+            WHERE [UserId] = @UserId";
+
     // The one definition of "the account has a qualifying second factor" (FA2) every
     // policy reads: an enabled two-factor row — never the account flag, which can
     // disagree with the row — or (S20) a live, user-verified passkey of the current RP
@@ -380,6 +386,20 @@ public class TwoFactorStateStore : ITwoFactorStateStore
               AND [Id] IN (
                   SELECT rt.[IdpSessionId] FROM [dbo].[RefreshTokens] rt
                   WHERE rt.[SessionId] = @SessionId AND rt.[UserId] = @UserId)";
+
+    // A person proved themself again inside this session (owner decision, 2026-11-09): raised
+    // by what they proved, as a step-up raises it, and stamped with that proof alone, which is
+    // what ReauthenticationGuard reads once the sign-in is too old. One clock, the API's: the
+    // guard judges the stamp by it, and beside the access token's iat, which the API writes by
+    // it too (REVIEW-FIXES 152 F23, F30). Only the caller's own live row matches.
+    internal const string StampSessionProofSql = @"
+            UPDATE [dbo].[UserSessions] SET
+                [AuthMethods] = ISNULL([AuthMethods], 0) | @Method,
+                [LastProofAt] = @Now,
+                [LastProofMethods] = @Method
+            WHERE [Id] = @SessionId
+              AND [UserId] = @UserId
+              AND [EndedAt] IS NULL";
 
     // A recovery code is spent by replacing the stored set, and only while the
     // row still holds the exact text the code was checked against. Two sign-ins
@@ -1002,6 +1022,48 @@ public class TwoFactorStateStore : ITwoFactorStateStore
     }
 
     /// <inheritdoc />
+    public async Task<LoginCommitOutcome> TryCommitSessionProofAsync(
+        Guid userId,
+        SessionProofCommit commit,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(commit);
+
+        // The factory hands back an OPEN connection; opening it again throws.
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var (outcome, upgraded) = await CommitSessionProofAsync(connection, userId, commit, cancellationToken);
+
+        if (outcome == LoginCommitOutcome.Committed)
+        {
+            ReportUpgrade(userId, commit.Session, upgraded, "a proof inside a session");
+            return outcome;
+        }
+
+        // Nothing to name: the emailed code was spent or replaced, or the session ended. An
+        // emailed second factor answers for itself: its settle knows which of the two it was.
+        if (outcome is LoginCommitOutcome.ChallengeLost or LoginCommitOutcome.SessionLost
+            || commit.SecondFactor?.Method == SecondFactorMethod.EmailCode)
+        {
+            return outcome;
+        }
+
+        // Named after the rollback, holding nothing: with no factor left of either kind the factor
+        // is lost; with one, the proof itself was refused. A recovery code spent first by another
+        // proof, on an emailed code's row, is that second case.
+        var stands = await connection.QuerySingleOrDefaultAsync<bool?>(new CommandDefinition(
+            ReadFactorStandsSql,
+            new { UserId = userId },
+            cancellationToken: cancellationToken));
+
+        return stands != true
+            ? LoginCommitOutcome.FactorLost
+            : outcome == LoginCommitOutcome.StepReused
+                ? LoginCommitOutcome.StepReused
+                : LoginCommitOutcome.RecoveryCodesChanged;
+    }
+
+    /// <inheritdoc />
     public async Task<LoginCommitOutcome> TryRegenerateCodesAsync(
         Guid userId,
         SecondFactorProof proof,
@@ -1505,6 +1567,93 @@ public class TwoFactorStateStore : ITwoFactorStateStore
 
         transaction.Commit();
         return (settled, new UpgradeCounts(session, idp));
+    }
+
+    /// <summary>
+    /// The challenge rows first, then the factor row, then the session row — which must match
+    /// — then the SSO session, which may not: the order every commit takes them in.
+    /// </summary>
+    private static async Task<(LoginCommitOutcome Outcome, UpgradeCounts Upgraded)> CommitSessionProofAsync(
+        IDbConnection connection,
+        Guid userId,
+        SessionProofCommit commit,
+        CancellationToken cancellationToken)
+    {
+        using var transaction = connection.BeginTransaction();
+
+        if (commit.FirstProofCode is { } code
+            && !await SpendFirstProofCodeAsync(connection, transaction, userId, code, cancellationToken))
+        {
+            transaction.Rollback();
+            return (LoginCommitOutcome.ChallengeLost, UpgradeCounts.None);
+        }
+
+        if (commit.SecondFactor is { } proof)
+        {
+            if (proof.ChallengeId is { } challengeId
+                && !await ConsumeChallengeAsync(
+                    connection, transaction, challengeId, TwoFactorChallengePurpose.Reauthentication, cancellationToken))
+            {
+                transaction.Rollback();
+                return (LoginCommitOutcome.ChallengeLost, UpgradeCounts.None);
+            }
+
+            var settled = await Settlers[proof.Method](connection, transaction, userId, proof, cancellationToken);
+            if (settled != LoginCommitOutcome.Committed)
+            {
+                transaction.Rollback();
+                return (settled, UpgradeCounts.None);
+            }
+        }
+
+        // DATETIME2, not Dapper's default DATETIME, which would round the stamp to a 300th of a
+        // second: the guard compares it with a token's iat.
+        var stamp = new DynamicParameters(new { commit.Session.SessionId, UserId = userId, Method = commit.Session.Method.Value });
+        stamp.Add("Now", commit.ProvedAtUtc, DbType.DateTime2);
+
+        var session = await connection.ExecuteAsync(new CommandDefinition(
+            StampSessionProofSql,
+            stamp,
+            transaction,
+            cancellationToken: cancellationToken));
+
+        if (session != 1)
+        {
+            // The session ended, or is not this user's, after the pre-check read it. Nothing is
+            // spent: the code stays as it was, and its attempt stays counted.
+            transaction.Rollback();
+            return (LoginCommitOutcome.SessionLost, UpgradeCounts.None);
+        }
+
+        var idp = await UpgradeIdpSessionAsync(connection, transaction, userId, commit.Session, cancellationToken);
+
+        transaction.Commit();
+        return (LoginCommitOutcome.Committed, new UpgradeCounts(session, idp));
+    }
+
+    /// <summary>
+    /// The emailed code of an account without a password: its challenge consumed, and the code
+    /// spent only while no newer one replaced it. There is no factor row to settle: the account's
+    /// first factor is its mailbox (D-215-1).
+    /// </summary>
+    private static async Task<bool> SpendFirstProofCodeAsync(
+        IDbConnection connection,
+        IDbTransaction transaction,
+        Guid userId,
+        EmailedCodeSpend code,
+        CancellationToken cancellationToken)
+    {
+        if (!await ConsumeChallengeAsync(
+                connection, transaction, code.ChallengeId, TwoFactorChallengePurpose.Reauthentication, cancellationToken))
+        {
+            return false;
+        }
+
+        return await connection.ExecuteAsync(new CommandDefinition(
+            SpendEmailCodesSql,
+            new { code.ChallengeId, UserId = userId, code.CodesSeen },
+            transaction,
+            cancellationToken: cancellationToken)) == 1;
     }
 
     /// <summary>

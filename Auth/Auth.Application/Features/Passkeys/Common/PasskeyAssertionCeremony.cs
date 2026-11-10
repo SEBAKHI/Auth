@@ -82,12 +82,22 @@ public sealed class PasskeyAssertionCeremony
     /// <param name="challengeHandleRepeated">Whether the request carried the cookie twice.</param>
     /// <param name="responseJson">The browser's <c>PublicKeyCredential</c>, as JSON.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The passkey that signed, recorded; or <see cref="PasskeyErrors.VerificationFailed"/>.</returns>
+    /// <param name="signedInAs">
+    /// The account a signed-in person is proving themself as, inside the "Confirm it's you" window; null
+    /// for a sign-in, which may be any account's. A passkey of another account is then refused before
+    /// anything of it is recorded.
+    /// </param>
+    /// <returns>
+    /// The passkey that signed, recorded; or <see cref="PasskeyErrors.VerificationFailed"/>; or
+    /// <see cref="PasskeyErrors.NotThisAccount"/> for another account's passkey under
+    /// <paramref name="signedInAs"/>.
+    /// </returns>
     public async Task<ErrorOr<UserPasskey>> ProveAsync(
         string? challengeHandle,
         bool challengeHandleRepeated,
         string responseJson,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? signedInAs = null)
     {
         // 1. The cookie: one of two may be a sibling host's plant. Nothing is spent.
         if (challengeHandleRepeated || string.IsNullOrEmpty(challengeHandle))
@@ -146,6 +156,18 @@ public sealed class PasskeyAssertionCeremony
         if (verified.IsError)
         {
             return Refused("the response did not verify", passkey);
+        }
+
+        // A signed-in person proving themself again: another account's passkey proved that
+        // account's owner, not this one. Refused here, before its counter or its use is recorded,
+        // so that account's list never shows a use that proved nothing (REVIEW-FIXES 152 NIT-5);
+        // the challenge is spent either way. Its own code: it is no failed verification (R4).
+        if (signedInAs is { } signedIn && passkey.UserId != signedIn)
+        {
+            _logger.LogInformation(
+                "{EventCode}: user {UserId} tried to prove themself again with passkey {PasskeyId} of user {OwnerId}",
+                PasskeySignalCodes.NotThisAccount, signedIn, passkey.Id, passkey.UserId);
+            return PasskeyErrors.NotThisAccount;
         }
 
         // 7. The counter, in this code whatever the library did (T-B3), then the record. From

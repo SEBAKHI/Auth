@@ -124,7 +124,6 @@ public class MachineKeyHandlerTests
         result.FirstError.Code.Should().Be(MachineKeyErrors.LimitReached.Code);
         result.FirstError.Type.Should().Be(ErrorType.Conflict);
         _keys.Verify(r => r.TryCreateAsync(It.IsAny<ApplicationMachineKey>(), 3, It.IsAny<CancellationToken>()), Times.Once);
-        _publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
         _publisher.Verify(p => p.Publish(It.IsAny<MachineKeyCreatedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 

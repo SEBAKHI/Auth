@@ -131,6 +131,104 @@ for (const entry of SIGNED_OUT_ENTRIES) {
 }
 
 /**
+ * S20 (T-C1): the passkey helper (`@simplewebauthn/browser`). A deployment with
+ * passkeys off - their options answer 404, as shipped - never downloads it; one
+ * with passkeys on fetches it as a chunk of its own, once the options answered,
+ * and never as part of the first load. It is found by its own error codes,
+ * which no first-party file carries.
+ */
+const PASSKEY_HELPER = /ERROR_MALFORMED_PUBKEYCREDPARAMS/
+
+/** Every JavaScript body the page fetched, in the order the responses came. */
+function collectScripts(page: import("@playwright/test").Page) {
+  const scripts: Array<Promise<{ url: string; text: string }>> = []
+  page.on("response", (response) => {
+    const url = response.url()
+    if (!url.endsWith(".js")) return
+    scripts.push(
+      response
+        .text()
+        .then((text) => ({ url, text }))
+        .catch(() => ({ url, text: "" }))
+    )
+  })
+  return () => Promise.all(scripts)
+}
+
+async function answerPasskeyOptions(page: import("@playwright/test").Page, status: 200 | 404) {
+  await page.route("**/api/v1/auth/passkeys/assertion/options", (route) =>
+    status === 200
+      ? fulfillJson(route, {
+          options: {
+            challenge: "c2lnbi1pbi1jaGFsbGVuZ2U",
+            rpId: "localhost",
+            allowCredentials: [],
+            userVerification: "required",
+            timeout: 300_000,
+          },
+          expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+        })
+      : fulfillJson(route, { title: "Not Found" }, 404)
+  )
+}
+
+test("the passkey helper is never downloaded while passkeys do not run", async ({ page }) => {
+  await answerPasskeyOptions(page, 404)
+  const scripts = collectScripts(page)
+  const answered = page.waitForResponse((response) =>
+    response.url().endsWith("/api/v1/auth/passkeys/assertion/options")
+  )
+
+  await page.goto("/login")
+  await answered
+  await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: /passkey/i })).toHaveCount(0)
+  // Whatever the answer sets off has been fetched by now.
+  await page.waitForLoadState("networkidle")
+
+  const fetched = await scripts()
+  expect(fetched.length, "no JavaScript was measured at all").toBeGreaterThan(5)
+  const carrying = fetched.filter((script) => PASSKEY_HELPER.test(script.text)).map((script) => script.url)
+  expect(carrying, "the passkey helper was downloaded with passkeys off").toEqual([])
+  // The 404 is the shipped default, not a failure: its body is not read, so a
+  // visitor whose every request succeeds never downloads the error codes
+  // (published-codes.ts), and no budget here would have seen them.
+  expect(
+    fetched.map((script) => script.url).filter((url) => /error-codes\.generated/.test(url)),
+    "the error codes were downloaded for the options' 404"
+  ).toEqual([])
+})
+
+test("the passkey helper arrives as its own chunk, only after the options answered", async ({ page }) => {
+  await answerPasskeyOptions(page, 200)
+  const scripts = collectScripts(page)
+  let optionsAnsweredAt = Number.POSITIVE_INFINITY
+  const order: Array<{ url: string; at: number }> = []
+  page.on("response", (response) => {
+    const at = Date.now()
+    if (response.url().endsWith("/api/v1/auth/passkeys/assertion/options")) optionsAnsweredAt = at
+    if (response.url().endsWith(".js")) order.push({ url: response.url(), at })
+  })
+
+  await page.goto("/login")
+  await expect(page.getByRole("button", { name: /passkey/i })).toBeEnabled()
+
+  const fetched = await scripts()
+  const carrying = fetched.filter((script) => PASSKEY_HELPER.test(script.text)).map((script) => script.url)
+  expect(carrying, "the helper is one chunk of its own").toHaveLength(1)
+  // Not the entry, and not preloaded with it.
+  const entry = await page.locator('script[type="module"][src]').first().getAttribute("src")
+  expect(carrying[0].endsWith(entry ?? "<none>")).toBe(false)
+  const preloaded = await page
+    .locator('link[rel="modulepreload"]')
+    .evaluateAll((links) => links.map((link) => (link as HTMLLinkElement).href))
+  expect(preloaded).not.toContain(carrying[0])
+  // Fetched after the options answered 200, never before.
+  const helperAt = order.find((item) => item.url === carrying[0])?.at ?? 0
+  expect(helperAt).toBeGreaterThanOrEqual(optionsAnsweredAt)
+})
+
+/**
  * The other half of the dashboard change: the tabs still arrive.
  *
  * Moving them behind a Suspense boundary is what keeps the charting library

@@ -19,12 +19,24 @@ describe("readSignInReason", () => {
     })
   })
 
-  it("allows exactly three reasons", () => {
-    expect(SIGN_IN_REASONS).toEqual(["mfa_step_up", "mfa_enroll", "mfa_reauthenticate"])
+  it("allows exactly four reasons", () => {
+    expect(SIGN_IN_REASONS).toEqual([
+      "mfa_step_up",
+      "mfa_enroll",
+      "mfa_reauthenticate",
+      "mfa_passkey",
+    ])
   })
 
-  it("ignores mfa_passkey until the passkey button exists (S20, T-B3)", () => {
-    expect(readSignInReason("?reason=mfa_passkey&method=password")).toBeNull()
+  it("reads mfa_passkey now that the passkey button exists (S20 PR C, row 285 (a))", () => {
+    expect(readSignInReason("?reason=mfa_passkey&method=password")).toEqual({
+      reason: "mfa_passkey",
+      method: "password",
+    })
+    expect(readSignInReason("?reason=mfa_passkey")).toEqual({
+      reason: "mfa_passkey",
+      method: null,
+    })
   })
 
   it.each(["mfa_other", "MFA_STEP_UP", "mfa_step_up ", "", "login"])(
@@ -57,7 +69,11 @@ describe("validateSignInReason", () => {
       reason: "mfa_step_up",
       method: "code",
     })
-    expect(validateSignInReason({ reason: "mfa_passkey", method: "code" })).toBeNull()
+    expect(validateSignInReason({ reason: "mfa_passkey", method: "code" })).toEqual({
+      reason: "mfa_passkey",
+      method: "code",
+    })
+    expect(validateSignInReason({ reason: "MFA_PASSKEY", method: "code" })).toBeNull()
     expect(validateSignInReason("mfa_step_up")).toBeNull()
     expect(validateSignInReason(null)).toBeNull()
     expect(validateSignInReason(undefined)).toBeNull()
@@ -79,8 +95,11 @@ describe("signInReasonQuery", () => {
     expect(signInReasonQuery(null)).toBe("")
     expect(signInReasonQuery(undefined)).toBe("")
     expect(
-      signInReasonQuery({ reason: "mfa_passkey", method: "code" } as never)
+      signInReasonQuery({ reason: "mfa_otp", method: "code" } as never)
     ).toBe("")
+    expect(signInReasonQuery({ reason: "mfa_passkey", method: "code" })).toBe(
+      "&reason=mfa_passkey&method=code"
+    )
   })
 })
 

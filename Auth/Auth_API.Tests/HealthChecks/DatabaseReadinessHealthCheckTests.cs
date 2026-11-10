@@ -170,6 +170,19 @@ public class DatabaseReadinessHealthCheckTests
             "two-factor sign-in with 'Invalid column name' (S24)");
     }
 
+    // Review of the window: nothing else stops a deploy that runs ahead of its DACPAC, and an older
+    // session's change and every proof then answer 500. Deliberate break, verified red: a row removed.
+    [Theory]
+    [InlineData("LastProofAt")]
+    [InlineData("LastProofMethods")]
+    public void TheSchemaExpectations_CoverTheProofsColumns(string column)
+    {
+        DatabaseReadinessHealthCheck.SchemaExpectations.Should().ContainSingle(
+            expectation => expectation.Sql.Contains($"COL_LENGTH('dbo.UserSessions', '{column}')")
+                           && expectation.Name == $"UserSessions.{column} column",
+            "the guard reads both past a session's sign-in, and a proof writes both");
+    }
+
     [Fact]
     public void TheSchemaExpectations_CoverThePostLogoutRedirectUrisTable()
     {

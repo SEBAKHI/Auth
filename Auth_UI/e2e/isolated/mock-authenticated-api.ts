@@ -41,8 +41,24 @@ export async function answerAuthenticatedDefaults(
     branding?: Record<string, unknown>
     /** The token's `org_perm` claims, as the API mints them for a member. */
     organizationPermissions?: string[]
+    /**
+     * What the window that proves the person again asks for: by default the password alone, as
+     * for the account /me answers here, which has no authenticator app (REVIEW-FIXES 152 NIT-7).
+     */
+    reauthentication?: Record<string, unknown>
   }
 ) {
+  if (url.pathname.toLowerCase() === "/api/v1/auth/reauthentication" && route.request().method() === "GET") {
+    await fulfillJson(route, {
+      passkey: false,
+      password: true,
+      emailCode: false,
+      secondStep: "None",
+      canProveInPlace: true,
+      ...options?.reauthentication,
+    })
+    return true
+  }
   if (url.pathname.toLowerCase() === "/api/v1/auth/refresh") {
     await fulfillJson(route, {
       accessToken: accessToken(options?.organizationPermissions),

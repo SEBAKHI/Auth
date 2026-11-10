@@ -196,6 +196,27 @@ describe("a cookie session across tabs", () => {
   })
 })
 
+describe("a sign-in in another tab replaced the session with another account's", () => {
+  it("reloads the tabs that heard it, keeps the session, and never tells the tab that signed in", async () => {
+    storage.set(REFRESH_KEY, SENTINEL)
+    const reload = vi.fn()
+    vi.stubGlobal("location", { reload, href: "https://console.example.com/profile" })
+    const heard = await openTab()
+    const signedIn = await openTab()
+    const expired = vi.fn()
+    window.addEventListener(heard.tabSync.SESSION_EXPIRED_EVENT, expired)
+
+    signedIn.tabSync.publishAccountChanged()
+
+    window.removeEventListener(heard.tabSync.SESSION_EXPIRED_EVENT, expired)
+    expect(posted).toContainEqual({ kind: "account-changed" })
+    expect(reload).toHaveBeenCalledTimes(1)
+    // Not a sign-out: the session key is the new account's, and every tab shares it.
+    expect(storage.get(REFRESH_KEY)).toBe(SENTINEL)
+    expect(expired).not.toHaveBeenCalled()
+  })
+})
+
 describe("a cookie refresh whose context died mid-flight", () => {
   it("resumes when the marker is young: the next refresh goes ahead", async () => {
     storage.set(REFRESH_KEY, SENTINEL)

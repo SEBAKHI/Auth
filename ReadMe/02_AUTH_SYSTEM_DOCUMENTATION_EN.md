@@ -1253,6 +1253,7 @@ Older versions of this document listed several of the items below as planned. Th
 | A dashboard with six statistics panels | Section 13 |
 | Organization invitations, per-member roles, application subscriptions and ownership transfer | Section 7 |
 | API keys and webhook keys | Section 13 |
+| Sign-in with passkeys (WebAuthn / FIDO2): people add, name and remove them in Profile › Security and sign in with one, two steps at once, on the sign-in page, at an application's two-step requirement and on the recovery page; an administrator whose only factor is a passkey signs in with it alone. Shipped off: each deployment switches it on in the console (System settings › Passkeys) after its own steps, and until then every page reads as before | The developer guide, section 5.3b |
 
 ### Genuinely Not Built
 
@@ -1266,7 +1267,6 @@ Each of these was checked against the source. None of them exists in any form.
 | **SAML 2.0 federation** | No SAML implementation of any kind | Medium |
 | **Outbound webhook delivery** | Webhook keys (inbound: for systems that post to an application) are fully managed today, but **no event is delivered to any external system**. The publisher interface exists and its only implementation deliberately discards what it is given. There is no broker and no outbound HTTP sender | Medium |
 | **Trend and anomaly analytics** | The dashboard shows six live panels over a trailing window. What is missing is history beyond that window and any risk or anomaly scoring | Future |
-| **Passwordless authentication (WebAuthn / FIDO2, passkeys)** | The server side is built and off (S20 PR A and PR B): passkeys are stored, added, listed, renamed and removed, count as a second factor while passkeys run, and sign in on their own, two factors in one step; an administrator whose only factor is a passkey signs in with it alone. `Passkeys:Enabled` is off and every passkey endpoint answers 404 until the pages ship (S20 PR C) | In progress |
 | **Shared token revocation across instances** | Described in Section 14. Needs a shared cache or a polling loop; neither exists | High, if you intend to run more than one instance |
 
 ### Design Principles for Future Development

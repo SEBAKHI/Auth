@@ -536,6 +536,209 @@ public class TwoFactorStateStoreSqlTests
         db.LastCommand.CommandText.Should().NotContain("Users", "the account flag can disagree with the row");
     }
 
+    // ── A proof inside a session, with no new sign-in ──
+
+    private const string ExpectedSessionProofStamp =
+        "UPDATE dbo.UserSessions SET AuthMethods = ISNULL(AuthMethods, 0) | @Method, "
+        + "LastProofAt = @Now, LastProofMethods = @Method "
+        + "WHERE Id = @SessionId AND UserId = @UserId AND EndedAt IS NULL";
+
+    // The API's clock, not the database's (REVIEW-FIXES 152 F30): the guard reads the stamp beside
+    // the access token's iat, which the API writes.
+    private static readonly DateTime ProvedAt = new(2026, 11, 10, 12, 0, 7, 123, DateTimeKind.Utc);
+
+    private static SessionUpgrade Upgrade(AuthenticationMethods methods) =>
+        new(StepUpSession, FakeCredentialHasher.CandidatesOf(CredentialPurpose.IdpSession, "idp-hash"), methods);
+
+    private static bool ReadsWhetherAFactorStands(RecordedCommand command) =>
+        command.CommandText.Contains("[EmailCodeEnabledAt] IS NOT NULL THEN 1", StringComparison.Ordinal);
+
+    [Fact]
+    public async Task SessionProof_APassword_StampsTheSession_AndItsSsoSession_InOneTransaction()
+    {
+        var userId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
+            userId, new SessionProofCommit(Upgrade(AuthenticationMethods.Password), ProvedAt), CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        db.Commands.Should().HaveCount(2);
+        db.Commands.Should().OnlyContain(command => command.InTransaction);
+        Sql(db.Commands[0]).Should().Be(ExpectedSessionProofStamp, "only the caller's own live row, stamped with this proof alone");
+        db.Commands[0].Parameters["SessionId"].Should().Be(StepUpSession);
+        db.Commands[0].Parameters["UserId"].Should().Be(userId);
+        db.Commands[0].Parameters["Method"].Should().Be(AuthenticationMethods.Password.Value);
+        // F30: stamped by the API's clock, exactly: a DATETIME parameter would round it to a 300th
+        // of a second. Deliberate break, verified red: the statement back on SYSUTCDATETIME().
+        db.Commands[0].Parameters["Now"].Should().Be(ProvedAt);
+        db.Commands[0].ParameterTypes["Now"].Should().Be(System.Data.DbType.DateTime2);
+        Sql(db.Commands[1]).Should().Be(ExpectedIdpSessionUpgrade);
+        db.LastTransaction!.Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SessionProof_TheAuthenticator_ClaimsTheStep_BeforeTheSession()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
+            Guid.NewGuid(),
+            new SessionProofCommit(
+                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.Totp)), ProvedAt,
+                secondFactor: SecondFactorProof.Totp(Step)),
+            CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        ClaimsTheStep(db.Commands[0]).Should().BeTrue("the factor row first, as every transaction takes it");
+        Sql(db.Commands[1]).Should().Be(ExpectedSessionProofStamp);
+    }
+
+    [Fact]
+    public async Task SessionProof_TheFirstEmailedCode_ConsumesItsChallenge_ThenSpendsTheCode_ThenStamps()
+    {
+        var userId = Guid.NewGuid();
+        var challengeId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
+            userId,
+            new SessionProofCommit(
+                Upgrade(AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false)), ProvedAt,
+                firstProofCode: new EmailedCodeSpend(challengeId, "codes-seen")),
+            CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        db.Commands.Should().OnlyContain(command => command.InTransaction);
+        Writes(db.Commands[0], "TwoFactorChallenges").Should().BeTrue();
+        db.Commands[0].Parameters["Id"].Should().Be(challengeId);
+        db.Commands[0].Parameters["Purpose"].Should().Be((byte)TwoFactorChallengePurpose.Reauthentication, "a row of one purpose never answers another");
+        Writes(db.Commands[1], "TwoFactorChallenges").Should().BeTrue();
+        db.Commands[1].Parameters["CodesSeen"].Should().Be("codes-seen", "a code a newer send replaced proves nothing");
+        Sql(db.Commands[2]).Should().Be(ExpectedSessionProofStamp);
+    }
+
+    [Fact]
+    public async Task SessionProof_TheEmailedSecondFactor_ConsumesItsOwnChallenge_AndSettlesTheFactor()
+    {
+        var challengeId = Guid.NewGuid();
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
+            Guid.NewGuid(),
+            new SessionProofCommit(
+                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode)), ProvedAt,
+                secondFactor: SecondFactorProof.EmailCode(challengeId, "codes-seen")),
+            CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.Committed);
+        db.Commands[0].Parameters["Purpose"].Should().Be((byte)TwoFactorChallengePurpose.Reauthentication);
+        db.Commands.Should().Contain(command => Writes(command, "TwoFactorAuth"), "its count is cleared, as at a sign-in");
+        Sql(db.Commands[^2]).Should().Be(ExpectedSessionProofStamp);
+    }
+
+    [Fact]
+    public async Task SessionProof_ASessionThatEnded_RollsBack_AndSpendsNothing()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            affectedFor: command => Writes(command, "UserSessions") ? 0 : 1);
+
+        var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
+            Guid.NewGuid(),
+            new SessionProofCommit(
+                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.Totp)), ProvedAt,
+                secondFactor: SecondFactorProof.Totp(Step)),
+            CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.SessionLost);
+        db.LastTransaction!.RolledBack.Should().BeTrue("a code spent for a session that ended would be spent for nothing");
+        db.Commands.Should().NotContain(command => Writes(command, "IdpSessions"));
+    }
+
+    [Fact]
+    public async Task SessionProof_AnEmailedCodeSomeoneElseSpent_RollsBack_AndStampsNothing()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            affectedFor: command => Writes(command, "TwoFactorChallenges") ? 0 : 1);
+
+        var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
+            Guid.NewGuid(),
+            new SessionProofCommit(
+                Upgrade(AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false)), ProvedAt,
+                firstProofCode: new EmailedCodeSpend(Guid.NewGuid(), "codes-seen")),
+            CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.ChallengeLost);
+        db.LastTransaction!.RolledBack.Should().BeTrue();
+        db.Commands.Should().NotContain(command => Writes(command, "UserSessions"));
+    }
+
+    [Fact]
+    public async Task SessionProof_ARefusedStep_RollsBack_AndIsNamedAfterTheRollback()
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => ReadsWhetherAFactorStands(command) ? new { Stands = true } : null,
+            affectedFor: StepRefused);
+
+        var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
+            Guid.NewGuid(),
+            new SessionProofCommit(
+                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.Totp)), ProvedAt,
+                secondFactor: SecondFactorProof.Totp(Step)),
+            CancellationToken.None);
+
+        outcome.Should().Be(LoginCommitOutcome.StepReused);
+        db.LastTransaction!.RolledBack.Should().BeTrue();
+        db.Commands.Should().NotContain(command => Writes(command, "UserSessions"));
+    }
+
+    // Review of the window: an emailed code's row is not "enabled", and another proof spending the
+    // same recovery code first is no lost factor: the person would read that two-step is off.
+    // Deliberate break, verified red: the read of IsEnabled alone.
+    [Theory]
+    [InlineData(true, LoginCommitOutcome.RecoveryCodesChanged)]
+    [InlineData(false, LoginCommitOutcome.FactorLost)]
+    public async Task SessionProof_ARecoveryCodeSpentFirst_IsNamedAfterWhatStillStands(bool stands, LoginCommitOutcome expected)
+    {
+        var db = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: command => ReadsWhetherAFactorStands(command) ? new { Stands = stands } : null,
+            affectedFor: command => Writes(command, "TwoFactorAuth") ? 0 : 1);
+
+        var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
+            Guid.NewGuid(),
+            new SessionProofCommit(
+                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.RecoveryCode)), ProvedAt,
+                secondFactor: SecondFactorProof.RecoveryCode("old-codes", "new-codes", qualified: true)),
+            CancellationToken.None);
+
+        outcome.Should().Be(expected);
+        db.LastTransaction!.RolledBack.Should().BeTrue();
+        db.Commands.Should().NotContain(command => Writes(command, "UserSessions"));
+    }
+
+    [Fact]
+    public void TheProofsColumns_AreNullable_AppendedLast_AndReadApartFromEverySession()
+    {
+        var root = Auth_API.Tests.Infrastructure.ApiSourceScan.SolutionDirectory();
+        var table = File.ReadAllText(Path.Combine(root, "Auth_DB", "dbo", "Tables", "Authentication", "UserSessions.sql"));
+        var columns = table[..table.IndexOf("CONSTRAINT [PK_UserSessions]", StringComparison.Ordinal)];
+
+        Regex.IsMatch(columns, @"\[LastProofAt\] DATETIME2 NULL,").Should().BeTrue();
+        Regex.IsMatch(columns, @"\[LastProofMethods\] INT NULL,").Should().BeTrue();
+        columns.IndexOf("[LastProofAt]", StringComparison.Ordinal).Should().BeGreaterThan(
+            columns.IndexOf("[AuthMethods]", StringComparison.Ordinal), "appended last, so the publish is a plain ALTER TABLE ADD");
+
+        // An API reaching a database without them must not fail every session read.
+        var repository = File.ReadAllText(Path.Combine(root, "Auth.Infrastructure", "Persistence", "UserSessionRepository.cs"));
+        Regex.Matches(repository, @"\[LastProofAt\]").Should().HaveCount(2, "the select and the not-null condition of GetLastProofSql");
+        repository.IndexOf("[LastProofAt]", StringComparison.Ordinal).Should().BeGreaterThan(
+            repository.IndexOf("internal const string GetLastProofSql", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task StepUp_Totp_SettlesTheStep_ThenUpgradesBothSessions_InOneTransaction()
     {

@@ -19,7 +19,8 @@ namespace Auth.Application.Features.Passkeys.Common;
 /// <para>
 /// The readers that must see what the account holds whatever the switch says keep the
 /// inventory: switching the app off while email is off (D-150-5, N13), the administrator's reset
-/// (M8(4)), the console's user page and the passkey routes themselves.
+/// (M8(4)), the console's page of another account and the passkey routes themselves. The
+/// account's own read of itself reads this one: its pages decide from it what to offer.
 /// </para>
 /// <para>
 /// While <c>Passkeys:Enabled</c> is off the assessment reads nothing, so a deployment that never

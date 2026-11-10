@@ -8,9 +8,10 @@ namespace Auth.Application.Configuration;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Read from the settings files (and environment) only: the section is not in the console's
-/// registry until the screens that use it ship (S20 PR C), so nothing can switch on a
-/// feature nobody can reach (T-A2).
+/// In the console's registry since the screens that use it shipped (S20 PR C): Platform
+/// settings › Passkeys, beside the settings files and the environment. A save there is checked
+/// as the files are not (T-C9): the RP ID must be a host name that covers every first-party
+/// origin (PK2), and may not replace the one live passkeys are bound to (PK3).
 /// </para>
 /// <para>
 /// Off by default, and with no RP ID by default: a deployment that sets neither behaves as
@@ -59,9 +60,14 @@ public sealed record PasskeyRpIdAtStartup(string Value)
     /// <summary>Gets whether an RP ID is set.</summary>
     public bool IsSet => Value.Length > 0;
 
-    /// <summary>Reads the RP ID from the configuration the process starts with.</summary>
+    /// <summary>
+    /// Reads the RP ID from the configuration the process starts with: every layer, the
+    /// console's database layer included, so <c>Program.cs</c> reads it only once that layer has
+    /// joined (an RP ID saved in the console takes effect at the next start, as it says).
+    /// </summary>
     public static PasskeyRpIdAtStartup From(IConfiguration configuration) =>
-        new((configuration[$"{PasskeySettings.SectionName}:{nameof(PasskeySettings.RpId)}"] ?? string.Empty)
-            .Trim()
-            .ToLowerInvariant());
+        new(Normalize(configuration[$"{PasskeySettings.SectionName}:{nameof(PasskeySettings.RpId)}"]));
+
+    /// <summary>An RP ID as every reader compares it: trimmed and lower-case; empty for none.</summary>
+    public static string Normalize(string? value) => (value ?? string.Empty).Trim().ToLowerInvariant();
 }

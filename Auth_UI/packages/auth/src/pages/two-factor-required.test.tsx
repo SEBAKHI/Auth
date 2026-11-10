@@ -1,9 +1,9 @@
 import type * as React from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { MfaRequirement } from "@authsystem/api/mfa-requirement"
 
@@ -20,7 +20,11 @@ const mocks = vi.hoisted(() => ({
   markRecoveryCodeSignIn: vi.fn(),
   complete: vi.fn(),
   calls: [] as string[],
+  loadWebAuthn: vi.fn(),
+  startAuthentication: vi.fn(),
   auth: {
+    // S20: the passkey step's sign-in, adopted like any other.
+    loginWithPasskey: vi.fn(),
     user: { id: "u-1", email: "admin@example.com" },
     mfaRequirement: "step_up" as MfaRequirement,
     // S08 PR B: the page reads the account without ever ending the session.
@@ -81,6 +85,13 @@ vi.mock("../flow-branding", () => ({
   useFlowBranding: () => ({ appBranding: null, layout: {} }),
 }))
 
+// S20: the passkey step's helper, in hand without the package (T-C1's loader).
+vi.mock("../passkey/webauthn", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../passkey/webauthn")>()),
+  loadWebAuthn: mocks.loadWebAuthn,
+}))
+
+import { FULL_PROOF_KEY, requestPasskeySignIn } from "../sign-in-method"
 import { TwoFactorRequiredPage } from "./two-factor-required"
 
 /** Where the page sent the browser, for the application mode's sign-in demand. */
@@ -110,6 +121,9 @@ beforeEach(() => {
   mocks.markRecoveryCodeSignIn.mockReset()
   mocks.complete.mockReset()
   mocks.auth.logout.mockReset()
+  mocks.auth.loginWithPasskey.mockReset()
+  mocks.loadWebAuthn.mockReset()
+  mocks.startAuthentication.mockReset()
   mocks.auth.mfaRequirement = "step_up"
   mocks.refreshSessionNow.mockReset().mockImplementation(async () => {
     mocks.calls.push("refresh")
@@ -186,7 +200,8 @@ describe("TwoFactorRequiredPage", () => {
     expect(mocks.markRecoveryCodeSignIn).not.toHaveBeenCalled()
   })
 
-  it("asks to sign in again when the session cannot be upgraded", async () => {
+  it("asks for a proof where the person stands when the session cannot be upgraded", async () => {
+    mocks.get.mockResolvedValue({ data: { passkey: false, password: true, emailCode: false, secondStep: "None", canProveInPlace: true } })
     mocks.post.mockResolvedValue({
       error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
     })
@@ -196,9 +211,10 @@ describe("TwoFactorRequiredPage", () => {
     await user.type(await screen.findByLabelText("auth.twoFactorCode"), "123456")
     await user.click(screen.getByRole("button", { name: "auth.verify" }))
 
-    expect(await screen.findByRole("alertdialog", { name: "auth.reauthenticateTitle" })).toBeInTheDocument()
+    expect(await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })).toBeInTheDocument()
     expect(screen.getByText("auth.mfaRequiredReauthenticateBody")).toBeInTheDocument()
     expect(mocks.calls).toEqual(["refresh", "me"])
+    expect(mocks.auth.logout).not.toHaveBeenCalled()
   })
 
   it("offers enrolment when the account has no factor", async () => {
@@ -229,14 +245,24 @@ describe("TwoFactorRequiredPage", () => {
     expect(screen.getByText("profile.replaceEmailCodeTitle")).toBeInTheDocument()
   })
 
-  it("offers to sign in again when the session's first factor is unknown", async () => {
+  it("asks for a proof when the session's first factor is unknown, and reads the account again after it", async () => {
     mocks.auth.mfaRequirement = "reauthenticate"
+    mocks.get.mockResolvedValue({ data: { passkey: false, password: true, emailCode: false, secondStep: "None", canProveInPlace: true } })
+    mocks.post.mockResolvedValue({ data: undefined, error: undefined })
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole("button", { name: "auth.reauthenticateAction" }))
+    await user.click(await screen.findByRole("button", { name: "auth.reauthenticate.confirm" }))
 
-    expect(await screen.findByRole("alertdialog", { name: "auth.reauthenticateTitle" })).toBeInTheDocument()
+    const proof = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+    await user.type(await within(proof).findByLabelText("auth.password"), "my password")
+    await user.click(within(proof).getByRole("button", { name: "auth.reauthenticate.confirm" }))
+
+    // The window refreshes the token before it hands back (REVIEW-FIXES 152 F23), then the page
+    // rereads the account; the page's own refresh after the window's sends no request in the
+    // real client, which does not force a token a forced refresh just produced.
+    await waitFor(() => expect(mocks.calls).toEqual(["refresh", "me", "refresh", "refresh", "me"]))
+    expect(mocks.auth.logout).not.toHaveBeenCalled()
   })
 
   // S08 PR B (review follow-up): a failed read shows an error with "try again",
@@ -309,7 +335,10 @@ describe("TwoFactorRequiredPage in application mode (S23)", () => {
   })
 
   it("offers Continue to an account that already has an authenticator", async () => {
-    mocks.get.mockResolvedValue({ data: { id: "u-1", qualifyingMfa: true }, error: undefined })
+    mocks.get.mockResolvedValue({
+      data: { id: "u-1", qualifyingMfa: true, totpEnabled: true },
+      error: undefined,
+    })
     const user = userEvent.setup()
     renderPage(APPLICATION)
 
@@ -352,20 +381,28 @@ describe("TwoFactorRequiredPage in application mode (S23)", () => {
     expect(screen.queryByRole("button", { name: "common.signOut" })).toBeNull()
   })
 
-  it("answers a demand to sign in again with the sign-in page, never a sign-out", async () => {
+  it("answers a demand for a proof in place, and its way out is the sign-in page, never a sign-out", async () => {
     mocks.post.mockResolvedValue({
       error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
     })
+    mocks.get.mockImplementation(async (path: string) =>
+      path === "/api/v1/auth/reauthentication"
+        ? { data: { passkey: false, password: true, emailCode: false, secondStep: "None", canProveInPlace: true } }
+        : { data: { id: "u-1", email: "admin@example.com", qualifyingMfa: false } }
+    )
     const user = userEvent.setup()
     renderPage(APPLICATION)
 
     await user.click(await screen.findByRole("button", { name: "profile.enableTwoFactor" }))
 
+    const proof = await screen.findByRole("dialog", { name: "auth.reauthenticate.title" })
+    await user.click(await within(proof).findByRole("button", { name: "auth.reauthenticate.signOutLink" }))
+    await user.click(within(proof).getByRole("button", { name: "auth.reauthenticateAction" }))
+
     expect(await screen.findByTestId("sign-in")).toHaveTextContent(
       `/login?client_id=app&auth_request=${HANDLE}&reason=mfa_enroll`
     )
     expect(mocks.auth.logout).not.toHaveBeenCalled()
-    expect(screen.queryByRole("alertdialog")).toBeNull()
     // A sign-in by code from there proves the password too (OI-215).
     expect(window.sessionStorage.getItem("auth.signIn.fullProof")).toBe("1")
   })
@@ -375,5 +412,128 @@ describe("TwoFactorRequiredPage in application mode (S23)", () => {
 
     expect(await screen.findByLabelText("auth.twoFactorCode")).toBeInTheDocument()
     expect(mocks.calls).toEqual(["refresh", "me"])
+  })
+})
+
+describe("TwoFactorRequiredPage: the passkey step (S20 PR C)", () => {
+  const CREDENTIAL = { id: "cred-1", rawId: "cred-1", type: "public-key" }
+
+  function passkeysRun() {
+    vi.stubGlobal("PublicKeyCredential", function PublicKeyCredential() {})
+    mocks.loadWebAuthn.mockResolvedValue({
+      startAuthentication: mocks.startAuthentication,
+      browserSupportsWebAuthnAutofill: async () => false,
+      WebAuthnAbortService: { cancelCeremony: vi.fn() },
+    })
+    mocks.startAuthentication.mockResolvedValue(CREDENTIAL)
+    mocks.post.mockImplementation(async (path: string) =>
+      path === "/api/v1/auth/passkeys/assertion/options"
+        ? {
+            data: {
+              options: { challenge: "c1", rpId: "localhost", allowCredentials: [] },
+              expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+            },
+            error: undefined,
+            response: { status: 200, headers: new Headers() },
+          }
+        : { data: undefined, error: { status: 404 }, response: { status: 404, headers: new Headers() } }
+    )
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("signs in with the passkey, adopts that session and leaves through the completion, once", async () => {
+    passkeysRun()
+    mocks.auth.mfaRequirement = "passkey"
+    const signedIn = { status: "authenticated", requiresPasswordChange: true }
+    mocks.auth.loginWithPasskey.mockResolvedValue(signedIn)
+    requestPasskeySignIn()
+    renderPage()
+
+    expect(await screen.findByText("auth.mfaRequiredPasskey")).toBeInTheDocument()
+    const passkey = within(await screen.findByTestId("passkey-sign-in")).getByRole("button", {
+      name: "auth.passkey.signInWithYourPasskey",
+    })
+    fireEvent.click(passkey)
+    expect(mocks.startAuthentication).toHaveBeenCalledTimes(1)
+
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledTimes(1))
+    expect(mocks.auth.loginWithPasskey).toHaveBeenCalledWith(CREDENTIAL, false)
+    // The sign-in's own result, its password change included; never a refresh,
+    // which would only renew the session that lacks the factor (TS10).
+    expect(mocks.complete).toHaveBeenCalledWith(signedIn)
+    expect(mocks.calls).toEqual(["refresh", "me"])
+    expect(window.sessionStorage.getItem(FULL_PROOF_KEY)).toBeNull()
+  })
+
+  it("names the way out for a lost passkey, and shows no button while passkeys do not run", async () => {
+    passkeysRun()
+    mocks.post.mockResolvedValue({ data: undefined, error: { status: 404 }, response: { status: 404, headers: new Headers() } })
+    mocks.auth.mfaRequirement = "passkey"
+    renderPage()
+
+    expect(await screen.findByTestId("passkey-lost-way-out")).toHaveTextContent(
+      "auth.mfaRequiredPasskeyLost"
+    )
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith("/api/v1/auth/passkeys/assertion/options")
+    )
+    await waitFor(() => expect(screen.queryByTestId("passkey-sign-in")).not.toBeInTheDocument())
+    expect(mocks.loadWebAuthn).not.toHaveBeenCalled()
+    expect(mocks.complete).not.toHaveBeenCalled()
+  })
+
+  it("names the same way out on a browser without WebAuthn, and asks nothing", async () => {
+    mocks.auth.mfaRequirement = "passkey"
+    renderPage()
+
+    expect(await screen.findByTestId("passkey-lost-way-out")).toHaveTextContent(
+      "auth.mfaRequiredPasskeyLost"
+    )
+    expect(screen.queryByTestId("passkey-sign-in")).not.toBeInTheDocument()
+    expect(mocks.post).not.toHaveBeenCalled()
+    expect(mocks.complete).not.toHaveBeenCalled()
+  })
+
+  it("stays on the step when the passkey sign-in is refused", async () => {
+    passkeysRun()
+    mocks.auth.mfaRequirement = "passkey"
+    mocks.auth.loginWithPasskey.mockRejectedValue({
+      status: 400,
+      code: "Passkey.VerificationFailed",
+      detail: "The passkey could not be verified.",
+    })
+    renderPage()
+
+    fireEvent.click(
+      within(await screen.findByTestId("passkey-sign-in")).getByRole("button", {
+        name: "auth.passkey.signInWithYourPasskey",
+      })
+    )
+
+    expect(await screen.findByTestId("passkey-message")).toHaveTextContent(
+      "The passkey could not be verified."
+    )
+    expect(mocks.complete).not.toHaveBeenCalled()
+  })
+})
+
+describe("TwoFactorRequiredPage in application mode: a passkey account (S20 PR C, Fact 14)", () => {
+  const HANDLE = "0123456789abcdef".repeat(4)
+  const RESUME = `https://api.example.com/api/v1/auth/authorize/resume?client_id=app&auth_request=${HANDLE}`
+  const APPLICATION = { mode: "application", returnTo: RESUME, from: "/" }
+
+  it("names the passkey, not the app, for an account whose qualifying factor is a passkey", async () => {
+    mocks.get.mockResolvedValue({
+      data: { id: "u-1", qualifyingMfa: true, totpEnabled: false, passkeyCount: 1 },
+      error: undefined,
+    })
+    renderPage(APPLICATION)
+
+    expect(await screen.findByText("auth.mfaPasskeyAlreadyEnrolled")).toBeInTheDocument()
+    expect(screen.queryByText("auth.mfaAppAlreadyEnrolled")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "auth.mfaAppContinue" })).toBeInTheDocument()
   })
 })

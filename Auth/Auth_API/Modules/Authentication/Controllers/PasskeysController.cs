@@ -197,10 +197,14 @@ public class PasskeysController : ApiController
         return Ok(result.Value);
     }
 
-    /// <summary>The account's live passkeys, oldest first.</summary>
+    /// <summary>
+    /// The account's live passkeys, oldest first, with the RP ID they are bound to and the
+    /// account's user handle (null before its first passkey): the security page tells the
+    /// browser from them which passkeys the account still has (D-S20-7). The owner's alone.
+    /// </summary>
     [HttpGet]
     [EnableRateLimiting("sign-in-page")]
-    [ProducesResponseType(typeof(IReadOnlyList<PasskeyDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PasskeyListDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]

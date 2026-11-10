@@ -115,6 +115,7 @@ public class StaySignedInModeSettingsTests
             rows.Object, new Mock<IUserRepository>().Object, configuration,
             SystemSettingsTestSupport.SnapshotOf(configuration), new Mock<ISystemSettingsReloader>().Object,
             new Mock<IPublisher>().Object, new Mock<IIdpSessionIdleLimitChange>().Object,
+            new Mock<IPasskeyRpIdChange>().Object,
             NullLogger<UpdateSystemSettingsCommandHandler>.Instance);
 
         var result = await handler.Handle(

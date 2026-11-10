@@ -5,6 +5,7 @@ import { DEVICE_ID_HEADER, getDeviceId } from "@authsystem/api/device-id"
 import type { PublishedErrorCode } from "@authsystem/api/error-codes.generated"
 import { readProblem } from "@authsystem/api/errors"
 import { MFA_REQUIRED_EVENT } from "@authsystem/api/mfa-requirement"
+import { retryAfterSeconds } from "@authsystem/api/retry-after"
 import i18n from "@authsystem/i18n"
 import {
   emitSessionExpired,
@@ -68,6 +69,14 @@ const ORGANIZATION_SETUP_PATH = "/api/v1/Auth/organization-setup"
 // its 401 says nothing about this tab's token. Its frames never load this client
 // (apps/accounts/src/embed/embed-api.ts); listed so no page that does can refresh on it.
 const ACCOUNT_BAR_PATH = "/api/v1/Auth/account-bar"
+// A sign-in with a passkey (S20): its options, the sign-in itself, and the recovery
+// of an account waiting for deletion. Made by someone who has no session yet (the
+// two-factor page makes them from a session it is about to replace): the passkey
+// is the credential, so a bearer here would only spend a refresh for nothing. None
+// answers 401 for a dead token, so none may end this tab's session.
+const PASSKEY_ASSERTION_OPTIONS_PATH = "/api/v1/auth/passkeys/assertion/options"
+const PASSKEY_ASSERTION_VERIFY_PATH = "/api/v1/auth/passkeys/assertion/verify"
+const PASSKEY_ASSERTION_RECOVER_PATH = "/api/v1/auth/passkeys/assertion/recover"
 
 export { SESSION_EXPIRED_EVENT } from "@authsystem/api/tab-sync"
 
@@ -162,19 +171,6 @@ function recordForcedOutcome(rejected: string, result: RefreshResult, now = Date
 
 /** De-duplicates concurrent refreshes within this tab into one lock acquisition. */
 let refreshPromise: Promise<RefreshResult> | null = null
-
-/**
- * The wait a 429 asked for, in whole seconds rounded up, from Retry-After as a
- * number or as a date; null when absent or unreadable. The gateway exposes the
- * header to the apps' origins.
- */
-function retryAfterSeconds(response: Response): number | null {
-  const value = response.headers.get("Retry-After")?.trim()
-  if (!value) return null
-  if (/^\d+$/.test(value)) return Number(value)
-  const at = Date.parse(value)
-  return Number.isNaN(at) ? null : Math.max(0, Math.ceil((at - Date.now()) / 1000))
-}
 
 /** The bearer token a request carried, or null when it carried none. */
 function bearerOf(request: Request): string | null {
@@ -424,9 +420,11 @@ function refreshFor(options: RefreshOptions, honourRecord: boolean): Promise<Ref
  * minted one. A caller of the one primitive ({@link sharedRefresh}), with the
  * token this tab holds as the refused one: it waits for a refresh already under
  * way (whose request may predate the change), then refuses whatever token this
- * tab holds after it. A token another tab rotated meanwhile is adopted instead,
- * which is right too: it was minted after the change. The token is never
- * dropped meanwhile, so the tab is never left without one.
+ * tab holds after it. A token another tab rotated meanwhile is adopted instead.
+ * It postdates the change only when that rotation began after it: one already
+ * under way when the change landed was minted before it, and what needed the
+ * change is refused once more (a step-up then asks for its proof again). The
+ * token is never dropped meanwhile, so the tab is never left without one.
  *
  * A refusal that ends the session ends it here, as a request's would. An
  * unknown outcome (network, 5xx) or a rate limit keeps the session and the
@@ -580,18 +578,36 @@ const ANONYMOUS_PATHS = new Set(
     EMAIL_CODE_RECOVER_PATH,
     ORGANIZATION_SETUP_PATH,
     ACCOUNT_BAR_PATH,
+    PASSKEY_ASSERTION_OPTIONS_PATH,
+    PASSKEY_ASSERTION_VERIFY_PATH,
+    PASSKEY_ASSERTION_RECOVER_PATH,
   ].map((path) => path.toLowerCase())
 )
 
-function isAuthFlow(url: string): boolean {
-  let pathname: string
+function lowerCasePathname(url: string): string | null {
   try {
-    pathname = new URL(url, API_BASE_URL).pathname
+    return new URL(url, API_BASE_URL).pathname.toLowerCase()
   } catch {
-    return false
+    return null
   }
+}
 
-  return ANONYMOUS_PATHS.has(pathname.toLowerCase())
+function isAuthFlow(url: string): boolean {
+  const pathname = lowerCasePathname(url)
+  return pathname !== null && ANONYMOUS_PATHS.has(pathname)
+}
+
+/**
+ * The sign-in page's question on every load, answered 404 while passkeys are off:
+ * the shipped default, not a failure. Its caller reads the status alone, so the
+ * body is not read, and a visitor whose every other request succeeds never
+ * downloads the error codes (published-codes.ts).
+ */
+function isPasskeysOffAnswer(request: Request, response: Response): boolean {
+  return (
+    response.status === 404 &&
+    lowerCasePathname(request.url) === PASSKEY_ASSERTION_OPTIONS_PATH.toLowerCase()
+  )
 }
 
 const authMiddleware: Middleware = {
@@ -641,6 +657,7 @@ const authMiddleware: Middleware = {
       return response
     }
     if (request.method === "HEAD") return response
+    if (isPasskeysOffAnswer(request, response)) return response
     const failure = await withTransportStatus(response)
     if (response.status === 403) await announceMfaRequirement(failure)
     if (response.status !== 401 || isAuthFlow(request.url)) return failure

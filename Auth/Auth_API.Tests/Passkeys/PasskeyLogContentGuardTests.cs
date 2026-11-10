@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Auth.Application.Features.AccountDeletion.RecoverAccountWithPasskey;
 using Auth.Application.Features.Passkeys.BeginPasskeyAssertion;
 using Auth.Application.Features.Passkeys.CompletePasskeyRegistration;
+using Auth.Application.Features.Passkeys.ReauthenticateWithPasskey;
 using Auth.Application.Features.Passkeys.RemovePasskey;
 using Auth.Application.Features.Passkeys.VerifyPasskeyAssertion;
 using Auth_API.Tests.Infrastructure;
@@ -132,6 +133,9 @@ public class PasskeyLogContentGuardTests
                 // S20 PR B: the passkey recovery entry and the refusal at the other doors.
                 Path.Combine(root, "Auth.Application", "Features", "AccountDeletion", "RecoverAccountWithPasskey", "RecoverAccountWithPasskeyCommandHandler.cs"),
                 Path.Combine(root, "Auth.Application", "Features", "Authentication", "Common", "PasskeyOnlyAdministratorRule.cs"),
+                // REVIEW-FIXES 152 R6: the "Confirm it's you" window's endpoints, whose passkey
+                // route reads the challenge cookie and the credential.
+                Path.Combine(root, "Auth_API", "Modules", "Authentication", "Controllers", "ReauthenticationController.cs"),
             ]);
 
         return files.Select(file => Path.GetRelativePath(root, file)).ToList();
@@ -233,6 +237,31 @@ public class PasskeyLogContentGuardTests
             && !text.Contains("rawId", StringComparison.Ordinal)
             && !text.Contains("userHandle", StringComparison.Ordinal)
             && !text.Contains("clientDataJSON", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void TheWindowsRecords_NeverPrintAProofOrTheCredential()
+    {
+        // REVIEW-FIXES 152 R6: the window's passkey command, the controller's two requests and the
+        // emailed code a proof spends print identifiers only. (The password command's own print
+        // test is in ReauthenticateCommandHandlerTests.)
+        using var credential = System.Text.Json.JsonDocument.Parse(
+            "{\"id\":\"secret-id\",\"rawId\":\"secret-raw\",\"response\":{\"userHandle\":\"secret-handle\",\"clientDataJSON\":\"secret-client\"}}");
+
+        var printed = new[]
+        {
+            new ReauthenticateWithPasskeyCommand(
+                Guid.NewGuid(), Guid.NewGuid(), "secret-idp-token", "secret-handle", false, "{\"secret\":\"response\"}", "203.0.113.7", "Agent")
+                .ToString(),
+            new Auth_API.Modules.Authentication.Controllers.ReauthenticateRequest("secret-password", "secret-email-code", "secret-second-step", true)
+                .ToString(),
+            new Auth_API.Modules.Authentication.Controllers.ReauthenticateWithPasskeyRequest(credential.RootElement).ToString(),
+            new Auth.Domain.ValueObjects.EmailedCodeSpend(Guid.NewGuid(), "secret-code-hashes").ToString(),
+        };
+
+        printed.Should().OnlyContain(text => !text.Contains("secret", StringComparison.Ordinal)
+            && !text.Contains("response", StringComparison.Ordinal)
+            && !text.Contains("rawId", StringComparison.Ordinal));
     }
 
     [Fact]

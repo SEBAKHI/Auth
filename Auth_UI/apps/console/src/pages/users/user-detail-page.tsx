@@ -648,19 +648,24 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
   )
 }
 
+type ResetProof = "proof" | "passkey-proof" | "own-factor"
+
 /**
  * Whether the signed-in administrator has an enabled second factor of their own:
- * the self-only status answers a count, or null without one. When the read
- * fails, the answer is yes — "sign in again" is still a way forward, and the next
- * refusal asks again.
+ * the self-only status answers a count, or null without one. When a read fails,
+ * the answer is yes: the "Confirm it's you" window is still a way forward, with
+ * its own way out, and the next refusal asks again.
  */
-async function hasOwnSecondFactor(): Promise<boolean> {
+async function ownProofForReset(): Promise<ResetProof> {
   try {
     const { data, error } = await api.GET("/api/v1/auth/2fa/status")
-    if (error) return true
-    return data?.recoveryCodesRemaining != null
+    if (error || data?.recoveryCodesRemaining != null) return "proof"
+    // No authenticator app: a qualifying factor is then a passkey, which only itself proves.
+    const me = await api.GET("/api/v1/Users/me")
+    if (me.error || !me.data) return "proof"
+    return me.data.qualifyingMfa === true ? "passkey-proof" : "own-factor"
   } catch {
-    return true
+    return "proof"
   }
 }
 
@@ -699,10 +704,14 @@ export function UserDetailPage() {
   // A second reset would be refused (nothing left to reset): set synchronously,
   // before the button re-renders disabled.
   const resettingTwoFactor = React.useRef(false)
-  // The reset needs the administrator's own recent two-step sign-in. "Sign in
-  // again" only helps someone who has a second factor to sign in with; one who
-  // has none is sent to set it up first — never a dialog with no way forward.
-  const [resetNeeds, setResetNeeds] = React.useState<"sign-in" | "own-factor">()
+  // The reset needs the administrator's own recent two-step proof. The "Confirm
+  // it's you" window takes it where they stand, from someone who has a second
+  // factor to prove with; one who has none is sent to set it up first — never a
+  // dialog with no way forward.
+  // It carries the account the administrator confirmed (REVIEW-FIXES 152 F24):
+  // this page stays mounted from one account to the next, and a proof given after
+  // Back resets only that account, or asks for the confirmation again.
+  const [resetNeeds, setResetNeeds] = React.useState<{ kind: ResetProof; userId: string }>()
 
   const detailQuery = useQuery({
     queryKey: ["users", userId],
@@ -741,23 +750,24 @@ export function UserDetailPage() {
   // dialog: with its sentence, or with the next step when the actor's own
   // sign-in is what is missing.
   const resetTwoFactor = useMutation({
-    mutationFn: async () => {
+    // The account the confirmation named, never whichever one the page shows now.
+    mutationFn: async (targetId: string) => {
       const { error } = await api.POST("/api/v1/Users/{id}/two-factor/reset", {
-        params: { path: { id: userId } },
+        params: { path: { id: targetId } },
       })
       if (error) throw error
     },
     onSuccess: () => toast.success(t("users.resetTwoFactorSuccess")),
-    onError: async (error) => {
+    onError: async (error, targetId) => {
       if (getErrorCodes(error).includes("Auth.ReauthenticationRequired")) {
-        setResetNeeds((await hasOwnSecondFactor()) ? "sign-in" : "own-factor")
+        setResetNeeds({ kind: await ownProofForReset(), userId: targetId })
         return
       }
       toast.error(getErrorMessage(error))
     },
-    onSettled: () => {
+    onSettled: (_data, _error, targetId) => {
       setResetTwoFactorOpen(false)
-      void queryClient.invalidateQueries({ queryKey: ["users", userId] })
+      void queryClient.invalidateQueries({ queryKey: ["users", targetId] })
     },
   })
 
@@ -775,6 +785,13 @@ export function UserDetailPage() {
   // system account, and never one holding platform permissions this
   // administrator lacks, which the server refuses after the dialog.
   const offersResetTwoFactor = canResetTwoFactor && allows("resetTwoFactor")
+  // The account the page shows now, and whether it offers the reset there. A proof
+  // hands back in the window's render that it started in, which the page may have
+  // left since (REVIEW-FIXES 152 F35): the hand-back reads these when it lands.
+  const shownRef = React.useRef({ userId, offersReset: offersResetTwoFactor })
+  React.useEffect(() => {
+    shownRef.current = { userId, offersReset: offersResetTwoFactor }
+  }, [userId, offersResetTwoFactor])
   const userActions: PageAction[] = [
     ...(canUpdate && allows("update")
       ? [
@@ -1127,7 +1144,7 @@ export function UserDetailPage() {
           onConfirm={() => {
             if (resettingTwoFactor.current) return
             resettingTwoFactor.current = true
-            resetTwoFactor.mutate(undefined, {
+            resetTwoFactor.mutate(userId, {
               onSettled: () => {
                 resettingTwoFactor.current = false
               },
@@ -1137,15 +1154,27 @@ export function UserDetailPage() {
       ) : null}
 
       <ReauthenticateDialog
-        open={resetNeeds === "sign-in"}
+        open={resetNeeds?.kind === "proof" || resetNeeds?.kind === "passkey-proof"}
+        passkey={resetNeeds?.kind === "passkey-proof"}
         onOpenChange={(open) => {
           if (!open) setResetNeeds(undefined)
         }}
         description={t("users.resetTwoFactorNeedsRecentSignIn")}
+        onProved={() => {
+          const confirmed = resetNeeds?.userId
+          setResetNeeds(undefined)
+          // The account the administrator confirmed, while the page shows it when the proof
+          // lands (F24, F35); after Back or Forward to another account, that account's own
+          // confirmation first, which names it, and only where the page offers the reset: on
+          // one's own page it would wait, unseen, for the next account opened (F35).
+          const shown = shownRef.current
+          if (confirmed === shown.userId) resetTwoFactor.mutate(confirmed)
+          else if (shown.offersReset) setResetTwoFactorOpen(true)
+        }}
       />
 
       <ConfirmDialog
-        open={resetNeeds === "own-factor"}
+        open={resetNeeds?.kind === "own-factor"}
         onOpenChange={(open) => {
           if (!open) setResetNeeds(undefined)
         }}
@@ -1174,9 +1203,9 @@ export function UserDetailPage() {
 
 /**
  * The account's second factor as an administrator reads it (S24, FA12): which one —
- * the authenticator app or the emailed code — and whether it counts for a
- * two-factor policy, which only the app does. The account flag alone answers when
- * the API does not say which (an older build).
+ * the authenticator app or the emailed code, and the passkeys (S20) — and whether
+ * it counts for a two-factor policy, which the app and a passkey do. The account
+ * flag alone answers when the API does not say which (an older build).
  */
 function twoFactorSummary(
   user: {
@@ -1184,19 +1213,28 @@ function twoFactorSummary(
     totpEnabled?: boolean | null
     emailCodeEnabled?: boolean | null
     qualifyingMfa?: boolean | null
+    passkeyCount?: number | string | null
   },
-  t: (key: string) => string
+  t: (key: string, options?: Record<string, unknown>) => string
 ): string {
   // Whether it counts is the server's answer (qualifyingMfa), never derived here.
   const standing =
     user.qualifyingMfa === true
       ? t("users.twoFactorQualifies")
       : t("users.twoFactorDoesNotQualify")
-  if (user.totpEnabled === true) {
-    return `${t("users.twoFactorAuthenticatorApp")} · ${standing}`
+  // FA12: the passkey leg, only where the account holds one; the line of an
+  // account without one reads as it always did.
+  const passkeys = toNumber(user.passkeyCount ?? 0)
+  const factor =
+    user.totpEnabled === true
+      ? t("users.twoFactorAuthenticatorApp")
+      : user.emailCodeEnabled === true
+        ? t("users.twoFactorEmailCode")
+        : null
+  if (passkeys > 0) {
+    const leg = t("users.twoFactorPasskeys", { n: passkeys })
+    return `${factor ? `${factor} · ` : ""}${leg} · ${standing}`
   }
-  if (user.emailCodeEnabled === true) {
-    return `${t("users.twoFactorEmailCode")} · ${standing}`
-  }
+  if (factor) return `${factor} · ${standing}`
   return user.twoFactorEnabled ? t("common.enabled") : t("common.disabled")
 }

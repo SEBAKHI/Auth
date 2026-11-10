@@ -94,6 +94,13 @@ type TabMessage =
   | { kind: "hello" }
   /** A context ended the session. */
   | { kind: "cleared" }
+  /**
+   * A sign-in replaced this origin's session with another account's. The token
+   * and the cookie now belong to that account, while this tab still holds the
+   * old one's user and cached rows: it reloads. Unknown to older bundles, which
+   * ignore it.
+   */
+  | { kind: "account-changed" }
 
 let channel: BroadcastChannel | null = null
 let started = false
@@ -121,6 +128,15 @@ function publish(message: TabMessage): void {
  */
 export function publishAccessToken(token: string, forced = false): void {
   publish(forced ? { kind: "access", token, forced: true } : { kind: "access", token })
+}
+
+/**
+ * Tells the other tabs of this origin that a sign-in replaced the session with
+ * another account's. Not `emitSessionExpired`: clearing would remove the session
+ * the new account has just stored, which every tab of the origin shares.
+ */
+export function publishAccountChanged(): void {
+  publish({ kind: "account-changed" })
 }
 
 function resolveAccessTokenWaiters(token: string | null): void {
@@ -279,6 +295,12 @@ function handleMessage(message: TabMessage): void {
       break
     case "cleared":
       emitSessionExpired({ broadcast: false })
+      break
+    case "account-changed":
+      // Before anything here can read or write as the new account under the old
+      // one's page: a Save could put the old name on the new account (query.ts).
+      // The reload starts this tab again with the account the session now holds.
+      window.location.reload()
       break
   }
 }

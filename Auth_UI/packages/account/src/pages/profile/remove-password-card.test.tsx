@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@authsystem/api/client", () => ({
   api: { POST: (...args: unknown[]) => mocks.post(...args) },
+  // The window refreshes this browser's token before it hands back (REVIEW-FIXES 152 F23).
+  refreshSessionNow: () => Promise.resolve(true),
 }))
 vi.mock("@authsystem/ui/branding", () => ({
   useSignInOptions: () => ({
@@ -31,9 +33,18 @@ vi.mock("@authsystem/ui/branding", () => ({
   }),
 }))
 vi.mock("@authsystem/auth/reauthenticate-dialog", () => ({
-  ReauthenticateDialog: ({ description }: { description?: string }) => (
-    <div role="dialog" aria-label="sign in again">
+  ReauthenticateDialog: ({
+    description,
+    passwordOnly,
+    onProved,
+  }: {
+    description?: string
+    passwordOnly?: boolean
+    onProved?: () => void
+  }) => (
+    <div role="dialog" aria-label="confirm it is you" data-password-only={String(passwordOnly)}>
       {description}
+      <button onClick={onProved}>proved</button>
     </div>
   ),
 }))
@@ -69,6 +80,13 @@ describe("removePasswordOffer", () => {
     // D-110-1: platform authority keeps the app as a second proof.
     ["platform authority without the app", { ...ME, permissions: ["users:read"] }, true, "blockedByPlatformAuthority"],
     ["platform authority with the app", { ...ME, permissions: ["users:read"], totpEnabled: true }, true, "offered"],
+    // S20 (Fact 19): a passkey does not lift it. The app is the proof D-110-1 keeps.
+    [
+      "a passkey-only administrator",
+      { ...ME, permissions: ["users:read"], qualifyingMfa: true, totpEnabled: false, passkeyCount: 1 },
+      true,
+      "blockedByPlatformAuthority",
+    ],
     ["no platform authority", { ...ME, permissions: [] }, true, "offered"],
   ])("%s", (_label, me, codeSignInOffered, expected) => {
     expect(removePasswordOffer(me as typeof ME, codeSignInOffered)).toBe(expected)
@@ -125,7 +143,7 @@ describe("RemovePasswordCard", () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it("asks a session too old for it to sign in again", async () => {
+  it("asks a session too old for it for the password, and removes it once that is given", async () => {
     mocks.post.mockResolvedValue({
       error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "Sign in again" },
     })
@@ -137,8 +155,13 @@ describe("RemovePasswordCard", () => {
       (await screen.findAllByRole("button", { name: "Remove password" })).at(-1)!
     )
 
-    expect(
-      await screen.findByRole("dialog", { name: "sign in again" })
-    ).toHaveTextContent(/recent sign-in with your password/)
+    const proof = await screen.findByRole("dialog", { name: "confirm it is you" })
+    expect(proof).toHaveTextContent(/confirm it's you with your password/)
+    expect(proof).toHaveAttribute("data-password-only", "true")
+
+    await user.click(screen.getByRole("button", { name: "proved" }))
+    await waitFor(() =>
+      expect(mocks.post.mock.calls.filter(([path]) => path === "/api/v1/Auth/remove-password")).toHaveLength(2)
+    )
   })
 })

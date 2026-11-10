@@ -76,7 +76,9 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
   const [code, setCode] = React.useState("")
   const [useRecoveryCode, setUseRecoveryCode] = React.useState(false)
   const [recoveryCodes, setRecoveryCodes] = React.useState<string>()
-  const [reauthenticateOpen, setReauthenticateOpen] = React.useState(false)
+  // The request a stale sign-in refused, sent again once the person proved themself: set
+  // while the "Confirm it's you" window is open.
+  const [resume, setResume] = React.useState<(() => Promise<unknown>) | null>(null)
   // A send replaces the code before it, and a confirm spends it: a second click
   // landing before the buttons re-render disabled is kept out synchronously.
   const busy = React.useRef(false)
@@ -92,13 +94,15 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
 
   /*
    * One answer to a failure, keyed by the published code — never by the status:
-   * only a stale sign-in is fixed by signing in again.
+   * only a stale sign-in is fixed by a proof of the person. That proof goes on
+   * by itself (D-152-5, REVIEW-FIXES 152 F26): the step and what was typed stay
+   * under the window, and the proof sends the refused request again with it,
+   * once — never another send of a code, which would count against the sends.
    */
-  const onError = (error: unknown) => {
+  const onError = (error: unknown, again: () => Promise<unknown>) => {
     const codes = getErrorCodes(error)
     if (codes.includes("Auth.ReauthenticationRequired")) {
-      close()
-      setReauthenticateOpen(true)
+      setResume(() => again)
       return
     }
     toast.error(getErrorMessage(error))
@@ -133,15 +137,16 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
       setStep("confirm")
       onSent(data)
     },
-    onError,
+    onError: (error): void => onError(error, (): Promise<unknown> => enableMutation.mutateAsync()),
   })
 
   const confirmMutation = useMutation({
     // The answer may hold recovery codes: never kept in the mutation cache.
     gcTime: 0,
-    mutationFn: async () => {
+    // The code as the person typed it: what a proof sends again.
+    mutationFn: async (typed: string) => {
       const { data, error } = await api.POST("/api/v1/auth/2fa/email/confirm", {
-        body: { code },
+        body: { code: typed },
       })
       if (error) throw error
       return data
@@ -153,13 +158,14 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
       const codes = data?.recoveryCodes ?? []
       if (codes.length) setRecoveryCodes(codes.join("\n"))
     },
-    onError,
+    onError: (error, typed): void => onError(error, (): Promise<unknown> => confirmMutation.mutateAsync(typed)),
   })
 
   const disableMutation = useMutation({
-    mutationFn: async (withCode: boolean) => {
+    // With the code as typed, or null to have one emailed.
+    mutationFn: async (typed: { code: string; useRecoveryCode: boolean } | null) => {
       const { data, error } = await api.POST("/api/v1/auth/2fa/email/disable", {
-        body: withCode ? { code, useRecoveryCode } : {},
+        body: typed ?? {},
       })
       if (error) throw error
       // 202 with where the code went when asked without a code; 204 when switched off.
@@ -167,8 +173,8 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
         | { maskedEmail?: string | null; sendsRemaining?: number | string | null }
         | undefined
     },
-    onSuccess: (data, withCode) => {
-      if (!withCode) {
+    onSuccess: (data, typed) => {
+      if (!typed) {
         onSent(data)
         return
       }
@@ -176,7 +182,7 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
       toast.success(t("profile.emailCodeDisabledToast"))
       void invalidateMe()
     },
-    onError,
+    onError: (error, typed): void => onError(error, (): Promise<unknown> => disableMutation.mutateAsync(typed)),
   })
 
   const run = (action: () => Promise<unknown>) => {
@@ -275,7 +281,7 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
         confirmLabel={t("auth.verify")}
         loading={confirmMutation.isPending}
         confirmDisabled={code.length !== 6}
-        onConfirm={() => run(() => confirmMutation.mutateAsync().catch(() => undefined))}
+        onConfirm={() => run(() => confirmMutation.mutateAsync(code).catch(() => undefined))}
       >
         <FieldGroup>
           <OneTimeCodeField
@@ -307,7 +313,7 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
         destructive
         loading={disableMutation.isPending && code.length > 0}
         confirmDisabled={!code}
-        onConfirm={() => run(() => disableMutation.mutateAsync(true).catch(() => undefined))}
+        onConfirm={() => run(() => disableMutation.mutateAsync({ code, useRecoveryCode }).catch(() => undefined))}
       >
         <FieldGroup>
           <OneTimeCodeField
@@ -332,14 +338,14 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
                   <ResendCodeButton
                     availableAt={sent.resendAt}
                     pending={disableMutation.isPending && code.length === 0}
-                    onResend={() => run(() => disableMutation.mutateAsync(false).catch(() => undefined))}
+                    onResend={() => run(() => disableMutation.mutateAsync(null).catch(() => undefined))}
                   />
                 ) : null
               ) : (
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => run(() => disableMutation.mutateAsync(false).catch(() => undefined))}
+                  onClick={() => run(() => disableMutation.mutateAsync(null).catch(() => undefined))}
                   disabled={pending || !available}
                 >
                   {t("auth.emailMeACode")}
@@ -372,10 +378,15 @@ export function EmailCodeCard({ me }: { me: Schemas["UserDto"] }) {
         multiline
       />
 
-      {reauthenticateOpen ? (
+      {resume ? (
         // The general sentence: switching the emailed code on or off needs a recent
-        // sign-in, not one with the app (review of #108, F7).
-        <ReauthenticateDialog open onOpenChange={setReauthenticateOpen} />
+        // sign-in, not one with the app (review of #108, F7). Over the step, which
+        // stays as it was; the proof sends the refused request again, once.
+        <ReauthenticateDialog
+          open
+          onOpenChange={(open) => !open && setResume(null)}
+          onProved={() => run(() => resume().catch(() => undefined))}
+        />
       ) : null}
     </Card>
   )

@@ -19,6 +19,8 @@ public class SystemSettingsDefaultParityTests
         ["Password"] = new PasswordSettings(),
         ["Session"] = new SessionSettings(),
         ["TwoFactor"] = new TwoFactorSettings(),
+        // S20 PR C: in the console from this change on, off and without an RP ID.
+        ["Passkeys"] = new PasskeySettings(),
         // Array properties deliberately start empty (a non-empty initializer is an
         // unremovable prefix once the configuration binder appends to it), so the
         // EFFECTIVE default is what the production PostConfigure produces. Applying
@@ -118,6 +120,11 @@ public class SystemSettingsDefaultParityTests
     // S23: an application's two-step requirement ships in Monitor: it logs and refuses
     // nothing until an operator sets Enforce, which needs the sign-in journey of PR B.
     [InlineData("IdentityProvider", "ApplicationMfaEnforcement", "Monitor")]
+    // S20 (PK19, PK2, N6): passkeys ship off and with no RP ID; a deployment turns them
+    // on only once the RP ID is set, after the owner's steps. True here, or an RP ID, is
+    // a passkey feature switched on for every new database.
+    [InlineData("Passkeys", "Enabled", "False")]
+    [InlineData("Passkeys", "RpId", "")]
     public void ProductionDefaults_AgreeInFileClassAndRegistry(
         string configRoot, string fieldPath, string expected)
     {

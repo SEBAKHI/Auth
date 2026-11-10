@@ -928,6 +928,14 @@ public static class TestHelpers
         => Mock.Of<Auth.Application.Interfaces.IBrowserSignInContext>(context => context.IsBrowserSignIn == fromBrowser);
 
     /// <summary>
+    /// The request's access token, issued at <paramref name="issuedAtUtc"/> (its <c>iat</c>), or
+    /// one naming no time when null. For a guard whose test takes no proof inside the session, the
+    /// value does not matter (REVIEW-FIXES 152 F23).
+    /// </summary>
+    public static Auth.Application.Interfaces.ICurrentAccessToken AccessToken(DateTime? issuedAtUtc)
+        => Mock.Of<Auth.Application.Interfaces.ICurrentAccessToken>(token => token.IssuedAtUtc == issuedAtUtc);
+
+    /// <summary>
     /// Creates an options wrapper satisfying IOptions, IOptionsSnapshot and
     /// IOptionsMonitor at once, so tests keep working as production
     /// consumers migrate between the three.
@@ -956,6 +964,30 @@ public static class TestHelpers
             TimeProvider.System,
             CreateOptions(settings),
             logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Features.Authentication.Common.AccountLockout>.Instance);
+    }
+
+    /// <summary>
+    /// The real <see cref="Auth.Application.Features.Authentication.Common.PasswordDoor"/> over
+    /// the given mocks and the real lockout, so a test of a door that takes a password runs the
+    /// lock rules themselves.
+    /// </summary>
+    public static Auth.Application.Features.Authentication.Common.PasswordDoor CreatePasswordDoor(
+        Auth.Domain.Interfaces.Repositories.IUserRepository userRepository,
+        Auth.Domain.Interfaces.Repositories.ILoginAttemptRepository loginAttempts,
+        IPasswordHasher passwordHasher,
+        PasswordSettings? passwordSettings = null,
+        Microsoft.Extensions.Logging.ILogger<Auth.Application.Features.Authentication.Common.AccountLockout>? lockoutLogger = null,
+        Microsoft.Extensions.Logging.ILogger<Auth.Application.Features.Authentication.Common.PasswordDoor>? logger = null)
+    {
+        var settings = passwordSettings ?? CreatePasswordSettings();
+
+        return new Auth.Application.Features.Authentication.Common.PasswordDoor(
+            userRepository,
+            loginAttempts,
+            passwordHasher,
+            CreateAccountLockout(userRepository, settings, logger: lockoutLogger),
+            CreateOptions(settings),
+            logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<Auth.Application.Features.Authentication.Common.PasswordDoor>.Instance);
     }
 
     /// <summary>

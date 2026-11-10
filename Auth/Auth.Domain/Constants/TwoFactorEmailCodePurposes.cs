@@ -23,6 +23,9 @@ public static class TwoFactorEmailCodePurposes
     /// <summary>The recovery of an account waiting for deletion.</summary>
     public const string DeletionRecovery = "deletion-recovery";
 
+    /// <summary>A signed-in person proving themself again, with no new sign-in.</summary>
+    public const string Reauthentication = "reauthentication";
+
     private static readonly FrozenDictionary<TwoFactorChallengePurpose, string> ByChallengePurpose =
         new Dictionary<TwoFactorChallengePurpose, string>
         {
@@ -30,10 +33,11 @@ public static class TwoFactorEmailCodePurposes
             [TwoFactorChallengePurpose.EmailEnrollment] = Enrollment,
             [TwoFactorChallengePurpose.EmailDisable] = SwitchOff,
             [TwoFactorChallengePurpose.DeletionRecovery] = DeletionRecovery,
+            [TwoFactorChallengePurpose.Reauthentication] = Reauthentication,
         }.ToFrozenDictionary();
 
     /// <summary>Every value, in the order the templates word them.</summary>
-    public static IReadOnlyList<string> All { get; } = [SignIn, Enrollment, SwitchOff, DeletionRecovery];
+    public static IReadOnlyList<string> All { get; } = [SignIn, Enrollment, SwitchOff, DeletionRecovery, Reauthentication];
 
     /// <summary>The value for a challenge's purpose.</summary>
     /// <exception cref="ArgumentOutOfRangeException">A purpose with no emailed code.</exception>
