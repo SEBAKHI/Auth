@@ -77,6 +77,10 @@ const ACCOUNT_BAR_PATH = "/api/v1/Auth/account-bar"
 const PASSKEY_ASSERTION_OPTIONS_PATH = "/api/v1/auth/passkeys/assertion/options"
 const PASSKEY_ASSERTION_VERIFY_PATH = "/api/v1/auth/passkeys/assertion/verify"
 const PASSKEY_ASSERTION_RECOVER_PATH = "/api/v1/auth/passkeys/assertion/recover"
+// The sign-in page's question after the address (OI-280): does it have a passkey here?
+// Asked by someone who has no session yet, and anonymous on the server: a bearer would
+// only spend a refresh, and its 401, were there one, says nothing about this tab's token.
+const PASSKEY_LOOKUP_PATH = "/api/v1/auth/passkeys/lookup"
 
 export { SESSION_EXPIRED_EVENT } from "@authsystem/api/tab-sync"
 
@@ -581,6 +585,7 @@ const ANONYMOUS_PATHS = new Set(
     PASSKEY_ASSERTION_OPTIONS_PATH,
     PASSKEY_ASSERTION_VERIFY_PATH,
     PASSKEY_ASSERTION_RECOVER_PATH,
+    PASSKEY_LOOKUP_PATH,
   ].map((path) => path.toLowerCase())
 )
 

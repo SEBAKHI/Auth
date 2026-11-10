@@ -687,6 +687,14 @@ proof window's way out, "sign in again". Nothing about the address — whether i
 authority — changes the page, the answer, its timing class or the number of messages: the start sends one
 message to every address, and only its kind differs (a sign-in code, the registration code, or a notice), seen
 only by the mailbox's holder. After the code matched, the server names the next step.
+**One exception, while passkeys run** (OI-280, D-S20-10): after the address and **Continue** (**Continue with email** in code mode), the page asks
+whether the address holds a live passkey here (`POST auth/passkeys/lookup`). A holder gets the passkey screen,
+and the code goes out only when chosen from **Try another way**; every other address — unknown, without a
+passkey, or one the question could not answer in time — goes on to the next step as before, said nothing. The
+price the owner accepted: anyone can learn whether an address holds a passkey here, at that question's own
+limit per client address (20 a minute), and a penetration test that follows OWASP will report it. An address
+without a passkey reads exactly as an unknown one, so nothing more is learnt. While passkeys are off, the
+sentence above holds whole.
 
 **Both starts classify the same way.** The registration's own start (`registration/start`, kept for API
 clients) sends the sign-in code to an address that has an account, as the sign-in page's start does; its

@@ -201,6 +201,21 @@ test("the passkey helper is never downloaded while passkeys do not run", async (
 
 test("the passkey helper arrives as its own chunk, only after the options answered", async ({ page }) => {
   await answerPasskeyOptions(page, 200)
+  // OI-280: the deployment says passkeys may run, and this address has one, so
+  // the page leads to the passkey screen, whose button the helper serves.
+  await page.route(
+    (url) => url.pathname.toLowerCase() === "/api/v1/platform/branding",
+    (route) =>
+      fulfillJson(route, {
+        platformName: "AuthSystem",
+        staySignedInOffered: true,
+        passkeySignInOffered: true,
+      })
+  )
+  await page.route(
+    (url) => url.pathname.toLowerCase() === "/api/v1/auth/passkeys/lookup",
+    (route) => fulfillJson(route, { passkey: true })
+  )
   const scripts = collectScripts(page)
   let optionsAnsweredAt = Number.POSITIVE_INFINITY
   const order: Array<{ url: string; at: number }> = []
@@ -211,6 +226,13 @@ test("the passkey helper arrives as its own chunk, only after the options answer
   })
 
   await page.goto("/login")
+  // No passkey button for every visitor (D-S20-11): the address, then the passkey screen.
+  await expect(
+    page.getByRole("button", { name: "Continue", exact: true })
+  ).toBeVisible()
+  await expect(page.getByRole("button", { name: /passkey/i })).toHaveCount(0)
+  await page.getByLabel("Email").fill("ada@example.test")
+  await page.getByRole("button", { name: "Continue", exact: true }).click()
   await expect(page.getByRole("button", { name: /passkey/i })).toBeEnabled()
 
   const fetched = await scripts()

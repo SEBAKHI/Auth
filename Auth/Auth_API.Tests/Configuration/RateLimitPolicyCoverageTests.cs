@@ -71,6 +71,9 @@ public class RateLimitPolicyCoverageTests
         { "Authentication/Controllers/PasskeysController.cs", "BeginAssertion" },
         { "Authentication/Controllers/PasskeysController.cs", "VerifyAssertion" },
         { "Authentication/Controllers/PasskeysController.cs", "RecoverWithAssertion" },
+        // OI-280: anonymous, and every call reads the accounts by an address anyone may type; its
+        // own budget is what bounds how fast a stranger learns who holds a passkey (D-S20-10).
+        { "Authentication/Controllers/PasskeysController.cs", "LookUp" },
     };
 
     [Theory]
@@ -124,8 +127,6 @@ public class RateLimitPolicyCoverageTests
     {
         var root = SolutionDirectory();
         var program = File.ReadAllText(Path.Combine(root, "Auth_API", "Program.cs"));
-        var registry = File.ReadAllText(Path.Combine(
-            root, "Auth.Application", "SystemSettings", "SystemSettingsRegistry.cs"));
 
         // Every limit read from configuration must also be a field the console can
         // edit. A limit that exists only in appsettings is invisible to the person
@@ -137,8 +138,15 @@ public class RateLimitPolicyCoverageTests
 
         keys.Should().NotBeEmpty("the policies read their limits from configuration");
 
+        // In THIS process's section. OI-280: the check once searched the whole registry
+        // file for the name, and the gateway's section carries fields of the same names
+        // (Token, Register, RegistrationFollowup, PasskeyLookup), so a row removed from
+        // RateLimiting while its twin stayed in GatewayRateLimiting passed unseen.
+        var section = SystemSettingsRegistry.TryGet("RateLimiting");
+        section.Should().NotBeNull();
+
         var missing = keys
-            .Where(field => !registry.Contains($"\"{field}\"", StringComparison.Ordinal))
+            .Where(field => SystemSettingsRegistry.TryGetField(section!, field) is null)
             .ToList();
 
         missing.Should().BeEmpty("SystemSettingsRegistry must expose every RateLimiting field as an editable setting");

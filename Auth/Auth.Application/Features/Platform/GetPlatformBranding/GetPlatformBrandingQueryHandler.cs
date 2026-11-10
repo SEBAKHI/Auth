@@ -24,6 +24,8 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
     private readonly IdentityProviderSettings _idpSettings;
     private readonly RegistrationSettings _registrationSettings;
     private readonly EmailSettings _emailSettings;
+    private readonly PasskeySettings _passkeySettings;
+    private readonly PasskeyRpIdAtStartup _passkeyRpId;
     private readonly EffectiveLoginDesign _loginDesign;
 
     public GetPlatformBrandingQueryHandler(
@@ -32,6 +34,8 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
         IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         IOptionsSnapshot<RegistrationSettings> registrationSettings,
         IOptionsSnapshot<EmailSettings> emailSettings,
+        IOptionsSnapshot<PasskeySettings> passkeySettings,
+        PasskeyRpIdAtStartup passkeyRpId,
         EffectiveLoginDesign loginDesign)
     {
         _loginDesign = loginDesign;
@@ -40,6 +44,8 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
         _idpSettings = idpSettings.Value;
         _registrationSettings = registrationSettings.Value;
         _emailSettings = emailSettings.Value;
+        _passkeySettings = passkeySettings.Value;
+        _passkeyRpId = passkeyRpId;
     }
 
     public async Task<ErrorOr<PlatformBrandingDto>> Handle(GetPlatformBrandingQuery request, CancellationToken cancellationToken)
@@ -64,6 +70,9 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
             HiddenLanguages = settings.HiddenLanguages.Codes,
             StaySignedInOffered = _idpSettings.StaySignedInOffered,
             CodeSignInOffered = _emailSettings.Enabled,
+            // OI-280 (D6): the switch, and the RP ID the process runs with (a new one waits for a
+            // restart). Read per request, from settings only: no database read for a hint.
+            PasskeySignInOffered = _passkeySettings.Enabled && _passkeyRpId.IsSet,
             PrimaryMethod = signUp.PasswordRequired ? SignInMethods.Password : SignInMethods.Code,
             SelfRegistrationOpen = _registrationSettings.AllowSelfRegistration,
             PasswordAtSignUp = signUp.PasswordRequired,

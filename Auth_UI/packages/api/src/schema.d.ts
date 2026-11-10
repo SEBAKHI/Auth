@@ -11770,6 +11770,83 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/auth/passkeys/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PasskeyLookupRequest"];
+                    "text/json": components["schemas"]["PasskeyLookupRequest"];
+                    "application/*+json": components["schemas"]["PasskeyLookupRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PasskeyLookupResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/passkeys/assertion/options": {
         parameters: {
             query?: never;
@@ -19910,6 +19987,10 @@ export interface components {
             appReadPermitLimit: number | string;
             /** Format: int32 */
             appReadWindowSeconds: number | string;
+            /** Format: int32 */
+            passkeyLookupPermitLimit: number | string;
+            /** Format: int32 */
+            passkeyLookupWindowSeconds: number | string;
         };
         GatewayRuntimeSettingsResponse: {
             /** Format: int32 */
@@ -20919,6 +21000,12 @@ export interface components {
             userHandle: null | string;
             passkeys: components["schemas"]["PasskeyDto"][];
         };
+        PasskeyLookupRequest: {
+            email: null | string;
+        };
+        PasskeyLookupResponse: {
+            passkey: boolean;
+        };
         PasskeyRecoveryRequest: {
             credential: components["schemas"]["JsonElement"];
             deviceId: null | string;
@@ -20995,6 +21082,7 @@ export interface components {
             hiddenLanguages?: string[];
             staySignedInOffered?: boolean;
             codeSignInOffered?: boolean;
+            passkeySignInOffered?: boolean;
             primaryMethod?: string;
             selfRegistrationOpen?: boolean;
             passwordAtSignUp?: boolean;

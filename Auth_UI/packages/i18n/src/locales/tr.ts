@@ -409,6 +409,11 @@ export const tr: TranslationResources = {
       removedPasskeyWayOut: "Bu geçiş anahtarını hesabınızdan kaldırdıysanız, onu bu cihazda kayıtlı geçiş anahtarlarından da silin, ardından başka bir yolla oturum açın.",
       deviceRefused: "Bu cihaz veya tarayıcı burada geçiş anahtarı kullanamadı. Yeniden deneyin veya başka bir yolla oturum açın.",
       lostIt: "Geçiş anahtarımı kaybettim",
+      screenTitle: "Geçiş anahtarınızı kullanın",
+      screenSubtitle:
+        "Cihazınız, parmak iziniz, yüzünüz, ekran kilidiniz veya güvenlik anahtarınızla siz olduğunuzu doğrulamanızı isteyecek.",
+      tryAnotherWay: "Başka bir yol deneyin",
+      otherWaysHeading: "Oturum açmanın diğer yolları",
     },
     continueWithApple: "Apple ile devam et",
     privacyPolicy: "Gizlilik politikası",
@@ -640,6 +645,7 @@ export const tr: TranslationResources = {
     accountCreated: "Hesabınız hazır.",
     signInOrCreateTitle: "Oturum açın veya hesap oluşturun",
     continueWithEmail: "E-postayla devam et",
+    continue: "Devam",
     signInWithPasswordInstead: "Bunun yerine parolayla oturum açın",
     signInWithEmailCode: "E-postanıza gönderilen bir kodla oturum açın",
     invalidCredentialsOrCode:
@@ -2748,6 +2754,13 @@ export const tr: TranslationResources = {
         "Geçerli belirteci olmayan uygulama dizini penceresi (saniye)",
       appReadAddressWindowSecondsHint:
         "Yukarıdaki adres başına sayımın ölçüldüğü süre; diğerleriyle aynı sabit pencere mekanizması.",
+      passkeyLookupPermitLimit:
+        "Pencere başına adres sonrası geçiş anahtarı denetimleri",
+      passkeyLookupPermitLimitHint:
+        "Bir istemci IP'sinin, oturum açma sayfasında bir adres yazdıktan sonra o adresin geçiş anahtarı olup olmadığını 429 ile reddedilmeden önce kaç kez sorabileceği. Yukarıdaki kimlik doğrulama sınırından ayrı sayılır, böylece bir adresi denetlemek hiçbir oturum açma denemesini harcamaz; oturum açma sayfası sınırından da ayrı sayılır, çünkü bu bir hesap hakkında yanıt verir: herkes sorabilir ve bu sayı, hangi adreslerin geçiş anahtarı olduğunu ne kadar hızlı öğrenebileceklerini sınırlar. Dakikada yirmi, kimlik doğrulama varsayılanına eşittir. Ağ geçidinin geçiş anahtarı denetimi sınırıyla birlikte değiştirin: ikisinden düşük olanı istemcinin karşılaştığıdır.",
+      passkeyLookupWindowSeconds: "Geçiş anahtarı denetimi penceresi (saniye)",
+      passkeyLookupWindowSecondsHint:
+        "Yukarıdaki geçiş anahtarı denetimi sayısının ölçüldüğü süre; diğerleriyle aynı sabit pencere mekaniğiyle: pencere bitince sayaç sıfıra döner. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
     },
     gatewayRateLimiting: {
       title: "İstek hızı sınırlama (Ağ geçidi)",
@@ -2816,6 +2829,13 @@ export const tr: TranslationResources = {
       appReadWindowSeconds: "Uygulama dizini penceresi (saniye)",
       appReadWindowSecondsHint:
         "Uygulama dizini isteklerinin ağ geçidinde sayıldığı süre; aynı sabit pencere mekanizması. Ağ geçidi ayarlarını kendisi çektiği için bir değişiklik ona anında değil, yaklaşık 30 saniye içinde ulaşır.",
+      passkeyLookupPermitLimit:
+        "Pencere başına adres sonrası geçiş anahtarı denetimleri",
+      passkeyLookupPermitLimitHint:
+        "Oturum açma sayfasının geçiş anahtarı denetimini uçta, kendi rotasında kapsar: bir ziyaretçi adres yazdıktan sonra o adresin geçiş anahtarı olup olmadığı. API bölümündeki geçiş anahtarı denetimi sınırının dış ikizi ve istemcinin ilk karşılaştığı: içtekinin altına düşürmeyin ve ikisini birlikte değiştirin.",
+      passkeyLookupWindowSeconds: "Geçiş anahtarı denetimi penceresi (saniye)",
+      passkeyLookupWindowSecondsHint:
+        "Geçiş anahtarı denetimlerinin uçta sayıldığı süre, aynı sabit pencere mekaniğiyle. Değişiklik ağ geçidine anında değil yaklaşık 30 saniye içinde ulaşır, çünkü ayarlarını kendisi çeker.",
     },
     externalAuth: {
       requireNonce: "Sunucunun verdiği nonce zorunlu olsun",

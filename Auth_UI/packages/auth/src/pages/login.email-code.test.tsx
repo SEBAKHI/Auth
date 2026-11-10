@@ -99,6 +99,8 @@ const { LoginPage } = await import("./login")
 
 const CODE_FIRST: SignInOptions = {
   codeSignInOffered: true,
+  // Passkeys off (OI-280): the page as before them.
+  passkeySignInOffered: false,
   primaryMethod: "code",
   selfRegistrationOpen: true,
   passwordAtSignUp: false,

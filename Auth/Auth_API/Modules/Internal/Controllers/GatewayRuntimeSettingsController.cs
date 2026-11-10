@@ -109,7 +109,9 @@ public sealed class GatewayRuntimeSettingsController : ControllerBase
         TokenAssertionPermitLimit: _configuration.GetValue("GatewayRateLimiting:TokenAssertionPermitLimit", 6000),
         TokenAssertionWindowSeconds: _configuration.GetValue("GatewayRateLimiting:TokenAssertionWindowSeconds", 60),
         AppReadPermitLimit: _configuration.GetValue("GatewayRateLimiting:AppReadPermitLimit", 600),
-        AppReadWindowSeconds: _configuration.GetValue("GatewayRateLimiting:AppReadWindowSeconds", 60));
+        AppReadWindowSeconds: _configuration.GetValue("GatewayRateLimiting:AppReadWindowSeconds", 60),
+        PasskeyLookupPermitLimit: _configuration.GetValue("GatewayRateLimiting:PasskeyLookupPermitLimit", 20),
+        PasskeyLookupWindowSeconds: _configuration.GetValue("GatewayRateLimiting:PasskeyLookupWindowSeconds", 60));
 
     private bool HasValidGatewayToken()
     {
@@ -182,4 +184,7 @@ public sealed record GatewayRateLimitsResponse(
     int TokenAssertionWindowSeconds,
     // The application directory's route (OI-194), appended for the same reason.
     int AppReadPermitLimit,
-    int AppReadWindowSeconds);
+    int AppReadWindowSeconds,
+    // The passkey lookup's route (OI-280), appended for the same reason.
+    int PasskeyLookupPermitLimit,
+    int PasskeyLookupWindowSeconds);

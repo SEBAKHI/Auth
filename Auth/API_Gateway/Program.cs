@@ -395,6 +395,27 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 
+    // POST /auth/passkeys/lookup only, via passkey-lookup-route (OI-280): the sign-in
+    // page's question after the address, whether it has a live passkey here. The outer
+    // half; the Auth API holds the inner half under the same name. Not the auth policy,
+    // where every check would spend one of the twenty sign-in attempts, and not api,
+    // where an answer about an account would be priced as page rendering: this number
+    // bounds how fast anyone can learn whether an address holds a passkey. Whichever of
+    // the two limits is lower is the one a client meets, so they move together.
+    options.AddPolicy("passkey-lookup", context =>
+    {
+        var limits = Limits(context);
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"v{SettingsVersion(context)}:{ClientId(context)}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = limits.PasskeyLookupPermitLimit,
+                Window = TimeSpan.FromSeconds(limits.PasskeyLookupWindowSeconds),
+                QueueLimit = 0
+            });
+    });
+
     options.AddPolicy("admin", context =>
     {
         var limits = Limits(context);

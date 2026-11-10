@@ -1301,6 +1301,27 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
+    // The sign-in page's question after the address (OI-280, D-S20-10): does this
+    // address have a live passkey here? Its own bucket, for two reasons. On the
+    // login policy every check would spend one of the twenty sign-in attempts per
+    // address - the mistake the sign-in-page split above corrected. And on the
+    // sign-in-page policy it would be priced as page rendering, while it answers
+    // about an account: the owner accepted that a stranger can ask, at this rate
+    // (D-S20-10), and this number is what bounds it. Twenty a minute equals the
+    // login budget, so it never limits a sign-in more than the password door does.
+    //
+    // The gateway has a matching "passkey-lookup" policy in front of this one, on
+    // its own route. Both must move together: the lower one is what a client meets.
+    options.AddPolicy("passkey-lookup", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"v{settingsVersion()}:{ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:PasskeyLookupPermitLimit", 20),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:PasskeyLookupWindowSeconds", 60)),
+                QueueLimit = 0
+            }));
+
     // Redeeming a reset token cannot be brute forced (the token carries 256 bits
     // of entropy), so this is hygiene for an anonymous endpoint rather than a
     // guessing defence — a stricter per-client bucket than the login policy.

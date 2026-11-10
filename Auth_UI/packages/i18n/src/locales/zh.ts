@@ -406,6 +406,11 @@ export const zh: TranslationResources = {
       removedPasskeyWayOut: "如果您已从账户中删除此通行密钥，也请将其从此设备保存的通行密钥中删除，然后用其他方式登录。",
       deviceRefused: "此设备或浏览器无法在此使用通行密钥。请重试，或用其他方式登录。",
       lostIt: "我丢失了通行密钥",
+      screenTitle: "使用您的通行密钥",
+      screenSubtitle:
+        "您的设备会请您用指纹、面容、屏幕锁或安全密钥确认是您本人。",
+      tryAnotherWay: "尝试其他方式",
+      otherWaysHeading: "其他登录方式",
     },
     continueWithApple: "通过 Apple 继续",
     privacyPolicy: "隐私政策",
@@ -624,6 +629,7 @@ export const zh: TranslationResources = {
     accountCreated: "您的账户已准备就绪。",
     signInOrCreateTitle: "登录或创建账户",
     continueWithEmail: "通过电子邮件继续",
+    continue: "继续",
     signInWithPasswordInstead: "改用密码登录",
     signInWithEmailCode: "使用发送到您邮箱的验证码登录",
     invalidCredentialsOrCode:
@@ -2604,6 +2610,12 @@ export const zh: TranslationResources = {
       appReadAddressWindowSeconds: "无有效令牌的应用目录窗口（秒）",
       appReadAddressWindowSecondsHint:
         "上述按地址计数所依据的时长，与其他限制相同的固定窗口机制。",
+      passkeyLookupPermitLimit: "每窗口输入地址后的通行密钥检查次数",
+      passkeyLookupPermitLimitHint:
+        "一个客户端 IP 在登录页输入地址后，可以询问该地址是否有通行密钥多少次，超过即返回 429。与上面的身份验证上限分开计数，因此检查地址不会消耗登录尝试次数；也与登录页上限分开计数，因为它回答的是关于账户的问题：任何人都能询问，这个数字限制了他们获知哪些地址拥有通行密钥的速度。每分钟二十次等于身份验证的默认值。请与网关的通行密钥检查上限一起调整：两者中较低的一个才是客户端实际遇到的。",
+      passkeyLookupWindowSeconds: "通行密钥检查窗口（秒）",
+      passkeyLookupWindowSecondsHint:
+        "上面通行密钥检查计数的统计时长，与其他项相同的固定窗口机制：窗口结束时计数器归零。保存后立即对新的客户端窗口生效。",
     },
     gatewayRateLimiting: {
       title: "请求速率限制（网关）",
@@ -2672,6 +2684,12 @@ export const zh: TranslationResources = {
       appReadWindowSeconds: "应用目录窗口（秒）",
       appReadWindowSecondsHint:
         "在网关处统计应用目录请求的时长，使用相同的固定窗口机制。由于网关自行拉取设置，修改大约在 30 秒内而非立即生效。",
+      passkeyLookupPermitLimit: "每窗口输入地址后的通行密钥检查次数",
+      passkeyLookupPermitLimitHint:
+        "在边缘以独立路由覆盖登录页的通行密钥检查：访问者输入地址后，该地址是否有通行密钥。它是 API 部分通行密钥检查上限的外层孪生项，也是客户端最先遇到的：请保持不低于内层值，并同时调整两者。",
+      passkeyLookupWindowSeconds: "通行密钥检查窗口（秒）",
+      passkeyLookupWindowSecondsHint:
+        "边缘统计通行密钥检查的时长，采用相同的固定窗口机制。更改在约 30 秒内到达网关而非即时生效，因为网关自行拉取设置。",
     },
     externalAuth: {
       requireNonce: "要求由服务器签发的一次性随机值",

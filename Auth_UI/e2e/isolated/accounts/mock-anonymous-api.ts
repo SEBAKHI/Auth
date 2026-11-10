@@ -60,7 +60,11 @@ export function isPageLoadProbe(method: string, path: string, body: unknown): bo
 export async function installAnonymousApi(
   page: Page,
   handle: (route: Route, url: URL, body: unknown) => Promise<boolean>,
-  options?: { seen?: SeenRequest[] }
+  options?: {
+    seen?: SeenRequest[]
+    /** Merged into what /platform/branding answers (OI-280: `passkeySignInOffered`). */
+    branding?: Record<string, unknown>
+  }
 ) {
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request()
@@ -72,7 +76,7 @@ export async function installAnonymousApi(
       options?.seen?.push({ method: request.method(), path, body })
     }
 
-    if (await answerAnonymousDefaults(route, path)) return
+    if (await answerAnonymousDefaults(route, path, options?.branding)) return
     if (await handle(route, url, body)) return
 
     await fulfillJson(route, { title: "Unexpected isolated API request" }, 404)

@@ -88,6 +88,14 @@ export type SignInMethod = "password" | "code"
 export interface SignInOptions {
   /** Whether the page offers a code sent by email (email sending is on). */
   codeSignInOffered: boolean
+  /**
+   * Whether passkeys may run on the sign-in page (OI-280): switched on, with an
+   * RP ID. The page then asks, after the address, whether it has a passkey, and
+   * shapes its first screen by this at first paint. A hint: the passkey routes'
+   * 404 stays the authority. Absent (an older API, or a copy cached before the
+   * field) reads false, the page every visitor saw before.
+   */
+  passkeySignInOffered: boolean
   /** The method the page puts first; the other stays a visible link. */
   primaryMethod: SignInMethod
   /** Whether a visitor may create an account. */
@@ -101,6 +109,7 @@ export interface SignInOptions {
 /** What the page offers when the payload says nothing of the code sign-in. */
 const PASSWORD_ONLY: SignInOptions = {
   codeSignInOffered: false,
+  passkeySignInOffered: false,
   primaryMethod: "password",
   selfRegistrationOpen: true,
   passwordAtSignUp: true,
@@ -109,15 +118,21 @@ const PASSWORD_ONLY: SignInOptions = {
 
 export function toSignInOptions(payload: {
   codeSignInOffered?: boolean
+  passkeySignInOffered?: boolean
   primaryMethod?: string
   selfRegistrationOpen?: boolean
   passwordAtSignUp?: boolean
   nameAtSignUp?: boolean
 }): SignInOptions {
-  if (payload.codeSignInOffered === undefined) return PASSWORD_ONLY
+  // Read on its own: a payload that offers passkeys may predate nothing else.
+  const passkeySignInOffered = payload.passkeySignInOffered === true
+  if (payload.codeSignInOffered === undefined) {
+    return { ...PASSWORD_ONLY, passkeySignInOffered }
+  }
   const codeSignInOffered = payload.codeSignInOffered === true
   return {
     codeSignInOffered,
+    passkeySignInOffered,
     // Never the code first where no code can be sent.
     primaryMethod:
       codeSignInOffered && payload.primaryMethod === "code" ? "code" : "password",

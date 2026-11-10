@@ -310,6 +310,8 @@ public class HiddenLanguagesTests
                     TestHelpers.CreateOptions(new IdentityProviderSettings()),
                     TestHelpers.CreateOptions(new RegistrationSettings()),
                     TestHelpers.CreateOptions(new EmailSettings()),
+                    TestHelpers.CreateOptions(new PasskeySettings()),
+                    PasskeyRpIdAtStartup.None,
                     LoginDesignDoubles.NoneActive())
                 .Handle(new GetPlatformBrandingQuery(), CancellationToken.None);
             return result.Value;

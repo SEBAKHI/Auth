@@ -122,11 +122,28 @@ async function installAnonymous(
   await page.route("**/api/v1/**", async (route, request) => {
     const path = new URL(request.url()).pathname.toLowerCase()
     if (path === "/api/v1/platform/branding") {
-      await fulfillJson(route, { platformName: "AuthSystem", staySignedInOffered })
+      // OI-280: the deployment's hint goes with passkeys that run.
+      await fulfillJson(route, {
+        platformName: "AuthSystem",
+        staySignedInOffered,
+        ...(passkeys
+          ? {
+              passkeySignInOffered: true,
+              codeSignInOffered: true,
+              primaryMethod: "password",
+            }
+          : {}),
+      })
       return
     }
     if (path === "/api/v1/auth/passkeys/assertion/options") {
       if (passkeys) await fulfillJson(route, PASSKEY_OPTIONS)
+      else await fulfillJson(route, { title: "Not Found" }, 404)
+      return
+    }
+    if (path === "/api/v1/auth/passkeys/lookup") {
+      // Every address has one here: the passkey screen is what is scanned.
+      if (passkeys) await fulfillJson(route, { passkey: true })
       else await fulfillJson(route, { title: "Not Found" }, 404)
       return
     }
@@ -199,19 +216,38 @@ for (const theme of ["light", "dark"] as const) {
   }
 }
 
-// S20: the sign-in screen while passkeys run, with its passkey button.
+// S20, as OI-280 PR A changed it: while passkeys run there is no passkey button
+// for every visitor; an address that has a passkey leads to the passkey screen,
+// whose "Try another way" opens the other ways in place (D-S20-16). Both states
+// of that screen, scanned. Deliberate break, verified red: the list's password
+// item left without its words (axe: a button with no name).
 for (const theme of ["light", "dark"] as const) {
   for (const language of ["en", "ar"] as const) {
-    test(`the sign-in screen with passkeys passes WCAG AA in ${theme} ${language}`, async ({
+    test(`the passkey screen, and its open list, pass WCAG AA in ${theme} ${language}`, async ({
       page,
     }) => {
       await installAnonymous(page, { theme, language, passkeys: true })
       await page.goto("/login")
-      await expect(page.getByTestId("passkey-sign-in").getByRole("button")).toBeEnabled()
+      await page.getByRole("textbox").first().fill("ada@example.test")
+      // "Continue" in either language: the form's own submit.
+      await page.getByRole("textbox").first().press("Enter")
+      const passkey = page.getByTestId("passkey-sign-in").getByRole("button")
+      await expect(passkey).toBeEnabled()
+      await expect(passkey).toBeFocused()
 
-      const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+      const screen = await new AxeBuilder({ page })
+        .withTags(WCAG_TAGS)
+        .analyze()
+      expect(actionable(screen), describeViolations(screen)).toEqual([])
 
-      expect(actionable(results), describeViolations(results)).toEqual([])
+      await page.getByTestId("try-another-way").click()
+      await expect(page.getByTestId("other-ways")).toBeVisible()
+      await expect(
+        page.getByTestId("other-ways").getByRole("button")
+      ).toHaveCount(2)
+
+      const list = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+      expect(actionable(list), describeViolations(list)).toEqual([])
     })
   }
 }

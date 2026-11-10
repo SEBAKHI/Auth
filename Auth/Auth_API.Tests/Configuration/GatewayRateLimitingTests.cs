@@ -42,7 +42,10 @@ public class GatewayRateLimitingTests
         "RegistrationFollowupWindowSeconds",
         // The application directory's route (OI-194), appended last for the same reason.
         "AppReadPermitLimit",
-        "AppReadWindowSeconds"
+        "AppReadWindowSeconds",
+        // The passkey lookup's route (OI-280), appended last for the same reason.
+        "PasskeyLookupPermitLimit",
+        "PasskeyLookupWindowSeconds"
     ];
 
     private static SettingSectionDefinition Section()

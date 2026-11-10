@@ -31,12 +31,16 @@ public class GetPlatformBrandingQueryHandlerTests
     private GetPlatformBrandingQueryHandler Handler(
         IdentityProviderSettings idpSettings,
         RegistrationSettings? registration = null,
-        EmailSettings? email = null) => new(
+        EmailSettings? email = null,
+        PasskeySettings? passkeys = null,
+        PasskeyRpIdAtStartup? passkeyRpId = null) => new(
         _settingsRepoMock.Object,
         _imageUrlComposerMock.Object,
         TestHelpers.CreateOptions(idpSettings),
         TestHelpers.CreateOptions(registration ?? new RegistrationSettings()),
         TestHelpers.CreateOptions(email ?? new EmailSettings()),
+        TestHelpers.CreateOptions(passkeys ?? new PasskeySettings()),
+        passkeyRpId ?? PasskeyRpIdAtStartup.None,
         LoginDesignDoubles.NoneActive());
 
     [Fact]
@@ -95,6 +99,35 @@ public class GetPlatformBrandingQueryHandlerTests
 
         result.IsError.Should().BeFalse();
         result.Value.StaySignedInOffered.Should().Be(offered);
+    }
+
+    /// <summary>
+    /// OI-280 (T-A4, D6): the sign-in page shapes its first screen by whether passkeys may run,
+    /// at the moment it picks the method. True only while the switch is on AND the process runs
+    /// with an RP ID; read from the settings alone, never the database.
+    /// </summary>
+    /// <remarks>
+    /// Deliberate break, verified red: the hint computed from <c>Enabled</c> alone (the "on, no
+    /// RP ID" row then answers true).
+    /// </remarks>
+    [Theory]
+    [InlineData(true, "example.com", true)]
+    [InlineData(true, "", false)]
+    [InlineData(false, "example.com", false)]
+    [InlineData(false, "", false)]
+    public async Task Handle_OffersPasskeySignIn_OnlyWhileSwitchedOnWithAnRpId(bool enabled, string rpIdAtStartup, bool offered)
+    {
+        _settingsRepoMock.Setup(r => r.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync((PlatformSettings?)null);
+
+        var result = await Handler(
+                new IdentityProviderSettings(),
+                // The setting's own RP ID is not what runs: the one the process started with is.
+                passkeys: new PasskeySettings { Enabled = enabled, RpId = "example.com" },
+                passkeyRpId: new PasskeyRpIdAtStartup(rpIdAtStartup))
+            .Handle(new GetPlatformBrandingQuery(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.PasskeySignInOffered.Should().Be(offered);
     }
 }
 

@@ -421,6 +421,75 @@ public class PasskeyStoreSqlTextTests
         command.Parameters["Reason"].Should().Be(PasskeyRemovalReasons.PasswordReset);
     }
 
+    // ── OI-280: the sign-in page's lookup after the address ──
+
+    /// <summary>
+    /// OI-280 (T-A1, D2): one statement for every address, known or not. True only for a live
+    /// passkey of the RP ID in force on an account that is not deleted, or that is waiting for
+    /// its deletion (its passkey still signs it in, to the recovery).
+    /// </summary>
+    /// <remarks>
+    /// Deliberate breaks, each verified red: <c>u.[IsDeleted] = 0</c> dropped (a deleted account's
+    /// passkey would answer true); <c>p.[RpId] = @RpId</c> dropped (a passkey of another RP ID
+    /// would); <c>p.[RevokedAt] IS NULL</c> dropped (a removed one would); the deletion request's
+    /// <c>d.[Status] = @PendingGrace</c> dropped (a cancelled or completed request would). The same
+    /// cases on a real engine are PasskeyDevRun's <c>lookup</c> scenario.
+    /// </remarks>
+    [Fact]
+    public async Task LiveForEmail_IsOneStatement_OverTheAddress_AndTheLiveRowsOfTheRpId()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 0, scalarFor: _ => true);
+
+        (await Passkeys(db).HasLiveForEmailAsync("  Ada@Example.COM ", PasskeyTestDoubles.RpId, CancellationToken.None))
+            .Should().BeTrue();
+
+        var command = db.Commands.Should().ContainSingle("one round trip, whatever the address").Subject;
+        command.CommandText.Should().Be(UserPasskeyRepository.LiveForEmailSql);
+        Squash(command.CommandText).Should().Be(
+            "SELECT CAST(CASE WHEN EXISTS ( SELECT 1 FROM [dbo].[Users] u INNER JOIN [dbo].[UserPasskeys] p ON p.[UserId] = u.[Id] "
+            + "WHERE u.[NormalizedEmail] = @NormalizedEmail "
+            + "AND (u.[IsDeleted] = 0 OR EXISTS ( SELECT 1 FROM [dbo].[AccountDeletionRequests] d "
+            + "WHERE d.[UserId] = u.[Id] AND d.[Status] = @PendingGrace)) "
+            + "AND p.[RpId] = @RpId AND p.[RevokedAt] IS NULL) "
+            + "THEN 1 ELSE 0 END AS BIT)");
+        command.Parameters["NormalizedEmail"].Should().Be("ADA@EXAMPLE.COM", "the address as Users.NormalizedEmail stores it");
+        command.Parameters["RpId"].Should().Be(PasskeyTestDoubles.RpId);
+        command.Parameters["PendingGrace"].Should().Be((int)AccountDeletionStatus.PendingGrace, "only the grace period: the sign-in recovers nothing else");
+        command.Parameters.Keys.Should().BeEquivalentTo(["NormalizedEmail", "RpId", "PendingGrace"]);
+    }
+
+    /// <summary>
+    /// OI-280 (T-A1): a lock, a deactivation or an unconfirmed address is the sign-in's to judge.
+    /// An answer that varied with them would say more about the account than the owner accepted
+    /// (D-S20-10), so the statement reads none of them: of the account, its address, whether it is
+    /// deleted, and whether a deletion request is in its grace period.
+    /// </summary>
+    [Fact]
+    public void LiveForEmail_ReadsNothingOfTheAccount_ButItsAddress_WhetherItIsDeleted_AndItsGracePeriod()
+    {
+        var sql = UserPasskeyRepository.LiveForEmailSql;
+
+        Regex.Matches(sql, @"\bu\.\[(\w+)\]").Select(match => match.Groups[1].Value).Distinct()
+            .Should().BeEquivalentTo(["Id", "NormalizedEmail", "IsDeleted"]);
+        Regex.Matches(sql, @"\bp\.\[(\w+)\]").Select(match => match.Groups[1].Value).Distinct()
+            .Should().BeEquivalentTo(["UserId", "RpId", "RevokedAt"]);
+        Regex.Matches(sql, @"\bd\.\[(\w+)\]").Select(match => match.Groups[1].Value).Distinct()
+            .Should().BeEquivalentTo(["UserId", "Status"]);
+        Regex.Matches(sql, @"\[dbo\]\.\[(\w+)\]").Select(match => match.Groups[1].Value).Distinct()
+            .Should().BeEquivalentTo(["Users", "UserPasskeys", "AccountDeletionRequests"], "no other table: no lock, session or sign-in record");
+    }
+
+    [Fact]
+    public async Task LiveForEmail_WithoutThePasskeySchema_AnswersFalse_AndSendsNothing()
+    {
+        var db = new RecordingDbConnectionFactory(affectedRows: 1);
+
+        (await new UserPasskeyRepository(db, PasskeyTestDoubles.Schema(present: false))
+                .HasLiveForEmailAsync("ada@example.com", PasskeyTestDoubles.RpId, CancellationToken.None))
+            .Should().BeFalse();
+        db.Commands.Should().BeEmpty("code deployed before its DACPAC answers as if the table were empty");
+    }
+
     [Fact]
     public async Task OtherRpIdLive_AsksForAnyLiveRowOfAnotherRpId()
     {

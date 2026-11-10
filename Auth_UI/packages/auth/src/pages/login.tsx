@@ -15,6 +15,8 @@ import {
   FieldContent,
   FieldDescription,
   FieldGroup,
+  FieldLegend,
+  FieldSet,
   FieldTitle,
 } from "@authsystem/ui/field"
 import {
@@ -42,6 +44,7 @@ import { passkeyFailureMessage } from "../passkey/passkey-errors"
 import { PasskeyRequiredProvider, passkeyRequiredNotice } from "../passkey/passkey-required"
 import { usePasskeySignIn, type PasskeyOutcome } from "../passkey/use-passkey-sign-in"
 import type { AuthenticationResponseJSON } from "../passkey/webauthn"
+import { lookUpPasskey } from "../passkey-lookup"
 import { FullScreenLoader } from "../require-auth"
 import { toAccountsSearch } from "../return-to"
 import { canSkipSignIn } from "../sign-in-marker"
@@ -94,6 +97,9 @@ const REASON_TEXT: Record<SignInReasonWord, { title: string; body: string }> = {
 /** Where a person who lost their passkey removes it: Profile › Security. */
 const LOST_PASSKEY_DESTINATION = { pathname: "/profile", search: "?tab=security" }
 
+/** The passkey screen's list of other ways, which "Try another way" controls. */
+const OTHER_WAYS_ID = "passkey-other-ways"
+
 interface LocationState {
   email?: string
   /**
@@ -105,14 +111,17 @@ interface LocationState {
 
 /**
  * Where the page stands. "credentials" is the address with the password or the
- * code first; "code" is everything after a code was sent; "password" is the
- * password a sign-in by code still needs (the account holds platform authority,
- * or the "sign in again" dialog asked for full proof).
+ * code first; "passkey" is the passkey screen, for an address the server said
+ * has one (OI-280); "code" is everything after a code was sent; "password" is
+ * the password step: after the address while passkeys may run here (OI-280,
+ * `afterCode` false), or the password a sign-in by code still needs (the account
+ * holds platform authority, or the "sign in again" dialog asked for full proof).
  */
 type Step =
   | { kind: "credentials" }
+  | { kind: "passkey"; email: string }
   | { kind: "code"; pending: PendingEmailCode }
-  | { kind: "password"; email: string }
+  | { kind: "password"; email: string; afterCode: boolean }
 
 export function LoginPage({
   providers,
@@ -180,11 +189,12 @@ export function LoginPage({
   // The server applies that decision whatever this page sends.
   const { staySignedInOffered, signInOptions } = useBranding()
   // OI-215. Before the code, only what the visitor already knows decides the
-  // page: the deployment's options, the method that last worked on this
-  // browser, and their own click. Never anything about the address. When an
-  // application's two-step requirement sent the person back (S23), the
-  // server's word for the account comes before the remembered one
-  // (D-S23-3 (c)); it is all the page knows about the account.
+  // page's method: the deployment's options, the method that last worked on
+  // this browser, and their own click. When an application's two-step
+  // requirement sent the person back (S23), the server's word for the account
+  // comes before the remembered one (D-S23-3 (c)). The one thing the page asks
+  // about the address is whether it has a passkey, after "Continue" (OI-280,
+  // D-S20-10), and only while passkeys may run here.
   const options = signInOptions ?? null
   const codeOffered = options?.codeSignInOffered === true
   const [remembered] = React.useState(readLastSignInMethod)
@@ -204,6 +214,9 @@ export function LoginPage({
   const [fullProofAsked] = React.useState(isFullProofRequested)
   const fullProof = fullProofAsked || reason !== null
   const [step, setStep] = React.useState<Step>({ kind: "credentials" })
+  // OI-280: the lookup answered that passkeys do not run here; it is not asked
+  // again for the rest of this page's life, which is then the page as before.
+  const [lookupOff, setLookupOff] = React.useState(false)
   // S20 (D-S20-4 (ii-s)): a door answered that this account signs in with its
   // passkey. Its sentence stays on the page, above the passkey button, which
   // takes the focus; never a toast that goes.
@@ -212,10 +225,15 @@ export function LoginPage({
   // requirement only the passkey meets (`mfa_passkey`), put the passkey first.
   const [passkeyAsked] = React.useState(isPasskeySignInRequested)
   const passkeyButtonRef = React.useRef<HTMLButtonElement>(null)
+  const passkeyScreenButtonRef = React.useRef<HTMLButtonElement>(null)
+  // "Try another way" on the passkey screen (D-S20-16): closed until asked.
+  const [otherWaysOpen, setOtherWaysOpen] = React.useState(false)
+  // The list's code item sends an email: one at a time, decided in the click.
+  const sendingFromListRef = React.useRef(false)
+  const [sendingFromList, setSendingFromList] = React.useState(false)
 
-  const passwordToFinish = step.kind === "password"
-  const showPassword = passwordToFinish || method === "password"
-  const codeFirst = !passwordToFinish && method === "code"
+  const passwordToFinish = step.kind === "password" && step.afterCode
+  const passwordStep = step.kind === "password" && !step.afterCode
 
   // The password is required where it is shown; that check is the submit's,
   // since the form keeps the resolver it was made with.
@@ -300,6 +318,23 @@ export function LoginPage({
   })
   const passkeyShown = passkey.phase !== "unavailable" && passkey.phase !== "checking"
   const passkeyLeads = passkeyShown && (passkeyExpected || passkeyNotice !== null)
+  // OI-280 (T-A4, T-A13): whether passkeys may run here, decided when the page
+  // picks its method, so the first screen's shape never changes under the
+  // person's hands. The deployment's hint, a browser that can use a passkey,
+  // and no answer since that said they do not run. Otherwise the page is as
+  // before: no lookup, and in password mode the address and the password on one
+  // screen.
+  const passkeysMayRun =
+    options?.passkeySignInOffered === true &&
+    passkey.phase !== "unavailable" &&
+    !lookupOff
+  // Password mode while passkeys may run: the address first, the password next.
+  const addressFirst =
+    step.kind === "credentials" && passkeysMayRun && method === "password"
+  const showPassword =
+    step.kind === "password" ||
+    (step.kind === "credentials" && method === "password" && !passkeysMayRun)
+  const codeFirst = step.kind === "credentials" && method === "code"
   // A door answered that the account signs in with its passkey: passkeys run
   // here, so the button is asked for at once, and a failure is said.
   const { confirm: confirmPasskeys } = passkey
@@ -313,11 +348,32 @@ export function LoginPage({
 
   // The sentence asks for the passkey: its button takes the focus once it can be
   // pressed (a disabled button cannot hold it, so a button still on its way gets
-  // it when its options arrive).
+  // it when its options arrive). The passkey screen's button likewise (T-A7).
   const passkeyReady = passkey.phase === "ready"
   React.useEffect(() => {
     if (passkeyNotice && passkeyReady) passkeyButtonRef.current?.focus()
   }, [passkeyNotice, passkeyReady])
+  const onPasskeyScreen = step.kind === "passkey"
+  React.useEffect(() => {
+    if (onPasskeyScreen && passkeyReady) passkeyScreenButtonRef.current?.focus()
+  }, [onPasskeyScreen, passkeyReady])
+
+  // Back to the address, keeping what was typed; the sent code is forgotten.
+  const backToAddress = React.useCallback(() => {
+    form.setValue("password", "")
+    setStep({ kind: "credentials" })
+  }, [form])
+
+  // A sign-in by code that needs the password: the address is the one the code
+  // just proved, and only the password is asked.
+  const continueWithPassword = React.useCallback(
+    (email: string) => {
+      form.setValue("email", email)
+      form.setValue("password", "")
+      setStep({ kind: "password", email, afterCode: true })
+    },
+    [form]
+  )
 
   const signInWithPassword = async (values: z.infer<typeof schema>) => {
     try {
@@ -346,9 +402,11 @@ export function LoginPage({
         return
       }
       if (toRecovery(error, values.email)) return
-      // The account signs in with its passkey alone (D-S20-4 (ii-s)).
+      // The account signs in with its passkey alone (D-S20-4 (ii-s)). From the
+      // password step, back to the address, where the passkey then leads.
       const notice = passkeyRequiredNotice(error)
       if (notice) {
+        if (step.kind === "password") backToAddress()
         askForPasskey(notice)
         return
       }
@@ -375,32 +433,62 @@ export function LoginPage({
     }
   }
 
-  const onSubmit = async (values: z.infer<typeof schema>) => {
-    setPasskeyNotice(null)
-    if (!showPassword) return sendCode(values)
-    if (values.password.length === 0) {
-      form.setError("password", { message: t("validation.required") })
-      return
-    }
-    return signInWithPassword(values)
+  // The password step of an address-first sign-in (OI-280): the address the
+  // person typed, and only the password asked.
+  const toPasswordStep = (email: string) => {
+    form.setValue("password", "")
+    setStep({ kind: "password", email, afterCode: false })
   }
 
-  // Back to the address, keeping what was typed; the sent code is forgotten.
-  const backToAddress = React.useCallback(() => {
-    form.setValue("password", "")
-    setStep({ kind: "credentials" })
-  }, [form])
+  // OI-280 (D-S20-10): after the address and "Continue", the one question. Its
+  // answer decides the next step and nothing else: `passkey`, the passkey
+  // screen; anything else, the next step as before — the code, or the password
+  // step — and nothing said. No code is sent before the answer.
+  const continueAfterAddress = async (values: z.infer<typeof schema>) => {
+    const answer = await lookUpPasskey(values.email)
+    // The person changed the address while the answer was on its way: it is
+    // not this address's, and "Continue" asks again.
+    if (form.getValues("email") !== values.email) return
+    if (answer === "passkey") {
+      // The server said passkeys run here, for this address.
+      confirmPasskeys()
+      setOtherWaysOpen(false)
+      setStep({ kind: "passkey", email: values.email })
+      return
+    }
+    if (answer === "off") setLookupOff(true)
+    // The method "Continue" was pressed in.
+    if (method === "code") return sendCode(values)
+    toPasswordStep(values.email)
+  }
 
-  // A sign-in by code that needs the password: the address is the one the code
-  // just proved, and only the password is asked.
-  const continueWithPassword = React.useCallback(
-    (email: string) => {
-      form.setValue("email", email)
-      form.setValue("password", "")
-      setStep({ kind: "password", email })
-    },
-    [form]
-  )
+  const onSubmit = async (values: z.infer<typeof schema>) => {
+    setPasskeyNotice(null)
+    if (showPassword) {
+      if (values.password.length === 0) {
+        form.setError("password", { message: t("validation.required") })
+        return
+      }
+      return signInWithPassword(values)
+    }
+    if (passkeysMayRun) return continueAfterAddress(values)
+    return sendCode(values)
+  }
+
+  // The list's code item (T-A8): the code for the address on the screen, as
+  // "Continue" in code mode sends it. Latched in the click: one email per press.
+  const sendCodeFromList = async (email: string) => {
+    if (sendingFromListRef.current) return
+    sendingFromListRef.current = true
+    setSendingFromList(true)
+    try {
+      setChosen("code")
+      await sendCode({ ...getValues(), email })
+    } finally {
+      sendingFromListRef.current = false
+      setSendingFromList(false)
+    }
+  }
 
   if (skipSignIn) return <FullScreenLoader />
 
@@ -430,6 +518,200 @@ export function LoginPage({
           }}
         />
       </React.Suspense>
+    )
+  }
+
+  // The address as the steps after it show it: read-only, with the way back to
+  // it. `username` keeps it paired with the password for password managers.
+  const addressField = (
+    <FormField
+      control={form.control}
+      name="email"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{t("auth.email")}</FormLabel>
+          <FormControl>
+            <Input
+              type="email"
+              // The passkey suggestion (conditional UI, T-C5): only where
+              // the browser offers it and passkeys run here.
+              autoComplete={
+                passkey.suggestionSupported ? "username webauthn" : "username"
+              }
+              autoFocus={step.kind === "credentials"}
+              readOnly={step.kind !== "credentials"}
+              placeholder="name@example.com"
+              dir="ltr"
+              {...field}
+            />
+          </FormControl>
+          {step.kind !== "credentials" ? (
+            <FormDescription>
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-xs text-muted-foreground"
+                onClick={backToAddress}
+              >
+                {t("auth.useDifferentEmail")}
+              </Button>
+            </FormDescription>
+          ) : null}
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  )
+
+  const staySignedInField = staySignedInOffered ? (
+    <FormField
+      control={form.control}
+      name="staySignedIn"
+      render={({ field }) => (
+        <FormItem orientation="horizontal">
+          <FormControl>
+            <Checkbox
+              name={field.name}
+              checked={field.value}
+              onCheckedChange={(checked) => field.onChange(checked === true)}
+            />
+          </FormControl>
+          <FieldContent>
+            <FormLabel>{t("auth.staySignedIn")}</FormLabel>
+            <FormDescription>{t("auth.staySignedInHint")}</FormDescription>
+          </FieldContent>
+        </FormItem>
+      )}
+    />
+  ) : staySignedInOffered === null ? (
+    // Unknown until the branding answers: hold the box row's place, so
+    // the box, when offered, does not push the button down as a click
+    // lands on it. Nothing here is a control or a label.
+    <Field
+      orientation="horizontal"
+      aria-hidden
+      className="invisible"
+      data-testid="stay-signed-in-placeholder"
+    >
+      <span className="size-4 shrink-0" />
+      <FieldContent>
+        <FieldTitle>{t("auth.staySignedIn")}</FieldTitle>
+        <FieldDescription>{t("auth.staySignedInHint")}</FieldDescription>
+      </FieldContent>
+    </Field>
+  ) : null
+
+  // The providers, which read the box when they sign in and hand a door's
+  // "this account signs in with its passkey" to the page.
+  const providerButtons = (
+    <StaySignedInProvider value={readStaySignedIn}>
+      <PasskeyRequiredProvider onPasskeyRequired={askForPasskey}>
+        {providers}
+      </PasskeyRequiredProvider>
+    </StaySignedInProvider>
+  )
+
+  if (step.kind === "passkey") {
+    // OI-280 (T-A7, T-A8): the passkey screen. The button uses the options the
+    // page fetched on load, and the ceremony starts inside its click (T-C2);
+    // nothing starts by itself (D8), and nothing is sent or written before the
+    // person chooses. Passkeys switched off since the answer: the button renders
+    // nothing, and the list is shown without its link, so the screen is never
+    // empty (T-A10).
+    const passkeyGone = passkey.phase === "unavailable"
+    // Under `mfa_passkey` every other way would resume the request into the
+    // application's refusal (D-152-2): the list holds the way out alone.
+    const lostPasskeyOnly = reason?.reason === "mfa_passkey"
+    const email = step.email
+    return (
+      <AuthLayout
+        title={t("auth.passkey.screenTitle")}
+        subtitle={t("auth.passkey.screenSubtitle")}
+        pageFooter={pageFooter}
+        {...appHeader}
+      >
+        <Form {...form}>
+          <FieldGroup>
+            {addressField}
+            {staySignedInField}
+            <PasskeyButton
+              ceremony={passkey}
+              label={t("auth.passkey.signIn")}
+              variant="default"
+              buttonRef={passkeyScreenButtonRef}
+            />
+            {/* A disclosure: the link shows the list in place (D-S20-16). Without
+                the button, the list is all the screen offers, so it is shown. */}
+            {passkeyGone ? null : (
+              <Button
+                type="button"
+                variant="link"
+                className="w-full text-muted-foreground"
+                aria-expanded={otherWaysOpen}
+                aria-controls={OTHER_WAYS_ID}
+                data-testid="try-another-way"
+                onClick={() => setOtherWaysOpen((open) => !open)}
+              >
+                {t("auth.passkey.tryAnotherWay")}
+              </Button>
+            )}
+            {otherWaysOpen || passkeyGone ? (
+              <FieldSet id={OTHER_WAYS_ID} data-testid="other-ways">
+                <FieldLegend variant="label">
+                  {t("auth.passkey.otherWaysHeading")}
+                </FieldLegend>
+                {lostPasskeyOnly ? (
+                  // D-152-2's link, as in the reason's sentence: it drops the
+                  // request, and the sign-in then lands on Profile › Security.
+                  <Button asChild variant="outline" className="w-full">
+                    <Link
+                      to="/login"
+                      replace
+                      state={{ from: LOST_PASSKEY_DESTINATION }}
+                      data-testid="passkey-lost-link"
+                    >
+                      {t("auth.passkey.lostIt")}
+                    </Link>
+                  </Button>
+                ) : (
+                  // The same list for every account (D-S20-16): the
+                  // deployment's options decide it, never the account.
+                  <div className="flex flex-col gap-3">
+                    {codeOffered ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        disabled={sendingFromList}
+                        onClick={() => void sendCodeFromList(email)}
+                      >
+                        {sendingFromList ? (
+                          <Spinner data-icon="inline-start" />
+                        ) : null}
+                        {sendingFromList
+                          ? t("auth.sendingCode")
+                          : t("auth.signInWithEmailCode")}
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setChosen("password")
+                        toPasswordStep(email)
+                      }}
+                    >
+                      {t("auth.signInWithPasswordInstead")}
+                    </Button>
+                    {providerButtons}
+                  </div>
+                )}
+              </FieldSet>
+            ) : null}
+          </FieldGroup>
+        </Form>
+      </AuthLayout>
     )
   }
 
@@ -495,7 +777,11 @@ export function LoginPage({
                 <AlertDescription>{passkeyNotice}</AlertDescription>
               </Alert>
             ) : null}
-            {passkeyLeads && !passwordToFinish ? (
+            {/* The three passkey-first entries (T-A6): the "sign in again" of a
+                passkey account, `mfa_passkey`, and a door's notice. Each comes
+                from the person's own session or the server, never from a typed
+                address. There is no passkey button for every visitor (D-S20-11). */}
+            {passkeyLeads && step.kind === "credentials" ? (
               <PasskeyButton
                 ceremony={passkey}
                 label={t("auth.passkey.signIn")}
@@ -503,43 +789,7 @@ export function LoginPage({
                 buttonRef={passkeyButtonRef}
               />
             ) : null}
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("auth.email")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      // The passkey suggestion (conditional UI, T-C5): only where
-                      // the browser offers it and passkeys run here.
-                      autoComplete={
-                        passkey.suggestionSupported ? "username webauthn" : "username"
-                      }
-                      autoFocus={!passwordToFinish}
-                      readOnly={passwordToFinish}
-                      placeholder="name@example.com"
-                      dir="ltr"
-                      {...field}
-                    />
-                  </FormControl>
-                  {passwordToFinish ? (
-                    <FormDescription>
-                      <Button
-                        type="button"
-                        variant="link"
-                        className="h-auto p-0 text-xs text-muted-foreground"
-                        onClick={backToAddress}
-                      >
-                        {t("auth.useDifferentEmail")}
-                      </Button>
-                    </FormDescription>
-                  ) : null}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {addressField}
             {showPassword ? (
               <FormField
                 control={form.control}
@@ -566,7 +816,7 @@ export function LoginPage({
                       <Input
                         type="password"
                         autoComplete="current-password"
-                        autoFocus={passwordToFinish}
+                        autoFocus={step.kind === "password"}
                         {...field}
                       />
                     </FormControl>
@@ -575,76 +825,33 @@ export function LoginPage({
                 )}
               />
             ) : null}
-            {passwordToFinish ? null : staySignedInOffered ? (
-              <FormField
-                control={form.control}
-                name="staySignedIn"
-                render={({ field }) => (
-                  <FormItem orientation="horizontal">
-                    <FormControl>
-                      <Checkbox
-                        name={field.name}
-                        checked={field.value}
-                        onCheckedChange={(checked) =>
-                          field.onChange(checked === true)
-                        }
-                      />
-                    </FormControl>
-                    <FieldContent>
-                      <FormLabel>{t("auth.staySignedIn")}</FormLabel>
-                      <FormDescription>
-                        {t("auth.staySignedInHint")}
-                      </FormDescription>
-                    </FieldContent>
-                  </FormItem>
-                )}
-              />
-            ) : staySignedInOffered === null ? (
-              // Unknown until the branding answers: hold the box row's place, so
-              // the box, when offered, does not push the button down as a click
-              // lands on it. Nothing here is a control or a label.
-              <Field
-                orientation="horizontal"
-                aria-hidden
-                className="invisible"
-                data-testid="stay-signed-in-placeholder"
-              >
-                <span className="size-4 shrink-0" />
-                <FieldContent>
-                  <FieldTitle>{t("auth.staySignedIn")}</FieldTitle>
-                  <FieldDescription>
-                    {t("auth.staySignedInHint")}
-                  </FieldDescription>
-                </FieldContent>
-              </Field>
-            ) : null}
+            {passwordToFinish ? null : staySignedInField}
             <Button
               type="submit"
-              variant={passkeyLeads ? "secondary" : "default"}
+              // The password step has no passkey above it: its button is the page's.
+              variant={passkeyLeads && !passwordStep ? "secondary" : "default"}
               className="w-full"
               disabled={form.formState.isSubmitting}
             >
               {form.formState.isSubmitting ? (
                 <>
                   <Spinner />
-                  {showPassword ? t("auth.signingIn") : t("auth.sendingCode")}
+                  {showPassword
+                    ? t("auth.signingIn")
+                    : addressFirst
+                      ? t("auth.continue")
+                      : t("auth.sendingCode")}
                 </>
               ) : showPassword ? (
                 t("auth.signIn")
+              ) : addressFirst ? (
+                t("auth.continue")
               ) : (
                 t("auth.continueWithEmail")
               )}
             </Button>
-            {/* D-S20-9 (a): for every visitor, under the primary button, while
-                passkeys run here; nothing at all while they do not. */}
-            {!passkeyLeads && !passwordToFinish ? (
-              <PasskeyButton
-                ceremony={passkey}
-                label={t("auth.passkey.signIn")}
-                buttonRef={passkeyButtonRef}
-              />
-            ) : null}
-            {/* The other method, always a visible link (D-215-2). */}
+            {/* The other method, always a visible link (D-215-2). From the
+                password step it goes back to the address, in that method. */}
             {codeOffered && !passwordToFinish ? (
               <Button
                 type="button"
@@ -653,6 +860,7 @@ export function LoginPage({
                 onClick={() => {
                   form.clearErrors()
                   setChosen(codeFirst ? "password" : "code")
+                  if (passwordStep) backToAddress()
                 }}
               >
                 {codeFirst
@@ -663,13 +871,7 @@ export function LoginPage({
           </FieldGroup>
         </form>
       </Form>
-      {passwordToFinish ? null : (
-        <StaySignedInProvider value={readStaySignedIn}>
-          <PasskeyRequiredProvider onPasskeyRequired={askForPasskey}>
-            {providers}
-          </PasskeyRequiredProvider>
-        </StaySignedInProvider>
-      )}
+      {step.kind === "credentials" ? providerButtons : null}
     </AuthLayout>
   )
 }

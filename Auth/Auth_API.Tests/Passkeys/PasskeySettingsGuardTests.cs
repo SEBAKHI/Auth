@@ -300,6 +300,7 @@ public class PasskeySettingsGuardTests
 
         // T-A3: today's policies until S14 moves these routes. PR B (R-RL): the sign-in's
         // options on the page budget, the sign-in and the recovery on the sign-in budget.
+        // OI-280: the sign-in page's lookup on a budget of its own.
         routes.Should().BeEquivalentTo(new Dictionary<string, string?>
         {
             ["POST registration/options"] = "login",
@@ -308,6 +309,7 @@ public class PasskeySettingsGuardTests
             ["GET "] = "sign-in-page",
             ["PATCH {id:guid}"] = "sign-in-page",
             ["DELETE {id:guid}"] = "login",
+            ["POST lookup"] = "passkey-lookup",
             ["POST assertion/options"] = "sign-in-page",
             ["POST assertion/verify"] = "login",
             ["POST assertion/recover"] = "login",

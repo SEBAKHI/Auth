@@ -39,6 +39,23 @@ public interface IUserPasskeyRepository
     Task<UserPasskey?> GetLiveByCredentialIdAsync(byte[] credentialId, string rpId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Whether the account with this address holds a live passkey of <paramref name="rpId"/>
+    /// (OI-280, D-S20-10): the sign-in page's one question after the address. True only for an
+    /// account with a live passkey of the RP ID in force that is not deleted, or that is waiting
+    /// for its deletion (its passkey still signs it in, to the recovery); any other deleted
+    /// account answers as an unknown address. Whatever else the account is (locked, deactivated,
+    /// unconfirmed) is the sign-in's to judge, not this answer's.
+    /// </summary>
+    /// <remarks>
+    /// One statement for every address, known or not, so an unknown address costs the same
+    /// one round trip as a known one. Nothing is written.
+    /// </remarks>
+    /// <param name="email">The address as typed: compared as <c>Users.NormalizedEmail</c> stores it.</param>
+    /// <param name="rpId">The RP ID in force.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<bool> HasLiveForEmailAsync(string email, string rpId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// The account's WebAuthn user handle, read whatever the account's state — a soft-deleted
     /// account included — and nothing else of it (PK8, FA6): a sign-in compares it with the
     /// handle the authenticator answered before anything about the owner is read.

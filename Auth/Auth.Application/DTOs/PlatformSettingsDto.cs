@@ -135,6 +135,16 @@ public class PlatformBrandingDto
     public bool CodeSignInOffered { get; set; } = true;
 
     /// <summary>
+    /// Whether passkeys may run on the sign-in page (OI-280): true while <c>Passkeys:Enabled</c>
+    /// is on and the process started with an RP ID. The page asks after the address whether it
+    /// has a passkey only while this is true, and shapes its first screen by it at first paint.
+    /// A hint like <see cref="CodeSignInOffered"/>, which the browser caches with the rest of this
+    /// answer: the passkey routes' 404 gate stays the authority, and a page that was told true
+    /// while passkeys do not run spends one extra click, then goes on as before.
+    /// </summary>
+    public bool PasskeySignInOffered { get; set; }
+
+    /// <summary>
     /// Which method the sign-in page puts first (OI-215, D-215-6 (a)): <c>code</c> when a
     /// new account signs up without a password, otherwise <c>password</c>. The other
     /// method stays a visible link.

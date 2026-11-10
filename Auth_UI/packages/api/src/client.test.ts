@@ -893,6 +893,10 @@ describe("deciding which requests carry a token", () => {
     // The route as another spelling of the controller would write it: matched
     // whole and case-insensitively, like every entry.
     "/api/v1/Auth/Passkeys/Assertion/Options",
+    // OI-280: the sign-in page's question after the address, asked before any
+    // sign-in. Deliberate break, verified red: its entry removed.
+    "/api/v1/auth/passkeys/lookup",
+    "/api/v1/Auth/Passkeys/Lookup",
   ])("sends the passkey sign-in step %s without a bearer, and its 401 ends no session", async (path) => {
     // S20. The passkey is the credential: the options name no account, and the
     // sign-in and the recovery mint a session of their own. The two-factor page
@@ -935,10 +939,16 @@ describe("deciding which requests carry a token", () => {
       "/api/v1/auth/passkeys/assertion/options-preview" as never,
       { body: {} } as never
     )
+    // OI-280: the lookup is one exact path, never a prefix (T-C8).
+    const lookupSibling = await tab.client.api.POST(
+      "/api/v1/auth/passkeys/lookup/history" as never,
+      { body: {} } as never
+    )
 
     expect(list.response.status).toBe(200)
     expect(options.response.status).toBe(200)
     expect(sibling.response.status).toBe(200)
+    expect(lookupSibling.response.status).toBe(200)
   })
 
   it("authenticates a sibling that merely starts with a registration path", async () => {

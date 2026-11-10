@@ -369,7 +369,9 @@ internal static class SystemSettingsValueValidator
         ("RegistrationFollowupPermitLimit", "RegistrationFollowupWindowSeconds"),
         ("TokenPermitLimit", "TokenWindowSeconds"),
         // The application directory's route (OI-194): counted by the global limiter like the rest.
-        ("AppReadPermitLimit", "AppReadWindowSeconds")
+        ("AppReadPermitLimit", "AppReadWindowSeconds"),
+        // The passkey lookup's route (OI-280): counted by the global limiter like the rest.
+        ("PasskeyLookupPermitLimit", "PasskeyLookupWindowSeconds")
     ];
 
     /// <summary>

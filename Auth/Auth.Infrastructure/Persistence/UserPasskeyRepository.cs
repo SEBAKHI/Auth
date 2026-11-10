@@ -1,5 +1,6 @@
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 using Microsoft.Data.SqlClient;
@@ -143,6 +144,32 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
               AND [RpId] = @RpId
               AND [RevokedAt] IS NULL";
 
+    // The sign-in page's question after the address (OI-280, D-S20-10): does the account with
+    // this address hold a live passkey of the RP ID in force? One statement for every address,
+    // so an unknown one costs the same round trip as a known one: a seek of the address on
+    // UQ_Users_NormalizedEmail (one row at most, deleted or not), then of the account's live
+    // passkeys on IX_UserPasskeys_Live. A deleted account answers as an unknown address, unless
+    // it is waiting for its deletion: Users.IsDeleted is already set then, yet its passkey still
+    // signs it in, to the recovery (VerifyPasskeyAssertionCommandHandler), so it answers as any
+    // holder. Nothing else of the account is read: a lock, a deactivation or an unconfirmed
+    // address is the sign-in's to judge, and an answer that varied with them would say more
+    // about the account.
+    internal const string LiveForEmailSql = @"
+            SELECT CAST(CASE WHEN EXISTS (
+                SELECT 1
+                FROM [dbo].[Users] u
+                INNER JOIN [dbo].[UserPasskeys] p ON p.[UserId] = u.[Id]
+                WHERE u.[NormalizedEmail] = @NormalizedEmail
+                  AND (u.[IsDeleted] = 0
+                       OR EXISTS (
+                           SELECT 1
+                           FROM [dbo].[AccountDeletionRequests] d
+                           WHERE d.[UserId] = u.[Id]
+                             AND d.[Status] = @PendingGrace))
+                  AND p.[RpId] = @RpId
+                  AND p.[RevokedAt] IS NULL)
+            THEN 1 ELSE 0 END AS BIT)";
+
     // The owner's handle, and nothing else of the owner, whatever the account's state: a
     // soft-deleted account included (FA6).
     internal const string UserHandleSql = @"
@@ -252,6 +279,27 @@ public sealed class UserPasskeyRepository : IUserPasskeyRepository
             cancellationToken: cancellationToken));
 
         return row?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> HasLiveForEmailAsync(string email, string rpId, CancellationToken cancellationToken)
+    {
+        if (!await _schema.IsPresentAsync(cancellationToken))
+        {
+            return false;
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            LiveForEmailSql,
+            // The address as the account stores it (UserRepository: trimmed, upper-case).
+            new
+            {
+                NormalizedEmail = email.Trim().ToUpperInvariant(),
+                RpId = rpId,
+                PendingGrace = (int)AccountDeletionStatus.PendingGrace,
+            },
+            cancellationToken: cancellationToken));
     }
 
     /// <inheritdoc />
