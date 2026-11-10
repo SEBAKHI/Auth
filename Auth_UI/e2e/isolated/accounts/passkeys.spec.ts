@@ -76,6 +76,13 @@ test("the sign-in page shows no passkey button to every visitor while passkeys r
 
   await page.goto("/login")
   await answered
+  // Ready: the options answered 200 and the passkey helper came, so the address
+  // field offers the passkeys. A passkey button for every visitor would be on the
+  // screen by now (the same render), so the absence checks below can fail.
+  await expect(page.getByLabel("Email")).toHaveAttribute(
+    "autocomplete",
+    "username webauthn"
+  )
 
   // The address and "Continue", the password on the next step (D-S20-11, T-A5).
   await expect(

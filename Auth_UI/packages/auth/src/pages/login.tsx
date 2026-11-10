@@ -318,12 +318,14 @@ export function LoginPage({
   })
   const passkeyShown = passkey.phase !== "unavailable" && passkey.phase !== "checking"
   const passkeyLeads = passkeyShown && (passkeyExpected || passkeyNotice !== null)
-  // OI-280 (T-A4, T-A13): whether passkeys may run here, decided when the page
-  // picks its method, so the first screen's shape never changes under the
-  // person's hands. The deployment's hint, a browser that can use a passkey,
-  // and no answer since that said they do not run. Otherwise the page is as
-  // before: no lookup, and in password mode the address and the password on one
-  // screen.
+  // OI-280 (T-A4, T-A5, T-A13): whether passkeys may run here. The deployment's
+  // hint, read with the method from the same branding answer so the two change
+  // together; a browser that can use a passkey; and no answer since that said
+  // they do not run. Otherwise the page is as before: no lookup, and in password
+  // mode the address and the password on one screen. A cached hint that is wrong
+  // (passkeys switched off since) is put right by the options' 404, one round
+  // trip after the page loads: the password field then joins the address
+  // (T-A13), unless Continue came first, whose lookup then answers 404 (D6).
   const passkeysMayRun =
     options?.passkeySignInOffered === true &&
     passkey.phase !== "unavailable" &&
@@ -357,6 +359,27 @@ export function LoginPage({
   React.useEffect(() => {
     if (onPasskeyScreen && passkeyReady) passkeyScreenButtonRef.current?.focus()
   }, [onPasskeyScreen, passkeyReady])
+  // A provider in that screen's list answered that the account signs in with
+  // its passkey: the sentence shows above the button, which takes the focus back.
+  React.useEffect(() => {
+    if (onPasskeyScreen && passkeyNotice && passkeyReady) {
+      passkeyScreenButtonRef.current?.focus()
+    }
+  }, [onPasskeyScreen, passkeyNotice, passkeyReady])
+  // Under `mfa_passkey` the passkey screen's list holds the way out alone
+  // (D-152-2). That link drops the request where the person stands: the same
+  // page, with no reason left, so the list becomes everyone's list and the
+  // focused link is gone. The focus moves to the list's first way, which a
+  // screen reader then reads out.
+  const lostPasskeyOnly = reason?.reason === "mfa_passkey"
+  const otherWaysListRef = React.useRef<HTMLDivElement>(null)
+  const lostPasskeyOnlyBeforeRef = React.useRef(lostPasskeyOnly)
+  React.useEffect(() => {
+    if (lostPasskeyOnlyBeforeRef.current && !lostPasskeyOnly && onPasskeyScreen) {
+      otherWaysListRef.current?.querySelector<HTMLElement>("button")?.focus()
+    }
+    lostPasskeyOnlyBeforeRef.current = lostPasskeyOnly
+  }, [lostPasskeyOnly, onPasskeyScreen])
 
   // Back to the address, keeping what was typed; the sent code is forgotten.
   const backToAddress = React.useCallback(() => {
@@ -619,9 +642,9 @@ export function LoginPage({
     // nothing, and the list is shown without its link, so the screen is never
     // empty (T-A10).
     const passkeyGone = passkey.phase === "unavailable"
-    // Under `mfa_passkey` every other way would resume the request into the
-    // application's refusal (D-152-2): the list holds the way out alone.
-    const lostPasskeyOnly = reason?.reason === "mfa_passkey"
+    // Under `mfa_passkey` (`lostPasskeyOnly`) every other way would resume the
+    // request into the application's refusal (D-152-2): the list holds the way
+    // out alone.
     const email = step.email
     return (
       <AuthLayout
@@ -634,6 +657,15 @@ export function LoginPage({
           <FieldGroup>
             {addressField}
             {staySignedInField}
+            {/* A provider in the list answered that this account signs in with
+                its passkey: the API's sentence stays on the screen, above the
+                button, as on the first screen. */}
+            {passkeyNotice ? (
+              <Alert data-testid="passkey-required-note">
+                <KeyRound />
+                <AlertDescription>{passkeyNotice}</AlertDescription>
+              </Alert>
+            ) : null}
             <PasskeyButton
               ceremony={passkey}
               label={t("auth.passkey.signIn")}
@@ -676,7 +708,7 @@ export function LoginPage({
                 ) : (
                   // The same list for every account (D-S20-16): the
                   // deployment's options decide it, never the account.
-                  <div className="flex flex-col gap-3">
+                  <div ref={otherWaysListRef} className="flex flex-col gap-3">
                     {codeOffered ? (
                       <Button
                         type="button"
@@ -851,16 +883,22 @@ export function LoginPage({
               )}
             </Button>
             {/* The other method, always a visible link (D-215-2). From the
-                password step it goes back to the address, in that method. */}
+                password step it sends the code for the address on that step,
+                as the passkey screen's list does: the address is not asked
+                about again. */}
             {codeOffered && !passwordToFinish ? (
               <Button
                 type="button"
                 variant="link"
                 className="text-muted-foreground"
+                disabled={passwordStep && sendingFromList}
                 onClick={() => {
                   form.clearErrors()
+                  if (step.kind === "password") {
+                    void sendCodeFromList(step.email)
+                    return
+                  }
                   setChosen(codeFirst ? "password" : "code")
-                  if (passwordStep) backToAddress()
                 }}
               >
                 {codeFirst

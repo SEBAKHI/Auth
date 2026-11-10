@@ -227,7 +227,16 @@ for (const theme of ["light", "dark"] as const) {
       page,
     }) => {
       await installAnonymous(page, { theme, language, passkeys: true })
+      // The first screen's shape comes with the branding answer. Before it the
+      // page is the one-screen form, where Enter would submit an empty password
+      // and nothing would ask about the address.
+      const answered = page.waitForResponse((response) =>
+        new URL(response.url()).pathname.toLowerCase().endsWith("/platform/branding")
+      )
       await page.goto("/login")
+      await answered
+      await expect(page.getByTestId("stay-signed-in-placeholder")).toHaveCount(0)
+      await expect(page.locator('input[type="password"]')).toHaveCount(0)
       await page.getByRole("textbox").first().fill("ada@example.test")
       // "Continue" in either language: the form's own submit.
       await page.getByRole("textbox").first().press("Enter")

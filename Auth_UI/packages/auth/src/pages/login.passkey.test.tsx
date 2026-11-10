@@ -849,12 +849,18 @@ describe("Try another way (OI-280, T-A8, D-S20-16)", () => {
     }
     mocks.branding.signInOptions = PASSKEYS_PASSWORD_ONLY
     renderPage({ providers: <Provider /> })
-    await onPasskeyScreen()
+    const button = await onPasskeyScreen()
     await otherWays()
 
     fireEvent.click(screen.getByRole("button", { name: "provider" }))
 
     expect(handed).toBe(true)
+    // The sentence shows on this screen, above the button, which takes the focus
+    // back: a refusal never leaves the screen as it was.
+    const note = await screen.findByTestId("passkey-required-note")
+    expect(note).toHaveTextContent(PASSKEY_REQUIRED.detail)
+    expect(precedes(note, button)).toBe(true)
+    await waitFor(() => expect(button).toHaveFocus())
   })
 
   it("under mfa_passkey holds the way out for a lost passkey alone (D-152-2)", async () => {
@@ -876,6 +882,56 @@ describe("Try another way (OI-280, T-A8, D-S20-16)", () => {
     expect(
       within(screen.getByTestId("other-ways")).getByTestId("passkey-lost-link")
     ).toHaveAttribute("href", "/login")
+  })
+
+  it("the way out for a lost passkey drops the request in place: the list becomes everyone's, and the focus goes to its first way", async () => {
+    serverWithLookup()
+    mocks.completion.reason = { reason: "mfa_passkey", method: null }
+    mocks.branding.signInOptions = PASSKEYS_CODE_OFFERED_PASSWORD_FIRST
+    renderPage()
+    await onPasskeyScreen()
+    await otherWays()
+    const lost = within(screen.getByTestId("other-ways")).getByTestId("passkey-lost-link")
+
+    // The link drops the request: on the page, the reason goes with the address
+    // it was read from.
+    mocks.completion.reason = null
+    await userEvent.setup().click(lost)
+
+    const list = await screen.findByTestId("other-ways")
+    await waitFor(() =>
+      expect(
+        within(list).getByRole("button", { name: "auth.signInWithEmailCode" })
+      ).toHaveFocus()
+    )
+    expect(within(list).queryByTestId("passkey-lost-link")).toBeNull()
+    expect(
+      screen.getByRole("heading", { name: "auth.passkey.screenTitle" })
+    ).toBeInTheDocument()
+  })
+})
+
+describe("the password step's link to the code (D-215-2)", () => {
+  it("sends the code for the step's address, without asking about the address again", async () => {
+    serverWithLookup()
+    mocks.branding.signInOptions = PASSKEYS_CODE_OFFERED_PASSWORD_FIRST
+    renderPage()
+    await optionsAsked()
+    await continueWith("someone@example.com")
+    await screen.findByLabelText("auth.password")
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "auth.signInWithEmailCode" }))
+
+    expect(await screen.findByText("code flow")).toBeInTheDocument()
+    expect(posted()).toEqual([LOOKUP_PATH, CODE_START_PATH])
+    expect(mocks.post).toHaveBeenCalledWith(
+      CODE_START_PATH,
+      expect.objectContaining({
+        body: expect.objectContaining({ email: "someone@example.com" }),
+      })
+    )
   })
 })
 
