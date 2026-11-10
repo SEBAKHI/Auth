@@ -6,7 +6,8 @@ import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
  * The window a signed-in person proves themself in (owner decision, 2026-11-09), on the built
  * console. What only a browser decides: it fits a phone in Arabic with every control reachable,
  * the page behind it is not lost, and a success leaves the person on the page with the change
- * going on, with no sign-out.
+ * going on, with no sign-out. A refresh that fails after the proof (REVIEW-FIXES 152 F33) keeps
+ * the window, with its sentence and a retry, through the real client.
  *
  * Deliberate break this file must catch, seen red: the window signing out as it opens (the
  * person is taken away, so it is never seen).
@@ -133,6 +134,48 @@ test.describe("the window that proves a signed-in person", () => {
     expect(server.proofs).toEqual([
       { password: "Isolated1!", emailCode: null, secondStepCode: null, useRecoveryCode: false },
     ])
+    expect(server.options).toEqual([{ proved: false }, { proved: true }])
+    expect(server.logouts).toBe(0)
+  })
+
+  test("says on a phone, in Arabic, when the page could not be updated after the proof, and goes on from a retry", async ({ page }) => {
+    // REVIEW-FIXES 152 F33, through the real client: a refresh that answers 503 keeps the session
+    // and its old token, so the window stays, with the proof accepted, and asks for nothing twice.
+    const server: Server = { proofs: [], options: [], logouts: 0 }
+    await install(page, server, "ar")
+    let refreshFails = false
+    // Registered after the mock's, so it answers first: Playwright runs the last route first. The
+    // client calls `/api/v1/Auth/refresh`, and a glob matches case-sensitively, so the path is
+    // compared as the mock compares it.
+    await page.route((url) => url.pathname.toLowerCase() === "/api/v1/auth/refresh", async (route) => {
+      if (refreshFails) await route.fulfill({ status: 503 })
+      else await route.fallback()
+    })
+
+    await page.goto("/profile?tab=security")
+    await page.getByRole("button", { name: "إضافة مفتاح مرور" }).click()
+    const proof = page.getByRole("dialog", { name: "أكّد أنك أنت" })
+    await proof.getByLabel("كلمة المرور", { exact: true }).fill("Isolated1!")
+    refreshFails = true
+    await proof.getByRole("button", { name: "تأكيد", exact: true }).click()
+
+    await expect(proof.getByText("تم قبول تأكيدك، لكن تعذّر تحديث هذه الصفحة حتى الآن.")).toBeVisible()
+    const fit = await proof.evaluate((element) => ({
+      spills: element.scrollWidth - element.clientWidth,
+      direction: getComputedStyle(element).direction,
+    }))
+    expect(fit).toEqual({ spills: 0, direction: "rtl" })
+    const retry = proof.getByRole("button", { name: "إعادة المحاولة" })
+    await expect(retry).toBeInViewport()
+    await expect(proof.getByRole("button", { name: "إلغاء" })).toBeInViewport()
+    expect(server.options).toEqual([{ proved: false }])
+
+    refreshFails = false
+    await retry.click()
+
+    await expect(proof).toHaveCount(0)
+    await expect(page.getByRole("dialog", { name: "إضافة مفتاح مرور" })).toBeVisible()
+    expect(server.proofs).toHaveLength(1)
     expect(server.options).toEqual([{ proved: false }, { proved: true }])
     expect(server.logouts).toBe(0)
   })

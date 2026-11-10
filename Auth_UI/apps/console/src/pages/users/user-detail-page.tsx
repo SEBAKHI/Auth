@@ -704,9 +704,10 @@ export function UserDetailPage() {
   // A second reset would be refused (nothing left to reset): set synchronously,
   // before the button re-renders disabled.
   const resettingTwoFactor = React.useRef(false)
-  // The reset needs the administrator's own recent two-step sign-in. "Sign in
-  // again" only helps someone who has a second factor to sign in with; one who
-  // has none is sent to set it up first — never a dialog with no way forward.
+  // The reset needs the administrator's own recent two-step proof. The "Confirm
+  // it's you" window takes it where they stand, from someone who has a second
+  // factor to prove with; one who has none is sent to set it up first — never a
+  // dialog with no way forward.
   // It carries the account the administrator confirmed (REVIEW-FIXES 152 F24):
   // this page stays mounted from one account to the next, and a proof given after
   // Back resets only that account, or asks for the confirmation again.
@@ -784,6 +785,13 @@ export function UserDetailPage() {
   // system account, and never one holding platform permissions this
   // administrator lacks, which the server refuses after the dialog.
   const offersResetTwoFactor = canResetTwoFactor && allows("resetTwoFactor")
+  // The account the page shows now, and whether it offers the reset there. A proof
+  // hands back in the window's render that it started in, which the page may have
+  // left since (REVIEW-FIXES 152 F35): the hand-back reads these when it lands.
+  const shownRef = React.useRef({ userId, offersReset: offersResetTwoFactor })
+  React.useEffect(() => {
+    shownRef.current = { userId, offersReset: offersResetTwoFactor }
+  }, [userId, offersResetTwoFactor])
   const userActions: PageAction[] = [
     ...(canUpdate && allows("update")
       ? [
@@ -1155,10 +1163,13 @@ export function UserDetailPage() {
         onProved={() => {
           const confirmed = resetNeeds?.userId
           setResetNeeds(undefined)
-          // The account the administrator confirmed, while the page still shows it; after Back
-          // or Forward to another account, its own confirmation first, which names it.
-          if (confirmed === userId) resetTwoFactor.mutate(confirmed)
-          else setResetTwoFactorOpen(true)
+          // The account the administrator confirmed, while the page shows it when the proof
+          // lands (F24, F35); after Back or Forward to another account, that account's own
+          // confirmation first, which names it, and only where the page offers the reset: on
+          // one's own page it would wait, unseen, for the next account opened (F35).
+          const shown = shownRef.current
+          if (confirmed === shown.userId) resetTwoFactor.mutate(confirmed)
+          else if (shown.offersReset) setResetTwoFactorOpen(true)
         }}
       />
 

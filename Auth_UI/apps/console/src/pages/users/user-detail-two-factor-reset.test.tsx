@@ -23,6 +23,9 @@ let postAnswer: { error?: unknown; data?: unknown } = { data: undefined }
 let ownRecoveryCodes: number | null = 4
 let ownQualifyingMfa = false
 let ownAccountReadFails = false
+/** The window's refresh, held by a test whose proof is still on its way when the page moves (F35). */
+let refreshGate: Promise<boolean> | null = null
+const refreshes = vi.fn()
 
 let allowedActions: { resetTwoFactor?: boolean } | undefined
 
@@ -76,7 +79,10 @@ vi.mock("@authsystem/api/client", () => {
       DELETE: request,
     },
     // The window refreshes this browser's token before it hands back (REVIEW-FIXES 152 F23).
-    refreshSessionNow: () => Promise.resolve(true),
+    refreshSessionNow: () => {
+      refreshes()
+      return refreshGate ?? Promise.resolve(true)
+    },
   }
 })
 
@@ -118,11 +124,42 @@ function renderPage(permissions: string[], userId: string = target.id) {
   )
 }
 
+/** The page on a router the test moves, as Back and Forward do: the page stays mounted (F24, F35). */
+function renderRouted(permissions: string[], userId: string = target.id) {
+  grantedPermissions.clear()
+  permissions.forEach((permission) => grantedPermissions.add(permission))
+  const router = createMemoryRouter([{ path: "/users/:id", element: <UserDetailPage /> }], {
+    initialEntries: [`/users/${userId}`],
+  })
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
+  return {
+    go: (id: string) =>
+      act(async () => {
+        await router.navigate(`/users/${id}`)
+      }),
+  }
+}
+
+/** The resets posted for one account. */
+const resets = (id: string) =>
+  apiCall.mock.calls.filter(
+    ([path, options]) =>
+      path === "/api/v1/Users/{id}/two-factor/reset" &&
+      (options as { params: { path: { id: string } } }).params.path.id === id
+  )
+
 const RESET = "Reset two-factor"
 
 describe("resetting another account's two-factor", () => {
   beforeEach(async () => {
     apiCall.mockClear()
+    refreshes.mockClear()
+    refreshGate = null
     postAnswer = { data: undefined }
     ownRecoveryCodes = 4
     ownQualifyingMfa = false
@@ -227,33 +264,15 @@ describe("resetting another account's two-factor", () => {
     postAnswer = {
       error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
     }
-    grantedPermissions.clear()
-    ;[PERMISSIONS.users.read, PERMISSIONS.users.resetTwoFactor].forEach((permission) => grantedPermissions.add(permission))
-    const router = createMemoryRouter([{ path: "/users/:id", element: <UserDetailPage /> }], {
-      initialEntries: [`/users/${target.id}`],
-    })
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-    render(
-      <QueryClientProvider client={client}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
-    )
+    const { go } = renderRouted([PERMISSIONS.users.read, PERMISSIONS.users.resetTwoFactor])
     const user = userEvent.setup()
-    const resets = (id: string) =>
-      apiCall.mock.calls.filter(
-        ([path, options]) =>
-          path === "/api/v1/Users/{id}/two-factor/reset" &&
-          (options as { params: { path: { id: string } } }).params.path.id === id
-      )
 
     await user.click(await screen.findByRole("button", { name: RESET }))
     await user.click(await screen.findByRole("button", { name: "Reset" }))
     const proof = await screen.findByRole("dialog", { name: "Confirm it's you" })
     expect(resets(target.id)).toHaveLength(1)
 
-    await act(async () => {
-      await router.navigate(`/users/${other.id}`)
-    })
+    await go(other.id)
     expect(await screen.findByText(other.email)).toBeInTheDocument()
 
     postAnswer = { error: undefined }
@@ -263,6 +282,70 @@ describe("resetting another account's two-factor", () => {
     const confirmation = await screen.findByRole("alertdialog", { name: "Reset two-factor authentication?" })
     expect(confirmation).toHaveTextContent("Other Person")
     expect(resets(other.id)).toHaveLength(0)
+    expect(resets(target.id)).toHaveLength(1)
+  }, 15_000)
+
+  it("after a proof that lands once the page shows another account, resets nothing there, and asks that account's confirmation", async () => {
+    // REVIEW-FIXES 152 F35 (a): the proof was on its way during Back, so it hands back in the
+    // render of the first account. Deliberate break, verified red: the hand-back compares the
+    // confirmed account with that render's account, not with the one the page shows.
+    postAnswer = {
+      error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
+    }
+    const { go } = renderRouted([PERMISSIONS.users.read, PERMISSIONS.users.resetTwoFactor])
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole("button", { name: RESET }))
+    await user.click(await screen.findByRole("button", { name: "Reset" }))
+    const proof = await screen.findByRole("dialog", { name: "Confirm it's you" })
+
+    postAnswer = { error: undefined }
+    let refreshed!: (fresh: boolean) => void
+    refreshGate = new Promise<boolean>((resolve) => {
+      refreshed = resolve
+    })
+    await user.type(await within(proof).findByLabelText("Password"), "my password")
+    await user.click(within(proof).getByRole("button", { name: "Confirm" }))
+    await waitFor(() => expect(refreshes).toHaveBeenCalledTimes(1))
+
+    await go(other.id)
+    expect(await screen.findByText(other.email)).toBeInTheDocument()
+    await act(async () => {
+      refreshed(true)
+    })
+
+    const confirmation = await screen.findByRole("alertdialog", { name: "Reset two-factor authentication?" })
+    expect(confirmation).toHaveTextContent("Other Person")
+    expect(resets(other.id)).toHaveLength(0)
+    expect(resets(target.id)).toHaveLength(1)
+  }, 15_000)
+
+  it("after a proof given on the administrator's own page, leaves no confirmation waiting for the next account", async () => {
+    // REVIEW-FIXES 152 F35 (b): the confirmation is never shown on one's own page, so a flag set
+    // there would open it, unasked, on the next account opened. Deliberate break, verified red: the
+    // hand-back asks for the confirmation whatever the page offers.
+    signedIn.id = other.id
+    postAnswer = {
+      error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
+    }
+    const { go } = renderRouted([PERMISSIONS.users.read, PERMISSIONS.users.resetTwoFactor])
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole("button", { name: RESET }))
+    await user.click(await screen.findByRole("button", { name: "Reset" }))
+    const proof = await screen.findByRole("dialog", { name: "Confirm it's you" })
+
+    await go(other.id)
+    expect(await screen.findByText(other.email)).toBeInTheDocument()
+
+    postAnswer = { error: undefined }
+    await user.type(await within(proof).findByLabelText("Password"), "my password")
+    await user.click(within(proof).getByRole("button", { name: "Confirm" }))
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Confirm it's you" })).not.toBeInTheDocument())
+
+    await go(target.id)
+    expect(await screen.findByRole("button", { name: RESET })).toBeInTheDocument()
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
     expect(resets(target.id)).toHaveLength(1)
   }, 15_000)
 

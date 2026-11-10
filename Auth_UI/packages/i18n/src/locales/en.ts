@@ -401,6 +401,7 @@ export const en = {
       confirm: "Confirm",
       proved: "Confirmed. You can go on.",
       passkeyFailed: "Your passkey could not confirm it's you here. Try again, or use another way below.",
+      refreshFailed: "Your confirmation was accepted, but this page could not be updated yet.",
       signOutLink: "Can't confirm it here? Sign out and sign in again",
     },
     reauthenticatePasskeyBody: "For your security, this change needs a recent sign-in that proved two steps. Your account's second factor is a passkey, and a password or an emailed code alone does not count: sign out and sign back in with your passkey, and you will come back to this page.",

@@ -420,9 +420,11 @@ function refreshFor(options: RefreshOptions, honourRecord: boolean): Promise<Ref
  * minted one. A caller of the one primitive ({@link sharedRefresh}), with the
  * token this tab holds as the refused one: it waits for a refresh already under
  * way (whose request may predate the change), then refuses whatever token this
- * tab holds after it. A token another tab rotated meanwhile is adopted instead,
- * which is right too: it was minted after the change. The token is never
- * dropped meanwhile, so the tab is never left without one.
+ * tab holds after it. A token another tab rotated meanwhile is adopted instead.
+ * It postdates the change only when that rotation began after it: one already
+ * under way when the change landed was minted before it, and what needed the
+ * change is refused once more (a step-up then asks for its proof again). The
+ * token is never dropped meanwhile, so the tab is never left without one.
  *
  * A refusal that ends the session ends it here, as a request's would. An
  * unknown outcome (network, 5xx) or a rate limit keeps the session and the

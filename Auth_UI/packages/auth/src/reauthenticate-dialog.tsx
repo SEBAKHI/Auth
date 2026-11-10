@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { api, refreshSessionNow } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
+import { hasSession } from "@authsystem/api/token-store"
 import type { Schemas } from "@authsystem/api/types"
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { Button } from "@authsystem/ui/button"
@@ -71,6 +72,9 @@ export interface ReauthenticationProof {
  * tokens issued after it (REVIEW-FIXES 152 F23), then closes and says so to the caller, once,
  * which goes on with what was asked (`onProved`), or, when the caller has nothing to resume,
  * it tells the person. A proof that lands after the person closed the window resumes nothing.
+ * A refresh that fails keeps the window open, with the proof accepted: it says so, and refreshes
+ * again on request, never asking for the proof again; one that ends the session hands back
+ * nothing, and its sign-out takes over (F33).
  *
  * The way out is signing in again, as it was before this window, and it stays: for
  * someone who lost what the window asks for, and for an account that has nothing to
@@ -121,13 +125,16 @@ function ReauthenticateWindow({
   const { t } = useTranslation()
   // The person asked for the way out, or the server said only a sign-in can go on.
   const [signingIn, setSigningIn] = React.useState(false)
-  // Set while a proof or a sign-out is in flight: the window stays until it settles.
+  // Set while a proof, its refresh or a sign-out is in flight: the window stays until it settles.
   const holdRef = React.useRef(false)
   // Set once the window has handed back, or gone: a proof landing later goes on with nothing,
   // and two proofs landing together resume what was asked once.
   const settledRef = React.useRef(false)
   // Set once a proof was accepted: its refresh and its hand-back run once.
   const acceptedRef = React.useRef(false)
+  // A proof the server accepted while this page could not take a token issued after it yet (F33):
+  // kept, so a refresh tried again hands it back without a second proof.
+  const [refreshFailed, setRefreshFailed] = React.useState<ReauthenticationProof | null>(null)
   React.useEffect(() => {
     settledRef.current = false
     return () => {
@@ -144,25 +151,41 @@ function ReauthenticateWindow({
     queryFn: () => unwrap(api.GET("/api/v1/auth/reauthentication")),
   })
 
-  const proved = async (proof: ReauthenticationProof) => {
-    if (settledRef.current || acceptedRef.current) return
-    acceptedRef.current = true
-    // The proof counts only for the tokens issued after it (REVIEW-FIXES 152 F23), and the token
-    // this tab holds predates it: the change it asked for would be refused again, and the client
-    // replays no refused change. So this browser's token is refreshed first, once, held against a
-    // close; its refresh token never leaves it. A refresh that fails leaves the token as it was,
-    // and the change then asks again.
+  // The proof counts only for the tokens issued after it (REVIEW-FIXES 152 F23), and the token
+  // this tab holds predates it: the change it asked for would be refused again, and the client
+  // replays no refused change. So this browser's token is refreshed before the window hands back,
+  // held against a close; its refresh token never leaves it. What follows is the refresh's answer
+  // (F33).
+  const handBack = async (proof: ReauthenticationProof) => {
     holdRef.current = true
+    let fresh: boolean
     try {
-      await refreshSessionNow().catch(() => false)
+      fresh = await refreshSessionNow().catch(() => false)
     } finally {
       holdRef.current = false
     }
     if (settledRef.current) return
-    settledRef.current = true
-    onOpenChange(false)
-    if (onProved) onProved(proof)
-    else toast.success(t("auth.reauthenticate.proved"))
+    if (fresh) {
+      settledRef.current = true
+      onOpenChange(false)
+      if (onProved) onProved(proof)
+      else toast.success(t("auth.reauthenticate.proved"))
+    } else if (!hasSession()) {
+      // The refresh ended the session: its sign-out takes over, and nothing goes on.
+      settledRef.current = true
+      onOpenChange(false)
+    } else {
+      // The network, the server or a rate limit: the session stays, with the token from before the
+      // proof, which the change would be refused with. The window says so, and refreshes again on
+      // request, never asking for the proof again.
+      setRefreshFailed(proof)
+    }
+  }
+
+  const proved = async (proof: ReauthenticationProof) => {
+    if (settledRef.current || acceptedRef.current) return
+    acceptedRef.current = true
+    await handBack(proof)
   }
 
   const close = (next: boolean) => {
@@ -195,7 +218,13 @@ function ReauthenticateWindow({
                   : (description ?? t("auth.reauthenticate.body"))}
               </DialogDescription>
             </DialogHeader>
-            {options.isPending ? (
+            {refreshFailed ? (
+              <RefreshFailed
+                holdRef={holdRef}
+                onRetry={() => handBack(refreshFailed)}
+                onCancel={() => close(false)}
+              />
+            ) : options.isPending ? (
               <div className="flex justify-center">
                 <Spinner />
               </div>
@@ -215,7 +244,9 @@ function ReauthenticateWindow({
                 holdRef={holdRef}
                 onProved={proved}
                 onMustSignIn={() => setSigningIn(true)}
-                onCancel={() => onOpenChange(false)}
+                // Held while a proof and its refresh are on their way, the passkey's beside the form
+                // too (FE-5), as the window's own close is.
+                onCancel={() => close(false)}
               />
             )}
             <Button
@@ -234,6 +265,55 @@ function ReauthenticateWindow({
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * The proof was accepted, and this page could not take a token issued after it yet (F33): the
+ * change would be refused with the one it holds. Retry repeats only the refresh, never the proof;
+ * Cancel and the way out stay, so the window is no dead end.
+ */
+function RefreshFailed({
+  holdRef,
+  onRetry,
+  onCancel,
+}: {
+  holdRef: React.RefObject<boolean>
+  onRetry: () => Promise<void>
+  onCancel: () => void
+}) {
+  const { t } = useTranslation()
+  const [retrying, setRetrying] = React.useState(false)
+
+  const retry = async () => {
+    // The refresh holds the window as it starts: a second click landing before the button
+    // re-renders disabled is kept out synchronously.
+    if (holdRef.current) return
+    setRetrying(true)
+    try {
+      await onRetry()
+    } finally {
+      setRetrying(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Alert variant="destructive" data-testid="reauthenticate-refresh-failed">
+        <AlertDescription>
+          <p>{t("auth.reauthenticate.refreshFailed")}</p>
+          <Button variant="secondary" size="sm" disabled={retrying} onClick={() => void retry()}>
+            {retrying ? <Spinner data-icon="inline-start" /> : null}
+            {t("common.retry")}
+          </Button>
+        </AlertDescription>
+      </Alert>
+      <DialogFooter>
+        <Button type="button" variant="outline" disabled={retrying} onClick={onCancel}>
+          {t("common.cancel")}
+        </Button>
+      </DialogFooter>
+    </div>
   )
 }
 

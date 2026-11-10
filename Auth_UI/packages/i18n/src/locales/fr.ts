@@ -394,6 +394,7 @@ export const fr: TranslationResources = {
       confirm: "Confirmer",
       proved: "C'est confirmé. Vous pouvez continuer.",
       passkeyFailed: "Votre clé d'accès n'a pas pu confirmer qu'il s'agit bien de vous ici. Réessayez, ou utilisez une autre méthode ci-dessous.",
+      refreshFailed: "Votre confirmation a été acceptée, mais cette page n'a pas encore pu être mise à jour.",
       signOutLink: "Impossible de confirmer ici ? Déconnectez-vous et reconnectez-vous",
     },
     reauthenticatePasskeyBody: "Pour votre sécurité, ce changement exige une connexion récente qui a prouvé deux étapes. Le second facteur de votre compte est une clé d’accès, et un mot de passe ou un code envoyé par e-mail seul ne suffit pas : déconnectez-vous et reconnectez-vous avec votre clé d’accès, et vous reviendrez sur cette page.",

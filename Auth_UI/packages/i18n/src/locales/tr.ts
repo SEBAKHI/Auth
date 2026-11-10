@@ -394,6 +394,7 @@ export const tr: TranslationResources = {
       confirm: "Doğrula",
       proved: "Doğrulandı. Devam edebilirsiniz.",
       passkeyFailed: "Geçiş anahtarınız burada kimliğinizi doğrulayamadı. Yeniden deneyin veya aşağıdaki başka bir yolu kullanın.",
+      refreshFailed: "Doğrulamanız kabul edildi, ancak bu sayfa henüz güncellenemedi.",
       signOutLink: "Burada doğrulayamıyor musunuz? Oturumu kapatıp yeniden açın",
     },
     reauthenticatePasskeyBody: "Güvenliğiniz için bu değişiklik, iki adımı kanıtlamış yakın tarihli bir oturum açma gerektirir. Hesabınızın ikinci faktörü bir geçiş anahtarı; yalnızca parola veya e-postayla gelen kod yetmez: oturumu kapatıp geçiş anahtarınızla yeniden açın, bu sayfaya geri dönersiniz.",

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { act, render, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -18,6 +18,8 @@ import i18n from "@authsystem/i18n"
  * REVIEW-FIXES 152: the forced refresh dropped before the hand-back (F23); the second step's
  * field cleared after a wrong password (NIT-3); a failed passkey said in the sign-in's words
  * (NIT-6); the passkey-only Cancel left open while the passkey's answer is on its way (NIT-9).
+ * Its round two: a hand-back after a refresh that failed (F33); the refresh not awaited before
+ * the hand-back (F34); the form's Cancel beside a passkey not held by the window (FE-5).
  */
 
 const mocks = vi.hoisted(() => ({
@@ -25,6 +27,8 @@ const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   refreshSessionNow: vi.fn(),
+  /** Whether a session is left after a refresh that failed. */
+  hasSession: vi.fn(),
   toastSuccess: vi.fn(),
   start: vi.fn(),
   onCredential: null as ((credential: unknown) => Promise<{ message?: string | null; leaving?: boolean }>) | null,
@@ -37,6 +41,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@authsystem/api/client", () => ({
   api: { GET: mocks.get, POST: mocks.post },
   refreshSessionNow: mocks.refreshSessionNow,
+}))
+vi.mock("@authsystem/api/token-store", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@authsystem/api/token-store")>()),
+  hasSession: mocks.hasSession,
 }))
 vi.mock("./auth-context", () => ({ useAuth: () => ({ logout: mocks.logout, user: { id: "user-1" } }) }))
 vi.mock("sonner", () => ({ toast: { success: mocks.toastSuccess, error: vi.fn() } }))
@@ -110,6 +118,7 @@ describe("ReauthenticateDialog", () => {
     mocks.get.mockReset()
     mocks.post.mockReset().mockResolvedValue({ data: undefined, error: undefined })
     mocks.refreshSessionNow.mockReset().mockResolvedValue(true)
+    mocks.hasSession.mockReset().mockReturnValue(true)
     mocks.start.mockReset()
     mocks.toastSuccess.mockReset()
     mocks.onCredential = null
@@ -375,22 +384,27 @@ describe("ReauthenticateDialog", () => {
 
   // ── A proof counts only for the tokens issued after it (REVIEW-FIXES 152 F23) ──
 
-  it("refreshes this browser's token once, before it hands back", async () => {
+  it("refreshes this browser's token once, and hands back only once the new one is in", async () => {
     // The token this tab holds predates the proof: the change would be refused again with it.
-    const order: string[] = []
-    mocks.refreshSessionNow.mockImplementation(async () => {
-      order.push("refresh")
-      return true
-    })
+    // F34: the refresh answers later, so a hand-back that did not wait for it is seen.
+    const refresh = deferred<boolean>()
+    mocks.refreshSessionNow.mockReturnValue(refresh.promise)
     const { onProved } = renderWindow()
-    onProved.mockImplementation(() => order.push("hand back"))
     const user = userEvent.setup()
 
     await user.type(await screen.findByLabelText(label("auth.password")), "my password")
     await user.click(screen.getByRole("button", { name: label("auth.reauthenticate.confirm") }))
 
+    await waitFor(() => expect(mocks.refreshSessionNow).toHaveBeenCalledTimes(1))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(onProved).not.toHaveBeenCalled()
+
+    await act(async () => {
+      refresh.resolve(true)
+    })
     await waitFor(() => expect(onProved).toHaveBeenCalledTimes(1))
-    expect(order).toEqual(["refresh", "hand back"])
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(onProved).toHaveBeenCalledTimes(1)
     expect(mocks.refreshSessionNow).toHaveBeenCalledTimes(1)
   })
 
@@ -407,15 +421,48 @@ describe("ReauthenticateDialog", () => {
     expect(mocks.refreshSessionNow).toHaveBeenCalledTimes(1)
   })
 
-  it("still hands back when the refresh fails: the change then asks again", async () => {
-    mocks.refreshSessionNow.mockResolvedValue(false)
-    const { onProved } = renderWindow()
+  it("says the page could not be updated when the refresh fails, and hands back once a retry brings a new token", async () => {
+    // F33: the network, the server or a rate limit, with the session kept. Handed back with the old
+    // token, the change would be refused, and the window would open again with no word of why.
+    mocks.refreshSessionNow.mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+    const { onOpenChange, onProved } = renderWindow()
     const user = userEvent.setup()
 
     await user.type(await screen.findByLabelText(label("auth.password")), "my password")
     await user.click(screen.getByRole("button", { name: label("auth.reauthenticate.confirm") }))
 
+    const failed = await screen.findByTestId("reauthenticate-refresh-failed")
+    expect(failed).toHaveTextContent(label("auth.reauthenticate.refreshFailed"))
+    expect(onProved).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+    // No dead end: Cancel and the way out stay.
+    expect(screen.getByRole("button", { name: label("common.cancel") })).toBeEnabled()
+    expect(screen.getByRole("button", { name: label("auth.reauthenticate.signOutLink") })).toBeInTheDocument()
+
+    await user.click(within(failed).getByRole("button", { name: label("common.retry") }))
+
     await waitFor(() => expect(onProved).toHaveBeenCalledTimes(1))
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(mocks.refreshSessionNow).toHaveBeenCalledTimes(2)
+    // The retry repeats the refresh only, never the proof.
+    expect(posted("/api/v1/auth/reauthentication")).toHaveLength(1)
+  })
+
+  it("hands back nothing when the refresh ended the session: its sign-out takes over", async () => {
+    // F33: a refusal that ends the session signs out in the client; the change must not go out
+    // during that sign-out.
+    mocks.refreshSessionNow.mockResolvedValue(false)
+    mocks.hasSession.mockReturnValue(false)
+    const { onOpenChange, onProved } = renderWindow()
+    const user = userEvent.setup()
+
+    await user.type(await screen.findByLabelText(label("auth.password")), "my password")
+    await user.click(screen.getByRole("button", { name: label("auth.reauthenticate.confirm") }))
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(onProved).not.toHaveBeenCalled()
+    expect(mocks.toastSuccess).not.toHaveBeenCalled()
+    expect(screen.queryByTestId("reauthenticate-refresh-failed")).not.toBeInTheDocument()
   })
 
   it("keeps the second step's code after a wrong password, which the server never read it for", async () => {
@@ -476,6 +523,30 @@ describe("ReauthenticateDialog", () => {
       await answered
     })
     expect(cancel).toBeEnabled()
+  })
+
+  it("holds the form's Cancel while the passkey's answer beside it is on its way", async () => {
+    // FE-5: the window's hold covers the passkey's request and its refresh, as NIT-9 holds the
+    // passkey-only window's Cancel.
+    givenOptions({ passkey: true })
+    const pending = deferred<{ data: undefined; error: undefined }>()
+    mocks.post.mockReturnValue(pending.promise)
+    const { onOpenChange, onProved } = renderWindow()
+    const user = userEvent.setup()
+
+    await screen.findByLabelText(label("auth.password"))
+    let answered!: Promise<unknown>
+    await act(async () => {
+      answered = mocks.onCredential!({ id: "credential" })
+    })
+    await user.click(screen.getByRole("button", { name: label("common.cancel") }))
+    expect(onOpenChange).not.toHaveBeenCalled()
+
+    await act(async () => {
+      pending.resolve({ data: undefined, error: undefined })
+      await answered
+    })
+    expect(onProved).toHaveBeenCalledTimes(1)
   })
 
   it("offers the passkey beside the password, and proves with its answer", async () => {
