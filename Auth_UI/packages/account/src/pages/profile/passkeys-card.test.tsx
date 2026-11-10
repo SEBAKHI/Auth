@@ -30,6 +30,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@authsystem/api/client", () => ({
   api: { GET: mocks.get, POST: mocks.post, PATCH: mocks.patch, DELETE: mocks.del },
+  // The window refreshes this browser's token before it hands back (REVIEW-FIXES 152 F23).
+  refreshSessionNow: () => Promise.resolve(true),
 }))
 vi.mock("@authsystem/auth/passkey/webauthn", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@authsystem/auth/passkey/webauthn")>()),
@@ -827,13 +829,13 @@ describe("PasskeysCard: renaming and removing", () => {
     expect(screen.getAllByTestId("passkey-row")).toHaveLength(1)
   })
 
-  it("asks a passkey-only account removing a lost passkey for a plain proof, not for the passkey it lost, and asks its confirmation again", async () => {
+  it("asks a passkey-only account removing a lost passkey for a plain proof, not for the passkey it lost, and the removal goes on from it", async () => {
     proofOptions = { ...PROOF_OPTIONS, passkey: true }
     // Adding beside a passkey needs a two-factor session (PK7); removing asks only
     // for a recent first factor, or a person who lost the passkey could never
     // remove it: their password counts here.
     givenLists(ok(list([LAPTOP])))
-    mocks.del.mockResolvedValue(problem(403, "Auth.ReauthenticationRequired"))
+    mocks.del.mockResolvedValueOnce(problem(403, "Auth.ReauthenticationRequired")).mockResolvedValue(ok(undefined))
     const user = userEvent.setup()
     renderCard({ ...ME, qualifyingMfa: true, totpEnabled: false })
 
@@ -848,7 +850,17 @@ describe("PasskeysCard: renaming and removing", () => {
     await user.type(await within(proof).findByLabelText(i18n.t("auth.password")), "my password")
     await user.click(within(proof).getByRole("button", { name: i18n.t("auth.reauthenticate.confirm") }))
 
-    expect(await screen.findByRole("alertdialog")).toBeInTheDocument()
+    // REVIEW-FIXES 152 F26: with the passkey the person confirmed, and no confirmation again.
+    // Deliberate break, verified red: the hand-back opening the confirmation again, as before.
+    await waitFor(() =>
+      expect(mocks.toastSuccess).toHaveBeenCalledWith(i18n.t("profile.passkeys.removed", { name: "Work laptop" }))
+    )
+    expect(mocks.del).toHaveBeenCalledTimes(2)
+    expect(mocks.del.mock.calls.map(([, options]) => options)).toEqual([
+      { params: { path: { id: LAPTOP.id } } },
+      { params: { path: { id: LAPTOP.id } } },
+    ])
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
     expect(mocks.logout).not.toHaveBeenCalled()
   })
 })

@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@authsystem/api/client", () => ({
   api: { POST: (...args: unknown[]) => mocks.post(...args) },
+  // The window refreshes this browser's token before it hands back (REVIEW-FIXES 152 F23).
+  refreshSessionNow: () => Promise.resolve(true),
 }))
 vi.mock("@authsystem/ui/branding", () => ({
   useSignInOptions: () => ({

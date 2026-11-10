@@ -170,6 +170,22 @@ export function PasskeysCard({
     [queryClient]
   )
 
+  // What a removal came to, from its confirmation or from the proof it asked for: the card says
+  // it, and asks for the proof when the sign-in is too old.
+  const settleRemoval = (passkey: Passkey, outcome: RemovalOutcome) => {
+    if (outcome.reauthenticate) setReauthenticate({ change: "remove", passkey })
+    setMessage(outcome.message ?? null)
+    if (outcome.removed) {
+      toast.success(t("profile.passkeys.removed", { name: passkey.name }))
+    }
+    if (outcome.removed || outcome.stale) {
+      void refetch()
+      void queryClient.invalidateQueries({ queryKey: ["me"], exact: true })
+    }
+    // After the dialog's own focus return, to the one control that stays.
+    window.setTimeout(() => addButtonRef.current?.focus(), 0)
+  }
+
   const begin = async () => {
     if (startingRef.current) return
     startingRef.current = true
@@ -312,17 +328,7 @@ export function PasskeysCard({
           passkey={removing}
           onSettled={(outcome) => {
             setRemoving(null)
-            if (outcome.reauthenticate) setReauthenticate({ change: "remove", passkey: removing })
-            setMessage(outcome.message ?? null)
-            if (outcome.removed) {
-              toast.success(t("profile.passkeys.removed", { name: removing.name }))
-            }
-            if (outcome.removed || outcome.stale) {
-              void refetch()
-              void queryClient.invalidateQueries({ queryKey: ["me"], exact: true })
-            }
-            // After the dialog's own focus return, to the one control that stays.
-            window.setTimeout(() => addButtonRef.current?.focus(), 0)
+            settleRemoval(removing, outcome)
           }}
         />
       ) : null}
@@ -334,9 +340,14 @@ export function PasskeysCard({
           description={t("profile.passkeys.needsRecentSignIn")}
           passkey={passkeyOnly && reauthenticate.change === "add"}
           onProved={() => {
-            // Removing is what the person confirmed, but on a stale list: asked once more.
-            if (reauthenticate.change === "remove") setRemoving(reauthenticate.passkey)
-            else void begin()
+            // Removing goes on by itself, with the passkey the person confirmed (D-152-5,
+            // REVIEW-FIXES 152 F26): a list gone stale meanwhile answers as the confirmation does.
+            if (reauthenticate.change === "remove") {
+              const confirmed = reauthenticate.passkey
+              void requestRemoval(confirmed).then((outcome) => settleRemoval(confirmed, outcome))
+            } else {
+              void begin()
+            }
           }}
         />
       ) : null}
@@ -772,6 +783,22 @@ interface RemovalOutcome {
   message?: string | null
 }
 
+/** Removes the passkey, and says what that came to: from the confirmation, or after a proof. */
+async function requestRemoval(passkey: Passkey): Promise<RemovalOutcome> {
+  try {
+    const { error, response } = await api.DELETE("/api/v1/auth/passkeys/{id}", {
+      params: { path: { id: passkey.id } },
+    })
+    if (error) throw withRetryAfter(error, response)
+    return { removed: true }
+  } catch (error) {
+    const codes = getErrorCodes(error)
+    if (codes.includes("Auth.ReauthenticationRequired")) return { reauthenticate: true }
+    if (codes.includes("Passkey.NotFound")) return { stale: true }
+    return { message: passkeyFailureMessage(error) }
+  }
+}
+
 /**
  * The removal confirmation. Its button is a plain one, held by a ref until the
  * request settles: the dialog's own action button would close it at the click,
@@ -793,19 +820,7 @@ function RemovePasskeyDialog({
     if (pendingRef.current) return
     pendingRef.current = true
     setPending(true)
-    let outcome: RemovalOutcome
-    try {
-      const { error, response } = await api.DELETE("/api/v1/auth/passkeys/{id}", {
-        params: { path: { id: passkey.id } },
-      })
-      if (error) throw withRetryAfter(error, response)
-      outcome = { removed: true }
-    } catch (error) {
-      const codes = getErrorCodes(error)
-      if (codes.includes("Auth.ReauthenticationRequired")) outcome = { reauthenticate: true }
-      else if (codes.includes("Passkey.NotFound")) outcome = { stale: true }
-      else outcome = { message: passkeyFailureMessage(error) }
-    }
+    const outcome = await requestRemoval(passkey)
     pendingRef.current = false
     setPending(false)
     onSettled(outcome)

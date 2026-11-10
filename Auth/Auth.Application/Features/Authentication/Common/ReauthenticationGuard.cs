@@ -16,17 +16,20 @@ public class ReauthenticationGuard : IReauthenticationGuard
 {
     private readonly IUserSessionRepository _sessionRepository;
     private readonly IOptionsMonitor<TwoFactorSettings> _settings;
+    private readonly ICurrentAccessToken _accessToken;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<ReauthenticationGuard> _logger;
 
     public ReauthenticationGuard(
         IUserSessionRepository sessionRepository,
         IOptionsMonitor<TwoFactorSettings> settings,
+        ICurrentAccessToken accessToken,
         TimeProvider timeProvider,
         ILogger<ReauthenticationGuard> logger)
     {
         _sessionRepository = sessionRepository;
         _settings = settings;
+        _accessToken = accessToken;
         _timeProvider = timeProvider;
         _logger = logger;
     }
@@ -93,11 +96,27 @@ public class ReauthenticationGuard : IReauthenticationGuard
         var proof = await _sessionRepository.GetLastProofAsync(session.Id, cancellationToken);
         if (proof is not null && proof.ProvedAtUtc >= oldestAccepted)
         {
-            return new RecentSession(session.Id, session.DeviceName, proof.Methods);
+            // And only for the tokens issued after it (REVIEW-FIXES 152 F23). The sign-out the
+            // proof replaced ended every copy of the session's token; a proof given in one browser
+            // must not serve a copy held elsewhere. The window refreshes the token of the browser
+            // that proved, before it hands back, and that token passes.
+            return IssuedSince(proof.ProvedAtUtc)
+                ? new RecentSession(session.Id, session.DeviceName, proof.Methods)
+                : Refuse(userId, "the access token was issued before the last proof");
         }
 
         return Refuse(userId, $"the sign-in, and any proof since, is older than {maxAgeMinutes} minutes");
     }
+
+    /// <summary>
+    /// Whether the request's access token was issued at or after <paramref name="provedAtUtc"/>.
+    /// Its <c>iat</c> holds whole seconds, so the proof is read to its own second: a token minted
+    /// in that second passes, which only a holder of the session's refresh token can do. A token
+    /// that names no time fails closed. Both times are the API's clock.
+    /// </summary>
+    private bool IssuedSince(DateTime provedAtUtc) =>
+        _accessToken.IssuedAtUtc is { } issuedAt
+        && issuedAt >= provedAtUtc.AddTicks(-(provedAtUtc.Ticks % TimeSpan.TicksPerSecond));
 
     /// <inheritdoc />
     public async Task<ErrorOr<RecentSession>> EnsureRecentTwoFactorSignInAsync(

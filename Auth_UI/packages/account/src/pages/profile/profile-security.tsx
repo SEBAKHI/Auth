@@ -237,20 +237,17 @@ function TwoFactorCard({
     if (codes.length) setRecoveryCodes(codes.join("\n"))
   }
 
-  // A dialog closes when it is asked for a proof, and opens again, empty, once it is given. The
-  // code it held was never counted; but a proof with the app's code leaves it unusable, so the
-  // person is told to wait for the next one rather than be refused for a code they just used.
-  const changeHandlersOf = (reopen: () => void) => ({
-    onReauthenticate: () =>
+  // A dialog asked for a proof stays open under the window, with what was typed, and goes on from
+  // the proof by itself (D-152-5, REVIEW-FIXES 152 F26, F27): the dialog knows what it held, and
+  // what a proof with the app's code leaves unusable.
+  const changeHandlers = {
+    onReauthenticate: (resume: (proof: ReauthenticationProof) => void) =>
       setReauthenticate({
         description: t("profile.twoFactorChangeNeedsRecentSignIn"),
-        onProved: ({ spentAppCode }) => {
-          reopen()
-          if (spentAppCode) toast.info(t("profile.twoFactorNextCode"))
-        },
+        onProved: resume,
       }),
     onStale: () => void invalidateMe(),
-  })
+  }
 
   /*
    * One answer to a failure of disable, keyed by the published code — never by
@@ -424,14 +421,14 @@ function TwoFactorCard({
         <RegenerateRecoveryCodesDialog
           onOpenChange={setRegenerateOpen}
           onRegenerated={showNewCodes}
-          {...changeHandlersOf(() => setRegenerateOpen(true))}
+          {...changeHandlers}
         />
       ) : null}
       {replaceOpen ? (
         <ReplaceAuthenticatorDialog
           onOpenChange={setReplaceOpen}
           onReplaced={showNewCodes}
-          {...changeHandlersOf(() => setReplaceOpen(true))}
+          {...changeHandlers}
         />
       ) : null}
 

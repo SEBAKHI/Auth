@@ -15,7 +15,9 @@ namespace Auth.Application.Interfaces;
 /// when its sign-in happened, and a refreshed token keeps that session, so the age
 /// of the sign-in is the age of the session row — not of the token. A person who proved
 /// themself again inside the session (<see cref="Domain.ValueObjects.SessionProof"/>) counts
-/// from that proof, with what that one proof proved.
+/// from that proof, with what that one proof proved, and only with an access token issued at or
+/// after it (<see cref="ICurrentAccessToken"/>): a copy of the session's token taken before the
+/// proof does not ride on it.
 /// </remarks>
 public interface IReauthenticationGuard
 {
@@ -48,8 +50,8 @@ public interface IReauthenticationGuard
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// The session, with what its sign-in proved or, past that, what its last proof proved; or
-    /// <c>Auth.ReauthenticationRequired</c> when it is too old, ended, someone else's, or there is
-    /// no session row to measure.
+    /// <c>Auth.ReauthenticationRequired</c> when it is too old, ended, someone else's, there is
+    /// no session row to measure, or the token was issued before the proof that would count.
     /// </returns>
     Task<ErrorOr<RecentSession>> EnsureRecentSignInAsync(
         Guid userId,

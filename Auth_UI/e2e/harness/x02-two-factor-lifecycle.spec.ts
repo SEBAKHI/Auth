@@ -147,7 +147,8 @@ async function serveProfile(
 
       return false
     },
-    { preferredLanguage }
+    // The account has the app: the window asks for its code after the password.
+    { preferredLanguage, reauthentication: { secondStep: "AuthenticatorApp" } }
   )
 }
 
@@ -327,50 +328,55 @@ const RECOVERY_ANSWERS: Record<string, unknown> = {
 }
 
 async function serveRecoveryLayer(api: HarnessApi, state: RecoveryServer) {
-  await api.useAuthenticated([], async (route, url) => {
-    const path = url.pathname.toLowerCase()
-    const method = route.request().method()
+  await api.useAuthenticated(
+    [],
+    async (route, url) => {
+      const path = url.pathname.toLowerCase()
+      const method = route.request().method()
 
-    if (path === "/api/v1/users/me" && method === "GET") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ ...PROFILE, preferredLanguage: "en" }),
-      })
-      return true
-    }
-
-    if (path === "/api/v1/auth/2fa/status" && method === "GET") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ recoveryCodesRemaining: state.remaining }),
-      })
-      return true
-    }
-
-    if (method === "POST" && path === "/api/v1/auth/reauthentication") {
-      state.reauthenticate = false
-      await route.fulfill({ status: 204 })
-      return true
-    }
-
-    if (method === "POST" && path in RECOVERY_ANSWERS) {
-      state.posts.push({ path, body: route.request().postDataJSON() })
-      if (state.reauthenticate) {
-        await problem(route, 403, "Auth.ReauthenticationRequired", REAUTHENTICATION_REQUIRED)
-      } else {
+      if (path === "/api/v1/users/me" && method === "GET") {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify(RECOVERY_ANSWERS[path]),
+          body: JSON.stringify({ ...PROFILE, preferredLanguage: "en" }),
         })
+        return true
       }
-      return true
-    }
 
-    return false
-  })
+      if (path === "/api/v1/auth/2fa/status" && method === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ recoveryCodesRemaining: state.remaining }),
+        })
+        return true
+      }
+
+      if (method === "POST" && path === "/api/v1/auth/reauthentication") {
+        state.reauthenticate = false
+        await route.fulfill({ status: 204 })
+        return true
+      }
+
+      if (method === "POST" && path in RECOVERY_ANSWERS) {
+        state.posts.push({ path, body: route.request().postDataJSON() })
+        if (state.reauthenticate) {
+          await problem(route, 403, "Auth.ReauthenticationRequired", REAUTHENTICATION_REQUIRED)
+        } else {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(RECOVERY_ANSWERS[path]),
+          })
+        }
+        return true
+      }
+
+      return false
+    },
+    // The account has the app: the window asks for its code after the password.
+    { reauthentication: { secondStep: "AuthenticatorApp" } }
+  )
 }
 
 test("s08: new recovery codes from the warning, in a titled dialog, shown once", async ({
@@ -444,17 +450,20 @@ test("s08: a session that is not a recent two-factor one proves the person in pl
   await expect(proof).toContainText(
     "This needs you to confirm it's you with your authenticator app or a recovery code"
   )
-  await expect(page.getByRole("dialog", { name: "Generate new recovery codes" })).toHaveCount(0)
 
-  // Given, the dialog opens again, empty, and the page behind it still answers a click: one
-  // dialog closing as another opens in the same tick must not leave the page dead.
+  // REVIEW-FIXES 152 F26: the dialog stays under the window, and goes on from the proof by itself.
+  // This proof spends the app's time step, so the code the dialog held is not sent again: its
+  // field is empty, with the next-code sentence. And the page behind still answers a click when
+  // the window closes over a dialog that stays.
   await proof.getByLabel("Password", { exact: true }).fill("Harness1!")
   await proof.getByLabel("Verification code", { exact: true }).fill("654321")
   await proof.getByRole("button", { name: "Confirm", exact: true }).click()
   const again = page.getByRole("dialog", { name: "Generate new recovery codes" })
   await expect(again).toBeVisible()
   await expect(again.getByLabel("Verification code", { exact: true })).toHaveValue("")
+  await expect(page.getByText("Confirmed. A code works only once, so enter the next code from your app.")).toBeVisible()
   await expect(proof).toHaveCount(0)
+  expect(state.posts.map((post) => post.path)).toEqual(["/api/v1/auth/2fa/recovery-codes"])
   await again.getByRole("button", { name: "Cancel" }).click()
   await expect(again).toHaveCount(0)
   expect(await page.evaluate(() => document.body.style.pointerEvents)).not.toBe("none")

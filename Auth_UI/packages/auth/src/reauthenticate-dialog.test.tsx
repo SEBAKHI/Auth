@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -15,25 +15,41 @@ import i18n from "@authsystem/i18n"
  * step left out of the body; the sign-in view shown while the password form is offered;
  * the full-proof reason set after the sign-out; the proof not saying it spent the app's code;
  * a spent recovery code not marked; a second hand-back; the way out open under a proof on its way.
+ * REVIEW-FIXES 152: the forced refresh dropped before the hand-back (F23); the second step's
+ * field cleared after a wrong password (NIT-3); a failed passkey said in the sign-in's words
+ * (NIT-6); the passkey-only Cancel left open while the passkey's answer is on its way (NIT-9).
  */
 
 const mocks = vi.hoisted(() => ({
   logout: vi.fn(),
   get: vi.fn(),
   post: vi.fn(),
+  refreshSessionNow: vi.fn(),
   toastSuccess: vi.fn(),
   start: vi.fn(),
   onCredential: null as ((credential: unknown) => Promise<{ message?: string | null; leaving?: boolean }>) | null,
+  /** The window's own sentence for a failed ceremony, as the hook was given it. */
+  failureMessage: null as ((error: unknown) => string | null) | null,
   /** The reason as the sign-out found it. */
   flagAtSignOut: [] as Array<string | null>,
 }))
 
-vi.mock("@authsystem/api/client", () => ({ api: { GET: mocks.get, POST: mocks.post } }))
+vi.mock("@authsystem/api/client", () => ({
+  api: { GET: mocks.get, POST: mocks.post },
+  refreshSessionNow: mocks.refreshSessionNow,
+}))
 vi.mock("./auth-context", () => ({ useAuth: () => ({ logout: mocks.logout, user: { id: "user-1" } }) }))
 vi.mock("sonner", () => ({ toast: { success: mocks.toastSuccess, error: vi.fn() } }))
 vi.mock("./passkey/use-passkey-sign-in", () => ({
-  usePasskeySignIn: ({ onCredential }: { onCredential: typeof mocks.onCredential }) => {
+  usePasskeySignIn: ({
+    onCredential,
+    failureMessage,
+  }: {
+    onCredential: typeof mocks.onCredential
+    failureMessage?: typeof mocks.failureMessage
+  }) => {
     mocks.onCredential = onCredential
+    mocks.failureMessage = failureMessage ?? null
     return {
       phase: "ready",
       message: null,
@@ -93,6 +109,7 @@ describe("ReauthenticateDialog", () => {
     mocks.flagAtSignOut = []
     mocks.get.mockReset()
     mocks.post.mockReset().mockResolvedValue({ data: undefined, error: undefined })
+    mocks.refreshSessionNow.mockReset().mockResolvedValue(true)
     mocks.start.mockReset()
     mocks.toastSuccess.mockReset()
     mocks.onCredential = null
@@ -356,7 +373,110 @@ describe("ReauthenticateDialog", () => {
     expect(screen.queryByRole("button", { name: label("auth.useAuthenticatorCode") })).not.toBeInTheDocument()
   })
 
+  // ── A proof counts only for the tokens issued after it (REVIEW-FIXES 152 F23) ──
+
+  it("refreshes this browser's token once, before it hands back", async () => {
+    // The token this tab holds predates the proof: the change would be refused again with it.
+    const order: string[] = []
+    mocks.refreshSessionNow.mockImplementation(async () => {
+      order.push("refresh")
+      return true
+    })
+    const { onProved } = renderWindow()
+    onProved.mockImplementation(() => order.push("hand back"))
+    const user = userEvent.setup()
+
+    await user.type(await screen.findByLabelText(label("auth.password")), "my password")
+    await user.click(screen.getByRole("button", { name: label("auth.reauthenticate.confirm") }))
+
+    await waitFor(() => expect(onProved).toHaveBeenCalledTimes(1))
+    expect(order).toEqual(["refresh", "hand back"])
+    expect(mocks.refreshSessionNow).toHaveBeenCalledTimes(1)
+  })
+
+  it("refreshes once when two proofs land together", async () => {
+    givenOptions({ passkey: true })
+    const { onProved } = renderWindow()
+    const user = userEvent.setup()
+
+    await user.type(await screen.findByLabelText(label("auth.password")), "my password")
+    await user.click(screen.getByRole("button", { name: label("auth.reauthenticate.confirm") }))
+    await mocks.onCredential!({ id: "credential" })
+
+    await waitFor(() => expect(onProved).toHaveBeenCalledTimes(1))
+    expect(mocks.refreshSessionNow).toHaveBeenCalledTimes(1)
+  })
+
+  it("still hands back when the refresh fails: the change then asks again", async () => {
+    mocks.refreshSessionNow.mockResolvedValue(false)
+    const { onProved } = renderWindow()
+    const user = userEvent.setup()
+
+    await user.type(await screen.findByLabelText(label("auth.password")), "my password")
+    await user.click(screen.getByRole("button", { name: label("auth.reauthenticate.confirm") }))
+
+    await waitFor(() => expect(onProved).toHaveBeenCalledTimes(1))
+  })
+
+  it("keeps the second step's code after a wrong password, which the server never read it for", async () => {
+    // NIT-3: the second step is read only once the first proof passed.
+    givenOptions({ secondStep: "AuthenticatorApp" })
+    mocks.post.mockResolvedValue(problem(400, "User.InvalidCurrentPassword"))
+    renderWindow()
+    const user = userEvent.setup()
+
+    await user.type(await screen.findByLabelText(label("auth.password")), "a guess")
+    await user.type(screen.getByLabelText(label("auth.twoFactorCode")), "123456")
+    await user.click(screen.getByRole("button", { name: label("auth.reauthenticate.confirm") }))
+
+    await screen.findByTestId("reauthenticate-message")
+    expect(screen.getByLabelText(label("auth.password"))).toHaveValue("")
+    expect(screen.getByLabelText(label("auth.twoFactorCode"))).toHaveValue("123456")
+  })
+
   // ── The passkey ──
+
+  it("says a failed passkey in the window's own words, which send a signed-in person to no sign-in", async () => {
+    // NIT-6: the twin of the adding dialog's own sentence.
+    givenOptions({ passkey: true })
+    mocks.post.mockResolvedValue(problem(400, "Passkey.VerificationFailed"))
+    const { onProved } = renderWindow()
+
+    await screen.findByRole("button", { name: label("auth.reauthenticate.withPasskey") })
+    const outcome = await mocks.onCredential!({ id: "credential" })
+
+    expect(outcome.message).toBe(label("auth.reauthenticate.passkeyFailed"))
+    expect(outcome.message).not.toContain(label("auth.passkey.removedPasskeyWayOut"))
+    expect(onProved).not.toHaveBeenCalled()
+    // The ceremony's own failures, which the hook says: a refusal in the window's words, a cancel
+    // in none.
+    expect(mocks.failureMessage!(new DOMException("refused", "SecurityError"))).toBe(label("auth.reauthenticate.passkeyFailed"))
+    expect(mocks.failureMessage!(new DOMException("cancelled", "NotAllowedError"))).toBeNull()
+  })
+
+  it("holds the passkey-only window's Cancel while the passkey's answer is on its way", async () => {
+    // NIT-9, as the form holds its own Cancel while the form's answer is.
+    givenOptions({ passkey: true })
+    const pending = deferred<ReturnType<typeof problem>>()
+    mocks.post.mockReturnValue(pending.promise)
+    renderWindow({ passkey: true })
+
+    await screen.findByRole("button", { name: label("auth.reauthenticate.withPasskey") })
+    const cancel = screen.getByRole("button", { name: label("common.cancel") })
+    expect(cancel).toBeEnabled()
+
+    let answered!: Promise<unknown>
+    await act(async () => {
+      answered = mocks.onCredential!({ id: "credential" })
+    })
+    await waitFor(() => expect(cancel).toBeDisabled())
+
+    await act(async () => {
+      pending.resolve(problem(400, "Passkey.VerificationFailed"))
+      await answered
+    })
+    expect(cancel).toBeEnabled()
+  })
 
   it("offers the passkey beside the password, and proves with its answer", async () => {
     givenOptions({ passkey: true })

@@ -928,6 +928,14 @@ public static class TestHelpers
         => Mock.Of<Auth.Application.Interfaces.IBrowserSignInContext>(context => context.IsBrowserSignIn == fromBrowser);
 
     /// <summary>
+    /// The request's access token, issued at <paramref name="issuedAtUtc"/> (its <c>iat</c>), or
+    /// one naming no time when null. For a guard whose test takes no proof inside the session, the
+    /// value does not matter (REVIEW-FIXES 152 F23).
+    /// </summary>
+    public static Auth.Application.Interfaces.ICurrentAccessToken AccessToken(DateTime? issuedAtUtc)
+        => Mock.Of<Auth.Application.Interfaces.ICurrentAccessToken>(token => token.IssuedAtUtc == issuedAtUtc);
+
+    /// <summary>
     /// Creates an options wrapper satisfying IOptions, IOptionsSnapshot and
     /// IOptionsMonitor at once, so tests keep working as production
     /// consumers migrate between the three.

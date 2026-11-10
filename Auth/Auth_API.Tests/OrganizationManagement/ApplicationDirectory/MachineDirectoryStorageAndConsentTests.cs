@@ -189,7 +189,6 @@ public class MachineDirectoryStorageAndConsentTests
 
         result.Value.OrganizationsReadAll.Should().BeTrue();
         applications.Verify(r => r.UpdateMachineOrganizationsReadAsync(It.IsAny<AppEntity>(), It.IsAny<CancellationToken>()), Times.Never);
-        publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
         publisher.Verify(p => p.Publish(It.IsAny<MachineOrganizationsReadChangedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 

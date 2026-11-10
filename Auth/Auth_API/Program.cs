@@ -1039,8 +1039,10 @@ builder.Services.AddScoped<IEmailCodeSender, EmailCodeSender>();
 builder.Services.AddScoped<AccountEmailCodeChallenge>();
 builder.Services.AddScoped<EmailCodeFactorProof>();
 // A recent sign-in before any change to the second factor:
-// TwoFactor:ReauthenticationMaxAgeMinutes, read per call, so it is hot.
+// TwoFactor:ReauthenticationMaxAgeMinutes, read per call, so it is hot. A proof inside the
+// session counts only for the tokens issued after it, so the guard reads the request's iat.
 builder.Services.AddScoped<IReauthenticationGuard, ReauthenticationGuard>();
+builder.Services.AddScoped<ICurrentAccessToken, RequestAccessToken>();
 // The window a signed-in person proves themself again in, with no new sign-in: the one read of
 // what the account must prove, and the password door it shares with the password sign-in.
 builder.Services.AddScoped<ReauthenticationPolicy>();

@@ -390,6 +390,7 @@ export const zh: TranslationResources = {
       or: "或",
       confirm: "确认",
       proved: "已确认，您可以继续。",
+      passkeyFailed: "无法在此用您的通行密钥确认身份。请重试，或使用下方的其他方式。",
       signOutLink: "无法在此确认？请退出后重新登录",
     },
     reauthenticatePasskeyBody: "为了您的安全，此更改需要最近一次证明了两个步骤的登录。您账户的第二因素是通行密钥，仅凭密码或电子邮件验证码不够：请退出后用通行密钥重新登录，您将回到此页面。",

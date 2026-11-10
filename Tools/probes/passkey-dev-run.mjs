@@ -23,6 +23,9 @@
  *       and the probe page's origin appended to Cors:AllowedOrigins by index
  *       (Cors__AllowedOrigins__<n>, never replacing the list: an array binds by index),
  *       not to IdentityProvider:FirstPartySpaOrigins;
+ *       and the refresh cookie on: IdentityProvider__SpaRefreshCookieEnabled=true, with both
+ *       apps' origins in IdentityProvider__FirstPartySpaOrigins__0/1 (the window's refresh
+ *       after a proof rides the browser's own cookie);
  *   - both apps on https dev servers, with a certificate given through DEV_HTTPS_CERT
  *     and DEV_HTTPS_KEY (never read from .env.*.local).
  *
@@ -71,27 +74,35 @@
  *                       the sign-in page and stamps nothing; the right one closes it, and
  *                       the addition goes on by itself: same document, same session, the
  *                       session stamped with a password, the count kept, the audit row
- *                       written. The proof survives a reload. Then the passkey is added.
+ *                       written with the address and the browser. The proof survives a
+ *                       reload. Then the passkey is added.
  *   proof-passkey       A password session of a passkey-only account adds a passkey (T-C7):
  *                       the window asks for the passkey alone, it proves the person, and the
  *                       addition goes on; the device is then asked. Then the removal.
  *   proof-app           An account with an authenticator app, past the window: a wrong code
- *                       is refused and stamps nothing; the password and a code that nothing
+ *                       is refused, stamps nothing, and leaves a failure row of the proof's
+ *                       action (the password was right); the password and a code that nothing
  *                       used go on. Past the window again, the passkey alone goes on.
  *   proof-disable       Switching the app off, past the window. A proof with the app's code
  *                       spends that time step, so the code the page held is not sent again:
  *                       no failure is counted, the field is empty and the person is asked for
  *                       the next code, which goes on. A proof with the passkey leaves the held
  *                       code good, and the switch-off goes on by itself.
- *   proof-new-codes     New recovery codes, past the window: the dialog closes for the proof,
- *                       opens again by itself, empty, and the next code makes new codes.
+ *   proof-new-codes     New recovery codes, past the window: the dialog stays under the window,
+ *                       and after a proof with the app's code its field is empty, with the
+ *                       next-code sentence; the next code makes new codes.
  *   proof-removal       Removing a passkey, past the window: the confirmation, the window with
- *                       the passkey and the password, the confirmation again by itself, the
- *                       removal; and the page still answers a click after two dialogs in a tick.
+ *                       the passkey and the password, and the removal goes on by itself with the
+ *                       passkey that was confirmed; the page still answers a click after it.
  *   proof-not-the-union A session that proved two factors an hour ago and a password now
- *                       has proved a password now: the change that needs two still refuses.
+ *                       has proved a password now: with a token refreshed after that proof, the
+ *                       change that needs two still refuses, and one that needs one goes on.
+ *   proof-token-copy    A proof counts only for the tokens issued after it: a second browser
+ *                       context holding a copy of the session's access token, taken before the
+ *                       owner's proof, is refused a sensitive change after it, while the owner's
+ *                       own change goes on with the token the window refreshed.
  *   proof-other-account A passkey of another account, on the same device, proves nothing,
- *                       with its own code, and stamps nothing.
+ *                       with its own code, stamps nothing, and records no use of that passkey.
  *   proof-email         An account with no password: the window sends a code by email, under
  *                       the seeded template's own wording; a wrong one is refused, the right
  *                       one goes on, and the addition still asks for its own emailed code.
@@ -197,9 +208,10 @@ function verdict(name, outcome, detail) {
 const check = (name, ok, detail) => verdict(name, ok ? "PASS" : "FAIL", detail)
 
 /** A call to the API as the app would make it: from a first-party origin. */
-async function call(method, route, { token, body, form, headers = {}, origin = accountsUrl() } = {}) {
+async function call(method, route, { token, body, form, headers = {}, origin = accountsUrl(), cookie } = {}) {
   const sent = { Origin: origin, ...headers }
   if (token) sent.Authorization = `Bearer ${token}`
+  if (cookie) sent.Cookie = cookie
   let payload
   if (form) {
     sent["Content-Type"] = "application/x-www-form-urlencoded"
@@ -216,7 +228,7 @@ async function call(method, route, { token, body, form, headers = {}, origin = a
   } catch {
     json = undefined
   }
-  return { status: response.status, json, text }
+  return { status: response.status, json, text, headers: response.headers }
 }
 
 async function administratorToken() {
@@ -452,11 +464,38 @@ const notTheCode = (code) => String((Number(code) + 1) % 1_000_000).padStart(6, 
 async function auditCount(userId, since) {
   let count = 0
   for (let attempt = 0; attempt < 20 && count === 0; attempt++) {
-    count = Number(sql(`SELECT COUNT(*) FROM dbo.AuditLogs WHERE UserId = '${userId}' AND Action = N'session.reauthenticated' AND [Timestamp] >= '${since}';`)[0])
+    count = Number(sql(`SELECT COUNT(*) FROM dbo.AuditLogs WHERE UserId = '${userId}' AND Action = N'session.reauthenticated' AND IsSuccess = 1 AND [Timestamp] >= '${since}';`)[0])
     if (count === 0) await sleep(500)
   }
   return count
 }
+
+/**
+ * A sign-in through the API as the accounts app makes it, and a refresh of its session: with the
+ * refresh cookie on, the refresh token rides the cookie the sign-in set, and the body names none.
+ */
+async function apiSignIn(account) {
+  const signedIn = await call("POST", "/api/v1/auth/login", { body: { email: account.email, password: account.password } })
+  const token = signedIn.json?.token?.accessToken
+  if (!token) throw new Inconclusive(`${account.email} cannot sign in: ${signedIn.status} ${signedIn.text.slice(0, 200)}`)
+  const cookie = signedIn.headers.getSetCookie().map((line) => line.split(";")[0]).join("; ")
+  const refreshToken = signedIn.json?.token?.refreshToken
+  return {
+    token,
+    async refresh() {
+      const legacy = refreshToken && refreshToken !== "__cookie__"
+      const refreshed = await call("POST", "/api/v1/auth/refresh", { cookie, body: legacy ? { refreshToken } : {} })
+      const fresh = refreshed.json?.accessToken
+      if (!fresh) throw new Inconclusive(`the refresh failed: ${refreshed.status} ${refreshed.text.slice(0, 200)}`)
+      return fresh
+    },
+  }
+}
+
+/** The audit rows of the proof's action since `since`, as success|error|address|browser lines. */
+const proofRows = (userId, since) =>
+  sql(`SELECT CONCAT(IsSuccess, '|', ISNULL(ErrorMessage, ''), '|', ISNULL(IpAddress, ''), '|', CASE WHEN UserAgent IS NULL THEN '' ELSE 'agent' END)
+    FROM dbo.AuditLogs WHERE UserId = '${userId}' AND Action = N'session.reauthenticated' AND [Timestamp] >= '${since}' ORDER BY [Timestamp];`)
 
 async function apiSession(account) {
   const signedIn = await call("POST", "/api/v1/auth/login", { body: { email: account.email, password: account.password } })
@@ -831,6 +870,8 @@ async function proofPassword() {
     check("a proof clears no count of wrong passwords", rowOf(account.id).count === 1, JSON.stringify(rowOf(account.id)))
     const audited = await auditCount(account.id, startedAt)
     check("audit session.reauthenticated", audited === 1, String(audited))
+    const rows = proofRows(account.id, startedAt)
+    check("with the address and the browser it came from (F25)", rows.length === 1 && /^1\|\|[^|]+\|agent$/.test(rows[0]), JSON.stringify(rows))
 
     // A refreshed token keeps its session, and so its proof.
     await page.reload()
@@ -908,11 +949,22 @@ async function proofApp() {
     const code = proof.getByLabel("Verification code", { exact: true })
     check("the window offers the passkey, the password and the app's code", (await password.count()) === 1 && (await code.count()) === 1)
 
+    const before = sqlNow()
     await password.fill(account.password)
     await code.fill(notTheCode(totp(secret)))
     await confirmProof(proof)
     const said = await proof.getByTestId("reauthenticate-message").innerText({ timeout: 30_000 })
     check("a wrong code is refused, and stamps nothing", sessionRow(session).proof === "none", said.slice(0, 120))
+    let failed = []
+    for (let attempt = 0; attempt < 20 && failed.length === 0; attempt++) {
+      failed = proofRows(account.id, before).filter((row) => row.startsWith("0|"))
+      if (failed.length === 0) await sleep(500)
+    }
+    check(
+      "the right password and the wrong code leave a failure row of the proof's action, with its reason and address (F25)",
+      failed.length === 1 && /^0\|[A-Za-z]+\.[A-Za-z]+\|[^|]+\|agent$/.test(failed[0]),
+      JSON.stringify(failed)
+    )
     check("and the password stays, not typed twice", (await password.inputValue()) === account.password)
 
     await code.fill(await unusedCode(secret, usedAtSignIn))
@@ -1027,8 +1079,10 @@ async function proofNewCodes() {
     await proof.getByLabel("Verification code", { exact: true }).fill(held)
     await confirmProof(proof)
 
+    await proof.waitFor({ state: "hidden", timeout: 30_000 })
     await dialog.waitFor({ timeout: 30_000 })
-    check("the dialog opens again by itself, empty", (await dialog.getByLabel("Verification code", { exact: true }).inputValue()) === "")
+    check("the dialog stayed under the window, its code field now empty (F26)", (await dialog.getByLabel("Verification code", { exact: true }).inputValue()) === "")
+    check("with the next-code sentence", await page.getByText("Confirmed. A code works only once, so enter the next code from your app.").isVisible())
     check("no failure was counted", failedAppCodes(account.id) === 0, String(failedAppCodes(account.id)))
     await dialog.getByLabel("Verification code", { exact: true }).fill(await unusedCode(secret, held))
     await dialog.getByRole("button", { name: "Generate new codes" }).click()
@@ -1063,13 +1117,11 @@ async function proofRemoval() {
     await proof.getByLabel("Password", { exact: true }).fill(account.password)
     await confirmProof(proof)
 
-    await confirm.waitFor({ timeout: 30_000 })
-    check("its confirmation opens again, by itself", (await proof.count()) === 0)
-    await confirm.getByRole("button", { name: "Remove", exact: true }).click()
     await card.getByText("No passkeys yet").waitFor({ timeout: 30_000 })
+    check("the removal goes on by itself, with the passkey confirmed, and asks nothing again (F26)", (await proof.count()) === 0 && (await confirm.count()) === 0)
     const row = sql(`SELECT CASE WHEN RevokedAt IS NULL THEN 'live' ELSE 'revoked' END FROM dbo.UserPasskeys WHERE UserId = '${account.id}'`)
     check("and the removal goes on, on the same page", row[0] === "revoked" && (await sameDocument(page)), JSON.stringify(row))
-    check("two dialogs in one tick leave the page alive", (await page.evaluate(() => document.body.style.pointerEvents)) !== "none")
+    check("the window closing over the confirmation leaves the page alive", (await page.evaluate(() => document.body.style.pointerEvents)) !== "none")
     await card.getByRole("button", { name: "Add a passkey" }).click({ timeout: 30_000 })
     await addDialog(page).waitFor({ timeout: 30_000 })
     check("the page still answers a click", true)
@@ -1085,7 +1137,8 @@ async function proofNotTheUnion() {
     await addPasskey(page, account, "Union")
   })
 
-  const token = await apiSession(account)
+  const signedIn = await apiSignIn(account)
+  const { token } = signedIn
   const session = newestSession(account.id)
   // Past the window, and it proved two factors once, as a passkey proof an hour ago records.
   sql(`UPDATE dbo.UserSessions SET StartedAt = DATEADD(MINUTE, -100, SYSUTCDATETIME()), AuthMethods = 97,
@@ -1098,12 +1151,94 @@ async function proofNotTheUnion() {
   check("a password proves this person now", proved.status === 204, `${proved.status} ${proved.text.slice(0, 160)}`)
   const row = sessionRow(session)
   check("and records a password, never what the session once proved", row.proof === String(STORED.password) && row.methods === "97", JSON.stringify(row))
-  const change = await call("POST", "/api/v1/auth/passkeys/registration/options", { token })
+  // A proof counts only for the tokens issued after it (F23), as the window refreshes its own.
+  const fresh = await signedIn.refresh()
+  const change = await call("POST", "/api/v1/auth/passkeys/registration/options", { token: fresh })
   check(
     "so the change that needs two factors still refuses it",
     change.status === 403 && change.json?.code === "Auth.ReauthenticationRequired",
     `${change.status} ${change.json?.code}`
   )
+  // A removal needs one recent factor, even beside a passkey (setting up the app there needs two).
+  const passkeyId = sql(`SELECT Id FROM dbo.UserPasskeys WHERE UserId = '${account.id}' AND RevokedAt IS NULL;`)[0]
+  const one = await call("DELETE", `/api/v1/auth/passkeys/${passkeyId}`, { token: fresh })
+  check("while a change that needs one recent factor, a removal, goes on with that token", one.status === 204, `${one.status} ${one.text.slice(0, 200)}`)
+}
+
+// ── proof-token-copy ────────────────────────────────────────────────────────
+
+async function proofTokenCopy() {
+  const account = await freshAccount("copy")
+  await withAuthenticator(async (page) => {
+    // Every bearer token the owner's page sends to the API, newest last.
+    const sent = []
+    page.on("request", (request) => {
+      const header = request.headers()["authorization"]
+      if (header?.startsWith("Bearer ") && request.url().startsWith(apiUrl())) sent.push(header.slice("Bearer ".length))
+    })
+    await signInToConsole(page, account)
+    const card = await openSecurity(page)
+    const session = newestSession(account.id)
+    ageSession(session)
+    const copy = sent.at(-1)
+    if (!copy) throw new Inconclusive("the page sent no bearer token to copy")
+
+    // A second browser context: the copy, without the browser and its refresh cookie, from a
+    // page of a first-party origin, as a script that sent the token out would use it.
+    const other = await page.context().browser().newContext({ ignoreHTTPSErrors: true })
+    try {
+      const elsewhere = await other.newPage()
+      await elsewhere.goto(`${accountsUrl()}/login`, { waitUntil: "domcontentloaded" })
+      const tryTheCopy = () =>
+        elsewhere.evaluate(
+          async ({ base, bearer }) => {
+            const response = await fetch(`${base}/api/v1/auth/passkeys/registration/options`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${bearer}` },
+            })
+            const body = await response.json().catch(() => ({}))
+            return { status: response.status, code: body.code }
+          },
+          { base: apiUrl(), bearer: copy }
+        )
+
+      const before = await tryTheCopy()
+      check(
+        "before the owner's proof, the copy is refused, as the session is old",
+        before.status === 403 && before.code === "Auth.ReauthenticationRequired",
+        JSON.stringify(before)
+      )
+
+      // The owner proves themself where they stand, and their change goes on.
+      await markDocument(page)
+      await card.getByRole("button", { name: "Add a passkey" }).click()
+      const proof = proofWindow(page)
+      await proof.waitFor({ timeout: 30_000 })
+      await proof.getByLabel("Password", { exact: true }).fill(account.password)
+      await confirmProof(proof)
+      const add = addDialog(page)
+      await add.waitFor({ timeout: 30_000 })
+      check("the owner's change goes on from the window", await sameDocument(page), JSON.stringify(sessionRow(session)))
+      check("the session is stamped with the owner's proof", sessionRow(session).proof === String(STORED.password), JSON.stringify(sessionRow(session)))
+      const owners = sent.at(-1)
+      check("with a token the window refreshed after the proof, not the copy", Boolean(owners) && owners !== copy)
+
+      const after = await tryTheCopy()
+      check(
+        "after the owner's proof, the copy taken before it is still refused (F23)",
+        after.status === 403 && after.code === "Auth.ReauthenticationRequired",
+        JSON.stringify(after)
+      )
+
+      await createInDialog(card, add, account, "Owner")
+      const row = sql(`SELECT CASE WHEN RevokedAt IS NULL THEN 'live' ELSE 'revoked' END FROM dbo.UserPasskeys WHERE UserId = '${account.id}' AND Name = N'Owner'`)
+      check("and the owner's passkey is added", row.length === 1 && row[0] === "live", JSON.stringify(row))
+      const rows = sql(`SELECT COUNT(*) FROM dbo.UserPasskeys WHERE UserId = '${account.id}'`)[0]
+      check("and no other passkey was added with the copy", rows === "1", rows)
+    } finally {
+      await other.close()
+    }
+  })
 }
 
 // ── proof-other-account ─────────────────────────────────────────────────────
@@ -1142,6 +1277,8 @@ async function proofOtherAccount() {
     )
     check("a passkey of another account proves nothing, with its own code", answer.status === 400 && answer.code === "Passkey.NotThisAccount", JSON.stringify(answer))
     check("and stamps nothing", sessionRow(session).proof === "none", JSON.stringify(sessionRow(session)))
+    const used = sql(`SELECT CONCAT(ISNULL(CONVERT(NVARCHAR(30), LastUsedAt, 126), 'never'), '|', SignCount) FROM dbo.UserPasskeys WHERE UserId = '${theirs.id}';`)[0]
+    check("and that account's passkey shows no use of it (NIT-5)", /^never\|/.test(used ?? ""), used)
   })
 }
 
@@ -1318,6 +1455,7 @@ const scenarios = {
   "proof-new-codes": proofNewCodes,
   "proof-removal": proofRemoval,
   "proof-not-the-union": proofNotTheUnion,
+  "proof-token-copy": proofTokenCopy,
   "proof-other-account": proofOtherAccount,
   "proof-email": proofEmail,
   "proof-way-out": proofWayOut,

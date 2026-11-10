@@ -8,7 +8,8 @@ namespace Auth_API.Modules.AuditLog.EventHandlers;
 
 /// <summary>
 /// Creates an audit log entry when a signed-in person proves themself again inside a session: the
-/// session, and what the proof proved, as a sign-in's row says it. Never the proof itself.
+/// session, what the proof proved, and where it came from (address and browser), as a sign-in's row
+/// says it. Never the proof itself.
 /// </summary>
 /// <remarks>
 /// Best-effort: a failure to write the row is logged, never propagated. The session is already
@@ -38,6 +39,8 @@ public class UserReauthenticatedAuditEventHandler : INotificationHandler<UserRea
                 performedBy: notification.UserId,
                 entityType: "User",
                 entityId: notification.UserId,
+                ipAddress: notification.IpAddress,
+                userAgent: notification.UserAgent,
                 additionalData: JsonSerializer.Serialize(new
                 {
                     methods = notification.Methods.ToStored(),

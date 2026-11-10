@@ -28,10 +28,13 @@ namespace Auth.Application.Features.Authentication.Reauthenticate;
 /// (<see cref="PasswordDoor"/>), so its guesses are counted and bounded the same; or the emailed
 /// code, of an account without a password, under its challenge's five attempts.</item>
 /// <item>The second step a sign-in would ask for, counted before it is checked
-/// (<see cref="ISecondFactorVerifier"/>).</item>
-/// <item>One transaction: what the proof spends, the session stamped with what this one proof
-/// proved, and the session and its SSO session raised by it.</item>
-/// <item>The audit row follows the commit. No email: nothing about the account changed.</item>
+/// (<see cref="ISecondFactorVerifier"/>). Refused after a right first secret, it leaves a failure
+/// row of the proof's own action.</item>
+/// <item>One transaction, by the API's clock and past any disconnect: what the proof spends, the
+/// session stamped with what this one proof proved and when, and the session and its SSO session
+/// raised by it.</item>
+/// <item>The audit row follows the commit, with the address and the browser. No email: nothing
+/// about the account changed.</item>
 /// </list>
 /// A proof lifts no lock and clears no count of wrong passwords: nothing signed in.
 /// </remarks>
@@ -124,10 +127,14 @@ public sealed class ReauthenticateCommandHandler : IRequestHandler<Reauthenticat
         var second = await ProveSecondStepAsync(user.Id, requirement, request, cancellationToken);
         if (second.IsError)
         {
+            await SecondStepRefusedAsync(user.Id, session.Value.Id, second.FirstError, request);
             return second.Errors;
         }
 
-        // 5. All of it, in one transaction.
+        // 5. All of it, in one transaction, stamped by the API's clock: the guard reads the stamp
+        //    by it, beside the access token's iat (F23, F30). The second step's attempt is counted
+        //    already, so a client that disconnects now must not cancel the commit that spends it:
+        //    a right code would stay counted as a wrong one.
         var methods = second.Value.Proof is { } proof ? first.Value.Methods.With(proof.Methods) : first.Value.Methods;
         var upgrade = new SessionUpgrade(
             session.Value.Id,
@@ -137,7 +144,9 @@ public sealed class ReauthenticateCommandHandler : IRequestHandler<Reauthenticat
             methods);
 
         var outcome = await _twoFactorStateStore.TryCommitSessionProofAsync(
-            user.Id, new SessionProofCommit(upgrade, first.Value.Code, second.Value.Proof), cancellationToken);
+            user.Id,
+            new SessionProofCommit(upgrade, _timeProvider.GetUtcNow().UtcDateTime, first.Value.Code, second.Value.Proof),
+            CancellationToken.None);
 
         switch (outcome)
         {
@@ -146,16 +155,19 @@ public sealed class ReauthenticateCommandHandler : IRequestHandler<Reauthenticat
 
             case LoginCommitOutcome.StepReused:
                 // Refused like a wrong code, and counted like one: the reservation stays.
-                _logger.ReusedCodeRejected(user.Id, TotpReplayLog.StepUp, request.IpAddress);
-                return TwoFactorErrors.CodeAlreadyUsed;
+                _logger.ReusedCodeRejected(user.Id, TotpReplayLog.Reauthentication, request.IpAddress);
+                return await SecondStepRefusedAsync(user.Id, session.Value.Id, TwoFactorErrors.CodeAlreadyUsed, request);
 
             case LoginCommitOutcome.RecoveryCodesChanged:
                 // A concurrent sign-in spent a code between the check and the commit.
-                return TwoFactorErrors.InvalidRecoveryCode;
+                return await SecondStepRefusedAsync(user.Id, session.Value.Id, TwoFactorErrors.InvalidRecoveryCode, request);
 
             case LoginCommitOutcome.ChallengeLost:
-                // A newer code was sent, or another request spent this one, first.
-                return TwoFactorErrors.EmailCodeInvalid;
+                // A newer code was sent, or another request spent this one, first. After a password
+                // the challenge can only be the second step's.
+                return first.Value.Code is null
+                    ? await SecondStepRefusedAsync(user.Id, session.Value.Id, TwoFactorErrors.EmailCodeInvalid, request)
+                    : TwoFactorErrors.EmailCodeInvalid;
 
             case LoginCommitOutcome.SessionLost:
                 return AuthErrors.ReauthenticationRequired;
@@ -173,9 +185,24 @@ public sealed class ReauthenticateCommandHandler : IRequestHandler<Reauthenticat
         // The audit row. The session is already stamped, so a client that disconnects must not
         // cancel it.
         await _publisher.Publish(
-            new UserReauthenticatedEvent(user.Id, session.Value.Id, methods), CancellationToken.None);
+            new UserReauthenticatedEvent(user.Id, session.Value.Id, methods, request.IpAddress, request.UserAgent),
+            CancellationToken.None);
 
         return Result.Success;
+    }
+
+    /// <summary>
+    /// The failure row of a proof whose first secret was right and whose second step was then refused
+    /// (REVIEW-FIXES 152 F25), written after the refusal and whatever the client does meanwhile.
+    /// </summary>
+    /// <returns><paramref name="refusal"/>, the answer.</returns>
+    private async Task<Error> SecondStepRefusedAsync(Guid userId, Guid sessionId, Error refusal, ReauthenticateCommand request)
+    {
+        await _publisher.Publish(
+            new UserReauthenticationFailedEvent(userId, sessionId, refusal.Code, request.IpAddress, request.UserAgent),
+            CancellationToken.None);
+
+        return refusal;
     }
 
     /// <summary>The password, through the password sign-in's own door.</summary>

@@ -78,21 +78,17 @@ public sealed class ReauthenticateWithPasskeyCommandHandler
             return session.Errors;
         }
 
-        // 2. The assertion.
+        // 2. The assertion, and 3. this account's passkey and no other: the ceremony refuses another
+        //    account's before it records anything of it (Passkey.NotThisAccount).
         var proven = await _ceremony.ProveAsync(
-            request.ChallengeHandle, request.ChallengeHandleRepeated, request.ResponseJson, cancellationToken);
+            request.ChallengeHandle,
+            request.ChallengeHandleRepeated,
+            request.ResponseJson,
+            cancellationToken,
+            signedInAs: request.UserId);
         if (proven.IsError)
         {
             return proven.Errors;
-        }
-
-        // 3. This account's passkey, and no other.
-        if (proven.Value.UserId != request.UserId)
-        {
-            _logger.LogInformation(
-                "{EventCode}: user {UserId} tried to prove themself again with a passkey of another account",
-                PasskeySignalCodes.VerificationFailed, request.UserId);
-            return PasskeyErrors.NotThisAccount;
         }
 
         // 4. The status and the lock, as at a passkey sign-in.
@@ -122,8 +118,11 @@ public sealed class ReauthenticateWithPasskeyCommandHandler
                 : _credentialHasher.Candidates(CredentialPurpose.IdpSession, request.IdpSessionToken),
             methods);
 
+        // Stamped by the API's clock, which the guard reads it and the access token's iat by.
         var outcome = await _twoFactorStateStore.TryCommitSessionProofAsync(
-            request.UserId, new SessionProofCommit(upgrade), CancellationToken.None);
+            request.UserId,
+            new SessionProofCommit(upgrade, _timeProvider.GetUtcNow().UtcDateTime),
+            CancellationToken.None);
         if (outcome != LoginCommitOutcome.Committed)
         {
             return AuthErrors.ReauthenticationRequired;
@@ -133,9 +132,10 @@ public sealed class ReauthenticateWithPasskeyCommandHandler
             "User {UserId} proved themself again with passkey {PasskeyId} in session {SessionId}",
             request.UserId, proven.Value.Id, session.Value.Id);
 
-        // 6. The audit row.
+        // 6. The audit row, with where the proof came from.
         await _publisher.Publish(
-            new UserReauthenticatedEvent(request.UserId, session.Value.Id, methods), CancellationToken.None);
+            new UserReauthenticatedEvent(request.UserId, session.Value.Id, methods, request.IpAddress, request.UserAgent),
+            CancellationToken.None);
 
         return Result.Success;
     }

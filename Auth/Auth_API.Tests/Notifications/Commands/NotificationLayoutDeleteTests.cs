@@ -99,7 +99,7 @@ public class NotificationLayoutDeleteTests
         result.FirstError.Should().Be(NotificationErrors.CannotDeleteGlobalLayout);
         result.FirstError.Type.Should().Be(ErrorOr.ErrorType.Conflict);
         _layouts.Verify(r => r.DeleteApplicationLayoutAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
-        _publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisher.Verify(p => p.Publish(It.IsAny<NotificationLayoutDeletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public class NotificationLayoutDeleteTests
         result.FirstError.Code.Should().Be("Notification.LayoutFallbackMissing");
         result.FirstError.Type.Should().Be(ErrorOr.ErrorType.Conflict);
         _layouts.Verify(r => r.DeleteApplicationLayoutAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
-        _publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisher.Verify(p => p.Publish(It.IsAny<NotificationLayoutDeletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public class NotificationLayoutDeleteTests
 
         raced.FirstError.Code.Should().Be("Notification.LayoutNotFound");
         _invalidator.Verify(i => i.InvalidateLayout(It.IsAny<NotificationChannelType>(), It.IsAny<Guid?>()), Times.Never);
-        _publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisher.Verify(p => p.Publish(It.IsAny<NotificationLayoutDeletedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

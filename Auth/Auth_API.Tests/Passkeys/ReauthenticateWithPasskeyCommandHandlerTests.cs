@@ -21,11 +21,16 @@ namespace Auth_API.Tests.Passkeys;
 /// <remarks>
 /// Deliberate breaks, each verified red: the comparison with the session's owner dropped (another
 /// account's passkey stamps this session); the session checked after the ceremony (a dead token
-/// spends a challenge).
+/// spends a challenge). REVIEW-FIXES 152: the event given no address (F25); another account's
+/// passkey refused after its use is recorded (NIT-5); its line logged as a failed verification
+/// (R4); the publish moved above the outcome checks (F28: the "no audit event" checks, which could
+/// not fail before).
 /// </remarks>
 public class ReauthenticateWithPasskeyCommandHandlerTests
 {
     private const string IdpCookie = "idp-cookie";
+    private const string Ip = "203.0.113.7";
+    private const string Agent = "Agent/1.0";
 
     private static readonly Guid SessionId = Guid.NewGuid();
     private static readonly AuthenticationMethods PasskeyProof =
@@ -49,6 +54,7 @@ public class ReauthenticateWithPasskeyCommandHandlerTests
             new ReauthenticationGuard(
                 _sessions.Object,
                 TestHelpers.CreateOptions(new TwoFactorSettings()),
+                TestHelpers.AccessToken(DateTime.UtcNow),
                 TimeProvider.System,
                 NullLogger<ReauthenticationGuard>.Instance),
             fixture.Ceremony(),
@@ -64,7 +70,7 @@ public class ReauthenticateWithPasskeyCommandHandlerTests
             .ReturnsAsync(TestHelpers.CreateUserSession(id: SessionId, userId: userId));
 
     private static ReauthenticateWithPasskeyCommand Command(Guid userId, string responseJson, string? handle = PasskeySignInFixture.Handle) =>
-        new(userId, SessionId, IdpCookie, handle, false, responseJson);
+        new(userId, SessionId, IdpCookie, handle, false, responseJson, Ip, Agent);
 
     private void VerifyNothingStamped() =>
         _store.Verify(s => s.TryCommitSessionProofAsync(
@@ -90,7 +96,8 @@ public class ReauthenticateWithPasskeyCommandHandlerTests
                 && commit.FirstProofCode == null),
             CancellationToken.None), Times.Once, "its challenge is spent: a client that leaves must not lose the proof");
         _publisher.Verify(p => p.Publish(
-            It.Is<UserReauthenticatedEvent>(e => e.UserId == fixture.Owner.Id && e.SessionId == SessionId && e.Methods == PasskeyProof),
+            It.Is<UserReauthenticatedEvent>(e => e.UserId == fixture.Owner.Id && e.SessionId == SessionId && e.Methods == PasskeyProof
+                && e.IpAddress == Ip && e.UserAgent == Agent),
             CancellationToken.None), Times.Once);
         fixture.VerifyNoSession();
     }
@@ -106,7 +113,18 @@ public class ReauthenticateWithPasskeyCommandHandlerTests
 
         result.FirstError.Code.Should().Be(PasskeyErrors.NotThisAccount.Code);
         VerifyNothingStamped();
-        _publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisher.Verify(p => p.Publish(It.IsAny<UserReauthenticatedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+
+        // NIT-5: nothing of that passkey is recorded, so its account's list shows no use; the
+        // challenge is spent all the same.
+        fixture.Passkeys.Verify(p => p.TryRecordAssertionAsync(
+            It.IsAny<Auth.Domain.Entities.UserPasskey>(), It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Never);
+        fixture.ConsumeCalls.Should().Be(1);
+
+        // R4: its own line, which never inflates the count of failed verifications.
+        fixture.CeremonyLog.Entries.Should().ContainSingle(entry => entry.Message.StartsWith(Auth.Domain.Constants.PasskeySignalCodes.NotThisAccount))
+            .Which.Values.Should().Contain(signedIn.ToString());
+        fixture.CeremonyLog.Entries.Should().NotContain(entry => entry.Message.StartsWith(Auth.Domain.Constants.PasskeySignalCodes.VerificationFailed));
     }
 
     [Fact]
@@ -186,6 +204,6 @@ public class ReauthenticateWithPasskeyCommandHandlerTests
         var result = await Handler(fixture).Handle(Command(fixture.Owner.Id, await fixture.AnswerAsync()), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
-        _publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisher.Verify(p => p.Publish(It.IsAny<UserReauthenticatedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }

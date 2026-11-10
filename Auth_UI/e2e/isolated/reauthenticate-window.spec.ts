@@ -119,8 +119,9 @@ test.describe("the window that proves a signed-in person", () => {
     expect(fit.direction).toBe("rtl")
 
     const confirm = proof.getByRole("button", { name: "تأكيد", exact: true })
+    // An account without the app: the password alone, as a sign-in would ask.
     await proof.getByLabel("كلمة المرور", { exact: true }).fill("Isolated1!")
-    await proof.getByLabel("رمز التحقق", { exact: true }).fill("123456")
+    await expect(proof.getByLabel("رمز التحقق", { exact: true })).toHaveCount(0)
     await confirm.scrollIntoViewIfNeeded()
     await expect(confirm).toBeInViewport()
     await confirm.click()
@@ -130,7 +131,7 @@ test.describe("the window that proves a signed-in person", () => {
     await expect(page.getByRole("dialog", { name: "إضافة مفتاح مرور" })).toBeVisible()
     await expect(page).toHaveURL(/\/profile\?tab=security$/)
     expect(server.proofs).toEqual([
-      { password: "Isolated1!", emailCode: null, secondStepCode: "123456", useRecoveryCode: false },
+      { password: "Isolated1!", emailCode: null, secondStepCode: null, useRecoveryCode: false },
     ])
     expect(server.options).toEqual([{ proved: false }, { proved: true }])
     expect(server.logouts).toBe(0)

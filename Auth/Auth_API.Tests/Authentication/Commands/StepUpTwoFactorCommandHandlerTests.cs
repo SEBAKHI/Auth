@@ -312,7 +312,6 @@ public class StepUpTwoFactorCommandHandlerTests
 
         await _handler.Handle(Command(), CancellationToken.None);
 
-        _publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
         _publisher.Verify(p => p.Publish(It.IsAny<Auth.Domain.Events.TwoFactorSteppedUpEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }

@@ -54,6 +54,7 @@ public class RegenerateRecoveryCodesCommandHandlerTests
         var guard = new ReauthenticationGuard(
             _sessions.Object,
             TestHelpers.CreateOptions(_settings),
+            TestHelpers.AccessToken(Now),
             new FixedTimeProvider(new DateTimeOffset(Now)),
             Mock.Of<ILogger<ReauthenticationGuard>>());
 

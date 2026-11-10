@@ -14,13 +14,17 @@ namespace Auth.Application.Features.Passkeys.ReauthenticateWithPasskey;
 /// <param name="ChallengeHandle">The handle the challenge cookie carried, or null when there was none.</param>
 /// <param name="ChallengeHandleRepeated">The request carried the challenge cookie more than once: refused, and nothing is spent.</param>
 /// <param name="ResponseJson">The browser's <c>PublicKeyCredential</c>, as JSON.</param>
+/// <param name="IpAddress">The caller's address, for the audit row.</param>
+/// <param name="UserAgent">The caller's user agent, for the audit row.</param>
 public record ReauthenticateWithPasskeyCommand(
     Guid UserId,
     Guid? CurrentSessionId,
     string? IdpSessionToken,
     string? ChallengeHandle,
     bool ChallengeHandleRepeated,
-    string ResponseJson) : IRequest<ErrorOr<Success>>
+    string ResponseJson,
+    string? IpAddress,
+    string? UserAgent) : IRequest<ErrorOr<Success>>
 {
     // The handle, the SSO cookie and the signed answer stay out of every log line (PK16).
     public override string ToString() =>

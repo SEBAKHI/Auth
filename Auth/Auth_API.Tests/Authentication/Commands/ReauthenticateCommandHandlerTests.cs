@@ -25,7 +25,10 @@ namespace Auth_API.Tests.Authentication.Commands;
 /// <remarks>
 /// Deliberate breaks, each verified red: the second step skipped; the password door replaced by a
 /// bare hash check (a wrong password goes uncounted); the session stamped with the session's own
-/// methods rather than this proof's; the code spent outside the commit.
+/// methods rather than this proof's; the code spent outside the commit. REVIEW-FIXES 152: the
+/// event given no address (F25); the failure row not published (F25); the commit given the
+/// request's token (F30); the replay line on the step-up's surface (R4); the publish moved above
+/// the commit's outcome (F28: the "no audit event" checks, which could not fail before).
 /// </remarks>
 public class ReauthenticateCommandHandlerTests
 {
@@ -56,6 +59,10 @@ public class ReauthenticateCommandHandlerTests
     private readonly FakeCredentialHasher _keys = new();
     private readonly PasswordSettings _passwordSettings = TestHelpers.CreatePasswordSettings();
     private readonly EmailSettings _emailSettings = new() { Enabled = true };
+    private readonly CapturingLogger<ReauthenticateCommandHandler> _logger = new();
+
+    // The handler's clock: the proof's stamp is read by it (F30). The guard keeps the system's.
+    private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
     private PasskeyOnlyAdministratorRule _passkeyOnlyAdministrator = TestHelpers.PasskeyOnlyAdministratorRuleOff();
     private User _user = TestHelpers.CreateUser(email: "owner@example.com", passwordHash: StoredHash);
@@ -87,6 +94,7 @@ public class ReauthenticateCommandHandlerTests
             new ReauthenticationGuard(
                 _sessions.Object,
                 TestHelpers.CreateOptions(new TwoFactorSettings()),
+                TestHelpers.AccessToken(DateTime.UtcNow),
                 TimeProvider.System,
                 NullLogger<ReauthenticationGuard>.Instance),
             _users.Object,
@@ -109,8 +117,8 @@ public class ReauthenticateCommandHandlerTests
             _store.Object,
             _keys,
             _publisher.Object,
-            TimeProvider.System,
-            NullLogger<ReauthenticateCommandHandler>.Instance);
+            new FixedTimeProvider(Now),
+            _logger);
     }
 
     private ReauthenticateCommand WithPassword(string? secondStep = null, bool recovery = false, string password = Password) =>
@@ -222,7 +230,8 @@ public class ReauthenticateCommandHandlerTests
             commit => commit.FirstProofCode == null && commit.SecondFactor == null && commit.Session.IdpHashes != null);
         _publisher.Verify(p => p.Publish(
             It.Is<UserReauthenticatedEvent>(e =>
-                e.UserId == _user.Id && e.SessionId == SessionId && e.Methods == AuthenticationMethods.Password),
+                e.UserId == _user.Id && e.SessionId == SessionId && e.Methods == AuthenticationMethods.Password
+                && e.IpAddress == Ip && e.UserAgent == "Agent/1.0"),
             CancellationToken.None), Times.Once);
     }
 
@@ -239,7 +248,9 @@ public class ReauthenticateCommandHandlerTests
             It.Is<LoginAttempt>(row => row.FailureReason == LoginFailureReasons.InvalidPassword), It.IsAny<CancellationToken>()), Times.Once,
             "the row the per-address ceiling counts");
         VerifyNothingStamped();
-        _publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisher.Verify(p => p.Publish(It.IsAny<UserReauthenticatedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisher.Verify(p => p.Publish(It.IsAny<UserReauthenticationFailedEvent>(), It.IsAny<CancellationToken>()), Times.Never,
+            "the first secret was wrong: the sign-in's own row says so");
     }
 
     [Fact]
@@ -508,7 +519,60 @@ public class ReauthenticateCommandHandlerTests
         var result = await Handler().Handle(WithPassword(), CancellationToken.None);
 
         result.FirstError.Code.Should().Be(code);
-        _publisher.Verify(p => p.Publish(It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
+        _publisher.Verify(p => p.Publish(It.IsAny<UserReauthenticatedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // ── REVIEW-FIXES 152 ──
+
+    [Fact]
+    public async Task TheCommit_IsStampedByTheApisClock_AndNoDisconnectCancelsIt()
+    {
+        // F30: the guard judges the stamp by the API's clock, beside the token's iat; and the
+        // second step's attempt is counted before the commit, so a client that leaves after a
+        // right code must not have it counted as a wrong one.
+        GivenAuthenticator();
+        using var request = new CancellationTokenSource();
+
+        var result = await Handler().Handle(WithPassword(secondStep: TotpCode), request.Token);
+
+        result.IsError.Should().BeFalse(result.IsError ? result.FirstError.Code : "");
+        _store.Verify(s => s.TryCommitSessionProofAsync(
+            _user.Id,
+            It.Is<SessionProofCommit>(commit => commit.ProvedAtUtc == Now.UtcDateTime),
+            It.Is<CancellationToken>(token => !token.CanBeCanceled)), Times.Once);
+    }
+
+    [Fact]
+    public async Task ARightPassword_AndAWrongSecondStep_LeaveAFailureRow_WithWhereItCameFrom()
+    {
+        // F25: whoever holds the password is trying the second step.
+        GivenAuthenticator();
+
+        var result = await Handler().Handle(WithPassword(secondStep: "000000"), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        _publisher.Verify(p => p.Publish(
+            It.Is<UserReauthenticationFailedEvent>(e =>
+                e.UserId == _user.Id && e.SessionId == SessionId && e.Reason == result.FirstError.Code
+                && e.IpAddress == Ip && e.UserAgent == "Agent/1.0"),
+            CancellationToken.None), Times.Once);
+        _publisher.Verify(p => p.Publish(It.IsAny<UserReauthenticatedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AReusedCode_IsLoggedUnderTheWindowsOwnSurface_AndLeavesAFailureRow()
+    {
+        // R4: an operator counting replayed codes tells the window from a step-up.
+        GivenAuthenticator();
+        GivenCommit(LoginCommitOutcome.StepReused);
+
+        var result = await Handler().Handle(WithPassword(secondStep: TotpCode), CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(TwoFactorErrors.CodeAlreadyUsed.Code);
+        _logger.Entries.Should().ContainSingle(entry => entry.Message.StartsWith("Reused two-factor code rejected"))
+            .Which.Values.Should().Contain(TotpReplayLog.Reauthentication);
+        _publisher.Verify(p => p.Publish(
+            It.Is<UserReauthenticationFailedEvent>(e => e.Reason == TwoFactorErrors.CodeAlreadyUsed.Code), CancellationToken.None), Times.Once);
     }
 
     [Fact]

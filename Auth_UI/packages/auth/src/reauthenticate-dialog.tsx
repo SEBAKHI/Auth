@@ -3,7 +3,7 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { api } from "@authsystem/api/client"
+import { api, refreshSessionNow } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
@@ -20,13 +20,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@authsystem/ui/dialog"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@authsystem/ui/field"
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSeparator } from "@authsystem/ui/field"
 import { Input } from "@authsystem/ui/input"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { useAuth } from "./auth-context"
 import { PasskeyButton } from "./passkey/passkey-button"
-import { passkeyFailureMessage, withRetryAfter } from "./passkey/passkey-errors"
+import { proofFailureMessage, withRetryAfter } from "./passkey/passkey-errors"
 import { usePasskeySignIn, type PasskeyOutcome } from "./passkey/use-passkey-sign-in"
 import type { AuthenticationResponseJSON } from "./passkey/webauthn"
 import { markRecoveryCodeSignIn } from "./recovery-code-notice"
@@ -67,9 +67,10 @@ export interface ReauthenticationProof {
  * What it asks for comes from the server (`GET auth/reauthentication`): the passkey,
  * alone; or the password, or the emailed code of an account without one, with the
  * second step that follows. So the window cannot offer what the request would refuse.
- * On success it closes and says so to the caller, once, which goes on with what was asked
- * (`onProved`), or, when the caller has nothing to resume, it tells the person. A proof that
- * lands after the person closed the window resumes nothing.
+ * On success it refreshes this browser's access token, since a proof counts only for the
+ * tokens issued after it (REVIEW-FIXES 152 F23), then closes and says so to the caller, once,
+ * which goes on with what was asked (`onProved`), or, when the caller has nothing to resume,
+ * it tells the person. A proof that lands after the person closed the window resumes nothing.
  *
  * The way out is signing in again, as it was before this window, and it stays: for
  * someone who lost what the window asks for, and for an account that has nothing to
@@ -125,6 +126,8 @@ function ReauthenticateWindow({
   // Set once the window has handed back, or gone: a proof landing later goes on with nothing,
   // and two proofs landing together resume what was asked once.
   const settledRef = React.useRef(false)
+  // Set once a proof was accepted: its refresh and its hand-back run once.
+  const acceptedRef = React.useRef(false)
   React.useEffect(() => {
     settledRef.current = false
     return () => {
@@ -141,7 +144,20 @@ function ReauthenticateWindow({
     queryFn: () => unwrap(api.GET("/api/v1/auth/reauthentication")),
   })
 
-  const proved = (proof: ReauthenticationProof) => {
+  const proved = async (proof: ReauthenticationProof) => {
+    if (settledRef.current || acceptedRef.current) return
+    acceptedRef.current = true
+    // The proof counts only for the tokens issued after it (REVIEW-FIXES 152 F23), and the token
+    // this tab holds predates it: the change it asked for would be refused again, and the client
+    // replays no refused change. So this browser's token is refreshed first, once, held against a
+    // close; its refresh token never leaves it. A refresh that fails leaves the token as it was,
+    // and the change then asks again.
+    holdRef.current = true
+    try {
+      await refreshSessionNow().catch(() => false)
+    } finally {
+      holdRef.current = false
+    }
     if (settledRef.current) return
     settledRef.current = true
     onOpenChange(false)
@@ -246,12 +262,15 @@ function Proof({
   options: Options
   offers: ReturnType<typeof what>
   holdRef: React.RefObject<boolean>
-  onProved: (proof: ReauthenticationProof) => void
+  onProved: (proof: ReauthenticationProof) => Promise<void>
   onMustSignIn: () => void
   onCancel: () => void
 }) {
   const { t } = useTranslation()
   const hasForm = offers.password || offers.emailCode
+  // The passkey's answer is on its way: the window's only Cancel waits for it (NIT-9), as the
+  // form's waits for the form's.
+  const [passkeyPending, setPasskeyPending] = React.useState(false)
 
   return (
     <div className="flex flex-col gap-4">
@@ -259,12 +278,16 @@ function Proof({
         <PasskeyProof
           variant={hasForm ? "secondary" : "default"}
           holdRef={holdRef}
+          onPendingChange={setPasskeyPending}
           onProved={onProved}
           onMustSignIn={onMustSignIn}
         />
       ) : null}
       {offers.passkey && hasForm ? (
-        <p className="text-center text-sm text-muted-foreground">{t("auth.reauthenticate.or")}</p>
+        // On the dialog's own surface, as the upstream blocks set it on a card's.
+        <FieldSeparator className="*:data-[slot=field-separator-content]:bg-popover">
+          {t("auth.reauthenticate.or")}
+        </FieldSeparator>
       ) : null}
       {hasForm ? (
         <SecretsForm
@@ -276,7 +299,7 @@ function Proof({
         />
       ) : (
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onCancel}>
+          <Button type="button" variant="outline" disabled={passkeyPending} onClick={onCancel}>
             {t("common.cancel")}
           </Button>
         </DialogFooter>
@@ -289,25 +312,28 @@ function Proof({
 function PasskeyProof({
   variant,
   holdRef,
+  onPendingChange,
   onProved,
   onMustSignIn,
 }: {
   variant: "default" | "secondary"
   holdRef: React.RefObject<boolean>
-  onProved: (proof: ReauthenticationProof) => void
+  onPendingChange: (pending: boolean) => void
+  onProved: (proof: ReauthenticationProof) => Promise<void>
   onMustSignIn: () => void
 }) {
   const { t } = useTranslation()
 
   const prove = async (credential: AuthenticationResponseJSON): Promise<PasskeyOutcome> => {
     holdRef.current = true
+    onPendingChange(true)
     try {
       const { error, response } = await api.POST("/api/v1/auth/reauthentication/passkey", {
         body: { credential },
       })
       if (error) throw withRetryAfter(error, response)
       holdRef.current = false
-      onProved({ spentAppCode: false })
+      await onProved({ spentAppCode: false })
       return { leaving: true }
     } catch (error) {
       holdRef.current = false
@@ -315,12 +341,19 @@ function PasskeyProof({
         onMustSignIn()
         return { leaving: true }
       }
-      return { message: passkeyFailureMessage(error) }
+      return { message: proofFailureMessage(error) }
+    } finally {
+      onPendingChange(false)
     }
   }
 
-  // The server said this account holds one and passkeys run: a first failure is said.
-  const ceremony = usePasskeySignIn({ passkeysExpected: true, onCredential: prove })
+  // The server said this account holds one and passkeys run: a first failure is said, in the
+  // window's own words, which send a signed-in person to no sign-in (NIT-6).
+  const ceremony = usePasskeySignIn({
+    passkeysExpected: true,
+    onCredential: prove,
+    failureMessage: proofFailureMessage,
+  })
 
   return <PasskeyButton ceremony={ceremony} label={t("auth.reauthenticate.withPasskey")} variant={variant} />
 }
@@ -339,7 +372,7 @@ function SecretsForm({
 }: {
   options: Options
   holdRef: React.RefObject<boolean>
-  onProved: (proof: ReauthenticationProof) => void
+  onProved: (proof: ReauthenticationProof) => Promise<void>
   onMustSignIn: () => void
   onCancel: () => void
 }) {
@@ -415,7 +448,8 @@ function SecretsForm({
         markRecoveryCodeSignIn(user?.id)
         void queryClient.invalidateQueries({ queryKey: ["me"] })
       }
-      onProved({ spentAppCode: options.secondStep === SECOND_STEP.authenticatorApp && !useRecoveryCode })
+      // The spinner stays while the window refreshes the token, before it hands back.
+      await onProved({ spentAppCode: options.secondStep === SECOND_STEP.authenticatorApp && !useRecoveryCode })
     } catch (error) {
       holdRef.current = false
       const codes = getErrorCodes(error)
@@ -424,10 +458,12 @@ function SecretsForm({
         return
       }
       setMessage(getErrorMessage(error))
-      // What was refused goes; what was right stays, so it is not typed twice.
+      // What was refused goes; what was right, or never read, stays, so it is not typed twice. The
+      // second step is read only once the first proof passed (NIT-3): a wrong password, or a wrong
+      // emailed code of an account without one, leaves it as it was.
       if (codes.includes("User.InvalidCurrentPassword")) setPassword("")
-      else if (codes.includes("TwoFactor.EmailCodeInvalid")) setEmailCode("")
-      setSecondCode("")
+      else if (options.emailCode && codes.includes("TwoFactor.EmailCodeInvalid")) setEmailCode("")
+      else setSecondCode("")
     } finally {
       setSubmitting(false)
     }

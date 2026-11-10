@@ -100,6 +100,7 @@ public class TotpReplayGuardTests
                 Guid.NewGuid(),
                 new SessionProofCommit(
                     new SessionUpgrade(Guid.NewGuid(), null, AuthenticationMethods.Password.With(AuthenticationMethods.Totp)),
+                    DateTime.UtcNow,
                     secondFactor: SecondFactorProof.Totp(Step)),
                 CancellationToken.None), StepClaim),
         // S08 PR B: new recovery codes, and starting an authenticator replacement,

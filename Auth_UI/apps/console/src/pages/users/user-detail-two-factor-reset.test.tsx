@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { MemoryRouter, Route, Routes } from "react-router-dom"
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import i18n from "@authsystem/i18n"
@@ -22,6 +22,7 @@ const signedIn = { id: "admin-id" }
 let postAnswer: { error?: unknown; data?: unknown } = { data: undefined }
 let ownRecoveryCodes: number | null = 4
 let ownQualifyingMfa = false
+let ownAccountReadFails = false
 
 let allowedActions: { resetTwoFactor?: boolean } | undefined
 
@@ -36,17 +37,31 @@ const target = {
   createdAt: "2026-08-20T07:00:00Z",
 }
 
+/** A second account, for an administrator who goes Back to it under the window (F24). */
+const other = {
+  ...target,
+  id: "22222222-2222-2222-2222-222222222222",
+  email: "other.person@example.test",
+  displayName: "Other Person",
+}
+
 vi.mock("@authsystem/api/client", () => {
   const request = (path: string, options?: unknown) => {
     apiCall(path, options)
-    if (path === "/api/v1/Users/{id}")
-      return Promise.resolve({ data: { ...target, allowedActions } })
+    if (path === "/api/v1/Users/{id}") {
+      const id = (options as { params?: { path?: { id?: string } } } | undefined)?.params?.path?.id
+      return Promise.resolve({ data: { ...(id === other.id ? other : target), allowedActions } })
+    }
     if (path === "/api/v1/auth/2fa/status")
       return Promise.resolve({ data: { recoveryCodesRemaining: ownRecoveryCodes } })
     if (path === "/api/v1/auth/reauthentication")
       return Promise.resolve({ data: { passkey: false, password: true, emailCode: false, secondStep: "None", canProveInPlace: true } })
     if (path === "/api/v1/Users/me")
-      return Promise.resolve({ data: { qualifyingMfa: ownQualifyingMfa } })
+      return Promise.resolve(
+        ownAccountReadFails
+          ? { data: undefined, error: { status: 500, code: "General.Unexpected", detail: "x" } }
+          : { data: { qualifyingMfa: ownQualifyingMfa } }
+      )
     return Promise.resolve({ data: [] })
   }
   return {
@@ -60,6 +75,8 @@ vi.mock("@authsystem/api/client", () => {
       PATCH: request,
       DELETE: request,
     },
+    // The window refreshes this browser's token before it hands back (REVIEW-FIXES 152 F23).
+    refreshSessionNow: () => Promise.resolve(true),
   }
 })
 
@@ -109,6 +126,7 @@ describe("resetting another account's two-factor", () => {
     postAnswer = { data: undefined }
     ownRecoveryCodes = 4
     ownQualifyingMfa = false
+    ownAccountReadFails = false
     signedIn.id = "admin-id"
     allowedActions = undefined
     await i18n.changeLanguage("en")
@@ -200,6 +218,70 @@ describe("resetting another account's two-factor", () => {
       expect(apiCall.mock.calls.filter(([path]) => path === "/api/v1/Users/{id}/two-factor/reset")).toHaveLength(2)
     )
     expect(screen.queryByRole("dialog", { name: "Confirm it's you" })).not.toBeInTheDocument()
+  }, 15_000)
+
+  it("after a proof given on another account's page, resets nothing there, and asks that account's confirmation", async () => {
+    // REVIEW-FIXES 152 F24: the page stays mounted from one account to the next, and Back is not
+    // held by the window. Deliberate break, verified red: the proof's hand-back resets the page's
+    // current account.
+    postAnswer = {
+      error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
+    }
+    grantedPermissions.clear()
+    ;[PERMISSIONS.users.read, PERMISSIONS.users.resetTwoFactor].forEach((permission) => grantedPermissions.add(permission))
+    const router = createMemoryRouter([{ path: "/users/:id", element: <UserDetailPage /> }], {
+      initialEntries: [`/users/${target.id}`],
+    })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    )
+    const user = userEvent.setup()
+    const resets = (id: string) =>
+      apiCall.mock.calls.filter(
+        ([path, options]) =>
+          path === "/api/v1/Users/{id}/two-factor/reset" &&
+          (options as { params: { path: { id: string } } }).params.path.id === id
+      )
+
+    await user.click(await screen.findByRole("button", { name: RESET }))
+    await user.click(await screen.findByRole("button", { name: "Reset" }))
+    const proof = await screen.findByRole("dialog", { name: "Confirm it's you" })
+    expect(resets(target.id)).toHaveLength(1)
+
+    await act(async () => {
+      await router.navigate(`/users/${other.id}`)
+    })
+    expect(await screen.findByText(other.email)).toBeInTheDocument()
+
+    postAnswer = { error: undefined }
+    await user.type(await within(proof).findByLabelText("Password"), "my password")
+    await user.click(within(proof).getByRole("button", { name: "Confirm" }))
+
+    const confirmation = await screen.findByRole("alertdialog", { name: "Reset two-factor authentication?" })
+    expect(confirmation).toHaveTextContent("Other Person")
+    expect(resets(other.id)).toHaveLength(0)
+    expect(resets(target.id)).toHaveLength(1)
+  }, 15_000)
+
+  it("offers the window when its own account cannot be read: the window is a way forward", async () => {
+    // NIT-4, as ownProofForReset's comment says. Deliberate break, verified red: a failed read
+    // of /Users/me answered as "no factor", which sends the administrator to set one up.
+    ownRecoveryCodes = null
+    ownAccountReadFails = true
+    postAnswer = {
+      error: { status: 403, code: "Auth.ReauthenticationRequired", detail: "x" },
+    }
+    const user = userEvent.setup()
+    renderPage([PERMISSIONS.users.read, PERMISSIONS.users.resetTwoFactor])
+
+    await user.click(await screen.findByRole("button", { name: RESET }))
+    await user.click(await screen.findByRole("button", { name: "Reset" }))
+
+    expect(await screen.findByRole("dialog", { name: "Confirm it's you" })).toBeInTheDocument()
+    expect(screen.queryByRole("alertdialog", { name: "Set up your own two-factor authentication first" })).not.toBeInTheDocument()
   }, 15_000)
 
   it("asks an administrator whose factor is a passkey for that passkey, not to set a factor up", async () => {

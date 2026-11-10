@@ -4189,17 +4189,26 @@ For each existing deployment, in this order:
    The same release adds, whether passkeys are on or off, what lets a signed-in person confirm it is them with
    nothing signed out: the columns `UserSessions.LastProofAt` and `UserSessions.LastProofMethods`, and version 3
    of the `two-factor-email-code` template, with the wording of that code in seven languages. **This step comes
-   before the API.** Without the columns `/ready` reads Degraded, so the deploy stops there. If it goes on, sign-in
+   before the API.** Without the columns `/ready` reads Degraded, so the deploy stops there; it still answers
+   HTTP 200, so an automated deploy check must read the word, not the status. If it goes on, sign-in
    and a change on a recent session still work, but a change on an older session fails with a server error, so
-   nothing passes that should not. Version 3 is published only where the
-   seeded version 2 is still the published one; a version your administrators wrote stays published, and that code
-   then goes out under its general wording until they add the new purpose (`reauthentication`).
+   nothing passes that should not. One cost remains there: a proof that carries an authenticator code has that
+   attempt counted before it fails, so five such retries lock the app for 15 minutes. Version 3 is published
+   only where the seeded version 2 is still the published one; a version your administrators wrote stays
+   published, and that code then goes out under its general wording until they add the new purpose
+   (`reauthentication`). Until they do, an account without a password is sent its proof's code under that
+   general wording.
    Once a deployment has all of this, this step adds nothing: the privacy paragraph about passkeys is seed text for
-   new installations only, and an existing deployment changes nothing in its tables. Check: the DeployReport
-   lists those objects at this release, and no schema operation after it.
+   new installations only, and an existing deployment changes nothing in its tables. Checks: the DeployReport
+   lists those objects at this release, and no schema operation after it; and Notifications › Templates ›
+   `two-factor-email-code` shows version 3 published. Where it shows a version your administrators wrote,
+   add a `reauthentication` case to that version.
 2. **The Auth API, then the Gateway, then both web applications**, with `Passkeys:Enabled` off. Checks:
    `/ready` reads Healthy; `POST /api/v1/auth/passkeys/assertion/options` answers 404; the sign-in page shows
-   no passkey button; the console shows the **Passkeys** section under System settings, switched off.
+   no passkey button; the console shows the **Passkeys** section under System settings, switched off. And the
+   window **Confirm it's you**, which works with passkeys off: in a session older than
+   `TwoFactor:ReauthenticationMaxAgeMinutes`, a change to two-step verification opens it, and the password
+   (with the code, where the account has one) lets the change go on, with nothing signed out.
    **Rollback:** the previous builds.
 
 ### T.2 Before switching it on
@@ -4220,7 +4229,9 @@ For each existing deployment, in this order:
   its own checklist ([K.1](#k1-before-you-switch-it-on) and [K.2](#k2-switching-it-on-and-back-off)).
 * **The log lines to watch.** `passkey.configuration` and `passkey.rpid-mismatch` are Critical: either one
   means passkeys are off whatever the switch says. Count `passkey.verification-failed` and
-  `passkey.admitted-while-locked` from the log files.
+  `passkey.admitted-while-locked` from the log files. A signed-in person who answers **Confirm it's you**
+  with another account's passkey writes `passkey.not-this-account` instead: a passkey that verified, under
+  the wrong account, so it is not counted among the failed verifications.
 
 ### T.3 Switching it on
 
@@ -4277,7 +4288,7 @@ domain, and `passkey.rpid-mismatch` turns passkeys off after the recycle until t
 
 **Every 90 days**, read the log files: none of the `passkey.admitted-while-locked` lines may carry the kind
 `Admin`, since an administrator's lock always refuses a passkey; count the `passkey.verification-failed` lines
-and read every `passkey.rpid-mismatch` line.
+(`passkey.not-this-account` apart) and read every `passkey.rpid-mismatch` line.
 
 **Retiring the switch.** Count 30 days from the moment passkeys were switched on. When they have stayed on
 throughout, with no Critical `passkey.configuration` or `passkey.rpid-mismatch` line in that time, the switch has

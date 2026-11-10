@@ -389,12 +389,13 @@ public class TwoFactorStateStore : ITwoFactorStateStore
 
     // A person proved themself again inside this session (owner decision, 2026-11-09): raised
     // by what they proved, as a step-up raises it, and stamped with that proof alone, which is
-    // what ReauthenticationGuard reads once the sign-in is too old. One clock, the database's.
-    // Only the caller's own live row matches.
+    // what ReauthenticationGuard reads once the sign-in is too old. One clock, the API's: the
+    // guard judges the stamp by it, and beside the access token's iat, which the API writes by
+    // it too (REVIEW-FIXES 152 F23, F30). Only the caller's own live row matches.
     internal const string StampSessionProofSql = @"
             UPDATE [dbo].[UserSessions] SET
                 [AuthMethods] = ISNULL([AuthMethods], 0) | @Method,
-                [LastProofAt] = SYSUTCDATETIME(),
+                [LastProofAt] = @Now,
                 [LastProofMethods] = @Method
             WHERE [Id] = @SessionId
               AND [UserId] = @UserId
@@ -1605,9 +1606,14 @@ public class TwoFactorStateStore : ITwoFactorStateStore
             }
         }
 
+        // DATETIME2, not Dapper's default DATETIME, which would round the stamp to a 300th of a
+        // second: the guard compares it with a token's iat.
+        var stamp = new DynamicParameters(new { commit.Session.SessionId, UserId = userId, Method = commit.Session.Method.Value });
+        stamp.Add("Now", commit.ProvedAtUtc, DbType.DateTime2);
+
         var session = await connection.ExecuteAsync(new CommandDefinition(
             StampSessionProofSql,
-            new { commit.Session.SessionId, UserId = userId, Method = commit.Session.Method.Value },
+            stamp,
             transaction,
             cancellationToken: cancellationToken));
 

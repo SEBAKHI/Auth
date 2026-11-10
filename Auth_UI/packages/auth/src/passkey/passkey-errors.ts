@@ -89,6 +89,26 @@ export function ceremonyFailureMessage(error: unknown): string | null {
   return isCeremonyCancelled(error) ? null : i18n.t("auth.passkey.deviceRefused")
 }
 
+/**
+ * The sentence for a failed passkey proof inside the "Confirm it's you" window, its options
+ * included: the person is signed in, so nothing tells them to sign in another way
+ * (REVIEW-FIXES 152 NIT-6, the twin of the adding dialog's own sentence). Where the sign-in's
+ * sentence would, after a refusal of the device or the browser, a passkey that did not verify,
+ * or passkeys switched off meanwhile, the window's sentence points to the other ways below it.
+ * A cancel says nothing; a wait (429) and another account's passkey keep their own sentences.
+ */
+export function proofFailureMessage(error: unknown): string | null {
+  if (isCeremonyCancelled(error)) return null
+
+  const status = getErrorStatus(error)
+  const codes = getErrorCodes(error)
+  if (status === 429 || codes.includes("Passkey.NotThisAccount")) return passkeyFailureMessage(error)
+  if (status === undefined || status === 404 || codes.includes("Passkey.VerificationFailed")) {
+    return i18n.t("auth.reauthenticate.passkeyFailed")
+  }
+  return getErrorMessage(error)
+}
+
 /** Whether the failure is worth another try by itself (a server or network fault). */
 export function isPasskeyFailureRetryable(error: unknown): boolean {
   if (isCeremonyCancelled(error)) return false

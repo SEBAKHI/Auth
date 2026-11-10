@@ -258,7 +258,10 @@ describe("TwoFactorRequiredPage", () => {
     await user.type(await within(proof).findByLabelText("auth.password"), "my password")
     await user.click(within(proof).getByRole("button", { name: "auth.reauthenticate.confirm" }))
 
-    await waitFor(() => expect(mocks.calls).toEqual(["refresh", "me", "refresh", "me"]))
+    // The window refreshes the token before it hands back (REVIEW-FIXES 152 F23), then the page
+    // rereads the account; the page's own refresh after the window's sends no request in the
+    // real client, which does not force a token a forced refresh just produced.
+    await waitFor(() => expect(mocks.calls).toEqual(["refresh", "me", "refresh", "refresh", "me"]))
     expect(mocks.auth.logout).not.toHaveBeenCalled()
   })
 

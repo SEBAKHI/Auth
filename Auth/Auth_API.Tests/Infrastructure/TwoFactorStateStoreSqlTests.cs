@@ -540,8 +540,12 @@ public class TwoFactorStateStoreSqlTests
 
     private const string ExpectedSessionProofStamp =
         "UPDATE dbo.UserSessions SET AuthMethods = ISNULL(AuthMethods, 0) | @Method, "
-        + "LastProofAt = SYSUTCDATETIME(), LastProofMethods = @Method "
+        + "LastProofAt = @Now, LastProofMethods = @Method "
         + "WHERE Id = @SessionId AND UserId = @UserId AND EndedAt IS NULL";
+
+    // The API's clock, not the database's (REVIEW-FIXES 152 F30): the guard reads the stamp beside
+    // the access token's iat, which the API writes.
+    private static readonly DateTime ProvedAt = new(2026, 11, 10, 12, 0, 7, 123, DateTimeKind.Utc);
 
     private static SessionUpgrade Upgrade(AuthenticationMethods methods) =>
         new(StepUpSession, FakeCredentialHasher.CandidatesOf(CredentialPurpose.IdpSession, "idp-hash"), methods);
@@ -556,7 +560,7 @@ public class TwoFactorStateStoreSqlTests
         var db = new RecordingDbConnectionFactory(affectedRows: 1);
 
         var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
-            userId, new SessionProofCommit(Upgrade(AuthenticationMethods.Password)), CancellationToken.None);
+            userId, new SessionProofCommit(Upgrade(AuthenticationMethods.Password), ProvedAt), CancellationToken.None);
 
         outcome.Should().Be(LoginCommitOutcome.Committed);
         db.Commands.Should().HaveCount(2);
@@ -565,6 +569,10 @@ public class TwoFactorStateStoreSqlTests
         db.Commands[0].Parameters["SessionId"].Should().Be(StepUpSession);
         db.Commands[0].Parameters["UserId"].Should().Be(userId);
         db.Commands[0].Parameters["Method"].Should().Be(AuthenticationMethods.Password.Value);
+        // F30: stamped by the API's clock, exactly: a DATETIME parameter would round it to a 300th
+        // of a second. Deliberate break, verified red: the statement back on SYSUTCDATETIME().
+        db.Commands[0].Parameters["Now"].Should().Be(ProvedAt);
+        db.Commands[0].ParameterTypes["Now"].Should().Be(System.Data.DbType.DateTime2);
         Sql(db.Commands[1]).Should().Be(ExpectedIdpSessionUpgrade);
         db.LastTransaction!.Committed.Should().BeTrue();
     }
@@ -577,7 +585,7 @@ public class TwoFactorStateStoreSqlTests
         var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
             Guid.NewGuid(),
             new SessionProofCommit(
-                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.Totp)),
+                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.Totp)), ProvedAt,
                 secondFactor: SecondFactorProof.Totp(Step)),
             CancellationToken.None);
 
@@ -596,7 +604,7 @@ public class TwoFactorStateStoreSqlTests
         var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
             userId,
             new SessionProofCommit(
-                Upgrade(AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false)),
+                Upgrade(AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false)), ProvedAt,
                 firstProofCode: new EmailedCodeSpend(challengeId, "codes-seen")),
             CancellationToken.None);
 
@@ -619,7 +627,7 @@ public class TwoFactorStateStoreSqlTests
         var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
             Guid.NewGuid(),
             new SessionProofCommit(
-                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode)),
+                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode)), ProvedAt,
                 secondFactor: SecondFactorProof.EmailCode(challengeId, "codes-seen")),
             CancellationToken.None);
 
@@ -639,7 +647,7 @@ public class TwoFactorStateStoreSqlTests
         var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
             Guid.NewGuid(),
             new SessionProofCommit(
-                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.Totp)),
+                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.Totp)), ProvedAt,
                 secondFactor: SecondFactorProof.Totp(Step)),
             CancellationToken.None);
 
@@ -658,7 +666,7 @@ public class TwoFactorStateStoreSqlTests
         var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
             Guid.NewGuid(),
             new SessionProofCommit(
-                Upgrade(AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false)),
+                Upgrade(AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false)), ProvedAt,
                 firstProofCode: new EmailedCodeSpend(Guid.NewGuid(), "codes-seen")),
             CancellationToken.None);
 
@@ -678,7 +686,7 @@ public class TwoFactorStateStoreSqlTests
         var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
             Guid.NewGuid(),
             new SessionProofCommit(
-                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.Totp)),
+                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.Totp)), ProvedAt,
                 secondFactor: SecondFactorProof.Totp(Step)),
             CancellationToken.None);
 
@@ -703,7 +711,7 @@ public class TwoFactorStateStoreSqlTests
         var outcome = await new TwoFactorStateStore(db).TryCommitSessionProofAsync(
             Guid.NewGuid(),
             new SessionProofCommit(
-                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.RecoveryCode)),
+                Upgrade(AuthenticationMethods.Password.With(AuthenticationMethods.RecoveryCode)), ProvedAt,
                 secondFactor: SecondFactorProof.RecoveryCode("old-codes", "new-codes", qualified: true)),
             CancellationToken.None);
 

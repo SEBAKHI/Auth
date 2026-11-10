@@ -31,6 +31,14 @@ public static class PasskeySignalCodes
     public const string VerificationFailed = "passkey.verification-failed";
 
     /// <summary>
+    /// A signed-in person tried to prove themself again with a passkey of another account
+    /// (REVIEW-FIXES 152 R4): the passkey verified, but it is not this account's, so it proved
+    /// nothing here and nothing of it was recorded. Its own code, so it never inflates the count of
+    /// <see cref="VerificationFailed"/>. Information.
+    /// </summary>
+    public const string NotThisAccount = "passkey.not-this-account";
+
+    /// <summary>
     /// A sign-in's signature counter did not grow (PK9): a copied or broken authenticator. The
     /// passkey is sealed (<c>LastCounterRegressionAt</c>), never removed. Warning; A122.
     /// </summary>

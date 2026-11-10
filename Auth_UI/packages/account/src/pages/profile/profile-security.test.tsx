@@ -21,6 +21,8 @@ import type { Schemas } from "@authsystem/api/types"
  */
 vi.mock("@authsystem/api/client", () => ({
   api: { POST: vi.fn(), GET: vi.fn(), DELETE: vi.fn() },
+  // The window refreshes this browser's token before it hands back (REVIEW-FIXES 152 F23).
+  refreshSessionNow: () => Promise.resolve(true),
 }))
 
 vi.mock("react-i18next", () => ({
@@ -292,8 +294,9 @@ describe("the Security tab two-factor card", () => {
       )
       expect(logout).not.toHaveBeenCalled()
 
-      // What was asked goes on where the page still holds it: setup starts, and a switch-off
-      // is sent again. An enable keeps its page and its typed code, for the person to press.
+      // What was asked goes on by itself, with what was typed (D-152-5, REVIEW-FIXES 152 F26):
+      // setup starts, a switch-off is sent again, and so is an enable, which no longer waits for
+      // a second press. Deliberate break, verified red: the enrollment's hand-back dropped.
       const called = (path: string) => post.mock.calls.filter(([called]) => called === path)
       if (change === "setup") {
         expect(called("/api/v1/auth/2fa/setup")).toHaveLength(2)
@@ -301,7 +304,8 @@ describe("the Security tab two-factor card", () => {
         expect(called("/api/v1/auth/2fa/disable")).toHaveLength(2)
       } else {
         expect(called("/api/v1/auth/2fa/setup")).toHaveLength(1)
-        expect(screen.getByLabelText("auth.twoFactorCode")).toBeInTheDocument()
+        await waitFor(() => expect(called("/api/v1/auth/2fa/enable")).toHaveLength(2))
+        expect(called("/api/v1/auth/2fa/enable")[1]![1]).toEqual(called("/api/v1/auth/2fa/enable")[0]![1])
       }
     },
     15_000

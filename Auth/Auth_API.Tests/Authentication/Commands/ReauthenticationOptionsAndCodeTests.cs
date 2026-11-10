@@ -47,7 +47,12 @@ public class ReauthenticationOptionsAndCodeTests
     }
 
     private ReauthenticationGuard Guard() =>
-        new(_sessions.Object, TestHelpers.CreateOptions(new TwoFactorSettings()), TimeProvider.System, NullLogger<ReauthenticationGuard>.Instance);
+        new(
+            _sessions.Object,
+            TestHelpers.CreateOptions(new TwoFactorSettings()),
+            TestHelpers.AccessToken(DateTime.UtcNow),
+            TimeProvider.System,
+            NullLogger<ReauthenticationGuard>.Instance);
 
     private ReauthenticationPolicy Policy() =>
         new(_store.Object, TestHelpers.UsableFactors(_store.Object), TestHelpers.PasskeyOnlyAdministratorRuleOff(), TestHelpers.CreateOptions(_emailSettings));

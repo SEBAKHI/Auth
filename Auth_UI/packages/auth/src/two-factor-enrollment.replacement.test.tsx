@@ -11,6 +11,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
  */
 vi.mock("@authsystem/api/client", () => ({
   api: { POST: vi.fn(), GET: vi.fn() },
+  // The window refreshes this browser's token before it hands back (REVIEW-FIXES 152 F23).
+  refreshSessionNow: () => Promise.resolve(true),
 }))
 
 vi.mock("react-i18next", () => ({

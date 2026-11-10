@@ -80,11 +80,16 @@ public class TwoFactorRecoveryAuditEventHandlerTests
 
         await new UserReauthenticatedAuditEventHandler(
                 _repository.Object, Mock.Of<ILogger<UserReauthenticatedAuditEventHandler>>())
-            .Handle(new UserReauthenticatedEvent(Owner, session, methods), CancellationToken.None);
+            .Handle(new UserReauthenticatedEvent(Owner, session, methods, "203.0.113.7", "Agent/1.0"), CancellationToken.None);
 
         _written!.Action.Should().Be(AuditActions.SessionReauthenticated);
         _written.ActionType.Should().Be(AuditActionTypes.Security);
+        _written.IsSuccess.Should().BeTrue();
         _written.SessionId.Should().Be(session);
+        // REVIEW-FIXES 152 F25: where the proof came from, as a sign-in's row says it. Deliberate
+        // break, verified red: the handler's ipAddress argument dropped.
+        _written.IpAddress.Should().Be("203.0.113.7");
+        _written.UserAgent.Should().Be("Agent/1.0");
         var details = JsonDocument.Parse(_written.AdditionalData!).RootElement;
         details.GetProperty("methods").GetInt32().Should().Be(methods.Value);
         details.GetProperty("amr").EnumerateArray().Select(value => value.GetString())
@@ -100,10 +105,46 @@ public class TwoFactorRecoveryAuditEventHandlerTests
         var act = () => new UserReauthenticatedAuditEventHandler(
                 _repository.Object, Mock.Of<ILogger<UserReauthenticatedAuditEventHandler>>())
             .Handle(
-                new UserReauthenticatedEvent(Owner, Guid.NewGuid(), Auth.Domain.ValueObjects.AuthenticationMethods.Password),
+                new UserReauthenticatedEvent(Owner, Guid.NewGuid(), Auth.Domain.ValueObjects.AuthenticationMethods.Password, null, null),
                 CancellationToken.None);
 
         await act.Should().NotThrowAsync("the session is already stamped");
+    }
+
+    [Fact]
+    public async Task ReauthenticationFailed_WritesAFailureRowOfTheSameAction_WithTheReasonAndWhereItCameFrom()
+    {
+        // REVIEW-FIXES 152 F25: a right password and a refused second step. No new action, so the
+        // console's catalog does not move; never the code that was given.
+        var session = Guid.NewGuid();
+
+        await new UserReauthenticationFailedAuditEventHandler(
+                _repository.Object, Mock.Of<ILogger<UserReauthenticationFailedAuditEventHandler>>())
+            .Handle(
+                new UserReauthenticationFailedEvent(Owner, session, "User.InvalidTwoFactorCode", "203.0.113.7", "Agent/1.0"),
+                CancellationToken.None);
+
+        _written!.Action.Should().Be(AuditActions.SessionReauthenticated);
+        _written.ActionType.Should().Be(AuditActionTypes.Security);
+        _written.IsSuccess.Should().BeFalse();
+        _written.ErrorMessage.Should().Be("User.InvalidTwoFactorCode");
+        _written.UserId.Should().Be(Owner);
+        _written.SessionId.Should().Be(session);
+        _written.IpAddress.Should().Be("203.0.113.7");
+        _written.UserAgent.Should().Be("Agent/1.0");
+    }
+
+    [Fact]
+    public async Task ReauthenticationFailed_AFailedWrite_NeverReachesTheRefusal()
+    {
+        _repository.Setup(r => r.CreateAsync(It.IsAny<Auth.Domain.Entities.AuditLog>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("no database"));
+
+        var act = () => new UserReauthenticationFailedAuditEventHandler(
+                _repository.Object, Mock.Of<ILogger<UserReauthenticationFailedAuditEventHandler>>())
+            .Handle(new UserReauthenticationFailedEvent(Owner, Guid.NewGuid(), "User.InvalidTwoFactorCode", null, null), CancellationToken.None);
+
+        await act.Should().NotThrowAsync("the refusal is already the answer");
     }
 
     [Fact]

@@ -117,6 +117,11 @@ export interface HarnessApi {
       mfaRequirement?: () => string | undefined
       /** What /platform/branding answers (default: no appearance, the shipped preset). */
       branding?: Record<string, unknown>
+      /**
+       * What the "Confirm it's you" window's GET answers, over the mock's default: the password
+       * alone, as for an account without the app.
+       */
+      reauthentication?: Record<string, unknown>
     }
   ): Promise<void>
   /** The model's state for this test: delivery mode, refreshes seen, sign-outs seen. */

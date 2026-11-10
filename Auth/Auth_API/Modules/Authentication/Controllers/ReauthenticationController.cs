@@ -170,7 +170,9 @@ public class ReauthenticationController : ApiController
                 handle,
                 repeated,
                 // A body without a credential object fails verification, as any malformed answer does.
-                request.Credential.ValueKind == JsonValueKind.Object ? request.Credential.GetRawText() : string.Empty),
+                request.Credential.ValueKind == JsonValueKind.Object ? request.Credential.GetRawText() : string.Empty,
+                GetClientIpAddress(),
+                GetUserAgent()),
             cancellationToken);
 
         if (result.IsError)

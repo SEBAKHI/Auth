@@ -133,6 +133,7 @@ export function usePasskeySignIn({
   suggestion = false,
   passkeysExpected = false,
   onCredential,
+  failureMessage,
 }: {
   /** Offer the passkeys in the address field's suggestions too (the sign-in page). */
   suggestion?: boolean
@@ -143,6 +144,11 @@ export function usePasskeySignIn({
   passkeysExpected?: boolean
   /** Sends the browser's answer; never throws. */
   onCredential: (credential: AuthenticationResponseJSON) => Promise<PasskeyOutcome>
+  /**
+   * The sentence for a failure of the options or of the ceremony, in place of a sign-in's:
+   * the "Confirm it's you" window's, for a person who is signed in already.
+   */
+  failureMessage?: (error: unknown) => string | null
 }): PasskeyCeremony {
   const [phase, setPhase] = React.useState<PasskeyPhase>(() =>
     browserHasWebAuthn() ? "checking" : "unavailable"
@@ -173,6 +179,11 @@ export function usePasskeySignIn({
   React.useEffect(() => {
     onCredentialRef.current = onCredential
   }, [onCredential])
+  // The page's own sentence for a failure, if it has one; read when the failure lands.
+  const failureMessageRef = React.useRef(failureMessage)
+  React.useEffect(() => {
+    failureMessageRef.current = failureMessage
+  }, [failureMessage])
 
   const prepare = React.useCallback(async () => {
     clearTimer(renewTimerRef)
@@ -195,7 +206,7 @@ export function usePasskeySignIn({
       if (knownRef.current) {
         failureShownRef.current = true
         setPhase("failed")
-        setMessage(passkeyFailureMessage(error))
+        setMessage((failureMessageRef.current ?? passkeyFailureMessage)(error))
         setRetryable(isPasskeyFailureRetryable(error))
       }
       // A wait the server asked for, or a fault: asked again by itself later.
@@ -223,7 +234,7 @@ export function usePasskeySignIn({
       } catch (error) {
         if (!mountedRef.current) return
         setPhase("failed")
-        setMessage(passkeyFailureMessage(error))
+        setMessage((failureMessageRef.current ?? passkeyFailureMessage)(error))
         setRetryable(true)
         return
       }
@@ -279,7 +290,7 @@ export function usePasskeySignIn({
   const abandon = React.useCallback((error: unknown) => {
     busyRef.current = false
     if (!mountedRef.current) return
-    setMessage(ceremonyFailureMessage(error))
+    setMessage((failureMessageRef.current ?? ceremonyFailureMessage)(error))
     setRetryable(false)
     setPhase(preparedRef.current ? "ready" : "preparing")
     // Restart the suggestion, which the ceremony aborted.

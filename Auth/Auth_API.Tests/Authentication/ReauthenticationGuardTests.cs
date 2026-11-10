@@ -26,11 +26,18 @@ public class ReauthenticationGuardTests
     private readonly TwoFactorSettings _settings = new();
     private readonly ReauthenticationGuard _guard;
 
+    // The request's token: issued now unless a test says otherwise (REVIEW-FIXES 152 F23).
+    private DateTime? _tokenIssuedAt = Now.UtcDateTime;
+
     public ReauthenticationGuardTests()
     {
+        var accessToken = new Mock<Auth.Application.Interfaces.ICurrentAccessToken>();
+        accessToken.SetupGet(token => token.IssuedAtUtc).Returns(() => _tokenIssuedAt);
+
         _guard = new ReauthenticationGuard(
             _sessionRepositoryMock.Object,
             TestHelpers.CreateOptions(_settings),
+            accessToken.Object,
             new FixedTimeProvider(Now),
             Mock.Of<ILogger<ReauthenticationGuard>>());
     }
@@ -204,6 +211,73 @@ public class ReauthenticationGuardTests
         result.IsError.Should().BeFalse();
         result.Value.Methods.Should().Be(
             AuthenticationMethods.Password, "what that proof proved, never what the session ever proved");
+    }
+
+    // ── A proof counts only for the tokens issued after it (REVIEW-FIXES 152 F23) ──
+    //
+    // Deliberate break, verified red: the guard's comparison of the token's iat with the proof
+    // dropped (a proof then serves every copy of the session's token).
+
+    [Fact]
+    public async Task EnsureRecentSignInAsync_ARecentProof_RefusesACopyOfTheTokenIssuedBeforeIt()
+    {
+        // A copy taken from the session before the owner proved themself in their own browser.
+        var session = GivenOldSession(AuthenticationMethods.Password);
+        GivenProof(session, TimeSpan.FromMinutes(5), AuthenticationMethods.Password);
+        _tokenIssuedAt = Now.UtcDateTime.AddMinutes(-6);
+
+        ShouldRequireReauthentication(await _guard.EnsureRecentSignInAsync(session.UserId, session.Id, CancellationToken.None));
+        ShouldRequireReauthentication(await _guard.EnsureRecentTwoFactorSignInAsync(session.UserId, session.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EnsureRecentSignInAsync_ARecentProof_PassesTheTokenIssuedAfterIt()
+    {
+        // The browser that proved refreshes its token before the change goes on.
+        var session = GivenOldSession(AuthenticationMethods.Password);
+        GivenProof(session, TimeSpan.FromMinutes(5), AuthenticationMethods.Password);
+        _tokenIssuedAt = Now.UtcDateTime.AddMinutes(-4);
+
+        (await _guard.EnsureRecentSignInAsync(session.UserId, session.Id, CancellationToken.None)).IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task EnsureRecentSignInAsync_ATokenIssuedInTheProofsOwnSecond_Passes()
+    {
+        // iat holds whole seconds: the refresh right after a proof at 11:55:00.800 is iat 11:55:00.
+        var session = GivenOldSession(AuthenticationMethods.Password);
+        _sessionRepositoryMock
+            .Setup(r => r.GetLastProofAsync(session.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SessionProof(Now.UtcDateTime.AddMinutes(-5).AddMilliseconds(800), AuthenticationMethods.Password));
+        _tokenIssuedAt = Now.UtcDateTime.AddMinutes(-5);
+
+        (await _guard.EnsureRecentSignInAsync(session.UserId, session.Id, CancellationToken.None)).IsError.Should().BeFalse();
+
+        _tokenIssuedAt = Now.UtcDateTime.AddMinutes(-5).AddSeconds(-1);
+        ShouldRequireReauthentication(await _guard.EnsureRecentSignInAsync(session.UserId, session.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EnsureRecentSignInAsync_ARecentProof_AndATokenThatNamesNoTime_FailsClosed()
+    {
+        var session = GivenOldSession(AuthenticationMethods.Password);
+        GivenProof(session, TimeSpan.FromMinutes(1), AuthenticationMethods.Password);
+        _tokenIssuedAt = null;
+
+        ShouldRequireReauthentication(await _guard.EnsureRecentSignInAsync(session.UserId, session.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EnsureRecentSignInAsync_ARecentSignIn_DoesNotReadTheTokensTime()
+    {
+        // The sign-in's own window is the session's: every token of a session younger than the
+        // window passes, as before this round.
+        var userId = Guid.NewGuid();
+        var session = Session(Guid.NewGuid(), userId, TimeSpan.FromMinutes(1));
+        GivenSession(session);
+        _tokenIssuedAt = null;
+
+        (await _guard.EnsureRecentSignInAsync(userId, session.Id, CancellationToken.None)).IsError.Should().BeFalse();
     }
 
     [Fact]

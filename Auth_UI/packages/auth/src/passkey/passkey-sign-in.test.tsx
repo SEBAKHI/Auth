@@ -101,12 +101,14 @@ function Probe({
   suggestion = false,
   passkeysExpected = false,
   onCredential,
+  failureMessage,
 }: {
   suggestion?: boolean
   passkeysExpected?: boolean
   onCredential: (credential: AuthenticationResponseJSON) => Promise<PasskeyOutcome>
+  failureMessage?: (error: unknown) => string | null
 }) {
-  const ceremony = usePasskeySignIn({ suggestion, passkeysExpected, onCredential })
+  const ceremony = usePasskeySignIn({ suggestion, passkeysExpected, onCredential, failureMessage })
   return (
     <>
       <PasskeyButton ceremony={ceremony} label={LABEL} />
@@ -367,6 +369,22 @@ describe("what a failure says (T-C4, ARR-0668)", () => {
     expect(button()).toBeEnabled()
     // The challenge was not spent: the same options stay in hand.
     expect(optionsRequests()).toBe(1)
+  })
+
+  it("says a page's own sentence for a refused ceremony, when it gives one", async () => {
+    // REVIEW-FIXES 152 NIT-6: the "Confirm it's you" window, whose person is signed in.
+    // Deliberate break, verified red: the ceremony's refusal said through ceremonyFailureMessage
+    // whatever the page gave.
+    const own = (error: unknown) => `the page's own sentence for ${(error as { name?: string }).name ?? "a failure"}`
+    mocks.post.mockResolvedValueOnce(optionsAnswer("c1"))
+    mocks.startAuthentication.mockRejectedValueOnce(new DOMException("refused", "SecurityError"))
+    render(<Probe passkeysExpected onCredential={async () => ({})} failureMessage={own} />)
+    await flush()
+
+    fireEvent.click(button())
+    await flush()
+
+    expect(screen.getByTestId("passkey-message")).toHaveTextContent("the page's own sentence for SecurityError")
   })
 
   it("says nothing of a first failure: the page stays as it was, and asks again by itself", async () => {

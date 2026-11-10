@@ -17,6 +17,8 @@ internal static class TotpReplayLog
     public const string StepUp = "step-up";
     public const string RegenerateRecoveryCodes = "regenerate-recovery-codes";
     public const string ReplaceAuthenticator = "replace-authenticator";
+    /// <summary>The "Confirm it's you" window: a proof inside a session, with no new sign-in.</summary>
+    public const string Reauthentication = "reauthentication";
 
     /// <summary>
     /// A correct code was refused because its step was already accepted. The

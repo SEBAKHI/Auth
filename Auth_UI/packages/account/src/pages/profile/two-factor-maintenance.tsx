@@ -7,6 +7,7 @@ import { api } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
+import type { ReauthenticationProof } from "@authsystem/auth/reauthenticate-dialog"
 import { STALE_TWO_FACTOR_CODES } from "@authsystem/auth/two-factor-codes"
 import { AuthenticatorKeyPanel } from "@authsystem/auth/two-factor-enrollment"
 import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
@@ -121,8 +122,11 @@ export function SecondFactorCodeField({
 
 /** What a change to the factor answers, besides success. */
 interface TwoFactorChangeHandlers {
-  /** The session is not a recent two-factor one: the person proves themself where they stand. */
-  onReauthenticate: () => void
+  /**
+   * The session is not a recent two-factor one: the person proves themself where they stand,
+   * over the dialog, which stays as it was and goes on from the proof (`resume`) by itself.
+   */
+  onReauthenticate: (resume: (proof: ReauthenticationProof) => void) => void
   /** The account's picture of two-factor is out of date: refetch it. */
   onStale: () => void
 }
@@ -130,24 +134,37 @@ interface TwoFactorChangeHandlers {
 /**
  * One answer to a failure of a change to the factor, keyed by the published code
  * — never by the status: TwoFactor.LockedOut is a 403 too, and only a session
- * that is not a recent two-factor one is fixed by a proof of the person.
- * @returns whether the dialog should close.
+ * that is not a recent two-factor one is fixed by a proof of the person. That
+ * proof goes on by itself (D-152-5, REVIEW-FIXES 152 F26): the dialog stays open
+ * under the window with what was typed, and `resume` runs once it is given.
+ * @returns "proof" while the window asks for it, "stale" when the dialog should
+ * close, and "refused" when only the code was wrong.
  */
-function answerFailure(error: unknown, handlers: TwoFactorChangeHandlers): boolean {
+function answerFailure(
+  error: unknown,
+  handlers: TwoFactorChangeHandlers,
+  resume: (proof: ReauthenticationProof) => void
+): "proof" | "stale" | "refused" {
   const codes = getErrorCodes(error)
   if (codes.includes("Auth.ReauthenticationRequired")) {
-    handlers.onReauthenticate()
-    return true
+    handlers.onReauthenticate(resume)
+    return "proof"
   }
 
   toast.error(getErrorMessage(error))
 
   if (STALE_TWO_FACTOR_CODES.some((stale) => codes.includes(stale))) {
     handlers.onStale()
-    return true
+    return "stale"
   }
 
-  return false
+  return "refused"
+}
+
+/** A code of the current factor, as the person typed it: what a proof sends again. */
+interface CurrentFactorCode {
+  code: string
+  useRecoveryCode: boolean
 }
 
 /**
@@ -175,30 +192,44 @@ export function RegenerateRecoveryCodesDialog({
     // The answer holds a secret (recovery codes or a new key): never kept
     // in the mutation cache once the component is done with it.
     gcTime: 0,
-    mutationFn: () =>
+    mutationFn: (typed: CurrentFactorCode) =>
       unwrap(
         api.POST("/api/v1/auth/2fa/recovery-codes", {
-          body: { code, useRecoveryCode },
+          body: typed,
         })
       ),
     onSuccess: (data) => {
       toast.success(t("profile.regenerateRecoveryCodesToast"))
       onRegenerated(data?.recoveryCodes ?? [])
     },
-    onError: (error) => {
-      if (answerFailure(error, handlers)) onOpenChange(false)
-      else setCode("")
+    onError: (error, typed) => {
+      // The guard refused before the code was counted, so it goes again as it is: unless the
+      // proof spent the app's time step, which no code up to it can pass (as the switch-off).
+      const answer = answerFailure(error, handlers, ({ spentAppCode }) => {
+        if (spentAppCode && !typed.useRecoveryCode) {
+          setCode("")
+          toast.info(t("profile.twoFactorNextCode"))
+        } else {
+          send(typed)
+        }
+      })
+      if (answer === "stale") onOpenChange(false)
+      else if (answer === "refused") setCode("")
     },
   })
 
-  const submit = () => {
-    if (!code || submitting.current) return
+  const send = (typed: CurrentFactorCode) => {
+    if (submitting.current) return
     submitting.current = true
-    mutation.mutate(undefined, {
+    mutation.mutate(typed, {
       onSettled: () => {
         submitting.current = false
       },
     })
+  }
+
+  const submit = () => {
+    if (code) send({ code, useRecoveryCode })
   }
 
   return (
@@ -275,10 +306,10 @@ export function ReplaceAuthenticatorDialog({
     // The answer holds a secret (recovery codes or a new key): never kept
     // in the mutation cache once the component is done with it.
     gcTime: 0,
-    mutationFn: () =>
+    mutationFn: (typed: CurrentFactorCode) =>
       unwrap(
         api.POST("/api/v1/auth/2fa/replace", {
-          body: { code, useRecoveryCode },
+          body: typed,
         })
       ),
     onSuccess: (data) => {
@@ -286,9 +317,19 @@ export function ReplaceAuthenticatorDialog({
       setCode("")
       setNewAppCode("")
     },
-    onError: (error) => {
-      if (answerFailure(error, handlers)) onOpenChange(false)
-      else setCode("")
+    onError: (error, typed) => {
+      // As new recovery codes: the current factor's code goes again, unless the proof spent
+      // the app's time step.
+      const answer = answerFailure(error, handlers, ({ spentAppCode }) => {
+        if (spentAppCode && !typed.useRecoveryCode) {
+          setCode("")
+          toast.info(t("profile.twoFactorNextCode"))
+        } else {
+          run(() => begin.mutate(typed, settled))
+        }
+      })
+      if (answer === "stale") onOpenChange(false)
+      else if (answer === "refused") setCode("")
     },
   })
 
@@ -296,10 +337,10 @@ export function ReplaceAuthenticatorDialog({
     // The answer holds a secret (recovery codes or a new key): never kept
     // in the mutation cache once the component is done with it.
     gcTime: 0,
-    mutationFn: () =>
+    mutationFn: (typed: string) =>
       unwrap(
         api.POST("/api/v1/auth/2fa/replace/confirm", {
-          body: { code: newAppCode },
+          body: { code: typed },
         })
       ),
     onSuccess: (data) => {
@@ -315,19 +356,30 @@ export function ReplaceAuthenticatorDialog({
         setNewAppCode("")
         return
       }
-      if (answerFailure(error, handlers)) onOpenChange(false)
-      else setNewAppCode("")
+      // A stale sign-in at the confirm keeps this dialog, and the secret just scanned, under the
+      // window (REVIEW-FIXES 152 F27): a new begin would replace that secret and leave a dead
+      // entry in the new app. After the proof the confirm step asks for the new app's next code:
+      // the proof took a step of the current app, which the new one shares.
+      const answer = answerFailure(error, handlers, ({ spentAppCode }) => {
+        setNewAppCode("")
+        if (spentAppCode) toast.info(t("profile.twoFactorNextCode"))
+      })
+      if (answer === "stale") onOpenChange(false)
+      else if (answer === "refused") setNewAppCode("")
     },
   })
 
-  const run = (mutation: typeof begin | typeof confirm, ready: boolean) => {
-    if (!ready || submitting.current) return
+  const settled = {
+    onSettled: () => {
+      submitting.current = false
+    },
+  }
+
+  // Both requests spend what they prove: one at a time, latched in the handler.
+  const run = (send: () => void) => {
+    if (submitting.current) return
     submitting.current = true
-    mutation.mutate(undefined, {
-      onSettled: () => {
-        submitting.current = false
-      },
-    })
+    send()
   }
 
   const pending = begin.isPending || confirm.isPending
@@ -347,7 +399,7 @@ export function ReplaceAuthenticatorDialog({
           <form
             onSubmit={(event) => {
               event.preventDefault()
-              run(confirm, Boolean(newAppCode))
+              if (newAppCode) run(() => confirm.mutate(newAppCode, settled))
             }}
           >
             <FieldGroup>
@@ -384,7 +436,7 @@ export function ReplaceAuthenticatorDialog({
           <form
             onSubmit={(event) => {
               event.preventDefault()
-              run(begin, Boolean(code))
+              if (code) run(() => begin.mutate({ code, useRecoveryCode }, settled))
             }}
           >
             <FieldGroup>
