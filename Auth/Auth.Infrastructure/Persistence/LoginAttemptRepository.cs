@@ -256,11 +256,11 @@ public class LoginAttemptRepository : ILoginAttemptRepository
     }
 
     /// <inheritdoc />
-    public async Task CleanupOldAttemptsAsync(DateTime olderThan, CancellationToken cancellationToken)
+    public async Task<int> CleanupOldAttemptsAsync(DateTime olderThan, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(
+        return await connection.ExecuteAsync(
             "DELETE FROM [dbo].[LoginAttempts] WHERE [AttemptedAt] < @OlderThan",
             new { OlderThan = olderThan });
     }

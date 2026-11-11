@@ -131,7 +131,7 @@ public class LoginAttemptPersistenceSqlTests
         var familiar = MethodBody(
             ReadLoginAttemptRepository(),
             "public async Task<bool> HasSucceededFromAsync",
-            "public async Task CleanupOldAttemptsAsync");
+            "public async Task<int> CleanupOldAttemptsAsync");
 
         familiar.Should().Contain("AND [IsSuccessful] = 1");
         familiar.Should().Contain("AND [EndedAt] IS NULL");

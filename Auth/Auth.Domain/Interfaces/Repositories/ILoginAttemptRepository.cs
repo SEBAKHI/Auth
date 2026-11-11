@@ -94,7 +94,8 @@ public interface ILoginAttemptRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Cleans up old login attempts.
+    /// Deletes login attempts older than <paramref name="olderThan"/> and returns
+    /// how many were deleted, so the retention sweep can record what it destroyed.
     /// </summary>
-    Task CleanupOldAttemptsAsync(DateTime olderThan, CancellationToken cancellationToken);
+    Task<int> CleanupOldAttemptsAsync(DateTime olderThan, CancellationToken cancellationToken);
 }

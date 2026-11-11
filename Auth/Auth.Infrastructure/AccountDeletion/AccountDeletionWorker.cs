@@ -1,7 +1,10 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Auth.Application.Configuration;
 using Auth.Application.Features.AccountDeletion.ExecuteAccountDeletion;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
+using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,34 +26,58 @@ namespace Auth.Infrastructure.AccountDeletion;
 /// delivered-mail retention. Like the outbox, it depends on the app pool
 /// staying loaded (preload/always-running).
 /// </summary>
+/// <remarks>
+/// The sweep writes to the audit log only when it changed something or failed.
+/// It used to write a row on every run, including the many runs that deleted
+/// nothing (one per API start besides the daily one), which pushed the events an
+/// administrator reads off the first page. Whether it still runs at all is
+/// answered by <see cref="RetentionSweepStatus"/> and the readiness check.
+/// </remarks>
 public class AccountDeletionWorker : BackgroundService
 {
     private static readonly TimeSpan OverdueAlarmThreshold = TimeSpan.FromHours(24);
     private const int SweepReapplyBatchSize = 50;
 
+    private static readonly JsonSerializerOptions SweepJsonOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptionsMonitor<AccountDeletionSettings> _settings;
+    private readonly RetentionSweepStatus _status;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<AccountDeletionWorker> _logger;
 
     // Default(DateOnly) is far in the past, so the first cycle always sweeps —
     // the startup catch-up the restore runbook depends on.
     private DateOnly _lastSweepDateUtc;
 
+    // A failed sweep is retried on every poll; only the first failure of a run
+    // of failures gets an audit row, so an outage does not refill the log.
+    private bool _failureRecordedSinceLastSuccess;
+
     public AccountDeletionWorker(
         IServiceScopeFactory scopeFactory,
         IOptionsMonitor<AccountDeletionSettings> settings,
+        RetentionSweepStatus status,
+        TimeProvider timeProvider,
         ILogger<AccountDeletionWorker> logger)
     {
         _scopeFactory = scopeFactory;
         _settings = settings;
+        _status = status;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
+
+    private DateTime UtcNow => _timeProvider.GetUtcNow().UtcDateTime;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation(
             "Account deletion worker started (poll {PollMinutes}m, batch {BatchSize}, max attempts {MaxAttempts}).",
-            _settings.CurrentValue.WorkerPollMinutes, _settings.CurrentValue.WorkerBatchSize, _settings.CurrentValue.MaxExecutionAttempts);
+            _settings.CurrentValue.WorkerPollInterval.TotalMinutes, _settings.CurrentValue.WorkerBatchSize, _settings.CurrentValue.MaxExecutionAttempts);
 
         await SafeReclaimAsync(stoppingToken);
 
@@ -72,7 +99,7 @@ public class AccountDeletionWorker : BackgroundService
 
             try
             {
-                await Task.Delay(_settings.CurrentValue.WorkerPollInterval, stoppingToken);
+                await Task.Delay(_settings.CurrentValue.WorkerPollInterval, _timeProvider, stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -92,7 +119,7 @@ public class AccountDeletionWorker : BackgroundService
         var sender = scope.ServiceProvider.GetRequiredService<ISender>();
 
         var due = await requestRepository.GetDueAsync(
-            DateTime.UtcNow, _settings.CurrentValue.WorkerBatchSize, cancellationToken);
+            UtcNow, _settings.CurrentValue.WorkerBatchSize, cancellationToken);
 
         foreach (var request in due)
         {
@@ -113,7 +140,7 @@ public class AccountDeletionWorker : BackgroundService
         // the pass means executions are persistently failing (or dead-lettered
         // work is piling up) — a compliance deadline is at risk.
         var overdue = await requestRepository.GetDueAsync(
-            DateTime.UtcNow - OverdueAlarmThreshold, 1, cancellationToken);
+            UtcNow - OverdueAlarmThreshold, 1, cancellationToken);
         if (overdue.Count > 0)
         {
             _logger.LogError(
@@ -128,7 +155,7 @@ public class AccountDeletionWorker : BackgroundService
     /// </summary>
     public async Task RunDailySweepIfDueAsync(CancellationToken cancellationToken)
     {
-        var todayUtc = DateOnly.FromDateTime(DateTime.UtcNow);
+        var todayUtc = DateOnly.FromDateTime(UtcNow);
         if (todayUtc == _lastSweepDateUtc)
         {
             return;
@@ -144,24 +171,130 @@ public class AccountDeletionWorker : BackgroundService
     /// login-attempt retention and deletes delivered outbox mail past its
     /// retention. Idempotent throughout.
     /// </summary>
+    /// <remarks>
+    /// Writes one audit row when it deleted anything, carrying every count, and
+    /// nothing when it deleted nothing. A failure writes a failure row with the
+    /// counts reached so far: always when something was already deleted, and
+    /// otherwise only for the first failure since the last success.
+    /// </remarks>
     public async Task RunSweepAsync(CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
-        var requestRepository = scope.ServiceProvider.GetRequiredService<IAccountDeletionRequestRepository>();
-        var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
-        var credentialRevocation = scope.ServiceProvider.GetRequiredService<ICredentialRevocationService>();
-        var verificationRepository = scope.ServiceProvider.GetRequiredService<IAccountDeletionVerificationRepository>();
-        var loginAttemptRepository = scope.ServiceProvider.GetRequiredService<ILoginAttemptRepository>();
-        var outboxRepository = scope.ServiceProvider.GetRequiredService<INotificationOutboxRepository>();
-        var auditLogRepository = scope.ServiceProvider.GetRequiredService<IAuditLogRepository>();
-        var tombstoneRepository = scope.ServiceProvider.GetRequiredService<IAccountDeletionTombstoneRepository>();
-        var secretChallengeRepository = scope.ServiceProvider.GetRequiredService<ISecretOperationChallengeRepository>();
+        var services = scope.ServiceProvider;
+        var auditLogRepository = services.GetRequiredService<IAuditLogRepository>();
+        var settings = _settings.CurrentValue;
 
+        // Whole UTC days, not "now": every run on the same day shares one cutoff,
+        // so a run after an API restart finds nothing the day's first run left,
+        // deletes nothing and writes nothing. A row outlives its period by less
+        // than a day, which the daily cadence already allowed.
+        var midnightUtc = UtcNow.Date;
+        var tally = new SweepTally(midnightUtc.AddDays(-settings.EffectiveAuditLogRetentionDays));
+
+        try
+        {
+            await PurgeAsync(services, settings, midnightUtc, tally, cancellationToken);
+
+            tally.Step = SweepSteps.Record;
+            if (tally.Total > 0)
+            {
+                await auditLogRepository.CreateAsync(
+                    AuditLog.CreateSuccess(
+                        actionType: AuditActionTypes.System,
+                        action: AuditActions.SystemRetentionSweep,
+                        userId: WellKnownUserIds.System,
+                        additionalData: tally.ToJson(failedStep: null)),
+                    cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            await RecordFailedSweepAsync(auditLogRepository, tally, ex);
+            throw;
+        }
+
+        _failureRecordedSinceLastSuccess = false;
+        _status.RecordSuccess(UtcNow);
+
+        _logger.LogInformation(
+            "Retention sweep complete: {Reapplied} re-applied destructions, {DeletionCodes} deletion codes, {SecretChallenges} secret challenges, {LoginAttempts} login attempts, {PurgedOutbox} delivered outbox rows and {AuditLogs} audit rows (before {AuditCutoff:u}) purged, {Released} identifier reservations released",
+            tally.ReappliedDeletions, tally.PurgedDeletionCodes, tally.PurgedSecretChallenges, tally.PurgedLoginAttempts,
+            tally.PurgedOutboxRows, tally.PurgedAuditLogs, tally.AuditCutoffUtc, tally.ReleasedReservations);
+    }
+
+    private async Task PurgeAsync(
+        IServiceProvider services,
+        AccountDeletionSettings settings,
+        DateTime midnightUtc,
+        SweepTally tally,
+        CancellationToken cancellationToken)
+    {
         // 1) Restore re-apply: a Completed request with a live user row means
         //    a backup restore resurrected destroyed data (R5).
+        tally.Step = SweepSteps.RestoreReapply;
+        await ReapplyRestoredDeletionsAsync(services, tally, cancellationToken);
+
+        // 2) Expired/used deletion OTPs (short-lived Class A rows).
+        tally.Step = SweepSteps.DeletionCodes;
+        tally.PurgedDeletionCodes = await services
+            .GetRequiredService<IAccountDeletionVerificationRepository>()
+            .DeleteExpiredAsync(cancellationToken);
+
+        // 2b) Dead secret step-up challenges. Same class of row as the deletion
+        //     OTPs above: a short-lived credential with no purpose once it can
+        //     neither be answered nor spent. Without this the table only grew —
+        //     its own definition promised this sweep and nothing performed it.
+        tally.Step = SweepSteps.SecretChallenges;
+        tally.PurgedSecretChallenges = await services
+            .GetRequiredService<ISecretOperationChallengeRepository>()
+            .DeleteExpiredAsync(cancellationToken);
+
+        // 3) Anonymized login attempts past the fraud-analysis retention.
+        tally.Step = SweepSteps.LoginAttempts;
+        tally.PurgedLoginAttempts = await services
+            .GetRequiredService<ILoginAttemptRepository>()
+            .CleanupOldAttemptsAsync(midnightUtc.AddDays(-settings.EffectiveLoginAttemptRetentionDays), cancellationToken);
+
+        // 4) Delivered mail past its retention (rendered recipient PII).
+        tally.Step = SweepSteps.DeliveredMail;
+        tally.PurgedOutboxRows = await services
+            .GetRequiredService<INotificationOutboxRepository>()
+            .DeleteSentOlderThanAsync(midnightUtc.AddDays(-settings.EffectiveOutboxRetentionDays), cancellationToken);
+
+        // 5) Audit history past its retention. Runs after the other purges and
+        //    before the sweep's own row, which is never inside the window it
+        //    just purged. Without this call the table had no end of life at
+        //    all: the published policy states a three-year floor and never a
+        //    ceiling, and an identifier released after a finite reservation
+        //    window could still be linked through audit rows that outlive it.
+        tally.Step = SweepSteps.AuditLogs;
+        tally.PurgedAuditLogs = await services
+            .GetRequiredService<IAuditLogRepository>()
+            .CleanupOldLogsAsync(tally.AuditCutoffUtc, cancellationToken);
+
+        // 6) Identifier reservations whose window has elapsed. Deleting the row
+        //    IS the erasure of a keyed digest that no key destruction can reach
+        //    while live reservations still need that key. EffectiveIdentifier-
+        //    ReservationDays is never shorter than the audit retention, so an
+        //    address is never released while records keyed to it survive.
+        tally.Step = SweepSteps.IdentifierReservations;
+        tally.ReleasedReservations = await services
+            .GetRequiredService<IAccountDeletionTombstoneRepository>()
+            .DeleteExpiredAsync(midnightUtc.AddDays(-settings.EffectiveIdentifierReservationDays), cancellationToken);
+    }
+
+    private async Task ReapplyRestoredDeletionsAsync(
+        IServiceProvider services,
+        SweepTally tally,
+        CancellationToken cancellationToken)
+    {
+        var requestRepository = services.GetRequiredService<IAccountDeletionRequestRepository>();
+        var userRepository = services.GetRequiredService<IUserRepository>();
+        var credentialRevocation = services.GetRequiredService<ICredentialRevocationService>();
+        var auditLogRepository = services.GetRequiredService<IAuditLogRepository>();
+
         var resurrected = await requestRepository.GetCompletedWithLiveUserAsync(
             SweepReapplyBatchSize, cancellationToken);
-        var reapplied = 0;
         foreach (var request in resurrected)
         {
             try
@@ -177,9 +310,9 @@ public class AccountDeletionWorker : BackgroundService
                 await userRepository.DeleteAsync(request.UserId, cancellationToken);
                 if (await userRepository.HardDeleteAsync(request.UserId, cancellationToken))
                 {
-                    reapplied++;
+                    tally.ReappliedDeletions++;
                     await auditLogRepository.CreateAsync(
-                        Auth.Domain.Entities.AuditLog.CreateSuccess(
+                        AuditLog.CreateSuccess(
                             actionType: AuditActionTypes.UserManagement,
                             action: AuditActions.UserDeletionReapplied,
                             userId: WellKnownUserIds.System,
@@ -196,58 +329,56 @@ public class AccountDeletionWorker : BackgroundService
                     request.UserId);
             }
         }
+    }
 
-        // 2) Expired/used deletion OTPs (short-lived Class A rows).
-        await verificationRepository.DeleteExpiredAsync(cancellationToken);
+    /// <summary>
+    /// Records a sweep that stopped part-way. What was already deleted is
+    /// recorded whatever stopped the run, because the row is the only trace of
+    /// that destruction. A failure that deleted nothing is recorded once per run
+    /// of failures: an outage retried every poll would otherwise write close to
+    /// a hundred rows a day, the noise this sweep stopped writing. The log and
+    /// the readiness check carry the rest.
+    /// </summary>
+    private async Task RecordFailedSweepAsync(
+        IAuditLogRepository auditLogRepository,
+        SweepTally tally,
+        Exception exception)
+    {
+        var interrupted = exception is OperationCanceledException;
+        var mustRecord = tally.Total > 0 || (!interrupted && !_failureRecordedSinceLastSuccess);
+        if (!mustRecord)
+        {
+            return;
+        }
 
-        // 2b) Dead secret step-up challenges. Same class of row as the deletion
-        //     OTPs above: a short-lived credential with no purpose once it can
-        //     neither be answered nor spent. Without this the table only grew —
-        //     its own definition promised this sweep and nothing performed it.
-        var purgedSecretChallenges = await secretChallengeRepository.DeleteExpiredAsync(cancellationToken);
+        try
+        {
+            // CancellationToken.None: on shutdown the sweep's token is already
+            // cancelled, and this row must still be written.
+            await auditLogRepository.CreateAsync(
+                AuditLog.CreateFailure(
+                    actionType: AuditActionTypes.System,
+                    action: AuditActions.SystemRetentionSweep,
+                    // The step, never the exception text: that goes to the log,
+                    // and the audit page is read by every platform administrator.
+                    errorMessage: interrupted
+                        ? $"Retention sweep interrupted during {tally.Step}."
+                        : $"Retention sweep failed during {tally.Step}.",
+                    userId: WellKnownUserIds.System,
+                    additionalData: tally.ToJson(failedStep: tally.Step)),
+                CancellationToken.None);
 
-        // 3) Anonymized login attempts past the fraud-analysis retention.
-        await loginAttemptRepository.CleanupOldAttemptsAsync(
-            DateTime.UtcNow.AddDays(-_settings.CurrentValue.LoginAttemptRetentionDays), cancellationToken);
-
-        // 4) Delivered mail past its retention (rendered recipient PII).
-        var purgedOutbox = await outboxRepository.DeleteSentOlderThanAsync(
-            DateTime.UtcNow.AddDays(-_settings.CurrentValue.OutboxRetentionDays), cancellationToken);
-
-        // 5) Audit history past its retention. Runs LAST so the sweep's own
-        //    audit entry below is never inside the window it just purged.
-        //    Without this call the table had no end of life at all: the
-        //    published policy states a three-year floor and never a ceiling,
-        //    and an identifier released after a finite reservation window
-        //    could still be linked through audit rows that outlive it.
-        var auditCutoff = DateTime.UtcNow.AddDays(-_settings.CurrentValue.AuditLogRetentionDays);
-        await auditLogRepository.CleanupOldLogsAsync(auditCutoff, cancellationToken);
-
-        // 6) Identifier reservations whose window has elapsed. Deleting the row
-        //    IS the erasure of a keyed digest that no key destruction can reach
-        //    while live reservations still need that key. EffectiveIdentifier-
-        //    ReservationDays is never shorter than the audit retention, so an
-        //    address is never released while records keyed to it survive.
-        var reservationCutoff = DateTime.UtcNow.AddDays(
-            -_settings.CurrentValue.EffectiveIdentifierReservationDays);
-        var releasedReservations = await tombstoneRepository.DeleteExpiredAsync(
-            reservationCutoff, cancellationToken);
-
-        await auditLogRepository.CreateAsync(
-            Auth.Domain.Entities.AuditLog.CreateSuccess(
-                actionType: AuditActionTypes.System,
-                action: AuditActions.SystemRetentionSweep,
-                userId: WellKnownUserIds.System,
-                additionalData:
-                    $"{{\"reappliedDeletions\":{reapplied},\"purgedOutboxRows\":{purgedOutbox}," +
-                    $"\"auditCutoffUtc\":\"{auditCutoff:O}\"," +
-                    $"\"purgedSecretChallenges\":{purgedSecretChallenges}," +
-                    $"\"releasedReservations\":{releasedReservations}}}"),
-            cancellationToken);
-
-        _logger.LogInformation(
-            "Retention sweep complete: {Reapplied} re-applied destructions, {PurgedOutbox} delivered outbox rows purged, audit history trimmed before {AuditCutoff:u}, {Released} identifier reservations released",
-            reapplied, purgedOutbox, auditCutoff, releasedReservations);
+            if (!interrupted)
+            {
+                _failureRecordedSinceLastSuccess = true;
+            }
+        }
+        catch (Exception recordException)
+        {
+            _logger.LogError(recordException,
+                "Could not record the failed retention sweep (step {Step}); {Deleted} rows had been deleted before it stopped",
+                tally.Step, tally.Total);
+        }
     }
 
     private async Task SafeReclaimAsync(CancellationToken cancellationToken)
@@ -270,5 +401,55 @@ public class AccountDeletionWorker : BackgroundService
             // next reclaim succeeds.
             _logger.LogError(ex, "Failed to reclaim orphaned deletion requests at startup");
         }
+    }
+
+    /// <summary>The step names a failure row reports in <c>failedStep</c>.</summary>
+    private static class SweepSteps
+    {
+        public const string RestoreReapply = "restore-reapply";
+        public const string DeletionCodes = "deletion-codes";
+        public const string SecretChallenges = "secret-challenges";
+        public const string LoginAttempts = "login-attempts";
+        public const string DeliveredMail = "delivered-mail";
+        public const string AuditLogs = "audit-logs";
+        public const string IdentifierReservations = "identifier-reservations";
+        public const string Record = "record";
+    }
+
+    /// <summary>What one sweep has done so far, and the step it is on.</summary>
+    private sealed class SweepTally(DateTime auditCutoffUtc)
+    {
+        public DateTime AuditCutoffUtc { get; } = auditCutoffUtc;
+
+        public string Step { get; set; } = SweepSteps.RestoreReapply;
+
+        public int ReappliedDeletions { get; set; }
+        public int PurgedDeletionCodes { get; set; }
+        public int PurgedSecretChallenges { get; set; }
+        public int PurgedLoginAttempts { get; set; }
+        public int PurgedOutboxRows { get; set; }
+        public int PurgedAuditLogs { get; set; }
+        public int ReleasedReservations { get; set; }
+
+        public long Total =>
+            (long)ReappliedDeletions + PurgedDeletionCodes + PurgedSecretChallenges + PurgedLoginAttempts
+            + PurgedOutboxRows + PurgedAuditLogs + ReleasedReservations;
+
+        // The first five names are the ones the row carried before; kept so a
+        // reader of older rows finds the same keys.
+        public string ToJson(string? failedStep) => JsonSerializer.Serialize(
+            new
+            {
+                reappliedDeletions = ReappliedDeletions,
+                purgedOutboxRows = PurgedOutboxRows,
+                auditCutoffUtc = AuditCutoffUtc,
+                purgedSecretChallenges = PurgedSecretChallenges,
+                releasedReservations = ReleasedReservations,
+                purgedDeletionCodes = PurgedDeletionCodes,
+                purgedLoginAttempts = PurgedLoginAttempts,
+                purgedAuditLogs = PurgedAuditLogs,
+                failedStep
+            },
+            SweepJsonOptions);
     }
 }

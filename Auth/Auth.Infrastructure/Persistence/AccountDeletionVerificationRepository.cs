@@ -90,11 +90,11 @@ public class AccountDeletionVerificationRepository : IAccountDeletionVerificatio
     }
 
     /// <inheritdoc />
-    public async Task DeleteExpiredAsync(CancellationToken cancellationToken)
+    public async Task<int> DeleteExpiredAsync(CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(
+        return await connection.ExecuteAsync(
             "DELETE FROM [dbo].[AccountDeletionVerifications] WHERE [ExpiresAt] < GETUTCDATE() OR [UsedAt] IS NOT NULL");
     }
 

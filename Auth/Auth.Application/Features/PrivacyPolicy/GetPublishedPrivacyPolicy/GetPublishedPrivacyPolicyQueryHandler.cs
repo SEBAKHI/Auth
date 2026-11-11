@@ -83,11 +83,11 @@ public class GetPublishedPrivacyPolicyQueryHandler
         KepAddress = controller.KepAddress,
         GraceDays = settings.GraceDays,
         OtpValidityMinutes = settings.OtpExpirationMinutes,
-        LoginAttemptRetentionDays = settings.LoginAttemptRetentionDays,
-        OutboxRetentionDays = settings.OutboxRetentionDays,
-        // Effective, not raw: the sweep floors the reservation at the audit-log
-        // retention, so the raw setting would publish a shorter window than the
-        // one actually enforced.
+        // Effective, not raw, for all three: the sweep applies the bounded values,
+        // and it floors the reservation at the audit-log retention, so a raw
+        // setting would publish a window other than the one actually enforced.
+        LoginAttemptRetentionDays = settings.EffectiveLoginAttemptRetentionDays,
+        OutboxRetentionDays = settings.EffectiveOutboxRetentionDays,
         IdentifierReservationDays = settings.EffectiveIdentifierReservationDays,
         PolicyVersion = settings.PolicyVersion
     };

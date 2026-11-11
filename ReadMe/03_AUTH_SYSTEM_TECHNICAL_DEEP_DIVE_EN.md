@@ -1562,7 +1562,7 @@ and enrichers are built once at startup.
 | Host | Path | Checks run | Status on failure |
 |---|---|---|---|
 | Auth API | `/health` | `self` — the process is running | — (always healthy) |
-| Auth API | `/ready` | `database` (SQL Server, 5-second timeout), `signing-key` and `revocation` (the token revocation list was loaded at startup) | `Degraded` / **`Unhealthy`** |
+| Auth API | `/ready` | `database` (SQL Server, 5-second timeout), `signing-key`, `revocation` (the token revocation list was loaded at startup) and `retention-sweep` (`Degraded` when no retention sweep has succeeded for a day plus one poll plus an hour) | `Degraded` / **`Unhealthy`** |
 | API Gateway | `/health` | `self` — the process is running | — |
 | API Gateway | `/ready` | `auth-api` — an HTTP probe against the API's `/ready` | Unhealthy |
 

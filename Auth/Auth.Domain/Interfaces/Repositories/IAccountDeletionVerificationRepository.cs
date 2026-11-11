@@ -59,8 +59,9 @@ public interface IAccountDeletionVerificationRepository
     Task<int> GetRecentCountAsync(string email, TimeSpan window, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Deletes expired and used codes (retention sweep).
+    /// Deletes expired and used codes (retention sweep) and returns how many
+    /// were deleted.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task DeleteExpiredAsync(CancellationToken cancellationToken);
+    Task<int> DeleteExpiredAsync(CancellationToken cancellationToken);
 }

@@ -64,7 +64,8 @@ public interface IAuditLogRepository
     // CorrelationId column to query, and nothing ever called it.
 
     /// <summary>
-    /// Cleans up old audit logs.
+    /// Deletes audit rows older than <paramref name="olderThan"/> and returns how
+    /// many were deleted, so the retention sweep can record what it destroyed.
     /// </summary>
-    Task CleanupOldLogsAsync(DateTime olderThan, CancellationToken cancellationToken);
+    Task<int> CleanupOldLogsAsync(DateTime olderThan, CancellationToken cancellationToken);
 }

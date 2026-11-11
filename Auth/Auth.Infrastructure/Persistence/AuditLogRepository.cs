@@ -251,11 +251,11 @@ public class AuditLogRepository : IAuditLogRepository
     }
 
     /// <inheritdoc />
-    public async Task CleanupOldLogsAsync(DateTime olderThan, CancellationToken cancellationToken)
+    public async Task<int> CleanupOldLogsAsync(DateTime olderThan, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(
+        return await connection.ExecuteAsync(
             "DELETE FROM [dbo].[AuditLogs] WHERE [Timestamp] < @OlderThan",
             new { OlderThan = olderThan });
     }

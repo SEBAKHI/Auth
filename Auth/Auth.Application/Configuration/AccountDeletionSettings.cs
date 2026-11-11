@@ -14,8 +14,18 @@ public class AccountDeletionSettings
     /// </summary>
     public int GraceDays { get; set; } = 30;
 
+    /// <summary>Shortest worker poll interval applied, in minutes.</summary>
+    public const int MinWorkerPollMinutes = 1;
+
+    /// <summary>Longest worker poll interval applied, in minutes (one day).</summary>
+    public const int MaxWorkerPollMinutes = 1440;
+
     /// <summary>
-    /// Fallback poll interval of the deletion worker.
+    /// Fallback poll interval of the deletion worker. The worker reads
+    /// <see cref="WorkerPollInterval"/>, held between
+    /// <see cref="MinWorkerPollMinutes"/> and <see cref="MaxWorkerPollMinutes"/>:
+    /// zero would spin the loop without a pause, and a negative value would
+    /// throw out of the delay and stop the worker.
     /// </summary>
     public int WorkerPollMinutes { get; set; } = 15;
 
@@ -34,21 +44,46 @@ public class AccountDeletionSettings
     /// </summary>
     public int OtpExpirationMinutes { get; set; } = 15;
 
+    /// <summary>Shortest login-attempt retention the sweep applies, in days.</summary>
+    public const int MinLoginAttemptRetentionDays = 30;
+
+    /// <summary>Shortest delivered-mail retention the sweep applies, in days.</summary>
+    public const int MinOutboxRetentionDays = 30;
+
+    /// <summary>
+    /// Shortest audit-log retention the sweep applies, in days: the three years
+    /// the published privacy policy commits to.
+    /// </summary>
+    public const int MinAuditLogRetentionDays = 1095;
+
+    /// <summary>
+    /// Shortest identifier reservation the settings accept, in days. Equal to the
+    /// audit floor, since the effective window is never shorter than the audit
+    /// retention anyway.
+    /// </summary>
+    public const int MinIdentifierReservationDays = MinAuditLogRetentionDays;
+
+    /// <summary>Longest retention of any kind the sweep applies, in days (ten years).</summary>
+    public const int MaxRetentionDays = 3650;
+
     /// <summary>
     /// Retention of (anonymized) LoginAttempts rows before the sweep purges them.
+    /// The sweep reads <see cref="EffectiveLoginAttemptRetentionDays"/>.
     /// </summary>
     public int LoginAttemptRetentionDays { get; set; } = 365;
 
     /// <summary>
     /// Retention of Sent notification-outbox rows before the sweep purges them.
+    /// The sweep reads <see cref="EffectiveOutboxRetentionDays"/>.
     /// </summary>
     public int OutboxRetentionDays { get; set; } = 180;
 
     /// <summary>
     /// Retention of AuditLogs rows before the sweep purges them. Default 1095
     /// days = the three years the published privacy policy commits to; the
-    /// settings registry floors it there so an operator cannot shorten the
-    /// period below what users were told.
+    /// settings registry and <see cref="EffectiveAuditLogRetentionDays"/> both
+    /// floor it there so an operator cannot shorten the period below what users
+    /// were told.
     /// <para>
     /// A ceiling is mandatory, not optional: an unbounded audit log is an
     /// undisclosed indefinite retention period, and it also makes any finite
@@ -88,13 +123,46 @@ public class AccountDeletionSettings
     public byte IdentifierKeyVersion { get; set; } = 1;
 
     /// <summary>
+    /// The login-attempt retention actually applied by the sweep, held between
+    /// <see cref="MinLoginAttemptRetentionDays"/> and <see cref="MaxRetentionDays"/>.
+    /// </summary>
+    /// <remarks>
+    /// The bounds live here, not only in the console: a value from a settings
+    /// file or an environment variable never passes through the console. Zero
+    /// would move the cutoff to today and delete every attempt the lockout
+    /// counts; a value too large for <see cref="DateTime.AddDays"/> would throw
+    /// on every run and stop the whole sweep.
+    /// </remarks>
+    public int EffectiveLoginAttemptRetentionDays =>
+        Math.Clamp(LoginAttemptRetentionDays, MinLoginAttemptRetentionDays, MaxRetentionDays);
+
+    /// <summary>
+    /// The delivered-mail retention actually applied by the sweep, held between
+    /// <see cref="MinOutboxRetentionDays"/> and <see cref="MaxRetentionDays"/>.
+    /// </summary>
+    public int EffectiveOutboxRetentionDays =>
+        Math.Clamp(OutboxRetentionDays, MinOutboxRetentionDays, MaxRetentionDays);
+
+    /// <summary>
+    /// The audit-log retention actually applied by the sweep, held between
+    /// <see cref="MinAuditLogRetentionDays"/> and <see cref="MaxRetentionDays"/>.
+    /// </summary>
+    /// <remarks>
+    /// Before this bound existed the floor was enforced by the console alone, so
+    /// a typo in a settings file (109 for 1095, or 0) reached the sweep as it
+    /// was, and 0 deleted the whole audit history on the next start.
+    /// </remarks>
+    public int EffectiveAuditLogRetentionDays =>
+        Math.Clamp(AuditLogRetentionDays, MinAuditLogRetentionDays, MaxRetentionDays);
+
+    /// <summary>
     /// The reservation window actually applied by the sweep: never shorter than
     /// the audit-log retention period, because releasing an address while
     /// records still keyed to it survive is what lets a new holder inherit the
-    /// previous one's history.
+    /// previous one's history; never longer than <see cref="MaxRetentionDays"/>.
     /// </summary>
     public int EffectiveIdentifierReservationDays =>
-        Math.Max(IdentifierReservationDays, AuditLogRetentionDays);
+        Math.Min(Math.Max(IdentifierReservationDays, EffectiveAuditLogRetentionDays), MaxRetentionDays);
 
     /// <summary>
     /// Retention-policy version stamped on tombstones and deletion requests
@@ -120,5 +188,6 @@ public class AccountDeletionSettings
     public string? IdentifierHmacKeyPlain { get; set; }
 
     public TimeSpan GracePeriod => TimeSpan.FromDays(GraceDays);
-    public TimeSpan WorkerPollInterval => TimeSpan.FromMinutes(WorkerPollMinutes);
+    public TimeSpan WorkerPollInterval =>
+        TimeSpan.FromMinutes(Math.Clamp(WorkerPollMinutes, MinWorkerPollMinutes, MaxWorkerPollMinutes));
 }
