@@ -1354,9 +1354,14 @@ curl https://auth.<yourdomain>.com/ready
 ```
 
 **What success looks like:** HTTP 200 with `status: "Healthy"`. In Layout B the Gateway's readiness
-check calls the API's own `/ready`, which in turn runs two checks: it opens a database connection
-with a 5-second timeout, and it confirms the JWT signing key is loaded. A database failure reports
-`Degraded`; a missing signing key reports `Unhealthy`.
+check calls the API's own `/ready`, which in turn runs four checks: it opens a database connection
+with a 5-second timeout, confirms the JWT signing key is loaded, confirms the token revocation list
+was loaded at startup, and reports the retention sweep. A database failure or an overdue retention
+sweep reports `Degraded`, still with HTTP 200; a missing signing key or an unloaded revocation list
+reports `Unhealthy`. The Gateway's own `/ready` shows only whether the API answered with a 2xx code,
+so a `Degraded` API still reads Healthy there: open the API host's `/ready` to see which check reported
+it. On a freshly started API only the database check can read `Degraded`, because the retention-sweep
+check needs more than a day without a successful sweep in the same process.
 
 ```bash
 curl https://auth.<yourdomain>.com/.well-known/jwks.json
@@ -2599,6 +2604,19 @@ vanished mid-delivery, logging `Reclaimed {Count} orphaned Processing outbox mes
 previous worker.` at Warning. But delivery is delayed until something wakes the site, which on a
 quiet installation can be hours.
 
+The account-deletion worker also runs the daily retention sweep, at its start and on its first poll
+after 00:00 UTC each day: it destroys again any deleted account a restored backup brought back, and
+deletes rows past their retention periods. It writes a "Data retention sweep ran" audit entry when it
+deleted something, when it failed (at most one a day while it keeps failing), and otherwise at most
+once every 30 days. **After restoring a database backup**, the evidence that the sweep ran is:
+
+- the `Retention sweep complete` line in the API log after the restart;
+- on the API host's own `/ready`, the `retention-sweep` description changing from "Retention sweep has
+  not completed since this process started." to "Retention sweep ran within its window.";
+- one `user.deletion_reapplied` audit entry per account it destroyed again;
+- a "Data retention sweep ran" entry with zero counts, if no sweep entry was written in the last 30
+  days.
+
 **Configure each application pool like this:**
 
 | Setting | Value | Why |
@@ -3633,7 +3651,7 @@ resumes it at `/api/v1/auth/authorize/resume`, where every check runs again.
   generated script before publishing: only `CREATE TABLE [dbo].[AuthorizationRequests]`, its two
   indexes, its defaults and its foreign key. Without the table every sign-in that needs an accounts page
   answers 500, so the DACPAC always goes before the API. `/ready` must read **Healthy**. It does not stop
-  an API deployed too early: without the table it reads **Degraded**, still with HTTP 200, and its public
+  an API deployed too early: without the table it reads **Degraded** (on a freshly started API only the database check can), still with HTTP 200, and its public
   description only says "Database schema is behind this build"; the API log names the missing object
   ("AuthorizationRequests table is missing").
 * **If the API went before the DACPAC:** switch «روابط دخول قصيرة (مرجع الطلب)» off (sign-ins carry
@@ -3873,7 +3891,7 @@ without an `Origin`) refreshes as before. `refresh_expires_in` keeps counting
 
   No `DROP`, no `tmp_ms_xx` table rebuild, no foreign key. An API published before the DACPAC cannot
   read or create SSO sessions, authorization codes or refresh tokens: every sign-in and every token
-  refresh fails, and `/ready` reads **Degraded** with HTTP 200 while the API log names the missing column
+  refresh fails, and `/ready` reads **Degraded** (on a freshly started API only the database check can) with HTTP 200 while the API log names the missing column
   ("IdpSessions.IsPersistent column is missing").
 * **Order, for each existing deployment:**
   1. **The DACPAC**, after reading its generated script as above.
@@ -4004,7 +4022,7 @@ developers: `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`, "Signing the user out of 
   existing object. Every single-application read loads the list: authorize, the code exchange, every
   relying-party token refresh, end-session, the public branding of the sign-in pages and the console's
   application pages. An API published before the table answers all of them with 500, so relying parties
-  can neither sign people in nor keep them signed in; the DACPAC always goes first. `/ready` must read **Healthy**: without the table it reads **Degraded**, still with HTTP
+  can neither sign people in nor keep them signed in; the DACPAC always goes first. `/ready` must read **Healthy**: without the table it reads **Degraded** (on a freshly started API only the database check can), still with HTTP
   200, and the API log names the missing object ("ApplicationPostLogoutRedirectUris table").
 * **Order, for each existing deployment:** the DACPAC, then the Auth API, then the console, then the
   accounts application. An older accounts application ignores the hash its URL carries and ends on the
@@ -4050,7 +4068,7 @@ on:** until an application has a sign-in key and a server-side redirect URI, eve
   procedure change, with no `tmp_ms_xx` and no `DROP` other than the known CHECK constraint drop and
   re-create pairs.
 * **Order, for each existing deployment:** the DACPAC, then the Auth API, then the console. An API
-  published before the schema reads **Degraded** at `/ready` and names what is missing (for example
+  published before the schema reads **Degraded** (on a freshly started API only the database check can) at `/ready` and names what is missing (for example
   "ApplicationConfidentialRedirectUris table" or "RefreshTokens.RequiresClientAuthentication column").
 * **Checks after the deploy:** `/ready` reads **Healthy**; an application's page shows the
   **Server-side redirect URIs** list and the keys' **Purpose** column (the section is now called
@@ -4090,7 +4108,7 @@ public client's sign-ins are recorded as before. **Nothing to switch on.**
   (`NVARCHAR(64)`). The generated script must show two `ALTER TABLE … ADD` statements (one per table, three
   columns in all), with no `tmp_ms_xx` and no `DROP COLUMN`.
 * **Order:** the DACPAC, then the Auth API. Nothing else. `/ready` does not stop an API published before
-  the schema: it reads **Degraded**, still with HTTP 200, and its public description only says "Database
+  the schema: it reads **Degraded** (on a freshly started API only the database check can), still with HTTP 200, and its public description only says "Database
   schema is behind this build"; the API log names the first missing column ("AuthorizationCodes.UserAgent
   column"). Until the DACPAC is published, sign-ins start no single sign-on session, every authorize that
   carries a sign-in cookie and every code issued or redeemed answers 500 (so no application can sign
@@ -4123,7 +4141,7 @@ organizations as your server: the machine directory".
 * **Order, for each existing deployment: the DACPAC first, then the Auth API, then the console.** No
   gateway change: the gateway's `/app/` route already forwards the new paths. Every application read
   selects the new column, so an API published before the DACPAC fails every sign-in, every code exchange
-  and the console's application pages with 500; `/ready` reads **Degraded** and the API log names
+  and the console's application pages with 500; `/ready` reads **Degraded** (on a freshly started API only the database check can) and the API log names
   "Applications.AllowMachineOrganizationsRead column". If that happens, publish the DACPAC at once; no
   restart is needed.
 * **After the deploy:** review the applications that hold a machine key of purpose Machine, and switch
@@ -4153,7 +4171,7 @@ in them for that flow, and write them nothing the user owns. Details for applica
 * **Order, for each existing deployment: the DACPAC first, then the Auth API, then the accounts
   application.** The API writes both columns on every sign-in that passes through an accounts page and
   reads them on every resume, so an API published before the DACPAC fails every such sign-in, in every
-  application, with 500; `/ready` reads **Degraded** and the API log names
+  application, with 500; `/ready` reads **Degraded** (on a freshly started API only the database check can) and the API log names
   "AuthorizationRequests.UiLocale column" and "AuthorizationRequests.UiTheme column". If that happens,
   publish the DACPAC at once; no restart is needed. The other way round is safe: the API before this change
   keeps writing rows on the new table. An accounts application before this change ignores the two
@@ -4189,7 +4207,7 @@ For each existing deployment, in this order:
    The same release adds, whether passkeys are on or off, what lets a signed-in person confirm it is them with
    nothing signed out: the columns `UserSessions.LastProofAt` and `UserSessions.LastProofMethods`, and version 3
    of the `two-factor-email-code` template, with the wording of that code in seven languages. **This step comes
-   before the API.** Without the columns `/ready` reads Degraded, so the deploy stops there; it still answers
+   before the API.** Without the columns `/ready` reads Degraded (on a freshly started API only the database check can), so the deploy stops there; it still answers
    HTTP 200, so an automated deploy check must read the word, not the status. If it goes on, sign-in
    and a change on a recent session still work, but a change on an older session fails with a server error, so
    nothing passes that should not. One cost remains there: a proof that carries an authenticator code has that

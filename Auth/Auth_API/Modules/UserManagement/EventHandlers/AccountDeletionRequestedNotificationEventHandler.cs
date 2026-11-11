@@ -46,7 +46,7 @@ public class AccountDeletionRequestedNotificationEventHandler
                 {
                     ["UserName"] = notification.DisplayName,
                     ["GraceEndsAt"] = notification.GraceEndsAtUtc.ToString("u"),
-                    ["GraceDays"] = _accountDeletionSettings.GraceDays,
+                    ["GraceDays"] = _accountDeletionSettings.EffectiveGraceDays,
                     ["RecoveryLink"] = _emailSettings.BuildFrontendUrl("/account-recovery")
                 }
             },

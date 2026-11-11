@@ -920,7 +920,10 @@ builder.Services.AddSingleton<IKeyMaterialGenerator, SharedKeyMaterialGenerator>
 // One-shot, config-gated (AccountDeletion:RunEncryptionMigration) re-encryption
 // of TOTP secrets and phone numbers under per-user DEKs.
 builder.Services.AddHostedService<EncryptionMigrationService>();
-// Grace-period executor + daily retention/destruction sweep.
+// Grace-period executor + daily retention/destruction sweep. The status is how
+// /ready learns the sweep still runs, now that a sweep with nothing to delete
+// writes no audit row.
+builder.Services.AddSingleton<Auth.Infrastructure.AccountDeletion.RetentionSweepStatus>();
 builder.Services.AddHostedService<Auth.Infrastructure.AccountDeletion.AccountDeletionWorker>();
 // Empties the tables that fill with rows nobody reads again: expired tokens,
 // spent authorization codes, dead sessions. Every repository already had a
@@ -955,6 +958,8 @@ builder.Services.AddSingleton<ISecurityPostureContributor, EmailCodeFactorPostur
 builder.Services.AddSingleton<ISecurityPostureContributor, RevocationPostureContributor>();
 // S20: a passkey switch-on that cannot run, and live passkeys of another RP ID.
 builder.Services.AddSingleton<ISecurityPostureContributor, PasskeyPostureContributor>();
+// Account-deletion and retention values applied other than as configured (outside their bounds).
+builder.Services.AddSingleton<ISecurityPostureContributor, RetentionBoundsPostureContributor>();
 builder.Services.AddHostedService<SecurityPostureCheck>();
 
 // External Authentication
@@ -1511,7 +1516,8 @@ builder.Services.AddOpenApi("v1", options =>
 //                                       transient DB/secret outage never triggers a restart.
 //   /ready  -> readiness (tag "ready"): can we actually serve auth requests? Database reachable
 //                                       AND the JWT signing key is loaded AND the token
-//                                       revocation list is loaded (X04).
+//                                       revocation list is loaded (X04). An overdue retention
+//                                       sweep reports Degraded, which still answers 200.
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy("Auth API process is running."), tags: ["live"])
     // Cached and single-flight, not the stock SQL Server check: /ready is
@@ -1534,6 +1540,12 @@ builder.Services.AddHealthChecks()
     .AddCheck<RevocationRehydrationHealthCheck>(
         "revocation",
         failureStatus: HealthStatus.Unhealthy,
+        tags: ["ready"])
+    // Degraded, not Unhealthy: an overdue retention sweep does not stop this
+    // process from serving sign-in, and Degraded still answers 200.
+    .AddCheck<RetentionSweepHealthCheck>(
+        "retention-sweep",
+        failureStatus: HealthStatus.Degraded,
         tags: ["ready"]);
 
 // CORS - configured per environment (OWASP A02: Security Misconfiguration).

@@ -83,8 +83,21 @@ public class DataRetentionSettings
     /// </remarks>
     public int RefreshTokenDays { get; set; } = 90;
 
-    /// <summary>Poll interval as a TimeSpan, floored at one minute.</summary>
-    public TimeSpan WorkerPollInterval => TimeSpan.FromMinutes(Math.Max(1, WorkerPollMinutes));
+    /// <summary>Shortest worker poll interval applied, in minutes.</summary>
+    public const int MinWorkerPollMinutes = 1;
+
+    /// <summary>Longest worker poll interval applied, in minutes (one day).</summary>
+    public const int MaxWorkerPollMinutes = 1440;
+
+    /// <summary>The worker poll interval actually applied, in minutes.</summary>
+    public int EffectiveWorkerPollMinutes => Math.Clamp(WorkerPollMinutes, MinWorkerPollMinutes, MaxWorkerPollMinutes);
+
+    /// <summary>
+    /// Poll interval as a TimeSpan, held between one minute and one day. It had a
+    /// floor and no ceiling: a value past what the delay accepts threw out of the
+    /// worker loop, which stopped the whole API host.
+    /// </summary>
+    public TimeSpan WorkerPollInterval => TimeSpan.FromMinutes(EffectiveWorkerPollMinutes);
 
     /// <summary>Batch size clamped to a sane band.</summary>
     public int EffectiveBatchSize => Math.Clamp(BatchSize, 100, 4000);

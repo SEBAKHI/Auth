@@ -86,11 +86,11 @@ public class DeletionOtpService
         {
             _logger.LogWarning(
                 "Email disabled - deletion OTP for {Email}: {Otp} (expires in {Minutes} minutes)",
-                EmailMasking.Mask(user.Email), otp, _settings.OtpExpirationMinutes);
+                EmailMasking.Mask(user.Email), otp, _settings.EffectiveOtpExpirationMinutes);
         }
 
         var verification = AccountDeletionVerification.Create(
-            user.Id, user.Email, _otpHasher.Hash(user.Id.ToString(), otp), _settings.OtpExpirationMinutes);
+            user.Id, user.Email, _otpHasher.Hash(user.Id.ToString(), otp), _settings.EffectiveOtpExpirationMinutes);
         await _verificationRepository.CreateAsync(verification, cancellationToken);
 
         var recipientName = AccountDeletionRequestor.DisplayNameOf(user);
@@ -105,7 +105,7 @@ public class DeletionOtpService
                 {
                     ["UserName"] = recipientName,
                     ["OtpCode"] = otp,
-                    ["ExpirationMinutes"] = _settings.OtpExpirationMinutes
+                    ["ExpirationMinutes"] = _settings.EffectiveOtpExpirationMinutes
                 }
             },
             cancellationToken);

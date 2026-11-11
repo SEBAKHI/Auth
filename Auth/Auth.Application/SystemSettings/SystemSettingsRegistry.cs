@@ -515,7 +515,7 @@ public static class SystemSettingsRegistry
             Fields:
             [
                 new SettingFieldDefinition("Enabled", SettingKind.Bool, DefaultValue: true),
-                new SettingFieldDefinition("WorkerPollMinutes", SettingKind.Int, Min: 1, Max: 1440, DefaultValue: 15),
+                new SettingFieldDefinition("WorkerPollMinutes", SettingKind.Int, Min: Configuration.DataRetentionSettings.MinWorkerPollMinutes, Max: Configuration.DataRetentionSettings.MaxWorkerPollMinutes, DefaultValue: 15),
                 new SettingFieldDefinition("BatchSize", SettingKind.Int, Min: 100, Max: 4000, DefaultValue: 4000),
                 new SettingFieldDefinition("MaxRowsPerTablePerRun", SettingKind.Int, Min: 1000, Max: 5000000, DefaultValue: 200000),
                 new SettingFieldDefinition("AuthorizationCodeDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 7),
@@ -741,16 +741,16 @@ public static class SystemSettingsRegistry
             Editable: true,
             Fields:
             [
-                new SettingFieldDefinition("GraceDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 30),
-                new SettingFieldDefinition("OtpExpirationMinutes", SettingKind.Int, Min: 1, Max: 60, DefaultValue: 15),
-                new SettingFieldDefinition("WorkerPollMinutes", SettingKind.Int, Min: 1, Max: 1440, DefaultValue: 15),
-                new SettingFieldDefinition("WorkerBatchSize", SettingKind.Int, Min: 1, Max: 500, DefaultValue: 25),
+                new SettingFieldDefinition("GraceDays", SettingKind.Int, Min: Configuration.AccountDeletionSettings.MinGraceDays, Max: Configuration.AccountDeletionSettings.MaxGraceDays, DefaultValue: 30),
+                new SettingFieldDefinition("OtpExpirationMinutes", SettingKind.Int, Min: Configuration.AccountDeletionSettings.MinOtpExpirationMinutes, Max: Configuration.AccountDeletionSettings.MaxOtpExpirationMinutes, DefaultValue: 15),
+                new SettingFieldDefinition("WorkerPollMinutes", SettingKind.Int, Min: Configuration.AccountDeletionSettings.MinWorkerPollMinutes, Max: Configuration.AccountDeletionSettings.MaxWorkerPollMinutes, DefaultValue: 15),
+                new SettingFieldDefinition("WorkerBatchSize", SettingKind.Int, Min: Configuration.AccountDeletionSettings.MinWorkerBatchSize, Max: Configuration.AccountDeletionSettings.MaxWorkerBatchSize, DefaultValue: 25),
                 // Floor of 2, not 1: at 1 the first transient failure — a brief
                 // network blip while revoking an external token — permanently
                 // dead-letters the deletion request into a state nothing retries
                 // and no user can recover from. "Attempts" must mean at least
                 // one retry, which is also what the field's own hint promises.
-                new SettingFieldDefinition("MaxExecutionAttempts", SettingKind.Int, Min: 2, Max: 20, DefaultValue: 5),
+                new SettingFieldDefinition("MaxExecutionAttempts", SettingKind.Int, Min: Configuration.AccountDeletionSettings.MinMaxExecutionAttempts, Max: Configuration.AccountDeletionSettings.MaxMaxExecutionAttempts, DefaultValue: 5),
                 new SettingFieldDefinition("IdentifierHmacKeyPlain", SettingKind.String, Sensitive: true)
             ]),
 
@@ -762,18 +762,21 @@ public static class SystemSettingsRegistry
             Fields:
             [
                 new SettingFieldDefinition("PolicyVersion", SettingKind.String, DefaultValue: "2026.07"),
-                new SettingFieldDefinition("LoginAttemptRetentionDays", SettingKind.Int, Min: 30, Max: 3650, DefaultValue: 365),
-                new SettingFieldDefinition("OutboxRetentionDays", SettingKind.Int, Min: 30, Max: 3650, DefaultValue: 180),
+                // The bounds are the sweep's own (AccountDeletionSettings.Effective*):
+                // a value written to a settings file never passes through here, so
+                // the console bounds alone protected nothing outside the console.
+                new SettingFieldDefinition("LoginAttemptRetentionDays", SettingKind.Int, Min: Configuration.AccountDeletionSettings.MinLoginAttemptRetentionDays, Max: Configuration.AccountDeletionSettings.MaxRetentionDays, DefaultValue: 365),
+                new SettingFieldDefinition("OutboxRetentionDays", SettingKind.Int, Min: Configuration.AccountDeletionSettings.MinOutboxRetentionDays, Max: Configuration.AccountDeletionSettings.MaxRetentionDays, DefaultValue: 180),
                 // Floor of 1095, not 30: the published privacy policy commits to
                 // keeping the security record for at least three years, so the
                 // console must not be able to shorten it below what users were
                 // told. The Max is the ceiling the same policy owes them.
-                new SettingFieldDefinition("AuditLogRetentionDays", SettingKind.Int, Min: 1095, Max: 3650, DefaultValue: 1095),
+                new SettingFieldDefinition("AuditLogRetentionDays", SettingKind.Int, Min: Configuration.AccountDeletionSettings.MinAuditLogRetentionDays, Max: Configuration.AccountDeletionSettings.MaxRetentionDays, DefaultValue: 1095),
                 // How long a destroyed e-mail stays blocked from re-registration.
                 // The sweep raises whatever is set here to at least
                 // AuditLogRetentionDays, so a shorter value cannot release an
                 // address while records still keyed to it survive.
-                new SettingFieldDefinition("IdentifierReservationDays", SettingKind.Int, Min: 1095, Max: 3650, DefaultValue: 1095)
+                new SettingFieldDefinition("IdentifierReservationDays", SettingKind.Int, Min: Configuration.AccountDeletionSettings.MinIdentifierReservationDays, Max: Configuration.AccountDeletionSettings.MaxRetentionDays, DefaultValue: 1095)
             ]),
 
         // The legal identity published in the privacy policy. A settings section
