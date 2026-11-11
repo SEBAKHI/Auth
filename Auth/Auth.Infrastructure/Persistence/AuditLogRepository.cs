@@ -260,6 +260,19 @@ public class AuditLogRepository : IAuditLogRepository
             new { OlderThan = olderThan });
     }
 
+    /// <inheritdoc />
+    public async Task<DateTime?> GetLatestTimestampAsync(string action, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // One seek: IX_AuditLogs_Action is ([Action], [Timestamp] DESC).
+        var newest = await connection.ExecuteScalarAsync<DateTime?>(
+            "SELECT TOP (1) [Timestamp] FROM [dbo].[AuditLogs] WHERE [Action] = @Action ORDER BY [Timestamp] DESC",
+            new { Action = action });
+
+        return newest is null ? null : DateTime.SpecifyKind(newest.Value, DateTimeKind.Utc);
+    }
+
     private record AuditLogDto
     {
         public Guid Id { get; init; }

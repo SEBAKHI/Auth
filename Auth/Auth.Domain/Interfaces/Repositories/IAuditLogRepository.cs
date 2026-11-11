@@ -68,4 +68,10 @@ public interface IAuditLogRepository
     /// many were deleted, so the retention sweep can record what it destroyed.
     /// </summary>
     Task<int> CleanupOldLogsAsync(DateTime olderThan, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// When the newest row with this action was written (UTC), of any outcome,
+    /// or null when there is none.
+    /// </summary>
+    Task<DateTime?> GetLatestTimestampAsync(string action, CancellationToken cancellationToken);
 }

@@ -4,15 +4,24 @@ namespace Auth.Application.Configuration;
 /// Configuration for the account deletion lifecycle (grace window, worker
 /// cadence, retention constants and the identifier-hash key).
 /// </summary>
+/// <remarks>
+/// Every number here is read through an <c>Effective*</c> value (or
+/// <see cref="GracePeriod"/> and <see cref="WorkerPollInterval"/>) held inside
+/// the same bounds the settings console enforces. The console is not the only
+/// way a value arrives: a settings file, an environment variable and a stored
+/// override reach the binder without its bounds. The settings registry reads
+/// the bounds from the constants below, and a posture line names every value
+/// the bounds changed.
+/// </remarks>
 public class AccountDeletionSettings
 {
     public const string SectionName = "AccountDeletion";
 
-    /// <summary>
-    /// Length of the recovery window between the deletion request and
-    /// irreversible execution.
-    /// </summary>
-    public int GraceDays { get; set; } = 30;
+    /// <summary>Shortest recovery window applied, in days.</summary>
+    public const int MinGraceDays = 1;
+
+    /// <summary>Longest recovery window applied, in days.</summary>
+    public const int MaxGraceDays = 365;
 
     /// <summary>Shortest worker poll interval applied, in minutes.</summary>
     public const int MinWorkerPollMinutes = 1;
@@ -20,27 +29,59 @@ public class AccountDeletionSettings
     /// <summary>Longest worker poll interval applied, in minutes (one day).</summary>
     public const int MaxWorkerPollMinutes = 1440;
 
+    /// <summary>Fewest due requests executed per worker cycle.</summary>
+    public const int MinWorkerBatchSize = 1;
+
+    /// <summary>Most due requests executed per worker cycle.</summary>
+    public const int MaxWorkerBatchSize = 500;
+
+    /// <summary>
+    /// Fewest execution attempts applied: two, so "attempts" always means at
+    /// least one retry. At one, the first transient failure dead-letters the
+    /// request into a state nothing retries.
+    /// </summary>
+    public const int MinMaxExecutionAttempts = 2;
+
+    /// <summary>Most execution attempts applied.</summary>
+    public const int MaxMaxExecutionAttempts = 20;
+
+    /// <summary>Shortest deletion-code lifetime applied, in minutes.</summary>
+    public const int MinOtpExpirationMinutes = 1;
+
+    /// <summary>Longest deletion-code lifetime applied, in minutes.</summary>
+    public const int MaxOtpExpirationMinutes = 60;
+
+    /// <summary>
+    /// Length of the recovery window between the deletion request and
+    /// irreversible execution. Read through <see cref="GracePeriod"/>: zero
+    /// would make every request due at once and leave the account's owner no
+    /// time to cancel.
+    /// </summary>
+    public int GraceDays { get; set; } = 30;
+
     /// <summary>
     /// Fallback poll interval of the deletion worker. The worker reads
-    /// <see cref="WorkerPollInterval"/>, held between
-    /// <see cref="MinWorkerPollMinutes"/> and <see cref="MaxWorkerPollMinutes"/>:
-    /// zero would spin the loop without a pause, and a negative value would
-    /// throw out of the delay and stop the worker.
+    /// <see cref="WorkerPollInterval"/>: zero would spin the loop without a
+    /// pause, and a value below zero or past what the delay accepts threw out
+    /// of the worker loop, which stopped the whole API host.
     /// </summary>
     public int WorkerPollMinutes { get; set; } = 15;
 
     /// <summary>
-    /// Maximum due requests executed per worker cycle.
+    /// Maximum due requests executed per worker cycle. Read through
+    /// <see cref="EffectiveWorkerBatchSize"/>.
     /// </summary>
     public int WorkerBatchSize { get; set; } = 25;
 
     /// <summary>
     /// Execution attempts before a deletion request dead-letters as Failed.
+    /// Read through <see cref="EffectiveMaxExecutionAttempts"/>.
     /// </summary>
     public int MaxExecutionAttempts { get; set; } = 5;
 
     /// <summary>
-    /// Lifetime of a deletion re-authentication OTP.
+    /// Lifetime of a deletion re-authentication OTP. Read through
+    /// <see cref="EffectiveOtpExpirationMinutes"/>.
     /// </summary>
     public int OtpExpirationMinutes { get; set; } = 15;
 
@@ -122,14 +163,30 @@ public class AccountDeletionSettings
     /// </summary>
     public byte IdentifierKeyVersion { get; set; } = 1;
 
+    /// <summary>The recovery window actually applied, in days, between <see cref="MinGraceDays"/> and <see cref="MaxGraceDays"/>.</summary>
+    public int EffectiveGraceDays => Math.Clamp(GraceDays, MinGraceDays, MaxGraceDays);
+
+    /// <summary>The batch actually executed per cycle, between <see cref="MinWorkerBatchSize"/> and <see cref="MaxWorkerBatchSize"/>.</summary>
+    public int EffectiveWorkerBatchSize => Math.Clamp(WorkerBatchSize, MinWorkerBatchSize, MaxWorkerBatchSize);
+
+    /// <summary>The attempts actually allowed, between <see cref="MinMaxExecutionAttempts"/> and <see cref="MaxMaxExecutionAttempts"/>.</summary>
+    public int EffectiveMaxExecutionAttempts =>
+        Math.Clamp(MaxExecutionAttempts, MinMaxExecutionAttempts, MaxMaxExecutionAttempts);
+
+    /// <summary>The deletion-code lifetime actually applied, between <see cref="MinOtpExpirationMinutes"/> and <see cref="MaxOtpExpirationMinutes"/>.</summary>
+    public int EffectiveOtpExpirationMinutes =>
+        Math.Clamp(OtpExpirationMinutes, MinOtpExpirationMinutes, MaxOtpExpirationMinutes);
+
+    /// <summary>The worker poll interval actually applied, between <see cref="MinWorkerPollMinutes"/> and <see cref="MaxWorkerPollMinutes"/>.</summary>
+    public int EffectiveWorkerPollMinutes =>
+        Math.Clamp(WorkerPollMinutes, MinWorkerPollMinutes, MaxWorkerPollMinutes);
+
     /// <summary>
     /// The login-attempt retention actually applied by the sweep, held between
     /// <see cref="MinLoginAttemptRetentionDays"/> and <see cref="MaxRetentionDays"/>.
     /// </summary>
     /// <remarks>
-    /// The bounds live here, not only in the console: a value from a settings
-    /// file or an environment variable never passes through the console. Zero
-    /// would move the cutoff to today and delete every attempt the lockout
+    /// Zero would move the cutoff to today and delete every attempt the lockout
     /// counts; a value too large for <see cref="DateTime.AddDays"/> would throw
     /// on every run and stop the whole sweep.
     /// </remarks>
@@ -187,7 +244,9 @@ public class AccountDeletionSettings
     /// </summary>
     public string? IdentifierHmacKeyPlain { get; set; }
 
-    public TimeSpan GracePeriod => TimeSpan.FromDays(GraceDays);
-    public TimeSpan WorkerPollInterval =>
-        TimeSpan.FromMinutes(Math.Clamp(WorkerPollMinutes, MinWorkerPollMinutes, MaxWorkerPollMinutes));
+    /// <summary>The recovery window applied to a new deletion request.</summary>
+    public TimeSpan GracePeriod => TimeSpan.FromDays(EffectiveGraceDays);
+
+    /// <summary>The worker's poll interval as applied.</summary>
+    public TimeSpan WorkerPollInterval => TimeSpan.FromMinutes(EffectiveWorkerPollMinutes);
 }

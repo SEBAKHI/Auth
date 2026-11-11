@@ -104,7 +104,7 @@ public class ExecuteAccountDeletionCommandHandler
             // final attempt the deletion proceeds regardless (provider tokens
             // expire on their own) with the outcome flagged in the audit.
             var externalRevocationOk = await RevokeExternalTokensAsync(user.Id, cancellationToken);
-            if (!externalRevocationOk && request.AttemptCount < _settings.MaxExecutionAttempts - 1)
+            if (!externalRevocationOk && request.AttemptCount < _settings.EffectiveMaxExecutionAttempts - 1)
             {
                 throw new InvalidOperationException(
                     "External provider token revocation failed; the deletion will retry.");
@@ -168,7 +168,7 @@ public class ExecuteAccountDeletionCommandHandler
 
             // Exception text is a diagnostic, never PII: purge failures carry
             // SQL/infrastructure messages, and the entity truncates to fit.
-            request.Fail(ex.Message, _settings.MaxExecutionAttempts);
+            request.Fail(ex.Message, _settings.EffectiveMaxExecutionAttempts);
             await _requestRepository.UpdateAsync(request, AccountDeletionStatus.Processing, cancellationToken);
 
             return AccountDeletionErrors.ExecutionFailed;

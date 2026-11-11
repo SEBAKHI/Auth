@@ -958,6 +958,8 @@ builder.Services.AddSingleton<ISecurityPostureContributor, EmailCodeFactorPostur
 builder.Services.AddSingleton<ISecurityPostureContributor, RevocationPostureContributor>();
 // S20: a passkey switch-on that cannot run, and live passkeys of another RP ID.
 builder.Services.AddSingleton<ISecurityPostureContributor, PasskeyPostureContributor>();
+// Account-deletion and retention values applied other than as configured (outside their bounds).
+builder.Services.AddSingleton<ISecurityPostureContributor, RetentionBoundsPostureContributor>();
 builder.Services.AddHostedService<SecurityPostureCheck>();
 
 // External Authentication

@@ -6,21 +6,29 @@ using Microsoft.Extensions.Options;
 namespace Auth_API.Common.HealthChecks;
 
 /// <summary>
-/// Readiness check that the daily retention sweep is still running: it reports the
+/// Readiness check on the retention sweep of this process: it reports the
 /// registration's failure status when no sweep has succeeded for longer than a
 /// working sweep ever leaves (<see cref="RetentionSweepStatus.MaxHealthyGap"/>).
 /// </summary>
 /// <remarks>
-/// The sweep no longer writes an audit row on runs that delete nothing, so silence
-/// in the audit log is the normal state. This check is what tells "nothing to
-/// delete" apart from "not running": a worker that stopped, or a sweep failing on
-/// every retry. It is registered as Degraded, which still answers 200, so the
-/// gateway's probe and the service stay up. The description is constant: never a
-/// time or a count, since <c>/ready</c> is anonymous.
+/// <para>
+/// Registered as Degraded, which still answers 200, so the gateway's probe and
+/// the service stay up. The description is one of three constants: never a
+/// time, a count or an exception message, since <c>/ready</c> is anonymous.
+/// </para>
+/// <para>
+/// What it cannot see: the status lives in memory, so a recycle starts it over,
+/// and a process younger than the window is Healthy whatever its sweep did
+/// (the pending description says so until the first success). The gateway's
+/// <c>/ready</c> shows Healthy while the API answers 200, Degraded or not. The
+/// dependable signals of a failing sweep are its failure row in the audit log,
+/// written at most once a day while it fails, and the Error lines in the log.
+/// </para>
 /// </remarks>
 public sealed class RetentionSweepHealthCheck : IHealthCheck
 {
     internal const string CurrentDescription = "Retention sweep ran within its window.";
+    internal const string PendingDescription = "Retention sweep has not completed since this process started.";
     internal const string OverdueDescription = "Retention sweep overdue.";
 
     private readonly RetentionSweepStatus _status;
@@ -42,12 +50,22 @@ public sealed class RetentionSweepHealthCheck : IHealthCheck
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
-        var overdue = _status.IsOverdue(
-            _timeProvider.GetUtcNow().UtcDateTime,
-            _settings.CurrentValue.WorkerPollInterval);
+        try
+        {
+            if (_status.IsOverdue(_timeProvider.GetUtcNow().UtcDateTime, _settings.CurrentValue.WorkerPollInterval))
+            {
+                return Task.FromResult(new HealthCheckResult(context.Registration.FailureStatus, OverdueDescription));
+            }
 
-        return Task.FromResult(overdue
-            ? new HealthCheckResult(context.Registration.FailureStatus, OverdueDescription)
-            : HealthCheckResult.Healthy(CurrentDescription));
+            return Task.FromResult(HealthCheckResult.Healthy(
+                _status.LastSuccessUtc is null ? PendingDescription : CurrentDescription));
+        }
+        catch (Exception ex)
+        {
+            // Caught here, not by the health-check service: that one makes the
+            // exception's message the entry's description, and the description
+            // reaches anonymous callers even with error details switched off.
+            return Task.FromResult(new HealthCheckResult(context.Registration.FailureStatus, OverdueDescription, ex));
+        }
     }
 }

@@ -1032,7 +1032,7 @@ Handler    -> Dapper directly (bypassing the repository)
 | ‏الحالة عند الفشل | ‏ما الذي يُفحص | ‏المسار | ‏المضيف |
 |---|---|---|---|
 | ‏— (صحيح دائماً) | ‏`self` — العملية تعمل | ‏`/health` | ‏واجهة Auth API |
-| ‏`Degraded` أو **`Unhealthy`** | ‏`database` (‏SQL Server، بمهلة 5 ثوانٍ) و`signing-key` و`revocation` (حُمِّلت قائمة إبطال الرموز عند الإقلاع) و`retention-sweep` (‏`Degraded` إذا لم ينجح كنس الاحتفاظ منذ يوم ودورة فحص وساعة) | ‏`/ready` | ‏واجهة Auth API |
+| ‏`Degraded` أو **`Unhealthy`** | ‏`database` (‏SQL Server، بمهلة 5 ثوانٍ) و`signing-key` و`revocation` (حُمِّلت قائمة إبطال الرموز عند الإقلاع) و`retention-sweep` (‏`Degraded` إذا لم ينجح كنس الاحتفاظ في هذه العملية منذ يوم ودورة فحص وساعة؛ والعملية الأحدث من ذلك سليمة أيًّا كان ما فعله الكنس) | ‏`/ready` | ‏واجهة Auth API |
 | ‏— | ‏`self` — العملية تعمل | ‏`/health` | ‏بوابة API |
 | ‏`Unhealthy` | ‏`auth-api` — مسبار HTTP على مسار `/ready` في واجهة API | ‏`/ready` | ‏بوابة API |
 
