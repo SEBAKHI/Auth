@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <!-- The page follows the system's light or dark mode without a script of its own. -->
+    <meta name="color-scheme" content="light dark" />
+    <title>Google sign-in</title>
+  </head>
+  <body>
+    <!-- Hands the one-time code Google appended to this address to the sign-in page, then
+         closes the window (packages/auth/src/external/google-callback-page.ts). -->
+    <script type="module" src="/src/google-callback.ts"></script>
+  </body>
+</html>

@@ -186,6 +186,12 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
             Data["ExternalAuth:Apple:PrivateKeyPem"] = secrets.AppleSigningKeyPem;
         }
 
+        // Google client secret for the authorization-code exchange of the Google sign-in
+        if (!string.IsNullOrEmpty(secrets.GoogleClientSecret))
+        {
+            Data["ExternalAuth:Google:ClientSecret"] = secrets.GoogleClientSecret;
+        }
+
         // Email settings - SMTP password
         if (!string.IsNullOrEmpty(secrets.SmtpPassword))
         {

@@ -565,6 +565,18 @@
   <data name="ExternalAuth.NonceRequired" xml:space="preserve">
     <value>سائن اِن کی تصدیق نہیں ہو سکی۔ براہِ کرم دوبارہ کوشش کریں۔</value>
   </data>
+  <data name="ExternalAuth.CodeExchangeFailed" xml:space="preserve">
+    <value>فراہم کنندہ کے ساتھ سائن اِن مکمل نہیں ہو سکا۔ براہِ کرم دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="ExternalAuth.CodeRequired" xml:space="preserve">
+    <value>فراہم کنندہ کا کوڈ درکار ہے۔</value>
+  </data>
+  <data name="ExternalAuth.CodeTooLong" xml:space="preserve">
+    <value>فراہم کنندہ کا کوڈ ۵۱۲ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
+  <data name="ExternalAuth.CodeVerifierInvalid" xml:space="preserve">
+    <value>کوڈ ویریفائر (code verifier) میں ۴۳ سے ۱۲۸ تک حروف، ہندسے یا - . _ ~ ہونے چاہییں۔</value>
+  </data>
   <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
     <value>یہ {0} اکاؤنٹ پہلے سے کسی اور صارف سے منسلک ہے۔</value>
   </data>

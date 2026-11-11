@@ -59,6 +59,13 @@ public class SecretConfiguration
     public string? AppleSigningKeyPem { get; set; }
 
     /// <summary>
+    /// Google OAuth client secret, with which the server exchanges the one-time code Google
+    /// sends back to the apps for the ID token. Mapped to configuration as
+    /// <c>ExternalAuth:Google:ClientSecret</c>.
+    /// </summary>
+    public string? GoogleClientSecret { get; set; }
+
+    /// <summary>
     /// SMTP password for email service.
     /// </summary>
     public string? SmtpPassword { get; set; }

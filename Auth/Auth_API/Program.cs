@@ -973,6 +973,13 @@ builder.Services.AddSingleton<AppleClientSecretGenerator>();
 builder.Services.AddHttpClient<AppleTokenRevocationService>();
 builder.Services.AddSingleton<IExternalTokenLifecycle>(sp => sp.GetRequiredService<AppleTokenRevocationService>());
 builder.Services.AddSingleton<IExternalAuthProviderFactory, ExternalAuthProviderFactory>();
+// Google's token endpoint, for the code exchange of the Google sign-in (S02 PR D). One
+// attempt, bounded by the client's timeout; an outage reaches the global handler (503).
+builder.Services.AddHttpClient<IGoogleCodeExchanger, GoogleCodeExchanger>(client =>
+{
+    client.Timeout = GoogleCodeExchanger.Timeout;
+    client.MaxResponseContentBufferSize = GoogleCodeExchanger.MaxResponseBytes;
+});
 // Provider profile-picture import. The URL comes out of a provider-signed ID token
 // rather than from user input, but it is still an outbound fetch on the sign-in
 // path, so the handler refuses redirects, sends no cookies and does not decompress.
@@ -1324,6 +1331,26 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = builder.Configuration.GetValue("RateLimiting:PasskeyLookupPermitLimit", 20),
                 Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:PasskeyLookupWindowSeconds", 60)),
+                QueueLimit = 0
+            }));
+
+    // The Google sign-in's code exchange (S02 PR D: POST auth/external/google/code), which
+    // turns the one-time code Google sent to an app's callback page into the ID token. Its own
+    // bucket rather than the login one: a Google sign-in already spends one login permit at
+    // external-login, and on the same bucket it would spend two of the twenty. Per client
+    // address like the login family. Nothing can be guessed here (Google refuses any code it
+    // did not issue for this client and verifier); what this bounds is how often one address
+    // can make this process call Google, which is the only cost of the endpoint.
+    //
+    // The gateway forwards it on a route of its own (external-code-route) under its "api"
+    // policy, so this is the binding limit.
+    options.AddPolicy("external-code", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"v{settingsVersion()}:{ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:ExternalCodePermitLimit", 20),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:ExternalCodeWindowSeconds", 60)),
                 QueueLimit = 0
             }));
 

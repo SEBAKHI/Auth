@@ -567,6 +567,18 @@
   <data name="ExternalAuth.NonceRequired" xml:space="preserve">
     <value>تعذّر التحقق من عملية تسجيل الدخول. يرجى المحاولة من جديد.</value>
   </data>
+  <data name="ExternalAuth.CodeExchangeFailed" xml:space="preserve">
+    <value>تعذّر إكمال تسجيل الدخول لدى المزوّد. يرجى المحاولة من جديد.</value>
+  </data>
+  <data name="ExternalAuth.CodeRequired" xml:space="preserve">
+    <value>رمز المزوّد مطلوب.</value>
+  </data>
+  <data name="ExternalAuth.CodeTooLong" xml:space="preserve">
+    <value>يجب ألا يتجاوز رمز المزوّد 512 حرفًا.</value>
+  </data>
+  <data name="ExternalAuth.CodeVerifierInvalid" xml:space="preserve">
+    <value>يجب أن يتكوّن محقِّق الرمز (code verifier) من 43 إلى 128 حرفًا أو رقمًا أو من الرموز - . _ ~.</value>
+  </data>
   <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
     <value>حساب {0} هذا مرتبط بالفعل بمستخدم آخر.</value>
   </data>

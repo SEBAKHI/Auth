@@ -423,6 +423,9 @@ export const zh: TranslationResources = {
       onlyWayIn: "此后，您将无法在此处使用密码或邮件验证码登录，只能在保存该通行密钥的设备上用它登录；如需其他登录方式，请同时设置验证器应用。",
     },
     continueWithApple: "通过 Apple 继续",
+    continueWithGoogle: "通过 Google 继续",
+    googlePopupBlocked:
+      "浏览器阻止了 Google 登录窗口。请允许此网站的弹出窗口，然后重试。",
     privacyPolicy: "隐私政策",
     policyUpdatedNotice: "我们的隐私政策已更新。",
     policyUpdatedView: "查看政策",
@@ -1562,6 +1565,8 @@ export const zh: TranslationResources = {
       passwordPepper:
         "是一组带当前密钥指针的密钥，而非单个值。在启动时配置并轮换。",
       smtpPassword: "归你的邮件服务商所有 — 系统只存储他们签发的值。",
+      googleClientSecret:
+        "归 Google Cloud Console 所有 — 系统只存储它签发的值。服务器凭它完成每一次 Google 登录。",
       connectionString: "归数据库服务器所有。存储前会先对其进行连接检查。",
     },
     secretFile: "机密文件",
@@ -1580,6 +1585,13 @@ export const zh: TranslationResources = {
     setSmtpPassword: "设置 SMTP 密码",
     setSmtpPasswordHint:
       "加密存储，并替代 Email:Password 设置。重启后发送测试邮件以确认。",
+    setGoogleClientSecret: "设置 Google 客户端密钥",
+    setGoogleClientSecretHint:
+      "来自 Google Cloud Console → 凭据 → 您的 OAuth 客户端。加密存储。在设置并重启 API 之前，Google 登录会失败。",
+    clearGoogleClientSecretTitle: "移除 Google 客户端密钥？",
+    clearGoogleClientSecretBody:
+      "API 下次重启后，Google 登录将无法使用，直到在此设置新的密钥。",
+    googleClientSecretCleared: "已移除。重启 API 以生效。",
     setConnectionString: "设置数据库连接字符串",
     setConnectionStringHint:
       "加密存储，并替代 ConnectionStrings:AuthDb 设置，包括 web.config 中的任何值。",
@@ -2632,6 +2644,12 @@ export const zh: TranslationResources = {
       passkeyLookupWindowSeconds: "通行密钥检查窗口（秒）",
       passkeyLookupWindowSecondsHint:
         "上面通行密钥检查计数的统计时长，与其他项相同的固定窗口机制：窗口结束时计数器归零。保存后立即对新的客户端窗口生效。",
+      externalCodePermitLimit: "每个窗口的 Google 登录代码交换次数",
+      externalCodePermitLimitHint:
+        "单个客户端 IP 在一个窗口内可让本服务器向 Google 交换多少次 Google 登录代码，超出后以 429 拒绝。每次 Google 登录消耗一次此额度和一次身份验证尝试（随后的登录），因此每分钟二十次与身份验证默认值相同。这里没有可猜测的内容：此值限制一个地址能让服务器调用 Google 的频率。保存后立即对新的客户端窗口生效。",
+      externalCodeWindowSeconds: "Google 代码交换窗口（秒）",
+      externalCodeWindowSecondsHint:
+        "上方交换次数的计量时长，与其他项相同的固定窗口机制：窗口结束时计数器归零。保存后立即对新的客户端窗口生效。",
     },
     gatewayRateLimiting: {
       title: "请求速率限制（网关）",
@@ -2719,10 +2737,12 @@ export const zh: TranslationResources = {
       incompleteBody:
         "该提供方已开启，但只要此处任一凭据为空，其登录按钮就不会显示。",
       googleEnabled: "Google 登录",
-      googleEnabledHint: "需要在下方填写有效的客户端 ID。",
+      googleEnabledHint:
+        "需要在下方填写有效的客户端 ID，并在「机密管理」中设置客户端密钥。",
       googleClientId: "Google 客户端 ID",
       googleClientIdHint:
         "来自 Google Cloud Console → Credentials。公开值，可安全存储在此处。",
+      googleClientSecret: "Google 客户端密钥",
       appleEnabled: "Apple 登录",
       appleEnabledHint:
         "需要 Services ID、Team ID、Key ID，以及保存在「机密管理」下的 .p8 密钥。",

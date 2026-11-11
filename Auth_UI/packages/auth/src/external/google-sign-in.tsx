@@ -1,104 +1,59 @@
 import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
+import { api } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import { unwrap } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
-import { useTheme } from "@authsystem/ui/theme-provider"
+import { GoogleIcon } from "@authsystem/ui/brand-icons"
+import { Button } from "@authsystem/ui/button"
+import { Spinner } from "@authsystem/ui/spinner"
 
 import { useLoginCompletion } from "../login-completion"
 import { usePasskeyRequiredReporter } from "../passkey/passkey-required"
 import { useStaySignedIn } from "../stay-signed-in"
+import {
+  buildAuthorizeUrl,
+  GOOGLE_CALLBACK_PATH,
+  GOOGLE_CHANNEL,
+  googleLocale,
+  isGoogleCallbackMessage,
+  pkceChallenge,
+  randomBase64Url,
+  type GoogleCallbackMessage,
+} from "./google-code-flow"
 import { navigateToRecovery } from "./recovery-navigation"
 import { requestExternalNonce } from "./request-nonce"
-import { useExternalProviders } from "./use-external-providers"
+import {
+  externalProvidersQuery,
+  resolveExternalProviders,
+  useExternalProviders,
+} from "./use-external-providers"
 
-/** Minimal typings for the Google Identity Services (GSI) client. */
-interface GsiIdConfiguration {
-  client_id: string
-  callback: (response: { credential: string }) => void
+/** The popup's name: a second click reuses the same window rather than opening another. */
+const POPUP_NAME = "google-sign-in"
+const POPUP_WIDTH = 500
+const POPUP_HEIGHT = 640
+/** How often the popup handle is asked whether the person closed it. */
+const CLOSED_POLL_MS = 500
+
+/** A small window centred on this one. */
+function popupFeatures(): string {
+  const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - POPUP_WIDTH) / 2))
+  const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - POPUP_HEIGHT) / 2))
+  return `popup,width=${POPUP_WIDTH},height=${POPUP_HEIGHT},left=${left},top=${top}`
+}
+
+/** One click's sign-in: what Google must echo back, and what the exchange needs. */
+interface Attempt {
+  popup: Window
+  state: string
+  verifier: string
+  /** The server's nonce, sent to Google; known once the attempt reached Google. */
   nonce?: string
-}
-
-interface GsiButtonConfiguration {
-  type: "standard"
-  theme: "outline" | "filled_black"
-  size: "large"
-  text: "continue_with"
-  /**
-   * Google's SDK always renders the CURRENT branding, so the button only looks
-   * dated when we ask for a dated variant. "pill" is the rounded shape Google's
-   * own sign-in surfaces use; the default is the older square-cornered
-   * "rectangular".
-   *
-   * logo_alignment stays "left": "center" packs logo and label together and, at
-   * a fixed width, a longer translation ("Continuer avec Google") slides under
-   * the logo and loses its first character.
-   */
-  shape?: "rectangular" | "pill" | "circle" | "square"
-  logo_alignment?: "left" | "center"
-  width?: number
-  locale?: string
-}
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: GsiIdConfiguration) => void
-          renderButton: (
-            parent: HTMLElement,
-            options: GsiButtonConfiguration
-          ) => void
-        }
-      }
-    }
-  }
-}
-
-const GSI_SRC = "https://accounts.google.com/gsi/client"
-
-/**
- * The GSI library resolves the button language from the `hl` parameter on its
- * own script URL. The `locale` field passed to renderButton alone is not
- * enough — without `hl` Google falls back to "the browser's default locale or
- * the Google session user's preference", which is why the button used to read
- * in whatever language the visitor's Google account happened to use while the
- * rest of the page was in ours.
- *
- * That parameter is fixed once the script is fetched, so switching language has
- * to fetch a new one. The promise is therefore keyed BY LANGUAGE rather than
- * cached once per page: each language loads at most one script, and the button
- * follows the site instead of the Google session.
- */
-const gsiScriptPromises = new Map<string, Promise<void>>()
-
-/** Maps an i18n tag ("ar", "zh-CN") to the ISO-639 code GSI expects. */
-function gsiLocale(language: string): string {
-  return language.split("-")[0].toLowerCase()
-}
-
-function loadGsiScript(language: string): Promise<void> {
-  const locale = gsiLocale(language)
-  const existing = gsiScriptPromises.get(locale)
-  if (existing) return existing
-
-  const promise = new Promise<void>((resolve, reject) => {
-    const script = document.createElement("script")
-    script.src = `${GSI_SRC}?hl=${encodeURIComponent(locale)}`
-    script.async = true
-    script.onload = () => resolve()
-    script.onerror = () => {
-      gsiScriptPromises.delete(locale)
-      reject(new Error("Failed to load Google Identity Services"))
-    }
-    document.head.appendChild(script)
-  })
-
-  gsiScriptPromises.set(locale, promise)
-  return promise
 }
 
 interface GoogleSignInProps {
@@ -129,17 +84,23 @@ interface GoogleSignInProps {
 }
 
 /**
- * "Continue with Google" button (GSI ID-token flow). Renders nothing unless
- * the API lists an enabled "google" provider AND a client id is configured.
- * The surrounding divider lives in ExternalProviders.
+ * "Continue with Google" (S02 PR D): our own button, and Google's authorization-code method.
  *
- * A fresh nonce is fetched from the API per mount and sent BOTH to Google (which
- * seals it inside the signed ID token) and back to the API at sign-in. Because
- * the server issued it and holds the matching half in an HttpOnly cookie, the
- * pair shows the token was minted for THIS browser — which is what makes a
- * stolen token useless here. The value used to be generated locally, and a
- * locally generated one proves nothing: whoever holds the token can read the
- * nonce out of it and send the matching pair.
+ * The button is the preset's outline button with Google's standard "G" (owner decision
+ * D-S02-6 (a)). It always reads "Continue with Google", never a person's name or photo, and it
+ * shows with the page: on the providers hint this browser kept from its last visit, before the
+ * live answer is in. No Google script, style or frame is ever loaded into this page.
+ *
+ * A click opens a popup at once (a window opened after an `await` is blocked), then sends it to
+ * Google's authorization page with a fresh `state`, a PKCE challenge and the server-issued
+ * nonce. Google returns the person to /google-callback.html with a one-time code; that page
+ * hands it back here (google-callback-page.ts), the API exchanges it for the ID token, and the
+ * token goes through today's sign-in unchanged: `external-login` checks its signature, audience
+ * and nonce, and every exit goes through useLoginCompletion.
+ *
+ * The nonce is fetched from the API before the click when Google is offered (the API keeps its
+ * matching half in an HttpOnly cookie), and sealed by Google into the token: the pair shows the
+ * token was minted for THIS browser, which is what makes a stolen token useless here.
  */
 export function GoogleSignIn({
   recoveryPath,
@@ -147,40 +108,40 @@ export function GoogleSignIn({
 }: GoogleSignInProps = {}) {
   const { i18n, t } = useTranslation()
   const { loginExternal } = useAuth()
-  const { resolvedTheme } = useTheme()
   const navigate = useNavigate()
-  const containerRef = React.useRef<HTMLDivElement>(null)
-  // Replaced with the server-issued value before Google is initialised; the
-  // local seed only covers the window before that resolves, when no sign-in can
-  // have happened yet.
-  const nonceRef = React.useRef<string>(crypto.randomUUID())
-  // The server's nonce, asked for before the providers' answer is in (see below).
-  const earlyNonce = React.useRef<Promise<string> | null>(null)
-  const { googleEnabled, googleClientId, googleExpected } = useExternalProviders()
+  const queryClient = useQueryClient()
+  const { googleEnabled, googleExpected } = useExternalProviders()
   const { complete, challenge } = useLoginCompletion()
   const readStaySignedIn = useStaySignedIn()
   // The account signs in with its passkey alone (S20): the sign-in page says so.
   const reportPasskeyRequired = usePasskeyRequiredReporter()
 
+  // The server's nonce, asked for as soon as Google is offered, so a click rarely waits for it.
+  // Taken by one attempt; the next click asks again (a new nonce replaces the cookie's half).
+  const earlyNonce = React.useRef<Promise<string> | null>(null)
+  // The attempt Google may answer. A second click replaces it, and the first is abandoned.
+  const attemptRef = React.useRef<Attempt | null>(null)
+  // "waiting": the popup is open at Google; "exchanging": the code is with the API.
+  const [phase, setPhase] = React.useState<"idle" | "waiting" | "exchanging">("idle")
+  const [blocked, setBlocked] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!googleExpected) return
+    earlyNonce.current ??= requestExternalNonce()
+  }, [googleExpected])
+
   const handleCredential = React.useCallback(
-    async (credential: string) => {
+    async (credential: string, nonce: string | undefined) => {
       // Capture mode: the caller wants the credential, not a session.
       if (onCredential) {
-        onCredential({
-          provider: "google",
-          idToken: credential,
-          nonce: nonceRef.current,
-        })
+        onCredential({ provider: "google", idToken: credential, nonce })
         return
       }
 
       try {
-        const result = await loginExternal(
-          "google",
-          credential,
-          nonceRef.current,
-          { staySignedIn: readStaySignedIn() }
-        )
+        const result = await loginExternal("google", credential, nonce, {
+          staySignedIn: readStaySignedIn(),
+        })
         if (result.status === "twoFactorRequired") {
           challenge(result.challengeToken, result.methods)
           return
@@ -197,11 +158,7 @@ export function GoogleSignIn({
         ) {
           navigateToRecovery(navigate, recoveryPath, {
             message: getErrorMessage(error),
-            external: {
-              provider: "google",
-              idToken: credential,
-              nonce: nonceRef.current,
-            },
+            external: { provider: "google", idToken: credential, nonce },
           })
           return
         }
@@ -222,93 +179,160 @@ export function GoogleSignIn({
     ]
   )
 
-  // Google's script and the server's nonce start loading while the providers'
-  // answer is still on its way, when this browser saw Google offered last time:
-  // they used to wait for it, a round trip they did not depend on. The button
-  // itself still waits for the live answer below.
-  React.useEffect(() => {
-    if (!googleExpected) return
-    void loadGsiScript(i18n.language).catch(() => {
-      /* The effect that draws the button meets the same failure and handles it. */
-    })
-    earlyNonce.current ??= requestExternalNonce()
-  }, [googleExpected, i18n.language])
+  // The answer of the callback page: on the same-origin channel, and by postMessage from a
+  // popup that still has its opener. Taken once, and only for the attempt it names.
+  const receive = React.useCallback(
+    async (message: GoogleCallbackMessage) => {
+      const attempt = attemptRef.current
+      if (!attempt || message.state !== attempt.state) return
+      attemptRef.current = null
+      try {
+        attempt.popup.close()
+      } catch {
+        // Already closed, or no longer ours to close.
+      }
+
+      if (message.type === "google-error") {
+        setPhase("idle")
+        // The person backed out at Google: nothing to report, as with Apple's cancel.
+        if (message.error !== "access_denied") {
+          toast.error(getErrorMessage(new Error(message.error)))
+        }
+        return
+      }
+
+      setPhase("exchanging")
+      try {
+        const { idToken } = await unwrap(
+          api.POST("/api/v1/Auth/external/google/code", {
+            body: { code: message.code, codeVerifier: attempt.verifier },
+          })
+        )
+        await handleCredential(idToken, attempt.nonce)
+      } catch (error) {
+        toast.error(getErrorMessage(error))
+      } finally {
+        setPhase("idle")
+      }
+    },
+    [handleCredential]
+  )
 
   React.useEffect(() => {
-    if (!googleEnabled) return
-    let cancelled = false
+    const onMessage = (data: unknown) => {
+      if (isGoogleCallbackMessage(data)) void receive(data)
+    }
+    let channel: BroadcastChannel | null = null
+    try {
+      channel = new BroadcastChannel(GOOGLE_CHANNEL)
+      channel.onmessage = (event: MessageEvent) => onMessage(event.data)
+    } catch {
+      // No BroadcastChannel: the opener's postMessage below is the only way back.
+    }
+    const onWindowMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+      onMessage(event.data)
+    }
+    window.addEventListener("message", onWindowMessage)
+    return () => {
+      channel?.close()
+      window.removeEventListener("message", onWindowMessage)
+    }
+  }, [receive])
 
-    // Taken once: a later run (a new language or mode) asks for a fresh one.
+  // Ends the spinner when the person closes the popup without answering. When Google cut the
+  // popup's link to this page, the handle reports closed while the window is still open: the
+  // spinner ends then too, so the button stays usable, and the attempt keeps listening, so an
+  // answer that still arrives is still taken.
+  React.useEffect(() => {
+    if (phase !== "waiting") return
+    const timer = window.setInterval(() => {
+      const attempt = attemptRef.current
+      if (!attempt || attempt.popup.closed) setPhase((current) => (current === "waiting" ? "idle" : current))
+    }, CLOSED_POLL_MS)
+    return () => window.clearInterval(timer)
+  }, [phase])
+
+  const start = () => {
+    setBlocked(false)
+    // Synchronously, inside the click: a window opened after an await is a blocked popup.
+    const popup = window.open("about:blank", POPUP_NAME, popupFeatures())
+    if (!popup) {
+      setBlocked(true)
+      return
+    }
+
+    const attempt: Attempt = { popup, state: randomBase64Url(), verifier: randomBase64Url() }
+    attemptRef.current = attempt
+    setPhase("waiting")
+
     const nonce = earlyNonce.current ?? requestExternalNonce()
     earlyNonce.current = null
 
-    // The nonce has to be in hand BEFORE initialize(), because Google seals
-    // whatever it is given into the token it mints — there is no adding it
-    // afterwards. Fetched alongside the script rather than before it, so the
-    // round trip costs nothing the script load was not already spending.
-    void Promise.all([loadGsiScript(i18n.language), nonce])
-      .then(([, nonce]) => {
-        if (cancelled || !containerRef.current || !window.google) return
-        nonceRef.current = nonce
-        window.google.accounts.id.initialize({
-          client_id: googleClientId,
-          nonce: nonceRef.current,
-          callback: (response) => void handleCredential(response.credential),
-        })
-        containerRef.current.replaceChildren()
-        window.google.accounts.id.renderButton(containerRef.current, {
-          type: "standard",
-          theme: resolvedTheme === "dark" ? "filled_black" : "outline",
-          size: "large",
-          text: "continue_with",
-          shape: "pill",
-          logo_alignment: "left",
-          width: 320,
-          // Sent as well as `hl`: the script parameter selects the library's
-          // language bundle, this selects the label within it.
-          locale: gsiLocale(i18n.language),
-        })
-      })
-      .catch(() => {
-        /* Script blocked/offline: the button simply doesn't render. */
-      })
+    void (async () => {
+      try {
+        const [serverNonce, providers, codeChallenge] = await Promise.all([
+          nonce,
+          queryClient.fetchQuery(externalProvidersQuery()),
+          pkceChallenge(attempt.verifier),
+        ])
+        if (attemptRef.current !== attempt) return
+        if (popup.closed) {
+          // The person closed the blank window before it reached Google: nothing to report.
+          attemptRef.current = null
+          setPhase("idle")
+          return
+        }
+        const { googleEnabled: enabled, googleClientId } = resolveExternalProviders(providers)
+        if (!enabled) {
+          // Google was switched off since this page drew the button: the cache now says so,
+          // and the button and its divider leave with it.
+          attemptRef.current = null
+          popup.close()
+          setPhase("idle")
+          return
+        }
+        attempt.nonce = serverNonce
+        popup.location.replace(
+          buildAuthorizeUrl({
+            clientId: googleClientId,
+            redirectUri: window.location.origin + GOOGLE_CALLBACK_PATH,
+            state: attempt.state,
+            nonce: serverNonce,
+            codeChallenge,
+            locale: googleLocale(i18n.language),
+          })
+        )
+      } catch (error) {
+        if (attemptRef.current !== attempt) return
+        attemptRef.current = null
+        popup.close()
+        setPhase("idle")
+        toast.error(getErrorMessage(error))
+      }
+    })()
+  }
 
-    return () => {
-      cancelled = true
-    }
-  }, [
-    googleEnabled,
-    googleClientId,
-    i18n.language,
-    resolvedTheme,
-    handleCredential,
-  ])
+  if (!googleEnabled && !googleExpected) return null
+  const pending = phase !== "idle"
 
-  if (!googleEnabled) return null
-
-  /*
-   * `scheme-light` (color-scheme: light) is load-bearing, not cosmetic.
-   *
-   * renderButton has two rendering paths. Normally it emits plain DOM into our
-   * page; once the visitor has a Google session that has approved this app it
-   * switches to the PERSONALIZED button, which shows the account name and email
-   * and therefore has to be an accounts.google.com/gsi/button iframe. That is
-   * why the defect only surfaces after signing in with Google at least once.
-   *
-   * The iframe's document declares a LIGHT color scheme. Our dark theme sets
-   * `color-scheme: dark` on the root (preset.css) and the iframe element
-   * inherits it, so the two disagree — and css-color-adjust-1 then requires the
-   * UA to "use an opaque canvas of the Canvas color appropriate to the embedded
-   * document's root element's element color scheme instead of a transparent
-   * canvas". That opaque canvas is the white rectangle painted around Google's
-   * filled_black pill, and no stylesheet of ours can reach it: the canvas
-   * belongs to Google's document.
-   *
-   * Declaring light on the container makes frame and content agree, so the
-   * canvas stays transparent and the pill sits on our own background. It is a
-   * no-op in light mode, and it does NOT lighten the button: the button's
-   * colours come from the `theme` argument above, which stays filled_black in
-   * dark mode per Google's branding guidelines.
-   */
-  return <div ref={containerRef} className="flex justify-center scheme-light" />
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        className="w-80"
+        disabled={pending}
+        onClick={start}
+      >
+        {pending ? <Spinner /> : <GoogleIcon data-icon="inline-start" />}
+        {t("auth.continueWithGoogle")}
+      </Button>
+      {blocked ? (
+        <p role="alert" className="w-80 text-sm text-destructive">
+          {t("auth.googlePopupBlocked")}
+        </p>
+      ) : null}
+    </div>
+  )
 }

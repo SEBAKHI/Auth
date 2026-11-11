@@ -38,8 +38,29 @@ public static class ExternalAuthErrors
         code: "ExternalAuth.NonceRequired",
         description: "The sign-in could not be verified. Please try again.");
 
+    /// <summary>
+    /// The provider refused to turn the one-time code it sent back into a token: the code
+    /// was already spent, expired, or does not belong to this sign-in (its PKCE verifier or
+    /// its return address differs). Starting the sign-in again fetches a new code.
+    /// </summary>
+    public static Error CodeExchangeFailed => Error.Validation(
+        code: "ExternalAuth.CodeExchangeFailed",
+        description: "The sign-in with the provider could not be completed. Please try again.");
+
     // Request-validation rules (ADR 0001): validators declare these with
     // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error CodeRequired = Error.Validation(
+        code: "ExternalAuth.CodeRequired",
+        description: "The provider's code is required.");
+
+    public static readonly Error CodeTooLong = Error.Validation(
+        code: "ExternalAuth.CodeTooLong",
+        description: "The provider's code must not exceed 512 characters.");
+
+    public static readonly Error CodeVerifierInvalid = Error.Validation(
+        code: "ExternalAuth.CodeVerifierInvalid",
+        description: "The code verifier must be 43 to 128 letters, digits, or the characters - . _ ~.");
 
     public static readonly Error AuthorizationCodeTooLong = Error.Validation(
         code: "ExternalAuth.AuthorizationCodeTooLong",

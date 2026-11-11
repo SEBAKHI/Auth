@@ -565,6 +565,18 @@
   <data name="ExternalAuth.NonceRequired" xml:space="preserve">
     <value>Oturum açma doğrulanamadı. Lütfen tekrar deneyin.</value>
   </data>
+  <data name="ExternalAuth.CodeExchangeFailed" xml:space="preserve">
+    <value>Sağlayıcı ile oturum açma tamamlanamadı. Lütfen tekrar deneyin.</value>
+  </data>
+  <data name="ExternalAuth.CodeRequired" xml:space="preserve">
+    <value>Sağlayıcının kodu gereklidir.</value>
+  </data>
+  <data name="ExternalAuth.CodeTooLong" xml:space="preserve">
+    <value>Sağlayıcının kodu 512 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="ExternalAuth.CodeVerifierInvalid" xml:space="preserve">
+    <value>Kod doğrulayıcı 43 ile 128 arasında harf, rakam veya - . _ ~ karakterlerinden oluşmalıdır.</value>
+  </data>
   <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
     <value>Bu {0} hesabı zaten başka bir kullanıcıya bağlı.</value>
   </data>

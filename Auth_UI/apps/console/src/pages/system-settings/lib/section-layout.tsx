@@ -326,6 +326,9 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
         // OI-280: the sign-in page's passkey check after the address.
         "PasskeyLookupPermitLimit",
         "PasskeyLookupWindowSeconds",
+        // S02 PR D: the Google sign-in's code exchange.
+        "ExternalCodePermitLimit",
+        "ExternalCodeWindowSeconds",
       ],
     },
     { kind: "group", key: "concurrency", claims: ["ImageUploadConcurrencyLimit"] },

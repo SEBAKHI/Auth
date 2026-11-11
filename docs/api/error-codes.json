@@ -804,6 +804,30 @@
       "pointer": "#/authorizationCode"
     },
     {
+      "code": "ExternalAuth.CodeExchangeFailed",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "ExternalAuth.CodeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "ExternalAuth.CodeTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "ExternalAuth.CodeVerifierInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/codeVerifier"
+    },
+    {
       "code": "ExternalAuth.EmailNotVerified",
       "status": 403,
       "source": "catalog"

@@ -748,6 +748,7 @@ public class DpapiSecretService : IDpapiSecretService
                 ["JwtPublicKeyPem"] = SecretStatus.NotConfigured,
                 ["RefreshTokenHmacKey"] = SecretStatus.NotConfigured,
                 ["SmtpPassword"] = SecretStatus.NotConfigured,
+                ["GoogleClientSecret"] = SecretStatus.NotConfigured,
                 ["GatewayToken"] = SecretStatus.NotConfigured,
                 ["AccountDeletionIdentifierHmacKey"] = SecretStatus.NotConfigured,
                 ["ConnectionStrings.AuthDb"] = SecretStatus.NotConfigured
@@ -766,6 +767,7 @@ public class DpapiSecretService : IDpapiSecretService
             ["JwtPublicKeyPem"] = GetStatus(secrets.JwtPublicKeyPem),
             ["RefreshTokenHmacKey"] = GetStatus(secrets.RefreshTokenHmacKey),
             ["SmtpPassword"] = GetStatus(secrets.SmtpPassword),
+            ["GoogleClientSecret"] = GetStatus(secrets.GoogleClientSecret),
             ["GatewayToken"] = GetStatus(secrets.GatewayToken),
             ["AccountDeletionIdentifierHmacKey"] = GetStatus(secrets.AccountDeletionIdentifierHmacKey),
             ["PasswordPepper"] = secrets.PasswordPeppers.Count > 0 ? SecretStatus.Configured : SecretStatus.NotConfigured,
@@ -798,6 +800,7 @@ public class DpapiSecretService : IDpapiSecretService
             "jwtpublickeypem" => secrets.JwtPublicKeyPem,
             "refreshtokenhmackey" => secrets.RefreshTokenHmacKey,
             "smtppassword" => secrets.SmtpPassword,
+            "googleclientsecret" => secrets.GoogleClientSecret,
             "gatewaytoken" => secrets.GatewayToken,
             // Readable so the one PERMANENT key in the system can actually be
             // backed up. It cannot be regenerated: losing it orphans every
@@ -857,6 +860,9 @@ public class DpapiSecretService : IDpapiSecretService
                 return true;
             case "smtppassword":
                 secrets.SmtpPassword = value;
+                return true;
+            case "googleclientsecret":
+                secrets.GoogleClientSecret = value;
                 return true;
             case "gatewaytoken":
                 secrets.GatewayToken = value;

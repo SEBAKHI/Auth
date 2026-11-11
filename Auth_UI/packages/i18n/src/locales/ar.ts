@@ -424,6 +424,9 @@ export const ar: TranslationResources = {
       onlyWayIn: "بعد هذه الخطوة لن تسجّل الدخول هنا بكلمة المرور ولا برمز يصلك بالبريد، بل بمفتاح المرور وحده وعلى الأجهزة التي تحمله؛ اضبط تطبيق مصادقة أيضًا إن احتجت طريقة دخول أخرى.",
     },
     continueWithApple: "المتابعة باستخدام Apple",
+    continueWithGoogle: "المتابعة باستخدام Google",
+    googlePopupBlocked:
+      "منع المتصفح نافذة تسجيل الدخول بـ Google. اسمح بالنوافذ المنبثقة لهذا الموقع، ثم حاول مرة أخرى.",
     privacyPolicy: "سياسة الخصوصية",
     policyUpdatedNotice: "تم تحديث سياسة الخصوصية لدينا.",
     policyUpdatedView: "عرض السياسة",
@@ -1602,6 +1605,8 @@ export const ar: TranslationResources = {
       passwordPepper:
         "مجموعة مفاتيح بمؤشّر للمفتاح الحالي، لا قيمة واحدة. تُهيَّأ وتُدوَّر عند الإقلاع.",
       smtpPassword: "يملكها مزوّد البريد لديك — النظام يخزّن ما أصدره فقط.",
+      googleClientSecret:
+        "تملكه Google Cloud Console — النظام يخزّن ما أصدرته فقط. به يُكمل الخادم كل تسجيل دخول بـ Google.",
       connectionString: "يملكها خادم قاعدة البيانات. تُفحص عليه قبل تخزينها.",
     },
     secretFile: "ملف الأسرار",
@@ -1620,6 +1625,13 @@ export const ar: TranslationResources = {
     setSmtpPassword: "تعيين كلمة مرور SMTP",
     setSmtpPasswordHint:
       "تُخزَّن مشفَّرة وتُستعمل بدلًا من إعداد Email:Password. أرسل رسالة اختبار بعد إعادة التشغيل للتأكد منها.",
+    setGoogleClientSecret: "تعيين سرّ عميل Google (client secret)",
+    setGoogleClientSecretHint:
+      "من Google Cloud Console ← Credentials ← عميل OAuth الخاص بك. يُخزَّن مشفّرًا. يفشل تسجيل الدخول بـ Google إلى أن يُعيَّن ويُعاد تشغيل الواجهة البرمجية.",
+    clearGoogleClientSecretTitle: "إزالة سرّ عميل Google؟",
+    clearGoogleClientSecretBody:
+      "بعد إعادة تشغيل الواجهة البرمجية التالية يتوقف تسجيل الدخول بـ Google إلى أن يُعيَّن سرّ جديد هنا.",
+    googleClientSecretCleared: "أُزيل. أعد تشغيل الواجهة البرمجية لتطبيق ذلك.",
     setConnectionString: "تعيين سلسلة الاتصال بقاعدة البيانات",
     setConnectionStringHint:
       "تُخزَّن مشفَّرة وتُستعمل بدلًا من إعداد ConnectionStrings:AuthDb، بما في ذلك أي قيمة في web.config.",
@@ -2723,6 +2735,12 @@ export const ar: TranslationResources = {
       passkeyLookupWindowSeconds: "نافذة فحص مفتاح المرور (ثوانٍ)",
       passkeyLookupWindowSecondsHint:
         "المدة التي يُقاس عليها عدّ فحوص مفتاح المرور أعلاه، بآلية النافذة الثابتة نفسها: يعود العدّاد إلى الصفر عند انتهاء النافذة. يسري على نوافذ العملاء الجديدة فور الحفظ.",
+      externalCodePermitLimit: "عمليات تبادل رمز Google لكل نافذة",
+      externalCodePermitLimitHint:
+        "كم مرة يستطيع عنوان IP واحد أن يجعل هذا الخادم يبادل رمز تسجيل دخول Google لدى Google في النافذة، قبل أن يُرفض بـ 429. يستهلك كل تسجيل دخول بـ Google واحدة من هذه ومحاولة مصادقة واحدة (تسجيل الدخول الذي يليه)، فعشرون في الدقيقة تساوي افتراضي المصادقة. لا شيء يمكن تخمينه هنا: هذا يحدّ عدد المرات التي يجعل فيها عنوان واحد الخادمَ يتصل بـ Google. يسري على نوافذ العملاء الجديدة لحظة الحفظ.",
+      externalCodeWindowSeconds: "نافذة تبادل رمز Google (ثوانٍ)",
+      externalCodeWindowSecondsHint:
+        "المدة التي يُقاس عليها عدد عمليات التبادل أعلاه، بآلية النافذة الثابتة نفسها: يعود العدّاد إلى الصفر حين تنتهي النافذة. يسري على نوافذ العملاء الجديدة لحظة الحفظ.",
     },
     gatewayRateLimiting: {
       title: "تحديد معدل الطلبات (البوابة)",
@@ -2810,10 +2828,12 @@ export const ar: TranslationResources = {
       incompleteBody:
         "هذا المزوّد مفعّل، لكن زرّ الدخول يبقى مخفيًّا ما دام أيٌّ من بيانات الاعتماد هنا فارغًا.",
       googleEnabled: "تسجيل الدخول عبر Google",
-      googleEnabledHint: "يتطلب معرّف عميل صالحًا أدناه.",
+      googleEnabledHint:
+        "يتطلب معرّف عميل صالحًا أدناه، وسرّ العميل ضمن «إدارة الأسرار».",
       googleClientId: "معرّف عميل Google",
       googleClientIdHint:
         "من صفحة Credentials في Google Cloud Console. قيمة عامة يمكن تخزينها هنا بأمان.",
+      googleClientSecret: "سرّ عميل Google (client secret)",
       appleEnabled: "تسجيل الدخول عبر Apple",
       appleEnabledHint:
         "يتطلب معرّف الخدمات ومعرّف الفريق ومعرّف المفتاح، إضافة إلى مفتاح ‎.p8‎ ضمن «إدارة الأسرار».",

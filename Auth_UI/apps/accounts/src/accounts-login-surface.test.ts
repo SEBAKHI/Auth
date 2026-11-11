@@ -6,18 +6,13 @@ import privacyHashesJson from "../csp/privacy-style-hashes.json?raw"
 import webConfig from "../public/web.config?raw"
 
 /**
- * The accounts app's "Continue with Google" button depends on a
- * Content-Security-Policy that no runtime check can catch in time: a missing
- * directive produces no exception, no failed request the SPA can observe, and no
- * toast. Every unit test, every typecheck and every curl against the deployed
- * origin still passes.
+ * The accounts app's Content-Security-Policy around its "Continue with Google" button.
  *
  * <p>
- * The console has carried this guard since its own button existed; this app did
- * not, and that asymmetry is how the defect shipped here. The policy admitted
- * Google's script and its button iframe while refusing the stylesheet that script
- * fetches from /gsi/style, so the button rendered unstyled and every page
- * offering it logged two violations.
+ * Until S02 PR D the policy had to admit Google's script, its stylesheet and its button
+ * frame, and Google's button wrote 81 style rules into the page, which kept the policy
+ * from refusing inline styles. The button is now the app's own: a popup goes to Google,
+ * and nothing of Google's is loaded into the page, so the policy names no Google address.
  * </p>
  */
 // Both site-wide headers, read by where they sit (outside any <location>), not
@@ -29,12 +24,17 @@ const SITE_HEADERS = cspHeaders(webConfig).filter((header) => header.location ==
 const GOOGLE = "https://accounts.google.com"
 
 describe("the accounts login surface", () => {
-  it.each(["script-src", "connect-src", "frame-src", "style-src"])(
-    "allows Google Identity Services in %s",
+  // S02 PR D: the button is the app's own, its popup goes to Google, and no Google script,
+  // stylesheet or frame is loaded into these pages. Google's own button needed the host in four
+  // directives and wrote 81 style rules into the page; a source left here would admit Google
+  // on every page for nothing.
+  it.each(["script-src", "style-src", "connect-src", "frame-src", "img-src", "font-src", "default-src"])(
+    "names no Google address in %s",
     (directive) => {
       expect(SITE_HEADERS.length).toBeGreaterThan(0)
       for (const header of SITE_HEADERS) {
-        expect(header.directives[directive], header.name).toContain(GOOGLE)
+        expect(header.directives[directive] ?? [], header.name).not.toContain(GOOGLE)
+        expect((header.directives[directive] ?? []).filter((source) => source.includes("google")), header.name).toEqual([])
       }
     }
   )
@@ -59,7 +59,6 @@ describe("the accounts login surface", () => {
       "'unsafe-inline'",
       "data:",
       "https://auth.example.com",
-      GOOGLE,
       "https://appleid.cdn-apple.com",
       "https://appleid.apple.com",
     ])

@@ -111,7 +111,6 @@ describe("the accounts app ships no policy document", () => {
       "'unsafe-inline'",
       "data:",
       "https://auth.example.com",
-      "https://accounts.google.com",
       "https://appleid.apple.com",
       "https://appleid.cdn-apple.com",
     ])

@@ -41,24 +41,18 @@ export function ExternalProviders({
   const { t } = useTranslation()
   const { googleEnabled, googleExpected, appleEnabled } = useExternalProviders()
 
-  // While Google is only expected, the section is mounted and hidden: Google's
-  // button then loads its script and the server's nonce while the providers'
-  // answer is on its way (GoogleSignIn), and stays the same instance when the
-  // answer shows it. Unmounted, it would start them only after the answer.
+  // Google shows while it is only expected (this browser saw it offered last time), so the
+  // button and its divider appear with the page instead of after the providers' answer
+  // (S02 PR D). When that answer says Google is off, both go.
   if (!googleEnabled && !appleEnabled && !googleExpected) return null
-  const usable = googleEnabled || appleEnabled
 
   return (
-    <div className={usable ? "mt-6 flex flex-col gap-4" : "hidden"}>
-      {usable ? (
-        <div className="flex items-center gap-3">
-          <Separator className="flex-1" />
-          <span className="text-xs text-muted-foreground">
-            {t("auth.or")}
-          </span>
-          <Separator className="flex-1" />
-        </div>
-      ) : null}
+    <div className="mt-6 flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <Separator className="flex-1" />
+        <span className="text-xs text-muted-foreground">{t("auth.or")}</span>
+        <Separator className="flex-1" />
+      </div>
       <GoogleSignIn recoveryPath={recoveryPath} onCredential={onCredential} />
       <AppleSignIn recoveryPath={recoveryPath} onCredential={onCredential} />
     </div>

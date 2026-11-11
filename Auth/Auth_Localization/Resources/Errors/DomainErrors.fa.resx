@@ -565,6 +565,18 @@
   <data name="ExternalAuth.NonceRequired" xml:space="preserve">
     <value>ورود قابل تأیید نبود. لطفاً دوباره تلاش کنید.</value>
   </data>
+  <data name="ExternalAuth.CodeExchangeFailed" xml:space="preserve">
+    <value>ورود از طریق ارائه‌دهنده کامل نشد. لطفاً دوباره تلاش کنید.</value>
+  </data>
+  <data name="ExternalAuth.CodeRequired" xml:space="preserve">
+    <value>کد ارائه‌دهنده الزامی است.</value>
+  </data>
+  <data name="ExternalAuth.CodeTooLong" xml:space="preserve">
+    <value>کد ارائه‌دهنده نباید بیش از ۵۱۲ کاراکتر باشد.</value>
+  </data>
+  <data name="ExternalAuth.CodeVerifierInvalid" xml:space="preserve">
+    <value>تأییدکنندهٔ کد (code verifier) باید ۴۳ تا ۱۲۸ حرف، رقم یا یکی از نویسه‌های - . _ ~ باشد.</value>
+  </data>
   <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
     <value>این حساب {0} قبلاً به کاربر دیگری متصل شده است.</value>
   </data>

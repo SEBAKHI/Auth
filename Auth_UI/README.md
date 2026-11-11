@@ -20,11 +20,16 @@ A pnpm workspace hosting the frontend apps of the Auth system, built with
 > at runtime — `VITE_GOOGLE_CLIENT_ID` / `VITE_APPLE_SERVICES_ID` are only
 > build-time fallbacks for an API older than the build.
 >
-> **Google Identity Services runs on both apps.** Every origin that renders the
-> button needs `https://accounts.google.com` in its `script-src`, `connect-src`
-> **and** `frame-src` (the last one for the personalized-button iframe), and
-> must be an Authorized JavaScript origin on the Google OAuth client — GSI
-> renders *nothing at all*, silently, when it is not.
+> **The Google button is the apps' own, and no Google script runs in them**
+> (card S02 PR D). A click opens a popup to Google's authorization page
+> (authorization code + PKCE, `packages/auth/src/external/google-sign-in.tsx`);
+> Google returns to `/google-callback.html` on the app's origin, a page of its
+> own (`google-callback.ts`) that hands the code back and closes; the API
+> exchanges it (`POST /api/v1/auth/external/google/code`). So neither app's CSP
+> names `accounts.google.com`, and each app origin's
+> `https://<origin>/google-callback.html` must be an **Authorized redirect URI**
+> on the Google OAuth client (in development `https://localhost:5173/…` and
+> `https://localhost:5174/…`), with the client secret set on the API.
 >
 > **Apple Sign-In runs on `accounts` only**, and needs
 > `https://appleid.cdn-apple.com` in `script-src` plus

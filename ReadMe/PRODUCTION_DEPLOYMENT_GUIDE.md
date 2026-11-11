@@ -598,11 +598,10 @@ Line by line, what each block is for:
   application, your accounts application, and any of your own front ends. **List at least two
   entries**, because the base file ships two placeholders and a shorter list leaves the second
   placeholder in place (see the array-merge warning in Part 1 §3). **Google sign-in adds nothing to
-  this list.** The Google button hands the credential to your own page's JavaScript, which then
-  calls the API from your own origin, so Google never calls the API itself.
-  `https://accounts.google.com` belongs in the two web applications' Content Security Policy
-  instead ([Phase 7 step 3](#phase-7--build-and-deploy-the-two-web-applications)), where it is
-  already listed.
+  this list.** Google sends the person back to a page on your own app origin
+  (`/google-callback.html`), and that page's sign-in page calls the API from your own origin, so
+  Google never calls the API from a browser. Nor does Google appear in the two web applications'
+  Content Security Policy any more: no Google script runs in them.
 
 * **`Cors:AllowCredentials`** — must be `true` for the browser to send the identity-provider session
   cookie between the accounts application and the API.
@@ -623,7 +622,21 @@ Line by line, what each block is for:
   `ClientId` and turn `Enabled` on — either here or, without a restart, from **System settings →
   External authentication**, since this section is console-editable and read per request. If you do enable it, the
   same client id must also be built into the accounts application
-  ([Phase 7](#phase-7--build-and-deploy-the-two-web-applications)). Apple sign-in ships disabled and
+  ([Phase 7](#phase-7--build-and-deploy-the-two-web-applications)). **Google sign-in also needs the
+  client secret**, which is never written in a settings file: the button uses Google's
+  authorization-code method, and the API exchanges Google's one-time code with that secret
+  (`POST /api/v1/auth/external/google/code`). At Google, in Cloud Console → APIs & Services →
+  Credentials → your OAuth client: add `https://<accounts origin>/google-callback.html` and
+  `https://<console origin>/google-callback.html` to **Authorized redirect URIs** (the Authorized
+  JavaScript origins stay), and create a client secret (**Add secret**; Google shows it once). Then,
+  once the API runs this version, paste it in the console: **Secrets** → `GoogleClientSecret` →
+  **Edit**, and restart the API (the secrets file is read at startup). Production refuses to start
+  with `ExternalAuth:Google:ClientSecret` in plaintext configuration. Both app origins must also be
+  in `IdentityProvider:FirstPartySpaOrigins`: the exchange refuses a request whose `Origin` is not
+  listed. The exchange has a limit of its own, per client address:
+  `RateLimiting:ExternalCodePermitLimit` / `RateLimiting:ExternalCodeWindowSeconds` (20 / 60 s, in
+  **System settings → Rate limiting**); the Gateway forwards it on `external-code-route` under its
+  `api` policy. Apple sign-in ships disabled and
   needs an Apple Developer Services ID, a verified domain, a `.p8` signing key provisioned into the
   secrets file, and the seeded `apple` row in `ExternalAuthProviders` flipped to enabled — leave it
   off unless you are doing all four.
@@ -1204,10 +1217,13 @@ set for `VITE_API_BASE_URL` in step 2. The two directives that matter:
 * **`img-src`** — must list the same origin, because uploaded avatars and logos are served from the
   API's `/uploads/images` path.
 
-The accounts application's policy additionally names three provider hosts: `https://accounts.google.com`
-for Google, and `https://appleid.cdn-apple.com` (the script) plus `https://appleid.apple.com` (the
-request it makes) for Apple. Leave them alone if you use those sign-in providers; remove all three
-if you use neither, and remove the Apple pair if you use only Google.
+The accounts application's policy additionally names two provider hosts for Apple:
+`https://appleid.cdn-apple.com` (the script) plus `https://appleid.apple.com` (the request it makes).
+Leave them alone if you use Apple sign-in, and remove the pair if you do not. Google needs no host in
+either policy: the "Continue with Google" button is the app's own, its popup goes to Google, and
+Google returns to `/google-callback.html`, which each `web.config` serves with
+`Cache-Control: no-store` and `Referrer-Policy: no-referrer` (its own `<location>`). Deploy that page
+with the rest of `dist`.
 
 Do not change the rest of either file. Between them they carry the single-page-application fallback
 rule, the caching rules, and the security headers, each with a comment explaining why it is written
@@ -1316,8 +1332,8 @@ The browser will refuse to let either application call the API unless the API sa
 * Both origins must be listed, exactly, with scheme and no trailing slash.
 * `AllowCredentials` must be `true` — the accounts application relies on the identity-provider
   session cookie travelling with the request.
-* Google sign-in adds no entry here. Only pages served from your own two origins call the API, so
-  `https://accounts.google.com` belongs in the Content Security Policy of step 3, not in this list.
+* Google sign-in adds no entry here. Only pages served from your own two origins call the API; Google
+  only sends the person back to `/google-callback.html` on those origins.
 * Remember the array-merge rule from Part 1 §3: list at least as many entries as the base file's two,
   or the second placeholder survives into your live allow-list.
 * In Layout B the Gateway also has a `Cors:AllowedOrigins` list, used until its first successful
@@ -1447,7 +1463,7 @@ very different mornings.
 - [ ] Both applications were rebuilt after you edited their `.env.production` — the values are baked in at build time and cannot be corrected on the server.
 - [ ] Both applications' `web.config` Content Security Policies name your API origin, and both `dist` folders actually contain a `web.config`.
 - [ ] The accounts site has a `privacy` virtual directory pointing at `PrivacyPolicyPublication:PhysicalPath`.
-- [ ] `ExternalAuth:Google` is either fully configured on both sides or left at the shipped `Enabled: false`.
+- [ ] `ExternalAuth:Google` is either fully configured on both sides or left at the shipped `Enabled: false`. Fully configured means: the client id in the API and the accounts build, both apps' `https://<origin>/google-callback.html` among the OAuth client's Authorized redirect URIs at Google, and the client secret set on the console's **Secrets** page with the API restarted after it.
 - [ ] The data-controller fields are filled in at **System settings → Data controller**. They ship empty on purpose and a privacy policy cannot be published until they are set.
 - [ ] Every system notification type has a published template — no `no published global Email template` line in the startup log.
 - [ ] A test email actually arrives ([Phase 6](#phase-6--email-and-notifications)).

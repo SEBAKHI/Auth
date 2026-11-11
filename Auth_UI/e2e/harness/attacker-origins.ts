@@ -2,8 +2,11 @@ import type { ServerResponse } from "node:http"
 
 import { HOSTS } from "./topology"
 
-/** The hosts whose pages a test writes: the two attackers, and the fake linked application. */
-export type AttackerHost = typeof HOSTS.apex | typeof HOSTS.attacker | typeof HOSTS.linkedApp
+/**
+ * The hosts whose pages a test writes: the two attackers, the fake linked application, and
+ * the stand-in for Google's authorization page (S02 PR D).
+ */
+export type AttackerHost = typeof HOSTS.apex | typeof HOSTS.attacker | typeof HOSTS.linkedApp | typeof HOSTS.google
 
 /**
  * The two attacker origins: https://example.com (the apex - SAME-SITE with the

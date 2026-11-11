@@ -25,6 +25,7 @@ public static class SecretOwnedKeys
         "Password:Pepper:Keys",
         "Password:Pepper:CurrentKeyId",
         "ExternalAuth:Apple:PrivateKeyPem",
+        "ExternalAuth:Google:ClientSecret",
         "AccountDeletion:IdentifierHmacKeyPlain",
         "ConnectionStrings:",
         "Secrets:",

@@ -88,6 +88,19 @@ public class GoogleAuthSettings
     /// This is a public identifier (not a secret) — safe to store in appsettings.
     /// </summary>
     public string ClientId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the Google OAuth client secret: the server's half of the sign-in, which
+    /// turns the one-time code Google sends back to the apps into an ID token
+    /// (<c>POST /auth/external/google/code</c>). A SECRET: set from the console's Secrets page
+    /// (GoogleClientSecret in the encrypted secrets file), never committed, and refused in
+    /// plaintext Production configuration.
+    /// </summary>
+    /// <remarks>
+    /// Validating the ID token reads only <see cref="ClientId"/>, so an app that still uses
+    /// Google's own button signs in with or without this value; only the code exchange needs it.
+    /// </remarks>
+    public string? ClientSecret { get; set; }
 }
 
 /// <summary>
