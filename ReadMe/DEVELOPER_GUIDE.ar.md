@@ -69,7 +69,7 @@
 | ‏فهرس الأحداث التي يمكن أن تنتج عنها إشعارات | ‏2 | ‏**Notification Types** — أنواع الإشعارات |
 | ‏إصدارات سياسة الخصوصية، وترجماتها، ونشرها | ‏8 | ‏**Privacy Policy** — سياسة الخصوصية |
 | ‏صفحات السياسة المقروءة للعموم، دون حاجة إلى تسجيل دخول | ‏3 | ‏**Public Policy** — السياسة العامة |
-| ‏حالة الأسرار، وتوليد المفاتيح، واستيرادها (أحضِر مفتاحك الخاص، BYOK)، وحلقة مفاتيح HMAC (التجهيز والترقية والإسقاط والإعادة والإحالة)، وتحديات الترقية الأمنية، وتحديث كلمة مرور SMTP وسلسلة الاتصال | ‏19 | ‏**Secrets (Admin)** — الأسرار، للمسؤول |
+| ‏حالة الأسرار، وتوليد المفاتيح، واستيرادها (أحضِر مفتاحك الخاص، BYOK)، وحلقة مفاتيح HMAC (التجهيز والترقية والإسقاط والإعادة والإحالة)، وتحديات الترقية الأمنية، وتحديث كلمة مرور SMTP وسرّ عميل Google وسلسلة الاتصال | ‏25 | ‏**Secrets (Admin)** — الأسرار، للمسؤول |
 | ‏إعدادات وقت التشغيل المخزَّنة في قاعدة البيانات كتجاوزات فوق ملفات الإعدادات | ‏4 | ‏**System Settings** — إعدادات النظام |
 | ‏قيم الهوية البصرية على مستوى المنصة | ‏2 | ‏**Platform Settings** — إعدادات المنصة |
 | ‏نقطة الهوية البصرية العامة التي تقرأها شاشات تسجيل الدخول قبل أن يدخل أحد | ‏1 | ‏**Platform** — المنصة |
@@ -853,7 +853,7 @@ Email:FrontendBaseUrl must be an absolute URL when Email:Enabled is true.
 </div>
 
 
-**‏Google.** ‏معرّف العميل قيمة عامة، لا سرّ. أما *سر* عميل Google فغير مطلوب هنا، لأن هذا النظام يتحقق من رمز الهوية الذي تصدره Google بدلاً من أن يجري تبادل رموز خاصاً به.
+**‏Google.** ‏معرّف العميل قيمة عامة، لا سرّ. أما *سرّ* عميل Google ‏(client secret) فمطلوب، وهو سرّ فعلًا: زرّ «Continue with Google» في التطبيقين يستعمل طريقة رمز التفويض (authorization code) لدى Google، فتبادل الواجهة البرمجية الرمز الذي يعيده Google لمرة واحدة برمز الهوية (ID token)، بهذا السرّ وبمحقِّق PKCE الخاص بتسجيل الدخول (`POST /api/v1/auth/external/google/code`). لا تكتبه في هذا الملف أبدًا: عيّنه من صفحة **Secrets** في الكونسول (`GoogleClientSecret`، مشفّرًا)، أو في بيئة التطوير بالمفتاح `ExternalAuth:Google:ClientSecret` داخل الملف المستثنى من git ‏`appsettings.Development.local.json`. وبيئة الإنتاج ترفض الإقلاع إن وجدته نصًّا صريحًا في الإعدادات. ويجب أن يُدرج عميل OAuth لدى Google العنوان `https://<app origin>/google-callback.html` لكلٍّ من التطبيقين ضمن **Authorized redirect URIs** (وفي بيئة التطوير `https://localhost:5173/google-callback.html` و`https://localhost:5174/google-callback.html`). والتحقق من رمز الهوية ما زال يقرأ معرّف العميل وحده.
 
 **‏Apple.** ‏معطَّل في الملف المودَع. وتشغيله يتطلب أكثر من قلب `Enabled`: فأنت تحتاج إلى متطلبات Apple Developer (معرّف خدمات، ونطاق موثَّق بعناوين عودة، ومفتاح توقيع بامتداد `.p8`)، ويجب أن يُودَع المفتاح الخاص في مخزن الأسرار باسم `AppleSigningKeyPem` بدل كتابته هنا، **‏و**‏يجب تحويل الصف `apple` المُدرَج في جدول قاعدة البيانات `ExternalAuthProviders` إلى `IsEnabled = 1`. فالصف `google` يُدرَج مفعَّلاً، والصف `apple` يُدرَج معطَّلاً.
 
@@ -1661,7 +1661,7 @@ Retry-After: 43
 - **‏والبدل الشامل يجب أن يقف وحده.** ‏فهو يُقارَن بمساواة تامة، فلا تمنح `**` ولا `" *"` ولا `"* "` شيئاً.
 - **‏والمقطع الجزئي ليس بادئة.** ‏فمطالبة `user:*` (بادئتها `user`) لا تستوفي `users:read`، لأن `users:read` لا يبدأ بـ `user:`.
 
-**‏والرمز `secrets.manage` يستعمل نقطة لا نقطتين رأسيتين — فلا يبلغه أي بدل إطلاقاً إلا البدل الشامل `*`.** ‏لا `secrets:*` ولا أي بدل آخر. فَفَرع البادئة يحتاج إلى نقطتين رأسيتين يعمل عليهما، وهذا الرمز لا نقطتين فيه. ولذلك فنقاط النهاية التسع عشرة كلها تحت المسار `/api/v1/admin/Secrets` لا يبلغها إلا حامل الرمز الحرفي `secrets.manage` أو حامل `*`، على الدوام، ما لم يُغيَّر الرمز نفسه.
+**‏والرمز `secrets.manage` يستعمل نقطة لا نقطتين رأسيتين — فلا يبلغه أي بدل إطلاقاً إلا البدل الشامل `*`.** ‏لا `secrets:*` ولا أي بدل آخر. فَفَرع البادئة يحتاج إلى نقطتين رأسيتين يعمل عليهما، وهذا الرمز لا نقطتين فيه. ولذلك فنقاط النهاية الخمس والعشرون كلها تحت المسار `/api/v1/admin/Secrets` لا يبلغها إلا حامل الرمز الحرفي `secrets.manage` أو حامل `*`، على الدوام، ما لم يُغيَّر الرمز نفسه.
 
 #### ‏تضمينات الصلاحيات لا تمنح شيئاً
 
@@ -2304,7 +2304,7 @@ Retry-After: 43
 | ‏مجهول | ‏مفاتيح التوقيع العامة كمجموعة مفاتيح ويب JSON، ليتحقق نظام آخر من رمزٍ دون اتصال | ‏`/.well-known/jwks.json` | ‏GET |
 | ‏مجهول | ‏مفتاح التوقيع نفسه نصاً بصيغة PEM، للأدوات التي لا تقرأ مجموعة المفاتيح | ‏`/.well-known/public-key.pem` | ‏GET |
 
-#### ‏Authentication — 34 نقطة نهاية
+#### ‏Authentication — 35 نقطة نهاية
 
 | ‏المصادقة | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
@@ -2318,6 +2318,7 @@ Retry-After: 43
 | ‏مجهول · `login` | ‏استهلاك رمز البريد لإعادة حسابٍ ينتظر الحذف | ‏`/api/v1/Auth/email-code/recover` | ‏POST |
 | ‏مصادَق عليه | ‏إزالة المرء كلمة مروره، بعد دخولٍ حديثٍ أثبتها | ‏`/api/v1/Auth/remove-password` | ‏POST |
 | ‏مجهول | ‏سرد أزرار الدخول الخارجية التي ينبغي أن ترسمها شاشة الدخول | ‏`/api/v1/Auth/external-providers` | ‏GET |
+| ‏مجهول · `external-code` | ‏تحويل الرمز الذي أرسله Google لمرة واحدة إلى صفحة الرجوع في التطبيق إلى رمز الهوية الذي يقدّمه تسجيل الدخول؛ يرفض الطلب بلا `Origin` مُدرج من التطبيقات | ‏`/api/v1/Auth/external/google/code` | ‏POST |
 | ‏مجهول · `login` | ‏تسجيل الدخول برمز هوية من Google أو Apple بدل كلمة مرور | ‏`/api/v1/Auth/external-login` | ‏POST |
 | ‏مجهول | ‏مبادلة رمز تحديث بزوج رموز جديد | ‏`/api/v1/Auth/refresh` | ‏POST |
 | ‏مجهول | ‏نقطة تفويض OAuth 2.0. تحوّل المتصفح إلى التطبيق برمز يُستعمل مرة واحدة، أو إلى صفحة الدخول في تطبيق الحسابات | ‏`/api/v1/Auth/authorize` | ‏GET |
@@ -2699,9 +2700,9 @@ Retry-After: 43
 | ‏`system-settings:manage` | ‏إرسال بريد تشخيصي بالإعدادات السارية حالياً | ‏`/api/v1/admin/system-settings/email/test` | ‏POST |
 | ‏`system-settings:manage` | ‏كم حسابًا عاملُه الثاني رمزٌ يُرسَل بالبريد — أي ما سيتأثّر بإطفاء `Email:Enabled` | ‏`/api/v1/admin/system-settings/email/two-factor-accounts` | ‏GET |
 
-#### ‏Secrets (Admin) — 19 نقطة نهاية
+#### ‏Secrets (Admin) — 25 نقطة نهاية
 
-‏وتسع عشرتها تتطلب الصلاحية `secrets.manage` — **ولاحظ النقطة فيها، وهي فريدة في هذا النظام؛ فكل رمز آخر يستعمل النقطتين الرأسيتين** — وتسع عشرتها تعيد 403 بالرمز `Secret.AdminApiDisabled` حين يكون `SecretManagement:EnableAdminApi` مضبوطاً على `false`.
+‏وكلّها، الخمس والعشرون، تتطلب الصلاحية `secrets.manage` — **ولاحظ النقطة فيها، وهي فريدة في هذا النظام؛ فكل رمز آخر يستعمل النقطتين الرأسيتين** — وكلّها تعيد 403 بالرمز `Secret.AdminApiDisabled` حين يكون `SecretManagement:EnableAdminApi` مضبوطاً على `false`.
 
 | ‏الصلاحية | ‏ماذا تفعل | ‏المسار | ‏الطريقة |
 |---|---|---|---|
@@ -2725,6 +2726,7 @@ Retry-After: 43
 | ‏`secrets.manage` | ‏إزالة مفتاح توقيع أقدم، أو سجلّ مخترَق، من ملف الأسرار ومن نسخته الاحتياطية | ‏`/api/v1/admin/Secrets/keyring/rsa/retire/{kid}` | ‏POST |
 | ‏`secrets.manage` | ‏تقديم رمز بوابتك. 409 في الوضع PlainText | ‏`/api/v1/admin/Secrets/import/gateway-token` | ‏POST |
 | ‏`secrets.manage` | ‏نقل كلمة مرور خادم البريد إلى المخزن المعمّى | ‏`/api/v1/admin/Secrets/smtp-password` | ‏PUT |
+| ‏`secrets.manage` | ‏تعيين سرّ عميل Google أو استبداله أو إزالته في المخزن المعمّى | ‏`/api/v1/admin/Secrets/google-client-secret` | ‏PUT · DELETE |
 | ‏`secrets.manage` | ‏نقل سلسلة اتصال قاعدة البيانات إلى المخزن المعمّى | ‏`/api/v1/admin/Secrets/connection-string` | ‏PUT |
 | ‏`secrets.manage` | ‏ضبط سرّ مخصَّص | ‏`/api/v1/admin/Secrets/custom/{key}` | ‏PUT |
 | ‏`secrets.manage` | ‏حذف سرّ مخصَّص | ‏`/api/v1/admin/Secrets/custom/{key}` | ‏DELETE |
@@ -3268,6 +3270,34 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
 **‏والحقل `nonce` يجب أن يكون القيمة التي أعادها `POST /api/v1/auth/external-nonce` لهذا المتصفّح.** ‏فذلك النداء يضع أيضًا كوكي HttpOnly يحمل بصمتها، ويُرفض الدخول بـ`ExternalAuth.NonceRequired` إن لم يتطابق الزوج. والإعداد `ExternalAuth:RequireNonce` مفعّل افتراضيًّا ويسري فورًا، وإطفاؤه هو التراجع لعميلٍ لا يستطيع جلب القيمة. واستعادة الحساب المعلَّق حذفُه عبر المزوّد تخضع للقاعدة نفسها.
 
 > ‏يتحقق النظام من رمز هوية Google في جانب الخادم، ثم ينشئ حساب المستخدم أو يربطه، ويعيد رموز JWT.
+
+**‏من أين يأتي رمز هوية Google.** ‏زرّ التطبيقين يفتح نافذة منبثقة إلى صفحة التفويض لدى Google (`response_type=code`، و`scope=openid email profile`، وقيمة `state` جديدة، والـ`nonce` الذي أصدره الخادم، وتحدّي PKCE بطريقة S256، و`prompt=select_account`). فيعيد Google الشخص إلى `<app origin>/google-callback.html` ومعه رمز لمرة واحدة، وتسلّمه تلك الصفحة إلى صفحة الدخول، فتنادي `POST /api/v1/auth/external/google/code` أدناه وتقدّم رمز الهوية العائد هنا كما هو. ولا يُحمَّل أي سكربت من Google في التطبيقين.
+
+#### POST `/api/v1/auth/external/google/code`
+
+‏مبادلة الرمز الذي أرسله Google لمرة واحدة إلى صفحة الرجوع في التطبيق برمز الهوية، لدى نقطة الرموز في Google، بسرّ العميل وبمحقِّق PKCE الخاص بتسجيل الدخول.
+
+**‏المصادقة:** ‏مجهول؛ ويجب أن يكون `Origin` واحدًا من `IdentityProvider:FirstPartySpaOrigins` بالضبط (وإلا `403 Auth.FirstPartyOriginRequired`، ومنه الطلب **بلا** `Origin` وكل طلب ما دامت القائمة فارغة: فعنوان الرجوع يُبنى منه) | **محدد المعدل:** ‏السياسة `external-code` (‏20 طلبًا في 60 ثانية لكل عنوان عميل: `RateLimiting:ExternalCodePermitLimit` و`RateLimiting:ExternalCodeWindowSeconds`). وتمرّره البوابة على مسار خاص به (`external-code-route`، بسياسة `api`) خارج حدّ تسجيل الدخول، فيستهلك تسجيل الدخول بـGoogle إذنًا واحدًا من `login` (عند `external-login`) كما كان.
+
+**‏الطلب:**
+
+<div dir="ltr">
+
+```json
+{
+  "code": "4/0Ab...",
+  "codeVerifier": "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+}
+```
+
+</div>
+
+
+‏الحقل `code` مطلوب، وطوله 512 حرفًا على الأكثر (`ExternalAuth.CodeRequired`، `ExternalAuth.CodeTooLong`). والحقل `codeVerifier` من 43 إلى 128 حرفًا من `A-Z a-z 0-9 - . _ ~` (‏RFC 7636، `ExternalAuth.CodeVerifierInvalid`). ولا يوجد حقل `redirectUri`: ترسل الواجهة البرمجية إلى Google العنوان `<Origin>/google-callback.html` مبنيًّا من الـ`Origin` المتحقَّق منه.
+
+**‏الاستجابة (200):** `{ "idToken": "eyJ..." }` ‏مع `Cache-Control: no-store`. **‏رمز الهوية وحده**: فرمز الوصول الذي يعطيه Google وأي رمز تحديث لا يغادران الواجهة البرمجية. ولا يُتحقق منه هنا ولا يُسجَّل دخول أحد؛ فـ`external-login` يتحقق منه (التوقيع والجمهور والـnonce الذي أصدره الخادم) كما كان. ولا يُكتب هنا صفّ تدقيق؛ تسجيل الدخول يكتب صفّه.
+
+**‏الإخفاقات:** `400 ExternalAuth.CodeExchangeFailed` ‏حين يرفض Google الرمز (مستهلَك، أو منتهٍ، أو بمحقِّق آخر)؛ و`400 ExternalAuth.ProviderNotConfigured` ‏حين يكون Google معطَّلًا، أو معرّف العميل أو سرّه غائبًا، أو يرفض Google العميل (`invalid_client`، `unauthorized_client`، `redirect_uri_mismatch`، ويُسجَّل بمستوى Error مع سبب Google)؛ و`503 Http.Unavailable` ‏مع `Retry-After` حين لا يُبلَغ Google خلال 5 ثوانٍ أو يُجيب بـ5xx. ولا يُسجَّل شيء سرّي: لا الرمز ولا المحقِّق ولا السرّ ولا أي رمز.
 
 #### POST `/api/v1/auth/refresh`
 
@@ -8187,6 +8217,16 @@ grant_type=client_credentials
 
 **‏وحالات الفشل:** ‏400 إن كانت القيمة ناقصة أو أطول من اللازم؛ و**409 `Secret.SetNotSupportedInPlainText`** حين يكون `SecretManagement:StorageMode` قيمته `PlainText`، لأنه لا يوجد في ذلك الوضع ملف معمّى يُكتب فيه — فورّد كلمة المرور عبر الإعدادات أو عبر متغيّر بيئة بدلاً من ذلك.
 
+#### PUT and DELETE `/api/v1/admin/secrets/google-client-secret`
+
+‏تعيين سرّ عميل OAuth لدى Google أو استبداله أو إزالته في ملف الأسرار المشفّر، حيث يصير `ExternalAuth:Google:ClientSecret`: نصف الخادم في مبادلة رمز تسجيل الدخول بـGoogle.
+
+**‏الصلاحية:** `secrets.manage`. **‏بلا رمز تأكيد**، كما في كلمة مرور SMTP: فالقيمة لـGoogle، تُنقل هنا كما هي، والقيمة الخاطئة لا تفعل إلا أن يفشل تسجيل الدخول بـGoogle (`ExternalAuth.ProviderNotConfigured`، وسبب Google في سجلّ الواجهة البرمجية) إلى أن تُصحَّح.
+
+**‏الطلب (PUT):** `{ "value": "GOCSPX-..." }`، غير فارغ و512 حرفًا على الأكثر. والطلب DELETE بلا جسم.
+
+**‏الاستجابة:** ‏204 No Content. **‏ويسري عند إعادة تشغيل الواجهة البرمجية التالية**: فملف الأسرار يُقرأ في الإعدادات عند الإقلاع. وتُبلغ نقطة الحالة عن `GoogleClientSecret` بأنه `Configured` أو `NotConfigured`، ولا تُظهر القيمة أبدًا. **‏الإخفاقات:** ‏400 لقيمة غائبة أو طويلة؛ و**409 `Secret.SetNotSupportedInPlainText`** ‏في وضع PlainText (وبيئة التطوير تحفظه في `appsettings.Development.local.json`).
+
 #### PUT `/api/v1/admin/secrets/connection-string`
 
 ‏نقل سلسلة اتصال قاعدة البيانات إلى ملف الأسرار المعمّى، حيث تعلو على `ConnectionStrings:AuthDb` — بما في ذلك متغيّرات البيئة التي يورّدها `web.config` على خادم منشور.
@@ -10393,7 +10433,7 @@ netstat -ano | findstr :5173
 |---|---|---|
 | ‏`admin` | ‏قراءة إعدادات الهوية البصرية للمنصة وتحديثها | ‏`platform-settings:manage` |
 | ‏— | ‏قراءة إعدادات النظام وتحديثها وإعادة ضبطها، وإرسال بريد الاختبار | ‏`system-settings:manage` |
-| ‏— | ‏نقاط نهاية إدارة الأسرار التسع عشرة كلها | ‏`secrets.manage` |
+| ‏— | ‏نقاط نهاية إدارة الأسرار الخمس والعشرون كلها | ‏`secrets.manage` |
 | ‏`admin` | ‏سرد مفاتيح API | ‏`apikeys:read` |
 | ‏`admin` | ‏إنشاء مفتاح API | ‏`apikeys:create` |
 | ‏`admin` | ‏إبطال مفتاح API | ‏`apikeys:revoke` |

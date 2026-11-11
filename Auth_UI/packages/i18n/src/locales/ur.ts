@@ -426,6 +426,9 @@ export const ur: TranslationResources = {
       onlyWayIn: "اس کے بعد آپ یہاں پاس ورڈ یا ای میل سے آنے والے کوڈ سے سائن ان نہیں کر سکیں گے، صرف پاس کی سے اور انہی ڈیوائسز پر جن میں وہ محفوظ ہے؛ اگر آپ کو سائن ان کا کوئی اور راستہ چاہیے تو تصدیقی ایپ بھی سیٹ اپ کریں۔",
     },
     continueWithApple: "Apple کے ساتھ جاری رکھیں",
+    continueWithGoogle: "Google کے ساتھ جاری رکھیں",
+    googlePopupBlocked:
+      "آپ کے براؤزر نے Google سائن اِن کی ونڈو روک دی۔ اس سائٹ کے لیے پاپ اَپ کی اجازت دیں، پھر دوبارہ کوشش کریں۔",
     privacyPolicy: "رازداری کی پالیسی",
     policyUpdatedNotice: "ہماری رازداری کی پالیسی اپ ڈیٹ ہو گئی ہے۔",
     policyUpdatedView: "پالیسی دیکھیں",
@@ -1617,6 +1620,8 @@ export const ur: TranslationResources = {
         "یہ واحد قدر نہیں بلکہ موجودہ کلید کے اشارے کے ساتھ کلیدوں کا مجموعہ ہے۔ آغاز پر مہیا اور تبدیل ہوتی ہے۔",
       smtpPassword:
         "آپ کے ای میل فراہم کنندہ کی ملکیت — نظام صرف وہی محفوظ کرتا ہے جو انہوں نے جاری کیا۔",
+      googleClientSecret:
+        "Google Cloud Console کی ملکیت — نظام صرف وہی محفوظ کرتا ہے جو اس نے جاری کیا۔ سرور ہر Google سائن اِن اسی سے مکمل کرتا ہے۔",
       connectionString:
         "ڈیٹابیس سرور کی ملکیت۔ محفوظ کرنے سے پہلے اس پر جانچ ہوتی ہے۔",
     },
@@ -1636,6 +1641,13 @@ export const ur: TranslationResources = {
     setSmtpPassword: "SMTP پاس ورڈ مقرر کریں",
     setSmtpPasswordHint:
       "خفیہ کاری کے ساتھ محفوظ ہوتا ہے اور Email:Password ترتیب کی جگہ استعمال ہوتا ہے۔ تصدیق کے لیے دوبارہ شروع کرنے کے بعد ٹیسٹ ای میل بھیجیں۔",
+    setGoogleClientSecret: "Google کلائنٹ سیکرٹ (client secret) مقرر کریں",
+    setGoogleClientSecretHint:
+      "Google Cloud Console ← Credentials ← آپ کا OAuth کلائنٹ۔ خفیہ کر کے محفوظ ہوتا ہے۔ جب تک یہ مقرر نہ ہو اور API دوبارہ شروع نہ ہو، Google سائن اِن ناکام رہتا ہے۔",
+    clearGoogleClientSecretTitle: "Google کلائنٹ سیکرٹ ہٹا دیں؟",
+    clearGoogleClientSecretBody:
+      "API کے اگلی بار دوبارہ شروع ہونے کے بعد Google سائن اِن اس وقت تک کام نہیں کرے گا جب تک یہاں نیا سیکرٹ مقرر نہ ہو۔",
+    googleClientSecretCleared: "ہٹا دیا گیا۔ لاگو کرنے کے لیے API دوبارہ شروع کریں۔",
     setConnectionString: "ڈیٹابیس کنکشن اسٹرنگ مقرر کریں",
     setConnectionStringHint:
       "خفیہ کاری کے ساتھ محفوظ ہوتی ہے اور ConnectionStrings:AuthDb ترتیب کی جگہ استعمال ہوتی ہے، بشمول web.config میں موجود کوئی بھی قدر۔",
@@ -2755,6 +2767,12 @@ export const ur: TranslationResources = {
       passkeyLookupWindowSeconds: "پاس کی جانچ ونڈو (سیکنڈ)",
       passkeyLookupWindowSecondsHint:
         "وہ مدت جس پر اوپر کی پاس کی جانچ کی گنتی ناپی جاتی ہے، باقیوں جیسی مقررہ ونڈو کے طریقے سے: ونڈو ختم ہونے پر شمار کنندہ صفر پر آ جاتا ہے۔ محفوظ کرتے ہی نئی کلائنٹ ونڈوز پر لاگو ہوتا ہے۔",
+      externalCodePermitLimit: "فی ونڈو Google سائن اِن کوڈ کا تبادلہ",
+      externalCodePermitLimitHint:
+        "ایک کلائنٹ IP ایک ونڈو میں کتنی بار اس سرور سے Google کے پاس سائن اِن کوڈ کا تبادلہ کروا سکتا ہے، اس کے بعد 429 سے رد ہوتا ہے۔ ہر Google سائن اِن ان میں سے ایک اور ایک تصدیقی کوشش (اس کے بعد والا سائن اِن) خرچ کرتا ہے، اس لیے فی منٹ بیس تصدیق کی ڈیفالٹ کے برابر ہے۔ یہاں کچھ اندازے سے نہیں ملتا: یہ حد طے کرتی ہے کہ ایک پتا سرور سے Google کو کتنی بار کال کروا سکتا ہے۔ محفوظ کرتے ہی نئی کلائنٹ ونڈوز پر لاگو ہوتا ہے۔",
+      externalCodeWindowSeconds: "Google کوڈ تبادلہ ونڈو (سیکنڈ)",
+      externalCodeWindowSecondsHint:
+        "وہ مدت جس پر اوپر کے تبادلوں کی گنتی ناپی جاتی ہے، باقیوں جیسے مقررہ ونڈو کے طریقے پر: ونڈو ختم ہونے پر گنتی صفر ہو جاتی ہے۔ محفوظ کرتے ہی نئی کلائنٹ ونڈوز پر لاگو ہوتا ہے۔",
     },
     gatewayRateLimiting: {
       title: "درخواست کی حد (گیٹ وے)",
@@ -2842,10 +2860,12 @@ export const ur: TranslationResources = {
       incompleteBody:
         "یہ فراہم کنندہ آن ہے، مگر جب تک یہاں کوئی بھی سند خالی ہے اس کا سائن اِن بٹن ظاہر نہیں ہوگا۔",
       googleEnabled: "Google سائن ان",
-      googleEnabledHint: "نیچے درست کلائنٹ ID درکار ہے۔",
+      googleEnabledHint:
+        "نیچے درست کلائنٹ ID اور «رازوں کا انتظام» کے تحت کلائنٹ سیکرٹ درکار ہے۔",
       googleClientId: "Google کلائنٹ ID",
       googleClientIdHint:
         "Google Cloud Console ← Credentials سے۔ عوامی قدر، یہاں محفوظ کرنا بے خطر ہے۔",
+      googleClientSecret: "Google کلائنٹ سیکرٹ (client secret)",
       appleEnabled: "Apple سائن ان",
       appleEnabledHint:
         "Services ID، Team ID، Key ID اور «رازوں کا انتظام» کے تحت .p8 کلید درکار ہیں۔",

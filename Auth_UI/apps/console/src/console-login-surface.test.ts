@@ -9,12 +9,10 @@ import routes from "./routes.tsx?raw"
  * The console's "Continue with Google" button depends on two things that no other
  * test touches and that no runtime check can catch in time.
  *
- * The first is the Content-Security-Policy in web.config. When a directive is
- * missing the browser refuses the GSI script and the button simply never appears:
- * no exception, no failed request the SPA can observe, no toast. Every unit test,
- * every typecheck and every curl against the deployed origin still passes. The
- * console's CSP deliberately excluded these origins until the button existed, and
- * that history is exactly why a later cleanup is likely to remove them again.
+ * The first is the Content-Security-Policy in web.config. Since S02 PR D the button is
+ * the app's own and loads nothing from Google into the page, so the policy names no
+ * Google address at all; a source left in it would make Google a script, style or frame
+ * source on every console page, secrets and audit logs included, for nothing.
  *
  * The second is the `providers` slot on the shared LoginPage. It is optional, and
  * the console rendered LoginPage bare for as long as the app has existed, so
@@ -34,17 +32,17 @@ const SITE_HEADERS = cspHeaders(webConfig).filter((header) => header.location ==
 const GOOGLE = "https://accounts.google.com"
 
 describe("the console login surface", () => {
-  // style-src is in this list because it was missing from it. The policy admitted
-  // Google's script and its button iframe and refused the stylesheet that script
-  // fetches from /gsi/style, so the button rendered unstyled and every page
-  // offering it logged two violations - observed in a browser, and
-  // invisible to every test here because only three directives were checked.
-  it.each(["script-src", "connect-src", "frame-src", "style-src"])(
-    "allows Google Identity Services in %s",
+  // S02 PR D: the button is the app's own, its popup goes to Google, and no Google script,
+  // stylesheet or frame is loaded into these pages. Google's own button needed the host in four
+  // directives and wrote 81 style rules into the page; a source left here would admit Google
+  // on every page for nothing.
+  it.each(["script-src", "style-src", "connect-src", "frame-src", "img-src", "font-src", "default-src"])(
+    "names no Google address in %s",
     (directive) => {
       expect(SITE_HEADERS.length).toBeGreaterThan(0)
       for (const header of SITE_HEADERS) {
-        expect(header.directives[directive], header.name).toContain(GOOGLE)
+        expect(header.directives[directive] ?? [], header.name).not.toContain(GOOGLE)
+        expect((header.directives[directive] ?? []).filter((source) => source.includes("google")), header.name).toEqual([])
       }
     }
   )
@@ -90,7 +88,6 @@ describe("the console login surface", () => {
       "'unsafe-inline'",
       "data:",
       "https://auth.example.com",
-      GOOGLE,
     ])
     // A hash is a source only in style-src, and only one of the inline styles
     // the bundle injects (csp/inline-styles.json, card S02).

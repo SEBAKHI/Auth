@@ -37,6 +37,8 @@ import { JSDOM } from "jsdom"
 export type ClientCache =
   | { mode: "DisableCache" }
   | { mode: "UseMaxAge"; maxAgeSeconds: number }
+  /** No Cache-Control from the static handler (a customHeaders entry may send its own). */
+  | { mode: "NoControl" }
 
 export interface Condition {
   input: "{REQUEST_FILENAME}" | "{REQUEST_URI}"
@@ -169,7 +171,7 @@ function timeSpanSeconds(file: string, path: string, value: string) {
 
 function readClientCache(file: string, path: string, element: Element): ClientCache {
   const mode = element.getAttribute("cacheControlMode")
-  if (mode === "DisableCache") return { mode }
+  if (mode === "DisableCache" || mode === "NoControl") return { mode }
   if (mode === "UseMaxAge") {
     const age = element.getAttribute("cacheControlMaxAge")
     if (!age) return unsupported(file, `UseMaxAge without cacheControlMaxAge at ${path}`)
@@ -464,9 +466,13 @@ export function clientCacheFor(model: WebConfigModel, urlPath: string): ClientCa
   return location?.clientCache ?? model.clientCache
 }
 
-/** The Cache-Control header value IIS writes for a clientCache setting. */
+/**
+ * The Cache-Control header value IIS writes for a clientCache setting. NoControl writes none
+ * ("Does not add a Cache-Control or Expires header to the response", the clientCache reference),
+ * so a Cache-Control in the location's customHeaders is the only one sent.
+ */
 export function cacheControlValue(cache: ClientCache | undefined) {
-  if (!cache) return undefined
+  if (!cache || cache.mode === "NoControl") return undefined
   return cache.mode === "DisableCache" ? "no-cache" : `max-age=${cache.maxAgeSeconds}`
 }
 

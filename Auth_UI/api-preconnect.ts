@@ -16,6 +16,7 @@
  */
 import type { HtmlTagDescriptor, Plugin } from "vite"
 
+import { GOOGLE_CALLBACK_HTML } from "./google-callback"
 import { LOGIN_DESIGN_FRAME_HTML } from "./login-design-frame"
 
 export function apiPreconnect(): Plugin {
@@ -29,7 +30,10 @@ export function apiPreconnect(): Plugin {
     transformIndexHtml: {
       order: "post",
       handler: (_html, context) =>
-        context.filename.endsWith(LOGIN_DESIGN_FRAME_HTML) ? [] : preconnectTags(origin),
+        // The Google callback page makes no API call (google-callback.ts).
+        context.filename.endsWith(LOGIN_DESIGN_FRAME_HTML) || context.filename.endsWith(GOOGLE_CALLBACK_HTML)
+          ? []
+          : preconnectTags(origin),
     },
   }
 }

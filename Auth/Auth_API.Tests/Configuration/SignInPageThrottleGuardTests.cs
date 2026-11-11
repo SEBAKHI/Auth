@@ -132,6 +132,50 @@ public class SignInPageThrottleGuardTests
             "the edge half: a route naming a policy the gateway never registered fails at its first request");
     }
 
+    /// <summary>
+    /// S02 PR D: the Google sign-in's code exchange has its own bucket at the API, and a route of
+    /// its own at the edge, off the sign-in limit: the sign-in it precedes (external-login) already
+    /// spends one sign-in attempt, and on the catch-all a Google sign-in would spend two. It also
+    /// carries the stricter Origin filter, since it builds the callback address from the Origin.
+    /// </summary>
+    /// <remarks>
+    /// Deliberate breaks, each verified red: the action's policy set to "login"; the gateway route
+    /// removed; the route's policy set to "auth"; <c>[RequireFirstPartyAppOrigin]</c> removed; the
+    /// <c>ConfigurePrimaryHttpMessageHandler</c> call removed (REVIEW 162 F2).
+    /// </remarks>
+    [Fact]
+    public void TheGoogleCodeExchange_HasItsOwnBucket_AndItsOwnRouteAtTheEdge()
+    {
+        var source = ReadSource("Auth_API", "Modules", "Authentication", "Controllers", "AuthController.cs");
+        var attributes = AttributeBlockAfter(source, "(\"external/google/code\")");
+        attributes.Should().Contain("[EnableRateLimiting(\"external-code\")]");
+        attributes.Should().Contain("[RequireFirstPartyAppOrigin]",
+            "the callback address is built from the Origin, so a missing or unlisted one is refused");
+        attributes.Should().Contain("[AllowAnonymous]");
+
+        var program = ReadSource("Auth_API", "Program.cs");
+        program.Should().Contain("options.AddPolicy(\"external-code\"");
+        program.Should().Contain("RateLimiting:ExternalCodePermitLimit");
+        // The typed client's bounds: without them it would wait 100 s and buffer any size of answer.
+        program.Should().Contain("AddHttpClient<IGoogleCodeExchanger, GoogleCodeExchanger>");
+        program.Should().Contain("client.Timeout = GoogleCodeExchanger.Timeout;");
+        program.Should().Contain("client.MaxResponseContentBufferSize = GoogleCodeExchanger.MaxResponseBytes;");
+        // REVIEW 162 F2: no redirect followed (it would re-post the client secret and the code to
+        // the host it names) and no cookie kept, in this client's own registration.
+        var start = program.IndexOf("AddHttpClient<IGoogleCodeExchanger, GoogleCodeExchanger>", StringComparison.Ordinal);
+        var registration = program[start..program.IndexOf("builder.Services.", start + 1, StringComparison.Ordinal)];
+        registration.Should().Contain(".ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler");
+        registration.Should().Contain("AllowAutoRedirect = false,");
+        registration.Should().Contain("UseCookies = false,");
+
+        var routes = GatewayRoutes();
+        var route = routes.SingleOrDefault(r => r.Name == "external-code-route");
+        route.Should().NotBeNull("the edge must forward the exchange on a route of its own");
+        route!.Path.Should().Be("/api/v{version:int}/auth/external/google/code");
+        route.Policy.Should().Be("api", "on auth a Google sign-in would spend two of the twenty sign-in attempts");
+        route.Order.Should().BeLessThan(routes.Single(r => r.Path == "/api/v{version:int}/auth/{**catch-all}").Order);
+    }
+
     #region Helpers
 
     private sealed record GatewayRoute(string Name, string Path, string? Policy, int Order);

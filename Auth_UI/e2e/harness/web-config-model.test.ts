@@ -92,6 +92,8 @@ describe("web.config model: console", () => {
       },
       expect.objectContaining({ path: "email-preview.html", clientCache: undefined }),
       expect.objectContaining({ path: "login-design-frame.html", clientCache: undefined }),
+      // S02 PR D: the page Google returns to, with no-store and no-referrer.
+      expect.objectContaining({ path: "google-callback.html", clientCache: { mode: "NoControl" } }),
     ])
   })
 })
@@ -160,7 +162,40 @@ describe("web.config model: accounts", () => {
       expect.objectContaining({ path: "login-design-frame.html", clientCache: undefined }),
       // The account bar of linked applications: its own policy, no X-Frame-Options.
       expect.objectContaining({ path: "embed", clientCache: undefined }),
+      // S02 PR D: the page Google returns to, with no-store and no-referrer.
+      expect.objectContaining({ path: "google-callback.html", clientCache: { mode: "NoControl" } }),
     ])
+  })
+})
+
+/**
+ * S02 PR D: /google-callback.html holds a one-time code in its address. No cache keeps the
+ * answer (Cache-Control: no-store, the only Cache-Control IIS sends there), no request from it
+ * carries the code in a Referer, and it keeps the site policy and X-Frame-Options DENY.
+ */
+describe("the Google callback page (card S02 PR D)", () => {
+  it.each([
+    ["console", console_],
+    ["accounts", accounts],
+  ])("%s serves it no-store and no-referrer, under the site policy", (_app, model) => {
+    const headers = new Map(headersFor(model, "/google-callback.html").map(([name, value]) => [name.toLowerCase(), value]))
+    expect(headers.get("cache-control")).toBe("no-store")
+    expect(cacheControlValue(clientCacheFor(model, "/google-callback.html"))).toBeUndefined()
+    expect(headers.get("referrer-policy")).toBe("no-referrer")
+    expect(headers.get("x-frame-options")).toBe("DENY")
+    expect(headers.get("content-security-policy")).toBe(headerValue(model, "Content-Security-Policy"))
+    // Every other page keeps the site's values.
+    const index = new Map(headersFor(model, "/index.html").map(([name, value]) => [name.toLowerCase(), value]))
+    expect(index.get("referrer-policy")).toBe("strict-origin-when-cross-origin")
+    expect(index.has("cache-control")).toBe(false)
+    expect(cacheControlValue(clientCacheFor(model, "/index.html"))).toBe("no-cache")
+  })
+
+  it("reads NoControl, and still refuses a mode it does not model", () => {
+    const xml = (mode: string) => `<configuration><location path="p"><system.webServer><staticContent>
+      <clientCache cacheControlMode="${mode}" /></staticContent></system.webServer></location></configuration>`
+    expect(parseWebConfig(xml("NoControl"), "t").locations[0].clientCache).toEqual({ mode: "NoControl" })
+    expect(() => parseWebConfig(xml("UseExpires"), "t")).toThrow(UnsupportedWebConfigError)
   })
 })
 

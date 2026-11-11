@@ -28,6 +28,12 @@ export const HOSTS = {
   linkedApp: "app.example.com",
   /** Cross-site attacker. */
   attacker: "attacker.example.net",
+  /**
+   * A stand-in for Google's authorization page (S02 PR D): the Google sign-in's popup goes
+   * to https://accounts.google.com/o/oauth2/v2/auth, which a test serves (AttackerPages) so
+   * the code flow runs end to end with nothing reaching the real Google.
+   */
+  google: "accounts.google.com",
 } as const
 
 export type HostName = (typeof HOSTS)[keyof typeof HOSTS]
@@ -39,6 +45,7 @@ export const ORIGINS = {
   apex: `https://${HOSTS.apex}`,
   linkedApp: `https://${HOSTS.linkedApp}`,
   attacker: `https://${HOSTS.attacker}`,
+  google: `https://${HOSTS.google}`,
 } as const
 
 export const TOPOLOGY_HOSTS: readonly string[] = Object.values(HOSTS)

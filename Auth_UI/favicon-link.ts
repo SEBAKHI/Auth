@@ -9,6 +9,7 @@
  */
 import type { HtmlTagDescriptor, Plugin } from "vite"
 
+import { GOOGLE_CALLBACK_HTML } from "./google-callback"
 import { LOGIN_DESIGN_FRAME_HTML } from "./login-design-frame"
 import { platformFaviconUrl } from "./packages/api/src/platform-favicon"
 
@@ -23,7 +24,10 @@ export function faviconLink(): Plugin {
     transformIndexHtml: {
       order: "post",
       handler: (_html, context) =>
-        context.filename.endsWith(LOGIN_DESIGN_FRAME_HTML) ? [] : faviconTags(href),
+        // The Google callback page closes at once and loads only its module (google-callback.ts).
+        context.filename.endsWith(LOGIN_DESIGN_FRAME_HTML) || context.filename.endsWith(GOOGLE_CALLBACK_HTML)
+          ? []
+          : faviconTags(href),
     },
   }
 }

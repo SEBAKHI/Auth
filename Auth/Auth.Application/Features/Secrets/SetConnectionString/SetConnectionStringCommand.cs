@@ -1,3 +1,4 @@
+using System.Text;
 using ErrorOr;
 using MediatR;
 
@@ -17,4 +18,12 @@ namespace Auth.Application.Features.Secrets.SetConnectionString;
 public record SetConnectionStringCommand(
     string Value,
     bool ForceSave,
-    Guid RequestedBy) : IRequest<ErrorOr<Success>>;
+    Guid RequestedBy) : IRequest<ErrorOr<Success>>
+{
+    /// <summary>Names the connection string without its value: it carries a database password.</summary>
+    protected virtual bool PrintMembers(StringBuilder builder)
+    {
+        builder.Append("Value = [redacted], ForceSave = ").Append(ForceSave).Append(", RequestedBy = ").Append(RequestedBy);
+        return true;
+    }
+}

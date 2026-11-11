@@ -27,6 +27,22 @@ test("a request outside the topology is refused, recorded and fails the test", a
   egress.clear()
 })
 
+/**
+ * REVIEW 162 F8.9: accounts.google.com is in the topology for the Google stand-in (s02d), so the
+ * proxy no longer refuses it; a request to it at a path no test serves still fails the test.
+ * Deliberate break, verified red: the stand-in's record of unserved paths removed.
+ */
+test("a request to Google's stand-in that no test served still fails the test", async ({ page, attacker, egress }) => {
+  await page.goto(attacker.serve(HOSTS.attacker, "/", "<!doctype html><title>egress</title>"))
+  await page.evaluate(() => fetch("https://accounts.google.com/gsi/client", { mode: "no-cors" }).catch(() => undefined))
+
+  expect(egress.list()).toEqual([])
+  expect(() => egress.verify()).toThrow(
+    /https:\/\/accounts\.google\.com\/gsi\/client \(Google, served by no test\) requested by https:\/\/attacker\.example\.net\//
+  )
+  egress.clear()
+})
+
 test("a context or page a test builds itself, and the request fixture, go through the proxy too", async ({
   browser,
   request,

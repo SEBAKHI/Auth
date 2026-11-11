@@ -14,6 +14,7 @@ using Auth.Application.Features.Secrets.GenerateHmacKey;
 using Auth.Application.Features.Secrets.GenerateRsaKey;
 using Auth.Application.Features.Secrets.GetHmacKeyring;
 using Auth.Application.Features.Secrets.GetSecretStatus;
+using Auth.Application.Features.Secrets.GoogleClientSecret;
 using Auth.Application.Features.Secrets.ImportGatewayToken;
 using Auth.Application.Features.Secrets.ImportHmacKey;
 using Auth.Application.Features.Secrets.ImportRsaKey;
@@ -718,6 +719,68 @@ public class SecretsController : ApiController
         var result = await _sender.Send(
             new SetSmtpPasswordCommand(request.Value, userId),
             cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Stores Google's OAuth client secret in the encrypted secrets file, where it becomes
+    /// <c>ExternalAuth:Google:ClientSecret</c>: the server's half of the Google sign-in's code
+    /// exchange. Takes effect on the next API restart.
+    /// </summary>
+    /// <remarks>
+    /// No step-up confirmation, like the SMTP password and the connection string: the value is
+    /// Google's, transcribed here, and a wrong one only makes the Google sign-in fail until it
+    /// is corrected. The status reports whether it is set, never the value.
+    /// </remarks>
+    /// <param name="request">The client secret.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="204">Secret stored; restart the API to apply it</response>
+    /// <response code="400">Missing or over-long value</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="409">Storage mode is PlainText - there is no encrypted file to write to</response>
+    [HttpPut("google-client-secret")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SetGoogleClientSecret(
+        [FromBody] SetSecretRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new SetGoogleClientSecretCommand(request.Value, GetUserId()),
+            cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Removes Google's OAuth client secret from the encrypted secrets file. Takes effect on the
+    /// next API restart; from then on the Google sign-in's code exchange answers
+    /// <c>ExternalAuth.ProviderNotConfigured</c> until a secret is set again.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="204">Secret removed; restart the API to apply it</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="409">Storage mode is PlainText - there is no encrypted file to write to</response>
+    [HttpDelete("google-client-secret")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ClearGoogleClientSecret(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new ClearGoogleClientSecretCommand(GetUserId()), cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),

@@ -65,7 +65,7 @@ The back-end API spreads its endpoints across **25 route-bearing controllers**. 
 | **Notification Types** | 2 | The catalogue of events that can produce a notification |
 | **Privacy Policy** | 8 | Policy versions, translations and publication |
 | **Public Policy** | 3 | The publicly readable policy pages, no sign-in required |
-| **Secrets (Admin)** | 19 | Secret status, key generation, key import (bring-your-own-key), the HMAC keyring (stage, promote, discard, reinstate, retire), step-up challenges, SMTP password and connection string updates |
+| **Secrets (Admin)** | 25 | Secret status, key generation, key import (bring-your-own-key), the HMAC keyring (stage, promote, discard, reinstate, retire), step-up challenges, SMTP password, Google client secret and connection string updates |
 | **System Settings** | 4 | Runtime settings stored in the database as overrides on the configuration files |
 | **Platform Settings** | 2 | Platform-wide branding values |
 | **Platform** | 1 | The public branding endpoint the sign-in screens read before anyone is signed in |
@@ -744,7 +744,7 @@ The check exists because without it, every reset and verification link in every 
 }
 ```
 
-**Google.** The client ID is a public value, not a secret. The Google client *secret* is not needed here, because this system validates the ID token Google issues rather than performing its own token exchange.
+**Google.** The client ID is a public value, not a secret. The Google client *secret* is needed, and it is a secret: the apps' "Continue with Google" button uses Google's authorization-code method, so the API exchanges the one-time code Google sends back for the ID token, with that secret and the sign-in's PKCE verifier (`POST /api/v1/auth/external/google/code`). Never write it in this file: set it on the console's **Secrets** page (`GoogleClientSecret`, encrypted), or, in Development, as `ExternalAuth:Google:ClientSecret` in the git-ignored `appsettings.Development.local.json`. Production refuses to start with it in plaintext configuration. The OAuth client at Google must list `https://<app origin>/google-callback.html` for each of the two apps among its **Authorized redirect URIs** (in Development, `https://localhost:5173/google-callback.html` and `https://localhost:5174/google-callback.html`). Validating the ID token still reads only the client ID.
 
 **Apple.** Disabled in the committed file. Turning it on takes more than flipping `Enabled`: you need the Apple Developer prerequisites (a Services ID, a verified domain with return URLs, and a `.p8` signing key), the private key must be provisioned into the secret store as `AppleSigningKeyPem` rather than written here, **and** the seeded `apple` row in the `ExternalAuthProviders` database table must be switched to `IsEnabled = 1`. The `google` row is seeded enabled; the `apple` row is seeded disabled.
 
@@ -1409,7 +1409,7 @@ Matching is a **string prefix** test, not a walk over a tree. Three arms are tri
 - **The global wildcard must stand alone.** It is compared with an exact equality test, so `**`, `" *"` and `"* "` grant nothing.
 - **A partial segment is not a prefix.** A claim of `user:*` (prefix `user`) does not satisfy `users:read`, because `users:read` does not start with `user:`.
 
-**`secrets.manage` uses a dot, not a colon — so no wildcard can ever reach it except the global `*`.** Not `secrets:*`, nor any other wildcard. The prefix arm needs a colon to work with, and this code has none. All 19 endpoints under `/api/v1/admin/Secrets` are therefore reachable only by a holder of the literal code `secrets.manage` or of `*`, permanently, unless the code itself is changed.
+**`secrets.manage` uses a dot, not a colon — so no wildcard can ever reach it except the global `*`.** Not `secrets:*`, nor any other wildcard. The prefix arm needs a colon to work with, and this code has none. All 25 endpoints under `/api/v1/admin/Secrets` are therefore reachable only by a holder of the literal code `secrets.manage` or of `*`, permanently, unless the code itself is changed.
 
 #### Permission implications do not grant anything
 
@@ -2034,7 +2034,7 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | GET | `/.well-known/jwks.json` | The public signing keys as a JSON Web Key Set, so another service can verify a token offline | Anonymous |
 | GET | `/.well-known/public-key.pem` | The same signing key as plain PEM text, for tools that cannot read a key set | Anonymous |
 
-#### Authentication — 34 endpoints
+#### Authentication — 35 endpoints
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
@@ -2048,6 +2048,7 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | POST | `/api/v1/Auth/email-code/recover` | Spend the emailed code to bring back an account waiting for deletion | Anonymous · `login` |
 | POST | `/api/v1/Auth/remove-password` | Remove one's own password, after a recent sign-in that proved it | Authenticated |
 | GET | `/api/v1/Auth/external-providers` | List the external sign-in buttons a login screen should draw | Anonymous |
+| POST | `/api/v1/Auth/external/google/code` | Turn the one-time code Google sent to an app's callback page into the ID token the sign-in presents; refuses a request without a listed first-party `Origin` | Anonymous · `external-code` |
 | POST | `/api/v1/Auth/external-login` | Sign in with a Google or Apple identity token instead of a password | Anonymous · `login` |
 | POST | `/api/v1/Auth/refresh` | Trade a refresh token for a new pair of tokens | Anonymous |
 | GET | `/api/v1/Auth/authorize` | The OAuth 2.0 authorization endpoint. Redirects the browser back to the application with a one-time code, or to the accounts application's sign-in page | Anonymous |
@@ -2441,9 +2442,9 @@ The same nine actions for one application's designs and for the platform's; [5.2
 | POST | `/api/v1/admin/system-settings/email/test` | Send a diagnostic email using the settings currently in effect | `system-settings:manage` |
 | GET | `/api/v1/admin/system-settings/email/two-factor-accounts` | How many accounts use the emailed code as their second factor — what switching `Email:Enabled` off would affect | `system-settings:manage` |
 
-#### Secrets (Admin) — 19 endpoints
+#### Secrets (Admin) — 25 endpoints
 
-All nineteen require the permission `secrets.manage` — **note the dot, which is unique in this system; every other code uses colons** — and all nineteen return 403 with the code `Secret.AdminApiDisabled` when `SecretManagement:EnableAdminApi` is `false`.
+All twenty-five require the permission `secrets.manage` — **note the dot, which is unique in this system; every other code uses colons** — and all twenty-five return 403 with the code `Secret.AdminApiDisabled` when `SecretManagement:EnableAdminApi` is `false`.
 
 | Method | Path | What it does | Permission |
 |---|---|---|---|
@@ -2467,6 +2468,7 @@ All nineteen require the permission `secrets.manage` — **note the dot, which i
 | POST | `/api/v1/admin/Secrets/keyring/rsa/retire/{kid}` | Remove an older signing key, or a compromised record, from the secrets file and its backup copy | `secrets.manage` |
 | POST | `/api/v1/admin/Secrets/import/gateway-token` | Supply your own gateway token. 409 in PlainText mode | `secrets.manage` |
 | PUT | `/api/v1/admin/Secrets/smtp-password` | Move the mail-server password into the encrypted store | `secrets.manage` |
+| PUT · DELETE | `/api/v1/admin/Secrets/google-client-secret` | Set, replace or remove Google's client secret in the encrypted store | `secrets.manage` |
 | PUT | `/api/v1/admin/Secrets/connection-string` | Move the database connection string into the encrypted store | `secrets.manage` |
 | PUT | `/api/v1/admin/Secrets/custom/{key}` | Set a custom secret | `secrets.manage` |
 | DELETE | `/api/v1/admin/Secrets/custom/{key}` | Delete a custom secret | `secrets.manage` |
@@ -2945,6 +2947,29 @@ Authenticate via external provider (e.g., Google).
 **`nonce` must be the value `POST /api/v1/auth/external-nonce` returned to this browser.** That call also sets an HttpOnly cookie holding its hash, and the sign-in is refused with `ExternalAuth.NonceRequired` when the pair does not match. `ExternalAuth:RequireNonce` is on by default and hot; turning it off is the rollback for a client that cannot fetch the nonce. Pending-deletion recovery by provider follows the same rule.
 
 > The system validates the Google ID token server-side, creates/links the user account, and returns JWT tokens.
+
+**Where the Google ID token comes from.** The shipped apps' button opens a popup to Google's authorization page (`response_type=code`, `scope=openid email profile`, a fresh `state`, the server-issued `nonce`, a PKCE S256 challenge, `prompt=select_account`). Google returns the person to `<app origin>/google-callback.html` with a one-time code; that page hands it to the sign-in page, which calls `POST /api/v1/auth/external/google/code` below and presents the returned ID token here, unchanged. No Google script is loaded into the apps.
+
+#### POST `/api/v1/auth/external/google/code`
+
+Exchange the one-time code Google sent to an app's callback page for the ID token, at Google's token endpoint, with the client secret and the sign-in's PKCE verifier.
+
+**Auth:** Anonymous; the `Origin` must be exactly one of `IdentityProvider:FirstPartySpaOrigins` (`403 Auth.FirstPartyOriginRequired` otherwise, a request **without** an `Origin` and every request while the list is empty included: the callback address is built from it) | **Rate Limited:** `external-code` policy (20 per 60 s per client address: `RateLimiting:ExternalCodePermitLimit`, `RateLimiting:ExternalCodeWindowSeconds`). The gateway forwards it on a route of its own (`external-code-route`, `api` policy), off the sign-in limit, so a Google sign-in spends one `login` permit (at `external-login`), as before.
+
+**Request:**
+
+```json
+{
+  "code": "4/0Ab...",
+  "codeVerifier": "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+}
+```
+
+`code`: required, at most 512 characters (`ExternalAuth.CodeRequired`, `ExternalAuth.CodeTooLong`). `codeVerifier`: 43 to 128 characters of `A-Z a-z 0-9 - . _ ~` (RFC 7636, `ExternalAuth.CodeVerifierInvalid`). There is no `redirectUri` member: the API sends Google `<Origin>/google-callback.html`, built from the verified `Origin`.
+
+**Response (200):** `{ "idToken": "eyJ..." }` with `Cache-Control: no-store`. **Only the ID token**: Google's access token and any refresh token never leave the API. It is not validated here and nobody is signed in; `external-login` validates it (signature, audience, the server-issued nonce) exactly as before. No audit row is written here; the sign-in writes its own.
+
+**Failures:** `400 ExternalAuth.CodeExchangeFailed` when Google refuses the code (spent, expired, another verifier); `400 ExternalAuth.ProviderNotConfigured` when Google sign-in is off, its client ID or secret is missing, or Google refuses the client (`invalid_client`, `unauthorized_client`, `redirect_uri_mismatch`: logged at Error with Google's reason); `503 Http.Unavailable` with `Retry-After` when Google cannot be reached in 5 seconds or answers 5xx. Nothing secret is logged: not the code, the verifier, the secret or any token.
 
 #### POST `/api/v1/auth/refresh`
 
@@ -6885,6 +6910,7 @@ Get the status of all system secrets (no values exposed).
     "JwtPublicKeyPem": "NotConfigured",
     "RefreshTokenHmacKey": "Configured",
     "SmtpPassword": "NotConfigured",
+    "GoogleClientSecret": "Configured",
     "GatewayToken": "Configured",
     "AccountDeletionIdentifierHmacKey": "Configured",
     "PasswordPepper": "NotConfigured",
@@ -7182,6 +7208,16 @@ Move the mail-server password into the encrypted secrets file, where it override
 **Response:** 204 No Content. **The new value takes effect on the next API restart**, not immediately.
 
 **Failures:** 400 if the value is missing or too long; **409 `Secret.SetNotSupportedInPlainText`** when `SecretManagement:StorageMode` is `PlainText`, because in that mode there is no encrypted file to write to — supply the password through configuration or an environment variable instead.
+
+#### PUT and DELETE `/api/v1/admin/secrets/google-client-secret`
+
+Set, replace or remove Google's OAuth client secret in the encrypted secrets file, where it becomes `ExternalAuth:Google:ClientSecret`: the server's half of the Google sign-in's code exchange.
+
+**Permission:** `secrets.manage`. **No confirmation code**, as for the SMTP password: the value is Google's, transcribed here, and a wrong one only makes the Google sign-in fail (`ExternalAuth.ProviderNotConfigured`, with Google's reason in the API log) until it is corrected.
+
+**Request (PUT):** `{ "value": "GOCSPX-..." }`, not empty and at most 512 characters. DELETE takes no body.
+
+**Response:** 204 No Content. **It takes effect on the next API restart**: the secrets file is read into configuration at startup. The status endpoint reports `GoogleClientSecret` as `Configured` or `NotConfigured`, never the value. **Failures:** 400 for a missing or over-long value; **409 `Secret.SetNotSupportedInPlainText`** in PlainText mode (Development keeps it in `appsettings.Development.local.json`).
 
 #### PUT `/api/v1/admin/secrets/connection-string`
 

@@ -425,6 +425,9 @@ export const fa: TranslationResources = {
       onlyWayIn: "پس از این دیگر نمی‌توانید اینجا با گذرواژه یا کدی که با ایمیل می‌رسد وارد شوید، فقط با کلید عبور و روی دستگاه‌هایی که آن را نگه می‌دارند؛ اگر راه دیگری برای ورود لازم دارید، یک برنامهٔ احراز هویت هم راه بیندازید.",
     },
     continueWithApple: "ادامه با Apple",
+    continueWithGoogle: "ادامه با Google",
+    googlePopupBlocked:
+      "مرورگر شما پنجرهٔ ورود با Google را مسدود کرد. پنجره‌های بازشو را برای این سایت مجاز کنید و دوباره تلاش کنید.",
     privacyPolicy: "سیاست حریم خصوصی",
     policyUpdatedNotice: "سیاست حریم خصوصی ما به‌روزرسانی شد.",
     policyUpdatedView: "مشاهده سیاست",
@@ -1613,6 +1616,8 @@ export const fa: TranslationResources = {
         "مجموعه‌ای از کلیدها با اشاره‌گر کلید جاری است، نه یک مقدار واحد. هنگام راه‌اندازی تأمین و چرخانده می‌شود.",
       smtpPassword:
         "متعلق به ارائه‌دهندهٔ ایمیل شماست — سامانه تنها همان چیزی را ذخیره می‌کند که او صادر کرده.",
+      googleClientSecret:
+        "متعلق به Google Cloud Console است — سامانه تنها همان چیزی را ذخیره می‌کند که او صادر کرده. سرور هر ورود با Google را با آن کامل می‌کند.",
       connectionString:
         "متعلق به کارساز پایگاه داده است. پیش از ذخیره روی آن آزموده می‌شود.",
     },
@@ -1632,6 +1637,13 @@ export const fa: TranslationResources = {
     setSmtpPassword: "تنظیم گذرواژه SMTP",
     setSmtpPasswordHint:
       "به‌صورت رمزگذاری‌شده ذخیره می‌شود و به‌جای تنظیم Email:Password استفاده می‌شود. برای اطمینان، پس از راه‌اندازی مجدد یک ایمیل آزمایشی بفرستید.",
+    setGoogleClientSecret: "تنظیم رمز کلاینت Google (client secret)",
+    setGoogleClientSecretHint:
+      "از Google Cloud Console ← Credentials ← کلاینت OAuth شما. رمزنگاری‌شده ذخیره می‌شود. تا زمانی که تنظیم نشود و API دوباره راه‌اندازی نشود، ورود با Google ناموفق است.",
+    clearGoogleClientSecretTitle: "رمز کلاینت Google حذف شود؟",
+    clearGoogleClientSecretBody:
+      "پس از راه‌اندازی مجدد بعدی API، ورود با Google کار نمی‌کند تا زمانی که رمز تازه‌ای اینجا تنظیم شود.",
+    googleClientSecretCleared: "حذف شد. برای اعمال، API را دوباره راه‌اندازی کنید.",
     setConnectionString: "تنظیم رشته اتصال پایگاه داده",
     setConnectionStringHint:
       "به‌صورت رمزگذاری‌شده ذخیره می‌شود و به‌جای تنظیم ConnectionStrings:AuthDb استفاده می‌شود، از جمله هر مقداری در web.config.",
@@ -2752,6 +2764,12 @@ export const fa: TranslationResources = {
       passkeyLookupWindowSeconds: "پنجرهٔ بررسی کلید عبور (ثانیه)",
       passkeyLookupWindowSecondsHint:
         "بازه‌ای که شمارش بررسی‌های کلید عبور بالا روی آن سنجیده می‌شود، با همان سازوکار پنجرهٔ ثابت بقیه: با پایان پنجره شمارنده به صفر برمی‌گردد. به‌محض ذخیره روی پنجره‌های تازهٔ کلاینت اعمال می‌شود.",
+      externalCodePermitLimit: "تبادل کد ورود Google در هر پنجره",
+      externalCodePermitLimitHint:
+        "یک IP کلاینت چند بار می‌تواند در هر پنجره این سرور را وادار کند کد ورود Google را نزد Google مبادله کند، پیش از آنکه با 429 رد شود. هر ورود با Google یکی از این‌ها و یک تلاش احراز هویت (ورودی که پس از آن می‌آید) مصرف می‌کند، پس بیست در دقیقه با پیش‌فرض احراز هویت برابر است. اینجا چیزی برای حدس زدن نیست: این عدد محدود می‌کند یک نشانی چند بار می‌تواند سرور را به تماس با Google وادارد. از لحظهٔ ذخیره روی پنجره‌های تازهٔ کلاینت اعمال می‌شود.",
+      externalCodeWindowSeconds: "پنجرهٔ تبادل کد Google (ثانیه)",
+      externalCodeWindowSecondsHint:
+        "بازه‌ای که شمار تبادل‌های بالا در آن سنجیده می‌شود، با همان سازوکار پنجرهٔ ثابت: شمارنده در پایان پنجره به صفر برمی‌گردد. از لحظهٔ ذخیره روی پنجره‌های تازهٔ کلاینت اعمال می‌شود.",
     },
     gatewayRateLimiting: {
       title: "محدودسازی نرخ درخواست (دروازه)",
@@ -2839,10 +2857,12 @@ export const fa: TranslationResources = {
       incompleteBody:
         "این ارائه‌دهنده روشن است، اما تا زمانی که هر یک از اطلاعات اعتبار اینجا خالی باشد دکمه ورودش پنهان می‌ماند.",
       googleEnabled: "ورود با Google",
-      googleEnabledHint: "به شناسه کلاینت معتبر در پایین نیاز دارد.",
+      googleEnabledHint:
+        "به شناسه کلاینت معتبر در پایین و رمز کلاینت ذیل «مدیریت اسرار» نیاز دارد.",
       googleClientId: "شناسه کلاینت Google",
       googleClientIdHint:
         "از بخش Credentials در Google Cloud Console. مقداری عمومی است و نگهداری آن اینجا امن است.",
+      googleClientSecret: "رمز کلاینت Google (client secret)",
       appleEnabled: "ورود با Apple",
       appleEnabledHint:
         "به Services ID، Team ID، Key ID و کلید .p8 ذیل «مدیریت اسرار» نیاز دارد.",

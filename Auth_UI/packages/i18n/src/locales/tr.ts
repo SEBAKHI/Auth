@@ -426,6 +426,9 @@ export const tr: TranslationResources = {
       onlyWayIn: "Bundan sonra burada parolanızla veya e-postayla gelen kodlarla oturum açamazsınız, yalnızca geçiş anahtarıyla ve onu barındıran cihazlarda açabilirsiniz; başka bir giriş yolu gerekiyorsa bir kimlik doğrulayıcı uygulaması da kurun.",
     },
     continueWithApple: "Apple ile devam et",
+    continueWithGoogle: "Google ile devam et",
+    googlePopupBlocked:
+      "Tarayıcınız Google ile oturum açma penceresini engelledi. Bu site için açılır pencerelere izin verin ve tekrar deneyin.",
     privacyPolicy: "Gizlilik politikası",
     policyUpdatedNotice: "Gizlilik politikamız güncellendi.",
     policyUpdatedView: "Politikayı görüntüle",
@@ -1629,6 +1632,8 @@ export const tr: TranslationResources = {
         "Tek bir değer değil, geçerli anahtar işaretçisi olan bir anahtar kümesi. Başlangıçta sağlanır ve döndürülür.",
       smtpPassword:
         "E-posta sağlayıcınıza aittir — sistem yalnızca onların verdiğini saklar.",
+      googleClientSecret:
+        "Google Cloud Console'a aittir — sistem yalnızca onun verdiğini saklar. Sunucu her Google ile oturum açmayı bununla tamamlar.",
       connectionString:
         "Veritabanı sunucusuna aittir. Saklanmadan önce sunucuya karşı denetlenir.",
     },
@@ -1648,6 +1653,13 @@ export const tr: TranslationResources = {
     setSmtpPassword: "SMTP parolasını ayarla",
     setSmtpPasswordHint:
       "Şifreli saklanır ve Email:Password ayarı yerine kullanılır. Doğrulamak için yeniden başlattıktan sonra test e-postası gönderin.",
+    setGoogleClientSecret: "Google istemci gizli anahtarını ayarla",
+    setGoogleClientSecretHint:
+      "Google Cloud Console → Kimlik bilgileri → OAuth istemciniz. Şifreli saklanır. Ayarlanıp API yeniden başlatılana kadar Google ile oturum açma başarısız olur.",
+    clearGoogleClientSecretTitle: "Google istemci gizli anahtarı kaldırılsın mı?",
+    clearGoogleClientSecretBody:
+      "API bir sonraki yeniden başlatmadan sonra, burada yeni bir anahtar ayarlanana kadar Google ile oturum açma çalışmaz.",
+    googleClientSecretCleared: "Kaldırıldı. Uygulamak için API'yi yeniden başlatın.",
     setConnectionString: "Veritabanı bağlantı dizesini ayarla",
     setConnectionStringHint:
       "Şifreli saklanır ve web.config'deki değer dahil olmak üzere ConnectionStrings:AuthDb ayarı yerine kullanılır.",
@@ -2777,6 +2789,12 @@ export const tr: TranslationResources = {
       passkeyLookupWindowSeconds: "Geçiş anahtarı denetimi penceresi (saniye)",
       passkeyLookupWindowSecondsHint:
         "Yukarıdaki geçiş anahtarı denetimi sayısının ölçüldüğü süre; diğerleriyle aynı sabit pencere mekaniğiyle: pencere bitince sayaç sıfıra döner. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
+      externalCodePermitLimit: "Pencere başına Google oturum açma kodu değişimi",
+      externalCodePermitLimitHint:
+        "Tek bir istemci IP'sinin bir pencerede bu sunucuya Google oturum açma kodunu Google'da kaç kez değiştirtebileceği; sonrası 429 ile reddedilir. Her Google ile oturum açma bunlardan birini ve bir kimlik doğrulama denemesini (ardından gelen oturum açma) harcar; bu yüzden dakikada yirmi, kimlik doğrulama varsayılanına eşittir. Burada tahmin edilebilecek bir şey yoktur: bu sayı, bir adresin sunucuya Google'ı ne sıklıkla çağırtabileceğini sınırlar. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
+      externalCodeWindowSeconds: "Google kod değişimi penceresi (saniye)",
+      externalCodeWindowSecondsHint:
+        "Yukarıdaki kod değişimi sayısının ölçüldüğü süre; diğerleriyle aynı sabit pencere işleyişiyle: pencere bitince sayaç sıfırlanır. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
     },
     gatewayRateLimiting: {
       title: "İstek hızı sınırlama (Ağ geçidi)",
@@ -2865,10 +2883,12 @@ export const tr: TranslationResources = {
       incompleteBody:
         "Bu sağlayıcı açık, ancak buradaki kimlik bilgilerinden herhangi biri boş kaldığı sürece oturum açma düğmesi görünmez.",
       googleEnabled: "Google ile oturum açma",
-      googleEnabledHint: "Aşağıda geçerli bir istemci kimliği gerektirir.",
+      googleEnabledHint:
+        "Aşağıda geçerli bir istemci kimliği ve Gizli anahtar yönetimi altında istemci gizli anahtarı gerektirir.",
       googleClientId: "Google istemci kimliği",
       googleClientIdHint:
         "Google Cloud Console → Credentials bölümünden alınır. Genel bir değerdir, burada saklanması güvenlidir.",
+      googleClientSecret: "Google istemci gizli anahtarı",
       appleEnabled: "Apple ile oturum açma",
       appleEnabledHint:
         "Services ID, Team ID, Key ID ve Gizli anahtar yönetimi altındaki .p8 anahtarını gerektirir.",

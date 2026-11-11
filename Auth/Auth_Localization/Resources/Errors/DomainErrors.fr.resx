@@ -565,6 +565,18 @@
   <data name="ExternalAuth.NonceRequired" xml:space="preserve">
     <value>La connexion n'a pas pu être vérifiée. Veuillez réessayer.</value>
   </data>
+  <data name="ExternalAuth.CodeExchangeFailed" xml:space="preserve">
+    <value>La connexion auprès du fournisseur n'a pas pu aboutir. Veuillez réessayer.</value>
+  </data>
+  <data name="ExternalAuth.CodeRequired" xml:space="preserve">
+    <value>Le code du fournisseur est obligatoire.</value>
+  </data>
+  <data name="ExternalAuth.CodeTooLong" xml:space="preserve">
+    <value>Le code du fournisseur ne doit pas dépasser 512 caractères.</value>
+  </data>
+  <data name="ExternalAuth.CodeVerifierInvalid" xml:space="preserve">
+    <value>Le vérificateur de code doit comporter de 43 à 128 lettres, chiffres ou caractères - . _ ~.</value>
+  </data>
   <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
     <value>Ce compte {0} est déjà lié à un autre utilisateur.</value>
   </data>

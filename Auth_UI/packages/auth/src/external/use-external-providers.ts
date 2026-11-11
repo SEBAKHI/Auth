@@ -31,6 +31,45 @@ function writeProvidersHint(codes: string[]): void {
   }
 }
 
+type ExternalProviders = Awaited<ReturnType<typeof fetchExternalProviders>>
+
+async function fetchExternalProviders() {
+  const providers = await unwrap(api.GET("/api/v1/Auth/external-providers"))
+  writeProvidersHint(providers.map((p) => p.code.toLowerCase()))
+  return providers
+}
+
+/**
+ * The providers query, shared by the hook below and by a button that must wait for the live
+ * answer before it acts (the Google button: queryClient.fetchQuery with this, on click).
+ */
+export function externalProvidersQuery() {
+  return {
+    queryKey: ["external-providers"] as const,
+    queryFn: fetchExternalProviders,
+    staleTime: 5 * 60 * 1000,
+  }
+}
+
+/**
+ * What one answer of the API makes usable. The API already filters to providers it considers
+ * usable; requiring a non-empty id as well keeps a button from rendering when neither the API
+ * nor the build supplied one.
+ */
+export function resolveExternalProviders(data: ExternalProviders | undefined) {
+  const byCode = new Map((data ?? []).map((p) => [p.code.toLowerCase(), p]))
+  const google = byCode.get("google")
+  const apple = byCode.get("apple")
+  const googleClientId = google?.clientId || GOOGLE_CLIENT_ID
+  const appleServicesId = apple?.clientId || APPLE_SERVICES_ID
+  return {
+    googleEnabled: Boolean(google) && googleClientId.length > 0,
+    googleClientId,
+    appleEnabled: Boolean(apple) && appleServicesId.length > 0,
+    appleServicesId,
+  }
+}
+
 /**
  * Which external sign-in options are usable, and the public client id each one
  * must be initialized with.
@@ -46,46 +85,20 @@ export function useExternalProviders(): {
   googleEnabled: boolean
   googleClientId: string
   /**
-   * Whether to start loading Google's button now: the live answer once it is in,
-   * else what this browser heard last time. It never decides that the button
-   * shows, which takes `googleEnabled`; it only lets Google's script and the
-   * server's nonce load while the live answer is on its way, instead of after it.
+   * Whether Google is offered: the live answer once it is in, else what this browser heard
+   * last time. The Google button shows on it, so it appears with the page; a click waits for
+   * the live answer before it goes to Google, and the button goes when that answer says no.
    */
   googleExpected: boolean
   appleEnabled: boolean
   appleServicesId: string
 } {
-  const providersQuery = useQuery({
-    queryKey: ["external-providers"],
-    queryFn: async () => {
-      const providers = await unwrap(api.GET("/api/v1/Auth/external-providers"))
-      writeProvidersHint(providers.map((p) => p.code.toLowerCase()))
-      return providers
-    },
-    staleTime: 5 * 60 * 1000,
-  })
+  const providersQuery = useQuery(externalProvidersQuery())
   const [hint] = React.useState(readProvidersHint)
-
-  const byCode = new Map(
-    (providersQuery.data ?? []).map((p) => [p.code.toLowerCase(), p])
-  )
-
-  const google = byCode.get("google")
-  const apple = byCode.get("apple")
-
-  const googleClientId = google?.clientId || GOOGLE_CLIENT_ID
-  const appleServicesId = apple?.clientId || APPLE_SERVICES_ID
-
-  // The API already filters to providers it considers usable; requiring a
-  // non-empty id as well keeps the button from rendering when neither the API
-  // nor the build supplied one.
-  const googleEnabled = Boolean(google) && googleClientId.length > 0
+  const resolved = resolveExternalProviders(providersQuery.data)
 
   return {
-    googleEnabled,
-    googleClientId,
-    googleExpected: providersQuery.data ? googleEnabled : hint.includes("google"),
-    appleEnabled: Boolean(apple) && appleServicesId.length > 0,
-    appleServicesId,
+    ...resolved,
+    googleExpected: providersQuery.data ? resolved.googleEnabled : hint.includes("google"),
   }
 }

@@ -433,6 +433,9 @@ export const en = {
       onlyWayIn: "After this, your password and emailed codes stop signing you in here, only the passkey does, on the devices that hold it; set up an authenticator app too if you need another way in.",
     },
     continueWithApple: "Continue with Apple",
+    continueWithGoogle: "Continue with Google",
+    googlePopupBlocked:
+      "Your browser blocked the Google sign-in window. Allow pop-ups for this site, then try again.",
     privacyPolicy: "Privacy policy",
     policyUpdatedNotice: "Our privacy policy has been updated.",
     policyUpdatedView: "View the policy",
@@ -1644,6 +1647,8 @@ export const en = {
         "A set of keys with a current-key pointer, not one value. Provisioned and rotated at startup.",
       smtpPassword:
         "Owned by your mail provider — the system only stores what they issued.",
+      googleClientSecret:
+        "Owned by Google Cloud Console — the system only stores what it issued. The server finishes every Google sign-in with it.",
       connectionString:
         "Owned by the database server. Checked against it before it is stored.",
     },
@@ -1663,6 +1668,13 @@ export const en = {
     setSmtpPassword: "Set SMTP password",
     setSmtpPasswordHint:
       "Stored encrypted and used instead of the Email:Password setting. Send a test email after restarting to confirm it.",
+    setGoogleClientSecret: "Set Google client secret",
+    setGoogleClientSecretHint:
+      "From Google Cloud Console → Credentials → your OAuth client. Stored encrypted. Until it is set and the API restarts, Google sign-in fails.",
+    clearGoogleClientSecretTitle: "Remove the Google client secret?",
+    clearGoogleClientSecretBody:
+      "After the next API restart, Google sign-in stops working until a new secret is set here.",
+    googleClientSecretCleared: "Removed. Restart the API to apply it.",
     setConnectionString: "Set database connection string",
     setConnectionStringHint:
       "Stored encrypted and used instead of the ConnectionStrings:AuthDb setting, including any value in web.config.",
@@ -2791,6 +2803,12 @@ export const en = {
       passkeyLookupWindowSeconds: "Passkey check window (seconds)",
       passkeyLookupWindowSecondsHint:
         "The span the passkey check count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new client windows the moment you save.",
+      externalCodePermitLimit: "Google sign-in code exchanges per window",
+      externalCodePermitLimitHint:
+        "How many times one client IP may have this server exchange a Google sign-in code at Google in a window, before it is refused with 429. One Google sign-in spends one of these and one authentication attempt (the sign-in that follows), so twenty a minute equals the authentication default. Nothing can be guessed here: this bounds how often one address can make the server call Google. Applies to new client windows the moment you save.",
+      externalCodeWindowSeconds: "Google code exchange window (seconds)",
+      externalCodeWindowSecondsHint:
+        "The span the code exchange count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new client windows the moment you save.",
     },
     gatewayRateLimiting: {
       title: "Rate limiting (Gateway)",
@@ -2878,10 +2896,12 @@ export const en = {
       incompleteBody:
         "This provider is on, but its sign-in button stays hidden while any credential here is empty.",
       googleEnabled: "Google sign-in",
-      googleEnabledHint: "Requires a valid client ID below.",
+      googleEnabledHint:
+        "Requires a valid client ID below, and the client secret under Secret management.",
       googleClientId: "Google client ID",
       googleClientIdHint:
         "From Google Cloud Console → Credentials. Public value, safe to store here.",
+      googleClientSecret: "Google client secret",
       appleEnabled: "Apple sign-in",
       appleEnabledHint:
         "Requires the Services ID, Team ID, Key ID, and the .p8 key under Secret management.",

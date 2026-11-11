@@ -9,12 +9,13 @@ import { en } from "@authsystem/i18n/locales/en"
 
 const get = vi.fn()
 const put = vi.fn()
+const del = vi.fn()
 
 vi.mock("@authsystem/api/client", () => ({
   api: {
     GET: (...args: unknown[]) => get(...args),
     PUT: (...args: unknown[]) => put(...args),
-    DELETE: vi.fn(),
+    DELETE: (...args: unknown[]) => del(...args),
   },
 }))
 
@@ -82,6 +83,7 @@ function statusPayload() {
         AccountDeletionIdentifierHmacKey: "Configured",
         PasswordPepper: "Configured",
         SmtpPassword: "NotConfigured",
+        GoogleClientSecret: "Configured",
         "ConnectionStrings.AuthDb": "NotConfigured",
       },
     },
@@ -242,7 +244,7 @@ describe("SecretsPage — storing the credential secrets", () => {
     await screen.findByText("ConnectionStrings.AuthDb")
 
     // An external party owns the value, so it can only be transcribed.
-    for (const key of ["SmtpPassword", "ConnectionStrings.AuthDb"]) {
+    for (const key of ["SmtpPassword", "GoogleClientSecret", "ConnectionStrings.AuthDb"]) {
       expect(
         within(rowFor(key)).getByRole("button", { name: "Edit" })
       ).toBeInTheDocument()
@@ -361,6 +363,57 @@ describe("SecretsPage — storing the credential secrets", () => {
 
     await screen.findByText("This changes a key the whole platform runs on")
     expect(put).not.toHaveBeenCalled()
+  })
+
+  /**
+   * S02 PR D: Google's client secret is owned by Google Cloud Console, so its row is a plain
+   * edit form like the SMTP password, plus a Remove that asks first and is offered only while
+   * a secret is set. Deliberate breaks, verified red: the PUT sent to the SMTP endpoint; Remove
+   * offered while nothing is set; DELETE sent without the confirmation.
+   */
+  it("posts Google's client secret to its own endpoint, masked while typing", async () => {
+    const user = await openDialogFor("GoogleClientSecret")
+
+    const input = await screen.findByLabelText("Value")
+    expect(input).toHaveAttribute("type", "password")
+    await user.type(input, "GOCSPX-new")
+    await user.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() =>
+      expect(put).toHaveBeenCalledWith("/api/v1/admin/Secrets/google-client-secret", {
+        body: { value: "GOCSPX-new" },
+      })
+    )
+    expect(rowFor("GoogleClientSecret")).toHaveTextContent(/Google Cloud Console/)
+  })
+
+  it("removes Google's client secret only after the confirmation", async () => {
+    del.mockReset().mockResolvedValue({})
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText("GoogleClientSecret")
+
+    await user.click(within(rowFor("GoogleClientSecret")).getByRole("button", { name: "Remove" }))
+    const dialog = await screen.findByRole("alertdialog")
+    expect(dialog).toHaveTextContent("Remove the Google client secret?")
+    expect(del).not.toHaveBeenCalled()
+
+    await user.click(within(dialog).getByRole("button", { name: "Remove" }))
+    await waitFor(() => expect(del).toHaveBeenCalledWith("/api/v1/admin/Secrets/google-client-secret"))
+  })
+
+  it("offers no Remove while no Google client secret is set", async () => {
+    get.mockReset().mockImplementation((path: string) => {
+      if (path === "/api/v1/admin/Secrets/keyring") return Promise.resolve(keyringPayload())
+      const status = statusPayload()
+      status.data.secrets.GoogleClientSecret = "NotConfigured"
+      return Promise.resolve(status)
+    })
+    renderPage()
+    await screen.findByText("GoogleClientSecret")
+
+    expect(within(rowFor("GoogleClientSecret")).getByRole("button", { name: "Edit" })).toBeInTheDocument()
+    expect(within(rowFor("GoogleClientSecret")).queryByRole("button", { name: "Remove" })).toBeNull()
   })
 
   it("posts the SMTP password to its own endpoint, masked while typing", async () => {

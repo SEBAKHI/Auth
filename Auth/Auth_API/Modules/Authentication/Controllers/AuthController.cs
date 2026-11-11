@@ -25,6 +25,7 @@ using Auth.Application.Features.Authentication.Login;
 using Auth.Application.Features.Authentication.Logout;
 using Auth.Application.Features.Authentication.LogoutWithIdpSessionCookie;
 using Auth.Application.Features.Authentication.LogoutWithRefreshCookie;
+using Auth.Application.Features.Authentication.ExchangeGoogleCode;
 using Auth.Application.Features.Authentication.ExternalLogin;
 using Auth.Application.Features.Authentication.TokenExchange;
 using Auth.Application.Features.Authentication.RefreshToken;
@@ -405,6 +406,67 @@ public class AuthController : ApiController
                 ExternalNonceCookie.Apply(Response, issued.CookieValue);
                 Response.Headers.CacheControl = "no-store";
                 return Ok(new ExternalNonceResponse(issued.Nonce));
+            },
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// The page of each first-party app Google sends the person back to with the one-time
+    /// code (<c>google-callback.html</c> in both apps). Every client's list of authorized
+    /// redirect URIs at Google carries this path on each app's origin.
+    /// </summary>
+    public const string GoogleCallbackPath = "/google-callback.html";
+
+    /// <summary>
+    /// Exchanges the one-time code Google sent back to an app's callback page for the ID token,
+    /// which the app then presents to <c>external-login</c> as before.
+    /// </summary>
+    /// <remarks>
+    /// Returns the ID token only, never Google's access or refresh token, and signs nobody in:
+    /// <c>external-login</c> validates the token (signature, audience, the server-issued nonce)
+    /// exactly as when Google's own button handed it to the page. The callback address sent to
+    /// Google is built here from the verified Origin (<c>&lt;origin&gt;/google-callback.html</c>),
+    /// never read from the request, so a request without a listed first-party Origin is refused.
+    /// <para>
+    /// Its own rate limit, <c>external-code</c>: one Google sign-in spends one permit here and one
+    /// on <c>login</c> at <c>external-login</c>, where it used to spend only the second.
+    /// </para>
+    /// </remarks>
+    /// <param name="request">The code and the PKCE verifier.</param>
+    /// <param name="originResolver">Resolves the Origin to the app it names.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The ID token.</returns>
+    [HttpPost("external/google/code")]
+    [AllowAnonymous]
+    [EnableRateLimiting("external-code")]
+    [RequireFirstPartyOrigin]
+    [RequireFirstPartyAppOrigin]
+    [ProducesResponseType(typeof(GoogleCodeExchangeResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> ExchangeGoogleCode(
+        [FromBody] GoogleCodeExchangeRequest request,
+        [FromServices] IFirstPartyOriginResolver originResolver,
+        CancellationToken cancellationToken)
+    {
+        // The filter above refused every request this does not resolve; checked again so the
+        // address can never be built from anything but a listed app's origin.
+        if (originResolver.Resolve(Request) is not { } app)
+        {
+            return Problem([Auth.Domain.Errors.AuthErrors.FirstPartyOriginRequired]);
+        }
+
+        var result = await _sender.Send(
+            new ExchangeGoogleCodeCommand(request.Code, request.CodeVerifier, app.Origin + GoogleCallbackPath),
+            cancellationToken);
+
+        return result.Match<IActionResult>(
+            exchanged =>
+            {
+                Response.Headers.CacheControl = "no-store";
+                return Ok(new GoogleCodeExchangeResponse(exchanged.IdToken));
             },
             errors => Problem(errors));
     }

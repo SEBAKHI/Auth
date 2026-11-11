@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { KeyRound, Lock, Pencil, RefreshCw, TriangleAlert } from "lucide-react"
+import { KeyRound, Lock, Pencil, RefreshCw, Trash2, TriangleAlert } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -197,20 +197,27 @@ function ImportDialog({
 }
 
 /**
- * The two first-class secrets that carry a credential rather than key material,
+ * The first-class secrets that carry a credential rather than key material,
  * keyed by the name the status endpoint reports them under.
  *
- * Both used to be supplied as plaintext environment variables in web.config,
- * which is why they render as "not configured": the badge reads the encrypted
- * file, not the resolved configuration. The generic custom-secret dialog cannot
- * set them — it namespaces every key under `Custom:`, which lands the value in
- * `Secrets:Custom:*` where nothing reads it.
+ * The SMTP password and the connection string used to be supplied as plaintext
+ * environment variables in web.config, which is why they render as "not
+ * configured": the badge reads the encrypted file, not the resolved configuration.
+ * The generic custom-secret dialog cannot set them — it namespaces every key under
+ * `Custom:`, which lands the value in `Secrets:Custom:*` where nothing reads it.
+ * Google's client secret (S02 PR D) is the server's half of the Google sign-in.
  */
 const SETTABLE_KNOWN_SECRETS = {
   SmtpPassword: {
     endpoint: "/api/v1/admin/Secrets/smtp-password",
     labelKey: "secrets.setSmtpPassword",
     hintKey: "secrets.setSmtpPasswordHint",
+    multiline: false,
+  },
+  GoogleClientSecret: {
+    endpoint: "/api/v1/admin/Secrets/google-client-secret",
+    labelKey: "secrets.setGoogleClientSecret",
+    hintKey: "secrets.setGoogleClientSecretHint",
     multiline: false,
   },
   "ConnectionStrings.AuthDb": {
@@ -225,6 +232,26 @@ type KnownSecretKey = keyof typeof SETTABLE_KNOWN_SECRETS
 
 function isSettableKnownSecret(key: string): key is KnownSecretKey {
   return Object.hasOwn(SETTABLE_KNOWN_SECRETS, key)
+}
+
+/**
+ * The credential secrets that may also be removed: the feature that reads them works without
+ * them (Google sign-in is then refused with "not configured"), so taking one out is a decision,
+ * not a breakage of the platform. Removing asks first, and applies at the next API restart.
+ */
+const CLEARABLE_KNOWN_SECRETS = {
+  GoogleClientSecret: {
+    endpoint: "/api/v1/admin/Secrets/google-client-secret",
+    titleKey: "secrets.clearGoogleClientSecretTitle",
+    bodyKey: "secrets.clearGoogleClientSecretBody",
+    doneKey: "secrets.googleClientSecretCleared",
+  },
+} as const
+
+type ClearableSecretKey = keyof typeof CLEARABLE_KNOWN_SECRETS
+
+function isClearableKnownSecret(key: string): key is ClearableSecretKey {
+  return Object.hasOwn(CLEARABLE_KNOWN_SECRETS, key)
 }
 
 /**
@@ -275,6 +302,7 @@ const SECRET_GOVERNANCE: Record<
   },
   PasswordPepper: { descriptionKey: "secrets.about.passwordPepper" },
   SmtpPassword: { descriptionKey: "secrets.about.smtpPassword" },
+  GoogleClientSecret: { descriptionKey: "secrets.about.googleClientSecret" },
   "ConnectionStrings.AuthDb": {
     descriptionKey: "secrets.about.connectionString",
   },
@@ -505,6 +533,10 @@ export function SecretsPage() {
   const [customOpen, setCustomOpen] = React.useState(false)
   const [knownSecretKey, setKnownSecretKey] = React.useState<KnownSecretKey>()
   const [deleteOpen, setDeleteOpen] = React.useState(false)
+  // Open apart from the key: the key outlives the dialog, so its title and description stay
+  // during the close animation (REVIEW 162 F8.5).
+  const [clearOpen, setClearOpen] = React.useState(false)
+  const [clearKey, setClearKey] = React.useState<ClearableSecretKey>()
   const [deleteKey, setDeleteKey] = React.useState("")
   const [pendingOperation, setPendingOperation] =
     React.useState<PendingSecretOperation>()
@@ -537,6 +569,20 @@ export function SecretsPage() {
       toast.success(t("secrets.customDeleted"))
       setDeleteOpen(false)
       setDeleteKey("")
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
+  const clearMutation = useMutation({
+    mutationFn: async (key: ClearableSecretKey) => {
+      const { error } = await api.DELETE(CLEARABLE_KNOWN_SECRETS[key].endpoint)
+      if (error) throw error
+      return key
+    },
+    onSuccess: (key) => {
+      void queryClient.invalidateQueries({ queryKey: ["secrets", "status"] })
+      toast.success(t(CLEARABLE_KNOWN_SECRETS[key].doneKey))
+      setClearOpen(false)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -693,6 +739,19 @@ export function SecretsPage() {
                           {t("common.edit")}
                         </Button>
                       ) : null}
+                      {isClearableKnownSecret(key) && meta.key === "configured" ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setClearKey(key)
+                            setClearOpen(true)
+                          }}
+                        >
+                          <Trash2 data-icon="inline-start" />
+                          {t("common.remove")}
+                        </Button>
+                      ) : null}
                       {material ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -833,6 +892,17 @@ export function SecretsPage() {
           />
         </Field>
       </ConfirmDialog>
+
+      <ConfirmDialog
+        open={clearOpen}
+        onOpenChange={setClearOpen}
+        title={clearKey ? t(CLEARABLE_KNOWN_SECRETS[clearKey].titleKey) : ""}
+        description={clearKey ? t(CLEARABLE_KNOWN_SECRETS[clearKey].bodyKey) : ""}
+        confirmLabel={t("common.remove")}
+        destructive
+        loading={clearMutation.isPending}
+        onConfirm={() => clearKey && clearMutation.mutate(clearKey)}
+      />
 
       <SecretRevealDialog
         open={Boolean(reveal)}

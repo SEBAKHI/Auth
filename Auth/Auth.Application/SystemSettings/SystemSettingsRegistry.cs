@@ -365,7 +365,13 @@ public static class SystemSettingsRegistry
                 // minute equals the login default, and it is what bounds how fast a stranger can
                 // learn who holds a passkey. Appended last, as the pairs above were.
                 new SettingFieldDefinition("PasskeyLookupPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
-                new SettingFieldDefinition("PasskeyLookupWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
+                new SettingFieldDefinition("PasskeyLookupWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // The Google sign-in's code exchange (S02 PR D): how often one address can make
+                // this process call Google's token endpoint. Its own pair, so a Google sign-in
+                // spends one login permit (at external-login) and one of these, never two of the
+                // login twenty. Appended last, as the pairs above were.
+                new SettingFieldDefinition("ExternalCodePermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
+                new SettingFieldDefinition("ExternalCodeWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
             ]),
 
         new SettingSectionDefinition(
@@ -470,6 +476,9 @@ public static class SystemSettingsRegistry
             [
                 new SettingFieldDefinition("Google:Enabled", SettingKind.Bool, DefaultValue: false),
                 new SettingFieldDefinition("Google:ClientId", SettingKind.String, DefaultValue: ""),
+                // Secret-owned (SecretOwnedKeys): set on the console's Secrets page, shown
+                // here as a link to it, like Apple's key below.
+                new SettingFieldDefinition("Google:ClientSecret", SettingKind.String, Sensitive: true),
                 new SettingFieldDefinition("Apple:Enabled", SettingKind.Bool, DefaultValue: false),
                 new SettingFieldDefinition("Apple:ServicesId", SettingKind.String, DefaultValue: ""),
                 new SettingFieldDefinition("Apple:TeamId", SettingKind.String, DefaultValue: ""),

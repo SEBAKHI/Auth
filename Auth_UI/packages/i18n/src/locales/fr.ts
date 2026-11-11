@@ -426,6 +426,9 @@ export const fr: TranslationResources = {
       onlyWayIn: "Ensuite, votre mot de passe et les codes reçus par e-mail ne vous connecteront plus ici, seule la clé d’accès le fera, sur les appareils qui la détiennent ; configurez aussi une application d’authentification si vous avez besoin d’un autre moyen d’accès.",
     },
     continueWithApple: "Continuer avec Apple",
+    continueWithGoogle: "Continuer avec Google",
+    googlePopupBlocked:
+      "Votre navigateur a bloqué la fenêtre de connexion Google. Autorisez les fenêtres pop-up pour ce site, puis réessayez.",
     privacyPolicy: "Politique de confidentialité",
     policyUpdatedNotice:
       "Notre politique de confidentialité a été mise à jour.",
@@ -1655,6 +1658,8 @@ export const fr: TranslationResources = {
         "Un ensemble de clés avec un pointeur vers la clé courante, pas une valeur unique. Provisionné et alterné au démarrage.",
       smtpPassword:
         "Appartient à votre fournisseur de messagerie — le système ne stocke que ce qu'il a émis.",
+      googleClientSecret:
+        "Appartient à Google Cloud Console — le système ne stocke que ce qu'elle a émis. Le serveur termine chaque connexion Google avec lui.",
       connectionString:
         "Appartient au serveur de base de données. Vérifiée auprès de lui avant d'être stockée.",
     },
@@ -1674,6 +1679,13 @@ export const fr: TranslationResources = {
     setSmtpPassword: "Définir le mot de passe SMTP",
     setSmtpPasswordHint:
       "Stocké chiffré et utilisé à la place du paramètre Email:Password. Envoyez un e-mail de test après le redémarrage pour le confirmer.",
+    setGoogleClientSecret: "Définir le secret client Google",
+    setGoogleClientSecretHint:
+      "Dans Google Cloud Console → Identifiants → votre client OAuth. Stocké chiffré. Tant qu'il n'est pas défini et que l'API n'a pas redémarré, la connexion Google échoue.",
+    clearGoogleClientSecretTitle: "Supprimer le secret client Google ?",
+    clearGoogleClientSecretBody:
+      "Après le prochain redémarrage de l'API, la connexion Google ne fonctionne plus tant qu'un nouveau secret n'est pas défini ici.",
+    googleClientSecretCleared: "Supprimé. Redémarrez l'API pour l'appliquer.",
     setConnectionString: "Définir la chaîne de connexion à la base de données",
     setConnectionStringHint:
       "Stockée chiffrée et utilisée à la place du paramètre ConnectionStrings:AuthDb, y compris toute valeur définie dans web.config.",
@@ -2826,6 +2838,12 @@ export const fr: TranslationResources = {
         "Fenêtre de vérification de clé d'accès (secondes)",
       passkeyLookupWindowSecondsHint:
         "La durée sur laquelle le compte de vérifications ci-dessus est mesuré, avec la même mécanique de fenêtre fixe : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres clientes dès l'enregistrement.",
+      externalCodePermitLimit: "Échanges de code de connexion Google par fenêtre",
+      externalCodePermitLimitHint:
+        "Combien de fois une même IP cliente peut faire échanger par ce serveur un code de connexion Google auprès de Google dans une fenêtre, avant d'être refusée avec 429. Une connexion Google en consomme un, plus une tentative d'authentification (la connexion qui suit) : vingt par minute égalent donc la valeur par défaut de l'authentification. Rien ne peut être deviné ici : cette limite borne la fréquence à laquelle une adresse fait appeler Google par le serveur. S'applique aux nouvelles fenêtres client dès l'enregistrement.",
+      externalCodeWindowSeconds: "Fenêtre d'échange de code Google (secondes)",
+      externalCodeWindowSecondsHint:
+        "La durée sur laquelle le nombre d'échanges ci-dessus est mesuré, selon le même mécanisme de fenêtre fixe que les autres : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres client dès l'enregistrement.",
     },
     gatewayRateLimiting: {
       title: "Limitation de débit (passerelle)",
@@ -2915,10 +2933,12 @@ export const fr: TranslationResources = {
       incompleteBody:
         "Ce fournisseur est activé, mais son bouton de connexion reste masqué tant qu'un identifiant ici est vide.",
       googleEnabled: "Connexion Google",
-      googleEnabledHint: "Nécessite un ID client valide ci-dessous.",
+      googleEnabledHint:
+        "Nécessite un ID client valide ci-dessous, et le secret client sous Gestion des secrets.",
       googleClientId: "ID client Google",
       googleClientIdHint:
         "Depuis Google Cloud Console → Credentials. Valeur publique, sans risque à stocker ici.",
+      googleClientSecret: "Secret client Google",
       appleEnabled: "Connexion Apple",
       appleEnabledHint:
         "Nécessite le Services ID, le Team ID, le Key ID et la clé .p8 sous Gestion des secrets.",

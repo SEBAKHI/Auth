@@ -24,7 +24,9 @@ public static class ProductionSecretGuard
         "Jwt:PrivateKeyPath",
         "Jwt:RefreshTokenHmacKeyPlain",
         "AccountDeletion:IdentifierHmacKeyPlain",
-        "ExternalAuth:Apple:PrivateKeyPem"
+        "ExternalAuth:Apple:PrivateKeyPem",
+        // Whoever holds it can exchange codes for this deployment's Google client.
+        "ExternalAuth:Google:ClientSecret"
     ];
 
     /// <summary>

@@ -6,6 +6,7 @@ import { defineConfig } from "vite"
 import { apiPreconnect } from "../../api-preconnect"
 import { devHttps } from "../../dev-https"
 import { faviconLink } from "../../favicon-link"
+import { googleCallbackInputs } from "../../google-callback"
 import { assetsCors, htmlInputs } from "../../login-design-frame"
 import { themeBoot } from "../../theme-boot"
 import { vendorChunk } from "../../vendor-chunks"
@@ -39,8 +40,9 @@ export default defineConfig((config) => ({
     // 2.5 MB chunk before route splitting, so a silent 500 kB warning was useless.
     chunkSizeWarningLimit: 400,
     rollupOptions: {
-      // The frame of a sign-in page design is a second page (login-design-frame.ts).
-      input: htmlInputs(__dirname),
+      // The frame of a sign-in page design is a second page (login-design-frame.ts), and
+      // the page Google returns to after the Google sign-in a third (google-callback.ts).
+      input: { ...htmlInputs(__dirname), ...googleCallbackInputs(__dirname) },
       output: {
         // Split the heavy vendors into their own chunks so a route that does not
         // use them never pays for them: recharts is only the dashboard, CodeMirror

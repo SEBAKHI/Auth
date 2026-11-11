@@ -565,6 +565,18 @@
   <data name="ExternalAuth.NonceRequired" xml:space="preserve">
     <value>无法验证此次登录，请重试。</value>
   </data>
+  <data name="ExternalAuth.CodeExchangeFailed" xml:space="preserve">
+    <value>无法通过该提供商完成登录，请重试。</value>
+  </data>
+  <data name="ExternalAuth.CodeRequired" xml:space="preserve">
+    <value>提供商的代码为必填项。</value>
+  </data>
+  <data name="ExternalAuth.CodeTooLong" xml:space="preserve">
+    <value>提供商的代码不得超过 512 个字符。</value>
+  </data>
+  <data name="ExternalAuth.CodeVerifierInvalid" xml:space="preserve">
+    <value>代码验证器（code verifier）必须为 43 到 128 个字母、数字或 - . _ ~ 字符。</value>
+  </data>
   <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
     <value>此{0}账户已关联到其他用户。</value>
   </data>

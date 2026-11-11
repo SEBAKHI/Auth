@@ -17,6 +17,7 @@
 import { createHash } from "node:crypto"
 import type { Plugin } from "vite"
 
+import { GOOGLE_CALLBACK_HTML } from "./google-callback"
 import { LOGIN_DESIGN_FRAME_HTML } from "./login-design-frame"
 import { bootThemeScript, type BootOptions } from "./packages/ui/src/theme/boot-theme"
 
@@ -45,9 +46,10 @@ export function themeBoot(options: BootOptions): Plugin {
       // would otherwise warn about, or rewrite, a script without type="module".
       order: "post",
       // Not into the design frame's page: it has no colour mode of its own (the page
-      // that frames it sends one), and its policy runs no script but its receiver.
+      // that frames it sends one), and its policy runs no script but its receiver. Nor
+      // into the Google callback page, which shows nothing and loads only its module.
       handler: (_html, context) =>
-        context.filename.endsWith(LOGIN_DESIGN_FRAME_HTML)
+        context.filename.endsWith(LOGIN_DESIGN_FRAME_HTML) || context.filename.endsWith(GOOGLE_CALLBACK_HTML)
           ? []
           : [{ tag: "script", attrs: { src: `/${fileName}` }, injectTo: "head-prepend" }],
     },

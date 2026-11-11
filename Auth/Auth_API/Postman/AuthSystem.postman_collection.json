@@ -544,6 +544,40 @@
 					}
 				},
 				{
+					"name": "Exchange Google Code",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    pm.collectionVariables.set('googleIdToken', pm.response.json().idToken || '');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Origin", "value": "https://accounts.example.com", "description": "Must be exactly one of IdentityProvider:FirstPartySpaOrigins; the callback address sent to Google is built from it." }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"<the code Google appended to /google-callback.html>\",\n    \"codeVerifier\": \"<the PKCE verifier whose S256 challenge went to Google>\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/external/google/code",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "external", "google", "code"]
+						},
+						"description": "The Google sign-in's code exchange (authorization code + PKCE). The apps open a popup to Google's authorization page with response_type=code, a state, the server-issued nonce (POST {{baseUrl}}/api/v1/auth/external-nonce) and an S256 code_challenge, and redirect_uri=<app origin>/google-callback.html. Google appends a one-time code to that address; this request exchanges it, with the client secret (ExternalAuth:Google:ClientSecret, set on the console's Secrets page) and the verifier, for the ID token. Returns { idToken } only (never Google's access or refresh token), with Cache-Control: no-store; nobody is signed in here. Then send that token to External Login.\n\nRefused with 403 Auth.FirstPartyOriginRequired without a listed Origin (none, or while the list is empty, included). 400 ExternalAuth.CodeExchangeFailed when Google refuses the code; 400 ExternalAuth.ProviderNotConfigured when Google is off, the id or secret is missing, or Google refuses the client; 503 Http.Unavailable when Google cannot be reached. Rate limit: external-code (20 per 60 s per address)."
+					}
+				},
+				{
 					"name": "External Login (Google)",
 					"event": [
 						{
@@ -574,7 +608,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "external-login"]
 						},
-						"description": "Authenticates a user via an external provider (e.g., Google). Send the provider's ID token obtained from the frontend SDK. If the user doesn't exist, a new account is created (with email auto-verified). If they do exist, they are logged in. Optionally creates a personal organization when createOrganization is set to true (default: false), only while Organizations:AllowSelfServiceCreation is on (it ships off).\n\nThe nonce is required (ExternalAuth:RequireNonce, on by default): first call POST {{baseUrl}}/api/v1/auth/external-nonce from the same cookie jar, put the returned nonce in the externalNonce variable, and have Google mint the ID token with that same nonce. Without it the request is refused with ExternalAuth.NonceRequired.\n\nTo test: obtain a Google ID token from Google Sign-In JS SDK or OAuth Playground, paste it in the idToken field."
+						"description": "Authenticates a user via an external provider (e.g., Google). Send the provider's ID token obtained from the frontend SDK. If the user doesn't exist, a new account is created (with email auto-verified). If they do exist, they are logged in. Optionally creates a personal organization when createOrganization is set to true (default: false), only while Organizations:AllowSelfServiceCreation is on (it ships off).\n\nThe nonce is required (ExternalAuth:RequireNonce, on by default): first call POST {{baseUrl}}/api/v1/auth/external-nonce from the same cookie jar, put the returned nonce in the externalNonce variable, and have Google mint the ID token with that same nonce. Without it the request is refused with ExternalAuth.NonceRequired.\n\nThe shipped apps obtain the ID token through Exchange Google Code (the authorization-code method, no Google script in the page). To test by hand: run that request with a code and verifier from a real sign-in, or obtain a Google ID token from OAuth Playground minted with the nonce above, and paste it in the idToken field."
 					}
 				},
 				{
