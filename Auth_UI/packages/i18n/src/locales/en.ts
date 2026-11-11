@@ -416,6 +416,11 @@ export const en = {
       removedPasskeyWayOut: "If you removed this passkey from your account, delete it from this device's saved passkeys too, then sign in another way.",
       deviceRefused: "This device or browser could not use a passkey here. Try again, or sign in another way.",
       lostIt: "I lost my passkey",
+      screenTitle: "Use your passkey",
+      screenSubtitle:
+        "Your device will ask you to confirm it's you, with your fingerprint, face, screen lock or security key.",
+      tryAnotherWay: "Try another way",
+      otherWaysHeading: "Other ways to sign in",
     },
     continueWithApple: "Continue with Apple",
     privacyPolicy: "Privacy policy",
@@ -645,6 +650,7 @@ export const en = {
     accountCreated: "Your account is ready.",
     signInOrCreateTitle: "Sign in or create an account",
     continueWithEmail: "Continue with email",
+    continue: "Continue",
     signInWithPasswordInstead: "Sign in with a password instead",
     signInWithEmailCode: "Sign in with a code sent to your email",
     invalidCredentialsOrCode:
@@ -2763,6 +2769,12 @@ export const en = {
         "Application directory window without a valid token (seconds)",
       appReadAddressWindowSecondsHint:
         "The span the per-address count above is measured over, on the same fixed-window mechanic as the others.",
+      passkeyLookupPermitLimit: "Passkey checks after the address per window",
+      passkeyLookupPermitLimitHint:
+        "How many times one client IP may ask, after typing an address on the sign-in page, whether that address has a passkey, before it is refused with 429. Counted apart from the authentication limit above, so checking an address never spends a sign-in attempt, and apart from the sign-in page limit, because this answers about an account: anyone can ask it, and this number bounds how fast they can learn which addresses hold a passkey. Twenty a minute equals the authentication default. Move it together with the gateway's passkey check limit: the lower of the two is the one a client meets.",
+      passkeyLookupWindowSeconds: "Passkey check window (seconds)",
+      passkeyLookupWindowSecondsHint:
+        "The span the passkey check count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new client windows the moment you save.",
     },
     gatewayRateLimiting: {
       title: "Rate limiting (Gateway)",
@@ -2831,6 +2843,12 @@ export const en = {
       appReadWindowSeconds: "Application directory window (seconds)",
       appReadWindowSecondsHint:
         "The span application directory requests are counted over at the edge, on the same fixed-window mechanic. A change reaches the gateway within about 30 seconds rather than instantly, because it pulls its own settings.",
+      passkeyLookupPermitLimit: "Passkey checks after the address per window",
+      passkeyLookupPermitLimitHint:
+        "Covers the sign-in page's passkey check at the edge, on a route of its own: after a visitor types an address, whether that address has a passkey. The outer twin of the passkey check limit in the API section, and the one a client meets first: keep it at or above the inner one and move the two together.",
+      passkeyLookupWindowSeconds: "Passkey check window (seconds)",
+      passkeyLookupWindowSecondsHint:
+        "The span passkey checks are counted over at the edge, on the same fixed-window mechanic. A change reaches the gateway within about 30 seconds rather than instantly, because it pulls its own settings.",
     },
     externalAuth: {
       requireNonce: "Require a server-issued nonce",

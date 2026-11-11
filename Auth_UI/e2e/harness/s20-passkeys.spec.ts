@@ -1,6 +1,9 @@
 import { HOSTS, ORIGINS, expect, test } from "./fixtures"
 import { fulfillJson } from "../isolated/mock-authenticated-api"
-import { loginResponse } from "../isolated/accounts/mock-anonymous-api"
+import {
+  loginResponse,
+  type SeenRequest,
+} from "../isolated/accounts/mock-anonymous-api"
 import {
   PASSKEY_RP_ID,
   USER_HANDLE,
@@ -90,16 +93,42 @@ async function withoutSuggestion(page: import("@playwright/test").Page) {
   })
 }
 
+/** OI-280: the deployment's hint that passkeys may run on the sign-in page. */
+const PASSKEYS_MAY_RUN = { passkeySignInOffered: true }
+
 /**
- * The accounts app's anonymous model: passkey options, and a sign-in that records
- * what was signed. `hold` keeps the sign-in's answer back until the test lets it
- * go, so the page is still there to be read.
+ * The accounts app's anonymous model: passkey options, the sign-in page's lookup
+ * after the address (OI-280: `holders` have a passkey, every other address gets
+ * the same false), and a sign-in that records what was signed. `hold` keeps the
+ * sign-in's answer back until the test lets it go, so the page is still there to
+ * be read; `holdLookup` does the same for the lookup's answer.
  */
-function anonymousPasskeyModel(asserted: Asserted[], hold: Promise<void> = Promise.resolve()) {
+function anonymousPasskeyModel(
+  asserted: Asserted[],
+  hold: Promise<void> = Promise.resolve(),
+  {
+    holders = [USER.email],
+    holdLookup = Promise.resolve(),
+  }: { holders?: string[]; holdLookup?: Promise<void> } = {}
+) {
   return async (route: import("@playwright/test").Route, url: URL) => {
     const path = url.pathname.toLowerCase()
     if (path === "/api/v1/auth/passkeys/assertion/options") {
       await fulfillJson(route, assertionOptions())
+      return true
+    }
+    if (path === "/api/v1/auth/passkeys/lookup") {
+      const body = route.request().postDataJSON() as { email: string }
+      await holdLookup
+      await fulfillJson(route, { passkey: holders.includes(body.email) })
+      return true
+    }
+    if (path === "/api/v1/auth/email-code/start") {
+      await fulfillJson(route, {
+        pendingId: "harness-pending",
+        maskedEmail: "a***@example.com",
+        expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      })
       return true
     }
     if (path === "/api/v1/auth/passkeys/assertion/verify") {
@@ -193,16 +222,25 @@ test("s20: a passkey added in the console signs in at the accounts app", async (
   expect(await authenticator.credentialCount()).toBe(1)
 
   // The accounts app, signed out: the passkey signs in, two factors in one step.
-  await api.useAnonymous(anonymousPasskeyModel(asserted))
+  await api.useAnonymous(anonymousPasskeyModel(asserted), {
+    branding: PASSKEYS_MAY_RUN,
+  })
 
-  // The button, not the address field's suggestion: on this page the browser
-  // says it offers no suggestion, so the button alone signs in (T-C5). The
-  // suggestion has its own test below.
+  // The passkey screen's button, not the address field's suggestion: on this page
+  // the browser says it offers no suggestion, so the button alone signs in (T-C5).
+  // The suggestion has its own test below. OI-280: no button for every visitor;
+  // the address and "Continue" lead to the passkey screen.
   await withoutSuggestion(page)
   await page.goto(`${ORIGINS.accounts}/login`)
+  await expect(page.getByLabel("Email")).toHaveAttribute(
+    "autocomplete",
+    "username"
+  )
+  await page.getByLabel("Email").fill(USER.email)
+  await page.getByRole("button", { name: "Continue", exact: true }).click(FIRST_LOAD)
   const passkey = page.getByTestId("passkey-sign-in").getByRole("button", { name: "Sign in with a passkey" })
   await expect(passkey).toBeEnabled(FIRST_LOAD)
-  await expect(page.getByLabel("Email")).toHaveAttribute("autocomplete", "username")
+  await expect(passkey).toBeFocused()
   await passkey.click()
 
   await expect.poll(() => asserted.length).toBe(1)
@@ -258,21 +296,25 @@ test("s20: where the browser offers it, the address field's suggestion signs in 
 const HANDLE = "0123456789abcdef".repeat(4)
 const PENDING = `client_id=CRM&auth_request=${HANDLE}`
 
+// OI-280 (V11): the button way is the address, "Continue", the passkey screen and
+// its button; the suggestion and the leading button under mfa_passkey are as they
+// were. Deliberate break, verified red: the page goes to the passkey screen
+// without asking (every address taken for one that has a passkey).
 const WAYS_BACK = [
   {
-    name: "the button",
+    name: "the passkey screen's button, after the address",
     query: PENDING,
-    suggestion: false,
+    way: "screen" as const,
   },
   {
     name: "the address field's suggestion",
     query: PENDING,
-    suggestion: true,
+    way: "suggestion" as const,
   },
   {
     name: "the button, when the application asks for the passkey (mfa_passkey)",
     query: `${PENDING}&reason=mfa_passkey&method=password`,
-    suggestion: false,
+    way: "leading" as const,
   },
 ]
 
@@ -286,23 +328,39 @@ for (const way of WAYS_BACK) {
     const credentialId = await authenticator.addCredential()
     const asserted: Asserted[] = []
     const resumes: string[] = []
+    const seen: SeenRequest[] = []
     const passkeyModel = anonymousPasskeyModel(asserted)
     const callback = attacker.serve(HOSTS.linkedApp, "/callback", "<!doctype html><title>The application</title>")
     const landing = `${callback}?code=harness-code&state=harness-state`
 
-    await api.useAnonymous(async (route, url) => {
-      if (url.pathname.toLowerCase() === "/api/v1/auth/authorize/resume" && route.request().method() === "GET") {
-        resumes.push(url.search)
-        await route.fulfill({ status: 302, headers: { location: landing } })
-        return true
-      }
-      return passkeyModel(route, url)
-    })
+    await api.useAnonymous(
+      async (route, url) => {
+        if (
+          url.pathname.toLowerCase() === "/api/v1/auth/authorize/resume" &&
+          route.request().method() === "GET"
+        ) {
+          resumes.push(url.search)
+          await route.fulfill({ status: 302, headers: { location: landing } })
+          return true
+        }
+        return passkeyModel(route, url)
+      },
+      { seen, branding: way.way === "screen" ? PASSKEYS_MAY_RUN : undefined }
+    )
 
-    if (!way.suggestion) await withoutSuggestion(page)
+    if (way.way !== "suggestion") await withoutSuggestion(page)
     await page.goto(`${ORIGINS.accounts}/login?${way.query}`)
 
-    if (!way.suggestion) {
+    if (way.way === "screen") {
+      await page.getByLabel("Email").fill(USER.email)
+      await page
+        .getByRole("button", { name: "Continue", exact: true })
+        .click(FIRST_LOAD)
+      await expect(
+        page.getByRole("heading", { name: "Use your passkey" })
+      ).toBeVisible(FIRST_LOAD)
+    }
+    if (way.way !== "suggestion") {
       const passkey = page.getByTestId("passkey-sign-in").getByRole("button", { name: "Sign in with a passkey" })
       await expect(passkey).toBeEnabled(FIRST_LOAD)
       await passkey.click()
@@ -312,8 +370,195 @@ for (const way of WAYS_BACK) {
     expect(asserted).toEqual([{ credentialId, origin: ORIGINS.accounts, type: "webauthn.get" }])
     // One navigation, carrying the request and nothing of the sign-in's words.
     expect(resumes).toEqual([`?${PENDING}`])
+    // The address was asked about once, on the way to the screen, and nothing was emailed.
+    expect(seen.map((request) => request.path)).toEqual([
+      ...(way.way === "screen" ? ["/api/v1/auth/passkeys/lookup"] : []),
+      "/api/v1/auth/passkeys/assertion/verify",
+    ])
   })
 }
+
+/**
+ * OI-280 (T-A8, D-S20-16): "Try another way" opens the other ways on the passkey
+ * screen itself; the code is today's, sent for the address on the screen.
+ */
+test("s20: try another way on the passkey screen: the code, sent for the address on the screen", async ({
+  page,
+  api,
+}) => {
+  const seen: SeenRequest[] = []
+  await api.useAnonymous(anonymousPasskeyModel([]), {
+    seen,
+    branding: {
+      ...PASSKEYS_MAY_RUN,
+      codeSignInOffered: true,
+      primaryMethod: "password",
+    },
+  })
+
+  await withoutSuggestion(page)
+  await page.goto(`${ORIGINS.accounts}/login`)
+  await page.getByLabel("Email").fill(USER.email)
+  await page
+    .getByRole("button", { name: "Continue", exact: true })
+    .click(FIRST_LOAD)
+  await expect(
+    page.getByTestId("passkey-sign-in").getByRole("button")
+  ).toBeEnabled(FIRST_LOAD)
+  // Nothing has been sent but the question.
+  expect(seen.map((request) => request.path)).toEqual([
+    "/api/v1/auth/passkeys/lookup",
+  ])
+
+  await page.getByRole("button", { name: "Try another way" }).click()
+  const list = page.getByTestId("other-ways")
+  await expect(list.getByRole("button")).toHaveText([
+    "Sign in with a code sent to your email",
+    "Sign in with a password instead",
+  ])
+  await list
+    .getByRole("button", { name: "Sign in with a code sent to your email" })
+    .click()
+
+  await expect(
+    page.getByRole("heading", { name: "Check your email" })
+  ).toBeVisible(FIRST_LOAD)
+  expect(seen).toEqual([
+    {
+      method: "POST",
+      path: "/api/v1/auth/passkeys/lookup",
+      body: { email: USER.email },
+    },
+    {
+      method: "POST",
+      path: "/api/v1/auth/email-code/start",
+      body: expect.objectContaining({ email: USER.email }),
+    },
+  ])
+})
+
+/**
+ * OI-280 (D-S20-10, D-S20-15): an address the server does not know answers as an
+ * address without a passkey, and the page goes on as before it asked: the code is
+ * sent, and there is no passkey screen. The code waits for the answer.
+ * Deliberate break, verified red: the code start sent before the lookup answers.
+ */
+test("s20: an unknown address gets the code, after the answer, and no passkey screen", async ({
+  page,
+  api,
+}) => {
+  const seen: SeenRequest[] = []
+  let answer!: () => void
+  const lookupHeld = new Promise<void>((resolve) => {
+    answer = resolve
+  })
+  await api.useAnonymous(
+    anonymousPasskeyModel([], Promise.resolve(), { holdLookup: lookupHeld }),
+    {
+      seen,
+      branding: {
+        ...PASSKEYS_MAY_RUN,
+        codeSignInOffered: true,
+        primaryMethod: "code",
+      },
+    }
+  )
+
+  await withoutSuggestion(page)
+  await page.goto(`${ORIGINS.accounts}/login`)
+  await page.getByLabel("Email").fill("nobody@example.com")
+  await page
+    .getByRole("button", { name: "Continue with email" })
+    .click(FIRST_LOAD)
+
+  await expect
+    .poll(() => seen.map((request) => request.path))
+    .toEqual(["/api/v1/auth/passkeys/lookup"])
+  // While the answer is on its way, no code has been sent.
+  await page.waitForTimeout(300)
+  expect(seen.map((request) => request.path)).toEqual([
+    "/api/v1/auth/passkeys/lookup",
+  ])
+  answer()
+
+  await expect(
+    page.getByRole("heading", { name: "Check your email" })
+  ).toBeVisible(FIRST_LOAD)
+  await expect(
+    page.getByRole("heading", { name: "Use your passkey" })
+  ).toHaveCount(0)
+  expect(seen.map((request) => request.path)).toEqual([
+    "/api/v1/auth/passkeys/lookup",
+    "/api/v1/auth/email-code/start",
+  ])
+})
+
+/**
+ * OI-280 (T-A9, D-152-2): under mfa_passkey every other way would resume the
+ * request into the application's refusal, so the list holds the way out alone. It
+ * drops the request; the list then offers the other ways, and a password sign-in
+ * lands on Security, with no resume.
+ */
+test("s20: under mfa_passkey the list holds the lost-passkey link alone, and it drops the request", async ({
+  page,
+  api,
+}) => {
+  const resumes: string[] = []
+  const passkeyModel = anonymousPasskeyModel([])
+  await api.useAnonymous(
+    async (route, url) => {
+      const path = url.pathname.toLowerCase()
+      if (path === "/api/v1/auth/authorize/resume") {
+        resumes.push(url.search)
+        await route.fulfill({
+          status: 302,
+          headers: { location: `${ORIGINS.accounts}/never` },
+        })
+        return true
+      }
+      if (path === "/api/v1/auth/login") {
+        await fulfillJson(route, loginResponse(USER))
+        return true
+      }
+      return passkeyModel(route, url)
+    },
+    { branding: PASSKEYS_MAY_RUN }
+  )
+
+  await withoutSuggestion(page)
+  await page.goto(
+    `${ORIGINS.accounts}/login?${PENDING}&reason=mfa_passkey&method=password`
+  )
+  await page.getByLabel("Email").fill(USER.email)
+  await page
+    .getByRole("button", { name: "Continue", exact: true })
+    .click(FIRST_LOAD)
+  await expect(
+    page.getByRole("heading", { name: "Use your passkey" })
+  ).toBeVisible(FIRST_LOAD)
+  await page.getByRole("button", { name: "Try another way" }).click()
+
+  const list = page.getByTestId("other-ways")
+  await expect(list.getByRole("link")).toHaveText(["I lost my passkey"])
+  await expect(list.getByRole("button")).toHaveCount(0)
+  await list.getByTestId("passkey-lost-link").click()
+  await expect.poll(() => new URL(page.url()).search).toBe("")
+
+  // The request is dropped: the same list now offers the other ways.
+  await list
+    .getByRole("button", { name: "Sign in with a password instead" })
+    .click()
+  await page.getByLabel("Password").fill("the password")
+  await page.getByRole("button", { name: "Sign in", exact: true }).click()
+
+  await expect
+    .poll(() => {
+      const { pathname, search } = new URL(page.url())
+      return `${pathname}${search}`
+    })
+    .toBe("/profile?tab=security")
+  expect(resumes).toEqual([])
+})
 
 /**
  * D-152-2: an application requires two steps, and the account's only factor is a

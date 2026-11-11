@@ -82,23 +82,54 @@ public class SignInPageThrottleGuardTests
 
     /// <summary>
     /// S20 PR B: the passkey sign-in and its recovery are sign-in attempts. Only the options the
-    /// page fetches on load are carved out; the two calls that check a passkey stay on the auth
-    /// catch-all, at the sign-in limit, like the password sign-in.
+    /// page fetches on load, and the page's lookup after the address (OI-280), are carved out,
+    /// each by its exact path; the two calls that check a passkey stay on the auth catch-all, at
+    /// the sign-in limit, like the password sign-in.
     /// </summary>
     [Fact]
     public void ThePasskeySignInAndItsRecovery_StayOnTheSignInLimit()
     {
         var routes = GatewayRoutes();
 
-        routes.Should().ContainSingle(route => route.Path.Contains("/auth/passkeys", StringComparison.OrdinalIgnoreCase),
-            "only the options are carved out of the catch-all");
-        routes.Single(route => route.Path.Contains("/auth/passkeys", StringComparison.OrdinalIgnoreCase))
-            .Path.Should().EndWith("/auth/passkeys/assertion/options", "an exact path, so nothing else under /auth/passkeys rides on it");
+        routes.Where(route => route.Path.Contains("/auth/passkeys", StringComparison.OrdinalIgnoreCase))
+            .Select(route => route.Path)
+            .Should().BeEquivalentTo(
+                ["/api/v{version:int}/auth/passkeys/assertion/options", "/api/v{version:int}/auth/passkeys/lookup"],
+                "only the options and the lookup are carved out of the catch-all, each by an exact path, "
+                + "so nothing else under /auth/passkeys rides on them");
 
         var source = ReadSource("Auth_API", "Modules", "Authentication", "Controllers", "PasskeysController.cs");
         AttributeBlockAfter(source, "(\"assertion/options\")").Should().Contain($"[EnableRateLimiting(\"{PolicyName}\")]");
         AttributeBlockAfter(source, "(\"assertion/verify\")").Should().Contain("[EnableRateLimiting(\"login\")]");
         AttributeBlockAfter(source, "(\"assertion/recover\")").Should().Contain("[EnableRateLimiting(\"login\")]");
+    }
+
+    /// <summary>
+    /// OI-280 (T-A2): the sign-in page's lookup after the address answers about an account, so it
+    /// is neither a sign-in attempt nor page rendering. Its own bucket at both layers, with the
+    /// same numbers, on a gateway route of its own that outranks the auth catch-all.
+    /// </summary>
+    /// <remarks>
+    /// Deliberate breaks, verified red: the route's policy set to "auth"; the API action's policy
+    /// set to "login".
+    /// </remarks>
+    [Fact]
+    public void ThePasskeyLookup_HasItsOwnBucket_AtBothLayers()
+    {
+        var routes = GatewayRoutes();
+        var route = routes.SingleOrDefault(r => r.Name == "passkey-lookup-route");
+        route.Should().NotBeNull("the edge must forward the lookup on a route of its own");
+        route!.Path.Should().Be("/api/v{version:int}/auth/passkeys/lookup");
+        route.Policy.Should().Be("passkey-lookup",
+            "on auth every check would spend a sign-in attempt; on api an answer about an account would be priced as page rendering");
+        route.Order.Should().BeLessThan(routes.Single(r => r.Path == "/api/v{version:int}/auth/{**catch-all}").Order);
+
+        var source = ReadSource("Auth_API", "Modules", "Authentication", "Controllers", "PasskeysController.cs");
+        AttributeBlockAfter(source, "(\"lookup\")").Should().Contain("[EnableRateLimiting(\"passkey-lookup\")]");
+
+        ReadSource("Auth_API", "Program.cs").Should().Contain("options.AddPolicy(\"passkey-lookup\"");
+        ReadSource("API_Gateway", "Program.cs").Should().Contain("options.AddPolicy(\"passkey-lookup\"",
+            "the edge half: a route naming a policy the gateway never registered fails at its first request");
     }
 
     #region Helpers

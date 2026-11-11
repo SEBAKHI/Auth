@@ -491,6 +491,33 @@ describe("a failed response", () => {
     expect(response.text).toBe(read)
   })
 
+  it("leaves the passkey lookup's 404 unread too: reading it would download the error codes inside the lookup's three seconds", async () => {
+    // OI-280, REVIEW 159 F4. The page reads the lookup's status alone: 404 is
+    // "passkeys do not run here", and the page stops asking. Read through
+    // readProblem, the answer would wait for the published list first, and on a
+    // slow link come back after the page's deadline as "unknown".
+    // Deliberate break, verified red: the lookup taken out of the passkeys-off paths.
+    const read = vi.fn(async () => JSON.stringify({ code: "Http.NotFound" }))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        const answer = new Response(null, { status: 404, headers: { "content-type": "application/problem+json" } })
+        return Object.assign(answer, { clone: () => answer, text: read })
+      })
+    )
+    const tab = await openTab()
+
+    const { response } = await tab.client.api.POST("/api/v1/auth/passkeys/lookup", {
+      body: { email: "someone@example.com" },
+    })
+
+    expect(response.status).toBe(404)
+    // The caller reads the status alone; the client rewrote nothing of the answer,
+    // so readProblem never ran.
+    expect(response.headers.get("content-type")).toBe("application/problem+json")
+    expect(response.text).toBe(read)
+  })
+
   it("keeps Retry-After, the only place a wait travels", async () => {
     vi.stubGlobal(
       "fetch",
@@ -893,6 +920,10 @@ describe("deciding which requests carry a token", () => {
     // The route as another spelling of the controller would write it: matched
     // whole and case-insensitively, like every entry.
     "/api/v1/Auth/Passkeys/Assertion/Options",
+    // OI-280: the sign-in page's question after the address, asked before any
+    // sign-in. Deliberate break, verified red: its entry removed.
+    "/api/v1/auth/passkeys/lookup",
+    "/api/v1/Auth/Passkeys/Lookup",
   ])("sends the passkey sign-in step %s without a bearer, and its 401 ends no session", async (path) => {
     // S20. The passkey is the credential: the options name no account, and the
     // sign-in and the recovery mint a session of their own. The two-factor page
@@ -935,10 +966,16 @@ describe("deciding which requests carry a token", () => {
       "/api/v1/auth/passkeys/assertion/options-preview" as never,
       { body: {} } as never
     )
+    // OI-280: the lookup is one exact path, never a prefix (T-C8).
+    const lookupSibling = await tab.client.api.POST(
+      "/api/v1/auth/passkeys/lookup/history" as never,
+      { body: {} } as never
+    )
 
     expect(list.response.status).toBe(200)
     expect(options.response.status).toBe(200)
     expect(sibling.response.status).toBe(200)
+    expect(lookupSibling.response.status).toBe(200)
   })
 
   it("authenticates a sibling that merely starts with a registration path", async () => {

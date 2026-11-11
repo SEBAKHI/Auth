@@ -4204,12 +4204,39 @@ For each existing deployment, in this order:
    `two-factor-email-code` shows version 3 published. Where it shows a version your administrators wrote,
    add a `reauthentication` case to that version.
 2. **The Auth API, then the Gateway, then both web applications**, with `Passkeys:Enabled` off. Checks:
-   `/ready` reads Healthy; `POST /api/v1/auth/passkeys/assertion/options` answers 404; the sign-in page shows
-   no passkey button; the console shows the **Passkeys** section under System settings, switched off. And the
+   `/ready` reads Healthy; `POST /api/v1/auth/passkeys/assertion/options` and `POST /api/v1/auth/passkeys/lookup`
+   answer 404; the sign-in page shows no passkey button, and is as before: in password mode the address and the
+   password on one screen, and in code mode **Continue with email** sends the code with no other request; the console shows the **Passkeys** section under System settings, switched off. And the
    window **Confirm it's you**, which works with passkeys off: in a session older than
    `TwoFactor:ReauthenticationMaxAgeMinutes`, a change to two-step verification opens it, and the password
    (with the code, where the account has one) lets the change go on, with nothing signed out.
    **Rollback:** the previous builds.
+
+**The sign-in page's question after the address (OI-280).** Once passkeys run, the sign-in page asks
+`POST /api/v1/auth/passkeys/lookup` after the address and **Continue** (**Continue with email** in code mode), and a passkey holder gets the passkey
+screen. The question has a limit of its own at both layers, per client address, in both rate-limit sections of
+the console:
+
+| Setting | Process | Default |
+|---|---|---|
+| `RateLimiting:PasskeyLookupPermitLimit` / `RateLimiting:PasskeyLookupWindowSeconds` | Auth API | 20 / 60 s |
+| `GatewayRateLimiting:PasskeyLookupPermitLimit` / `GatewayRateLimiting:PasskeyLookupWindowSeconds` | Gateway (pulled from the API; seeded from its own `RateLimiting` section) | 20 / 60 s |
+
+and a Gateway route of its own, `passkey-lookup-route` (`/api/v{version:int}/auth/passkeys/lookup`, policy
+`passkey-lookup`). The lower of the two limits is the one a client meets. Its price, accepted by the owner
+(D-S20-10): anyone can learn whether an address holds a passkey here, at this rate per client address; an address
+without one reads exactly as an unknown one. The answer is never logged, and nothing is written.
+
+**Keep the order of step 2: the Auth API, then the Gateway, then the two web applications.**
+* A Gateway newer than its API finds no `PasskeyLookup` pair in the pulled settings and rejects the rate-limit
+  block of that pull, as for the token pair ([the token endpoint's own limit](#the-token-endpoints-own-limit)):
+  it keeps the limits it is running, and limits saved in the console do not reach it until the API catches up.
+* A Gateway older than its API, or one whose routes were replaced on the server without `passkey-lookup-route`,
+  forwards the question on its general `auth-route`: every check spends one of the twenty sign-in attempts a
+  minute of that address.
+* A web application newer than its API finds no `passkeySignInOffered` in the branding answer, so it never asks:
+  there is no passkey button for every visitor any more, and passkey holders keep only the suggestion in the
+  address field until the API catches up.
 
 ### T.2 Before switching it on
 
@@ -4247,12 +4274,17 @@ For each existing deployment, in this order:
 
 * no `passkey.configuration` or `passkey.rpid-mismatch` line in the log;
 * on a real device, add a passkey in the console (Profile › Security › Passkeys), rename it, sign out, and sign
-  in at the accounts application with **Sign in with a passkey**. The rename is the API's only `PATCH`, so it
+  in at the accounts application: the address, **Continue**, then **Sign in with a passkey** on the passkey
+  screen. The rename is the API's only `PATCH`, so it
   also shows that the hosting in front of the API lets that method through;
-* **start from an application, sign in with the passkey, and land back at that application**: with the button,
-  with the suggestion in the address field, and under an application that requires two-step verification;
+* **start from an application, sign in with the passkey, and land back at that application**: with the passkey
+  screen's button, with the suggestion in the address field, and under an application that requires two-step verification;
 * the same on Safari, on iOS and on macOS;
-* on a computer that holds none of the person's passkeys, the button offers the phone (a QR code).
+* on a computer that holds none of the person's passkeys, the passkey screen's button offers the phone (a QR
+  code);
+* an address without a passkey, and an address nobody has, both go on to the next step as before (the password,
+  or the emailed code), and the passkey screen's **Try another way** opens the same list for every account;
+* the question answers **429** to the twenty-first check in a minute from one address.
 
 **Rollback:** switch `Passkeys:Enabled` off. It is hot: every passkey route answers 404 at once, the pages
 hide the passkey, and no rule leans on one. Nothing is revoked, so switching it on again restores every

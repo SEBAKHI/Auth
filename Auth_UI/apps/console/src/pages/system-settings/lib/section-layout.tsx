@@ -323,6 +323,9 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
         "ApiKeyValidateWindowSeconds",
         "RegistrationFollowupPermitLimit",
         "RegistrationFollowupWindowSeconds",
+        // OI-280: the sign-in page's passkey check after the address.
+        "PasskeyLookupPermitLimit",
+        "PasskeyLookupWindowSeconds",
       ],
     },
     { kind: "group", key: "concurrency", claims: ["ImageUploadConcurrencyLimit"] },
@@ -356,6 +359,9 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
         "AdminWindowSeconds",
         "RegistrationFollowupPermitLimit",
         "RegistrationFollowupWindowSeconds",
+        // OI-280: the edge half of the passkey check.
+        "PasskeyLookupPermitLimit",
+        "PasskeyLookupWindowSeconds",
       ],
     },
   ],

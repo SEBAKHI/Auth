@@ -56,7 +56,11 @@ public sealed record GatewayRateLimits(
     // The application directory's route, per address (OI-194). Appended last and listed in
     // IsUsable for the same reason as the pairs above.
     int AppReadPermitLimit,
-    int AppReadWindowSeconds);
+    int AppReadWindowSeconds,
+    // The passkey lookup's route (OI-280). Appended last and listed in IsUsable for the same
+    // reason as the pairs above.
+    int PasskeyLookupPermitLimit,
+    int PasskeyLookupWindowSeconds);
 
 /// <summary>
 /// Holds the current <see cref="GatewayRuntimeSettings"/> for every consumer in
@@ -110,5 +114,7 @@ public sealed class GatewayRuntimeSettingsProvider
         TokenAssertionPermitLimit: configuration.GetValue("RateLimiting:TokenAssertionPermitLimit", 6000),
         TokenAssertionWindowSeconds: configuration.GetValue("RateLimiting:TokenAssertionWindowSeconds", 60),
         AppReadPermitLimit: configuration.GetValue("RateLimiting:AppReadPermitLimit", 600),
-        AppReadWindowSeconds: configuration.GetValue("RateLimiting:AppReadWindowSeconds", 60));
+        AppReadWindowSeconds: configuration.GetValue("RateLimiting:AppReadWindowSeconds", 60),
+        PasskeyLookupPermitLimit: configuration.GetValue("RateLimiting:PasskeyLookupPermitLimit", 20),
+        PasskeyLookupWindowSeconds: configuration.GetValue("RateLimiting:PasskeyLookupWindowSeconds", 60));
 }

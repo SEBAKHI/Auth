@@ -348,7 +348,15 @@ public static class SystemSettingsRegistry
                 // The same endpoints, for a request whose token does not validate or lacks
                 // organizations.read: per address, small, and never an application's budget.
                 new SettingFieldDefinition("AppReadAddressPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 60),
-                new SettingFieldDefinition("AppReadAddressWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
+                new SettingFieldDefinition("AppReadAddressWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // The sign-in page's question after the address (OI-280, D-S20-10): does this
+                // address have a live passkey here? Per client address, on a budget of its own:
+                // on the login pair every check would spend a sign-in attempt, and on the page
+                // pair an answer about an account would be priced as page rendering. Twenty a
+                // minute equals the login default, and it is what bounds how fast a stranger can
+                // learn who holds a passkey. Appended last, as the pairs above were.
+                new SettingFieldDefinition("PasskeyLookupPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
+                new SettingFieldDefinition("PasskeyLookupWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
             ]),
 
         new SettingSectionDefinition(
@@ -436,7 +444,12 @@ public static class SystemSettingsRegistry
                 // the applications behind one address (600 = two at the default of 300), and
                 // under the global ceiling above, which still counts these requests.
                 new SettingFieldDefinition("AppReadPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 600),
-                new SettingFieldDefinition("AppReadWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
+                new SettingFieldDefinition("AppReadWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // The edge half of the passkey lookup's budget (OI-280), on its own gateway
+                // route. It runs first and decides the outcome: keep it at or above the API's
+                // PasskeyLookupPermitLimit and move the two together. Appended last.
+                new SettingFieldDefinition("PasskeyLookupPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
+                new SettingFieldDefinition("PasskeyLookupWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
             ]),
 
         new SettingSectionDefinition(

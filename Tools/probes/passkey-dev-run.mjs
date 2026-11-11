@@ -19,7 +19,8 @@
  *         (every delivery fails on the closed port, so each rendered code stays in
  *         NotificationOutbox, where the probe reads it),
  *       Password__BreachedPasswordCheck__Enabled=false, RateLimiting__LoginPermitLimit=1000,
- *       RateLimiting__SignInPagePermitLimit=1000, Email__MaxOtpRequestsPerWindow=50,
+ *       RateLimiting__SignInPagePermitLimit=1000, RateLimiting__PasskeyLookupPermitLimit=1000
+ *         (the lookup scenario asks 150 times for its timings), Email__MaxOtpRequestsPerWindow=50,
  *       and the probe page's origin appended to Cors:AllowedOrigins by index
  *       (Cors__AllowedOrigins__<n>, never replacing the list: an array binds by index),
  *       not to IdentityProvider:FirstPartySpaOrigins;
@@ -41,21 +42,39 @@
  *   DEV_HTTPS_CERT, DEV_HTTPS_KEY   the certificate, for those two
  *
  * Scenarios (positional argument). Each makes its own fresh accounts, so a rerun on
- * the same database needs nothing reset:
+ * the same database needs nothing reset. While passkeys run, the sign-in page asks for the
+ * address first, and Continue asks the server whether it holds a passkey (OI-280): a holder
+ * gets the passkey screen, whose list («Try another way») holds the password.
  *   add-and-sign-in     Signs in to the console (password, then the app's code), adds
  *                       a passkey in Profile › Security, renames it, reads its row
  *                       (RP ID localhost, user-verified, live), the passkey.registered
  *                       audit row and the outbox rows written for the account; then
- *                       signs in at the accounts app with the passkey button and reads
- *                       the row's LastUsedAt and that sign-in's own user.login audit row.
+ *                       signs in at the accounts app with the address, Continue and the
+ *                       passkey screen's button, and reads the row's LastUsedAt and that
+ *                       sign-in's own user.login audit row.
+ *   lookup              OI-280's question after the address, on the real engine: a holder
+ *                       answers true; an account without a passkey and an unknown address
+ *                       answer false, byte-identical, with the same header names, no cookie
+ *                       and no-store; another origin is refused 403; the address is read as
+ *                       Users.NormalizedEmail stores it. Then the holder's rows, changed and
+ *                       put back one at a time, each answer also asked of the statement itself
+ *                       on the engine: deleted (false), waiting for its deletion (true), its
+ *                       request cancelled or being carried out (false), its passkey revoked
+ *                       (false), locked, deactivated, unverified or unconfirmed (true). A live
+ *                       passkey of another RP ID switches every passkey route off (the RP ID
+ *                       posture: 404), and the statement answers false for it. Then passkeys
+ *                       switched off through the settings API (404) and
+ *                       back. Nothing written: no audit row, no outbox row. Informative: the
+ *                       median time of 50 lookups for each of the three addresses.
  *   origin              From a page on PROBE_OTHER_PORT (in CORS, not a first-party
  *                       origin) asks for passkey sign-in options: refused 403
  *                       Auth.FirstPartyOriginRequired.
  *   app-return          The owner's condition: a registered public client with a
  *                       localhost callback served here. From a real authorize request,
- *                       signs in at the accounts app with the suggestion, then with the
- *                       button, each ending on the callback with a code the token
- *                       endpoint redeems. Then an application that requires two steps,
+ *                       signs in at the accounts app with the suggestion, then through
+ *                       the address and the passkey screen's button (OI-280), each ending
+ *                       on the callback with a code the token endpoint redeems. Then an
+ *                       application that requires two steps,
  *                       enforcement on, for an account whose only factor is a passkey:
  *                       the passkey at once reaches the callback; the password leads to
  *                       mfa_passkey, and the passkey from there to the callback; and the
@@ -341,12 +360,36 @@ async function withoutSuggestion(page) {
 
 const left = (from) => (url) => !url.pathname.startsWith(from)
 
+/** The first screen's button: Continue in password mode, Continue with email in code mode. */
+const continueButton = (page) => page.getByRole("button", { name: /^Continue( with email)?$/ })
+
 async function typePassword(page, { email, password }) {
   await page.getByLabel("Email").fill(email)
   const field = page.locator('input[type="password"]')
-  if (!(await field.isVisible())) await page.getByRole("button", { name: "Sign in with a password instead" }).click()
+  // Code mode: the other method is always a visible link.
+  const instead = page.getByRole("button", { name: "Sign in with a password instead" })
+  if (!(await field.isVisible()) && (await instead.isVisible())) await instead.click()
+  if (!(await field.isVisible())) {
+    // While passkeys run, the address comes first (OI-280). A holder's address leads to the
+    // passkey screen, and the password is in its list.
+    await continueButton(page).click()
+    const another = page.getByTestId("try-another-way")
+    await field.or(another).first().waitFor({ timeout: 30_000 })
+    if (!(await field.isVisible())) {
+      await another.click()
+      await page.getByTestId("other-ways").getByRole("button", { name: "Sign in with a password instead" }).click()
+      await field.waitFor({ timeout: 30_000 })
+    }
+  }
   await field.fill(password)
   await page.getByRole("button", { name: "Sign in", exact: true }).click()
+}
+
+/** A holder's address, then Continue: the passkey screen, its button the way on (OI-280). */
+async function toPasskeyScreen(page, email) {
+  await page.getByLabel("Email").fill(email)
+  await continueButton(page).click()
+  await page.getByTestId("try-another-way").waitFor({ timeout: 30_000 })
 }
 
 async function signInToConsole(page, account, appSecret) {
@@ -539,6 +582,7 @@ async function addAndSignIn() {
     await page.goto(`${accountsUrl()}/login`)
     // Taken here, after the password sign-ins above: this sign-in's own row, or nothing.
     const beforeAccounts = sqlNow()
+    await toPasskeyScreen(page, account.email)
     await pressPasskey(page)
     await page.waitForURL(left("/login"), { timeout: 30_000 })
     const used = sql(`SELECT CASE WHEN LastUsedAt >= '${beforeAccounts}' THEN 'used' ELSE 'unused' END FROM dbo.UserPasskeys WHERE UserId = '${account.id}' AND Name = N'DevRun renamed'`)
@@ -585,6 +629,171 @@ async function origin() {
   } finally {
     server.close()
   }
+}
+
+// ── lookup ──────────────────────────────────────────────────────────────────
+
+const lookUp = (email, options = {}) => call("POST", "/api/v1/auth/passkeys/lookup", { body: { email }, ...options })
+
+/** What a caller reads of an answer besides its body: the header names (the clock's apart). */
+const headerNames = (answer) =>
+  [...answer.headers.keys()]
+    .filter((name) => name !== "date")
+    .sort()
+    .join(",")
+
+const median = (values) => {
+  const sorted = [...values].sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
+}
+
+/**
+ * The lookup's own statement, read from the repository and run as Dapper sends it: through
+ * sp_executesql, with typed parameters. "1" or "0".
+ */
+function statementAnswer(email, rpId) {
+  const source = fs.readFileSync(new URL("../../Auth/Auth.Infrastructure/Persistence/UserPasskeyRepository.cs", import.meta.url), "utf8")
+  const text = source.match(/internal const string LiveForEmailSql = @"([\s\S]*?)";/)?.[1]
+  if (!text) throw new Inconclusive("LiveForEmailSql is not in UserPasskeyRepository.cs")
+  const quote = (value) => value.replace(/'/g, "''")
+  return sql(`EXEC sp_executesql N'${quote(text)}', N'@NormalizedEmail nvarchar(4000), @RpId nvarchar(4000), @PendingGrace int',
+    @NormalizedEmail = N'${quote(email.trim().toUpperCase())}', @RpId = N'${quote(rpId)}', @PendingGrace = 1;`)[0]
+}
+
+/** Rows written since `since` by anything that could record a lookup. */
+const writtenSince = (since) =>
+  sql(`SELECT CONCAT(
+    (SELECT COUNT(*) FROM dbo.AuditLogs WHERE [Timestamp] >= '${since}'), '|',
+    (SELECT COUNT(*) FROM dbo.NotificationOutbox WHERE CreatedAt >= '${since}'), '|',
+    (SELECT COUNT(*) FROM dbo.WebAuthnChallenges WHERE CreatedAt >= '${since}'), '|',
+    (SELECT COUNT(*) FROM dbo.UserSessions WHERE StartedAt >= '${since}'), '|',
+    (SELECT COUNT(*) FROM dbo.LoginAttempts WHERE AttemptedAt >= '${since}'));`)[0]
+
+async function lookup() {
+  const holder = await freshAccount("lookup-holder")
+  const plain = await freshAccount("lookup-plain")
+  const unknown = `devrun-nobody-${Date.now().toString(36)}@example.com`
+  await withAuthenticator(async (page) => {
+    await signInToConsole(page, holder)
+    await addPasskey(page, holder, "Lookup")
+  })
+
+  const yes = await lookUp(holder.email)
+  const no = await lookUp(plain.email)
+  const none = await lookUp(unknown)
+  check("a holder answers true", yes.status === 200 && yes.text === '{"passkey":true}', `${yes.status} ${yes.text}`)
+  check("an account without a passkey answers false", no.status === 200 && no.text === '{"passkey":false}', `${no.status} ${no.text}`)
+  check("an unknown address answers the same bytes", none.status === 200 && none.text === no.text, `${none.status} ${none.text}`)
+  check(
+    "the three answers carry the same header names",
+    headerNames(yes) === headerNames(no) && headerNames(no) === headerNames(none),
+    headerNames(no)
+  )
+  check(
+    "no cookie, and no-store",
+    [yes, no, none].every((answer) => answer.headers.get("set-cookie") === null && /no-store/.test(answer.headers.get("cache-control") ?? "")),
+    `cache-control: ${no.headers.get("cache-control")}`
+  )
+  const shouted = await lookUp(holder.email.toUpperCase())
+  check("the address is read as Users.NormalizedEmail stores it", shouted.text === '{"passkey":true}', shouted.text)
+  const otherOrigin = await lookUp(holder.email, { origin: `https://localhost:${env("PROBE_OTHER_PORT")}` })
+  check(
+    "another origin is refused",
+    otherOrigin.status === 403 && otherOrigin.json?.code === "Auth.FirstPartyOriginRequired",
+    `${otherOrigin.status} ${otherOrigin.json?.code}`
+  )
+  const malformed = await lookUp("not-an-address")
+  check("a malformed address is refused as the code's start refuses it", malformed.status === 400 && malformed.json?.code === "Email.InvalidFormat", `${malformed.status} ${malformed.json?.code}`)
+
+  // Nothing is written (D3), and the informative timings (V13): 50 rounds of the three
+  // addresses, interleaved. Earlier steps may still be writing their notices: let them land.
+  await sleep(5_000)
+  const since = sqlNow()
+  const times = { holder: [], plain: [], unknown: [] }
+  for (let round = 0; round < 50; round++) {
+    for (const [key, email] of [["holder", holder.email], ["plain", plain.email], ["unknown", unknown]]) {
+      const started = performance.now()
+      const answer = await lookUp(email)
+      times[key].push(performance.now() - started)
+      if (answer.status !== 200) throw new Inconclusive(`lookup ${answer.status} during the timings: is RateLimiting__PasskeyLookupPermitLimit raised?`)
+    }
+  }
+  await sleep(2_000)
+  const written = writtenSince(since)
+  check("150 lookups write nothing (audit, outbox, challenge, session, sign-in attempt)", written === "0|0|0|0|0", written)
+  for (const [key, values] of Object.entries(times)) {
+    console.log(`INFO         lookup median, ${key}: ${median(values).toFixed(2)} ms (min ${Math.min(...values).toFixed(2)}, max ${Math.max(...values).toFixed(2)}, n=${values.length})`)
+  }
+
+  // The holder's rows, one state at a time, each put back before the next.
+  const id = holder.id
+  const grace = (status) => `UPDATE dbo.Users SET IsDeleted = 1, DeletedAt = SYSUTCDATETIME() WHERE Id = '${id}';
+    INSERT dbo.AccountDeletionRequests (UserId, Status, Source, GraceEndsAtUtc, PolicyVersion, CreatedBy)
+    VALUES ('${id}', ${status}, 1, DATEADD(DAY, 30, SYSUTCDATETIME()), N'devrun', '${id}');`
+  const undelete = `DELETE dbo.AccountDeletionRequests WHERE UserId = '${id}'; UPDATE dbo.Users SET IsDeleted = 0, DeletedAt = NULL WHERE Id = '${id}';`
+  const states = [
+    ["deleted, with no deletion request", `UPDATE dbo.Users SET IsDeleted = 1, DeletedAt = SYSUTCDATETIME() WHERE Id = '${id}';`, undelete, false],
+    ["waiting for its deletion (grace period)", grace(1), undelete, true],
+    ["its deletion request cancelled", grace(2), undelete, false],
+    ["its deletion being carried out", grace(3), undelete, false],
+    ["its passkey revoked", `UPDATE dbo.UserPasskeys SET RevokedAt = SYSUTCDATETIME() WHERE UserId = '${id}';`, `UPDATE dbo.UserPasskeys SET RevokedAt = NULL WHERE UserId = '${id}';`, false],
+    ["its passkey of another RP ID", `UPDATE dbo.UserPasskeys SET RpId = N'example.com' WHERE UserId = '${id}';`, `UPDATE dbo.UserPasskeys SET RpId = N'localhost' WHERE UserId = '${id}';`, false],
+    ["locked", `UPDATE dbo.Users SET Status = 3 WHERE Id = '${id}';`, `UPDATE dbo.Users SET Status = 1 WHERE Id = '${id}';`, true],
+    ["deactivated", `UPDATE dbo.Users SET Status = 2 WHERE Id = '${id}';`, `UPDATE dbo.Users SET Status = 1 WHERE Id = '${id}';`, true],
+    ["waiting for verification", `UPDATE dbo.Users SET Status = 4 WHERE Id = '${id}';`, `UPDATE dbo.Users SET Status = 1 WHERE Id = '${id}';`, true],
+    ["its address unconfirmed", `UPDATE dbo.Users SET IsEmailConfirmed = 0 WHERE Id = '${id}';`, `UPDATE dbo.Users SET IsEmailConfirmed = 1 WHERE Id = '${id}';`, true],
+  ]
+  for (const [name, apply, restore, expected] of states) {
+    sql(apply)
+    try {
+      const answer = await lookUp(holder.email)
+      const direct = statementAnswer(holder.email, "localhost")
+      if (name === "its passkey of another RP ID") {
+        // A live passkey of another RP ID switches every passkey route off (the RP ID
+        // posture, passkey.rpid-mismatch), so the API cannot be asked: the statement can.
+        check(
+          "a live passkey of another RP ID switches every passkey route off: 404",
+          answer.status === 404 && answer.json?.code === "Http.NotFound",
+          `${answer.status} ${answer.json?.code}`
+        )
+        check(`and the statement itself answers false for an account ${name}`, direct === "0", `statement ${direct}`)
+        continue
+      }
+      check(
+        `an account ${name} answers ${expected}, as the statement does on the engine`,
+        answer.status === 200 && answer.json?.passkey === expected && direct === (expected ? "1" : "0"),
+        `${answer.status} ${answer.text}, statement ${direct}`
+      )
+    } finally {
+      sql(restore)
+    }
+  }
+  check("and the holder answers true again", (await lookUp(holder.email)).json?.passkey === true)
+
+  // Off means off: 404, like every passkey route, then back on.
+  const token = await administratorToken()
+  const read = await call("GET", "/api/v1/admin/system-settings", { token })
+  const rowVersion = read.json?.sections?.find((section) => section.key === "Passkeys")?.rowVersion ?? null
+  const off = await call("PUT", "/api/v1/admin/system-settings/Passkeys", { token, body: { overrides: { Enabled: false }, rowVersion } })
+  if (off.status !== 200) throw new Inconclusive(`cannot switch passkeys off: ${off.status} ${off.text.slice(0, 200)}`)
+  let whileOff = 0
+  try {
+    for (let attempt = 0; attempt < 20 && whileOff !== 404; attempt++) {
+      whileOff = (await lookUp(holder.email)).status
+      if (whileOff !== 404) await sleep(500)
+    }
+    check("passkeys switched off: 404", whileOff === 404, String(whileOff))
+  } finally {
+    const reset = await call("POST", "/api/v1/admin/system-settings/Passkeys/reset", { token })
+    if (reset.status !== 200) verdict("passkeys are switched back on", "FAIL", `${reset.status}: drop this database`)
+  }
+  let backOn = 0
+  for (let attempt = 0; attempt < 20 && backOn !== 200; attempt++) {
+    backOn = (await lookUp(holder.email)).status
+    if (backOn !== 200) await sleep(500)
+  }
+  check("and switched back on: 200", backOn === 200, String(backOn))
 }
 
 // ── app-return ──────────────────────────────────────────────────────────────
@@ -664,12 +873,15 @@ async function appReturn() {
       await landedOnCallback(page, "from an application, the suggestion, back to it", plain, callback, bySuggestion.verifier)
       await clear()
 
+      // OI-280: no button for every visitor any more. The address, Continue, the passkey
+      // screen, its button (V13: this leg replaces the button's).
       await withoutSuggestion(page)
-      const byButton = authorizeRequest(plain, callback)
-      await page.goto(byButton.url)
+      const byScreen = authorizeRequest(plain, callback)
+      await page.goto(byScreen.url)
       await page.waitForURL(`${accountsUrl()}/login?**`, { timeout: 30_000 })
+      await toPasskeyScreen(page, account.email)
       await pressPasskey(page)
-      await landedOnCallback(page, "from an application, the button, back to it", plain, callback, byButton.verifier)
+      await landedOnCallback(page, "from an application, the address, the passkey screen's button, back to it", plain, callback, byScreen.verifier)
       await clear()
 
       // The application requires two steps, and this account's only factor is a passkey.
@@ -678,6 +890,7 @@ async function appReturn() {
       const atOnce = authorizeRequest(twoStep, callback)
       await page.goto(atOnce.url)
       await page.waitForURL(`${accountsUrl()}/login?**`, { timeout: 30_000 })
+      await toPasskeyScreen(page, account.email)
       await pressPasskey(page)
       await landedOnCallback(page, "under two steps, the passkey at once, back to the application", twoStep, callback, atOnce.verifier)
       await clear()
@@ -724,6 +937,8 @@ async function locks() {
     const locked = await call("POST", `/api/v1/users/${account.id}/lock`, { token, body: { reason: "PasskeyDevRun" } })
     if (locked.status !== 204) throw new Inconclusive(`cannot lock: ${locked.status} ${locked.text.slice(0, 200)}`)
     await page.goto(`${accountsUrl()}/login`)
+    // A locked account still answers that it holds a passkey: the sign-in judges the lock.
+    await toPasskeyScreen(page, account.email)
     const answered = page.waitForResponse((response) => response.url().endsWith("/assertion/verify"), { timeout: 30_000 })
     await pressPasskey(page)
     const refused = await (await answered).json().catch(() => ({}))
@@ -750,6 +965,7 @@ async function locks() {
     }
     await clear()
     await page.goto(`${accountsUrl()}/login`)
+    await toPasskeyScreen(page, account.email)
     await pressPasskey(page)
     await page.waitForURL(left("/login"), { timeout: 30_000 })
     const after = rowOf(account.id)
@@ -784,6 +1000,7 @@ async function passkeyOnlyAdmin() {
     await pressPasskey(page)
     await page.waitForURL(left("/login"), { timeout: 30_000 })
     await page.goto(`${consoleUrl()}/login`)
+    await toPasskeyScreen(page, account.email)
     await pressPasskey(page)
     await page.waitForURL(left("/login"), { timeout: 30_000 })
     await page.goto(`${consoleUrl()}/users`)
@@ -825,6 +1042,8 @@ async function recovery() {
     if (pending !== "1") throw new Inconclusive(`the account is not in its grace period: IsDeleted=${pending}`)
 
     await page.goto(`${accountsUrl()}/login`)
+    // An account waiting for its deletion still answers that it holds a passkey (OI-280).
+    await toPasskeyScreen(page, account.email)
     await pressPasskey(page)
     await page.waitForURL((url) => url.pathname === "/account-recovery", { timeout: 30_000 })
     check("the passkey sign-in goes to the recovery page", true)
@@ -1443,6 +1662,7 @@ async function beforeTheColumns() {
 
 const scenarios = {
   "add-and-sign-in": addAndSignIn,
+  lookup,
   origin,
   "app-return": appReturn,
   locks,

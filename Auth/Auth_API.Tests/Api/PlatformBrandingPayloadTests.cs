@@ -35,11 +35,11 @@ public class PlatformBrandingPayloadTests
     // OI-215 adds the public sign-in options: what the settings say, nothing about an account.
     // The sign-in page design adds which design the panel shows (null: the plain panel).
     // UI batch P3 adds the height the logo is shown at (null: the default); P5 the languages the
-    // language menus leave out (empty: none).
+    // language menus leave out (empty: none). OI-280 adds whether passkeys may run on the page.
     private static readonly string[] PublishedFields =
         ["platformName", "logoUrl", "logoUrlDark", "logoHeightPx", "faviconUrl", "theme", "staySignedInOffered",
-         "codeSignInOffered", "primaryMethod", "selfRegistrationOpen", "passwordAtSignUp", "nameAtSignUp",
-         "loginDesign", "fonts", "hiddenLanguages"];
+         "codeSignInOffered", "passkeySignInOffered", "primaryMethod", "selfRegistrationOpen", "passwordAtSignUp",
+         "nameAtSignUp", "loginDesign", "fonts", "hiddenLanguages"];
 
     private static async Task<HttpResponseMessage> GetBrandingAsync(StaySignedInPolicy mode)
     {
@@ -50,6 +50,8 @@ public class PlatformBrandingPayloadTests
             TestHelpers.CreateOptions(new IdentityProviderSettings { StaySignedInMode = mode.ToString() }),
             TestHelpers.CreateOptions(new RegistrationSettings()),
             TestHelpers.CreateOptions(new EmailSettings()),
+            TestHelpers.CreateOptions(new PasskeySettings()),
+            PasskeyRpIdAtStartup.None,
             LoginDesignDoubles.NoneActive());
         var sender = new Mock<ISender>();
         sender.Setup(s => s.Send(It.IsAny<GetPlatformBrandingQuery>(), It.IsAny<CancellationToken>()))

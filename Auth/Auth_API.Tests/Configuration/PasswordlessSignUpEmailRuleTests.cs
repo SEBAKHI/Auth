@@ -120,6 +120,8 @@ public class PasswordlessSignUpEmailRuleTests
                 PasswordAtSignUp = passwordAtSignUp, NameAtSignUp = false, AllowSelfRegistration = false
             }),
             TestHelpers.CreateOptions(new EmailSettings { Enabled = emailEnabled }),
+            TestHelpers.CreateOptions(new PasskeySettings()),
+            PasskeyRpIdAtStartup.None,
             LoginDesignDoubles.NoneActive());
 
         var branding = (await handler.Handle(new GetPlatformBrandingQuery(), CancellationToken.None)).Value;

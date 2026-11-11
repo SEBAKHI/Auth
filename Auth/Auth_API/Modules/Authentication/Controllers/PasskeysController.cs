@@ -9,6 +9,7 @@ using Auth.Application.Features.Passkeys.BeginPasskeyRegistration;
 using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Features.Passkeys.CompletePasskeyRegistration;
 using Auth.Application.Features.Passkeys.GetMyPasskeys;
+using Auth.Application.Features.Passkeys.PasskeyLookup;
 using Auth.Application.Features.Passkeys.RemovePasskey;
 using Auth.Application.Features.Passkeys.RenamePasskey;
 using Auth.Application.Features.Passkeys.SendPasskeyRegistrationEmailCode;
@@ -32,8 +33,8 @@ namespace Auth_API.Modules.Authentication.Controllers;
 /// <para>
 /// Every action answers 404 while passkeys do not run — switched off, or switched on without
 /// an RP ID, a first-party origin or the schema (PK19, <see cref="PasskeysAvailabilityMiddleware"/>).
-/// The three sign-in actions are anonymous and stay here, behind the same gate: placed anywhere
-/// else they would answer while passkeys are off.
+/// The three sign-in actions and the sign-in page's lookup (OI-280) are anonymous and stay here,
+/// behind the same gate: placed anywhere else they would answer while passkeys are off.
 /// </para>
 /// <para>
 /// The route is a template (<c>api/v{version}/auth/passkeys</c>), matched as every route is:
@@ -271,6 +272,42 @@ public class PasskeysController : ApiController
     }
 
     /// <summary>
+    /// The sign-in page's one question after the address (OI-280, D-S20-10): whether the address
+    /// has a live passkey here, as <c>{ "passkey": true }</c> or <c>{ "passkey": false }</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same answer for an unknown address and an address without a passkey, with the same
+    /// status, headers and shape as the true one: the boolean is all it says. No credential id,
+    /// handle, name, count or masked address, no cookie, and nothing written or logged.
+    /// </para>
+    /// <para>
+    /// Anonymous, and only the platform's own sign-in pages may ask
+    /// (<c>Auth.FirstPartyOriginRequired</c> for any other browser origin). POST, so the address
+    /// never sits in a URL or an access log. On its own limiter, <c>passkey-lookup</c>: on the
+    /// sign-in budget every check would spend one of the twenty sign-in attempts, and on the page
+    /// budget an answer about an account would be priced as page rendering.
+    /// </para>
+    /// </remarks>
+    [HttpPost("lookup")]
+    [AllowAnonymous]
+    [EnableRateLimiting("passkey-lookup")]
+    [RequireFirstPartyOrigin]
+    [ProducesResponseType(typeof(PasskeyLookupResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> LookUp([FromBody] PasskeyLookupRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new PasskeyLookupQuery(request.Email ?? string.Empty), cancellationToken);
+
+        return result.Match<IActionResult>(
+            passkey => Ok(new PasskeyLookupResponse(passkey)),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
     /// Starts a sign-in with a passkey: the options for <c>navigator.credentials.get()</c>. The
     /// challenge they carry is held for five minutes; its handle travels in the
     /// <c>__Host-auth_webauthn</c> cookie, never in the body. A page that asks again while its
@@ -416,6 +453,18 @@ public class PasskeysController : ApiController
     private static string CredentialJson(JsonElement credential) =>
         credential.ValueKind == JsonValueKind.Object ? credential.GetRawText() : string.Empty;
 }
+
+/// <summary>The sign-in page's question after the address (OI-280).</summary>
+/// <param name="Email">The address the person typed.</param>
+public sealed record PasskeyLookupRequest(string? Email)
+{
+    // The address is personal data: never printed.
+    public override string ToString() => "PasskeyLookupRequest { }";
+}
+
+/// <summary>The answer: whether the address has a live passkey here, and nothing else.</summary>
+/// <param name="Passkey">True when the address has a live passkey; false for every other address.</param>
+public sealed record PasskeyLookupResponse(bool Passkey);
 
 /// <summary>The options of a passkey sign-in.</summary>
 /// <param name="Options">The options for <c>navigator.credentials.get()</c>, as JSON (WebAuthn L3 PublicKeyCredentialRequestOptionsJSON).</param>

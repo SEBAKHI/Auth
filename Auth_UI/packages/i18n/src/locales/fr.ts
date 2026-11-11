@@ -409,6 +409,11 @@ export const fr: TranslationResources = {
       removedPasskeyWayOut: "Si vous avez supprimé cette clé d’accès de votre compte, supprimez-la aussi des clés d’accès enregistrées sur cet appareil, puis connectez-vous autrement.",
       deviceRefused: "Cet appareil ou ce navigateur n’a pas pu utiliser une clé d’accès ici. Réessayez, ou connectez-vous autrement.",
       lostIt: "J’ai perdu ma clé d’accès",
+      screenTitle: "Utilisez votre clé d’accès",
+      screenSubtitle:
+        "Votre appareil vous demandera de confirmer que c’est bien vous, avec votre empreinte, votre visage, le verrouillage de l’écran ou une clé de sécurité.",
+      tryAnotherWay: "Essayer une autre méthode",
+      otherWaysHeading: "Autres moyens de se connecter",
     },
     continueWithApple: "Continuer avec Apple",
     privacyPolicy: "Politique de confidentialité",
@@ -646,6 +651,7 @@ export const fr: TranslationResources = {
     accountCreated: "Votre compte est prêt.",
     signInOrCreateTitle: "Se connecter ou créer un compte",
     continueWithEmail: "Continuer par e-mail",
+    continue: "Continuer",
     signInWithPasswordInstead: "Se connecter plutôt avec un mot de passe",
     signInWithEmailCode: "Se connecter avec un code envoyé à votre adresse e-mail",
     invalidCredentialsOrCode:
@@ -2796,6 +2802,14 @@ export const fr: TranslationResources = {
         "Fenêtre de l'annuaire sans jeton valide (secondes)",
       appReadAddressWindowSecondsHint:
         "La durée sur laquelle le décompte par adresse ci-dessus est mesuré, avec la même fenêtre fixe que les autres.",
+      passkeyLookupPermitLimit:
+        "Vérifications de clé d'accès après l'adresse par fenêtre",
+      passkeyLookupPermitLimitHint:
+        "Combien de fois une adresse IP cliente peut demander, après avoir saisi une adresse sur la page de connexion, si cette adresse a une clé d'accès, avant un refus 429. Comptées à part de la limite d'authentification ci-dessus, pour que vérifier une adresse ne coûte jamais une tentative de connexion, et à part de la limite de la page de connexion, parce que la réponse porte sur un compte : n'importe qui peut la demander, et ce nombre borne la vitesse à laquelle on peut apprendre quelles adresses ont une clé d'accès. Vingt par minute égale la valeur par défaut de l'authentification. Modifiez-la avec la limite de vérification de clé d'accès de la passerelle : la plus basse des deux est celle que rencontre un client.",
+      passkeyLookupWindowSeconds:
+        "Fenêtre de vérification de clé d'accès (secondes)",
+      passkeyLookupWindowSecondsHint:
+        "La durée sur laquelle le compte de vérifications ci-dessus est mesuré, avec la même mécanique de fenêtre fixe : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres clientes dès l'enregistrement.",
     },
     gatewayRateLimiting: {
       title: "Limitation de débit (passerelle)",
@@ -2864,6 +2878,14 @@ export const fr: TranslationResources = {
       appReadWindowSeconds: "Fenêtre de l'annuaire des applications (secondes)",
       appReadWindowSecondsHint:
         "La durée sur laquelle les requêtes de l'annuaire sont comptées à la passerelle, avec la même fenêtre fixe. Une modification atteint la passerelle en une trentaine de secondes plutôt qu'immédiatement, car elle récupère elle-même ses paramètres.",
+      passkeyLookupPermitLimit:
+        "Vérifications de clé d'accès après l'adresse par fenêtre",
+      passkeyLookupPermitLimitHint:
+        "Couvre la vérification de clé d'accès de la page de connexion en bordure, sur sa propre route : après qu'un visiteur a saisi une adresse, si cette adresse a une clé d'accès. Le jumeau extérieur de la limite de vérification de la section API, et celui que le client rencontre en premier : gardez-le au niveau de l'intérieur ou au-dessus, et modifiez les deux ensemble.",
+      passkeyLookupWindowSeconds:
+        "Fenêtre de vérification de clé d'accès (secondes)",
+      passkeyLookupWindowSecondsHint:
+        "La durée sur laquelle les vérifications de clé d'accès sont comptées en bordure, avec la même mécanique de fenêtre fixe. Un changement atteint la passerelle en 30 secondes environ plutôt qu'instantanément, car elle tire elle-même ses réglages.",
     },
     externalAuth: {
       requireNonce: "Exiger un nonce émis par le serveur",

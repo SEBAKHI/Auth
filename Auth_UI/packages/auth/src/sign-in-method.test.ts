@@ -22,6 +22,7 @@ import {
 
 const OPTIONS: SignInOptions = {
   codeSignInOffered: true,
+  passkeySignInOffered: false,
   primaryMethod: "code",
   selfRegistrationOpen: true,
   passwordAtSignUp: false,
