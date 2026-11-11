@@ -42,33 +42,39 @@ Both applications talk to the same back-end API, and neither can do anything the
 
 ### 1.2 API Capabilities at a Glance
 
-The back-end API spreads its endpoints across **25 route-bearing controllers**. An "endpoint" here means one HTTP action — one method in a controller marked with a verb attribute such as `[HttpGet]` or `[HttpPost]`. A "controller" is one C# class that groups related endpoints. There are 26 controller files in total; one of them, `Auth_API/Common/ApiController.cs`, is a shared base class with no endpoints of its own, which is why 25 rather than 26 carry routes.
+The back-end API spreads its **303 endpoints** across **33 route-bearing controllers**. An "endpoint" here means one HTTP action — one method in a controller marked with a verb attribute such as `[HttpGet]` or `[HttpPost]`; a method that answers two verbs (the OpenID Connect user-info endpoint answers GET and POST) counts once. A "controller" is one C# class that groups related endpoints. There are 35 controller files in total; two of them are shared base classes with no endpoints of their own, `Auth_API/Common/ApiController.cs` and `ApplicationDirectoryController.cs` (the base of the two application-directory controllers), which is why 33 rather than 35 carry routes. Counted from the controllers on 2026-11-11; their `[Http…]` attributes are the source, and the rows below add up to the total.
 
 | Feature area | Endpoints | What it covers |
 |---|---|---|
 | **Discovery** | 3 | OpenID Connect (OIDC) discovery document, JSON Web Key Set (JWKS), public signing key |
-| **Authentication** | 29 | Login, the three-step verify-first sign-up, external (Google/Apple) login, token refresh and revoke, password reset and change, email verification, sessions, and the authorization-code + PKCE endpoints |
-| **Two-Factor Auth** | 5 | Time-based one-time password (TOTP) setup, the emailed code before a first factor, enable, verify, disable |
-| **Users** | 29 | Create, read, update, delete, role and permission assignment, lock/unlock, activate/deactivate, self-service profile, hard delete |
-| **Roles** | 7 | Create, read, update, delete, plus the users and applications attached to a role |
-| **Permissions** | 9 | Create, read, update, delete, plus the users holding a permission |
-| **Applications** | 15 | Registering the applications that use this identity service, with their own roles, permissions and redirect URIs |
-| **Organizations** | 23 | Multi-tenant create/read/update/delete, member management, invitations, application subscriptions, member roles and permissions, ownership transfer |
+| **Authentication** | 44 | Password sign-in, the three-step verify-first sign-up, sign-in by an emailed code, external (Google/Apple) sign-in with the Google code exchange, token refresh and revoke, the OAuth 2.0 authorization-code + PKCE endpoints (authorize, token, user info, end session), sign-out, password change, removal and reset, email verification, sessions, known devices, sign-in history, organization set-up after sign-up, the account bar, and account deletion requested or undone without signing in |
+| **Two-Factor Auth** | 14 | Time-based one-time password (TOTP) setup, enable and verify; the emailed code as a second factor (enable, confirm, disable) and before a first factor; step-up; status; regenerating recovery codes; replacing the authenticator app; disable |
+| **Passkeys** | 10 | Register a passkey (with an emailed code), list, rename and remove passkeys, look up whether an address has one, sign in with one, and recover an account pending deletion with one |
+| **Proving the person in place** | 4 | A signed-in person proves themself again without signing out: the ways available, an emailed code, a password or code proof, a passkey proof |
+| **Users** | 32 | Create, read, update, delete and hard delete; a user's roles, organization roles, organizations, applications and permissions; lock/unlock, activate/deactivate, reset two-factor; profile images; the person's own profile, applications, interface preferences and account deletion |
+| **Roles** | 9 | Create, read, update, delete, the users and applications attached to a role, and granting and revoking its permissions |
+| **Permissions** | 9 | Create, read, update, delete, the users holding a permission, and the permissions it implies |
+| **Applications** | 19 | Registering the applications that use this identity service: create, read, update, delete, activate/deactivate; their roles, permissions, users and organizations; who may use them; their appearance, logo height and two-factor readiness; the public branding and sign-in design a sign-in screen reads |
+| **Application machine keys** | 5 | An application's machine keys (create, list, revoke) and what its machine identity may reach |
+| **Application directory** | 6 | The read-only view of an organization an application gets (the organization, its members, its pending invitations), once with a person's token and once with the application's machine token (3 + 3) |
+| **Machine credential checks** | 3 | An application's own server checks an API key, a webhook key or a token (introspection) |
+| **Organizations** | 25 | Multi-tenant create/read/update/delete, member management and membership roles, invitations (send, resend, list), application subscriptions, members' application roles and permissions, ownership transfer |
 | **Invitations** | 3 | Read an invitation by its token, register through it, accept it |
-| **API Keys** | 5 | Create, list, revoke, rotate with a grace period, validate |
-| **Webhook Keys** | 5 | Create, list, revoke, rotate, validate |
+| **API Keys** | 4 | Create, list, revoke, rotate with a grace period (validation is under Machine credential checks) |
+| **Webhook Keys** | 4 | Create, list, revoke, rotate (validation is under Machine credential checks) |
 | **Audit Logs** | 5 | Query, filter, user-scoped and entity-scoped reads, export |
 | **Dashboard** | 6 | Aggregated counts and charts for the console home screen |
 | **Notification Templates** | 14 | The email templates, their versions and their seven translations |
-| **Notification Layouts** | 6 | The shared HTML shell that wraps every email |
+| **Notification Layouts** | 7 | The shared HTML shell that wraps every email: list, read, create, edit the draft, publish, delete, preview |
 | **Notification Outbox** | 3 | The queue of emails waiting to be sent, and its failures |
 | **Notification Types** | 2 | The catalogue of events that can produce a notification |
-| **Privacy Policy** | 8 | Policy versions, translations and publication |
+| **Privacy Policy** | 9 | Policy versions, their content and translations, publication, and notifying users of a new version |
 | **Public Policy** | 3 | The publicly readable policy pages, no sign-in required |
 | **Secrets (Admin)** | 25 | Secret status, key generation, key import (bring-your-own-key), the HMAC keyring (stage, promote, discard, reinstate, retire), step-up challenges, SMTP password, Google client secret and connection string updates |
-| **System Settings** | 4 | Runtime settings stored in the database as overrides on the configuration files |
-| **Platform Settings** | 2 | Platform-wide branding values |
-| **Platform** | 1 | The public branding endpoint the sign-in screens read before anyone is signed in |
+| **System Settings** | 5 | Runtime settings stored in the database as overrides on the configuration files, a reset to the file values, a test email, and how many accounts use the emailed code as a second factor |
+| **Platform Settings** | 7 | Platform-wide branding values, theme, logo height, hidden languages, and the heading and body fonts |
+| **Sign-in Page Designs** | 18 | The sign-in page designs of each application and of the platform (9 + 9) |
+| **Platform** | 3 | The public endpoints the sign-in screens read before anyone is signed in: branding, the sign-in design, the password policy |
 | **Images** | 1 | Upload for avatars and logos |
 | **Internal — gateway settings** | 1 | The API Gateway pulls its rate limits from here; not routed through the gateway itself |
 
@@ -101,7 +107,7 @@ Read this top to bottom. A person opens one of the two web applications in a bro
                  ┌─────────────┴──────────────┐
                  │ Auth_API (the REST API)    │
                  │ dev: https://localhost:5101│
-                 │ 25 controllers             │
+                 │ 33 controllers             │
                  │ JWT + permission checks    │
                  │ audit logging, email outbox│
                  └─────────────┬──────────────┘
@@ -135,7 +141,7 @@ AuthSystem/
 │   ├── Auth.Application         CQRS commands/queries, DTOs, validators, configuration
 │   ├── Auth.Infrastructure      Dapper repositories, JWT, Argon2id, secret storage,
 │   │                            Google auth, TOTP, SMTP, image storage
-│   ├── Auth_API                 the ASP.NET Core 10 REST API — 25 route-bearing
+│   ├── Auth_API                 the ASP.NET Core 10 REST API — 33 route-bearing
 │   │                            controllers
 │   ├── Auth.Shared              configuration contracts and secret-storage primitives
 │   ├── Auth_Localization        resource files for 7 languages (en, ar, tr, fr, zh, ur, fa)
@@ -1237,7 +1243,7 @@ Auth/Auth.Application/Features/
 
 **Counts, so you know the scale of what you are joining.** There are 190 handlers: 120 command handlers and 70 query handlers. Each one implements `IRequestHandler<TRequest, ErrorOr<TResponse>>` and receives its dependencies through its constructor.
 
-**Controllers send messages through `ISender`, never `IMediator`.** 23 of the 25 route-bearing controllers inject `ISender`; the two that do not are `GatewayRuntimeSettingsController` and `ImagesController`, which do their work without a handler.
+**Controllers send messages through `ISender`, never `IMediator`.** 31 of the 33 route-bearing controllers inject `ISender`; the two that do not are `GatewayRuntimeSettingsController` and `ImagesController`, which do their work without a handler.
 
 **Cross-cutting concerns go in a pipeline behavior, and there are exactly two.** A behavior wraps every message on its way to the handler, in registration order:
 
