@@ -1655,7 +1655,7 @@ These are targets to agree with the business, not measured capabilities of this 
 | **The two web applications** | The typed API client, bearer tokens, and the identity-provider session cookie | Shipped |
 | **REST API consumers** | Bearer JWT | Shipped |
 | **Third-party applications (single sign-on)** | Authorization code with PKCE, discovery and JWKS — see section 4 | Shipped |
-| **Google sign-in** | Google ID-token validation; unverified provider emails are rejected | Shipped, enabled by default (`ExternalAuth:Google:Enabled`) |
+| **Google sign-in** | The applications' own button and Google's authorization-code method with PKCE: the API exchanges the code with the client secret (`POST /api/v1/auth/external/google/code`, first-party `Origin` only), then validates Google's ID token; unverified provider emails are rejected; no Google script runs in the applications | Shipped, **disabled by default** (`ExternalAuth:Google:Enabled`); needs the client id, the client secret and the two `/google-callback.html` redirect URIs at Google |
 | **Apple sign-in** | Apple ID-token validation, issuer pinned, key set cached 24 hours | Implemented, **disabled by default** (`ExternalAuth:Apple:Enabled`) |
 | **Service-to-service** | API keys, sent in the `X-Api-Key` header | Shipped |
 | **Webhook callers** | Webhook keys, sent as a `?whk=` query parameter | Shipped |
@@ -2081,7 +2081,7 @@ no longer exist**; there is no general API rate limit, by design.
 | `Notifications` | 7 keys under `Notifications:*` | Outbox behaviour and the new-device alert |
 | `Registration` | `Registration:AllowSelfRegistration`, `Registration:AllowExternalProvisioning` | Whether strangers may create accounts — through the public sign-up endpoint, and through a first sign-in with Google or Apple. Both ship open; both are read per request |
 | `IdentityProvider` | 5 keys under `IdentityProvider:*` | Accounts application origin, this API's public origin, code lifetime, session cookie name and lifetime |
-| `ExternalAuth` | 10 keys under `ExternalAuth:*` | Google and Apple configuration, plus avatar import |
+| `ExternalAuth` | 12 keys under `ExternalAuth:*`: 10 in the settings file, and the two secrets (Google's `ClientSecret`, Apple's `PrivateKeyPem`) only in the encrypted secrets file | Google and Apple configuration, plus avatar import |
 | `AccountDeletion` | 13 keys under `AccountDeletion:*` | Grace period, worker cadence, retention horizons, policy version, the permanent identifier key |
 | `DataController` | 9 keys under `DataController:*` | Legal identity of the data controller. All ship empty, and **the privacy policy cannot be published until they are filled** |
 | `ImageStorage` | 9 keys under `ImageStorage:*` | Upload folder, public URL prefix, size and dimension limits, accepted content types |

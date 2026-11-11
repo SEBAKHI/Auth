@@ -109,7 +109,7 @@ Each line below is a shipped capability with its own section later in this docum
 - **Password storage using Argon2id**, the memory-hard algorithm recommended by OWASP (Section 3)
 - **Token authentication using JWTs signed with RS256** — a JWT (JSON Web Token) is a signed statement about who the caller is; RS256 means a private key signs it and a public key checks it (Section 3)
 - **Two-factor authentication** using TOTP (Time-based One-Time Password) codes from any authenticator app, plus 10 single-use recovery codes — or, for a person without an app, a code emailed at each sign-in, which no two-factor policy counts (Section 3)
-- **Sign-in with Google**, on by default; **sign-in with Apple**, shipped but off until you supply Apple's credentials (Section 6)
+- **Sign-in with Google**, shipped but off until you supply Google's client id and client secret; **sign-in with Apple**, shipped but off until you supply Apple's credentials (Section 6)
 - **Single sign-on for your own applications** through the OAuth 2.0 authorization-code flow with mandatory PKCE, plus token introspection, token revocation, and a public discovery document (Section 6)
 - **A hierarchical permission system** with prefix wildcards, and permissions that can be scoped to one organization (Section 8)
 - **Organizations (multi-tenancy)** with email invitations, per-member roles, per-organization application subscriptions, and ownership transfer confirmed by an emailed code (Section 7)
@@ -558,7 +558,7 @@ A server-side application also has `POST /api/v1/auth/end-session/server`, this 
 
 | Provider | Status |
 |----------|--------|
-| **Google** | Shipped and **on by default**. Identity tokens are validated with Google's own library, and the audience is pinned to your configured client id |
+| **Google** | Shipped and **off by default** (`ExternalAuth:Google:Enabled`). Turning it on requires a Google OAuth client id, its client secret (set on the console's **Secrets** page, never in a settings file), and the two applications' `https://<origin>/google-callback.html` addresses listed at Google as redirect URIs. The "Continue with Google" button is the applications' own: it opens Google's page in a small window (an authorization code with PKCE), and no Google script runs in the applications. The API exchanges Google's one-time code with the client secret, then validates the identity token with Google's own library, with the audience pinned to your client id and a nonce this server issued |
 | **Apple** | Shipped and **off by default**. Turning it on requires an Apple Services ID, a verified domain, and a `.p8` private key from Apple. The issuer is pinned and Apple's key set is cached for 24 hours |
 
 An account whose email address the provider has not verified is rejected. Adding a third provider means implementing one interface and registering it; the system resolves providers by name from a registry rather than switching on a hard-coded list. Importing the user's avatar from the provider is on by default.
@@ -1243,7 +1243,7 @@ Older versions of this document listed several of the items below as planned. Th
 | Capability | Where it is described |
 |------------|----------------------|
 | OAuth 2.0 authorization-code flow with mandatory PKCE, plus token introspection, revocation, and a public discovery document with a published key set | Section 6 |
-| Sign-in with Google (on by default) and sign-in with Apple (shipped, off until you supply Apple's credentials) | Section 6 |
+| Sign-in with Google (shipped, off until you supply Google's client id and secret) and sign-in with Apple (shipped, off until you supply Apple's credentials) | Section 6 |
 | Database-backed notification templates with versioning, publishing, rollback and 7 languages | Section 9 |
 | Versioned, translated, published privacy policies with a "notify every user" action | Section 12 |
 | Self-service and administrative account deletion with a 30-day recoverable window | Section 12 |

@@ -23,7 +23,9 @@ other .NET apps validate tokens locally without ever holding a private key.
 - **Multi-tenant organizations** — membership, invitations, per-app subscriptions, org-scoped
   permissions, and ownership transfer.
 - **Two-factor authentication** — TOTP (RFC 6238) with recovery codes.
-- **External login** — Google ID-token validation via a pluggable provider strategy.
+- **External login** — Google and Apple through a pluggable provider strategy. Google uses the apps'
+  own button and Google's authorization-code method: the API exchanges the code with the client
+  secret, then validates Google's ID token. No Google script runs in the apps.
 - **API keys and webhook keys** — create, rotate (with grace period), and revoke.
 - **Database-backed notifications** — email templates with versioning, draft/publish/rollback, seven
   languages, and a retrying outbox. Templates are edited in the console, not in code.
