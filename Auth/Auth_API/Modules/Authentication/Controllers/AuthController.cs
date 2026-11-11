@@ -455,7 +455,7 @@ public class AuthController : ApiController
         // address can never be built from anything but a listed app's origin.
         if (originResolver.Resolve(Request) is not { } app)
         {
-            return Problem(new[] { Auth.Domain.Errors.AuthErrors.FirstPartyOriginRequired });
+            return Problem([Auth.Domain.Errors.AuthErrors.FirstPartyOriginRequired]);
         }
 
         var result = await _sender.Send(

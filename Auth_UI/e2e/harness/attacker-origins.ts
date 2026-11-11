@@ -17,6 +17,11 @@ export type AttackerHost = typeof HOSTS.apex | typeof HOSTS.attacker | typeof HO
  */
 export class AttackerPages {
   readonly #pages = new Map<string, { html: string; headers: Record<string, string> }>()
+  // Requests to the Google stand-in at a path no test served. Before the stand-in, any request
+  // to accounts.google.com failed the egress check; this keeps that true for every request a
+  // test did not serve a page for (REVIEW 162 F8.9). Not emptied by clear(): the egress
+  // fixture reads it at the test's end, after this fixture's own teardown.
+  readonly #unservedGoogle: string[] = []
 
   /** Serves `html` at https://<host><path> for the rest of the test. */
   serve(host: AttackerHost, path: string, html: string, headers: Record<string, string> = {}) {
@@ -29,9 +34,19 @@ export class AttackerPages {
     this.#pages.clear()
   }
 
+  /** The Google stand-in's requests at a path no test served, oldest first. */
+  unservedGoogle(): readonly string[] {
+    return [...this.#unservedGoogle]
+  }
+
+  clearUnservedGoogle() {
+    this.#unservedGoogle.length = 0
+  }
+
   answer(host: string, url: URL, response: ServerResponse) {
     const page = this.#pages.get(`${host}${url.pathname}`)
     if (!page) {
+      if (host === HOSTS.google) this.#unservedGoogle.push(`https://${host}${url.pathname}`)
       response.writeHead(404, { "content-type": "text/plain; charset=utf-8" })
       response.end(`no attacker page at https://${host}${url.pathname}`)
       return

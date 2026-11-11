@@ -10,9 +10,10 @@ public class ExchangeGoogleCodeCommandValidator : AbstractValidator<ExchangeGoog
 {
     /// <summary>
     /// RFC 7636 §4.1: 43 to 128 characters of the unreserved set
-    /// (<c>A-Z a-z 0-9 - . _ ~</c>).
+    /// (<c>A-Z a-z 0-9 - . _ ~</c>). The end anchor is <c>\z</c>, not <c>$</c>: .NET's <c>$</c>
+    /// also matches before a final line break, which would let a verifier ending in one through.
     /// </summary>
-    private const string CodeVerifierPattern = "^[A-Za-z0-9._~-]{43,128}$";
+    private const string CodeVerifierPattern = @"^[A-Za-z0-9._~-]{43,128}\z";
 
     public ExchangeGoogleCodeCommandValidator()
     {

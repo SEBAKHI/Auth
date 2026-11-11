@@ -13,7 +13,7 @@ public class ClientIpResolverTests
     public void Resolve_WithForwardedFor_ReturnsFirstEntry()
     {
         var context = new DefaultHttpContext();
-        context.Request.Headers["X-Forwarded-For"] = "203.0.113.7, 192.250.231.24";
+        context.Request.Headers["X-Forwarded-For"] = "203.0.113.7, 198.51.100.24";
 
         ClientIpResolver.Resolve(context).Should().Be("203.0.113.7");
     }
@@ -42,12 +42,12 @@ public class ClientIpResolverTests
         // The property the rate-limiter partitioning relies on: two different
         // real clients behind the same gateway peer get different partition keys.
         var a = new DefaultHttpContext();
-        a.Request.Headers["X-Forwarded-For"] = "203.0.113.7, 192.250.231.24";
-        a.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("192.250.231.24");
+        a.Request.Headers["X-Forwarded-For"] = "203.0.113.7, 198.51.100.24";
+        a.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("198.51.100.24");
 
         var b = new DefaultHttpContext();
-        b.Request.Headers["X-Forwarded-For"] = "203.0.113.99, 192.250.231.24";
-        b.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("192.250.231.24");
+        b.Request.Headers["X-Forwarded-For"] = "203.0.113.99, 198.51.100.24";
+        b.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("198.51.100.24");
 
         ClientIpResolver.Resolve(a).Should().NotBe(ClientIpResolver.Resolve(b));
     }

@@ -65,7 +65,7 @@ The back-end API spreads its endpoints across **25 route-bearing controllers**. 
 | **Notification Types** | 2 | The catalogue of events that can produce a notification |
 | **Privacy Policy** | 8 | Policy versions, translations and publication |
 | **Public Policy** | 3 | The publicly readable policy pages, no sign-in required |
-| **Secrets (Admin)** | 19 | Secret status, key generation, key import (bring-your-own-key), the HMAC keyring (stage, promote, discard, reinstate, retire), step-up challenges, SMTP password and connection string updates |
+| **Secrets (Admin)** | 25 | Secret status, key generation, key import (bring-your-own-key), the HMAC keyring (stage, promote, discard, reinstate, retire), step-up challenges, SMTP password, Google client secret and connection string updates |
 | **System Settings** | 4 | Runtime settings stored in the database as overrides on the configuration files |
 | **Platform Settings** | 2 | Platform-wide branding values |
 | **Platform** | 1 | The public branding endpoint the sign-in screens read before anyone is signed in |
@@ -1409,7 +1409,7 @@ Matching is a **string prefix** test, not a walk over a tree. Three arms are tri
 - **The global wildcard must stand alone.** It is compared with an exact equality test, so `**`, `" *"` and `"* "` grant nothing.
 - **A partial segment is not a prefix.** A claim of `user:*` (prefix `user`) does not satisfy `users:read`, because `users:read` does not start with `user:`.
 
-**`secrets.manage` uses a dot, not a colon — so no wildcard can ever reach it except the global `*`.** Not `secrets:*`, nor any other wildcard. The prefix arm needs a colon to work with, and this code has none. All 19 endpoints under `/api/v1/admin/Secrets` are therefore reachable only by a holder of the literal code `secrets.manage` or of `*`, permanently, unless the code itself is changed.
+**`secrets.manage` uses a dot, not a colon — so no wildcard can ever reach it except the global `*`.** Not `secrets:*`, nor any other wildcard. The prefix arm needs a colon to work with, and this code has none. All 25 endpoints under `/api/v1/admin/Secrets` are therefore reachable only by a holder of the literal code `secrets.manage` or of `*`, permanently, unless the code itself is changed.
 
 #### Permission implications do not grant anything
 
@@ -2034,7 +2034,7 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | GET | `/.well-known/jwks.json` | The public signing keys as a JSON Web Key Set, so another service can verify a token offline | Anonymous |
 | GET | `/.well-known/public-key.pem` | The same signing key as plain PEM text, for tools that cannot read a key set | Anonymous |
 
-#### Authentication — 34 endpoints
+#### Authentication — 35 endpoints
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
@@ -2442,9 +2442,9 @@ The same nine actions for one application's designs and for the platform's; [5.2
 | POST | `/api/v1/admin/system-settings/email/test` | Send a diagnostic email using the settings currently in effect | `system-settings:manage` |
 | GET | `/api/v1/admin/system-settings/email/two-factor-accounts` | How many accounts use the emailed code as their second factor — what switching `Email:Enabled` off would affect | `system-settings:manage` |
 
-#### Secrets (Admin) — 19 endpoints
+#### Secrets (Admin) — 25 endpoints
 
-All nineteen require the permission `secrets.manage` — **note the dot, which is unique in this system; every other code uses colons** — and all nineteen return 403 with the code `Secret.AdminApiDisabled` when `SecretManagement:EnableAdminApi` is `false`.
+All twenty-five require the permission `secrets.manage` — **note the dot, which is unique in this system; every other code uses colons** — and all twenty-five return 403 with the code `Secret.AdminApiDisabled` when `SecretManagement:EnableAdminApi` is `false`.
 
 | Method | Path | What it does | Permission |
 |---|---|---|---|

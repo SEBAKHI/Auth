@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto"
+import { statSync } from "node:fs"
+import { join } from "node:path"
 import type { Page } from "@playwright/test"
 
 import { loginResponse } from "../isolated/accounts/mock-anonymous-api"
@@ -18,9 +20,15 @@ import { HOSTS, ORIGINS, expect, test, type AppName } from "./fixtures"
  * request to accounts.google.com; zero CSP violations anywhere (the csp fixture, under the
  * production policies); and /google-callback.html is served no-store and no-referrer.
  *
+ * Also proved (REVIEW 162): the COOP runs really cut the opener, as the callback page sees it
+ * (F5); and what the callback page loads: itself and a few same-origin scripts under a byte
+ * bound, nothing from the API host (F6).
+ *
  * Deliberate breaks, each verified red: Google's script tag put back into the main document
  * (the last test, as a standing negative); the channel listener removed from the sign-in page
- * (the cut-link case fails, the opener case passes); the callback page's close() removed.
+ * (the cut-link case fails, the opener case passes); the callback page's close() removed; the
+ * stand-in's COOP header dropped (the COOP runs fail, F5); the API client imported by the
+ * callback page (F6).
  */
 
 const NONCE = "harness-server-nonce"
@@ -28,6 +36,12 @@ const CODE = "harness-one-time-code"
 const ID_TOKEN = "harness.id.token"
 const CLIENT_ID = "test-client.apps.googleusercontent.com"
 const FIRST_LOAD = { timeout: 20_000 }
+/**
+ * The callback page's scripts, in bytes on disk. Measured on 2026-11-11 at 3,177 and 3,213 bytes
+ * for the two apps; the margin leaves room for a small change, not for the app's entry or the
+ * API client (REVIEW 162 F6).
+ */
+const CALLBACK_JS_BOUND = 4_000
 
 const USER = {
   id: "33333333-3333-3333-3333-333333333333",
@@ -107,7 +121,14 @@ async function seedProvidersHint(page: Page) {
 for (const app of ["accounts", "console"] as const satisfies readonly AppName[]) {
   for (const coop of [false, true]) {
     const label = coop ? "with Google's page cutting the opener (COOP same-origin)" : "with the opener kept"
-    test(`s02d: ${app} signs in with Google by the code flow, ${label}`, async ({ page, api, attacker, requests }) => {
+    test(`s02d: ${app} signs in with Google by the code flow, ${label}`, async ({
+      page,
+      context,
+      api,
+      attacker,
+      requests,
+      harness,
+    }) => {
       let release!: () => void
       const held = new Promise<void>((resolve) => (release = resolve))
       const seen: Seen = { exchanges: [], signIns: [] }
@@ -117,6 +138,26 @@ for (const app of ["accounts", "console"] as const satisfies readonly AppName[])
 
       const mainPageHosts: string[] = []
       page.on("request", (request) => mainPageHosts.push(new URL(request.url()).host))
+      // F6: every request of the popup, from the context so none is missed before the popup
+      // event reaches this test.
+      const popupRequests: string[] = []
+      context.on("request", (request) => {
+        try {
+          if (request.frame().page() !== page) popupRequests.push(request.url())
+        } catch {
+          // No frame: not the popup's.
+        }
+      })
+      // F5: what the callback page sees as its opener, before any of its own code runs.
+      const openers: string[] = []
+      context.on("console", (message) => {
+        const text = message.text()
+        if (text.startsWith("harness-opener:")) openers.push(text.slice("harness-opener:".length))
+      })
+      await context.addInitScript(() => {
+        if (location.pathname !== "/google-callback.html") return
+        console.log(`harness-opener:${window.opener ? "present" : "null"}`)
+      })
 
       await page.goto(`${ORIGINS[app]}/login`)
       const button = page.getByRole("button", { name: "Continue with Google" })
@@ -135,6 +176,23 @@ for (const app of ["accounts", "console"] as const satisfies readonly AppName[])
       expect(seen.exchanges[0].code).toBe(CODE)
       expect(seen.exchanges[0].origin).toBe(ORIGINS[app])
       await expect.poll(() => popup.isClosed(), FIRST_LOAD).toBe(true)
+
+      // F5: the COOP runs cut the link, so the answer came back on the channel; the others kept it.
+      await expect.poll(() => openers).toEqual([coop ? "null" : "present"])
+
+      // F6: from its own address on, the popup loaded the callback page and same-origin scripts
+      // only, within the bound: not the app's entry, nothing from the API host.
+      const fromCallback = popupRequests.slice(
+        popupRequests.findIndex((url) => new URL(url).pathname === "/google-callback.html")
+      )
+      expect(new URL(fromCallback[0]).pathname).toBe("/google-callback.html")
+      const scripts = fromCallback.slice(1).map((url) => new URL(url))
+      expect(scripts.length).toBeGreaterThan(0)
+      for (const url of [new URL(fromCallback[0]), ...scripts]) expect(url.origin).toBe(ORIGINS[app])
+      for (const url of scripts) expect(url.pathname).toMatch(/^\/assets\/[^/]+\.js$/)
+      expect(fromCallback.filter((url) => new URL(url).host === HOSTS.api)).toEqual([])
+      const callbackJsBytes = scripts.reduce((total, url) => total + statSync(join(harness.roots[app], url.pathname)).size, 0)
+      expect(callbackJsBytes).toBeLessThan(CALLBACK_JS_BOUND)
 
       // What Google was asked: the authorization-code request, PKCE S256, the server's nonce.
       const authorize = requests.to(HOSTS.google).filter((entry) => entry.path === "/o/oauth2/v2/auth")
@@ -189,37 +247,43 @@ test("s02d: /google-callback.html is served no-store and no-referrer, under each
     // The page itself: one module of this origin, no inline script, nothing else.
     const html = await response.text()
     expect(html).toMatch(/<script type="module" crossorigin src="\/assets\/google-callback-[^"]+\.js"><\/script>/)
-    expect(html).not.toMatch(/<script>(?!<\/)/)
+    // Every script tag loads a file: none carries code of its own (REVIEW 162 F8.7).
+    const scriptTags = html.match(/<script\b[^>]*>/gi) ?? []
+    expect(scriptTags.length).toBeGreaterThan(0)
+    for (const tag of scriptTags) expect(tag).toMatch(/\ssrc="[^"]+"/)
     expect(html).not.toContain("theme-boot")
     expect(html).not.toContain("preconnect")
     expect(html).not.toContain('rel="icon"')
   }
 })
 
-test("s02d (standing negative): Google's script in the sign-in page is refused by script-src", async ({
-  page,
-  api,
-  csp,
-}) => {
-  await api.useAnonymous()
-  await page.goto(`${ORIGINS.accounts}/login`)
-  // Refused by the enforced policy, and reported by its Report-Only twin (card S02 stage A).
-  for (const disposition of ["enforce", "report"] as const) {
-    csp.expect({
-      directive: "script-src",
-      blocked: "https://accounts.google.com/gsi/client",
-      disposition,
-      reason: "S02 PR D: Google's script is no longer a script source of either app",
+// The standing negative, on both apps (REVIEW 162 F8.6).
+for (const app of ["accounts", "console"] as const satisfies readonly AppName[]) {
+  test(`s02d (standing negative): Google's script in the ${app} sign-in page is refused by script-src`, async ({
+    page,
+    api,
+    csp,
+  }) => {
+    await api.useAnonymous()
+    await page.goto(`${ORIGINS[app]}/login`)
+    // Refused by the enforced policy, and reported by its Report-Only twin (card S02 stage A).
+    for (const disposition of ["enforce", "report"] as const) {
+      csp.expect({
+        directive: "script-src",
+        blocked: "https://accounts.google.com/gsi/client",
+        disposition,
+        reason: "S02 PR D: Google's script is no longer a script source of either app",
+      })
+    }
+
+    await page.evaluate(() => {
+      const script = document.createElement("script")
+      script.src = "https://accounts.google.com/gsi/client"
+      document.head.appendChild(script)
     })
-  }
 
-  await page.evaluate(() => {
-    const script = document.createElement("script")
-    script.src = "https://accounts.google.com/gsi/client"
-    document.head.appendChild(script)
+    await expect
+      .poll(() => csp.violations().filter((violation) => violation.blocked === "https://accounts.google.com/gsi/client").length)
+      .toBeGreaterThanOrEqual(2)
   })
-
-  await expect
-    .poll(() => csp.violations().filter((violation) => violation.blocked === "https://accounts.google.com/gsi/client").length)
-    .toBeGreaterThanOrEqual(2)
-})
+}

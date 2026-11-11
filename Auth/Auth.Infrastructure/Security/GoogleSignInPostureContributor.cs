@@ -46,8 +46,12 @@ public sealed class GoogleSignInPostureContributor : ISecurityPostureContributor
     {
         using var scope = _scopeFactory.CreateScope();
         var google = scope.ServiceProvider.GetRequiredService<IOptionsSnapshot<ExternalAuthSettings>>().Value.Google;
+        // Counted by the resolver's rule (FirstPartyOriginResolver): only an https origin can be a
+        // first-party app, so a list of http origins leaves the exchange refusing everyone.
         var origins = scope.ServiceProvider.GetRequiredService<IOptionsSnapshot<IdentityProviderSettings>>().Value
-            .FirstPartySpaOrigins.Count(origin => !string.IsNullOrWhiteSpace(origin));
+            .FirstPartySpaOrigins.Count(origin =>
+                !string.IsNullOrWhiteSpace(origin) &&
+                origin.Trim().StartsWith("https://", StringComparison.OrdinalIgnoreCase));
 
         if (google is null || !google.Enabled || string.IsNullOrWhiteSpace(google.ClientId))
         {
@@ -66,7 +70,7 @@ public sealed class GoogleSignInPostureContributor : ISecurityPostureContributor
 
         if (origins == 0)
         {
-            missing.Add("no first-party app origin (IdentityProvider:FirstPartySpaOrigins is empty)");
+            missing.Add("no first-party app origin (IdentityProvider:FirstPartySpaOrigins lists no https origin)");
         }
 
         return Task.FromResult(missing.Count > 0

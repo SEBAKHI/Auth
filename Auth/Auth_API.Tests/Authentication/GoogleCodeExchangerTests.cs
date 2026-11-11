@@ -162,6 +162,28 @@ public sealed class GoogleCodeExchangerTests
         OutageClassifier.IsOutage(thrown.Which).Should().BeTrue();
     }
 
+    /// <summary>
+    /// REVIEW 162 F2: a redirect is an answer, never followed (the registration turns redirects
+    /// off): without an OAuth body it is the outage path, after one request only.
+    /// </summary>
+    [Fact]
+    public async Task Exchange_WhenAnsweredWithARedirect_ThrowsAnOutage_AfterOneRequest()
+    {
+        var handler = new FakeHttpMessageHandler(_ =>
+        {
+            var redirect = new HttpResponseMessage(HttpStatusCode.TemporaryRedirect);
+            redirect.Headers.Location = new Uri("https://elsewhere.example.net/token");
+            return redirect;
+        });
+        var (exchanger, _) = Create(handler);
+
+        var act = () => exchanger.ExchangeAsync(Code, Verifier, RedirectUri, CancellationToken.None);
+
+        var thrown = await act.Should().ThrowAsync<HttpRequestException>();
+        OutageClassifier.IsOutage(thrown.Which).Should().BeTrue();
+        handler.Requests.Should().ContainSingle();
+    }
+
     [Fact]
     public async Task Exchange_WhenGoogleDoesNotAnswerInTime_ThrowsAnOutage()
     {

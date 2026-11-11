@@ -977,10 +977,18 @@ builder.Services.AddSingleton<IExternalTokenLifecycle>(sp => sp.GetRequiredServi
 builder.Services.AddSingleton<IExternalAuthProviderFactory, ExternalAuthProviderFactory>();
 // Google's token endpoint, for the code exchange of the Google sign-in (S02 PR D). One
 // attempt, bounded by the client's timeout; an outage reaches the global handler (503).
+// No redirect is followed and no cookie kept: a 3xx would make the client re-post the form,
+// client secret and code included, to whatever host it names. A 3xx is then an answer
+// without an OAuth body, which the exchanger treats as an outage.
 builder.Services.AddHttpClient<IGoogleCodeExchanger, GoogleCodeExchanger>(client =>
 {
     client.Timeout = GoogleCodeExchanger.Timeout;
     client.MaxResponseContentBufferSize = GoogleCodeExchanger.MaxResponseBytes;
+})
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    AllowAutoRedirect = false,
+    UseCookies = false,
 });
 // Provider profile-picture import. The URL comes out of a provider-signed ID token
 // rather than from user input, but it is still an outbound fetch on the sign-in

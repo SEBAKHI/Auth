@@ -10,7 +10,8 @@ namespace Auth_API.Tests.Authentication;
 /// <remarks>
 /// Deliberate breaks, each verified red: the code's bound raised to 513; the verifier's lower
 /// bound lowered to 42; <c>+</c> added to the verifier's character set; NotEmpty removed from the
-/// verifier (a missing value passed Matches).
+/// verifier (a missing value passed Matches); the pattern's <c>\z</c> back to <c>$</c> (REVIEW 162
+/// F8.1: a verifier ending in a line break passed).
 /// </remarks>
 public sealed class GoogleCodeExchangeValidatorTests
 {
@@ -53,6 +54,15 @@ public sealed class GoogleCodeExchangeValidatorTests
     public void ABadVerifier_IsCodeVerifierInvalid(string? verifier)
     {
         Codes("c", verifier!).Should().Equal("ExternalAuth.CodeVerifierInvalid");
+    }
+
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public void AVerifierEndingInALineBreak_IsCodeVerifierInvalid(string lineBreak)
+    {
+        // REVIEW 162 F8.1: .NET's $ also matches before a final line break.
+        Codes("c", Verifier43 + lineBreak).Should().Equal("ExternalAuth.CodeVerifierInvalid");
     }
 
     [Fact]

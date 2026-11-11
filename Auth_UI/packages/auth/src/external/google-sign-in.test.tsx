@@ -58,7 +58,8 @@ import { GOOGLE_CHANNEL } from "./google-code-flow"
  * Deliberate breaks, each verified red: the section drawn only on the live answer
  * (googleEnabled); a message accepted whatever its state; a message accepted twice; a
  * postMessage accepted from any origin; access_denied reported; the blocked-popup line removed;
- * the popup left open when Google turns out off; the exchange's verifier taken from a new value.
+ * the popup left open when Google turns out off; the exchange's verifier taken from a new value;
+ * the button disabled while Google's window is open (REVIEW 162 F4).
  */
 
 const LIVE_GOOGLE = [{ code: "google", name: "Google", iconUrl: "", clientId: "test-client.apps.googleusercontent.com" }]
@@ -85,6 +86,7 @@ class FakeChannel {
 interface FakePopup {
   closed: boolean
   close: ReturnType<typeof vi.fn>
+  focus: ReturnType<typeof vi.fn>
   location: { replace: ReturnType<typeof vi.fn> }
 }
 
@@ -97,6 +99,7 @@ function newPopup(): FakePopup {
     close: vi.fn(() => {
       created.closed = true
     }),
+    focus: vi.fn(),
     location: { replace: vi.fn() },
   }
   return created
@@ -331,5 +334,52 @@ describe("the Google button", () => {
     })
     expect(post).not.toHaveBeenCalled()
     expect(requestExternalNonce).toHaveBeenCalledTimes(2)
+  })
+
+  // REVIEW 162 F4: clicking the page sends the popup behind it; the button must bring it back.
+  it("brings Google's open window forward on a second click, opens no other, and stays usable", async () => {
+    renderSection()
+    await clickAndReachGoogle()
+    const button = screen.getByRole("button", { name: "Continue with Google" })
+    expect(button).toBeEnabled()
+    expect(button).toHaveAttribute("aria-busy", "false")
+
+    fireEvent.click(button)
+
+    expect(popup.focus).toHaveBeenCalledTimes(1)
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(button).toBeEnabled()
+  })
+
+  it("starts a new attempt on a second click once the handle reports closed, without waiting for the poll", async () => {
+    renderSection()
+    const first = await clickAndReachGoogle()
+    const firstPopup = popup
+    // The person closed it, or Google's page cut its link to this one.
+    firstPopup.closed = true
+    popup = newPopup()
+
+    const second = await clickAndReachGoogle()
+
+    expect(firstPopup.focus).not.toHaveBeenCalled()
+    expect(open).toHaveBeenCalledTimes(2)
+    expect(second.searchParams.get("state")).not.toBe(first.searchParams.get("state"))
+  })
+
+  it("is disabled and busy only while the code is with the API", async () => {
+    let finish!: (value: unknown) => void
+    post.mockImplementation(() => new Promise((resolve) => (finish = resolve)))
+    renderSection()
+    const url = await clickAndReachGoogle()
+
+    await act(async () => {
+      FakeChannel.emit({ type: "google-code", state: url.searchParams.get("state"), code: "4/0Ab" })
+    })
+
+    const button = screen.getByRole("button", { name: /Continue with Google/ })
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute("aria-busy", "true")
+    await act(async () => finish({ data: { idToken: "the-id-token" }, response: new Response("{}") }))
+    await waitFor(() => expect(screen.getByRole("button", { name: /Continue with Google/ })).toBeEnabled())
   })
 })

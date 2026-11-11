@@ -629,8 +629,16 @@ Line by line, what each block is for:
   Credentials → your OAuth client: add `https://<accounts origin>/google-callback.html` and
   `https://<console origin>/google-callback.html` to **Authorized redirect URIs** (the Authorized
   JavaScript origins stay), and create a client secret (**Add secret**; Google shows it once). Then,
-  once the API runs this version, paste it in the console: **Secrets** → `GoogleClientSecret` →
-  **Edit**, and restart the API (the secrets file is read at startup). Production refuses to start
+  once the API and the Gateway run this version, turn on `SecretManagement:EnableAdminApi` in
+  `appsettings.Production.json` for the minutes it takes (read per request;
+  `GET /api/v1/admin/Secrets/status` answers 200) and deploy the **console** of this version first:
+  its **Secrets** page is the one with a row for this secret (until the secret is set, the console's
+  own Google button answers an error, so sign in to the console another way). Paste the secret
+  there (**Secrets** → the `GoogleClientSecret` row → **Edit** → **Save**), turn `EnableAdminApi`
+  off again (the status endpoint answers 403) and restart the API (the secrets file is read at
+  startup); deploy the accounts application after that. Removing the secret on the **Secrets** page
+  does not revoke it at Google: to retire a leaked secret, also delete it in Google Cloud Console.
+  Production refuses to start
   with `ExternalAuth:Google:ClientSecret` in plaintext configuration. Both app origins must also be
   in `IdentityProvider:FirstPartySpaOrigins`: the exchange refuses a request whose `Origin` is not
   listed. The exchange has a limit of its own, per client address:
@@ -638,7 +646,9 @@ Line by line, what each block is for:
   **System settings → Rate limiting**); the Gateway forwards it on `external-code-route` under its
   `api` policy. The API calls `https://oauth2.googleapis.com/token` for it: a server whose outbound
   traffic is allowed by host name must allow that host, beside the hosts Google's token validation
-  already uses, or every Google sign-in ends in a 503 after five seconds. Filling
+  already uses, or every Google sign-in ends in a 503 after five seconds. To roll this version
+  back, roll back the two applications' `dist` first and the API after them: an older API answers
+  the new applications' code exchange with 404. Filling
   `IdentityProvider:FirstPartySpaOrigins` also turns on the first-party refresh cookie and the
   strict Origin check on password sign-in (that list's own comment): the cookie needs the two apps on
   the same site as the API, so a layout where they are not sets `IdentityProvider:SpaRefreshCookieEnabled`
@@ -1471,7 +1481,7 @@ very different mornings.
 - [ ] Both applications were rebuilt after you edited their `.env.production` — the values are baked in at build time and cannot be corrected on the server.
 - [ ] Both applications' `web.config` Content Security Policies name your API origin, and both `dist` folders actually contain a `web.config`.
 - [ ] The accounts site has a `privacy` virtual directory pointing at `PrivacyPolicyPublication:PhysicalPath`.
-- [ ] `ExternalAuth:Google` is either fully configured on both sides or left at the shipped `Enabled: false`. Fully configured means: the client id in the API and the accounts build, both apps' `https://<origin>/google-callback.html` among the OAuth client's Authorized redirect URIs at Google, and the client secret set on the console's **Secrets** page with the API restarted after it.
+- [ ] `ExternalAuth:Google` is either fully configured on both sides or left at the shipped `Enabled: false`. Fully configured means: the client id in the API and the accounts build, both apps' `https://<origin>/google-callback.html` among the OAuth client's Authorized redirect URIs at Google, both app origins in `IdentityProvider:FirstPartySpaOrigins`, and the client secret set on the **Secrets** page of the console of this version (deployed before the accounts application, with `SecretManagement:EnableAdminApi` on for those minutes and off again after) with the API restarted after it.
 - [ ] The data-controller fields are filled in at **System settings → Data controller**. They ship empty on purpose and a privacy policy cannot be published until they are set.
 - [ ] Every system notification type has a published template — no `no published global Email template` line in the startup log.
 - [ ] A test email actually arrives ([Phase 6](#phase-6--email-and-notifications)).

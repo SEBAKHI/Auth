@@ -246,10 +246,10 @@ export function GoogleSignIn({
     }
   }, [receive])
 
-  // Ends the spinner when the person closes the popup without answering. When Google cut the
+  // Ends the wait when the person closes the popup without answering. When Google cut the
   // popup's link to this page, the handle reports closed while the window is still open: the
-  // spinner ends then too, so the button stays usable, and the attempt keeps listening, so an
-  // answer that still arrives is still taken.
+  // wait ends then too, and the attempt keeps listening, so an answer that still arrives is
+  // still taken.
   React.useEffect(() => {
     if (phase !== "waiting") return
     const timer = window.setInterval(() => {
@@ -325,8 +325,27 @@ export function GoogleSignIn({
     })()
   }
 
+  // While Google's window is open, a click brings it forward and opens no other: clicking this
+  // page sends the popup behind it, and a disabled button would leave nothing on the page to
+  // bring it back with (REVIEW 162 F4). A handle that reports closed (the person closed it, or
+  // Google cut its link to this page) starts a new attempt.
+  const onClick = () => {
+    const attempt = attemptRef.current
+    if (phase === "waiting" && attempt && !attempt.popup.closed) {
+      try {
+        attempt.popup.focus()
+        return
+      } catch {
+        // No longer ours to focus: a new attempt replaces it.
+      }
+    }
+    start()
+  }
+
   if (!googleEnabled && !googleExpected) return null
-  const pending = phase !== "idle"
+  // Only the exchange is work this page waits on; while Google's window is open the page waits
+  // on the person, and the button stays usable.
+  const exchanging = phase === "exchanging"
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -334,10 +353,11 @@ export function GoogleSignIn({
         type="button"
         variant="outline"
         className="w-80"
-        disabled={pending}
-        onClick={start}
+        disabled={exchanging}
+        aria-busy={exchanging}
+        onClick={onClick}
       >
-        {pending ? <Spinner /> : <GoogleIcon data-icon="inline-start" />}
+        {exchanging ? <Spinner /> : <GoogleIcon data-icon="inline-start" />}
         {t("auth.continueWithGoogle")}
       </Button>
       {blocked ? (

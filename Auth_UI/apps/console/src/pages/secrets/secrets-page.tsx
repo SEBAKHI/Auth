@@ -533,6 +533,9 @@ export function SecretsPage() {
   const [customOpen, setCustomOpen] = React.useState(false)
   const [knownSecretKey, setKnownSecretKey] = React.useState<KnownSecretKey>()
   const [deleteOpen, setDeleteOpen] = React.useState(false)
+  // Open apart from the key: the key outlives the dialog, so its title and description stay
+  // during the close animation (REVIEW 162 F8.5).
+  const [clearOpen, setClearOpen] = React.useState(false)
   const [clearKey, setClearKey] = React.useState<ClearableSecretKey>()
   const [deleteKey, setDeleteKey] = React.useState("")
   const [pendingOperation, setPendingOperation] =
@@ -579,7 +582,7 @@ export function SecretsPage() {
     onSuccess: (key) => {
       void queryClient.invalidateQueries({ queryKey: ["secrets", "status"] })
       toast.success(t(CLEARABLE_KNOWN_SECRETS[key].doneKey))
-      setClearKey(undefined)
+      setClearOpen(false)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -740,7 +743,10 @@ export function SecretsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setClearKey(key)}
+                          onClick={() => {
+                            setClearKey(key)
+                            setClearOpen(true)
+                          }}
                         >
                           <Trash2 data-icon="inline-start" />
                           {t("common.remove")}
@@ -888,10 +894,8 @@ export function SecretsPage() {
       </ConfirmDialog>
 
       <ConfirmDialog
-        open={Boolean(clearKey)}
-        onOpenChange={(open) => {
-          if (!open) setClearKey(undefined)
-        }}
+        open={clearOpen}
+        onOpenChange={setClearOpen}
         title={clearKey ? t(CLEARABLE_KNOWN_SECRETS[clearKey].titleKey) : ""}
         description={clearKey ? t(CLEARABLE_KNOWN_SECRETS[clearKey].bodyKey) : ""}
         confirmLabel={t("common.remove")}

@@ -14,7 +14,8 @@ namespace Auth_API.Tests.Security;
 /// </summary>
 /// <remarks>
 /// Deliberate breaks, each verified red: the secret check removed; the origins check removed;
-/// the warning written at Information.
+/// the warning written at Information; any non-blank origin counted (REVIEW 162 F8.2: http
+/// origins only read as Ok).
 /// </remarks>
 public sealed class GoogleSignInPostureContributorTests
 {
@@ -54,6 +55,17 @@ public sealed class GoogleSignInPostureContributorTests
         line.Level.Should().Be(LogLevel.Warning);
         line.Arguments.Single()!.ToString().Should().Contain("IdentityProvider:FirstPartySpaOrigins")
             .And.NotContain("ClientSecret");
+    }
+
+    [Fact]
+    public async Task On_WithOnlyHttpOrigins_IsWeak_NamingTheList()
+    {
+        // REVIEW 162 F8.2: the resolver accepts only https origins, so http ones count as none.
+        var posture = await Contributor(On(secret: "s"), "http://accounts.example.com", "http://console.example.com")
+            .EvaluateAsync(CancellationToken.None);
+
+        posture.Level.Should().Be(SecurityPostureLevel.Weak);
+        posture.Lines.Single().Arguments.Single()!.ToString().Should().Contain("IdentityProvider:FirstPartySpaOrigins");
     }
 
     [Fact]

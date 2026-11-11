@@ -140,7 +140,8 @@ public class SignInPageThrottleGuardTests
     /// </summary>
     /// <remarks>
     /// Deliberate breaks, each verified red: the action's policy set to "login"; the gateway route
-    /// removed; the route's policy set to "auth"; <c>[RequireFirstPartyAppOrigin]</c> removed.
+    /// removed; the route's policy set to "auth"; <c>[RequireFirstPartyAppOrigin]</c> removed; the
+    /// <c>ConfigurePrimaryHttpMessageHandler</c> call removed (REVIEW 162 F2).
     /// </remarks>
     [Fact]
     public void TheGoogleCodeExchange_HasItsOwnBucket_AndItsOwnRouteAtTheEdge()
@@ -159,6 +160,13 @@ public class SignInPageThrottleGuardTests
         program.Should().Contain("AddHttpClient<IGoogleCodeExchanger, GoogleCodeExchanger>");
         program.Should().Contain("client.Timeout = GoogleCodeExchanger.Timeout;");
         program.Should().Contain("client.MaxResponseContentBufferSize = GoogleCodeExchanger.MaxResponseBytes;");
+        // REVIEW 162 F2: no redirect followed (it would re-post the client secret and the code to
+        // the host it names) and no cookie kept, in this client's own registration.
+        var start = program.IndexOf("AddHttpClient<IGoogleCodeExchanger, GoogleCodeExchanger>", StringComparison.Ordinal);
+        var registration = program[start..program.IndexOf("builder.Services.", start + 1, StringComparison.Ordinal)];
+        registration.Should().Contain(".ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler");
+        registration.Should().Contain("AllowAutoRedirect = false,");
+        registration.Should().Contain("UseCookies = false,");
 
         var routes = GatewayRoutes();
         var route = routes.SingleOrDefault(r => r.Name == "external-code-route");
