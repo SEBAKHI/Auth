@@ -636,7 +636,15 @@ Line by line, what each block is for:
   listed. The exchange has a limit of its own, per client address:
   `RateLimiting:ExternalCodePermitLimit` / `RateLimiting:ExternalCodeWindowSeconds` (20 / 60 s, in
   **System settings → Rate limiting**); the Gateway forwards it on `external-code-route` under its
-  `api` policy. Apple sign-in ships disabled and
+  `api` policy. The API calls `https://oauth2.googleapis.com/token` for it: a server whose outbound
+  traffic is allowed by host name must allow that host, beside the hosts Google's token validation
+  already uses, or every Google sign-in ends in a 503 after five seconds. Filling
+  `IdentityProvider:FirstPartySpaOrigins` also turns on the first-party refresh cookie and the
+  strict Origin check on password sign-in (that list's own comment): the cookie needs the two apps on
+  the same site as the API, so a layout where they are not sets `IdentityProvider:SpaRefreshCookieEnabled`
+  to `false` when it fills the list for Google. While Google is on without the secret or without a
+  listed origin, the API writes a Warning at startup and at every configuration reload
+  (`Google sign-in is on … but cannot complete`). Apple sign-in ships disabled and
   needs an Apple Developer Services ID, a verified domain, a `.p8` signing key provisioned into the
   secrets file, and the seeded `apple` row in `ExternalAuthProviders` flipped to enabled — leave it
   off unless you are doing all four.

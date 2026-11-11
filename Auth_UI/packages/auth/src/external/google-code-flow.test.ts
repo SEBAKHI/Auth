@@ -46,7 +46,7 @@ describe("PKCE (RFC 7636)", () => {
 
 describe("the authorize URL", () => {
   const request = {
-    clientId: "crm-client.apps.googleusercontent.com",
+    clientId: "test-client.apps.googleusercontent.com",
     redirectUri: "https://accounts.example.com/google-callback.html",
     state: "the-state",
     nonce: "server-nonce",
@@ -59,7 +59,7 @@ describe("the authorize URL", () => {
 
     expect(`${url.origin}${url.pathname}`).toBe(GOOGLE_AUTHORIZE_URL)
     expect(Object.fromEntries(url.searchParams)).toEqual({
-      client_id: "crm-client.apps.googleusercontent.com",
+      client_id: "test-client.apps.googleusercontent.com",
       redirect_uri: "https://accounts.example.com/google-callback.html",
       response_type: "code",
       scope: "openid email profile",

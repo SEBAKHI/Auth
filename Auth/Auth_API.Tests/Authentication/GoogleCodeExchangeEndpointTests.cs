@@ -38,8 +38,9 @@ namespace Auth_API.Tests.Authentication;
 /// Google was asked, and every line the host logged.
 /// </summary>
 /// <remarks>
-/// Deliberate breaks, each verified red: <c>[RequireFirstPartyAppOrigin]</c> dropped (a request
-/// without an Origin, or with an empty list, reaches Google); the callback address taken from a
+/// Deliberate breaks, each verified red: both Origin checks removed (<c>[RequireFirstPartyAppOrigin]</c>
+/// and the action's own check), so a request without an Origin, or with an empty list, reaches
+/// Google (the attribute alone is pinned by SignInPageThrottleGuardTests: the action repeats it); the callback address taken from a
 /// body member; the answer carrying Google's whole token response; <c>Cache-Control</c> left out;
 /// the code written into the handler's log line.
 /// </remarks>
@@ -263,7 +264,7 @@ public sealed class GoogleCodeExchangeEndpointTests
                         services.Configure<ExternalAuthSettings>(settings => settings.Google = new GoogleAuthSettings
                         {
                             Enabled = true,
-                            ClientId = "crm-client.apps.googleusercontent.com",
+                            ClientId = "test-client.apps.googleusercontent.com",
                             ClientSecret = secret,
                         });
 

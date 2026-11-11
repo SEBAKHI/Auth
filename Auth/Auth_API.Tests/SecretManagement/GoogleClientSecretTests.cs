@@ -91,7 +91,7 @@ public sealed class GoogleClientSecretTests : IDisposable
     /// <summary>The real layer order: the settings file first, the secrets file last.</summary>
     private IConfiguration Configuration() =>
         new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["ExternalAuth:Google:ClientId"] = "crm-client" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["ExternalAuth:Google:ClientId"] = "test-client" })
             .AddDpapiSecrets(_provider, _secretFilePath)
             .Build();
 
@@ -107,6 +107,27 @@ public sealed class GoogleClientSecretTests : IDisposable
         var status = await service.GetStatusAsync(CancellationToken.None);
         status.Secrets["GoogleClientSecret"].Should().Be(SecretStatus.Configured,
             "the Secrets page shows whether it is set, never the value");
+    }
+
+    [Fact]
+    public async Task Set_TrimsWhatWasPasted()
+    {
+        var service = await CreateServiceAsync();
+
+        await CreateHandler(service).Handle(new SetGoogleClientSecretCommand($"  {Secret}\r\n", _admin), CancellationToken.None);
+
+        Configuration()["ExternalAuth:Google:ClientSecret"].Should().Be(Secret,
+            "a stray space or line break would be refused by Google only after the restart");
+    }
+
+    [Fact]
+    public async Task TheSecret_IsWriteOnly_ThroughTheSecretService()
+    {
+        var service = await CreateServiceAsync();
+        await CreateHandler(service).Handle(new SetGoogleClientSecretCommand(Secret, _admin), CancellationToken.None);
+
+        (await service.GetSecretAsync("GoogleClientSecret", CancellationToken.None)).Should().BeNull(
+            "no key name reads it back; only its status is reported");
     }
 
     [Fact]

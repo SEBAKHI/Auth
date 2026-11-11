@@ -155,6 +155,10 @@ public class SignInPageThrottleGuardTests
         var program = ReadSource("Auth_API", "Program.cs");
         program.Should().Contain("options.AddPolicy(\"external-code\"");
         program.Should().Contain("RateLimiting:ExternalCodePermitLimit");
+        // The typed client's bounds: without them it would wait 100 s and buffer any size of answer.
+        program.Should().Contain("AddHttpClient<IGoogleCodeExchanger, GoogleCodeExchanger>");
+        program.Should().Contain("client.Timeout = GoogleCodeExchanger.Timeout;");
+        program.Should().Contain("client.MaxResponseContentBufferSize = GoogleCodeExchanger.MaxResponseBytes;");
 
         var routes = GatewayRoutes();
         var route = routes.SingleOrDefault(r => r.Name == "external-code-route");

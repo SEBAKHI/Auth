@@ -960,6 +960,8 @@ builder.Services.AddSingleton<ISecurityPostureContributor, RevocationPostureCont
 builder.Services.AddSingleton<ISecurityPostureContributor, PasskeyPostureContributor>();
 // Account-deletion and retention values applied other than as configured (outside their bounds).
 builder.Services.AddSingleton<ISecurityPostureContributor, RetentionBoundsPostureContributor>();
+// S02 PR D: Google offered while its code exchange cannot complete (no secret, no first-party origin).
+builder.Services.AddSingleton<ISecurityPostureContributor, GoogleSignInPostureContributor>();
 builder.Services.AddHostedService<SecurityPostureCheck>();
 
 // External Authentication

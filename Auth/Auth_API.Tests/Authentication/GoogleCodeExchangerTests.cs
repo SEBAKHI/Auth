@@ -21,7 +21,7 @@ namespace Auth_API.Tests.Authentication;
 /// </remarks>
 public sealed class GoogleCodeExchangerTests
 {
-    private const string ClientId = "crm-client.apps.googleusercontent.com";
+    private const string ClientId = "test-client.apps.googleusercontent.com";
     private const string ClientSecret = "GOCSPX-test-secret-value-0123456789";
     private const string Code = "4/0Ab-the-one-time-code-from-the-callback";
     private const string Verifier = "dBjftJeZ4CVP-mJ92K9FTB9e42p5hj6E2iZlqZzX7pN0aQ";
@@ -142,6 +142,24 @@ public sealed class GoogleCodeExchangerTests
         var thrown = await act.Should().ThrowAsync<HttpRequestException>();
         OutageClassifier.IsOutage(thrown.Which).Should().BeTrue(
             "the global handler answers an outage 503 Http.Unavailable with Retry-After (ADR 0001 §5)");
+    }
+
+    /// <summary>
+    /// Not an OAuth refusal, so not "try again": Google throttling this server, or an outbound
+    /// proxy's error page in place of Google's JSON (review of #162).
+    /// </summary>
+    [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests, """{"error":"rate_limit_exceeded"}""")]
+    [InlineData(HttpStatusCode.Forbidden, "<html>proxy says no</html>")]
+    [InlineData(HttpStatusCode.ProxyAuthenticationRequired, "")]
+    public async Task Exchange_WhenTheAnswerIsNotAnOAuthRefusal_ThrowsAnOutage(HttpStatusCode status, string body)
+    {
+        var (exchanger, _) = Create(new FakeHttpMessageHandler(_ => new HttpResponseMessage(status) { Content = new StringContent(body) }));
+
+        var act = () => exchanger.ExchangeAsync(Code, Verifier, RedirectUri, CancellationToken.None);
+
+        var thrown = await act.Should().ThrowAsync<HttpRequestException>();
+        OutageClassifier.IsOutage(thrown.Which).Should().BeTrue();
     }
 
     [Fact]

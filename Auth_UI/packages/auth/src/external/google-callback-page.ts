@@ -1,4 +1,34 @@
+import { SUPPORTED_LANGUAGES, type LanguageCode } from "@authsystem/i18n/languages"
+
 import { GOOGLE_CHANNEL, readCallback } from "./google-code-flow"
+
+/**
+ * The one line this page may show: when a browser refuses to close a window that Google's
+ * page moved to another window group (a Cross-Origin-Opener-Policy), the window stays open,
+ * and an empty page there would look broken. In every language the apps ship, chosen from the
+ * browser's language: this page loads no translations, only the list of languages.
+ */
+export const CLOSE_THIS_WINDOW: Record<LanguageCode, string> = {
+  en: "You can close this window.",
+  ar: "يمكنك إغلاق هذه النافذة.",
+  tr: "Bu pencereyi kapatabilirsiniz.",
+  fr: "Vous pouvez fermer cette fenêtre.",
+  zh: "您可以关闭此窗口。",
+  ur: "آپ یہ ونڈو بند کر سکتے ہیں۔",
+  fa: "می‌توانید این پنجره را ببندید.",
+}
+
+/** How long the page waits for close() to take effect before it says it can be closed. */
+export const STILL_OPEN_AFTER_MS = 600
+
+function closeLine(win: Window): void {
+  const tag = (win.navigator.language || "en").split("-")[0].toLowerCase()
+  const language = SUPPORTED_LANGUAGES.find((candidate) => candidate.code === tag) ?? SUPPORTED_LANGUAGES[0]
+  const root = win.document.documentElement
+  root.lang = language.code
+  root.dir = language.dir
+  win.document.body.textContent = CLOSE_THIS_WINDOW[language.code]
+}
 
 /**
  * The whole job of /google-callback.html (both apps), in this order:
@@ -33,4 +63,8 @@ export function runGoogleCallback(win: Window = window): void {
   }
 
   win.close()
+  // Still here a moment later: the browser kept the window open. Say it can be closed.
+  win.setTimeout(() => {
+    if (!win.closed) closeLine(win)
+  }, STILL_OPEN_AFTER_MS)
 }

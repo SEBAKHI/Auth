@@ -34,7 +34,7 @@ vi.mock("./use-external-providers", async (importActual) => {
     ...actual,
     useExternalProviders: () => ({
       ...providers,
-      googleClientId: "crm-client.apps.googleusercontent.com",
+      googleClientId: "test-client.apps.googleusercontent.com",
       appleEnabled: false,
       appleServicesId: "",
     }),
@@ -61,7 +61,7 @@ import { GOOGLE_CHANNEL } from "./google-code-flow"
  * the popup left open when Google turns out off; the exchange's verifier taken from a new value.
  */
 
-const LIVE_GOOGLE = [{ code: "google", name: "Google", iconUrl: "", clientId: "crm-client.apps.googleusercontent.com" }]
+const LIVE_GOOGLE = [{ code: "google", name: "Google", iconUrl: "", clientId: "test-client.apps.googleusercontent.com" }]
 
 class FakeChannel {
   static instances: FakeChannel[] = []
@@ -169,9 +169,11 @@ describe("the Google button", () => {
 
     expect(open).toHaveBeenCalledTimes(1)
     expect(open.mock.calls[0][0]).toBe("about:blank")
+    // A fresh name per attempt: another page cannot find the popup by a known name.
+    expect(open.mock.calls[0][1]).toMatch(/^google-sign-in-[A-Za-z0-9_-]{16}$/)
     expect(open.mock.calls[0][2]).toMatch(/^popup,width=500,height=640,/)
     expect(url.origin + url.pathname).toBe("https://accounts.google.com/o/oauth2/v2/auth")
-    expect(url.searchParams.get("client_id")).toBe("crm-client.apps.googleusercontent.com")
+    expect(url.searchParams.get("client_id")).toBe("test-client.apps.googleusercontent.com")
     expect(url.searchParams.get("redirect_uri")).toBe(`${window.location.origin}/google-callback.html`)
     expect(url.searchParams.get("nonce")).toBe("server-nonce")
     expect(url.searchParams.get("state")).toMatch(/^[A-Za-z0-9_-]{43}$/)
@@ -322,6 +324,7 @@ describe("the Google button", () => {
     popup = newPopup()
     const second = await clickAndReachGoogle()
     expect(second.searchParams.get("state")).not.toBe(first.searchParams.get("state"))
+    expect(open.mock.calls[1][1]).not.toBe(open.mock.calls[0][1])
 
     await act(async () => {
       FakeChannel.emit({ type: "google-code", state: first.searchParams.get("state"), code: "old" })

@@ -103,6 +103,19 @@ public sealed partial class GoogleCodeExchanger : IGoogleCodeExchanger
 
         var answer = await ReadAnswerAsync(response, cancellationToken);
 
+        if (!response.IsSuccessStatusCode && (answer is null || status == 429))
+        {
+            // Not an OAuth refusal: Google throttling this server (429), or an answer that is not
+            // Google's JSON at all (an outbound proxy's error page). Neither is the person's code,
+            // so it is an outage, not "try again": 503 with Retry-After, and a line the operator
+            // can find.
+            answer?.Dispose();
+            _logger.LogWarning(
+                "Google's token endpoint answered {StatusCode} without an OAuth error body; treated as unavailable", status);
+            throw new HttpRequestException(
+                $"Google's token endpoint answered {status} without an OAuth error.", inner: null, response.StatusCode);
+        }
+
         if (!response.IsSuccessStatusCode)
         {
             var error = ErrorValue(answer);

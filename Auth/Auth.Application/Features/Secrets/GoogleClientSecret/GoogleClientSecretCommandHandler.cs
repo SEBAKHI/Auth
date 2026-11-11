@@ -24,6 +24,8 @@ namespace Auth.Application.Features.Secrets.GoogleClientSecret;
 /// </para>
 /// <para>
 /// The audit trail records the key name, never the value (<see cref="SecretValueChangedEvent"/>).
+/// The value is write-only: <see cref="IDpapiSecretService"/> has no key name that reads it
+/// back, and the status reports only whether it is set.
 /// </para>
 /// </remarks>
 public class GoogleClientSecretCommandHandler :
@@ -53,7 +55,9 @@ public class GoogleClientSecretCommandHandler :
     public Task<ErrorOr<Success>> Handle(
         SetGoogleClientSecretCommand request,
         CancellationToken cancellationToken) =>
-        WriteAsync(request.Value, request.RequestedBy, "stored", cancellationToken);
+        // Trimmed: a secret pasted from Google Cloud Console with a stray space or line break
+        // would be stored as typed and refused by Google (invalid_client) only after a restart.
+        WriteAsync(request.Value.Trim(), request.RequestedBy, "stored", cancellationToken);
 
     public Task<ErrorOr<Success>> Handle(
         ClearGoogleClientSecretCommand request,

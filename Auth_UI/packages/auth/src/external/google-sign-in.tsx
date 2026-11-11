@@ -33,8 +33,14 @@ import {
   useExternalProviders,
 } from "./use-external-providers"
 
-/** The popup's name: a second click reuses the same window rather than opening another. */
-const POPUP_NAME = "google-sign-in"
+/**
+ * A fresh window name per attempt. A fixed, public name would let another page in the same
+ * window group (one that opened this sign-in page, say) find the popup by that name and
+ * navigate it to a page of its own while the person expects Google's (review of #162).
+ */
+function popupName(): string {
+  return `google-sign-in-${randomBase64Url().slice(0, 16)}`
+}
 const POPUP_WIDTH = 500
 const POPUP_HEIGHT = 640
 /** How often the popup handle is asked whether the person closed it. */
@@ -255,8 +261,14 @@ export function GoogleSignIn({
 
   const start = () => {
     setBlocked(false)
+    // A previous attempt's window, if it is still ours to close: this one replaces it.
+    try {
+      attemptRef.current?.popup.close()
+    } catch {
+      // Already closed, or no longer ours.
+    }
     // Synchronously, inside the click: a window opened after an await is a blocked popup.
-    const popup = window.open("about:blank", POPUP_NAME, popupFeatures())
+    const popup = window.open("about:blank", popupName(), popupFeatures())
     if (!popup) {
       setBlocked(true)
       return

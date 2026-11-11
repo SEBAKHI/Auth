@@ -26,7 +26,7 @@ import { HOSTS, ORIGINS, expect, test, type AppName } from "./fixtures"
 const NONCE = "harness-server-nonce"
 const CODE = "harness-one-time-code"
 const ID_TOKEN = "harness.id.token"
-const CLIENT_ID = "crm-client.apps.googleusercontent.com"
+const CLIENT_ID = "test-client.apps.googleusercontent.com"
 const FIRST_LOAD = { timeout: 20_000 }
 
 const USER = {

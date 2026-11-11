@@ -800,7 +800,6 @@ public class DpapiSecretService : IDpapiSecretService
             "jwtpublickeypem" => secrets.JwtPublicKeyPem,
             "refreshtokenhmackey" => secrets.RefreshTokenHmacKey,
             "smtppassword" => secrets.SmtpPassword,
-            "googleclientsecret" => secrets.GoogleClientSecret,
             "gatewaytoken" => secrets.GatewayToken,
             // Readable so the one PERMANENT key in the system can actually be
             // backed up. It cannot be regenerated: losing it orphans every
@@ -860,9 +859,6 @@ public class DpapiSecretService : IDpapiSecretService
                 return true;
             case "smtppassword":
                 secrets.SmtpPassword = value;
-                return true;
-            case "googleclientsecret":
-                secrets.GoogleClientSecret = value;
                 return true;
             case "gatewaytoken":
                 secrets.GatewayToken = value;
