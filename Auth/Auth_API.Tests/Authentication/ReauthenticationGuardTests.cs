@@ -213,6 +213,37 @@ public class ReauthenticationGuardTests
             AuthenticationMethods.Password, "what that proof proved, never what the session ever proved");
     }
 
+    // ── The time of what the session carries (OI-280 PR B: T-B2, D-B2) ──
+    //
+    // Deliberate break, verified red: the proof's branch dated at the session's sign-in.
+
+    [Fact]
+    public async Task EnsureRecentSignInAsync_ARecentSignIn_CarriesTheSignInsTime()
+    {
+        var userId = Guid.NewGuid();
+        var session = Session(Guid.NewGuid(), userId, TimeSpan.FromMinutes(3));
+        GivenSession(session);
+
+        var result = await _guard.EnsureRecentSignInAsync(userId, session.Id, CancellationToken.None);
+
+        result.Value.ProvedAtUtc.Should().Be(
+            Now.UtcDateTime.AddMinutes(-3), "the sign-in is when what the row first recorded was proved");
+    }
+
+    [Fact]
+    public async Task EnsureRecentSignInAsync_PastTheSignIn_CarriesTheProofsOwnTime()
+    {
+        // Row 366: an emailed code given in the window counts at its own time, hours after the sign-in.
+        var code = AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false);
+        var session = GivenOldSession(code);
+        GivenProof(session, TimeSpan.FromMinutes(2), code);
+
+        var result = await _guard.EnsureRecentSignInAsync(session.UserId, session.Id, CancellationToken.None);
+
+        result.Value.Methods.Should().Be(code);
+        result.Value.ProvedAtUtc.Should().Be(Now.UtcDateTime.AddMinutes(-2), "the proof's own time, never the sign-in's");
+    }
+
     // ── A proof counts only for the tokens issued after it (REVIEW-FIXES 152 F23) ──
     //
     // Deliberate break, verified red: the guard's comparison of the token's iat with the proof

@@ -1,4 +1,8 @@
-import { HOSTS, ORIGINS, expect, test } from "./fixtures"
+import type { Page, Route } from "@playwright/test"
+
+import { en } from "../../packages/i18n/src/locales/en"
+import type { AttackerPages } from "./attacker-origins"
+import { HOSTS, ORIGINS, expect, test, type HarnessApi } from "./fixtures"
 import { fulfillJson } from "../isolated/mock-authenticated-api"
 import {
   loginResponse,
@@ -226,10 +230,11 @@ test("s20: a passkey added in the console signs in at the accounts app", async (
     branding: PASSKEYS_MAY_RUN,
   })
 
-  // The passkey screen's button, not the address field's suggestion: on this page
-  // the browser says it offers no suggestion, so the button alone signs in (T-C5).
-  // The suggestion has its own test below. OI-280: no button for every visitor;
-  // the address and "Continue" lead to the passkey screen.
+  // The passkey screen, not the address field's suggestion: on this page the
+  // browser says it offers no suggestion (T-C5). The suggestion has its own test
+  // below. OI-280: no button for every visitor; the address and "Continue" lead to
+  // the passkey screen, which opens the browser's window by itself (PR B, T-B14),
+  // and the virtual authenticator answers it: no click.
   await withoutSuggestion(page)
   await page.goto(`${ORIGINS.accounts}/login`)
   await expect(page.getByLabel("Email")).toHaveAttribute(
@@ -238,12 +243,8 @@ test("s20: a passkey added in the console signs in at the accounts app", async (
   )
   await page.getByLabel("Email").fill(USER.email)
   await page.getByRole("button", { name: "Continue", exact: true }).click(FIRST_LOAD)
-  const passkey = page.getByTestId("passkey-sign-in").getByRole("button", { name: "Sign in with a passkey" })
-  await expect(passkey).toBeEnabled(FIRST_LOAD)
-  await expect(passkey).toBeFocused()
-  await passkey.click()
 
-  await expect.poll(() => asserted.length).toBe(1)
+  await expect.poll(() => asserted.length, FIRST_LOAD).toBe(1)
   expect(asserted[0]).toEqual({
     credentialId: registered[0].credentialId,
     origin: ORIGINS.accounts,
@@ -296,13 +297,15 @@ test("s20: where the browser offers it, the address field's suggestion signs in 
 const HANDLE = "0123456789abcdef".repeat(4)
 const PENDING = `client_id=CRM&auth_request=${HANDLE}`
 
-// OI-280 (V11): the button way is the address, "Continue", the passkey screen and
-// its button; the suggestion and the leading button under mfa_passkey are as they
-// were. Deliberate break, verified red: the page goes to the passkey screen
-// without asking (every address taken for one that has a passkey).
+// OI-280 (V11): the screen's way is the address, "Continue" and the passkey screen,
+// which opens the browser's window by itself (PR B, T-B14, V-B16): the virtual
+// authenticator answers it and nothing is clicked. The suggestion and the leading
+// button under mfa_passkey are as they were. Deliberate breaks, each verified red:
+// the page goes to the passkey screen without asking (every address taken for one
+// that has a passkey); the screen's auto-start removed (the leg waits on a click).
 const WAYS_BACK = [
   {
-    name: "the passkey screen's button, after the address",
+    name: "the passkey screen, which opens the window by itself, after the address",
     query: PENDING,
     way: "screen" as const,
   },
@@ -333,8 +336,15 @@ for (const way of WAYS_BACK) {
     const callback = attacker.serve(HOSTS.linkedApp, "/callback", "<!doctype html><title>The application</title>")
     const landing = `${callback}?code=harness-code&state=harness-state`
 
+    // OI-280 PR B (V-B12): on this path only the offer reads the account, and a
+    // passkey sign-in opens none. The host answers the read 404 if it comes.
+    const accountReads: string[] = []
     await api.useAnonymous(
       async (route, url) => {
+        if (url.pathname.toLowerCase() === "/api/v1/users/me") {
+          accountReads.push(url.pathname)
+          return false
+        }
         if (
           url.pathname.toLowerCase() === "/api/v1/auth/authorize/resume" &&
           route.request().method() === "GET"
@@ -356,11 +366,9 @@ for (const way of WAYS_BACK) {
       await page
         .getByRole("button", { name: "Continue", exact: true })
         .click(FIRST_LOAD)
-      await expect(
-        page.getByRole("heading", { name: "Use your passkey" })
-      ).toBeVisible(FIRST_LOAD)
+      // No click: the screen opens the window, and the authenticator answers it.
     }
-    if (way.way !== "suggestion") {
+    if (way.way === "leading") {
       const passkey = page.getByTestId("passkey-sign-in").getByRole("button", { name: "Sign in with a passkey" })
       await expect(passkey).toBeEnabled(FIRST_LOAD)
       await passkey.click()
@@ -370,6 +378,8 @@ for (const way of WAYS_BACK) {
     expect(asserted).toEqual([{ credentialId, origin: ORIGINS.accounts, type: "webauthn.get" }])
     // One navigation, carrying the request and nothing of the sign-in's words.
     expect(resumes).toEqual([`?${PENDING}`])
+    // No offer after a passkey sign-in (T-B9).
+    expect(accountReads).toEqual([])
     // The address was asked about once, on the way to the screen, and nothing was emailed.
     expect(seen.map((request) => request.path)).toEqual([
       ...(way.way === "screen" ? ["/api/v1/auth/passkeys/lookup"] : []),
@@ -701,4 +711,496 @@ test("s20: a page on the apex obtains an assertion, and nothing more", async ({ 
 
   expect(signed?.id).toBe(credentialId)
   expect(signed?.clientData.origin).toBe(ORIGINS.apex)
+})
+
+// ── OI-280 PR B: the offer after a sign-in, and the set-up page's passkey ─────
+
+/**
+ * OI-280 PR B (T-B9, T-B8, V-B12): after a sign-in that did not use a passkey,
+ * while passkeys may run and this device can make one, the offer to add one stands
+ * between the sign-in and where it goes; and the set-up page of an application's
+ * two-step requirement offers a passkey beside the app. The API host is the
+ * harness model: what the server's gate decides (no second code within the time a
+ * sign-in by code counts for, the password first for an account with one) is the
+ * xUnit suite's (RegisterPasskeyCommandHandlerTests); what is proven here is what
+ * only a built bundle in a browser decides: the screens, the window and the device
+ * in the order the model's gate asks, and one resume of the application's request.
+ * A passkey sign-in opens no offer: the WAYS_BACK legs above end at the callback.
+ *
+ * Deliberate break this section must catch: the offer left with
+ * `endsSignIn: false` (no marker, so the bounce for set-up asks for a second
+ * sign-in).
+ */
+interface OfferServer {
+  resumes: string[]
+  logins: number
+  codeSignIns: number
+  meReads: number
+  registrationOptions: number
+  registrationCodeSends: number
+  registered: Registered[]
+  windowProofs: number
+  passkeyProofs: Asserted[]
+  passwordProved: boolean
+}
+
+const newOfferServer = (): OfferServer => ({
+  resumes: [],
+  logins: 0,
+  codeSignIns: 0,
+  meReads: 0,
+  registrationOptions: 0,
+  registrationCodeSends: 0,
+  registered: [],
+  windowProofs: 0,
+  passkeyProofs: [],
+  passwordProved: false,
+})
+
+const PERSON = {
+  id: "28028028-0280-0280-0280-280280280280",
+  email: "person@example.test",
+  firstName: "Pat",
+  lastName: "Person",
+  displayName: "Pat Person",
+  preferredLanguage: "en",
+  timeZone: "UTC",
+  roles: [],
+  permissions: [],
+}
+
+/** The deployment's options on the sign-in page: code first, and passkeys may run. */
+const CODE_FIRST_WITH_PASSKEYS = {
+  platformName: "AuthSystem",
+  staySignedInOffered: true,
+  codeSignInOffered: true,
+  primaryMethod: "code",
+  passkeySignInOffered: true,
+}
+
+/** The same with the password first: the address, then the password (OI-280 PR A). */
+const PASSWORD_FIRST_WITH_PASSKEYS = {
+  platformName: "AuthSystem",
+  staySignedInOffered: true,
+  passkeySignInOffered: true,
+}
+
+function registrationOptions(emailCodeRequired: boolean) {
+  return {
+    options: {
+      rp: { id: PASSKEY_RP_ID, name: "AuthSystem" },
+      user: { id: USER_HANDLE, name: PERSON.email, displayName: PERSON.displayName },
+      challenge: challenge(),
+      pubKeyCredParams: [
+        { type: "public-key", alg: -7 },
+        { type: "public-key", alg: -257 },
+      ],
+      timeout: 300_000,
+      attestation: "none",
+      excludeCredentials: [],
+      authenticatorSelection: { residentKey: "required", requireResidentKey: true, userVerification: "required" },
+    },
+    expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+    emailCodeRequired,
+  }
+}
+
+/**
+ * The journey's server. The registration's gate is modelled as the server decides
+ * it right after a sign-in: a password account not yet proved by its password is
+ * asked for it first (the window), then no code; an account without one goes to
+ * the device; `codeAfterPassword` models a password sign-in on an account with no
+ * factor, which the gate asks for the registration's code. The resume is answered
+ * with the application's callback, or once with `bounce`, as the server answers a
+ * session short of the application's second step.
+ */
+async function serveOffer(
+  api: HarnessApi,
+  state: OfferServer,
+  landing: string,
+  account: { hasPassword: boolean; codeAfterPassword?: boolean; bounce?: string },
+  branding: Record<string, unknown>
+) {
+  await api.useAuthenticated(
+    [],
+    async (route: Route, url: URL) => {
+      const path = url.pathname.toLowerCase()
+      const method = route.request().method()
+      if (path === "/api/v1/auth/authorize/resume" && method === "GET") {
+        state.resumes.push(url.search)
+        const location =
+          account.bounce && state.resumes.length === 1
+            ? `${ORIGINS.accounts}/login?${PENDING}${account.bounce}`
+            : landing
+        await route.fulfill({ status: 302, headers: { location } })
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/assertion/options") {
+        await fulfillJson(route, assertionOptions())
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/lookup") {
+        await fulfillJson(route, { passkey: false })
+        return true
+      }
+      if (path === "/api/v1/auth/email-code/start" && method === "POST") {
+        await fulfillJson(route, {
+          pendingId: "harness-pending",
+          maskedEmail: "p****n@example.test",
+          expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+        })
+        return true
+      }
+      if (path === "/api/v1/auth/email-code/verify" && method === "POST") {
+        await fulfillJson(route, { step: "signIn" })
+        return true
+      }
+      if (path === "/api/v1/auth/email-code/sign-in" && method === "POST") {
+        state.codeSignIns += 1
+        await api.firstParty.answerSignIn(route, PERSON, "oi280b-secret")
+        return true
+      }
+      if (path === "/api/v1/auth/login" && method === "POST") {
+        state.logins += 1
+        state.passwordProved = true
+        await api.firstParty.answerSignIn(route, PERSON, "oi280b-secret")
+        return true
+      }
+      if (path === "/api/v1/users/me" && method === "GET") {
+        state.meReads += 1
+        await fulfillJson(route, {
+          ...PERSON,
+          hasPassword: account.hasPassword,
+          emailConfirmed: true,
+          phoneConfirmed: false,
+          twoFactorEnabled: false,
+          totpEnabled: false,
+          emailCodeEnabled: false,
+          qualifyingMfa: state.registered.length > 0,
+          passkeyCount: state.registered.length,
+          emailCodeAvailable: true,
+        })
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/registration/options" && method === "POST") {
+        state.registrationOptions += 1
+        if (account.hasPassword && !state.passwordProved) {
+          await route.fulfill({
+            status: 403,
+            contentType: "application/problem+json",
+            body: JSON.stringify({
+              status: 403,
+              code: "Auth.ReauthenticationRequired",
+              detail: "Sign in again to continue.",
+            }),
+          })
+          return true
+        }
+        await fulfillJson(route, registrationOptions(account.codeAfterPassword === true))
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/registration/email-code" && method === "POST") {
+        state.registrationCodeSends += 1
+        await fulfillJson(route, {
+          emailCodeRequired: true,
+          sentTo: "p****n@example.test",
+          expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+        })
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/registration/verify" && method === "POST") {
+        const body = route.request().postDataJSON() as { credential: { id: string }; name: string | null }
+        const signed = clientData(body.credential)
+        const passkey = {
+          credentialId: body.credential.id,
+          name: body.name ?? "Passkey",
+          origin: signed.origin,
+          type: signed.type,
+          fmt: attestationFormat(body.credential),
+        }
+        state.registered.push(passkey)
+        await fulfillJson(route, passkeyDto(passkey))
+        return true
+      }
+      // The "Confirm it's you" window's password (its options are the defaults').
+      if (path === "/api/v1/auth/reauthentication" && method === "POST") {
+        state.windowProofs += 1
+        state.passwordProved = true
+        await route.fulfill({ status: 204, body: "" })
+        return true
+      }
+      // The new passkey, used once in place (T-B8, D-B5).
+      if (path === "/api/v1/auth/reauthentication/passkey" && method === "POST") {
+        const body = route.request().postDataJSON() as { credential: { id: string } }
+        const signed = clientData(body.credential)
+        state.passkeyProofs.push({ credentialId: body.credential.id, origin: signed.origin, type: signed.type })
+        await route.fulfill({ status: 204, body: "" })
+        return true
+      }
+      return false
+    },
+    { session: "none", branding }
+  )
+}
+
+/** The code sign-in on the accounts page: the address, "Continue with email", the six digits. */
+async function signInByCode(page: Page) {
+  await expect(page.getByRole("button", { name: en.auth.continueWithEmail })).toBeVisible(FIRST_LOAD)
+  await page.locator('input[type="email"]').fill(PERSON.email)
+  await page.getByRole("button", { name: en.auth.continueWithEmail }).click()
+  await page.locator("[data-slot=input-otp]").click()
+  await page.keyboard.type("123456")
+}
+
+/** The password sign-in, address first (passkeys may run): the address, Continue, the password. */
+async function signInByPassword(page: Page) {
+  await page.locator('input[type="email"]').fill(PERSON.email)
+  await page.getByRole("button", { name: "Continue", exact: true }).click(FIRST_LOAD)
+  await page.locator('input[type="password"]').fill("Harness-Password-1!")
+  await page.locator('button[type="submit"]').click()
+}
+
+const offerHeading = (page: Page) => page.getByRole("heading", { name: en.auth.passkeyOffer.title })
+
+function theApplication(attacker: AttackerPages) {
+  return `${attacker.serve(HOSTS.linkedApp, "/callback", "<!doctype html><title>The application</title>")}?code=harness-code`
+}
+
+test("oi280b: the offer after a password account's sign-in by code: the password in the window, then the device, no second code, one resume", async ({
+  page,
+  api,
+  attacker,
+}) => {
+  await attachVirtualAuthenticator(page)
+  const state = newOfferServer()
+  const landing = theApplication(attacker)
+  await serveOffer(api, state, landing, { hasPassword: true }, CODE_FIRST_WITH_PASSKEYS)
+
+  await page.goto(`${ORIGINS.accounts}/login?${PENDING}`)
+  await signInByCode(page)
+
+  await expect(offerHeading(page)).toBeVisible(FIRST_LOAD)
+  expect(state.resumes).toEqual([])
+  await page.getByRole("button", { name: en.auth.passkeyOffer.add }).click()
+
+  // The gate asks a password account signed in by code for its password, in place.
+  const proof = page.getByRole("dialog", { name: en.auth.reauthenticate.title })
+  await proof.getByLabel(en.auth.password).fill("Harness-Password-1!")
+  await proof.getByRole("button", { name: en.auth.reauthenticate.confirm, exact: true }).click()
+
+  // Then the device, with no emailed code: the addition's dialog asks for none.
+  const dialog = page.getByRole("dialog", { name: en.profile.passkeys.addTitle })
+  await expect(dialog).toBeVisible(FIRST_LOAD)
+  await expect(dialog.getByRole("button", { name: en.auth.emailMeACode })).toHaveCount(0)
+  await dialog.getByRole("button", { name: en.profile.passkeys.create }).click()
+
+  await expect.poll(() => page.url(), FIRST_LOAD).toBe(landing)
+  expect(state.resumes).toEqual([`?${PENDING}`])
+  expect(state.windowProofs).toBe(1)
+  expect(state.registrationCodeSends).toBe(0)
+  expect(state.registered).toEqual([
+    expect.objectContaining({ origin: ORIGINS.accounts, type: "webauthn.create" }),
+  ])
+})
+
+test("oi280b: the offer after a passwordless account's sign-in by code: «add» goes straight to the device", async ({
+  page,
+  api,
+  attacker,
+}) => {
+  await attachVirtualAuthenticator(page)
+  const state = newOfferServer()
+  const landing = theApplication(attacker)
+  await serveOffer(api, state, landing, { hasPassword: false }, CODE_FIRST_WITH_PASSKEYS)
+
+  await page.goto(`${ORIGINS.accounts}/login?${PENDING}`)
+  await signInByCode(page)
+  await expect(offerHeading(page)).toBeVisible(FIRST_LOAD)
+  await page.getByRole("button", { name: en.auth.passkeyOffer.add }).click()
+  const dialog = page.getByRole("dialog", { name: en.profile.passkeys.addTitle })
+  await dialog.getByRole("button", { name: en.profile.passkeys.create }).click()
+
+  await expect.poll(() => page.url(), FIRST_LOAD).toBe(landing)
+  expect(state.resumes).toEqual([`?${PENDING}`])
+  expect(state.windowProofs).toBe(0)
+  expect(state.registrationCodeSends).toBe(0)
+  expect(state.registered).toHaveLength(1)
+})
+
+/**
+ * A sign-in with no application's request (the accounts app's own): the sign-in pages' guard
+ * wakes as the session flips, while the offer's lazy route is still loading, and races the page's
+ * completion; it must follow the completion to the offer (require-auth.tsx), or the person lands
+ * on the home page with no offer, as the pictures' run found. Deliberate break, verified red: the
+ * guard's follow removed.
+ */
+test("oi280b: a sign-in with no application's request gets the offer too, and «Not now» lands where it was going", async ({
+  page,
+  api,
+}) => {
+  await attachVirtualAuthenticator(page)
+  const state = newOfferServer()
+  await serveOffer(api, state, `${ORIGINS.accounts}/never`, { hasPassword: true }, CODE_FIRST_WITH_PASSKEYS)
+
+  await page.goto(`${ORIGINS.accounts}/login`)
+  await signInByCode(page)
+
+  await expect(offerHeading(page)).toBeVisible(FIRST_LOAD)
+  expect(new URL(page.url()).pathname).toBe("/passkey/offer")
+  await page.getByRole("button", { name: en.auth.passkeyOffer.notNow }).click()
+
+  await expect.poll(() => new URL(page.url()).pathname, FIRST_LOAD).toBe("/")
+  expect(state.resumes).toEqual([])
+  expect(state.codeSignIns).toBe(1)
+})
+
+/**
+ * REVIEW (OI-280 PR B) finding 1: signed out from the offer's window («Can't confirm it here?»,
+ * with no application's request to keep), the session that ended on the offer records it as where
+ * the person was going. The next sign-in's offer must lead on to the landing, never back to itself,
+ * where nothing could leave again. Deliberate break, verified red: the offer taken as a destination.
+ */
+test("oi280b: signed out from the offer's window and in again, the offer still leads on, never back to itself", async ({
+  page,
+  api,
+}) => {
+  await attachVirtualAuthenticator(page)
+  const state = newOfferServer()
+  await serveOffer(api, state, `${ORIGINS.accounts}/never`, { hasPassword: true }, CODE_FIRST_WITH_PASSKEYS)
+
+  await page.goto(`${ORIGINS.accounts}/login`)
+  await signInByCode(page)
+  await expect(offerHeading(page)).toBeVisible(FIRST_LOAD)
+  await page.getByRole("button", { name: en.auth.passkeyOffer.add }).click()
+
+  // The window asks for the password; its way out signs out and back in.
+  const proof = page.getByRole("dialog", { name: en.auth.reauthenticate.title })
+  await proof.getByRole("button", { name: en.auth.reauthenticate.signOutLink }).click()
+  const again = page.getByRole("dialog", { name: en.auth.reauthenticateTitle })
+  await again.getByRole("button", { name: en.auth.reauthenticateAction }).click()
+  await expect.poll(() => new URL(page.url()).pathname, FIRST_LOAD).toBe("/login")
+
+  await signInByCode(page)
+  await expect(offerHeading(page)).toBeVisible(FIRST_LOAD)
+  await page.getByRole("button", { name: en.auth.passkeyOffer.notNow }).click()
+
+  await expect.poll(() => new URL(page.url()).pathname, FIRST_LOAD).toBe("/")
+  expect(state.codeSignIns).toBe(2)
+  expect(state.resumes).toEqual([])
+})
+
+test("oi280b: «Not now» returns to the application at once, and stores nothing", async ({ page, api, attacker }) => {
+  await attachVirtualAuthenticator(page)
+  const state = newOfferServer()
+  const landing = theApplication(attacker)
+  await serveOffer(api, state, landing, { hasPassword: true }, CODE_FIRST_WITH_PASSKEYS)
+
+  await page.goto(`${ORIGINS.accounts}/login?${PENDING}`)
+  await signInByCode(page)
+  await expect(offerHeading(page)).toBeVisible(FIRST_LOAD)
+  await page.getByRole("button", { name: en.auth.passkeyOffer.notNow }).click()
+
+  await expect.poll(() => page.url(), FIRST_LOAD).toBe(landing)
+  expect(state.resumes).toEqual([`?${PENDING}`])
+  expect(state.registrationOptions).toBe(0)
+  await page.goto(`${ORIGINS.accounts}/login?${PENDING}`)
+  expect(await page.evaluate(() => localStorage.getItem("auth.passkeyOffer.off"))).toBeNull()
+})
+
+test("oi280b: «Don't ask on this device»: the next sign-in on this browser has no offer", async ({ page, api, attacker }) => {
+  await attachVirtualAuthenticator(page)
+  const state = newOfferServer()
+  const landing = theApplication(attacker)
+  await serveOffer(api, state, landing, { hasPassword: true }, CODE_FIRST_WITH_PASSKEYS)
+
+  await page.goto(`${ORIGINS.accounts}/login?${PENDING}`)
+  await signInByCode(page)
+  await expect(offerHeading(page)).toBeVisible(FIRST_LOAD)
+  await page.getByRole("button", { name: en.auth.passkeyOffer.dontAsk }).click()
+  await expect.poll(() => page.url(), FIRST_LOAD).toBe(landing)
+  expect(state.meReads).toBe(1)
+
+  // The application sends the person to sign in again on this browser.
+  await page.goto(`${ORIGINS.accounts}/login?${PENDING}`)
+  await signInByCode(page)
+
+  await expect.poll(() => state.resumes, FIRST_LOAD).toEqual([`?${PENDING}`, `?${PENDING}`])
+  await expect.poll(() => page.url()).toBe(landing)
+  // The offer's page never opened again: it reads the account before anything else.
+  expect(state.meReads).toBe(1)
+  expect(state.codeSignIns).toBe(2)
+})
+
+test("oi280b: leaving the offer leaves the sign-in's marker: the bounce for set-up goes straight to the set-up page", async ({
+  page,
+  api,
+  attacker,
+}) => {
+  await attachVirtualAuthenticator(page)
+  const state = newOfferServer()
+  const landing = theApplication(attacker)
+  await serveOffer(
+    api,
+    state,
+    landing,
+    { hasPassword: true, bounce: "&reason=mfa_enroll&method=password" },
+    PASSWORD_FIRST_WITH_PASSKEYS
+  )
+
+  await page.goto(`${ORIGINS.accounts}/login?${PENDING}`)
+  await signInByPassword(page)
+  await expect(offerHeading(page)).toBeVisible(FIRST_LOAD)
+  await page.getByRole("button", { name: en.auth.passkeyOffer.notNow }).click()
+
+  // OI-275: the marker the offer's way out wrote spares the second sign-in.
+  await expect(page).toHaveURL(`${ORIGINS.accounts}/two-factor/required`, FIRST_LOAD)
+  expect(state.resumes).toEqual([`?${PENDING}`])
+  expect(state.logins).toBe(1)
+})
+
+test("oi280b: the set-up page offers a passkey beside the app; added, then used once in place, the request resumes once", async ({
+  page,
+  api,
+  attacker,
+}) => {
+  await attachVirtualAuthenticator(page)
+  const state = newOfferServer()
+  const landing = theApplication(attacker)
+  await serveOffer(
+    api,
+    state,
+    landing,
+    { hasPassword: true, codeAfterPassword: true },
+    PASSWORD_FIRST_WITH_PASSKEYS
+  )
+
+  // The application requires two steps and the account has none: the set-up page.
+  await page.goto(`${ORIGINS.accounts}/login?${PENDING}&reason=mfa_enroll&method=password`)
+  await signInByPassword(page)
+  await expect(page).toHaveURL(`${ORIGINS.accounts}/two-factor/required`, FIRST_LOAD)
+  await expect(page.getByText(en.auth.mfaAppRequiredSubtitleWithPasskey)).toBeVisible()
+  await expect(page.getByRole("button", { name: en.profile.enableTwoFactor })).toBeVisible()
+  // The set-up page comes first, and no offer follows it.
+  await expect(offerHeading(page)).toHaveCount(0)
+
+  await page.getByRole("button", { name: en.auth.mfaRequiredAddPasskey }).click()
+  const dialog = page.getByRole("dialog", { name: en.profile.passkeys.addTitle })
+  // A password sign-in proved no mailbox: the registration's code (X02).
+  await dialog.getByRole("button", { name: en.auth.emailMeACode }).click()
+  await expect.poll(() => state.registrationCodeSends).toBe(1)
+  await dialog.locator("[data-slot=input-otp]").click()
+  await page.keyboard.type("654321")
+  await dialog.getByRole("button", { name: en.profile.passkeys.create }).click()
+
+  // Added, not used: the registration raised no session (D-B5). One touch, in place.
+  const useIt = page.getByTestId("passkey-sign-in").getByRole("button", { name: en.auth.mfaRequiredUsePasskeyAction })
+  await expect(useIt).toBeEnabled(FIRST_LOAD)
+  expect(state.resumes).toEqual([])
+  await useIt.click()
+
+  await expect.poll(() => page.url(), FIRST_LOAD).toBe(landing)
+  expect(state.resumes).toEqual([`?${PENDING}`])
+  expect(state.passkeyProofs).toEqual([
+    { credentialId: state.registered[0].credentialId, origin: ORIGINS.accounts, type: "webauthn.get" },
+  ])
 })

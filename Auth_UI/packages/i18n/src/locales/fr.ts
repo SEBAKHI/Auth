@@ -415,6 +415,15 @@ export const fr: TranslationResources = {
       tryAnotherWay: "Essayer une autre méthode",
       otherWaysHeading: "Autres moyens de se connecter",
     },
+    passkeyOffer: {
+      title: "Connectez-vous plus vite avec une clé d’accès",
+      body: "Une clé d’accès (passkey) permet à cet appareil de vous connecter avec votre empreinte, votre visage ou le verrouillage de l’écran, au lieu d’un mot de passe ou d’un code reçu par e-mail. Elle ne fonctionne que sur ce site : un site imitateur ne peut pas l’utiliser.",
+      add: "Ajouter une clé d’accès",
+      notNow: "Pas maintenant",
+      dontAsk: "Ne plus demander sur cet appareil",
+      added: "Clé d’accès ajoutée. La prochaine fois, connectez-vous avec elle.",
+      notAdded: "Aucune clé d’accès n’a été ajoutée. Réessayez, ou continuez sans.",
+    },
     continueWithApple: "Continuer avec Apple",
     privacyPolicy: "Politique de confidentialité",
     policyUpdatedNotice:
@@ -428,8 +437,6 @@ export const fr: TranslationResources = {
     signIn: "Se connecter",
     signingIn: "Connexion…",
     staySignedIn: "Rester connecté",
-    staySignedInHint:
-      "Vous garde connecté sur ce navigateur après sa fermeture. Laissez décoché sur un ordinateur partagé ou public.",
     cookiesBlockedNote:
       "Votre dernière session s'est terminée car ce navigateur n'a pas conservé le cookie de connexion du serveur d'authentification. Autorisez les cookies pour ce site, ou reconnectez-vous à chaque fois.",
     forgotPassword: "Mot de passe oublié ?",
@@ -531,6 +538,7 @@ export const fr: TranslationResources = {
     signInWithPassword: "Se connecter avec votre mot de passe",
     emailCodeRefusedTitle: "Le code par e-mail ne peut pas être utilisé pour le moment",
     mfaRequiredEmailCodeDoesNotCount: "Un code envoyé par e-mail ne compte pas ici. Configurez une application d'authentification : elle remplace le code par e-mail.",
+    mfaRequiredEmailCodeDoesNotCountWithPasskey: "Un code envoyé par e-mail ne compte pas ici. Ajoutez une clé d’accès, ou configurez une application d’authentification, qui remplace le code par e-mail.",
     useAuthenticatorCode: "Utiliser un code d'authentification",
     reauthenticateTitle: "Reconnectez-vous pour continuer",
     reauthenticateBody:
@@ -539,6 +547,10 @@ export const fr: TranslationResources = {
     mfaRequiredTitle: "Authentification à deux facteurs requise",
     mfaRequiredSubtitle: "Les administrateurs de la plateforme doivent prouver un second facteur avant de pouvoir gérer la plateforme.",
     mfaRequiredEnroll: "Votre compte n'a pas encore de second facteur. Configurez une application d'authentification pour continuer.",
+    mfaRequiredEnrollWithPasskey: "Votre compte n’a pas encore de second facteur. Ajoutez une clé d’accès, ou configurez une application d’authentification, pour continuer.",
+    mfaRequiredAddPasskey: "Ajouter une clé d’accès",
+    mfaRequiredUsePasskey: "Votre clé d’accès est ajoutée. Utilisez-la une fois maintenant pour terminer : votre appareil demande votre empreinte, votre visage ou le verrouillage de l’écran.",
+    mfaRequiredUsePasskeyAction: "Utiliser ma clé d’accès",
     mfaRequiredStepUp: "Saisissez le code de votre application d'authentification, ou un code de récupération, pour continuer.",
     mfaRequiredReauthenticate: "La façon dont vous vous êtes connecté n'a pas été enregistrée pour cette session. Confirmez que c'est bien vous avec votre mot de passe et votre second facteur pour continuer.",
     mfaRequiredReauthenticateBody: "Confirmez que c'est bien vous avec votre mot de passe et votre second facteur.",
@@ -551,6 +563,7 @@ export const fr: TranslationResources = {
     signInReasonReauthenticateTitle: "Reconnectez-vous",
     signInReasonReauthenticateBody: "Cette application exige l'authentification à deux facteurs (2FA), et votre connexion actuelle ne compte pas pour elle. Reconnectez-vous, puis saisissez le code de votre application d'authentification.",
     mfaAppRequiredSubtitle: "Cette application exige l'authentification à deux facteurs (2FA). Une fois votre application d'authentification configurée, vous continuez vers l'application.",
+    mfaAppRequiredSubtitleWithPasskey: "Cette application exige l’authentification à deux facteurs (2FA). Une fois une clé d’accès ajoutée ou une application d’authentification configurée, vous continuez vers l’application.",
     mfaAppAlreadyEnrolled: "Votre compte a déjà une application d'authentification. Continuez vers l'application ; si un code vous est demandé, saisissez celui de cette application.",
     mfaAppContinue: "Continuer vers l'application",
     authenticatorAppsHint:
@@ -2475,6 +2488,8 @@ export const fr: TranslationResources = {
       enabledHint: "Clés d’accès (WebAuthn) : des clés de connexion que garde l’appareil d’une personne, déverrouillées par une empreinte, un visage ou un code PIN. Tant que c’est activé, les pages de connexion proposent la clé d’accès et Profil › Sécurité permet d’en ajouter. L’activer exige l’ID RP ci-dessous, et un redémarrage après l’avoir défini. Le désactiver les masque aussitôt et toutes les clés restent enregistrées ; un administrateur dont le seul second facteur est une clé d’accès se connecte alors comme avant les clés d’accès. Recommandé : désactivé tant que l’ID RP n’est pas défini et testé.",
       rpId: "ID RP (domaine des clés d’accès)",
       rpIdHint: "Identifiant de la partie de confiance (relying party ID) : le domaine auquel chaque clé d’accès est liée, comme example.com pour des applications sur console.example.com et accounts.example.com, ou localhost en développement. Il doit couvrir l’origine de chaque application de la plateforme. Il est lu au démarrage : redémarrez l’API après l’avoir changé. Il ne peut pas être changé tant que des clés d’accès sont liées à la valeur actuelle, car elles cesseraient de fonctionner ; retirez-les d’abord avec l’outil d’installation (--retire-passkey-rp-id). Une valeur vide désactive les clés d’accès.",
+      codeSignInProofMinutes: "Connexion par code comme preuve d’e-mail pour une clé d’accès (minutes)",
+      codeSignInProofMinutesHint: "Preuve de la boîte mail (mailbox proof) : durée pendant laquelle une connexion avec un code envoyé par e-mail prouve aussi que la personne possède la boîte mail, quand elle ajoute une clé d’accès. Pendant cette durée, aucun deuxième code n’est envoyé ; un compte avec mot de passe donne toujours d’abord son mot de passe. La fenêtre de réauthentification (Authentification à deux facteurs › Connexion récente pour modifier la double authentification) reste la limite extérieure : une fenêtre de 5 avec 15 ici vaut 5. Une durée plus longue est plus simple pour les personnes, et pour quelqu’un qui a volé une session. Recommandé : 5.",
     },
     title: "Paramètres système",
     subtitle:
@@ -3391,6 +3406,7 @@ export const fr: TranslationResources = {
       remove: "Supprimer",
       removed: "Clé d’accès « {{name}} » supprimée. Vos autres appareils ont été déconnectés.",
       needsRecentSignIn: "Pour votre sécurité, ajouter ou supprimer une clé d'accès nécessite de confirmer que c'est bien vous.",
+      codeAfterAll: "Cela a pris plus longtemps que la durée pendant laquelle votre dernier code reçu par e-mail compte : un nouveau code a été envoyé à votre adresse e-mail. Saisissez-le pour terminer, sans que votre appareil soit sollicité à nouveau.",
     },
     title: "Mon profil",
     subtitle: "Gérez votre compte, vos sessions et votre sécurité.",

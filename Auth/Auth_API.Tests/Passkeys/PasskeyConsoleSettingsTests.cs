@@ -44,13 +44,13 @@ public class PasskeyConsoleSettingsTests
     }
 
     [Fact]
-    public void TheSection_IsAnEditableSecuritySection_OfTwoFields()
+    public void TheSection_IsAnEditableSecuritySection_OfThreeFields()
     {
         var section = Section();
 
         section.Group.Should().Be(SettingGroups.Security);
         section.Editable.Should().BeTrue();
-        section.Fields.Select(field => field.Path).Should().Equal("Enabled", "RpId");
+        section.Fields.Select(field => field.Path).Should().Equal("Enabled", "RpId", "CodeSignInProofMinutes");
 
         var enabled = section.Fields.Single(field => field.Path == "Enabled");
         enabled.Kind.Should().Be(SettingKind.Bool);
@@ -63,6 +63,16 @@ public class PasskeyConsoleSettingsTests
         rpId.DefaultValue.Should().Be("");
         rpId.Sensitive.Should().BeFalse();
         rpId.ReadOnly.Should().BeFalse();
+
+        // OI-280 PR B: how long a sign-in by code stands for a first passkey's emailed code.
+        var codeSignInProof = section.Fields.Single(field => field.Path == "CodeSignInProofMinutes");
+        codeSignInProof.Kind.Should().Be(SettingKind.Int);
+        codeSignInProof.RestartRequired.Should().BeFalse("PasskeyRegistrationGate reads it per request");
+        codeSignInProof.DefaultValue.Should().Be(5);
+        codeSignInProof.Min.Should().Be(PasskeySettings.MinCodeSignInProofMinutes);
+        codeSignInProof.Max.Should().Be(PasskeySettings.MaxCodeSignInProofMinutes);
+        codeSignInProof.Sensitive.Should().BeFalse();
+        codeSignInProof.ReadOnly.Should().BeFalse();
     }
 
     // --- PK2: the section rule ---------------------------------------------------------------

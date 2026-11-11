@@ -1,9 +1,17 @@
 import type { Page } from "@playwright/test"
 
+import { en } from "../../packages/i18n/src/locales/en"
 import { ORIGINS, expect, test, type HarnessApi } from "./fixtures"
 import { loginResponse } from "../isolated/accounts/mock-anonymous-api"
 import { fulfillJson } from "../isolated/mock-authenticated-api"
-import { assertionOptions, attachVirtualAuthenticator, clientData } from "./passkey-authenticator"
+import {
+  PASSKEY_RP_ID,
+  USER_HANDLE,
+  assertionOptions,
+  attachVirtualAuthenticator,
+  challenge,
+  clientData,
+} from "./passkey-authenticator"
 
 /**
  * S08 in a real browser: while the server withholds a platform administrator's
@@ -318,4 +326,145 @@ test("s20: the passkey step signs in with the passkey, adopts that session and l
   await expect.poll(() => asserted.length).toBe(1)
   expect(asserted[0]).toMatchObject({ origin: ORIGINS.console, type: "webauthn.get" })
   await expect.poll(() => pathOf(page)).toBe("/users")
+})
+
+// ── OI-280 PR B: a passkey beside the app ─────────────────────────────────
+
+/**
+ * OI-280 PR B (T-B8) in the console: an administrator with no second factor, while
+ * passkeys run here and email sending is on, is offered a passkey beside the app. It is
+ * added through the addition every page shares (the emailed code first: a password
+ * sign-in proved no mailbox, X02), then used once in place, since the registration
+ * raised no session (D-B5). The proof raises this session, the page refreshes it, and
+ * the administrator is back where they were going.
+ * Deliberate break this test must catch: the in-place use skipped (the page goes on
+ * without the proof, the refreshed session still owes the factor, and the page stays).
+ */
+test("oi280b: the set-up page adds a passkey beside the app, uses it once in place, and goes back", async ({
+  page,
+  api,
+}) => {
+  await attachVirtualAuthenticator(page)
+  const state = {
+    requirement: "enroll",
+    registered: [] as string[],
+    codeSends: 0,
+    proofs: [] as Array<{ id: string; origin: string; type: string }>,
+  }
+  await api.useAuthenticated(
+    ["users:read"],
+    async (route, url) => {
+      const path = url.pathname.toLowerCase()
+      const method = route.request().method()
+      if (path === "/api/v1/users/me" && method === "GET") {
+        await fulfillJson(route, {
+          id: "99999999-9999-9999-9999-999999999999",
+          email: "isolated@example.test",
+          firstName: "Isolated",
+          lastName: "Operator",
+          displayName: "Isolated Operator",
+          preferredLanguage: "en",
+          timeZone: "UTC",
+          hasPassword: true,
+          emailConfirmed: true,
+          twoFactorEnabled: false,
+          totpEnabled: false,
+          emailCodeEnabled: false,
+          qualifyingMfa: false,
+          passkeyCount: state.registered.length,
+          emailCodeAvailable: true,
+          roles: [],
+          permissions: ["users:read"],
+        })
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/registration/options" && method === "POST") {
+        await fulfillJson(route, {
+          options: {
+            rp: { id: PASSKEY_RP_ID, name: "AuthSystem" },
+            user: { id: USER_HANDLE, name: "isolated@example.test", displayName: "Isolated Operator" },
+            challenge: challenge(),
+            pubKeyCredParams: [
+              { type: "public-key", alg: -7 },
+              { type: "public-key", alg: -257 },
+            ],
+            timeout: 300_000,
+            attestation: "none",
+            excludeCredentials: [],
+            authenticatorSelection: { residentKey: "required", requireResidentKey: true, userVerification: "required" },
+          },
+          expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+          emailCodeRequired: true,
+        })
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/registration/email-code" && method === "POST") {
+        state.codeSends += 1
+        await fulfillJson(route, {
+          emailCodeRequired: true,
+          sentTo: "i******d@example.test",
+          expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+        })
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/registration/verify" && method === "POST") {
+        const body = route.request().postDataJSON() as { credential: { id: string }; name: string | null }
+        state.registered.push(body.credential.id)
+        await fulfillJson(route, {
+          id: "aaaaaaaa-0000-0000-0000-000000000002",
+          name: body.name ?? "Passkey",
+          createdAt: "2026-11-11T09:00:00Z",
+          lastUsedAt: null,
+          isBackupEligible: false,
+          isBackedUp: false,
+          lastCounterRegressionAt: null,
+          credentialId: body.credential.id,
+        })
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/assertion/options" && method === "POST") {
+        await fulfillJson(route, assertionOptions())
+        return true
+      }
+      if (path === "/api/v1/auth/reauthentication/passkey" && method === "POST") {
+        const body = route.request().postDataJSON() as { credential: { id: string } }
+        const signed = clientData(body.credential)
+        state.proofs.push({ id: body.credential.id, origin: signed.origin, type: signed.type })
+        // The proof raised this session: its next token owes nothing.
+        state.requirement = "none"
+        await route.fulfill({ status: 204, body: "" })
+        return true
+      }
+      return false
+    },
+    {
+      mfaRequirement: () => state.requirement,
+      branding: { platformName: "AuthSystem", staySignedInOffered: true, passkeySignInOffered: true },
+    }
+  )
+
+  await page.goto(`${ORIGINS.console}/users`)
+  await expect(page).toHaveURL(`${ORIGINS.console}${TWO_FACTOR_REQUIRED}`, FIRST_LOAD)
+  await expect(page.getByText(en.auth.mfaRequiredEnrollWithPasskey)).toBeVisible()
+  await expect(page.getByRole("button", { name: en.profile.enableTwoFactor })).toBeVisible()
+
+  await page.getByRole("button", { name: en.auth.mfaRequiredAddPasskey }).click()
+  const dialog = page.getByRole("dialog", { name: en.profile.passkeys.addTitle })
+  await dialog.getByRole("button", { name: en.auth.emailMeACode }).click()
+  await expect.poll(() => state.codeSends).toBe(1)
+  await dialog.locator("[data-slot=input-otp]").click()
+  await page.keyboard.type("654321")
+  await dialog.getByRole("button", { name: en.profile.passkeys.create }).click()
+
+  // Added, not used: until the touch, the page stays and the factor is still owed.
+  const useIt = page
+    .getByTestId("passkey-sign-in")
+    .getByRole("button", { name: en.auth.mfaRequiredUsePasskeyAction })
+  await expect(useIt).toBeEnabled(FIRST_LOAD)
+  expect(state.registered).toHaveLength(1)
+  expect(pathOf(page)).toBe(TWO_FACTOR_REQUIRED)
+  await useIt.click()
+
+  await expect.poll(() => pathOf(page), FIRST_LOAD).toBe("/users")
+  expect(state.proofs).toEqual([{ id: state.registered[0], origin: ORIGINS.console, type: "webauthn.get" }])
 })

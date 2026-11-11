@@ -82,9 +82,11 @@ export async function expectTheBox(page: Page) {
   const box = staySignedInBox(page)
   await expect(box).toBeVisible()
   await expect(box).not.toBeChecked()
+  // The label alone: the owner took the hint under the box away (2026-11-11).
+  await expect(box).not.toHaveAccessibleDescription(/./)
   await expect(
     page.getByText("Keeps you signed in on this browser after you close it.", { exact: false })
-  ).toBeVisible()
+  ).toHaveCount(0)
 }
 
 /**

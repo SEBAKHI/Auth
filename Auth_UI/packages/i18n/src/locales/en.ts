@@ -422,6 +422,15 @@ export const en = {
       tryAnotherWay: "Try another way",
       otherWaysHeading: "Other ways to sign in",
     },
+    passkeyOffer: {
+      title: "Sign in faster with a passkey",
+      body: "A passkey (WebAuthn) lets this device sign you in with your fingerprint, face or screen lock, instead of a password or a code by email. It works only on this site, so a look-alike site cannot use it.",
+      add: "Add a passkey",
+      notNow: "Not now",
+      dontAsk: "Don't ask on this device",
+      added: "Passkey added. Next time, sign in with it.",
+      notAdded: "No passkey was added. Try again, or continue without one.",
+    },
     continueWithApple: "Continue with Apple",
     privacyPolicy: "Privacy policy",
     policyUpdatedNotice: "Our privacy policy has been updated.",
@@ -434,8 +443,6 @@ export const en = {
     signIn: "Sign in",
     signingIn: "Signing in…",
     staySignedIn: "Stay signed in",
-    staySignedInHint:
-      "Keeps you signed in on this browser after you close it. Leave it off on a shared or public computer.",
     cookiesBlockedNote:
       "Your last session ended because this browser did not keep the sign-in cookie for the sign-in server. Allow cookies for this site, or sign in again each time.",
     forgotPassword: "Forgot password?",
@@ -530,6 +537,7 @@ export const en = {
     signInWithPassword: "Sign in with your password",
     emailCodeRefusedTitle: "Code by email cannot be used now",
     mfaRequiredEmailCodeDoesNotCount: "A code sent by email does not count here. Set up an authenticator app: it replaces the code by email.",
+    mfaRequiredEmailCodeDoesNotCountWithPasskey: "A code sent by email does not count here. Add a passkey, or set up an authenticator app, which replaces the code by email.",
     useAuthenticatorCode: "Use an authenticator code",
     reauthenticateTitle: "Sign in again to continue",
     reauthenticateBody:
@@ -538,6 +546,10 @@ export const en = {
     mfaRequiredTitle: "Two-factor authentication required",
     mfaRequiredSubtitle: "Platform administrators must prove a second factor before they can manage the platform.",
     mfaRequiredEnroll: "Your account has no second factor yet. Set up an authenticator app to continue.",
+    mfaRequiredEnrollWithPasskey: "Your account has no second factor yet. Add a passkey, or set up an authenticator app, to continue.",
+    mfaRequiredAddPasskey: "Add a passkey",
+    mfaRequiredUsePasskey: "Your passkey is added. Use it once now to finish: your device asks for your fingerprint, face or screen lock.",
+    mfaRequiredUsePasskeyAction: "Use my passkey",
     mfaRequiredStepUp: "Enter the code from your authenticator app, or a recovery code, to continue.",
     mfaRequiredReauthenticate: "How you signed in was not recorded for this session. Confirm it's you with your password and your second factor to continue.",
     mfaRequiredReauthenticateBody: "Confirm it's you with your password and your second factor.",
@@ -550,6 +562,7 @@ export const en = {
     signInReasonReauthenticateTitle: "Sign in again",
     signInReasonReauthenticateBody: "This application requires two-factor authentication (2FA), and your current sign-in does not count for it. Sign in again, then enter the code from your authenticator app.",
     mfaAppRequiredSubtitle: "This application requires two-factor authentication (2FA). Once your authenticator app is set up, you continue to the application.",
+    mfaAppRequiredSubtitleWithPasskey: "This application requires two-factor authentication (2FA). Once you add a passkey or set up an authenticator app, you continue to the application.",
     mfaAppAlreadyEnrolled: "Your account already has an authenticator app. Continue to the application; if you are asked for a code, enter the one from that app.",
     mfaAppContinue: "Continue to the application",
     authenticatorAppsHint:
@@ -2456,6 +2469,8 @@ export const en = {
       enabledHint: "Passkeys (WebAuthn): sign-in keys a person's device keeps, unlocked with a fingerprint, face or PIN. While on, the sign-in pages offer the passkey and Profile › Security lets people add one. Turning it on needs the RP ID below, and a restart after setting it. Turning it off hides them at once and every passkey stays stored; an administrator whose only second factor is a passkey then signs in as before passkeys. Recommended: off until the RP ID is set and tested.",
       rpId: "RP ID (passkey domain)",
       rpIdHint: "Relying party ID: the domain every passkey is bound to, such as example.com for apps at console.example.com and accounts.example.com, or localhost in development. It must cover every first-party app origin. It is read at start-up, so restart the API after changing it. It cannot be changed while passkeys are bound to the current one, because they would stop working; retire them first with the setup tool (--retire-passkey-rp-id). Empty switches passkeys off.",
+      codeSignInProofMinutes: "Sign-in by code as the email proof for a passkey (minutes)",
+      codeSignInProofMinutesHint: "Mailbox proof: how long a sign-in with a code sent by email also counts as proof that the person owns the mailbox, when they add a passkey. Within this time no second code is emailed; an account with a password still gives its password first. The re-authentication window (Two-factor authentication › Recent sign-in for two-factor changes) stays the outer limit, so a window of 5 with 15 here acts as 5. A longer time is easier for people, and easier for someone who stole a session. Recommended: 5.",
     },
     title: "System settings",
     subtitle:
@@ -3341,6 +3356,7 @@ export const en = {
       remove: "Remove",
       removed: "Passkey “{{name}}” removed. Your other devices were signed out.",
       needsRecentSignIn: "For your security, adding or removing a passkey needs you to confirm it's you.",
+      codeAfterAll: "That took longer than your last emailed code counts for, so a new code was sent to your email. Enter it to finish: your device is not asked again.",
     },
     title: "My profile",
     subtitle: "Manage your account, sessions, and security.",

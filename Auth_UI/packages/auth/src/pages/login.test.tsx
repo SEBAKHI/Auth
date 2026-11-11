@@ -104,12 +104,13 @@ describe("LoginPage: Stay signed in", () => {
     vi.restoreAllMocks()
   })
 
-  it("is unticked on the first render, with its label and description", () => {
+  it("is unticked on the first render, with its label and no line under it", () => {
     renderPage()
 
     const box = screen.getByRole("checkbox", { name: "auth.staySignedIn" })
     expect(box).not.toBeChecked()
-    expect(box).toHaveAccessibleDescription("auth.staySignedInHint")
+    // The owner took the hint under the box away (2026-11-11): the label alone.
+    expect(box).not.toHaveAccessibleDescription()
   })
 
   it("signs in for a browser session unless ticked", async () => {

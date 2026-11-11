@@ -13,7 +13,7 @@ import { useAuth, type LoginResult } from "@authsystem/auth/auth-context"
 import { deletionCancelledOutcome } from "@authsystem/auth/deletion-cancelled"
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 import type { ExternalCredential } from "@authsystem/auth/external/recovery-navigation"
-import { useLoginCompletion } from "@authsystem/auth/login-completion"
+import { useLoginCompletion, type CompletionOptions } from "@authsystem/auth/login-completion"
 import { PasskeyButton } from "@authsystem/auth/passkey/passkey-button"
 import { passkeyFailureMessage } from "@authsystem/auth/passkey/passkey-errors"
 import { passkeyRequiredNotice } from "@authsystem/auth/passkey/passkey-required"
@@ -127,14 +127,14 @@ export function AccountRecoveryPage() {
   })
 
   const onRecovered = React.useCallback(
-    (result: LoginResult) => {
+    (result: LoginResult, options?: CompletionOptions) => {
       // Defensive: recovery answers 2FA inline, but honor a challenge anyway.
       if (result.status === "twoFactorRequired") {
         challenge(result.challengeToken, result.methods)
         return
       }
       toast.success(t("accountDeletion.restored"))
-      complete(result)
+      complete(result, options)
     },
     [challenge, complete, t]
   )
@@ -147,7 +147,8 @@ export function AccountRecoveryPage() {
     credential: AuthenticationResponseJSON
   ): Promise<PasskeyOutcome> => {
     try {
-      onRecovered(await recoverWithPasskey(credential))
+      // A passkey sign-in: no offer to add one follows it (OI-280 PR B, T-B9 a).
+      onRecovered(await recoverWithPasskey(credential), { signedInWithPasskey: true })
       return { leaving: true }
     } catch (error) {
       const cancelled = deletionCancelledOutcome(error)

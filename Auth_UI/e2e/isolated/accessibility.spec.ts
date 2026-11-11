@@ -379,3 +379,76 @@ for (const theme of ["light", "dark"] as const) {
     })
   }
 }
+
+// OI-280 PR B (V-B13): the offer to add a passkey after a sign-in, and the set-up
+// page's passkey beside the authenticator app, while passkeys run here and email is
+// on. This device is said to make passkeys of its own (the offer's check e), as a
+// laptop with a fingerprint reader or a phone answers; the account has none.
+const ACCOUNT_WITHOUT_PASSKEY = {
+  ...user,
+  id: "99999999-9999-9999-9999-999999999999",
+  hasPassword: true,
+  twoFactorEnabled: false,
+  totpEnabled: false,
+  emailCodeEnabled: false,
+  qualifyingMfa: false,
+  emailCodeAvailable: true,
+  passkeyCount: 0,
+}
+
+async function installPasskeyChoice(
+  page: Page,
+  {
+    theme,
+    language,
+    mfaRequirement,
+  }: { theme: "light" | "dark"; language: string; mfaRequirement?: () => string }
+) {
+  await page.addInitScript((value) => {
+    localStorage.setItem("theme", value)
+    Object.defineProperty(PublicKeyCredential, "isUserVerifyingPlatformAuthenticatorAvailable", {
+      configurable: true,
+      value: async () => true,
+    })
+  }, theme)
+  await installAuthenticatedApi(
+    page,
+    ["users:read"],
+    async (route, url) => {
+      if (url.pathname.toLowerCase() === "/api/v1/users/me") {
+        await fulfillJson(route, { ...ACCOUNT_WITHOUT_PASSKEY, preferredLanguage: language })
+        return true
+      }
+      return false
+    },
+    {
+      preferredLanguage: language,
+      branding: { platformName: "AuthSystem", staySignedInOffered: true, passkeySignInOffered: true },
+      mfaRequirement,
+    }
+  )
+}
+
+for (const theme of ["light", "dark"] as const) {
+  for (const language of ["en", "ar"] as const) {
+    test(`the offer to add a passkey passes WCAG AA in ${theme} ${language}`, async ({ page }) => {
+      await installPasskeyChoice(page, { theme, language })
+      await page.goto("/passkey/offer")
+      // Add, Not now, and Don't ask on this device: the screen, once it has decided.
+      await expect(page.getByTestId("passkey-offer").getByRole("button")).toHaveCount(3)
+
+      const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+      expect(actionable(results), describeViolations(results)).toEqual([])
+    })
+
+    test(`the set-up page's passkey beside the app passes WCAG AA in ${theme} ${language}`, async ({ page }) => {
+      await installPasskeyChoice(page, { theme, language, mfaRequirement: () => "enroll" })
+      await page.goto("/users")
+      await expect(page).toHaveURL(/\/two-factor\/required$/)
+      await expect(page.getByTestId("set-up-add-passkey")).toBeVisible()
+
+      const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+      expect(actionable(results), describeViolations(results)).toEqual([])
+    })
+  }
+}

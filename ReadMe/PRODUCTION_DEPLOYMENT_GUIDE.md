@@ -4206,7 +4206,7 @@ For each existing deployment, in this order:
 2. **The Auth API, then the Gateway, then both web applications**, with `Passkeys:Enabled` off. Checks:
    `/ready` reads Healthy; `POST /api/v1/auth/passkeys/assertion/options` and `POST /api/v1/auth/passkeys/lookup`
    answer 404; the sign-in page shows no passkey button, and is as before: in password mode the address and the
-   password on one screen, and in code mode **Continue with email** sends the code with no other request; the console shows the **Passkeys** section under System settings, switched off. And the
+   password on one screen, and in code mode **Continue with email** sends the code with no other request; the console shows the **Passkeys** section under System settings, switched off, with **Sign-in by code as the email proof for a passkey (minutes)** at 5 (OI-280 PR B); a sign-in goes straight where it went before, with no offer to add a passkey, and the set-up page of an application's two-step requirement shows the authenticator app alone. And the
    window **Confirm it's you**, which works with passkeys off: in a session older than
    `TwoFactor:ReauthenticationMaxAgeMinutes`, a change to two-step verification opens it, and the password
    (with the code, where the account has one) lets the change go on, with nothing signed out.
@@ -4284,7 +4284,12 @@ without one reads exactly as an unknown one. The answer is never logged, and not
   code);
 * an address without a passkey, and an address nobody has, both go on to the next step as before (the password,
   or the emailed code), and the passkey screen's **Try another way** opens the same list for every account;
-* the question answers **429** to the twenty-first check in a minute from one address.
+* the question answers **429** to the twenty-first check in a minute from one address;
+* **the offer and the set-up page (OI-280 PR B):** a sign-in by code on a computer or phone that can make a
+  passkey of its own (a fingerprint, a face or a screen lock) shows **Sign in faster with a passkey** before the
+  person lands; **Add a passkey** on an account with a password asks for the password, then the device, with no
+  second emailed code; **Not now** lands at once; and the set-up page of an application that requires two-step
+  verification shows **Add a passkey** beside the authenticator app, used once right after it is added.
 
 **Rollback:** switch `Passkeys:Enabled` off. It is hot: every passkey route answers 404 at once, the pages
 hide the passkey, and no rule leans on one. Nothing is revoked, so switching it on again restores every
@@ -4328,6 +4333,26 @@ done its job: a later release removes `Passkeys:Enabled`, and passkeys then run 
 
 **Advice to administrators:** keep two ways in — a passkey and the authenticator app, or two passkeys on
 different devices — so that one lost device is never a lock-out.
+
+### T.5 The time a sign-in by code counts for (`Passkeys:CodeSignInProofMinutes`)
+
+Once passkeys run, a person who signed in without one is offered one between the sign-in and where it goes, on
+a device that can make one of its own (OI-280 PR B; **Not now** stores nothing, and **Don't ask on this device**
+stops it on that browser, for every account there). A first passkey needs the code emailed to the account's
+address, unless the session proved the mailbox with an emailed code within that time (its sign-in by code, or a
+code given in the window): that code then stands for it, and no second code is sent.
+
+| Setting | Default | Range | Read |
+|---|---|---|---|
+| `Passkeys:CodeSignInProofMinutes` | 5 | 1 to 15 (a value outside is brought inside) | Per request; also in the console (System settings › Passkeys, marked high-impact) |
+
+**Its price, accepted by the owner (D-S20-21):** a session stolen within that time adds a passkey without the
+second code. If that session has not yet proved the account's password, the thief must give it first; if it has
+(a password sign-in whose second step was the emailed code, a registration that set a password, or the password
+given in the window), or the account has no password, nothing more is asked. The owner's notice email and the 72-hour revocation remain. The re-authentication window
+(`TwoFactor:ReauthenticationMaxAgeMinutes`, default 15) stays the outer limit, so the shorter of the two
+applies. Shorter is safer; longer is easier for people, and for whoever stole a session. **Nothing to do at
+deployment:** the default is the recommendation, and with `Passkeys:Enabled` off it changes nothing for anyone.
 
 ---
 

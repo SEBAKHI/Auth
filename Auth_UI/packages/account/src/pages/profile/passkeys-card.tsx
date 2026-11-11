@@ -8,14 +8,8 @@ import { api } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { toNumber } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
+import { usePasskeyAddition } from "@authsystem/auth/passkey/add-passkey"
 import { passkeyFailureMessage, withRetryAfter } from "@authsystem/auth/passkey/passkey-errors"
-import {
-  isAlreadyOnThisDevice,
-  isCeremonyCancelled,
-  loadWebAuthn,
-  type PublicKeyCredentialCreationOptionsJSON,
-  type WebAuthnHelper,
-} from "@authsystem/auth/passkey/webauthn"
 import { ReauthenticateDialog } from "@authsystem/auth/reauthenticate-dialog"
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import {
@@ -36,17 +30,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@authsystem/ui/card"
-import { OneTimeCodeField } from "@authsystem/ui/common/one-time-code-field"
-import { RESEND_COOLDOWN_MS } from "@authsystem/ui/common/otp-input"
-import { ResendCodeButton } from "@authsystem/ui/common/resend-code-button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@authsystem/ui/dialog"
 import {
   Empty,
   EmptyDescription,
@@ -56,12 +39,10 @@ import {
 } from "@authsystem/ui/empty"
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from "@authsystem/ui/field"
-import { parseApiInstant } from "@authsystem/ui/api-instant"
 import { formatDateTime, formatRelative } from "@authsystem/ui/format"
 import { Input } from "@authsystem/ui/input"
 import {
@@ -75,52 +56,21 @@ import {
 } from "@authsystem/ui/item"
 import { Spinner } from "@authsystem/ui/spinner"
 
-import { PASSKEY_NAME_MAX_CODE_POINTS, PASSKEYS_QUERY_KEY, type usePasskeys } from "./passkey-list"
+import { PASSKEYS_QUERY_KEY, type usePasskeys } from "./passkey-list"
 
 type Passkey = Schemas["PasskeyDto"]
-
-/** A registration begun: the options, the helper, and whether the emailed code is needed. */
-interface Registration {
-  options: PublicKeyCredentialCreationOptionsJSON
-  /** On this page's own clock; null when this device's clock could not say. */
-  usableUntil: number | null
-  emailCodeRequired: boolean
-  helper: WebAuthnHelper
-}
-
-/** A registration's options are not used in their last seconds: the click would only fail. */
-const OPTIONS_MARGIN_MS = 5_000
-/** The server's registration challenge lives five minutes. */
-const OPTIONS_MAX_LIFE_MS = 5 * 60_000
-/**
- * Options are issued fresh for each registration, so one that seems to have less
- * than this left says this device's clock runs ahead of the server's: its word
- * would close the dialog at every press, and the person would never know why.
- */
-const OPTIONS_CREDIBLE_LIFE_MS = 60_000
-
-/**
- * Until when the options may be used, on `performance.now()`: the life left at
- * receipt, measured from then on by a clock nobody can set. Null when the
- * device's clock disagrees with the server's: nothing is decided here then, and
- * the server's own answer (`Passkey.VerificationFailed`) starts the setup again.
- */
-function optionsUsableUntil(expiresAt: string): number | null {
-  const life = (parseApiInstant(expiresAt)?.getTime() ?? Number.NaN) - Date.now()
-  if (!(life > OPTIONS_CREDIBLE_LIFE_MS)) return null
-  return performance.now() + Math.min(life, OPTIONS_MAX_LIFE_MS)
-}
 
 /**
  * Profile › Security › Passkeys (S20 PR C, PK15). Shown only while passkeys run
  * here; until the first answer, and when it is a 404, the page is as it was.
  *
- * - Add in two clicks: the first asks for the options and loads the helper,
- *   opening a dialog with a name and, for a first qualifying factor while email
- *   is on, the emailed code (X02); its confirm calls `startRegistration` before
- *   awaiting anything (T-C2). A demand for a fresh proof opens the window that
- *   takes it where the person stands, the passkey alone for an account whose factor
- *   is one (T-C7), and the addition goes on from there.
+ * - Add in two clicks, through the one addition every page shares
+ *   (`usePasskeyAddition`, OI-280 PR B): the first asks for the options and loads
+ *   the helper, opening a dialog with a name and, for a first qualifying factor
+ *   while email is on, the emailed code (X02); its confirm calls
+ *   `startRegistration` before awaiting anything (T-C2). A demand for a fresh proof
+ *   opens the window that takes it where the person stands, the passkey alone for
+ *   an account whose factor is one (T-C7), and the addition goes on from there.
  * - No "add" while email is off and the account has no qualifying factor (N9,
  *   D-150-3 (c)): the first passkey needs the emailed proof, so the card says to
  *   add the authenticator app first. `Passkey.EmailRequired` is the fallback.
@@ -140,17 +90,10 @@ export function PasskeysCard({
   const list = passkeys.data
   const addButtonRef = React.useRef<HTMLButtonElement>(null)
 
-  const [registration, setRegistration] = React.useState<Registration | null>(null)
-  // One counter, so a dialog reopened for a new registration mounts afresh.
-  const [registrationSeq, setRegistrationSeq] = React.useState(0)
-  const [starting, setStarting] = React.useState(false)
-  const startingRef = React.useRef(false)
   const [message, setMessage] = React.useState<string | null>(null)
-  // Which change asked for a fresh proof: the two ask for different ones, and each
-  // goes on once it is given.
-  const [reauthenticate, setReauthenticate] = React.useState<
-    { change: "add" } | { change: "remove"; passkey: Passkey } | null
-  >(null)
+  // The removal that asked for a fresh proof, which goes on once it is given. The addition's
+  // window is the addition's own.
+  const [reauthenticate, setReauthenticate] = React.useState<{ passkey: Passkey } | null>(null)
   const [removing, setRemoving] = React.useState<Passkey | null>(null)
   const [renamingId, setRenamingId] = React.useState<string | null>(null)
 
@@ -173,7 +116,7 @@ export function PasskeysCard({
   // What a removal came to, from its confirmation or from the proof it asked for: the card says
   // it, and asks for the proof when the sign-in is too old.
   const settleRemoval = (passkey: Passkey, outcome: RemovalOutcome) => {
-    if (outcome.reauthenticate) setReauthenticate({ change: "remove", passkey })
+    if (outcome.reauthenticate) setReauthenticate({ passkey })
     setMessage(outcome.message ?? null)
     if (outcome.removed) {
       toast.success(t("profile.passkeys.removed", { name: passkey.name }))
@@ -186,42 +129,19 @@ export function PasskeysCard({
     window.setTimeout(() => addButtonRef.current?.focus(), 0)
   }
 
-  const begin = async () => {
-    if (startingRef.current) return
-    startingRef.current = true
-    setStarting(true)
-    setMessage(null)
-    try {
-      const { data, error, response } = await api.POST("/api/v1/auth/passkeys/registration/options")
-      if (error || !data) throw withRetryAfter(error ?? new Error("Passkey options failed"), response)
-      // In hand before the confirm, which must call it without awaiting (T-C2).
-      const helper = await loadWebAuthn()
-      setRegistration({
-        options: data.options as PublicKeyCredentialCreationOptionsJSON,
-        usableUntil: optionsUsableUntil(data.expiresAt),
-        emailCodeRequired: data.emailCodeRequired,
-        helper,
-      })
-      setRegistrationSeq((seq) => seq + 1)
-    } catch (error) {
-      if (getErrorCodes(error).includes("Auth.ReauthenticationRequired")) {
-        setReauthenticate({ change: "add" })
-      } else {
-        setMessage(passkeyFailureMessage(error))
-      }
-    } finally {
-      startingRef.current = false
-      setStarting(false)
-    }
-  }
-
   const added = async (name: string) => {
-    setRegistration(null)
     toast.success(t("profile.passkeys.added", { name }))
     await refetch()
     void queryClient.invalidateQueries({ queryKey: ["me"], exact: true })
     addButtonRef.current?.focus()
   }
+
+  const addition = usePasskeyAddition({
+    passkeyOnly,
+    onMessage: setMessage,
+    onAdded: (name) => void added(name),
+    onClosed: () => addButtonRef.current?.focus(),
+  })
 
   if (passkeys.isPending || list === null) return null
   // A first read that failed says nothing of whether passkeys run here (the
@@ -292,35 +212,16 @@ export function PasskeysCard({
             ref={addButtonRef}
             variant="outline"
             className="w-fit"
-            disabled={starting || passkeys.isError}
-            onClick={() => void begin()}
+            disabled={addition.starting || passkeys.isError}
+            onClick={() => void addition.begin()}
           >
-            {starting ? <Spinner data-icon="inline-start" /> : <Plus data-icon="inline-start" />}
+            {addition.starting ? <Spinner data-icon="inline-start" /> : <Plus data-icon="inline-start" />}
             {t("profile.passkeys.add")}
           </Button>
         )}
       </CardContent>
 
-      {/* Mounted only while a registration is open, so closing it resets it. */}
-      {registration ? (
-        <AddPasskeyDialog
-          key={`add-passkey-${registrationSeq}`}
-          registration={registration}
-          onClose={() => {
-            setRegistration(null)
-            addButtonRef.current?.focus()
-          }}
-          onAdded={(name) => void added(name)}
-          onStartAgain={() => {
-            setRegistration(null)
-            void begin()
-          }}
-          onReauthenticate={() => {
-            setRegistration(null)
-            setReauthenticate({ change: "add" })
-          }}
-        />
-      ) : null}
+      {addition.dialogs}
 
       {removing ? (
         <RemovePasskeyDialog
@@ -338,16 +239,13 @@ export function PasskeysCard({
           open
           onOpenChange={(open) => !open && setReauthenticate(null)}
           description={t("profile.passkeys.needsRecentSignIn")}
-          passkey={passkeyOnly && reauthenticate.change === "add"}
+          // Removing needs no two factors: a person who lost their passkey must still remove it.
+          passkey={false}
           onProved={() => {
             // Removing goes on by itself, with the passkey the person confirmed (D-152-5,
             // REVIEW-FIXES 152 F26): a list gone stale meanwhile answers as the confirmation does.
-            if (reauthenticate.change === "remove") {
-              const confirmed = reauthenticate.passkey
-              void requestRemoval(confirmed).then((outcome) => settleRemoval(confirmed, outcome))
-            } else {
-              void begin()
-            }
+            const confirmed = reauthenticate.passkey
+            void requestRemoval(confirmed).then((outcome) => settleRemoval(confirmed, outcome))
           }}
         />
       ) : null}
@@ -513,264 +411,6 @@ function RenamePasskeyForm({
         </Field>
       </FieldGroup>
     </form>
-  )
-}
-
-/**
- * The second click of an addition: a name, the emailed code when the server asks
- * for one, and the confirm that starts the ceremony. The options and the helper
- * are in hand, so the confirm calls `startRegistration` before awaiting anything:
- * a browser grants the ceremony to the click alone (T-C2).
- */
-function AddPasskeyDialog({
-  registration,
-  onClose,
-  onAdded,
-  onStartAgain,
-  onReauthenticate,
-}: {
-  registration: Registration
-  onClose: () => void
-  onAdded: (name: string) => void
-  /** The registration is over (spent, expired, replaced): fresh options. */
-  onStartAgain: () => void
-  onReauthenticate: () => void
-}) {
-  const { t } = useTranslation()
-  const [name, setName] = React.useState("")
-  const [emailCode, setEmailCode] = React.useState("")
-  const [sentTo, setSentTo] = React.useState<string | null>(null)
-  // When a new code may be asked for (the server's per-address window).
-  const [resendAt, setResendAt] = React.useState<Date | null>(null)
-  const [sending, setSending] = React.useState(false)
-  const sendingRef = React.useRef(false)
-  const [busy, setBusy] = React.useState(false)
-  const busyRef = React.useRef(false)
-  const [message, setMessage] = React.useState<string | null>(null)
-  const [nameError, setNameError] = React.useState<string | null>(null)
-  // The registration's challenge was spent or lost: only fresh options can go on.
-  const [over, setOver] = React.useState(false)
-
-  const codeNeeded = registration.emailCodeRequired
-  const canConfirm = !busy && !over && (!codeNeeded || (sentTo !== null && emailCode.length === 6))
-
-  // Leaving the page leaves no ceremony behind: not the browser's prompt, and not
-  // a late request from it (T-C3's rule, as on the sign-in pages).
-  const { helper } = registration
-  React.useEffect(() => () => helper.WebAuthnAbortService.cancelCeremony(), [helper])
-
-  const sendCode = async () => {
-    if (sendingRef.current || busyRef.current) return
-    sendingRef.current = true
-    setSending(true)
-    setMessage(null)
-    try {
-      const { data, error, response } = await api.POST("/api/v1/auth/passkeys/registration/email-code")
-      if (error || !data) throw withRetryAfter(error ?? new Error("Email code failed"), response)
-      // The account gained a factor since these options asked for a code: none was
-      // sent, and none will come. Fresh options say what is asked now.
-      if (data.emailCodeRequired === false) {
-        onStartAgain()
-        return
-      }
-      setSentTo(data.sentTo ?? "")
-      setEmailCode("")
-      setResendAt(new Date(Date.now() + RESEND_COOLDOWN_MS))
-    } catch (error) {
-      // N6: no registration is waiting any more (another page started a sign-in
-      // in this browser, or it expired). Its sentence would mislead: start again.
-      if (getErrorCodes(error).includes("TwoFactor.SetupRequired")) {
-        setOver(true)
-        setMessage(t("profile.passkeys.startAgain"))
-      } else if (getErrorCodes(error).includes("Auth.ReauthenticationRequired")) {
-        onReauthenticate()
-      } else {
-        setMessage(passkeyFailureMessage(error))
-      }
-    } finally {
-      sendingRef.current = false
-      setSending(false)
-    }
-  }
-
-  const confirm = () => {
-    if (!canConfirm || busyRef.current) return
-    // The server checks the name after the ceremony, having spent its challenge:
-    // said here, before the device asks for a fingerprint and keeps a passkey
-    // the account would never hold. The server's limit is on code points.
-    if ([...name.trim()].length > PASSKEY_NAME_MAX_CODE_POINTS) {
-      setNameError(t("profile.passkeys.nameTooLong", { max: PASSKEY_NAME_MAX_CODE_POINTS }))
-      return
-    }
-    // Options in their last seconds would only fail at the server: fresh ones.
-    if (
-      registration.usableUntil !== null &&
-      performance.now() > registration.usableUntil - OPTIONS_MARGIN_MS
-    ) {
-      onStartAgain()
-      return
-    }
-    busyRef.current = true
-    // Before anything is awaited (T-C2).
-    const ceremony = registration.helper.startRegistration({ optionsJSON: registration.options })
-    setBusy(true)
-    setMessage(null)
-    setNameError(null)
-    void ceremony.then(
-      async (credential) => {
-        try {
-          const { data, error, response } = await api.POST("/api/v1/auth/passkeys/registration/verify", {
-            body: {
-              credential,
-              name: name.trim() || null,
-              emailCode: codeNeeded ? emailCode : null,
-            },
-          })
-          if (error || !data) throw withRetryAfter(error ?? new Error("Passkey registration failed"), response)
-          onAdded(data.name)
-        } catch (error) {
-          const codes = getErrorCodes(error)
-          if (codes.includes("Auth.ReauthenticationRequired")) {
-            onReauthenticate()
-            return
-          }
-          // These three come after the challenge was spent (T-C13 among the
-          // causes): only fresh options can go on, so the dialog offers them. No
-          // second ceremony on the options it holds, which could only be refused.
-          if (codes.includes("Passkey.NameTooLong")) {
-            setOver(true)
-            setNameError(getErrorMessage(error))
-          } else if (codes.includes("Passkey.LimitReached")) {
-            setOver(true)
-            setMessage(getErrorMessage(error))
-          } else if (codes.includes("Passkey.VerificationFailed")) {
-            // The person is signed in and adding a passkey: no sign-in advice.
-            setOver(true)
-            setMessage(`${getErrorMessage(error)} ${t("profile.passkeys.startAgain")}`)
-          } else {
-            setMessage(passkeyFailureMessage(error))
-          }
-        } finally {
-          busyRef.current = false
-          setBusy(false)
-        }
-      },
-      (error: unknown) => {
-        busyRef.current = false
-        setBusy(false)
-        if (isCeremonyCancelled(error)) return
-        // What the ceremony raised is the browser's, whatever its name: never the
-        // server's unknown fault, and no sign-in advice to a person signed in.
-        setMessage(
-          isAlreadyOnThisDevice(error)
-            ? t("profile.passkeys.alreadyOnThisDevice")
-            : t("profile.passkeys.deviceRefused")
-        )
-      }
-    )
-  }
-
-  return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open && !busyRef.current) onClose()
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("profile.passkeys.addTitle")}</DialogTitle>
-          <DialogDescription>{t("profile.passkeys.addBody")}</DialogDescription>
-        </DialogHeader>
-        <form
-          id="add-passkey"
-          onSubmit={(event) => {
-            event.preventDefault()
-            confirm()
-          }}
-        >
-          <FieldGroup>
-            <Field data-invalid={nameError ? true : undefined}>
-              <FieldLabel htmlFor="new-passkey-name">{t("profile.passkeys.name")}</FieldLabel>
-              <Input
-                id="new-passkey-name"
-                value={name}
-                maxLength={128}
-                placeholder={t("profile.passkeys.namePlaceholder")}
-                aria-invalid={nameError ? true : undefined}
-                onChange={(event) => setName(event.target.value)}
-              />
-              {nameError ? (
-                <FieldError>{nameError}</FieldError>
-              ) : (
-                <FieldDescription>{t("profile.passkeys.nameHint")}</FieldDescription>
-              )}
-            </Field>
-            {codeNeeded ? (
-              sentTo === null ? (
-                <Field>
-                  <FieldDescription>{t("profile.passkeys.emailCodeNeeded")}</FieldDescription>
-                  {/* In a div: a vertical Field stretches its direct children. */}
-                  <div>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      disabled={sending || over}
-                      onClick={() => void sendCode()}
-                    >
-                      {sending ? <Spinner data-icon="inline-start" /> : null}
-                      {t("auth.emailMeACode")}
-                    </Button>
-                  </div>
-                </Field>
-              ) : (
-                <>
-                  <OneTimeCodeField
-                    id="new-passkey-email-code"
-                    label={t("profile.passkeys.emailCode")}
-                    value={emailCode}
-                    onChange={setEmailCode}
-                    disabled={busy || over}
-                  >
-                    <FieldDescription aria-live="polite">
-                      {t("auth.emailCodeSentTo", { email: sentTo })}
-                    </FieldDescription>
-                  </OneTimeCodeField>
-                  {/* A code that did not arrive, or that expired: a new one here. */}
-                  {over ? null : (
-                    <ResendCodeButton
-                      availableAt={resendAt}
-                      pending={sending}
-                      onResend={() => void sendCode()}
-                    />
-                  )}
-                </>
-              )
-            ) : null}
-            {message ? (
-              <Alert variant="destructive" data-testid="add-passkey-message">
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            ) : null}
-          </FieldGroup>
-        </form>
-        <DialogFooter>
-          <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
-            {t("common.cancel")}
-          </Button>
-          {over ? (
-            <Button type="button" onClick={onStartAgain}>
-              {t("profile.passkeys.tryAgain")}
-            </Button>
-          ) : (
-            <Button type="submit" form="add-passkey" disabled={!canConfirm}>
-              {busy ? <Spinner data-icon="inline-start" /> : <KeyRound data-icon="inline-start" />}
-              {t("profile.passkeys.create")}
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 

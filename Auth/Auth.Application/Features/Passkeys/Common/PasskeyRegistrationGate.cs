@@ -1,9 +1,11 @@
+using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ValueObjects;
 using ErrorOr;
+using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.Passkeys.Common;
 
@@ -19,7 +21,10 @@ namespace Auth.Application.Features.Passkeys.Common;
 /// proved two (FA11 (11-2)): a further factor needs the proof the account already has;</item>
 /// <item>when it holds none, the fresh code emailed to its confirmed address, checked before
 /// the bind (ARR-1049, X02's code) — so a first passkey needs email sending on: with it off
-/// the gate refuses (<c>Passkey.EmailRequired</c>, REVIEW 150 F13, D-150-3 (c)).</item>
+/// the gate refuses (<c>Passkey.EmailRequired</c>, REVIEW 150 F13, D-150-3 (c)). Unless the
+/// session proved the mailbox with an emailed code within
+/// <c>Passkeys:CodeSignInProofMinutes</c> (OI-280 PR B), by its sign-in or in the window: that
+/// code already proved the mailbox, so a second one is not asked for (D-S20-14, D-S20-21).</item>
 /// </list>
 /// </summary>
 /// <remarks>
@@ -43,23 +48,53 @@ namespace Auth.Application.Features.Passkeys.Common;
 /// way in. NIST SP 800-63B-4 §4.1.2.1: binding a new authenticator needs the account's
 /// highest proof, and the owner is notified independently.
 /// </para>
+/// <para>
+/// The mailbox proof of a sign-in by code (OI-280 PR B). The code a session signed in with, or
+/// gave in place in the window, proved the mailbox when it was accepted; within
+/// <c>Passkeys:CodeSignInProofMinutes</c> of that (5 by default, 1–15) the bind asks for no second
+/// one. The time is the one <see cref="RecentSession"/> carries: the sign-in while that is
+/// recent, the in-place proof past it (D-B2). A session that also carries an authenticator-app
+/// code, a recovery code or a passkey never counts its code (D-B3): a code-first two-step sign-in
+/// proved its code when the challenge opened, minutes before the session began, and such an
+/// account needs no code while its factor stays. The re-authentication window still comes first,
+/// so it stays the outer limit, and the first-factor step above still asks a password account
+/// for its password. The price, accepted by the owner (D-S20-21): a session stolen within that
+/// time adds a passkey without the second code. One that has not yet proved the account's
+/// password must give it first; one that has (a password sign-in whose second step was the
+/// emailed code, a registration that set a password, the password given in the window) needs
+/// nothing more, as for an account without a password. Verify runs this again, so a time that runs out
+/// between the options and the bind asks for the code there, before anything is spent.
+/// </para>
 /// </remarks>
 public sealed class PasskeyRegistrationGate
 {
+    /// <summary>
+    /// The bits that keep a session's emailed code from counting as the mailbox proof (D-B3): a
+    /// second factor of the account's beside it, which a first passkey does not ask for anyway.
+    /// </summary>
+    private static readonly AuthenticationMethods SecondFactorBits =
+        AuthenticationMethods.Totp.With(AuthenticationMethods.RecoveryCode).With(AuthenticationMethods.Passkey);
+
     private readonly IReauthenticationGuard _reauthenticationGuard;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly FirstFactorEmailProofPolicy _emailProofPolicy;
+    private readonly IOptionsMonitor<PasskeySettings> _passkeySettings;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<PasskeyRegistrationGate> _logger;
 
     public PasskeyRegistrationGate(
         IReauthenticationGuard reauthenticationGuard,
         ITwoFactorStateStore twoFactorStateStore,
         FirstFactorEmailProofPolicy emailProofPolicy,
+        IOptionsMonitor<PasskeySettings> passkeySettings,
+        TimeProvider timeProvider,
         ILogger<PasskeyRegistrationGate> logger)
     {
         _reauthenticationGuard = reauthenticationGuard;
         _twoFactorStateStore = twoFactorStateStore;
         _emailProofPolicy = emailProofPolicy;
+        _passkeySettings = passkeySettings;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -103,11 +138,42 @@ public sealed class PasskeyRegistrationGate
             return PasskeyErrors.EmailRequired;
         }
 
-        return new PasskeyRegistrationSession(session.Value, factors, EmailCodeRequired: !factors.HasAny && emailOn)
+        var emailCodeRequired = !factors.HasAny && emailOn;
+        if (emailCodeRequired && MailboxJustProved(session.Value))
+        {
+            _logger.LogInformation(
+                "Adding a first passkey for user {UserId} asks for no emailed code: the session proved the mailbox with an emailed code, within the time it counts",
+                userId);
+            emailCodeRequired = false;
+        }
+
+        return new PasskeyRegistrationSession(session.Value, factors, EmailCodeRequired: emailCodeRequired)
         {
             AnotherFactorRequired = !emailOn,
         };
     }
+
+    /// <summary>
+    /// Whether the session proved the mailbox with an emailed code recently enough to stand for the
+    /// code a first passkey asks for: its methods carry the emailed code and no second-factor bit
+    /// (D-B3), and the time it carries (the sign-in while that is recent, the last in-place proof
+    /// past it) is no older than <c>Passkeys:CodeSignInProofMinutes</c>, read now and brought
+    /// inside its range. Both times are the API's clock, as the window's are.
+    /// </summary>
+    private bool MailboxJustProved(RecentSession session)
+    {
+        var methods = session.Methods;
+        if (!Carries(methods, AuthenticationMethods.EmailCode) || Carries(methods, SecondFactorBits))
+        {
+            return false;
+        }
+
+        var oldestCounted = _timeProvider.GetUtcNow().UtcDateTime - _passkeySettings.CurrentValue.CodeSignInProof;
+        return session.ProvedAtUtc >= oldestCounted;
+    }
+
+    private static bool Carries(AuthenticationMethods methods, AuthenticationMethods any) =>
+        (methods.Value & any.Value) != 0;
 }
 
 /// <summary>A session a passkey may be added from.</summary>

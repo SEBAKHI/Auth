@@ -106,6 +106,8 @@ export async function installAuthenticatedApi(
     organizationPermissions?: string[]
     /** What /platform/branding answers; the default is the shipped preset (no appearance). */
     branding?: Record<string, unknown>
+    /** The S08 requirement /auth/me reports, read per answer (absent: the field is omitted). */
+    mfaRequirement?: () => string | undefined
   }
 ) {
   await page.addInitScript(() => {

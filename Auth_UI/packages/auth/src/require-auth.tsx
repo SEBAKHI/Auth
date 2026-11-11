@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { useAuth } from "./auth-context"
+import { PASSKEY_OFFER_PATH, pendingPasskeyOfferNavigation } from "./passkey/passkey-offer"
 import { getValidReturnTo } from "./return-to"
 
 /**
@@ -51,6 +52,11 @@ export function RequireAnonymous() {
     // step-up demand, where re-authenticating is the entire point.
     if (getValidReturnTo(location.search)) return <Outlet />
 
+    // The page's completion is on its way to the offer to add a passkey (OI-280 PR B), a lazy
+    // route whose navigation is still loading: this guard follows it, or its own navigation
+    // below would replace it and the offer would never show.
+    const offer = pendingPasskeyOfferNavigation()
+    if (offer) return <Navigate to={PASSKEY_OFFER_PATH} replace state={offer.state} />
 
     // Honor the post-login return target; this guard races the login page's
     // own navigate(from) once the session flips to authenticated, so both

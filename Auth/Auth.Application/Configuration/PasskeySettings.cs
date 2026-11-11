@@ -4,7 +4,8 @@ namespace Auth.Application.Configuration;
 
 /// <summary>
 /// The <c>Passkeys</c> section (S20, PK2, PK19): whether people may add and use passkeys,
-/// and the relying party their passkeys are bound to.
+/// the relying party their passkeys are bound to, and how long a sign-in by code counts as the
+/// mailbox proof when one is added (OI-280 PR B).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,6 +26,12 @@ public sealed class PasskeySettings
     /// <summary>The configuration section.</summary>
     public const string SectionName = "Passkeys";
 
+    /// <summary>The shortest time a sign-in by code counts as the mailbox proof, in minutes.</summary>
+    public const int MinCodeSignInProofMinutes = 1;
+
+    /// <summary>The longest time a sign-in by code counts as the mailbox proof, in minutes.</summary>
+    public const int MaxCodeSignInProofMinutes = 15;
+
     /// <summary>
     /// Gets or sets whether passkeys can be added and used. Read per request (hot): off, every
     /// passkey endpoint answers 404, and no rule demands a passkey or leans on one (D-150-4,
@@ -44,6 +51,26 @@ public sealed class PasskeySettings
     /// (PK3). Empty (the default) switches the feature off.
     /// </summary>
     public string RpId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets how long, in minutes, a sign-in by emailed code counts as the proof of the
+    /// account's mailbox when the session adds a passkey (OI-280 PR B, owner decision D-S20-21).
+    /// Within it no second code is emailed for the passkey: an account with a password still gives
+    /// its password first, and one without goes straight to the device. Past it, a fresh code is
+    /// emailed, as before. Read per request; outside 1–15 it is brought inside
+    /// (<see cref="CodeSignInProof"/>), so no stored value switches the code off or stretches it.
+    /// </summary>
+    /// <remarks>
+    /// The re-authentication window (<c>TwoFactor:ReauthenticationMaxAgeMinutes</c>) stays the outer
+    /// limit: a session older than the window never reaches this rule, so a window of 5 with 15
+    /// here acts as 5. Its price: a session stolen within this time adds a passkey without the
+    /// second code; the notice email and the 72-hour revocation remain.
+    /// </remarks>
+    public int CodeSignInProofMinutes { get; set; } = 5;
+
+    /// <summary><see cref="CodeSignInProofMinutes"/>, brought inside its range.</summary>
+    public TimeSpan CodeSignInProof =>
+        TimeSpan.FromMinutes(Math.Clamp(CodeSignInProofMinutes, MinCodeSignInProofMinutes, MaxCodeSignInProofMinutes));
 }
 
 /// <summary>

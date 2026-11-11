@@ -225,7 +225,10 @@ describe("AccountRecoveryPage: the passkey choice", () => {
 
     fireEvent.click(await choice())
 
-    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith(signedIn))
+    // A passkey sign-in, said so: no offer to add a passkey follows it (OI-280 PR B, T-B9 a).
+    await waitFor(() =>
+      expect(mocks.complete).toHaveBeenCalledWith(signedIn, { signedInWithPasskey: true })
+    )
     expect(mocks.recoverWithPasskey).toHaveBeenCalledWith(CREDENTIAL)
     expect(mocks.post).toHaveBeenCalledWith("/api/v1/auth/passkeys/assertion/options")
   })

@@ -37,6 +37,25 @@ export function browserHasWebAuthn(): boolean {
 }
 
 /**
+ * Whether this device can make a passkey of its own, unlocked by the person's fingerprint, face or
+ * PIN: `PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()`, read without loading
+ * anything (OI-280 PR B, D-B6). False where the browser lacks WebAuthn or the call, and when the
+ * call fails: a computer with no built-in authenticator would only be sent to a phone's QR code.
+ */
+export async function platformAuthenticatorAvailable(): Promise<boolean> {
+  if (!browserHasWebAuthn()) return false
+  const credential = (window as {
+    PublicKeyCredential: { isUserVerifyingPlatformAuthenticatorAvailable?: () => Promise<boolean> }
+  }).PublicKeyCredential
+  if (typeof credential.isUserVerifyingPlatformAuthenticatorAvailable !== "function") return false
+  try {
+    return (await credential.isUserVerifyingPlatformAuthenticatorAvailable()) === true
+  } catch {
+    return false
+  }
+}
+
+/**
  * The helper, loaded once per document. A failed load (a chunk gone after a
  * deployment, a dropped connection) is forgotten, so the next caller tries again.
  */

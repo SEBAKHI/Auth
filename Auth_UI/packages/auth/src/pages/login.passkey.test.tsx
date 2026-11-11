@@ -263,13 +263,35 @@ async function continueWith(email: string, button?: string) {
   await user.click(screen.getByRole("button", { name }))
 }
 
-/** The passkey screen for `email`, its options in hand. */
-async function onPasskeyScreen(email = "holder@example.com") {
+/** What a browser that grants the window only to a click answers a window opened without one. */
+function notAllowed() {
+  return Object.assign(new Error("The request is not allowed by the user agent."), {
+    name: "NotAllowedError",
+  })
+}
+
+/**
+ * The passkey screen for `email`, its options in hand. The screen opens the
+ * browser's window by itself on arrival (OI-280 PR B, T-B14); here that window is
+ * refused, as a browser that grants it only to a click refuses it, so the screen
+ * is the one a person meets without the window, and the ceremony calls counted
+ * afterwards are the button's alone. `autoOpens: false` for a screen that must not
+ * open it.
+ */
+async function onPasskeyScreen(
+  email = "holder@example.com",
+  { autoOpens = true }: { autoOpens?: boolean } = {}
+) {
+  if (autoOpens) mocks.startAuthentication.mockRejectedValueOnce(notAllowed())
   await optionsAsked()
   await continueWith(email)
   await screen.findByRole("heading", { name: "auth.passkey.screenTitle" })
   const button = await passkeyButton()
+  if (autoOpens) {
+    await waitFor(() => expect(mocks.startAuthentication).toHaveBeenCalledTimes(1))
+  }
   await waitFor(() => expect(button).toBeEnabled())
+  mocks.startAuthentication.mockClear()
   return button
 }
 
@@ -688,7 +710,7 @@ describe("the first screen while passkeys may run (OI-280, D-S20-11)", () => {
 })
 
 describe("the passkey screen (OI-280, T-A7)", () => {
-  it("shows the address read-only, the passkey button focused, and one link; nothing is sent", async () => {
+  it("shows the address read-only, the passkey button focused, and one link; nothing is sent before the person chooses", async () => {
     serverWithLookup()
     mocks.branding.signInOptions = PASSKEYS_CODE_OFFERED_PASSWORD_FIRST
     renderPage()
@@ -707,7 +729,8 @@ describe("the passkey screen (OI-280, T-A7)", () => {
     expect(
       screen.getByRole("button", { name: "auth.passkey.tryAnotherWay" })
     ).toHaveAttribute("aria-expanded", "false")
-    // No code, no password field, no ceremony before the person chooses (D8).
+    // No code and no password field. The window the screen opened by itself
+    // (T-B14), refused here, sent nothing either; the button calls nothing more.
     expect(posted()).toEqual([LOOKUP_PATH])
     expect(screen.queryByLabelText("auth.password")).not.toBeInTheDocument()
     expect(mocks.startAuthentication).not.toHaveBeenCalled()
@@ -723,15 +746,17 @@ describe("the passkey screen (OI-280, T-A7)", () => {
     renderPage()
     expect(screen.getByTestId("cookies-blocked-note")).toBeInTheDocument()
 
-    await onPasskeyScreen()
+    await onPasskeyScreen(undefined, { autoOpens: false })
 
     // A passkey sign-in needs the same cookie.
     const note = screen.getByTestId("cookies-blocked-note")
     expect(note).toHaveTextContent("auth.cookiesBlockedNote")
     expect(precedes(note, screen.getByLabelText("auth.email"))).toBe(true)
+    // T-B14: while the note shows, the window does not open by itself; the person reads first.
+    expect(mocks.startAuthentication).not.toHaveBeenCalled()
   })
 
-  it("signs in through the completion rule from the button's click, with no proof and no method remembered (T-C2, T-C6)", async () => {
+  it("signs in through the completion rule from the button's click, with no proof, no method remembered, and saying it was a passkey (T-C2, T-C6, OI-280 PR B)", async () => {
     serverWithLookup()
     mocks.loginWithPasskey.mockResolvedValue(SIGNED_IN)
     mocks.branding.signInOptions = PASSKEYS_PASSWORD_ONLY
@@ -747,7 +772,8 @@ describe("the passkey screen (OI-280, T-A7)", () => {
 
     await waitFor(() => expect(mocks.complete).toHaveBeenCalledTimes(1))
     expect(mocks.loginWithPasskey).toHaveBeenCalledWith(CREDENTIAL, false)
-    expect(mocks.complete.mock.calls[0]).toEqual([SIGNED_IN])
+    // No offer to add a passkey follows a passkey sign-in (T-B9 a).
+    expect(mocks.complete.mock.calls[0]).toEqual([SIGNED_IN, { signedInWithPasskey: true }])
     expect(window.localStorage.getItem(LAST_SIGN_IN_METHOD_KEY)).toBeNull()
     expect(mocks.toastSuccess).toHaveBeenCalledWith("auth.welcomeBack")
   })
@@ -869,6 +895,169 @@ describe("the passkey screen (OI-280, T-A7)", () => {
     expect(
       screen.queryByRole("button", { name: "auth.passkey.tryAnotherWay" })
     ).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * OI-280 PR B (T-B14, owner Q4 (b), reversing D8): each arrival on the passkey
+ * screen opens the browser's window by itself, once, when the options are in
+ * hand. Tried, never detected: a refusal is a cancel. Deliberate breaks, each
+ * verified red: the auto-start removed (the first case); the once-only guard
+ * removed, so it runs whenever the page renders again (the cancel case).
+ */
+describe("the passkey screen opens the browser's window by itself (T-B14)", () => {
+  /** The first screen fetches options that answer only when released. */
+  function serverWithHeldOptions() {
+    let release: (answer: unknown) => void = () => {}
+    mocks.post.mockImplementation(
+      async (path: string, init?: { body?: { email?: string } }) => {
+        if (path === OPTIONS_PATH) return new Promise((resolve) => (release = resolve))
+        if (path === LOOKUP_PATH) {
+          return { data: { passkey: init?.body?.email?.startsWith("holder") }, response: response(200) }
+        }
+        return { data: undefined, error: { status: 404 }, response: response(404) }
+      }
+    )
+    return (answer: unknown) => act(async () => release(answer))
+  }
+
+  it("calls startAuthentication once on arrival, with no click, and its answer signs in", async () => {
+    serverWithLookup()
+    mocks.loginWithPasskey.mockResolvedValue(SIGNED_IN)
+    mocks.branding.signInOptions = PASSKEYS_PASSWORD_ONLY
+    renderPage()
+    await optionsAsked()
+
+    await continueWith("holder@example.com")
+
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledTimes(1))
+    expect(mocks.startAuthentication).toHaveBeenCalledTimes(1)
+    expect(mocks.startAuthentication).toHaveBeenCalledWith({
+      optionsJSON: { challenge: "c1", rpId: "localhost", allowCredentials: [] },
+    })
+    expect(mocks.complete).toHaveBeenCalledWith(SIGNED_IN, { signedInWithPasskey: true })
+  })
+
+  it("carries the stay-signed-in box as the first screen left it", async () => {
+    serverWithLookup()
+    mocks.loginWithPasskey.mockResolvedValue(SIGNED_IN)
+    mocks.branding.signInOptions = PASSKEYS_PASSWORD_ONLY
+    renderPage()
+    await optionsAsked()
+    await userEvent.setup().click(screen.getByRole("checkbox", { name: "auth.staySignedIn" }))
+
+    await continueWith("holder@example.com")
+
+    await waitFor(() => expect(mocks.loginWithPasskey).toHaveBeenCalledWith(CREDENTIAL, true))
+  })
+
+  it("a browser's refusal (NotAllowedError) leaves the screen as it is: the button focused, the link, and nothing said", async () => {
+    serverWithLookup()
+    mocks.startAuthentication.mockRejectedValueOnce(notAllowed())
+    mocks.branding.signInOptions = PASSKEYS_PASSWORD_ONLY
+    renderPage()
+    await optionsAsked()
+
+    await continueWith("holder@example.com")
+
+    await waitFor(() => expect(mocks.startAuthentication).toHaveBeenCalledTimes(1))
+    const button = await passkeyButton()
+    await waitFor(() => expect(button).toBeEnabled())
+    await waitFor(() => expect(button).toHaveFocus())
+    expect(screen.queryByTestId("passkey-message")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "auth.passkey.tryAnotherWay" })).toBeInTheDocument()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+    expect(mocks.complete).not.toHaveBeenCalled()
+  })
+
+  it("opens it once per arrival: never again after a cancel, however the page renders", async () => {
+    serverWithLookup()
+    mocks.startAuthentication.mockRejectedValueOnce(notAllowed())
+    mocks.branding.signInOptions = PASSKEYS_PASSWORD_ONLY
+    renderPage()
+    await optionsAsked()
+    await continueWith("holder@example.com")
+    const button = await passkeyButton()
+    await waitFor(() => expect(mocks.startAuthentication).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(button).toBeEnabled())
+
+    const box = screen.getByRole("checkbox", { name: "auth.staySignedIn" })
+    await userEvent.setup().click(box)
+    await userEvent.setup().click(box)
+
+    expect(mocks.startAuthentication).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not open it once «Try another way» was opened", async () => {
+    const releaseOptions = serverWithHeldOptions()
+    mocks.branding.signInOptions = PASSKEYS_PASSWORD_ONLY
+    renderPage()
+    await optionsAsked()
+    await continueWith("holder@example.com")
+    await screen.findByRole("heading", { name: "auth.passkey.screenTitle" })
+    await userEvent.setup().click(screen.getByRole("button", { name: "auth.passkey.tryAnotherWay" }))
+
+    await releaseOptions(OPTIONS_ANSWER())
+
+    const button = await passkeyButton()
+    await waitFor(() => expect(button).toBeEnabled())
+    expect(mocks.startAuthentication).not.toHaveBeenCalled()
+  })
+
+  it("does not open it when passkeys are gone: the options answer 404, and the list shows", async () => {
+    const releaseOptions = serverWithHeldOptions()
+    mocks.branding.signInOptions = PASSKEYS_CODE_OFFERED_PASSWORD_FIRST
+    renderPage()
+    await optionsAsked()
+    await continueWith("holder@example.com")
+    await screen.findByRole("heading", { name: "auth.passkey.screenTitle" })
+
+    await releaseOptions({ data: undefined, error: { status: 404 }, response: response(404) })
+
+    await screen.findByTestId("other-ways")
+    expect(mocks.startAuthentication).not.toHaveBeenCalled()
+  })
+
+  it("opens it again on a new arrival", async () => {
+    serverWithLookup()
+    mocks.startAuthentication.mockRejectedValueOnce(notAllowed()).mockRejectedValueOnce(notAllowed())
+    mocks.branding.signInOptions = PASSKEYS_PASSWORD_ONLY
+    renderPage()
+    await optionsAsked()
+    await continueWith("holder@example.com")
+    await waitFor(() => expect(mocks.startAuthentication).toHaveBeenCalledTimes(1))
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "auth.useDifferentEmail" }))
+    await userEvent.setup().clear(await screen.findByLabelText("auth.email"))
+    await continueWith("holder.two@example.com")
+
+    await waitFor(() => expect(mocks.startAuthentication).toHaveBeenCalledTimes(2))
+  })
+
+  it.each([
+    ["the sign-in again of a passkey account (T-C7)", () => requestPasskeySignIn(), async () => {}],
+    [
+      "an application's requirement only the passkey meets (mfa_passkey)",
+      () => {
+        mocks.completion.reason = { reason: "mfa_passkey", method: null } as SignInReason
+      },
+      async () => {},
+    ],
+    [
+      "a door's answer that the account signs in with its passkey",
+      () => mocks.login.mockRejectedValue(PASSKEY_REQUIRED),
+      signInWithPassword,
+    ],
+  ])("%s keeps its button, and opens nothing by itself (T-A6)", async (_label, given, then) => {
+    passkeysRun()
+    given()
+    renderPage()
+    await optionsAsked()
+    await then()
+
+    const button = await passkeyButton()
+    await waitFor(() => expect(button).toBeEnabled())
+    expect(mocks.startAuthentication).not.toHaveBeenCalled()
   })
 })
 
@@ -1257,7 +1446,10 @@ describe("the three passkey-first entries keep the leading button (T-A6)", () =>
 
     fireEvent.click(await passkeyButton())
 
-    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith(SIGNED_IN))
+    // OI-280 PR B: and says it was a passkey, so no offer to add one follows.
+    await waitFor(() =>
+      expect(mocks.complete).toHaveBeenCalledWith(SIGNED_IN, { signedInWithPasskey: true })
+    )
     expect(window.sessionStorage.getItem(FULL_PROOF_KEY)).toBeNull()
   })
 

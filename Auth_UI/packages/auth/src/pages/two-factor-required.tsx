@@ -8,21 +8,29 @@ import { api, refreshSessionNow } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 import type { MfaRequirement } from "@authsystem/api/mfa-requirement"
+import type { Schemas } from "@authsystem/api/types"
 import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
+import { useSignInOptions } from "@authsystem/ui/branding"
 import { Button } from "@authsystem/ui/button"
 import { SecretRevealDialog } from "@authsystem/ui/common/secret-reveal-dialog"
 import { OneTimeCodeField } from "@authsystem/ui/common/one-time-code-field"
-import { FieldDescription, FieldGroup } from "@authsystem/ui/field"
+import { FieldDescription, FieldGroup, FieldSeparator } from "@authsystem/ui/field"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { useAuth } from "../auth-context"
 import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
+import { usePasskeyAddition } from "../passkey/add-passkey"
 import { PasskeyButton } from "../passkey/passkey-button"
-import { passkeyFailureMessage } from "../passkey/passkey-errors"
+import {
+  passkeyFailureMessage,
+  proofFailureMessage,
+  withRetryAfter,
+} from "../passkey/passkey-errors"
+import { notePasskeysOff, usePasskeysAnsweredOff } from "../passkey/passkey-offer"
 import { usePasskeySignIn, type PasskeyOutcome } from "../passkey/use-passkey-sign-in"
-import type { AuthenticationResponseJSON } from "../passkey/webauthn"
+import { browserHasWebAuthn, type AuthenticationResponseJSON } from "../passkey/webauthn"
 import { ReauthenticateDialog } from "../reauthenticate-dialog"
 import { markRecoveryCodeSignIn } from "../recovery-code-notice"
 import { toAccountsSearch, validateReturnToUrl } from "../return-to"
@@ -92,6 +100,8 @@ function ApplicationTwoFactorRequired({ returnTo }: { returnTo: string }) {
     queryKey: ["me"],
     queryFn: () => unwrap(api.GET("/api/v1/Users/me")),
   })
+  // The words name the passkey only where the set-up step offers one (T-B8).
+  const passkeyOffered = usePasskeyChoiceOffered(me) && me?.qualifyingMfa !== true
 
   // One resume: a second click landing before the navigation would send the
   // request again. Set synchronously, in the handler.
@@ -122,7 +132,11 @@ function ApplicationTwoFactorRequired({ returnTo }: { returnTo: string }) {
   return (
     <AuthLayout
       title={t("auth.mfaRequiredTitle")}
-      subtitle={t("auth.mfaAppRequiredSubtitle")}
+      subtitle={
+        passkeyOffered
+          ? t("auth.mfaAppRequiredSubtitleWithPasskey")
+          : t("auth.mfaAppRequiredSubtitle")
+      }
       footer={
         <Button
           variant="link"
@@ -327,14 +341,57 @@ function EnrollStep({
   })
   const replacesEmailCode = me?.emailCodeEnabled === true
 
+  // OI-280 PR B (T-B8, D-152-3 (a)): a passkey beside the app, while passkeys run
+  // here and the addition cannot end in N9. Added through the one addition every
+  // page shares, then used once in place (D-B5), and the page goes on as after the
+  // app. A 404 from its options drops the choice: the page is the app's again.
+  const passkeyOffered = usePasskeyChoiceOffered(me)
+  const [passkeyAdded, setPasskeyAdded] = React.useState(false)
+  const [passkeyMessage, setPasskeyMessage] = React.useState<string | null>(null)
+  const addition = usePasskeyAddition({
+    passkeyOnly: false,
+    onMessage: setPasskeyMessage,
+    onAdded: () => setPasskeyAdded(true),
+    onSignInAgain,
+    onUnavailable: notePasskeysOff,
+  })
+
+  if (passkeyAdded) {
+    return <UsePasskeyStep onUsed={onDone} onSignInAgain={onSignInAgain} />
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">{t("auth.mfaRequiredEnroll")}</p>
+      <p className="text-sm text-muted-foreground">
+        {passkeyOffered ? t("auth.mfaRequiredEnrollWithPasskey") : t("auth.mfaRequiredEnroll")}
+      </p>
       {replacesEmailCode ? (
         <p className="text-sm text-muted-foreground">
-          {t("auth.mfaRequiredEmailCodeDoesNotCount")}
+          {passkeyOffered
+            ? t("auth.mfaRequiredEmailCodeDoesNotCountWithPasskey")
+            : t("auth.mfaRequiredEmailCodeDoesNotCount")}
         </p>
       ) : null}
+      {passkeyOffered ? (
+        <>
+          {passkeyMessage ? (
+            <Alert variant="destructive" data-testid="set-up-passkey-message">
+              <AlertDescription>{passkeyMessage}</AlertDescription>
+            </Alert>
+          ) : null}
+          <Button
+            className="w-fit"
+            disabled={addition.starting}
+            data-testid="set-up-add-passkey"
+            onClick={() => void addition.begin()}
+          >
+            {addition.starting ? <Spinner data-icon="inline-start" /> : null}
+            {t("auth.mfaRequiredAddPasskey")}
+          </Button>
+          <FieldSeparator>{t("auth.or")}</FieldSeparator>
+        </>
+      ) : null}
+      {addition.dialogs}
       <TwoFactorEnrollment
         // Re-mounted once the account is read, so the enrollment starts in the
         // replacement step rather than learning it from a refused request.
@@ -359,6 +416,73 @@ function EnrollStep({
         description={t("profile.recoveryCodesBody")}
         value={recoveryCodes ?? ""}
         multiline
+      />
+    </div>
+  )
+}
+
+/**
+ * Whether the set-up step offers a passkey beside the app (OI-280 PR B, T-B8): passkeys run here
+ * (the deployment's hint, and no 404 met on this page since), this browser has WebAuthn (any
+ * authenticator: this device's, a phone's or a security key), and the addition cannot end in N9
+ * (email sending on; the person has no factor here). Otherwise the page is the app's, as before.
+ */
+function usePasskeyChoiceOffered(me: Schemas["UserDto"] | undefined): boolean {
+  const passkeysOffered = useSignInOptions()?.passkeySignInOffered === true
+  const answeredOff = usePasskeysAnsweredOff()
+  return passkeysOffered && !answeredOff && browserHasWebAuthn() && me?.emailCodeAvailable === true
+}
+
+/**
+ * The passkey just added, used once in place (OI-280 PR B, T-B8, D-B5). A registration proves
+ * nothing signed, so it raised no session; this proof, the window's own
+ * (`auth/reauthentication/passkey`), is signed by the passkey and raises this session and its SSO
+ * session. Then the page goes on as after the app: the request resumes once, or the platform page
+ * refreshes the session and completes. A cancelled or refused touch leaves the passkey added and
+ * the step here, with its button to try again and the page's own way out.
+ */
+function UsePasskeyStep({
+  onUsed,
+  onSignInAgain,
+}: {
+  onUsed: () => Promise<void> | void
+  /** The application mode's way out: the sign-in page with the request, never a sign-out. */
+  onSignInAgain?: () => void
+}) {
+  const { t } = useTranslation()
+
+  const prove = async (credential: AuthenticationResponseJSON): Promise<PasskeyOutcome> => {
+    try {
+      const { error, response } = await api.POST("/api/v1/auth/reauthentication/passkey", {
+        body: { credential },
+      })
+      if (error) throw withRetryAfter(error, response)
+      void onUsed()
+      return { leaving: true }
+    } catch (error) {
+      // The token names no live session: only a sign-in goes on, which keeps the request here.
+      if (onSignInAgain && getErrorCodes(error).includes("Auth.ReauthenticationRequired")) {
+        onSignInAgain()
+        return { leaving: true }
+      }
+      return { message: proofFailureMessage(error) }
+    }
+  }
+  // The account holds this passkey and passkeys run: a first failure is said, in the words of a
+  // proof, which send a signed-in person to no sign-in.
+  const ceremony = usePasskeySignIn({
+    passkeysExpected: true,
+    onCredential: prove,
+    failureMessage: proofFailureMessage,
+  })
+
+  return (
+    <div className="flex flex-col gap-4" data-testid="use-passkey-now">
+      <p className="text-sm text-muted-foreground">{t("auth.mfaRequiredUsePasskey")}</p>
+      <PasskeyButton
+        ceremony={ceremony}
+        label={t("auth.mfaRequiredUsePasskeyAction")}
+        variant="default"
       />
     </div>
   )

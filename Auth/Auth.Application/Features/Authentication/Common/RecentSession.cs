@@ -14,7 +14,15 @@ namespace Auth.Application.Features.Authentication.Common;
 /// What the session proved when it signed in, and since: the rule that binding a
 /// further factor needs a session that proved two.
 /// </param>
+/// <param name="ProvedAtUtc">
+/// When what <paramref name="Methods"/> carries was proved (OI-280 PR B, D-B2): the session's
+/// sign-in while that is recent, or past it the last proof inside the session. A proof given in
+/// place after a recent sign-in is dated at the sign-in, earlier than it was, so a rule that asks
+/// how recent it is fails safe. Absent (the default) is long ago: such a session is never recent
+/// enough for a rule that reads this.
+/// </param>
 public sealed record RecentSession(
     Guid SessionId,
     string? DeviceName,
-    AuthenticationMethods Methods = default);
+    AuthenticationMethods Methods = default,
+    DateTime ProvedAtUtc = default);

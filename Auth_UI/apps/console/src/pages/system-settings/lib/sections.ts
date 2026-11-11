@@ -157,7 +157,10 @@ export const HIGH_IMPACT_PATHS: Record<string, string[]> = {
   // Passkeys (S20): switching them on offers every person a new way in, and
   // switching them off leaves a passkey-only administrator one way out (M8(4));
   // the RP ID binds every passkey made under it, and a new one orphans them (PK3).
-  Passkeys: ["Enabled", "RpId"],
+  // How long a sign-in by code stands for the mailbox proof (OI-280 PR B): a
+  // longer time weakens that protection for every account, since a stolen
+  // session adds a passkey without the second code for that long (D-S20-21).
+  Passkeys: ["Enabled", "RpId", "CodeSignInProofMinutes"],
   Gateway: ["ValidationEnabled"],
   Cors: ["AllowedOrigins", "AllowCredentials"],
   RateLimiting: ["LoginPermitLimit"],

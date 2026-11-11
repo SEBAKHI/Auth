@@ -15,6 +15,7 @@ using Auth.Domain.ValueObjects;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Auth_API.Tests.Passkeys;
@@ -31,7 +32,9 @@ namespace Auth_API.Tests.Passkeys;
 /// <remarks>
 /// Deliberate breaks, each verified red: the <c>HasPrimary</c> step dropped from the gate; the
 /// FA2 step dropped from the gate; the email-off refusal dropped from the gate (the pass-through
-/// restored, F13); the session-ended outcome mapped to a stored passkey (F1).
+/// restored, F13); the session-ended outcome mapped to a stored passkey (F1). OI-280 PR B: the
+/// gate's time check dropped; D-B3 dropped (a code beside a second-factor bit counted); the
+/// setting read unclamped; the challenge spent before the code check.
 /// </remarks>
 public class RegisterPasskeyCommandHandlerTests
 {
@@ -66,11 +69,19 @@ public class RegisterPasskeyCommandHandlerTests
 
     // Email on, as a deployment runs: a first passkey needs the emailed code (F13).
     private readonly EmailSettings _email = new() { Enabled = true };
+
+    // OI-280 PR B: the clock the gate measures a sign-in by code against (the system's until a
+    // test moves it), and the setting it reads per request (5 minutes, as shipped).
+    private readonly AdjustableTimeProvider _clock = new();
+    private readonly PasskeySettings _passkeySettings = new();
+    private readonly CapturingLogger<PasskeyRegistrationGate> _gateLog = new();
     private readonly List<string> _order = [];
     private readonly TwoFactorBindCode _liveCode;
 
     public RegisterPasskeyCommandHandlerTests()
     {
+        // Stopped, so a second here is a second at the gate.
+        _clock.Advance(TimeSpan.Zero);
         _users.Setup(r => r.GetByIdAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateUser(id: _userId, email: "owner@example.com"));
         GivenSession(AuthenticationMethods.Password);
@@ -553,11 +564,254 @@ public class RegisterPasskeyCommandHandlerTests
         sent.FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
     }
 
+    // ── The mailbox proof of a sign-in by code (OI-280 PR B: T-B3, T-B4, T-B5; D-S20-14, D-S20-21) ──
+    //
+    // A first passkey asks for no second emailed code while the session's last proof was the
+    // emailed code, within Passkeys:CodeSignInProofMinutes (5, as shipped); every other step of the
+    // gate is as before. The guard is mocked here, so the session's age stands for itself; the
+    // window's own limit is shown with the real guard below.
+
+    private static readonly AuthenticationMethods PasswordlessCode =
+        AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: false);
+
+    /// <summary>A password account signed in by code, after the window took its password.</summary>
+    private static readonly AuthenticationMethods CodeThenPassword =
+        AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: true).With(AuthenticationMethods.Password);
+
+    [Fact]
+    public async Task Begin_PasswordAccountSignedInByCode_WithItsPasswordGivenInTheWindow_AsksNoSecondCode()
+    {
+        // D-S20-14: the code proved the mailbox moments ago, and the window took the password.
+        GivenSession(CodeThenPassword, TimeSpan.FromMinutes(1));
+
+        var started = await Begin().Handle(BeginCommand(), CancellationToken.None);
+
+        started.IsError.Should().BeFalse();
+        started.Value.EmailCodeRequired.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Begin_PasswordAccountSignedInByCode_BeforeItsPassword_IsStillAskedForIt()
+    {
+        // The first-factor step stays (T-B3): the code alone proved the mailbox, not the person.
+        GivenSession(AuthenticationMethods.ForEmailCodeSignIn(accountHasPassword: true), TimeSpan.FromSeconds(10));
+
+        var started = await Begin().Handle(BeginCommand(), CancellationToken.None);
+
+        started.FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
+    }
+
+    [Fact]
+    public async Task Begin_PasswordlessAccountSignedInByCode_GoesStraightToTheDevice()
+    {
+        GivenSession(PasswordlessCode, TimeSpan.FromMinutes(4));
+
+        (await Begin().Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Begin_AnEmailedCodeGivenInTheWindow_CountsAtItsOwnTime()
+    {
+        // Row 366: the window's code for an account without a password, two minutes ago (the guard
+        // dates such a proof at its own time, ReauthenticationGuardTests). One code, not two.
+        GivenSession(PasswordlessCode, TimeSpan.FromMinutes(2));
+
+        (await Begin().Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Begin_AnS24AccountSignedInByCode_AfterItsPasswordAndItsCodeInTheWindow_AsksNoThirdCode()
+    {
+        // Q3 (a), D-280B-1: the window asks such an account for its password AND its emailed
+        // second step; the session then carries both, and the registration asks no code of its own.
+        GivenSession(CodeThenPassword.With(AuthenticationMethods.EmailCode), TimeSpan.FromMinutes(2));
+
+        (await Begin().Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Begin_OneMinutePastTheTime_InsideTheWindow_AsksForTheCode_AsBefore()
+    {
+        GivenSession(PasswordlessCode, TimeSpan.FromMinutes(6));
+
+        (await Begin().Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Begin_APasswordSignInWithNoSecondFactor_StillAsksForTheCode()
+    {
+        // Its mailbox is not proved: a password says nothing about it.
+        GivenSession(AuthenticationMethods.Password, TimeSpan.FromSeconds(5));
+
+        (await Begin().Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Begin_ACodeFirstTwoStepSession_WhoseFactorWasRemovedSince_IsAskedForAFreshCode()
+    {
+        // D-B3: such a code was proved when the challenge opened, up to five minutes before the
+        // session began; the account had a factor then, and now has none.
+        GivenSession(PasswordlessCode.With(AuthenticationMethods.Totp), TimeSpan.FromSeconds(30));
+
+        (await Begin().Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0, 50, false)]
+    [InlineData(0, 70, true)]
+    [InlineData(-3, 50, false)]
+    [InlineData(99, 14 * 60, false)]
+    [InlineData(99, 16 * 60, true)]
+    public async Task Begin_NoStoredValue_SwitchesTheCodeOff_OrStretchesTheTimePastFifteenMinutes(
+        int stored, int provedSecondsAgo, bool codeAsked)
+    {
+        // Read inside 1–15: a stored 0 or less is one minute, 99 is fifteen.
+        _passkeySettings.CodeSignInProofMinutes = stored;
+        GivenSession(PasswordlessCode, TimeSpan.FromSeconds(provedSecondsAgo));
+
+        (await Begin().Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().Be(codeAsked);
+    }
+
+    [Fact]
+    public async Task Begin_ReadsTheTimePerRequest()
+    {
+        GivenSession(PasswordlessCode, TimeSpan.FromMinutes(8));
+        (await Begin().Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().BeTrue();
+
+        _passkeySettings.CodeSignInProofMinutes = 10;
+
+        (await Begin().Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Begin_EmailOff_NoFactor_IsStillRefused_HoweverRecentTheCode()
+    {
+        _email.Enabled = false;
+        GivenSession(PasswordlessCode, TimeSpan.FromSeconds(5));
+
+        (await Begin().Handle(BeginCommand(), CancellationToken.None)).FirstError.Code
+            .Should().Be(PasskeyErrors.EmailRequired.Code);
+    }
+
+    [Theory]
+    [InlineData(4, false)]
+    [InlineData(7, null)]
+    public async Task Begin_ATimeOfFifteen_UnderAWindowOfFive_ActsAsFive(int signedInMinutesAgo, bool? codeAsked)
+    {
+        // The window is the outer limit (D-S20-21): the real guard, with a window of five, in front
+        // of a time of fifteen. Seven minutes after a sign-in by code it asks to sign in again.
+        _passkeySettings.CodeSignInProofMinutes = 15;
+        var guard = RealGuard(windowMinutes: 5, TimeSpan.FromMinutes(signedInMinutesAgo), PasswordlessCode);
+
+        var started = await Begin(guard: guard).Handle(BeginCommand(), CancellationToken.None);
+
+        if (codeAsked is { } asked)
+        {
+            started.Value.EmailCodeRequired.Should().Be(asked);
+        }
+        else
+        {
+            started.FirstError.Code.Should().Be(AuthErrors.ReauthenticationRequired.Code);
+        }
+    }
+
+    [Fact]
+    public async Task Complete_WithinTheTime_BindsWithNoCode()
+    {
+        GivenSession(PasswordlessCode, TimeSpan.FromMinutes(1));
+
+        var created = await Complete().Handle(CompleteCommand(emailCode: null), CancellationToken.None);
+
+        created.IsError.Should().BeFalse();
+        _bindCodes.Verify(r => r.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _passkeys.Verify(r => r.TryCreateAsync(It.IsAny<UserPasskey>(), UserPasskey.MaxLivePerAccount, null, SessionId, false, CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task TheTimeRunningOutBetweenOptionsAndVerify_AsksForTheCodeAtVerify_WithTheChallengeLive_ThenTheSameResponseBinds()
+    {
+        // T-B5, D-B4: verify decides, because the gate runs there again. The options a second inside
+        // the time ask for no code; verify a second past it asks for one before anything is spent;
+        // the same response with the right code then binds the passkey.
+        GivenSession(PasswordlessCode, TimeSpan.FromMinutes(5) - TimeSpan.FromSeconds(1));
+        (await Begin().Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().BeFalse();
+
+        _clock.Advance(TimeSpan.FromSeconds(2));
+        var first = await Complete().Handle(CompleteCommand(emailCode: null), CancellationToken.None);
+
+        first.FirstError.Code.Should().Be(TwoFactorErrors.EmailCodeRequired.Code);
+        _challenges.Verify(c => c.TryConsumeRegistrationAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never,
+            "the challenge still lives, so the same response can be sent again with the code");
+        _bindCodes.Verify(r => r.TryReserveAttemptAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+
+        var second = await Complete().Handle(CompleteCommand(emailCode: EmailCode), CancellationToken.None);
+
+        second.IsError.Should().BeFalse();
+        _order.Should().Equal("consume", "verify", "insert");
+        _passkeys.Verify(r => r.TryCreateAsync(It.IsAny<UserPasskey>(), UserPasskey.MaxLivePerAccount, _liveCode.Id, SessionId, false, CancellationToken.None), Times.Once);
+    }
+
+    [Fact]
+    public async Task TheExemption_WritesOneInformationLine_WithTheUserId_AndNoAddress()
+    {
+        // V-B6 (PK16): the user id, never the address.
+        GivenSession(PasswordlessCode, TimeSpan.FromMinutes(1));
+
+        await Begin().Handle(BeginCommand(), CancellationToken.None);
+
+        var line = _gateLog.Entries.Should().ContainSingle().Which;
+        line.Level.Should().Be(LogLevel.Information);
+        line.Values.Should().Equal(_userId.ToString());
+        line.Message.Should().NotContain("@").And.NotContain("owner");
+    }
+
+    [Fact]
+    public async Task NoExemption_WritesNoLine()
+    {
+        GivenSession(PasswordlessCode, TimeSpan.FromMinutes(6));
+
+        await Begin().Handle(BeginCommand(), CancellationToken.None);
+
+        _gateLog.Entries.Should().BeEmpty();
+    }
+
     // ── Fixture ──
+
+    /// <summary>
+    /// The real window in front of the gate: a session of <paramref name="methods"/> that signed in
+    /// <paramref name="signedInAgo"/>, with no proof since, and a token issued now.
+    /// </summary>
+    private ReauthenticationGuard RealGuard(int windowMinutes, TimeSpan signedInAgo, AuthenticationMethods methods)
+    {
+        var sessions = new Mock<IUserSessionRepository>();
+        sessions.Setup(r => r.GetByIdAsync(SessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUserSession(
+                id: SessionId, userId: _userId, createdAt: _clock.UtcNow - signedInAgo, methods: methods));
+        var token = new Mock<ICurrentAccessToken>();
+        token.SetupGet(t => t.IssuedAtUtc).Returns(_clock.UtcNow);
+
+        return new ReauthenticationGuard(
+            sessions.Object,
+            TestHelpers.CreateOptions(new TwoFactorSettings { ReauthenticationMaxAgeMinutes = windowMinutes }),
+            token.Object,
+            _clock,
+            NullLogger<ReauthenticationGuard>.Instance);
+    }
 
     private void GivenSession(AuthenticationMethods methods) =>
         _guard.Setup(g => g.EnsureRecentSignInAsync(_userId, SessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new RecentSession(SessionId, DeviceName, methods));
+
+    /// <summary>
+    /// A recent session whose methods were proved <paramref name="ago"/>, by the gate's clock as it
+    /// reads now: the time stays put when a test moves the clock on.
+    /// </summary>
+    private void GivenSession(AuthenticationMethods methods, TimeSpan ago)
+    {
+        var provedAtUtc = _clock.UtcNow - ago;
+        _guard.Setup(g => g.EnsureRecentSignInAsync(_userId, SessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RecentSession(SessionId, DeviceName, methods, provedAtUtc));
+    }
 
     private void GivenFactors(QualifyingSecondFactors factors) =>
         _store.Setup(s => s.GetQualifyingFactorsAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(factors);
@@ -584,16 +838,16 @@ public class RegisterPasskeyCommandHandlerTests
         _publisher.Verify(p => p.Publish(It.IsAny<PasskeyRegisteredEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    private PasskeyRegistrationGate Gate() =>
-        new(_guard.Object, _store.Object, new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_email)),
-            NullLogger<PasskeyRegistrationGate>.Instance);
+    private PasskeyRegistrationGate Gate(IReauthenticationGuard? guard = null) =>
+        new(guard ?? _guard.Object, _store.Object, new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_email)),
+            TestHelpers.CreateOptions(_passkeySettings), _clock, _gateLog);
 
     private FirstFactorEmailProof EmailProof() =>
         new(_bindCodes.Object, _users.Object, _notifications.Object, _otpGenerator.Object, _otpHasher.Object,
             TestHelpers.CreateOptions(_email), TimeProvider.System, NullLogger<FirstFactorEmailProof>.Instance);
 
-    private BeginPasskeyRegistrationCommandHandler Begin(PasskeyFeature? feature = null) =>
-        new(feature ?? PasskeyTestDoubles.Feature(), Gate(), _users.Object, _passkeys.Object, _challenges.Object,
+    private BeginPasskeyRegistrationCommandHandler Begin(PasskeyFeature? feature = null, IReauthenticationGuard? guard = null) =>
+        new(feature ?? PasskeyTestDoubles.Feature(), Gate(guard), _users.Object, _passkeys.Object, _challenges.Object,
             _verifier.Object, _tokens.Object, _hasher, TimeProvider.System);
 
     private CompletePasskeyRegistrationCommandHandler Complete() =>
