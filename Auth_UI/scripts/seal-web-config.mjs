@@ -185,10 +185,10 @@ writeFileSync(webConfigPath, sealed, "utf8")
 
 // ------------------------------------------------- POST-CONDITIONS
 //
-// Every CSP header is checked, not only the first (card S02): the enforced one
-// and its Report-Only twin outside any <location>, and each <location>'s own
-// (console's /email-preview.html). A header inside a <location> applies to that
-// path only.
+// Every CSP header is checked, not only the first (card S02): the site-wide one
+// (and a Report-Only header, should one be added) outside any <location>, and
+// each <location>'s own (console's /email-preview.html). A header inside a
+// <location> applies to that path only.
 
 /** Every CSP and CSP-Report-Only header, with the <location path> it sits in (null: site-wide). */
 function cspHeaders(xml) {

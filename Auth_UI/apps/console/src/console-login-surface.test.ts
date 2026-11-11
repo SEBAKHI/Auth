@@ -24,9 +24,8 @@ import routes from "./routes.tsx?raw"
 // S02), which src/csp-style-policy.test.ts pins instead.
 const CSP = siteHeader(webConfig, "Content-Security-Policy").directives
 
-// Both site-wide headers: the enforced one and, while card S02 is in its
-// stage A, the Report-Only target that will replace it. What the button needs
-// must hold in both.
+// Every site-wide header. Card S02 left one, the enforced policy; a
+// Report-Only header added later must satisfy the same rules.
 const SITE_HEADERS = cspHeaders(webConfig).filter((header) => header.location === null)
 
 const GOOGLE = "https://accounts.google.com"
@@ -80,12 +79,11 @@ describe("the console login surface", () => {
     // exact defect the placeholder exists to prevent. Listing the whole allowed
     // set rather than banning one string also makes any new source a decision:
     // add it here, or the build stays red.
-    // 'unsafe-inline' is still allowed: the enforced style-src keeps it until
-    // card S02's stage B, which removes it from this set.
+    // No 'unsafe-inline' (card S02): a site-wide header that allows inline styles
+    // or scripts fails here.
     const ALLOWED = new Set([
       "'self'",
       "'none'",
-      "'unsafe-inline'",
       "data:",
       "https://auth.example.com",
     ])

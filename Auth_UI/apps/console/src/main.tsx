@@ -1,3 +1,7 @@
+// FIRST: zod's JIT off before any module builds a schema (no eval probe under
+// the strict CSP).
+import "@authsystem/auth/zod-jitless"
+
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 

@@ -68,15 +68,13 @@ describe("web.config model: console", () => {
     expect(fallback.action).toEqual({ type: "Rewrite", url: "/index.html", appendQueryString: true })
   })
 
-  it("sends six headers, the CSP and its Report-Only twin verbatim from the file", () => {
+  it("sends five headers, the CSP verbatim from the file and no Report-Only twin (card S02 stage B)", () => {
     expect(console_.headers.map(([name]) => name)).toEqual([
       "X-Content-Type-Options",
       "X-Frame-Options",
       "Referrer-Policy",
       "Strict-Transport-Security",
       "Content-Security-Policy",
-      // Card S02, stage A: the target style-src, reported and not enforced.
-      "Content-Security-Policy-Report-Only",
     ])
     expect(headerValue(console_, "Content-Security-Policy")).toBe(cspAttribute(consoleWebConfig))
   })
@@ -137,15 +135,13 @@ describe("web.config model: accounts", () => {
     expect(accounts.rules[10].action).toMatchObject({ type: "CustomResponse", status: 404 })
   })
 
-  it("sends six headers, the CSP and its Report-Only twin verbatim from the file", () => {
+  it("sends five headers, the CSP verbatim from the file and no Report-Only twin (card S02 stage B)", () => {
     expect(accounts.headers.map(([name]) => name)).toEqual([
       "X-Content-Type-Options",
       "X-Frame-Options",
       "Referrer-Policy",
       "Strict-Transport-Security",
       "Content-Security-Policy",
-      // Card S02, stage A: the target style-src, reported and not enforced.
-      "Content-Security-Policy-Report-Only",
     ])
     expect(headerValue(accounts, "Content-Security-Policy")).toBe(cspAttribute(accountsWebConfig))
   })

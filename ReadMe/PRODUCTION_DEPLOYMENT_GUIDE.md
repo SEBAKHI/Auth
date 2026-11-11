@@ -1247,15 +1247,11 @@ Do not change the rest of either file. Between them they carry the single-page-a
 rule, the caching rules, and the security headers, each with a comment explaining why it is written
 the way it is.
 
-**Inline styles and the second CSP header.** Neither policy is meant to allow inline styles
-(`'unsafe-inline'` in `style-src`): with it, anyone who manages to inject markup into a page can
-restyle it — hide a warning, cover a button. The change ships in two stages:
-
-* **Stage A:** the enforced `Content-Security-Policy` is unchanged, and a second header,
-  `Content-Security-Policy-Report-Only`, carries the target policy. A browser reports — in the
-  developer console — every inline style the target would refuse, and blocks nothing.
-* **Stage B,** a later release: the target becomes the enforced policy and the Report-Only header goes.
-  Before you deploy it, confirm your own deployment has shown zero such reports in Chrome and Firefox.
+**Inline styles.** Neither policy allows inline styles (`'unsafe-inline'` in `style-src`): with it,
+anyone who manages to inject markup into a page can restyle it — hide a warning, cover a button. The
+browser refuses every `<style>` element and `style` attribute whose text is not on the generated list
+below. (Earlier releases carried this policy first as a second, report-only header; it is now the
+enforced one, and no `Content-Security-Policy-Report-Only` header is sent.)
 
 The `'sha256-…'` values in `style-src` are **generated, never typed by hand**. They are the hashes of
 the few constant `<style>` texts the libraries inject (`csp/inline-styles.json` in each application,
@@ -1270,9 +1266,11 @@ notification preview's own document, framed by the console with an opaque origin
 uploaded with the rest of `dist`; without it the preview shows an alert pointing to the Text tab.
 The seal step recomputes the hash of its script from the built file and refuses a mismatch.
 
-Before stage B, run this read-only query on the production database and confirm every value is
-listed in `Auth_UI/apps/accounts/csp/privacy-style-hashes.json` (the file stores them with a
-`sha256-` prefix):
+Before you deploy this release to a database that already holds published privacy policies, run
+this read-only query on it and confirm every value is listed in
+`Auth_UI/apps/accounts/csp/privacy-style-hashes.json` (the file stores them with a `sha256-` prefix).
+A missing value means a published `/privacy` document that the accounts site would now serve
+unstyled:
 
 ```sql
 SELECT DISTINCT [StyleHash] FROM [dbo].[PrivacyPolicyArtifacts];
@@ -1282,13 +1280,20 @@ Read a missing value before appending it. `gFmvl/t0qhw7O9MeRPLmybvcVXJqB1XQJl9O0
 listed stylesheet hashed by an API built from a checkout with Windows (CRLF) line endings: a browser
 never computes it - the HTML parser folds the line endings first, so every copy of that document
 hashes to the listed value - and appending it would add nothing. Any **other** missing value is a
-stylesheet this list does not know: append it. (Documents stored with the CRLF value are also served
+stylesheet this list does not know. Do not append it on sight: first reproduce the stylesheet text
+that hashes to it from the renderer's history (`git log -L` on the `Styles` of
+`PolicyDocumentRenderer`), then append it with that commit recorded in its `since`. Never append a
+value no commit of the renderer produces. (Documents stored with the CRLF value are also served
 unstyled by the API's own privacy endpoint, which names the stored hash in its policy; new
 publications no longer produce it.)
 
 Upload in this order so no request meets a new header with old files: the `assets` folder first,
-then `email-preview.html` and `index.html`, then `web.config` last. Keep the previous `dist` of each
-application; re-uploading it is the rollback.
+then every `.html` page of `dist` (`index.html`, `google-callback.html`, `login-design-frame.html`,
+and in the console `email-preview.html`), then `web.config` last. Keep the previous `dist` of each
+application, at least its `web.config`; re-uploading it is the rollback. **After a deployment,** open
+both applications in Chrome and Firefox with the developer console open: a line containing
+`style-src` on any page means the policy refused a style that page needs. Re-upload the previous
+`web.config` of that application, and report the line and the page.
 
 ### Step 4 — Build
 

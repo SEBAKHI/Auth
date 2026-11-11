@@ -12,28 +12,9 @@ import type { CspExpectation } from "./csp-observer"
  * Never add an entry to make a test pass without its cause; never widen the
  * policy instead. An entry names what to change to remove it.
  */
-export const KNOWN_CSP_VIOLATIONS: readonly CspExpectation[] = [
-  {
-    directive: "script-src",
-    blocked: "eval",
-    // Only from the entry chunk that carries zod: a new eval anywhere else is not excused.
-    source: /^https:\/\/(console|accounts)\.example\.com\/assets\/index-[\w-]+\.js$/,
-    reason:
-      "zod v4 probes for eval with `new Function(\"\")` inside try/catch " +
-      "(zod/v4/core/util.js, allowsEval). The policy has no 'unsafe-eval', so the " +
-      "probe throws, zod catches it and uses its non-JIT parser: nothing breaks, but " +
-      "Chromium still reports a violation on every page that loads zod (both entry " +
-      "chunks). Removed by setting zod's `jitless` config at start-up in both apps, " +
-      "which skips the probe; that is product code, outside S30a.",
-  },
-  {
-    directive: "script-src",
-    blocked: "eval",
-    source: /^https:\/\/(console|accounts)\.example\.com\/assets\/index-[\w-]+\.js$/,
-    disposition: "report",
-    reason:
-      "The same zod probe, reported a second time by the Content-Security-Policy-Report-Only " +
-      "header of card S02's stage A, which repeats the enforced script-src (only its style-src " +
-      "differs). Removed with that header in S02's stage B (commit B), or with the entry above.",
-  },
-]
+// Empty since card S02 PR B. Its last entry was zod v4's eval probe
+// (`new Function("")` in zod/v4/core/util.js, allowsEval), refused on every page
+// that loaded zod; both applications now turn zod's JIT off before any schema is
+// built (packages/auth/src/zod-jitless.ts), so the probe never runs. A violation
+// on any page is now a failure until it is fixed or entered here with its cause.
+export const KNOWN_CSP_VIOLATIONS: readonly CspExpectation[] = []

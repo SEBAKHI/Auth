@@ -4,6 +4,7 @@ import { join } from "node:path"
 import type { Page } from "@playwright/test"
 
 import { loginResponse } from "../isolated/accounts/mock-anonymous-api"
+import { cspDispositions } from "./csp-observer"
 import { HOSTS, ORIGINS, expect, test, type AppName } from "./fixtures"
 
 /**
@@ -263,11 +264,15 @@ for (const app of ["accounts", "console"] as const satisfies readonly AppName[])
     page,
     api,
     csp,
+    harness,
   }) => {
     await api.useAnonymous()
     await page.goto(`${ORIGINS[app]}/login`)
-    // Refused by the enforced policy, and reported by its Report-Only twin (card S02 stage A).
-    for (const disposition of ["enforce", "report"] as const) {
+    // Refused by the enforced policy; and reported too while a Report-Only
+    // header repeats it (card S02 stage A had one; stage B has none). Read from
+    // the built web.config, not assumed.
+    const dispositions = cspDispositions(harness.models[app])
+    for (const disposition of dispositions) {
       csp.expect({
         directive: "script-src",
         blocked: "https://accounts.google.com/gsi/client",
@@ -284,6 +289,6 @@ for (const app of ["accounts", "console"] as const satisfies readonly AppName[])
 
     await expect
       .poll(() => csp.violations().filter((violation) => violation.blocked === "https://accounts.google.com/gsi/client").length)
-      .toBeGreaterThanOrEqual(2)
+      .toBeGreaterThanOrEqual(dispositions.length)
   })
 }

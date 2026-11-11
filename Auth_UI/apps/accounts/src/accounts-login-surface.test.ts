@@ -15,10 +15,9 @@ import webConfig from "../public/web.config?raw"
  * and nothing of Google's is loaded into the page, so the policy names no Google address.
  * </p>
  */
-// Both site-wide headers, read by where they sit (outside any <location>), not
-// as "the first CSP in the file": the enforced one and, while card S02 is in
-// its stage A, the Report-Only target that will replace it. What the button
-// needs must hold in both.
+// Every site-wide header, read by where it sits (outside any <location>), not
+// as "the first CSP in the file". Card S02 left one, the enforced policy; a
+// Report-Only header added later must satisfy the same rules.
 const SITE_HEADERS = cspHeaders(webConfig).filter((header) => header.location === null)
 
 const GOOGLE = "https://accounts.google.com"
@@ -51,12 +50,11 @@ describe("the accounts login surface", () => {
     // this committed file to a real domain would publish that domain in a public
     // repository. Listing the whole allowed set rather than banning one string
     // makes any new source a decision: add it here, or the build stays red.
-    // 'unsafe-inline' is still allowed: the enforced style-src keeps it until
-    // card S02's stage B, which removes it from this set.
+    // No 'unsafe-inline' (card S02): a site-wide header that allows inline styles
+    // or scripts fails here.
     const ALLOWED = new Set([
       "'self'",
       "'none'",
-      "'unsafe-inline'",
       "data:",
       "https://auth.example.com",
       "https://appleid.cdn-apple.com",
