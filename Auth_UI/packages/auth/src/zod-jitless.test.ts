@@ -6,10 +6,15 @@ import { z } from "zod"
 
 const AUTH_UI = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..")
 
-/** The module specifiers of a file's import declarations, in source order. */
+/**
+ * The module specifiers of a file's import declarations, in source order.
+ * Block comments are dropped first, so a commented-out import cannot stand in
+ * for the real first one.
+ */
 function importsOf(source: string): string[] {
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, "")
   return [
-    ...source.matchAll(/^import\s+(?:[^"';]*?\s+from\s+)?["']([^"']+)["']/gm),
+    ...code.matchAll(/^import\s+(?:[^"';]*?\s+from\s+)?["']([^"']+)["']/gm),
   ].map((match) => match[1])
 }
 

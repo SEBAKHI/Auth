@@ -1288,12 +1288,15 @@ unstyled by the API's own privacy endpoint, which names the stored hash in its p
 publications no longer produce it.)
 
 Upload in this order so no request meets a new header with old files: the `assets` folder first,
-then every `.html` page of `dist` (`index.html`, `google-callback.html`, `login-design-frame.html`,
-and in the console `email-preview.html`), then `web.config` last. Keep the previous `dist` of each
-application, at least its `web.config`; re-uploading it is the rollback. **After a deployment,** open
-both applications in Chrome and Firefox with the developer console open: a line containing
+then every `.html` file of `dist`, subfolders included (`index.html`, `google-callback.html`,
+`login-design-frame.html`; in the console `email-preview.html`; in the accounts application the
+`embed` folder with its pages and `account-bar.js`), then `web.config` last. Keep the previous `dist`
+of each application, at least its `web.config`; re-uploading it is the rollback. **After a
+deployment,** open both applications with the developer console open, in Chrome, Firefox and one
+Safari (an iPhone is enough), and include Apple sign-in if you enabled it: a line containing
 `style-src` on any page means the policy refused a style that page needs. Re-upload the previous
-`web.config` of that application, and report the line and the page.
+`web.config` of that application, and report the line and the page. No report reaches the server
+(the policy has no `report-to`), so this check is the only place such a refusal shows.
 
 ### Step 4 — Build
 
