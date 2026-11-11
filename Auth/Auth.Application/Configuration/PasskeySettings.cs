@@ -64,7 +64,9 @@ public sealed class PasskeySettings
     /// The re-authentication window (<c>TwoFactor:ReauthenticationMaxAgeMinutes</c>) stays the outer
     /// limit: a session older than the window never reaches this rule, so a window of 5 with 15
     /// here acts as 5. Its price: a session stolen within this time adds a passkey without the
-    /// second code; the notice email and the 72-hour revocation remain.
+    /// second code; the notice email and the 72-hour revocation remain. It never covers an account
+    /// that holds a platform permission, which is asked for the code as before (REVIEW 160 F1,
+    /// D-160-1 (a)): the mailbox alone must not open an account that administers the platform.
     /// </remarks>
     public int CodeSignInProofMinutes { get; set; } = 5;
 

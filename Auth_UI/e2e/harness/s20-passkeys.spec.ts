@@ -739,6 +739,7 @@ interface OfferServer {
   registrationOptions: number
   registrationCodeSends: number
   registered: Registered[]
+  passkeySignIns: number
   windowProofs: number
   passkeyProofs: Asserted[]
   passwordProved: boolean
@@ -752,6 +753,7 @@ const newOfferServer = (): OfferServer => ({
   registrationOptions: 0,
   registrationCodeSends: 0,
   registered: [],
+  passkeySignIns: 0,
   windowProofs: 0,
   passkeyProofs: [],
   passwordProved: false,
@@ -841,6 +843,11 @@ async function serveOffer(
       }
       if (path === "/api/v1/auth/passkeys/lookup") {
         await fulfillJson(route, { passkey: false })
+        return true
+      }
+      if (path === "/api/v1/auth/passkeys/assertion/verify" && method === "POST") {
+        state.passkeySignIns += 1
+        await api.firstParty.answerSignIn(route, PERSON, "oi280b-secret")
         return true
       }
       if (path === "/api/v1/auth/email-code/start" && method === "POST") {
@@ -1129,6 +1136,52 @@ test("oi280b: «Don't ask on this device»: the next sign-in on this browser has
   // The offer's page never opened again: it reads the account before anything else.
   expect(state.meReads).toBe(1)
   expect(state.codeSignIns).toBe(2)
+})
+
+/**
+ * «Add» before an application's two-step requirement (REVIEW 160 F6, D-160-3 (a)): a registration
+ * raises no session (D-B5), so the resume comes back to the sign-in page, whose passkey button
+ * reaches the application, and the sign-in that follows says it was a passkey's: no second offer.
+ * Deliberate break, verified red: the passkey sign-in no longer says so (`signedInWithPasskey`
+ * dropped in login.tsx), and the account is read again for an offer.
+ */
+test("oi280b: «add» before an application's two-step requirement: the resume comes back, the passkey button goes on, no second offer", async ({
+  page,
+  api,
+  attacker,
+}) => {
+  await attachVirtualAuthenticator(page)
+  await withoutSuggestion(page)
+  const state = newOfferServer()
+  const landing = theApplication(attacker)
+  await serveOffer(
+    api,
+    state,
+    landing,
+    { hasPassword: false, bounce: "&reason=mfa_passkey&method=password" },
+    CODE_FIRST_WITH_PASSKEYS
+  )
+
+  await page.goto(`${ORIGINS.accounts}/login?${PENDING}`)
+  await signInByCode(page)
+  await expect(offerHeading(page)).toBeVisible(FIRST_LOAD)
+  await page.getByRole("button", { name: en.auth.passkeyOffer.add }).click()
+  await page
+    .getByRole("dialog", { name: en.profile.passkeys.addTitle })
+    .getByRole("button", { name: en.profile.passkeys.create })
+    .click()
+
+  const passkey = page.getByTestId("passkey-sign-in").getByRole("button", { name: en.auth.passkey.signIn })
+  await expect(passkey).toBeEnabled(FIRST_LOAD)
+  expect(state.resumes).toEqual([`?${PENDING}`])
+  expect(state.registered).toHaveLength(1)
+  const readsBeforeThePasskey = state.meReads
+  await passkey.click()
+
+  await expect.poll(() => page.url(), FIRST_LOAD).toBe(landing)
+  expect(state.passkeySignIns).toBe(1)
+  expect(state.resumes).toEqual([`?${PENDING}`, `?${PENDING}`])
+  expect(state.meReads).toBe(readsBeforeThePasskey)
 })
 
 test("oi280b: leaving the offer leaves the sign-in's marker: the bounce for set-up goes straight to the set-up page", async ({

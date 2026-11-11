@@ -24,7 +24,8 @@ namespace Auth.Application.Features.Passkeys.Common;
 /// the gate refuses (<c>Passkey.EmailRequired</c>, REVIEW 150 F13, D-150-3 (c)). Unless the
 /// session proved the mailbox with an emailed code within
 /// <c>Passkeys:CodeSignInProofMinutes</c> (OI-280 PR B), by its sign-in or in the window: that
-/// code already proved the mailbox, so a second one is not asked for (D-S20-14, D-S20-21).</item>
+/// code already proved the mailbox, so a second one is not asked for (D-S20-14, D-S20-21). Never
+/// on an account that holds a platform permission (REVIEW 160 F1, D-160-1 (a)).</item>
 /// </list>
 /// </summary>
 /// <remarks>
@@ -65,6 +66,15 @@ namespace Auth.Application.Features.Passkeys.Common;
 /// nothing more, as for an account without a password. Verify runs this again, so a time that runs out
 /// between the options and the bind asks for the code there, before anything is spent.
 /// </para>
+/// <para>
+/// No exemption for an account that holds any platform permission (REVIEW 160 F1, D-160-1 (a)), read
+/// from its platform claims and never from the enforcement switch, as the sign-in by code and the
+/// password removal read it (<see cref="EmailCodeFullProofRule"/>): the mailbox alone must not open
+/// an account that administers the platform. An emailed code never qualifies, so a first passkey is
+/// such an account's only qualifying factor: it signs in with full platform authority, and the other
+/// doors then refuse the real administrator (<see cref="PasskeyOnlyAdministratorRule"/>). Read only
+/// when the exemption would otherwise apply, so nearly every request pays nothing.
+/// </para>
 /// </remarks>
 public sealed class PasskeyRegistrationGate
 {
@@ -78,6 +88,7 @@ public sealed class PasskeyRegistrationGate
     private readonly IReauthenticationGuard _reauthenticationGuard;
     private readonly ITwoFactorStateStore _twoFactorStateStore;
     private readonly FirstFactorEmailProofPolicy _emailProofPolicy;
+    private readonly EmailCodeFullProofRule _platformAuthority;
     private readonly IOptionsMonitor<PasskeySettings> _passkeySettings;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<PasskeyRegistrationGate> _logger;
@@ -86,6 +97,7 @@ public sealed class PasskeyRegistrationGate
         IReauthenticationGuard reauthenticationGuard,
         ITwoFactorStateStore twoFactorStateStore,
         FirstFactorEmailProofPolicy emailProofPolicy,
+        EmailCodeFullProofRule platformAuthority,
         IOptionsMonitor<PasskeySettings> passkeySettings,
         TimeProvider timeProvider,
         ILogger<PasskeyRegistrationGate> logger)
@@ -93,6 +105,7 @@ public sealed class PasskeyRegistrationGate
         _reauthenticationGuard = reauthenticationGuard;
         _twoFactorStateStore = twoFactorStateStore;
         _emailProofPolicy = emailProofPolicy;
+        _platformAuthority = platformAuthority;
         _passkeySettings = passkeySettings;
         _timeProvider = timeProvider;
         _logger = logger;
@@ -139,7 +152,9 @@ public sealed class PasskeyRegistrationGate
         }
 
         var emailCodeRequired = !factors.HasAny && emailOn;
-        if (emailCodeRequired && MailboxJustProved(session.Value))
+        if (emailCodeRequired
+            && MailboxJustProved(session.Value)
+            && !await _platformAuthority.HoldsPlatformAuthorityAsync(userId, cancellationToken))
         {
             _logger.LogInformation(
                 "Adding a first passkey for user {UserId} asks for no emailed code: the session proved the mailbox with an emailed code, within the time it counts",

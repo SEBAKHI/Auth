@@ -3,7 +3,11 @@ import { Navigate, Outlet, useLocation } from "react-router-dom"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { useAuth } from "./auth-context"
-import { PASSKEY_OFFER_PATH, pendingPasskeyOfferNavigation } from "./passkey/passkey-offer"
+import {
+  PASSKEY_OFFER_PATH,
+  isPasskeyOfferPath,
+  pendingPasskeyOfferNavigation,
+} from "./passkey/passkey-offer"
 import { getValidReturnTo } from "./return-to"
 
 /**
@@ -54,19 +58,26 @@ export function RequireAnonymous() {
 
     // The page's completion is on its way to the offer to add a passkey (OI-280 PR B), a lazy
     // route whose navigation is still loading: this guard follows it, or its own navigation
-    // below would replace it and the offer would never show.
+    // below would replace it and the offer would never show. The spinner is for that wait: the
+    // page under the navigation stays on screen until the chunk arrives (REVIEW 160 F11).
     const offer = pendingPasskeyOfferNavigation()
-    if (offer) return <Navigate to={PASSKEY_OFFER_PATH} replace state={offer.state} />
-
+    if (offer) {
+      return (
+        <>
+          <Navigate to={PASSKEY_OFFER_PATH} replace state={offer.state} />
+          <FullScreenLoader />
+        </>
+      )
+    }
     // Honor the post-login return target; this guard races the login page's
     // own navigate(from) once the session flips to authenticated, so both
     // must agree on the destination (including the query string).
     const state = location.state as {
       from?: { pathname?: string; search?: string }
     } | null
-    const to = state?.from?.pathname
-      ? state.from.pathname + (state.from.search ?? "")
-      : "/"
+    const from = state?.from?.pathname
+    const to =
+      from && !isPasskeyOfferPath(from) ? from + (state?.from?.search ?? "") : "/"
     return <Navigate to={to} replace />
   }
 

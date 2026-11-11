@@ -18,7 +18,9 @@ import type { MfaRequirement } from "@authsystem/api/mfa-requirement"
  * two-factor-required.test.tsx's, unchanged.
  *
  * Deliberate breaks, each verified red: the in-place use skipped (the page left
- * at the addition); the choice shown with email off.
+ * at the addition); the choice shown with email off. REVIEW 160, each verified red:
+ * the sentence shown to everyone (F2); the message back inside the choice's block
+ * (F12); the restore hook removed from the application mode.
  */
 const mocks = vi.hoisted(() => ({
   post: vi.fn(),
@@ -33,6 +35,7 @@ const mocks = vi.hoisted(() => ({
   auth: {
     loginWithPasskey: vi.fn(),
     user: { id: "u-1", email: "admin@example.com" },
+    permissions: [] as string[],
     mfaRequirement: "enroll" as MfaRequirement,
     rereadUser: vi.fn(),
     logout: vi.fn(),
@@ -166,6 +169,7 @@ beforeEach(() => {
   mocks.get.mockReset().mockResolvedValue({ data: ME, error: undefined })
   mocks.complete.mockReset()
   mocks.auth.logout.mockReset()
+  mocks.auth.permissions = []
   mocks.auth.mfaRequirement = "enroll"
   mocks.signInOptions = { passkeySignInOffered: true }
   mocks.startRegistration.mockReset().mockResolvedValue(CREATED)
@@ -261,6 +265,90 @@ describe("the set-up page's passkey beside the app (T-B8), application mode", ()
     expect(screen.getByRole("button", { name: "common.cancel" })).toBeInTheDocument()
     expect(mocks.complete).not.toHaveBeenCalled()
     expect(mocks.calls).not.toContain("/api/v1/auth/reauthentication/passkey")
+  })
+})
+
+describe("what a first passkey costs an administrator with no app (REVIEW 160 F2, D-160-2 (b))", () => {
+  const addButton = () => screen.findByRole("button", { name: "auth.mfaRequiredAddPasskey" })
+
+  it("says so above «Add a passkey» on the platform page", async () => {
+    mocks.get.mockResolvedValue({ data: { ...ME, totpEnabled: false }, error: undefined })
+    renderPage()
+
+    const add = await addButton()
+    const notice = screen.getByTestId("passkey-only-notice")
+    expect(notice).toHaveTextContent("auth.passkeyOffer.onlyWayIn")
+    expect(notice.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("says so in the application mode to an account with platform permissions", async () => {
+    mocks.auth.mfaRequirement = "none"
+    mocks.auth.permissions = ["users:read"]
+    mocks.get.mockResolvedValue({ data: { ...ME, totpEnabled: false }, error: undefined })
+    renderPage(APPLICATION)
+
+    await addButton()
+    expect(screen.getByTestId("passkey-only-notice")).toBeInTheDocument()
+  })
+
+  it("says nothing in the application mode to a person without platform permissions", async () => {
+    mocks.auth.mfaRequirement = "none"
+    mocks.get.mockResolvedValue({ data: { ...ME, totpEnabled: false }, error: undefined })
+    renderPage(APPLICATION)
+
+    await addButton()
+    expect(screen.queryByTestId("passkey-only-notice")).not.toBeInTheDocument()
+  })
+
+  it("says nothing to an administrator with the app", async () => {
+    mocks.get.mockResolvedValue({ data: { ...ME, totpEnabled: true }, error: undefined })
+    renderPage()
+
+    await addButton()
+    expect(screen.queryByTestId("passkey-only-notice")).not.toBeInTheDocument()
+  })
+})
+
+describe("REVIEW 160: the set-up page's message, and its life", () => {
+  it("keeps saying why when the account, read again, drops the passkey choice (F12)", async () => {
+    let emailOff = false
+    mocks.get.mockImplementation(async () => ({
+      data: emailOff ? { ...ME, emailCodeAvailable: false } : ME,
+      error: undefined,
+    }))
+    mocks.post.mockImplementation(async () => {
+      emailOff = true
+      return {
+        data: undefined,
+        error: { status: 409, code: "Passkey.EmailRequired" },
+        response: response(409),
+      }
+    })
+    renderPage(APPLICATION)
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: "auth.mfaRequiredAddPasskey" }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "auth.mfaRequiredAddPasskey" })).not.toBeInTheDocument()
+    )
+    expect(screen.getByTestId("set-up-passkey-message")).toHaveTextContent("profile.passkeys.needsAppFirst")
+  })
+
+  it("asks again when the Back button brings the application mode back: its one resume was spent", async () => {
+    renderPage(APPLICATION)
+    await screen.findByRole("button", { name: "auth.mfaRequiredAddPasskey" })
+    const reload = vi.fn()
+    vi.stubGlobal("location", {
+      href: "https://accounts.example.com/two-factor/required",
+      origin: "https://accounts.example.com",
+      assign: vi.fn(),
+      replace: vi.fn(),
+      reload,
+    })
+
+    window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }))
+
+    expect(reload).toHaveBeenCalledTimes(1)
   })
 })
 

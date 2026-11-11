@@ -430,6 +430,7 @@ export const en = {
       dontAsk: "Don't ask on this device",
       added: "Passkey added. Next time, sign in with it.",
       notAdded: "No passkey was added. Try again, or continue without one.",
+      onlyWayIn: "After this, your password and emailed codes stop signing you in here, only the passkey does, on the devices that hold it; set up an authenticator app too if you need another way in.",
     },
     continueWithApple: "Continue with Apple",
     privacyPolicy: "Privacy policy",
@@ -2470,7 +2471,7 @@ export const en = {
       rpId: "RP ID (passkey domain)",
       rpIdHint: "Relying party ID: the domain every passkey is bound to, such as example.com for apps at console.example.com and accounts.example.com, or localhost in development. It must cover every first-party app origin. It is read at start-up, so restart the API after changing it. It cannot be changed while passkeys are bound to the current one, because they would stop working; retire them first with the setup tool (--retire-passkey-rp-id). Empty switches passkeys off.",
       codeSignInProofMinutes: "Sign-in by code as the email proof for a passkey (minutes)",
-      codeSignInProofMinutesHint: "Mailbox proof: how long a sign-in with a code sent by email also counts as proof that the person owns the mailbox, when they add a passkey. Within this time no second code is emailed; an account with a password still gives its password first. The re-authentication window (Two-factor authentication › Recent sign-in for two-factor changes) stays the outer limit, so a window of 5 with 15 here acts as 5. A longer time is easier for people, and easier for someone who stole a session. Recommended: 5.",
+      codeSignInProofMinutesHint: "Mailbox proof: how long a sign-in with a code sent by email also counts as proof that the person owns the mailbox, when they add a passkey. Within this time no second code is emailed; an account with a password still gives its password first. An account that administers the platform is emailed the code every time. The re-authentication window (Two-factor authentication › Recent sign-in for two-factor changes) stays the outer limit, so a window of 5 with 15 here acts as 5. A longer time is easier for people, and easier for someone who stole a session. Recommended: 5.",
     },
     title: "System settings",
     subtitle:

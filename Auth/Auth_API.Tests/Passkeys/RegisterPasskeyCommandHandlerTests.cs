@@ -34,7 +34,8 @@ namespace Auth_API.Tests.Passkeys;
 /// FA2 step dropped from the gate; the email-off refusal dropped from the gate (the pass-through
 /// restored, F13); the session-ended outcome mapped to a stored passkey (F1). OI-280 PR B: the
 /// gate's time check dropped; D-B3 dropped (a code beside a second-factor bit counted); the
-/// setting read unclamped; the challenge spent before the code check.
+/// setting read unclamped; the challenge spent before the code check. REVIEW 160 F1: the platform
+/// authority check dropped from the gate.
 /// </remarks>
 public class RegisterPasskeyCommandHandlerTests
 {
@@ -55,6 +56,7 @@ public class RegisterPasskeyCommandHandlerTests
     private readonly Guid _userId = Guid.NewGuid();
     private readonly Mock<IReauthenticationGuard> _guard = new();
     private readonly Mock<ITwoFactorStateStore> _store = new();
+    private readonly Mock<ITokenClaimsResolver> _claims = new();
     private readonly Mock<IUserRepository> _users = new();
     private readonly Mock<IUserPasskeyRepository> _passkeys = new();
     private readonly Mock<IWebAuthnChallengeRepository> _challenges = new();
@@ -86,6 +88,7 @@ public class RegisterPasskeyCommandHandlerTests
             .ReturnsAsync(TestHelpers.CreateUser(id: _userId, email: "owner@example.com"));
         GivenSession(AuthenticationMethods.Password);
         GivenFactors(QualifyingSecondFactors.None);
+        GivenPlatformPermissions();
 
         _passkeys.Setup(r => r.GetLiveAsync(_userId, PasskeyTestDoubles.RpId, It.IsAny<CancellationToken>())).ReturnsAsync([]);
         _passkeys.Setup(r => r.EnsureUserHandleAsync(_userId, It.IsAny<byte[]>(), It.IsAny<CancellationToken>()))
@@ -610,21 +613,26 @@ public class RegisterPasskeyCommandHandlerTests
     }
 
     [Fact]
-    public async Task Begin_AnEmailedCodeGivenInTheWindow_CountsAtItsOwnTime()
+    public async Task Begin_AnEmailedCodeGivenInTheWindow_LongAfterTheSignIn_CountsAtItsOwnTime()
     {
-        // Row 366: the window's code for an account without a password, two minutes ago (the guard
-        // dates such a proof at its own time, ReauthenticationGuardTests). One code, not two.
-        GivenSession(PasswordlessCode, TimeSpan.FromMinutes(2));
+        // Row 366: the window's code, two minutes ago, on a session whose sign-in is past the
+        // window: the real guard dates the proof at its own time, so the code counts. One code, not two.
+        var guard = RealGuard(
+            windowMinutes: 10,
+            TimeSpan.FromMinutes(30),
+            AuthenticationMethods.Password,
+            lastProof: (PasswordlessCode, TimeSpan.FromMinutes(2)));
 
-        (await Begin().Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().BeFalse();
+        (await Begin(guard: guard).Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().BeFalse();
     }
 
     [Fact]
-    public async Task Begin_AnS24AccountSignedInByCode_AfterItsPasswordAndItsCodeInTheWindow_AsksNoThirdCode()
+    public async Task Begin_APasswordSessionWhoseSecondStepWasTheEmailedCode_AsksNoThirdCode()
     {
-        // Q3 (a), D-280B-1: the window asks such an account for its password AND its emailed
-        // second step; the session then carries both, and the registration asks no code of its own.
-        GivenSession(CodeThenPassword.With(AuthenticationMethods.EmailCode), TimeSpan.FromMinutes(2));
+        // Q3 (a), D-280B-1: a password and its emailed second step, at the sign-in (S24) or both in
+        // the window, are the same two bits; the registration asks no code of its own. A
+        // non-administrator's: the administrators' case is below (REVIEW 160 F1).
+        GivenSession(AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode), TimeSpan.FromMinutes(2));
 
         (await Begin().Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().BeFalse();
     }
@@ -775,18 +783,100 @@ public class RegisterPasskeyCommandHandlerTests
         _gateLog.Entries.Should().BeEmpty();
     }
 
+    // ── REVIEW 160 F1, D-160-1 (a): no exemption for an account that administers the platform ──
+    // An emailed code never qualifies, so a first passkey would be its only qualifying factor: full
+    // platform authority at the next sign-in, and the password door shut to the real administrator.
+
+    [Fact]
+    public async Task Begin_APlatformAdministrator_SignedInWithPasswordAndCode_WithinTheTime_IsStillAskedForTheCode()
+    {
+        GivenPlatformPermissions("users.read");
+        GivenSession(AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode), TimeSpan.FromMinutes(1));
+
+        var started = await Begin().Handle(BeginCommand(), CancellationToken.None);
+
+        started.Value.EmailCodeRequired.Should().BeTrue();
+        _gateLog.Entries.Should().BeEmpty("no exemption was given");
+    }
+
+    [Fact]
+    public async Task Begin_APasswordlessPlatformAdministrator_SignedInByCode_WithinTheTime_IsStillAskedForTheCode()
+    {
+        GivenPlatformPermissions("users.read");
+        GivenSession(PasswordlessCode, TimeSpan.FromSeconds(30));
+
+        (await Begin().Handle(BeginCommand(), CancellationToken.None)).Value.EmailCodeRequired.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Complete_APlatformAdministrator_WithinTheTime_WithNoCode_IsAskedForIt_WithNothingSpent(bool hasPassword)
+    {
+        GivenPlatformPermissions("users.read");
+        var methods = hasPassword ? AuthenticationMethods.Password.With(AuthenticationMethods.EmailCode) : PasswordlessCode;
+        GivenSession(methods, TimeSpan.FromMinutes(1));
+
+        var created = await Complete().Handle(CompleteCommand(emailCode: null), CancellationToken.None);
+
+        created.FirstError.Code.Should().Be(TwoFactorErrors.EmailCodeRequired.Code);
+        _challenges.Verify(c => c.TryConsumeRegistrationAsync(It.IsAny<CredentialHashCandidates>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        AssertNothingStored();
+    }
+
+    [Fact]
+    public async Task Begin_APersonWithNoPlatformPermission_KeepsTheExemption_ReadWithTheCallersToken()
+    {
+        using var source = new CancellationTokenSource();
+        GivenSession(PasswordlessCode, TimeSpan.FromMinutes(1));
+
+        var started = await Begin().Handle(BeginCommand(), source.Token);
+
+        started.Value.EmailCodeRequired.Should().BeFalse();
+        _claims.Verify(c => c.ResolveAsync(_userId, null, source.Token), Times.Once);
+    }
+
+    [Theory]
+    [MemberData(nameof(SessionsTheExemptionDoesNotReach))]
+    public async Task Begin_WhereTheExemptionWouldNotApply_NeverReadsThePlatformClaims(
+        string because, AuthenticationMethods methods, int provedMinutesAgo)
+    {
+        GivenSession(methods, TimeSpan.FromMinutes(provedMinutesAgo));
+
+        await Begin().Handle(BeginCommand(), CancellationToken.None);
+
+        _claims.Verify(c => c.ResolveAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Never, because);
+    }
+
+    public static TheoryData<string, AuthenticationMethods, int> SessionsTheExemptionDoesNotReach() => new()
+    {
+        { "a password proves no mailbox", AuthenticationMethods.Password, 1 },
+        { "the code is past its time", PasswordlessCode, 6 },
+        { "a second-factor bit beside the code (D-B3)", PasswordlessCode.With(AuthenticationMethods.Totp), 1 },
+    };
+
     // ── Fixture ──
 
     /// <summary>
     /// The real window in front of the gate: a session of <paramref name="methods"/> that signed in
-    /// <paramref name="signedInAgo"/>, with no proof since, and a token issued now.
+    /// <paramref name="signedInAgo"/>, with a token issued now and, when given, a proof since.
     /// </summary>
-    private ReauthenticationGuard RealGuard(int windowMinutes, TimeSpan signedInAgo, AuthenticationMethods methods)
+    private ReauthenticationGuard RealGuard(
+        int windowMinutes,
+        TimeSpan signedInAgo,
+        AuthenticationMethods methods,
+        (AuthenticationMethods Methods, TimeSpan Ago)? lastProof = null)
     {
         var sessions = new Mock<IUserSessionRepository>();
         sessions.Setup(r => r.GetByIdAsync(SessionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateUserSession(
                 id: SessionId, userId: _userId, createdAt: _clock.UtcNow - signedInAgo, methods: methods));
+        if (lastProof is { } proof)
+        {
+            sessions.Setup(r => r.GetLastProofAsync(SessionId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new SessionProof(_clock.UtcNow - proof.Ago, proof.Methods));
+        }
+
         var token = new Mock<ICurrentAccessToken>();
         token.SetupGet(t => t.IssuedAtUtc).Returns(_clock.UtcNow);
 
@@ -816,6 +906,10 @@ public class RegisterPasskeyCommandHandlerTests
     private void GivenFactors(QualifyingSecondFactors factors) =>
         _store.Setup(s => s.GetQualifyingFactorsAsync(_userId, It.IsAny<CancellationToken>())).ReturnsAsync(factors);
 
+    private void GivenPlatformPermissions(params string[] permissions) =>
+        _claims.Setup(c => c.ResolveAsync(_userId, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TokenClaims([], permissions, []));
+
     private void GivenInsertOutcome(PasskeyInsertOutcome outcome) =>
         _passkeys.Setup(r => r.TryCreateAsync(It.IsAny<UserPasskey>(), UserPasskey.MaxLivePerAccount, It.IsAny<Guid?>(), It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(outcome);
@@ -840,7 +934,7 @@ public class RegisterPasskeyCommandHandlerTests
 
     private PasskeyRegistrationGate Gate(IReauthenticationGuard? guard = null) =>
         new(guard ?? _guard.Object, _store.Object, new FirstFactorEmailProofPolicy(TestHelpers.CreateOptions(_email)),
-            TestHelpers.CreateOptions(_passkeySettings), _clock, _gateLog);
+            new EmailCodeFullProofRule(_claims.Object), TestHelpers.CreateOptions(_passkeySettings), _clock, _gateLog);
 
     private FirstFactorEmailProof EmailProof() =>
         new(_bindCodes.Object, _users.Object, _notifications.Object, _otpGenerator.Object, _otpHasher.Object,

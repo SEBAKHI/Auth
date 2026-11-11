@@ -7,6 +7,7 @@ import { useSignInOptions } from "@authsystem/ui/branding"
 import { launchApplication } from "./launch-application"
 import {
   PASSKEY_OFFER_PATH,
+  isPasskeyOfferPath,
   notePasskeyOfferNavigation,
   passkeyOfferDeclined,
   passkeysAnsweredOff,
@@ -58,7 +59,7 @@ function resolveFrom(
   // The offer to add a passkey stands between a sign-in and where it goes, and is never where
   // one goes (OI-280 PR B): a session that ended on it (signed out from its window, or expired
   // there) records it as the origin, and the next sign-in's way out would lead back to it.
-  if (path === null || path.split(/[?#]/)[0] === PASSKEY_OFFER_PATH) return fallback
+  if (path === null || isPasskeyOfferPath(path)) return fallback
   return path
 }
 

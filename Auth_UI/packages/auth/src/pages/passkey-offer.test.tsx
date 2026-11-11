@@ -1,6 +1,6 @@
 import type * as React from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -17,7 +17,9 @@ import i18n from "@authsystem/i18n"
  *
  * Deliberate breaks, each verified red: an `await` before `startRegistration` in the
  * click; the screen shown before the account answered; the way out left with
- * `endsSignIn: false`.
+ * `endsSignIn: false`. REVIEW 160, each verified red: the sentence shown to everyone (F2); the
+ * restore hook removed (F4); the deadline removed (F5); a visit with no sign-in behind it leaving
+ * the sign-in's rule (F9).
  */
 
 const mocks = vi.hoisted(() => ({
@@ -32,6 +34,8 @@ const mocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
   signInOptions: { passkeySignInOffered: true } as { passkeySignInOffered?: boolean } | null,
   completion: { returnTo: null as string | null, reason: null as unknown },
+  permissions: [] as string[],
+  mfaRequirement: "none",
 }))
 
 vi.mock("@authsystem/api/env", () => ({ API_BASE_URL: "https://api.example.com" }))
@@ -57,7 +61,9 @@ vi.mock("../passkey/webauthn", async (importOriginal) => ({
   loadWebAuthn: mocks.loadWebAuthn,
   platformAuthenticatorAvailable: mocks.platformAvailable,
 }))
-vi.mock("../auth-context", () => ({ useAuth: () => ({ logout: mocks.logout }) }))
+vi.mock("../auth-context", () => ({
+  useAuth: () => ({ logout: mocks.logout, permissions: mocks.permissions, mfaRequirement: mocks.mfaRequirement }),
+}))
 // «Passkeys answered off» is kept for the page's life, so a test that sets it would leak into the
 // next: the page's view of it goes through a store each test resets.
 const answeredOff = vi.hoisted(() => {
@@ -186,6 +192,8 @@ beforeEach(() => {
   mocks.signInOptions = { passkeySignInOffered: true }
   mocks.completion.returnTo = null
   mocks.completion.reason = null
+  mocks.permissions = []
+  mocks.mfaRequirement = "none"
   window.localStorage.removeItem(PASSKEY_OFFER_OFF_KEY)
   answeredOff.reset()
   givenAccount()
@@ -289,6 +297,120 @@ describe("the offer's ways out, again and when passkeys turn out off (REVIEW)", 
 
     await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith({}, { proof: "code", launchUrl: null }))
     expect(mocks.complete).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("what a first passkey costs an administrator with no app (REVIEW 160 F2, D-160-2 (b))", () => {
+  const sentence = () => i18n.t("auth.passkeyOffer.onlyWayIn")
+
+  it("says so above «Add», to an account that administers the platform and has no app", async () => {
+    mocks.permissions = ["users:read"]
+    givenAccount({ ...ME, totpEnabled: false })
+    renderOffer()
+    await offerShown()
+
+    const notice = screen.getByTestId("passkey-only-notice")
+    expect(notice).toHaveTextContent(sentence())
+    const add = screen.getByRole("button", { name: i18n.t("auth.passkeyOffer.add") })
+    expect(notice.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("says so where the server withholds the permissions until a second factor (mfa_req)", async () => {
+    mocks.mfaRequirement = "enroll"
+    givenAccount({ ...ME, totpEnabled: false })
+    renderOffer()
+    await offerShown()
+
+    expect(screen.getByTestId("passkey-only-notice")).toHaveTextContent(sentence())
+  })
+
+  it("says nothing to a person without platform permissions", async () => {
+    givenAccount({ ...ME, totpEnabled: false })
+    renderOffer()
+    await offerShown()
+
+    expect(screen.queryByTestId("passkey-only-notice")).not.toBeInTheDocument()
+  })
+
+  it("says nothing to an administrator with the app, whose password door stays open", async () => {
+    mocks.permissions = ["users:read"]
+    givenAccount({ ...ME, qualifyingMfa: true, totpEnabled: true })
+    renderOffer()
+    await offerShown()
+
+    expect(screen.queryByTestId("passkey-only-notice")).not.toBeInTheDocument()
+  })
+})
+
+describe("REVIEW 160: the page's life", () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("asks again when the Back button brings it back: its way out was spent when it left (F4)", async () => {
+    renderOffer()
+    await offerShown()
+    const reload = vi.fn()
+    vi.stubGlobal("location", {
+      href: "https://accounts.example.com/passkey/offer",
+      origin: "https://accounts.example.com",
+      assign: vi.fn(),
+      replace: vi.fn(),
+      reload,
+    })
+
+    window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }))
+
+    expect(reload).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ["the device check never answers", () => mocks.platformAvailable.mockReturnValue(new Promise(() => {}))],
+    ["the account read never answers", () => givenAccount("pending")],
+  ])("goes on with the sign-in's own proof, after about three seconds, when %s (F5)", async (_label, given) => {
+    vi.useFakeTimers()
+    given()
+    renderOffer()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_999)
+    })
+    expect(mocks.complete).not.toHaveBeenCalled()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+
+    expect(mocks.complete).toHaveBeenCalledTimes(1)
+    expect(mocks.complete).toHaveBeenCalledWith({}, { proof: "code", launchUrl: null })
+    expect(screen.queryByRole("heading", { name: title() })).not.toBeInTheDocument()
+  })
+
+  it("never takes away a screen already shown when the deadline passes (F5)", async () => {
+    vi.useFakeTimers()
+    renderOffer()
+    // The device's answer, then the account's: each step's effects run as its `act` ends.
+    for (let step = 0; step < 5; step += 1) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10)
+      })
+    }
+    expect(screen.getByRole("heading", { name: title() })).toBeInTheDocument()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000)
+    })
+
+    expect(screen.getByRole("heading", { name: title() })).toBeInTheDocument()
+    expect(mocks.complete).not.toHaveBeenCalled()
+  })
+
+  it("a visit with no sign-in behind it ends none: it leaves no marker (F9)", async () => {
+    renderOffer(null)
+    await offerShown()
+
+    await userEvent.setup().click(screen.getByRole("button", { name: i18n.t("auth.passkeyOffer.notNow") }))
+
+    expect(mocks.complete).toHaveBeenCalledWith({}, { proof: undefined, launchUrl: null, endsSignIn: false })
   })
 })
 

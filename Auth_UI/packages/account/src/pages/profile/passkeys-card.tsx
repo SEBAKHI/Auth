@@ -107,7 +107,8 @@ export function PasskeysCard({
   // email is off. The server refuses it (Passkey.EmailRequired); the card says
   // what to do instead of offering a button that fails.
   const needsAppFirst = me.emailCodeAvailable === false && me.qualifyingMfa !== true
-
+  // Email went off since the page read the account: the line below says it, once.
+  const shownMessage = needsAppFirst && message === t("profile.passkeys.needsAppFirst") ? null : message
   const refetch = React.useCallback(
     () => queryClient.invalidateQueries({ queryKey: PASSKEYS_QUERY_KEY }),
     [queryClient]
@@ -197,9 +198,9 @@ export function PasskeysCard({
           </Empty>
         )}
 
-        {message ? (
+        {shownMessage ? (
           <Alert variant="destructive" data-testid="passkeys-message">
-            <AlertDescription>{message}</AlertDescription>
+            <AlertDescription>{shownMessage}</AlertDescription>
           </Alert>
         ) : null}
 

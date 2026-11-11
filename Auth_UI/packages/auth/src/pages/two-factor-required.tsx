@@ -29,10 +29,12 @@ import {
   withRetryAfter,
 } from "../passkey/passkey-errors"
 import { notePasskeysOff, usePasskeysAnsweredOff } from "../passkey/passkey-offer"
+import { PasskeyOnlyNotice } from "../passkey/passkey-only-notice"
 import { usePasskeySignIn, type PasskeyOutcome } from "../passkey/use-passkey-sign-in"
 import { browserHasWebAuthn, type AuthenticationResponseJSON } from "../passkey/webauthn"
 import { ReauthenticateDialog } from "../reauthenticate-dialog"
 import { markRecoveryCodeSignIn } from "../recovery-code-notice"
+import { useReloadOnRestore } from "../reload-on-restore"
 import { toAccountsSearch, validateReturnToUrl } from "../return-to"
 import { passkeySignInEnded, requestFullProof } from "../sign-in-method"
 import { TwoFactorEnrollment } from "../two-factor-enrollment"
@@ -104,7 +106,9 @@ function ApplicationTwoFactorRequired({ returnTo }: { returnTo: string }) {
   const passkeyOffered = usePasskeyChoiceOffered(me) && me?.qualifyingMfa !== true
 
   // One resume: a second click landing before the navigation would send the
-  // request again. Set synchronously, in the handler.
+  // request again. Set synchronously, in the handler. Back after the resume left the
+  // document: asked afresh, not revived with this latch still set (REVIEW 160).
+  useReloadOnRestore()
   const resuming = React.useRef(false)
   const resume = React.useCallback(async () => {
     if (resuming.current) return
@@ -372,13 +376,15 @@ function EnrollStep({
             : t("auth.mfaRequiredEmailCodeDoesNotCount")}
         </p>
       ) : null}
+      {/* Outside the block below: `Passkey.EmailRequired` reads the account again, and the choice goes with it. */}
+      {passkeyMessage ? (
+        <Alert variant="destructive" data-testid="set-up-passkey-message">
+          <AlertDescription>{passkeyMessage}</AlertDescription>
+        </Alert>
+      ) : null}
       {passkeyOffered ? (
         <>
-          {passkeyMessage ? (
-            <Alert variant="destructive" data-testid="set-up-passkey-message">
-              <AlertDescription>{passkeyMessage}</AlertDescription>
-            </Alert>
-          ) : null}
+          <PasskeyOnlyNotice totpEnabled={me?.totpEnabled} />
           <Button
             className="w-fit"
             disabled={addition.starting}
@@ -439,7 +445,9 @@ function usePasskeyChoiceOffered(me: Schemas["UserDto"] | undefined): boolean {
  * (`auth/reauthentication/passkey`), is signed by the passkey and raises this session and its SSO
  * session. Then the page goes on as after the app: the request resumes once, or the platform page
  * refreshes the session and completes. A cancelled or refused touch leaves the passkey added and
- * the step here, with its button to try again and the page's own way out.
+ * the step here, with its button to try again and the page's own way out. This use proves that the
+ * person's device works; it does not stop a stolen session within the time a first passkey asks for
+ * no code, since a script that registered a key of its own can answer it too (REVIEW 160 F3).
  */
 function UsePasskeyStep({
   onUsed,

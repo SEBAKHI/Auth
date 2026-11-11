@@ -289,7 +289,8 @@ export function AddPasskeyDialog({
                 <FieldDescription>{t("profile.passkeys.nameHint")}</FieldDescription>
               )}
             </Field>
-            {held ? (
+            {/* Once the code went out: the automatic send may have failed, and the button below says so. */}
+            {held && sentTo !== null ? (
               <p className="text-sm text-muted-foreground" data-testid="add-passkey-code-after-all">
                 {t("profile.passkeys.codeAfterAll")}
               </p>

@@ -436,7 +436,8 @@ for (const theme of ["light", "dark"] as const) {
       await page.goto("/passkey/offer")
       // Add, Not now, and Don't ask on this device: the screen, once it has decided.
       await expect(page.getByTestId("passkey-offer").getByRole("button")).toHaveCount(3)
-
+      // An administrator with no app (these permissions): the sentence is on the page scanned.
+      await expect(page.getByTestId("passkey-only-notice")).toBeVisible()
       const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
       expect(actionable(results), describeViolations(results)).toEqual([])
     })
@@ -446,7 +447,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.goto("/users")
       await expect(page).toHaveURL(/\/two-factor\/required$/)
       await expect(page.getByTestId("set-up-add-passkey")).toBeVisible()
-
+      await expect(page.getByTestId("passkey-only-notice")).toBeVisible()
       const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
       expect(actionable(results), describeViolations(results)).toEqual([])
     })

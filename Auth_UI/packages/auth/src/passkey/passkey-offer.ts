@@ -10,6 +10,14 @@ import * as React from "react"
 export const PASSKEY_OFFER_PATH = "/passkey/offer"
 
 /**
+ * Whether a recorded destination is the offer's page, which stands between a sign-in and where it
+ * goes and is never where one goes (REVIEW 160 F10). One rule, for the completion and for the
+ * sign-in pages' guard that races it: the two must agree on the destination.
+ */
+export function isPasskeyOfferPath(path: string): boolean {
+  return path.split(/[?#]/)[0] === PASSKEY_OFFER_PATH
+}
+/**
  * «Don't ask on this device» (D-B7): one flag for the whole browser, holding neither an address
  * nor an account id (D-215-4). On a browser two people share, one person's choice stops the offer
  * for both (the private-device default). «Not now» stores nothing (Q2 (a)).

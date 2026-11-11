@@ -1,5 +1,13 @@
 import { render, screen } from "@testing-library/react"
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
+import {
+  MemoryRouter,
+  Route,
+  RouterProvider,
+  Routes,
+  createMemoryRouter,
+  useLocation,
+  type InitialEntry,
+} from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 /**
@@ -10,6 +18,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
  * offer (found by the pictures' run, V-B15, on the built app). The guard now follows the completion
  * there while its note is fresh. Deliberate break, verified red: the guard's follow removed (the
  * first case lands on the home page; the harness's plain sign-in leg never sees the offer).
+ * REVIEW 160 F10, F11, each break verified red: the guard's check of a recorded origin removed;
+ * the spinner beside its navigation removed.
  */
 
 const HANDLE = "0123456789abcdef".repeat(4)
@@ -35,7 +45,7 @@ function Where({ name }: { name: string }) {
   )
 }
 
-function renderAt(entry: string) {
+function renderAt(entry: InitialEntry) {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
@@ -106,6 +116,28 @@ describe("the sign-in pages' guard and the offer to add a passkey (OI-280 PR B)"
     renderAt("/login")
 
     expect(await landed()).toEqual({ name: "home", path: "/", state: null })
+  })
+
+  it("never takes the offer as a recorded origin's destination, as the completion rule never does (F10)", async () => {
+    renderAt({ pathname: "/login", state: { from: { pathname: PASSKEY_OFFER_PATH, search: "?x=1" } } })
+
+    expect(await landed()).toEqual({ name: "home", path: "/", state: null })
+  })
+
+  it("shows a spinner, not a blank page, while the offer's lazy route loads (F11)", async () => {
+    notePasskeyOfferNavigation({ from: "/" })
+    const router = createMemoryRouter(
+      [
+        { element: <RequireAnonymous />, children: [{ path: "/login", element: <Where name="login" /> }] },
+        { path: PASSKEY_OFFER_PATH, lazy: () => new Promise<never>(() => {}) },
+      ],
+      { initialEntries: ["/login"] }
+    )
+
+    render(<RouterProvider router={router} />)
+
+    expect(await screen.findByRole("status")).toBeInTheDocument()
+    expect(router.state.navigation.location?.pathname).toBe(PASSKEY_OFFER_PATH)
   })
 
   it("shows the page while an application's request is pending, note or not, as before", async () => {

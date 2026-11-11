@@ -827,6 +827,51 @@ describe("PasskeysCard: the time a sign-in by code counts for runs out (T-B5)", 
     )
     expect(screen.queryByText("server sentence for Passkey.EmailRequired")).not.toBeInTheDocument()
   })
+
+  it("says Passkey.EmailRequired once when the account, read again, says email is off (REVIEW 160 F12)", async () => {
+    givenLists(ok(list([])))
+    mocks.post.mockResolvedValue(problem(400, "Passkey.EmailRequired"))
+    const before = { ...ME, qualifyingMfa: false, totpEnabled: false }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const view = render(
+      <QueryClientProvider client={client}>
+        <Section me={before} />
+      </QueryClientProvider>
+    )
+    await userEvent.setup().click(await screen.findByRole("button", { name: i18n.t("profile.passkeys.add") }))
+    await screen.findByTestId("passkeys-message")
+
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <Section me={{ ...before, emailCodeAvailable: false }} />
+      </QueryClientProvider>
+    )
+
+    expect(screen.getAllByText(i18n.t("profile.passkeys.needsAppFirst"))).toHaveLength(1)
+    expect(screen.getByTestId("passkeys-need-app-first")).toBeInTheDocument()
+    expect(screen.queryByTestId("passkeys-message")).not.toBeInTheDocument()
+  })
+
+  it("does not say a code was sent when the automatic send failed: the button to ask for one stands (REVIEW 160 F12)", async () => {
+    givenLists(ok(list([])))
+    mocks.post.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/auth/passkeys/registration/options") return ok(REGISTRATION)
+      if (path === "/api/v1/auth/passkeys/registration/email-code") return problem(500, "Http.InternalServerError")
+      return problem(400, "TwoFactor.EmailCodeRequired")
+    })
+    const user = userEvent.setup()
+    renderCard({ ...ME, qualifyingMfa: false, totpEnabled: false })
+
+    await user.click(await screen.findByRole("button", { name: i18n.t("profile.passkeys.add") }))
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.create") }))
+
+    expect(await within(dialog).findByRole("button", { name: i18n.t("auth.emailMeACode") })).toBeInTheDocument()
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith("/api/v1/auth/passkeys/registration/email-code")
+    )
+    expect(within(dialog).queryByTestId("add-passkey-code-after-all")).not.toBeInTheDocument()
+  })
 })
 
 describe("PasskeysCard: renaming and removing", () => {

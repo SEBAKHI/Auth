@@ -4340,7 +4340,11 @@ Once passkeys run, a person who signed in without one is offered one between the
 a device that can make one of its own (OI-280 PR B; **Not now** stores nothing, and **Don't ask on this device**
 stops it on that browser, for every account there). A first passkey needs the code emailed to the account's
 address, unless the session proved the mailbox with an emailed code within that time (its sign-in by code, or a
-code given in the window): that code then stands for it, and no second code is sent.
+code given in the window): that code then stands for it, and no second code is sent. **An account that holds any
+platform permission is outside this:** it is asked for the code every time (D-160-1), because an emailed code never
+qualifies, so a first passkey would be its only qualifying factor. An administrator with no authenticator app who
+adds a passkey can no longer sign in with the password or an emailed code; the offer and the set-up page say so
+above **Add a passkey** (D-160-2).
 
 | Setting | Default | Range | Read |
 |---|---|---|---|
@@ -4349,7 +4353,9 @@ code given in the window): that code then stands for it, and no second code is s
 **Its price, accepted by the owner (D-S20-21):** a session stolen within that time adds a passkey without the
 second code. If that session has not yet proved the account's password, the thief must give it first; if it has
 (a password sign-in whose second step was the emailed code, a registration that set a password, or the password
-given in the window), or the account has no password, nothing more is asked. The owner's notice email and the 72-hour revocation remain. The re-authentication window
+given in the window), or the account has no password, nothing more is asked. The owner's notice email and the 72-hour revocation remain.
+The set-up page has a new passkey used once in place: that proves that the person's device works, and it does not
+stop a stolen session within that time, since a script that registered a key of its own can answer it too. The re-authentication window
 (`TwoFactor:ReauthenticationMaxAgeMinutes`, default 15) stays the outer limit, so the shorter of the two
 applies. Shorter is safer; longer is easier for people, and for whoever stole a session. **Nothing to do at
 deployment:** the default is the recommendation, and with `Passkeys:Enabled` off it changes nothing for anyone.

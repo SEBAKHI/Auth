@@ -403,7 +403,11 @@ export function LoginPage({
   const passkeyGoneHere = passkey.phase === "unavailable"
   const openedForArrival = React.useRef(0)
   React.useEffect(() => {
-    if (!onPasskeyScreen || passkeyArrival === 0) return
+    if (!onPasskeyScreen || passkeyArrival === 0) {
+      // Off the screen, a window opened from anywhere else reads the box anew.
+      staySignedInAtOpen.current = null
+      return
+    }
     if (openedForArrival.current === passkeyArrival) {
       // That window closed without an answer: the button reads the box anew.
       if (passkeyReady) staySignedInAtOpen.current = null

@@ -938,19 +938,67 @@ describe("the passkey screen opens the browser's window by itself (T-B14)", () =
     expect(mocks.complete).toHaveBeenCalledWith(SIGNED_IN, { signedInWithPasskey: true })
   })
 
-  it("carries the stay-signed-in box as the first screen left it", async () => {
+  it("carries the stay-signed-in box as it stood when the window opened, not as it stands at the answer", async () => {
     serverWithLookup()
     mocks.loginWithPasskey.mockResolvedValue(SIGNED_IN)
+    let answer: (credential: typeof CREDENTIAL) => void = () => {}
+    mocks.startAuthentication.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          answer = resolve
+        })
+    )
     mocks.branding.signInOptions = PASSKEYS_PASSWORD_ONLY
     renderPage()
     await optionsAsked()
-    await userEvent.setup().click(screen.getByRole("checkbox", { name: "auth.staySignedIn" }))
-
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("checkbox", { name: "auth.staySignedIn" }))
     await continueWith("holder@example.com")
+    await waitFor(() => expect(mocks.startAuthentication).toHaveBeenCalledTimes(1))
+
+    // Unticked while the window is open: the window carries the box as it opened with it.
+    await user.click(screen.getByRole("checkbox", { name: "auth.staySignedIn" }))
+    expect(screen.getByRole("checkbox", { name: "auth.staySignedIn" })).not.toBeChecked()
+    answer(CREDENTIAL)
 
     await waitFor(() => expect(mocks.loginWithPasskey).toHaveBeenCalledWith(CREDENTIAL, true))
   })
 
+  it("forgets the box it carried once the person leaves the screen: a later window reads it anew (REVIEW 160 F8)", async () => {
+    serverWithLookup()
+    mocks.loginWithPasskey.mockResolvedValue(SIGNED_IN)
+    mocks.loadWebAuthn.mockResolvedValue({ ...HELPER, browserSupportsWebAuthnAutofill: async () => true })
+    const ceremonies: Array<{ options: { useBrowserAutofill?: boolean }; answer: (v: unknown) => void; fail: (e: unknown) => void }> = []
+    mocks.startAuthentication.mockImplementation(
+      (options: { useBrowserAutofill?: boolean }) =>
+        new Promise((answer, fail) => {
+          ceremonies.push({ options, answer, fail })
+        })
+    )
+    mocks.branding.signInOptions = PASSKEYS_PASSWORD_ONLY
+    renderPage()
+    await optionsAsked()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("checkbox", { name: "auth.staySignedIn" }))
+    await continueWith("holder@example.com")
+    const opened = () => ceremonies.filter((ceremony) => !ceremony.options.useBrowserAutofill)
+    await waitFor(() => expect(opened()).toHaveLength(1))
+
+    // The window the screen opened is still up, carrying the ticked box, when the person leaves.
+    await user.click(screen.getByRole("button", { name: "auth.useDifferentEmail" }))
+    await act(async () => {
+      opened()[0].fail(notAllowed())
+    })
+    await user.click(await screen.findByRole("checkbox", { name: "auth.staySignedIn" }))
+    expect(screen.getByRole("checkbox", { name: "auth.staySignedIn" })).not.toBeChecked()
+
+    // The address field's suggestion, from the first screen.
+    const suggestions = () => ceremonies.filter((ceremony) => ceremony.options.useBrowserAutofill)
+    await waitFor(() => expect(suggestions().length).toBeGreaterThanOrEqual(2))
+    suggestions().at(-1)?.answer(CREDENTIAL)
+
+    await waitFor(() => expect(mocks.loginWithPasskey).toHaveBeenCalledWith(CREDENTIAL, false))
+  })
   it("a browser's refusal (NotAllowedError) leaves the screen as it is: the button focused, the link, and nothing said", async () => {
     serverWithLookup()
     mocks.startAuthentication.mockRejectedValueOnce(notAllowed())

@@ -423,6 +423,7 @@ export const tr: TranslationResources = {
       dontAsk: "Bu cihazda bir daha sorma",
       added: "Geçiş anahtarı eklendi. Bir dahaki sefere onunla oturum açın.",
       notAdded: "Geçiş anahtarı eklenmedi. Yeniden deneyin ya da onsuz devam edin.",
+      onlyWayIn: "Bundan sonra burada parolanızla veya e-postayla gelen kodlarla oturum açamazsınız, yalnızca geçiş anahtarıyla ve onu barındıran cihazlarda açabilirsiniz; başka bir giriş yolu gerekiyorsa bir kimlik doğrulayıcı uygulaması da kurun.",
     },
     continueWithApple: "Apple ile devam et",
     privacyPolicy: "Gizlilik politikası",
@@ -2451,7 +2452,7 @@ export const tr: TranslationResources = {
       rpId: "RP ID (geçiş anahtarı alan adı)",
       rpIdHint: "Bağlı taraf kimliği (relying party ID): her geçiş anahtarının bağlı olduğu alan adı; örneğin console.example.com ve accounts.example.com üzerindeki uygulamalar için example.com, geliştirmede localhost. Platformun her uygulama kaynağını kapsamalıdır. Başlangıçta okunur, bu yüzden değiştirdikten sonra API'yi yeniden başlatın. Geçerli değere bağlı geçiş anahtarları varken değiştirilemez, çünkü çalışmayı bırakırlar; önce kurulum aracıyla (--retire-passkey-rp-id) emekliye ayırın. Boş değer geçiş anahtarlarını kapatır.",
       codeSignInProofMinutes: "Geçiş anahtarı eklerken kodla oturum açmanın e-posta kanıtı sayılma süresi (dakika)",
-      codeSignInProofMinutesHint: "Posta kutusu kanıtı (mailbox proof): e-postayla gönderilen bir kodla oturum açmanın, kişi geçiş anahtarı eklerken posta kutusunun sahibi olduğunu da kanıtladığı süre. Bu süre içinde ikinci bir kod e-postayla gönderilmez; parolası olan bir hesap yine önce parolasını girer. Yeniden kimlik doğrulama penceresi (İki faktörlü kimlik doğrulama › İki adımlı doğrulama değişiklikleri için oturumun tazeliği) dış sınır olarak kalır; pencere 5 ve burada 15 ise 5 geçerlidir. Daha uzun süre insanlar için kolaylıktır, oturum çalan biri için de. Önerilen: 5.",
+      codeSignInProofMinutesHint: "Posta kutusu kanıtı (mailbox proof): e-postayla gönderilen bir kodla oturum açmanın, kişi geçiş anahtarı eklerken posta kutusunun sahibi olduğunu da kanıtladığı süre. Bu süre içinde ikinci bir kod e-postayla gönderilmez; parolası olan bir hesap yine önce parolasını girer. Platformu yöneten bir hesaba kod her seferinde e-postayla gönderilir. Yeniden kimlik doğrulama penceresi (İki faktörlü kimlik doğrulama › İki adımlı doğrulama değişiklikleri için oturumun tazeliği) dış sınır olarak kalır; pencere 5 ve burada 15 ise 5 geçerlidir. Daha uzun süre insanlar için kolaylıktır, oturum çalan biri için de. Önerilen: 5.",
     },
     title: "Sistem ayarları",
     subtitle:

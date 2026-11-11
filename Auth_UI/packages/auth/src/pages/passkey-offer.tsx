@@ -23,13 +23,27 @@ import {
   passkeyOfferDeclined,
   usePasskeysAnsweredOff,
 } from "../passkey/passkey-offer"
+import { PasskeyOnlyNotice } from "../passkey/passkey-only-notice"
 import { platformAuthenticatorAvailable } from "../passkey/webauthn"
+import { useReloadOnRestore } from "../reload-on-restore"
 import { FullScreenLoader } from "../require-auth"
 import { toAccountsSearch } from "../return-to"
 import type { SignInProof } from "../sign-in-marker"
 
+/**
+ * How long the page may decide. It stands on the only exit of every sign-in that did not use a
+ * passkey, so a device check or an account read that never answers must not keep the person behind
+ * a spinner: past this the sign-in goes on, as after any read that fails (REVIEW 160 F5).
+ */
+const DECISION_DEADLINE_MS = 3_000
+
 function isProof(value: unknown): value is SignInProof {
   return value === "password" || value === "code" || value === "external"
+}
+
+/** Whether a sign-in's completion sent the person here: a visit typed in ends no sign-in. */
+function cameFromASignIn(state: unknown): boolean {
+  return (state as { passkeyOffer?: unknown } | null)?.passkeyOffer != null
 }
 
 /** What the completion rule carried here, read again rather than trusted. */
@@ -58,9 +72,10 @@ function readExit(state: unknown): PasskeyOfferExit {
  * Otherwise the screen: what a passkey is, «Add a passkey», «Not now» (nothing stored, the next
  * sign-in asks again) and «Don't ask on this device» (one browser-wide flag, D-B7). «Add» runs the
  * one addition every page shares, so the window and the emailed code come as the server's gate
- * asks; a registration raises no session (D-B5), and nothing waits on it here. Every way out is the
- * completion every sign-in uses, with the sign-in's own proof: the marker it leaves is the one the
- * sign-in would have left (OI-275), and the offer never opens twice for one sign-in.
+ * asks. A registration raises no session (D-B5): before an application's two-step requirement the
+ * resume comes back to the sign-in page, whose passkey button goes on (D-160-3 (a)). Every way out
+ * is the completion every sign-in uses, with the sign-in's own proof: the marker it leaves is the
+ * one the sign-in would have left (OI-275), and the offer never opens twice for one sign-in.
  */
 export function PasskeyOfferPage() {
   const { t } = useTranslation()
@@ -70,6 +85,11 @@ export function PasskeyOfferPage() {
   const { layout: appHeader } = useFlowBranding({ returnTo })
   const exit = readExit(location.state)
   const { proof, launchUrl } = exit
+  const endsASignIn = cameFromASignIn(location.state)
+
+  // Back after a way out left the document: asked afresh, not revived with that way out already
+  // spent (REVIEW 160 F4).
+  useReloadOnRestore()
 
   // Arrived: the sign-in pages' guard has nothing left to follow here.
   React.useEffect(() => clearPasskeyOfferNavigation(), [])
@@ -80,8 +100,9 @@ export function PasskeyOfferPage() {
   const leave = React.useCallback(() => {
     if (leftForRef.current === location.key) return
     leftForRef.current = location.key
-    complete({}, { proof: proof ?? undefined, launchUrl })
-  }, [complete, proof, launchUrl, location.key])
+    // A visit with no sign-in behind it leaves no OI-275 marker (REVIEW 160 F9).
+    complete({}, { proof: proof ?? undefined, launchUrl, ...(endsASignIn ? {} : { endsSignIn: false }) })
+  }, [complete, proof, launchUrl, endsASignIn, location.key])
 
   // Passkeys may still run here: the deployment's word, and no 404 met on this page since. A
   // page reached without them (typed in, or switched off a moment ago) goes on at once.
@@ -120,7 +141,9 @@ export function PasskeyOfferPage() {
   })
   const account = me.isFetchedAfterMount && me.isSuccess ? me.data : null
   const passkeyCount = account?.passkeyCount
+  const [outOfTime, setOutOfTime] = React.useState(false)
   const offered =
+    !outOfTime &&
     !passkeysOff &&
     deviceCanMake === true &&
     account !== null &&
@@ -129,10 +152,18 @@ export function PasskeyOfferPage() {
     toNumber(passkeyCount) === 0 &&
     (account.emailCodeAvailable === true || account.qualifyingMfa === true)
   const decidedAgainst =
-    passkeysOff || deviceCanMake === false || (me.isFetchedAfterMount && !offered)
+    outOfTime || passkeysOff || deviceCanMake === false || (me.isFetchedAfterMount && !offered)
   React.useEffect(() => {
     if (decidedAgainst) leave()
   }, [decidedAgainst, leave])
+
+  // Only while it decides: a screen already shown is never taken away.
+  const deciding = !offered && !decidedAgainst
+  React.useEffect(() => {
+    if (!deciding) return
+    const timer = window.setTimeout(() => setOutOfTime(true), DECISION_DEADLINE_MS)
+    return () => window.clearTimeout(timer)
+  }, [deciding])
 
   const [message, setMessage] = React.useState<string | null>(null)
 
@@ -174,6 +205,7 @@ export function PasskeyOfferPage() {
             <AlertDescription>{message}</AlertDescription>
           </Alert>
         ) : null}
+        <PasskeyOnlyNotice totpEnabled={account?.totpEnabled} />
         <Button
           className="w-full"
           disabled={addition.starting}

@@ -423,6 +423,7 @@ export const fr: TranslationResources = {
       dontAsk: "Ne plus demander sur cet appareil",
       added: "Clé d’accès ajoutée. La prochaine fois, connectez-vous avec elle.",
       notAdded: "Aucune clé d’accès n’a été ajoutée. Réessayez, ou continuez sans.",
+      onlyWayIn: "Ensuite, votre mot de passe et les codes reçus par e-mail ne vous connecteront plus ici, seule la clé d’accès le fera, sur les appareils qui la détiennent ; configurez aussi une application d’authentification si vous avez besoin d’un autre moyen d’accès.",
     },
     continueWithApple: "Continuer avec Apple",
     privacyPolicy: "Politique de confidentialité",
@@ -2489,7 +2490,7 @@ export const fr: TranslationResources = {
       rpId: "ID RP (domaine des clés d’accès)",
       rpIdHint: "Identifiant de la partie de confiance (relying party ID) : le domaine auquel chaque clé d’accès est liée, comme example.com pour des applications sur console.example.com et accounts.example.com, ou localhost en développement. Il doit couvrir l’origine de chaque application de la plateforme. Il est lu au démarrage : redémarrez l’API après l’avoir changé. Il ne peut pas être changé tant que des clés d’accès sont liées à la valeur actuelle, car elles cesseraient de fonctionner ; retirez-les d’abord avec l’outil d’installation (--retire-passkey-rp-id). Une valeur vide désactive les clés d’accès.",
       codeSignInProofMinutes: "Connexion par code comme preuve d’e-mail pour une clé d’accès (minutes)",
-      codeSignInProofMinutesHint: "Preuve de la boîte mail (mailbox proof) : durée pendant laquelle une connexion avec un code envoyé par e-mail prouve aussi que la personne possède la boîte mail, quand elle ajoute une clé d’accès. Pendant cette durée, aucun deuxième code n’est envoyé ; un compte avec mot de passe donne toujours d’abord son mot de passe. La fenêtre de réauthentification (Authentification à deux facteurs › Connexion récente pour modifier la double authentification) reste la limite extérieure : une fenêtre de 5 avec 15 ici vaut 5. Une durée plus longue est plus simple pour les personnes, et pour quelqu’un qui a volé une session. Recommandé : 5.",
+      codeSignInProofMinutesHint: "Preuve de la boîte mail (mailbox proof) : durée pendant laquelle une connexion avec un code envoyé par e-mail prouve aussi que la personne possède la boîte mail, quand elle ajoute une clé d’accès. Pendant cette durée, aucun deuxième code n’est envoyé ; un compte avec mot de passe donne toujours d’abord son mot de passe. Un compte qui administre la plateforme reçoit le code à chaque fois. La fenêtre de réauthentification (Authentification à deux facteurs › Connexion récente pour modifier la double authentification) reste la limite extérieure : une fenêtre de 5 avec 15 ici vaut 5. Une durée plus longue est plus simple pour les personnes, et pour quelqu’un qui a volé une session. Recommandé : 5.",
     },
     title: "Paramètres système",
     subtitle:
