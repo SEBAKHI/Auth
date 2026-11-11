@@ -38,6 +38,8 @@ vi.mock("@authsystem/ui/branding", () => ({
     staySignedInOffered: false,
     signInOptions: null,
   }),
+  // The completion rule reads the deployment's passkey hint too (OI-280 PR B): none here.
+  useSignInOptions: () => null,
 }))
 vi.mock("@authsystem/auth/auth-context", () => ({
   useAuth: () => ({ login: vi.fn(), status: mocks.status }),

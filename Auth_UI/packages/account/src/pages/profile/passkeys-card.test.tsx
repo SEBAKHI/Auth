@@ -731,6 +731,149 @@ describe("PasskeysCard: adding a passkey", () => {
   })
 })
 
+/**
+ * OI-280 PR B (T-B5, T-B7, V-B9): the addition the card uses is the one every page
+ * shares. When the time a sign-in by code counts for runs out between the options
+ * and the bind, verify asks for the emailed code with nothing spent: the dialog
+ * emails it, and sends the SAME answer again with the code, without asking the
+ * device twice. Deliberate break, verified red: fresh options instead of the
+ * resubmission.
+ */
+describe("PasskeysCard: the time a sign-in by code counts for runs out (T-B5)", () => {
+  function verifyBodies() {
+    return mocks.post.mock.calls
+      .filter(([path]) => path === "/api/v1/auth/passkeys/registration/verify")
+      .map(([, init]) => (init as { body: unknown }).body)
+  }
+
+  it("emails the code, then sends the same answer again with it, the device asked once", async () => {
+    givenLists(ok(list([])), ok(list([LAPTOP])))
+    let verifies = 0
+    mocks.post.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/auth/passkeys/registration/options") return ok(REGISTRATION)
+      if (path === "/api/v1/auth/passkeys/registration/email-code") {
+        return ok({ emailCodeRequired: true, sentTo: "a***@example.com", expiresAt: "2099-01-01T00:00:00Z" })
+      }
+      verifies += 1
+      return verifies === 1 ? problem(400, "TwoFactor.EmailCodeRequired") : ok({ ...LAPTOP })
+    })
+    const user = userEvent.setup()
+    renderCard({ ...ME, qualifyingMfa: false, totpEnabled: false })
+
+    await user.click(await screen.findByRole("button", { name: i18n.t("profile.passkeys.add") }))
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.create") }))
+
+    // The code went out by itself, and the dialog says why.
+    expect(await within(dialog).findByTestId("add-passkey-code-after-all")).toHaveTextContent(
+      i18n.t("profile.passkeys.codeAfterAll")
+    )
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith("/api/v1/auth/passkeys/registration/email-code")
+    )
+    await user.type(await within(dialog).findByLabelText(i18n.t("profile.passkeys.emailCode")), "123456")
+    await user.click(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.create") }))
+
+    await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalled())
+    expect(mocks.startRegistration).toHaveBeenCalledTimes(1)
+    expect(verifyBodies()).toEqual([
+      { credential: CREATED, name: null, emailCode: null },
+      { credential: CREATED, name: null, emailCode: "123456" },
+    ])
+    expect(
+      mocks.post.mock.calls.filter(([path]) => path === "/api/v1/auth/passkeys/registration/options")
+    ).toHaveLength(1)
+  })
+
+  it("a wrong code keeps the held answer: the code is typed again", async () => {
+    givenLists(ok(list([])))
+    let verifies = 0
+    mocks.post.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/auth/passkeys/registration/options") return ok(REGISTRATION)
+      if (path === "/api/v1/auth/passkeys/registration/email-code") {
+        return ok({ emailCodeRequired: true, sentTo: "a***@example.com", expiresAt: "2099-01-01T00:00:00Z" })
+      }
+      verifies += 1
+      return verifies === 1
+        ? problem(400, "TwoFactor.EmailCodeRequired")
+        : problem(400, "TwoFactor.EmailCodeInvalid")
+    })
+    const user = userEvent.setup()
+    renderCard({ ...ME, qualifyingMfa: false, totpEnabled: false })
+
+    await user.click(await screen.findByRole("button", { name: i18n.t("profile.passkeys.add") }))
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.create") }))
+    await user.type(await within(dialog).findByLabelText(i18n.t("profile.passkeys.emailCode")), "000000")
+    await user.click(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.create") }))
+
+    expect(await within(dialog).findByTestId("add-passkey-message")).toHaveTextContent(
+      "server sentence for TwoFactor.EmailCodeInvalid"
+    )
+    expect(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.create") })).toBeInTheDocument()
+    expect(mocks.startRegistration).toHaveBeenCalledTimes(1)
+  })
+
+  it("says Passkey.EmailRequired in a plain sentence with the way out, never the general failure", async () => {
+    givenLists(ok(list([])))
+    mocks.post.mockResolvedValue(problem(400, "Passkey.EmailRequired"))
+    const user = userEvent.setup()
+    renderCard({ ...ME, qualifyingMfa: false, totpEnabled: false })
+
+    await user.click(await screen.findByRole("button", { name: i18n.t("profile.passkeys.add") }))
+
+    expect(await screen.findByTestId("passkeys-message")).toHaveTextContent(
+      i18n.t("profile.passkeys.needsAppFirst")
+    )
+    expect(screen.queryByText("server sentence for Passkey.EmailRequired")).not.toBeInTheDocument()
+  })
+
+  it("says Passkey.EmailRequired once when the account, read again, says email is off (REVIEW 160 F12)", async () => {
+    givenLists(ok(list([])))
+    mocks.post.mockResolvedValue(problem(400, "Passkey.EmailRequired"))
+    const before = { ...ME, qualifyingMfa: false, totpEnabled: false }
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const view = render(
+      <QueryClientProvider client={client}>
+        <Section me={before} />
+      </QueryClientProvider>
+    )
+    await userEvent.setup().click(await screen.findByRole("button", { name: i18n.t("profile.passkeys.add") }))
+    await screen.findByTestId("passkeys-message")
+
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <Section me={{ ...before, emailCodeAvailable: false }} />
+      </QueryClientProvider>
+    )
+
+    expect(screen.getAllByText(i18n.t("profile.passkeys.needsAppFirst"))).toHaveLength(1)
+    expect(screen.getByTestId("passkeys-need-app-first")).toBeInTheDocument()
+    expect(screen.queryByTestId("passkeys-message")).not.toBeInTheDocument()
+  })
+
+  it("does not say a code was sent when the automatic send failed: the button to ask for one stands (REVIEW 160 F12)", async () => {
+    givenLists(ok(list([])))
+    mocks.post.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/auth/passkeys/registration/options") return ok(REGISTRATION)
+      if (path === "/api/v1/auth/passkeys/registration/email-code") return problem(500, "Http.InternalServerError")
+      return problem(400, "TwoFactor.EmailCodeRequired")
+    })
+    const user = userEvent.setup()
+    renderCard({ ...ME, qualifyingMfa: false, totpEnabled: false })
+
+    await user.click(await screen.findByRole("button", { name: i18n.t("profile.passkeys.add") }))
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: i18n.t("profile.passkeys.create") }))
+
+    expect(await within(dialog).findByRole("button", { name: i18n.t("auth.emailMeACode") })).toBeInTheDocument()
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith("/api/v1/auth/passkeys/registration/email-code")
+    )
+    expect(within(dialog).queryByTestId("add-passkey-code-after-all")).not.toBeInTheDocument()
+  })
+})
+
 describe("PasskeysCard: renaming and removing", () => {
   beforeEach(() => {
     proofOptions = PROOF_OPTIONS

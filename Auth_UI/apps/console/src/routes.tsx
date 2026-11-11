@@ -182,6 +182,17 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        // The offer to add a passkey after a sign-in (OI-280 PR B), which the
+        // completion rule opens once nothing else claims the sign-in. Beside the
+        // set-up page, outside the guard below, and lazy: the sign-in page carries
+        // none of it.
+        path: "/passkey/offer",
+        lazy: lazyRoute(
+          () => import("@authsystem/auth/pages/passkey-offer"),
+          (m) => m.PasskeyOfferPage
+        ),
+      },
+      {
         // While the server withholds a platform administrator's authority for a
         // missing second factor, every page but the profile sends them to
         // /two-factor/required (S08). Not re-indented below, to keep the diff to

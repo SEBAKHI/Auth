@@ -213,10 +213,19 @@ public static class SystemSettingsRegistry
             // Both are guarded where they are saved (SystemSettingsValueValidator, PK2; and
             // PasskeyRpIdChange, PK3): an RP ID must be a host name that covers every
             // first-party origin, and none may replace the one live passkeys are bound to.
+            // CodeSignInProofMinutes (OI-280 PR B, D-S20-21) is how long a sign-in by code
+            // counts as the mailbox proof when the session adds a passkey; read per request
+            // through IOptionsMonitor by PasskeyRegistrationGate and brought inside 1–15.
             Fields:
             [
                 new SettingFieldDefinition("Enabled", SettingKind.Bool, DefaultValue: false),
-                new SettingFieldDefinition("RpId", SettingKind.String, RestartRequired: true, DefaultValue: "")
+                new SettingFieldDefinition("RpId", SettingKind.String, RestartRequired: true, DefaultValue: ""),
+                new SettingFieldDefinition(
+                    "CodeSignInProofMinutes",
+                    SettingKind.Int,
+                    Min: Configuration.PasskeySettings.MinCodeSignInProofMinutes,
+                    Max: Configuration.PasskeySettings.MaxCodeSignInProofMinutes,
+                    DefaultValue: 5)
             ]),
 
         new SettingSectionDefinition(

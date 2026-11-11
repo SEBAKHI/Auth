@@ -92,8 +92,13 @@ describe("one door to the WebAuthn helper (T-C1)", () => {
   })
 
   it("is reached through the loader from the profile, never by the package", () => {
+    // OI-280 PR B: the card adds a passkey through the one addition every page shares (the
+    // offer and the set-up page too), and that addition loads the helper through the loader.
     const card = files.find((file) => file.path.endsWith("/profile/passkeys-card.tsx"))!
-    expect(card.source).toContain("@authsystem/auth/passkey/webauthn")
-    expect(card.source).not.toContain(PACKAGE)
+    const addition = files.find((file) => file.path === "packages/auth/src/passkey/add-passkey.tsx")
+    expect(addition, "the shared addition moved: update this test").toBeDefined()
+    expect(card.source).toContain("@authsystem/auth/passkey/add-passkey")
+    expect(addition!.source).toMatch(/import \{[^}]*\bloadWebAuthn\b[^}]*\} from "\.\/webauthn"/)
+    for (const file of [card, addition!]) expect(file.source).not.toContain(PACKAGE)
   })
 })

@@ -561,6 +561,12 @@ An account's first factor also needs a code emailed to its confirmed address whi
 is checked after the authenticator code,
 under the same five-failure lock, and spent by the transaction that switches two-factor on — so a password alone no
 longer binds an attacker's authenticator app.
+A first passkey asks for the same code, with one exception (OI-280 PR B): within
+`Passkeys:CodeSignInProofMinutes` (5 minutes by default, 1 to 15) of a proof by an emailed code — the sign-in by
+code, or the code given in the proof window — that proof stands for it, and no second code is sent, except on an
+account that holds a platform permission, which is asked for the code every time. The owner
+accepted the price (D-S20-21): a session stolen within that time adds a passkey without the second code; a session
+that has not yet proved the account's password must give it first, and one that has, nothing more.
 The emailed code is bound and removed the same way (`email/enable`, `email/confirm`, `email/disable`): a recent
 sign-in, one transaction for the row and the flag, and every other session signed out when it replaces an app or is
 switched off. Replacing an authenticator app by the emailed code also needs a session that proved two factors;

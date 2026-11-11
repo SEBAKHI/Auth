@@ -2,14 +2,24 @@ import * as React from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 
 import { currentMfaRequirement } from "@authsystem/api/mfa-requirement"
+import { useSignInOptions } from "@authsystem/ui/branding"
 
 import { launchApplication } from "./launch-application"
+import {
+  PASSKEY_OFFER_PATH,
+  isPasskeyOfferPath,
+  notePasskeyOfferNavigation,
+  passkeyOfferDeclined,
+  passkeysAnsweredOff,
+} from "./passkey/passkey-offer"
+import { browserHasWebAuthn } from "./passkey/webauthn"
 import {
   getPendingReturnTo,
   getPendingSignInReason,
   setPendingReturnTo,
   type TwoFactorMethod,
 } from "./pending-challenge"
+import { TWO_FACTOR_REQUIRED_PATH } from "./require-mfa-satisfied"
 import { getValidReturnTo, validateReturnToUrl } from "./return-to"
 import {
   clearSignInMarker,
@@ -40,11 +50,17 @@ function resolveFrom(
   raw: CompletionState["from"],
   fallback: string
 ): string {
-  if (typeof raw === "string" && raw) return raw
-  if (raw && typeof raw === "object" && raw.pathname) {
-    return raw.pathname + (raw.search ?? "")
-  }
-  return fallback
+  const path =
+    typeof raw === "string" && raw
+      ? raw
+      : raw && typeof raw === "object" && raw.pathname
+        ? raw.pathname + (raw.search ?? "")
+        : null
+  // The offer to add a passkey stands between a sign-in and where it goes, and is never where
+  // one goes (OI-280 PR B): a session that ended on it (signed out from its window, or expired
+  // there) records it as the origin, and the next sign-in's way out would lead back to it.
+  if (path === null || isPasskeyOfferPath(path)) return fallback
+  return path
 }
 
 /** What one caller of `complete` may add to the rule, for that sign-in only. */
@@ -74,6 +90,18 @@ export interface CompletionOptions {
    * always means "a sign-in in this tab just resumed this request".
    */
   endsSignIn?: boolean
+  /**
+   * This sign-in's first step was a passkey (S20): no offer to add one follows
+   * (OI-280 PR B, T-B9 a). Said by the screen that ended it, never read from
+   * storage: a passkey sign-in writes no method and leaves no proof (T-C6).
+   */
+  signedInWithPasskey?: boolean
+}
+
+/** What the offer's page carries, to end the sign-in as it would have ended without it. */
+export interface PasskeyOfferExit {
+  proof: SignInProof | null
+  launchUrl: string | null
 }
 
 export interface LoginCompletion {
@@ -136,6 +164,18 @@ export function useLoginCompletion(
   const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as CompletionState | null
+  // The deployment's word that passkeys may run here (OI-280), from the branding
+  // answer; outside a branding provider, nothing, and so no offer. Read through a
+  // ref when deciding, with the page's path, so that `complete` keeps the identity
+  // it had before the offer: pages hold it in effects (the Google button starts
+  // over with a new nonce when it changes), and the branding answers late.
+  const passkeysOffered = useSignInOptions()?.passkeySignInOffered === true
+  const passkeysOfferedRef = React.useRef(passkeysOffered)
+  const pathnameRef = React.useRef(location.pathname)
+  React.useEffect(() => {
+    passkeysOfferedRef.current = passkeysOffered
+    pathnameRef.current = location.pathname
+  }, [passkeysOffered, location.pathname])
 
   const from = resolveFrom(state?.from, options.defaultFrom ?? "/")
 
@@ -168,6 +208,39 @@ export function useLoginCompletion(
     ) => {
       const destination = options?.from ?? from
 
+      // The offer to add a passkey (OI-280 PR B: D-S20-12, Q1 (a)), after any
+      // sign-in, whatever its destination, once nothing below claims it first
+      // (the forced password change, an application's set-up, the platform's):
+      // the set-up page has precedence, and no offer follows it or itself.
+      // Asked here only what this page knows: a sign-in that ended here and not
+      // with a passkey; the deployment's hint, with no passkey request on this
+      // page since that answered they do not run; a browser with WebAuthn; and
+      // no «don't ask on this device». The offer's page asks the rest before it
+      // shows anything, and every way out of it comes back here.
+      const offerPasskey = (): boolean => {
+        const pathname = pathnameRef.current
+        const due =
+          options?.endsSignIn !== false &&
+          options?.signedInWithPasskey !== true &&
+          pathname !== TWO_FACTOR_REQUIRED_PATH &&
+          pathname !== PASSKEY_OFFER_PATH &&
+          passkeysOfferedRef.current &&
+          !passkeysAnsweredOff() &&
+          browserHasWebAuthn() &&
+          !passkeyOfferDeclined()
+        if (!due) return false
+        const exit: PasskeyOfferExit = {
+          proof: options?.proof ?? null,
+          launchUrl: options?.launchUrl ?? null,
+        }
+        const offerState = { from: destination, returnTo, reason, passkeyOffer: exit }
+        // For the sign-in pages' guard, which the session's flip wakes while this lazy route is
+        // still loading: it follows here rather than sending the person on (require-auth.tsx).
+        notePasskeyOfferNavigation(offerState)
+        navigate(PASSKEY_OFFER_PATH, { replace: true, state: offerState })
+        return true
+      }
+
       if (result.requiresPasswordChange) {
         // An interstitial, not a destination: the pending request has to
         // survive it, which is why it carries the state forward. A launch does
@@ -192,12 +265,15 @@ export function useLoginCompletion(
         if (reason?.reason === "mfa_enroll") {
           setPendingReturnTo(null)
           clearSignInMarker()
-          navigate("/two-factor/required", {
+          navigate(TWO_FACTOR_REQUIRED_PATH, {
             replace: true,
             state: { mode: "application", returnTo, from: destination },
           })
           return
         }
+        // Before the marker and the resume (D-B8): the offer leaves through this
+        // same rule, with this sign-in's proof, so the marker is written as before.
+        if (offerPasskey()) return
         // A top-level navigation, deliberately, not a router transition: the
         // IdP session cookie is SameSite=Lax and rides along with nothing else,
         // so the authorize endpoint would not recognize the browser.
@@ -219,12 +295,15 @@ export function useLoginCompletion(
       // from the token just stored: the auth context has not re-rendered yet.
       // The server enforces it; RequireMfaSatisfied catches every other way in.
       if (currentMfaRequirement() !== "none") {
-        navigate("/two-factor/required", {
+        navigate(TWO_FACTOR_REQUIRED_PATH, {
           replace: true,
           state: { from: destination },
         })
         return
       }
+
+      // Before the launch and the landing (D-B8).
+      if (offerPasskey()) return
 
       // An accepted invitation's application (OI-192), after everything that
       // must happen inside IAM first, and only through the launch check: a

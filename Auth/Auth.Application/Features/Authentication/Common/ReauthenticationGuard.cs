@@ -87,7 +87,8 @@ public class ReauthenticationGuard : IReauthenticationGuard
         var oldestAccepted = _timeProvider.GetUtcNow().UtcDateTime.AddMinutes(-maxAgeMinutes);
         if (session.CreatedAt >= oldestAccepted)
         {
-            return new RecentSession(session.Id, session.DeviceName, session.Methods);
+            // Dated at the sign-in, which is when what the row first recorded was proved (D-B2).
+            return new RecentSession(session.Id, session.DeviceName, session.Methods, session.CreatedAt);
         }
 
         // Past its sign-in, what counts is what the last proof inside the session proved, never
@@ -101,7 +102,7 @@ public class ReauthenticationGuard : IReauthenticationGuard
             // must not serve a copy held elsewhere. The window refreshes the token of the browser
             // that proved, before it hands back, and that token passes.
             return IssuedSince(proof.ProvedAtUtc)
-                ? new RecentSession(session.Id, session.DeviceName, proof.Methods)
+                ? new RecentSession(session.Id, session.DeviceName, proof.Methods, proof.ProvedAtUtc)
                 : Refuse(userId, "the access token was issued before the last proof");
         }
 

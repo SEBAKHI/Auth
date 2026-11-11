@@ -44,14 +44,17 @@
  * Scenarios (positional argument). Each makes its own fresh accounts, so a rerun on
  * the same database needs nothing reset. While passkeys run, the sign-in page asks for the
  * address first, and Continue asks the server whether it holds a passkey (OI-280): a holder
- * gets the passkey screen, whose list («Try another way») holds the password.
+ * gets the passkey screen, whose list («Try another way») holds the password. That screen
+ * opens the browser's window by itself (OI-280 PR B, T-B14), and the virtual authenticator
+ * answers it, so nothing is clicked there; a leg that means to use the password has the device
+ * refuse that window (no user verification), which the page takes as the person closing it.
  *   add-and-sign-in     Signs in to the console (password, then the app's code), adds
  *                       a passkey in Profile › Security, renames it, reads its row
  *                       (RP ID localhost, user-verified, live), the passkey.registered
  *                       audit row and the outbox rows written for the account; then
- *                       signs in at the accounts app with the address, Continue and the
- *                       passkey screen's button, and reads the row's LastUsedAt and that
- *                       sign-in's own user.login audit row.
+ *                       signs in at the accounts app with the address and Continue (the
+ *                       passkey screen opens the window by itself), and reads the row's
+ *                       LastUsedAt and that sign-in's own user.login audit row.
  *   lookup              OI-280's question after the address, on the real engine: a holder
  *                       answers true; an account without a passkey and an unknown address
  *                       answer false, byte-identical, with the same header names, no cookie
@@ -72,13 +75,28 @@
  *   app-return          The owner's condition: a registered public client with a
  *                       localhost callback served here. From a real authorize request,
  *                       signs in at the accounts app with the suggestion, then through
- *                       the address and the passkey screen's button (OI-280), each ending
+ *                       the address and the passkey screen's own window (OI-280), each ending
  *                       on the callback with a code the token endpoint redeems. Then an
  *                       application that requires two steps,
  *                       enforcement on, for an account whose only factor is a passkey:
  *                       the passkey at once reaches the callback; the password leads to
  *                       mfa_passkey, and the passkey from there to the callback; and the
  *                       "I lost my passkey" link leads to Profile › Security.
+ *   offer               OI-280 PR B (V-B14): an application's request, a password account
+ *                       signed in by an emailed code, and the offer between the sign-in and
+ *                       the application. «Add a passkey»: the window asks for the password,
+ *                       then the device, with no second emailed code (the sign-in's code counts
+ *                       for Passkeys:CodeSignInProofMinutes); then one resume ends on the
+ *                       callback, whose code the token endpoint redeems.
+ *   set-up-passkey      OI-280 PR B (V-B14): an application that requires two steps, a password
+ *                       account with no factor. The page learns of the requirement only from the
+ *                       server's answer to the resume, so the offer comes first (D-B8);
+ *                       «Not now» resumes, the server sends the person back to set up, and the
+ *                       sign-in's marker spares a second sign-in (OI-275). The set-up page offers
+ *                       a passkey beside the app; the registration asks for its emailed code (a
+ *                       password sign-in proved no mailbox), raises no session, and the passkey
+ *                       used once in place does; then one more resume ends on the callback, and
+ *                       the token is redeemed.
  *   locks               An administrator's lock refuses a passkey older than 72 hours
  *                       (a younger one it revokes) with its own code; a timed lock from
  *                       wrong passwords admits it and moves no count.
@@ -124,9 +142,10 @@
  *                       with its own code, stamps nothing, and records no use of that passkey.
  *   proof-email         An account with no password: the window sends a code by email, under
  *                       the seeded template's own wording; a wrong one is refused, the right
- *                       one goes on, and the addition still asks for its own emailed code.
+ *                       one goes on, and the addition asks for no second code: the window's
+ *                       code counts (OI-280 PR B).
  *   proof-way-out       The window's way out asks first, ends the session, and the sign-in
- *                       comes back to the page.
+ *                       comes back to the page (past the offer: the account has no passkey).
  *   proof-unrecorded    With enforcement on, an administrator's session whose sign-in is not
  *                       recorded lands on the required page; the window proves the person and
  *                       they go where they were going, in the same session. The switch is
@@ -314,6 +333,9 @@ async function bindApp(account) {
   return setup.json.secret
 }
 
+/** Each page's virtual authenticator, for a leg that has the device refuse a window. */
+const authenticators = new WeakMap()
+
 /** A page whose own authenticator stands in for the device. `clear` forgets every session. */
 async function withAuthenticator(run) {
   const browser = await chromium.launch()
@@ -321,7 +343,7 @@ async function withAuthenticator(run) {
   const page = await context.newPage()
   const cdp = await context.newCDPSession(page)
   await cdp.send("WebAuthn.enable")
-  await cdp.send("WebAuthn.addVirtualAuthenticator", {
+  const { authenticatorId } = await cdp.send("WebAuthn.addVirtualAuthenticator", {
     options: {
       protocol: "ctap2",
       transport: "internal",
@@ -330,6 +352,9 @@ async function withAuthenticator(run) {
       isUserVerified: true,
       automaticPresenceSimulation: true,
     },
+  })
+  authenticators.set(page, {
+    verifies: (isUserVerified) => cdp.send("WebAuthn.setUserVerified", { authenticatorId, isUserVerified }),
   })
   const clear = async () => {
     await context.clearCookies()
@@ -371,25 +396,59 @@ async function typePassword(page, { email, password }) {
   if (!(await field.isVisible()) && (await instead.isVisible())) await instead.click()
   if (!(await field.isVisible())) {
     // While passkeys run, the address comes first (OI-280). A holder's address leads to the
-    // passkey screen, and the password is in its list.
-    await continueButton(page).click()
-    const another = page.getByTestId("try-another-way")
-    await field.or(another).first().waitFor({ timeout: 30_000 })
-    if (!(await field.isVisible())) {
-      await another.click()
-      await page.getByTestId("other-ways").getByRole("button", { name: "Sign in with a password instead" }).click()
-      await field.waitFor({ timeout: 30_000 })
+    // passkey screen, which opens the browser's window by itself (OI-280 PR B, T-B14): the
+    // device refuses it here (no user verification), as a person who means to use the
+    // password closes it, and the password is in the screen's list.
+    const device = authenticators.get(page)
+    await device?.verifies(false)
+    try {
+      await continueButton(page).click()
+      const another = page.getByTestId("try-another-way")
+      await field.or(another).first().waitFor({ timeout: 30_000 })
+      if (!(await field.isVisible())) {
+        // The refused window leaves the screen as it was, its button ready (T-B14).
+        await passkeyButton(page).and(page.locator(":enabled")).waitFor({ timeout: 30_000 })
+        await another.click()
+        await page.getByTestId("other-ways").getByRole("button", { name: "Sign in with a password instead" }).click()
+        await field.waitFor({ timeout: 30_000 })
+      }
+    } finally {
+      await device?.verifies(true)
     }
   }
   await field.fill(password)
   await page.getByRole("button", { name: "Sign in", exact: true }).click()
 }
 
-/** A holder's address, then Continue: the passkey screen, its button the way on (OI-280). */
-async function toPasskeyScreen(page, email) {
+/**
+ * A holder's address, then Continue: the passkey screen, which opens the browser's window by
+ * itself once its options are in hand (OI-280 PR B, T-B14), and the virtual authenticator
+ * answers it. Nothing is clicked. Resolves with the sign-in's answer.
+ */
+async function signInOnPasskeyScreen(page, email) {
+  const answered = page.waitForResponse((response) => response.url().endsWith("/assertion/verify"), { timeout: 30_000 })
   await page.getByLabel("Email").fill(email)
   await continueButton(page).click()
-  await page.getByTestId("try-another-way").waitFor({ timeout: 30_000 })
+  return answered
+}
+
+/**
+ * A sign-in by the code emailed to the address: the address, Continue, and the password step's
+ * link to the code (password mode; code mode sends it on Continue). The code is read from the
+ * outbox, where the closed SMTP port keeps every rendered message.
+ */
+async function signInByCode(page, account) {
+  const since = sqlNow()
+  await page.getByLabel("Email").fill(account.email)
+  await continueButton(page).click()
+  const code = page.locator("[data-slot=input-otp]")
+  const link = page.getByRole("button", { name: "Sign in with a code sent to your email" })
+  await code.or(link).first().waitFor({ timeout: 30_000 })
+  if (!(await code.isVisible())) await link.click()
+  await code.waitFor({ timeout: 30_000 })
+  const digits = await emailedCode(account.email, since, "email-sign-in-code")
+  await code.click()
+  await page.keyboard.type(digits)
 }
 
 async function signInToConsole(page, account, appSecret) {
@@ -582,8 +641,7 @@ async function addAndSignIn() {
     await page.goto(`${accountsUrl()}/login`)
     // Taken here, after the password sign-ins above: this sign-in's own row, or nothing.
     const beforeAccounts = sqlNow()
-    await toPasskeyScreen(page, account.email)
-    await pressPasskey(page)
+    await signInOnPasskeyScreen(page, account.email)
     await page.waitForURL(left("/login"), { timeout: 30_000 })
     const used = sql(`SELECT CASE WHEN LastUsedAt >= '${beforeAccounts}' THEN 'used' ELSE 'unused' END FROM dbo.UserPasskeys WHERE UserId = '${account.id}' AND Name = N'DevRun renamed'`)
     check("passkey sign-in at accounts", used[0] === "used", JSON.stringify(used))
@@ -873,15 +931,14 @@ async function appReturn() {
       await landedOnCallback(page, "from an application, the suggestion, back to it", plain, callback, bySuggestion.verifier)
       await clear()
 
-      // OI-280: no button for every visitor any more. The address, Continue, the passkey
-      // screen, its button (V13: this leg replaces the button's).
+      // OI-280: no button for every visitor any more. The address, Continue, and the passkey
+      // screen, whose window opens by itself (PR B, T-B14): nothing is clicked.
       await withoutSuggestion(page)
       const byScreen = authorizeRequest(plain, callback)
       await page.goto(byScreen.url)
       await page.waitForURL(`${accountsUrl()}/login?**`, { timeout: 30_000 })
-      await toPasskeyScreen(page, account.email)
-      await pressPasskey(page)
-      await landedOnCallback(page, "from an application, the address, the passkey screen's button, back to it", plain, callback, byScreen.verifier)
+      await signInOnPasskeyScreen(page, account.email)
+      await landedOnCallback(page, "from an application, the address, the passkey screen's own window, back to it", plain, callback, byScreen.verifier)
       await clear()
 
       // The application requires two steps, and this account's only factor is a passkey.
@@ -890,8 +947,7 @@ async function appReturn() {
       const atOnce = authorizeRequest(twoStep, callback)
       await page.goto(atOnce.url)
       await page.waitForURL(`${accountsUrl()}/login?**`, { timeout: 30_000 })
-      await toPasskeyScreen(page, account.email)
-      await pressPasskey(page)
+      await signInOnPasskeyScreen(page, account.email)
       await landedOnCallback(page, "under two steps, the passkey at once, back to the application", twoStep, callback, atOnce.verifier)
       await clear()
 
@@ -919,6 +975,127 @@ async function appReturn() {
   }
 }
 
+// ── offer (OI-280 PR B) ─────────────────────────────────────────────────────
+
+/** This probe's own application page, on PROBE_APP_PORT: where a callback lands. */
+function applicationServer() {
+  const port = Number(env("PROBE_APP_PORT"))
+  const callback = `https://localhost:${port}/callback`
+  const started = ownServer(port, (_, response) => {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" })
+    response.end("<!doctype html><title>The application</title><h1>The application</h1>")
+  })
+  return { callback, started }
+}
+
+/** The registration codes emailed to the address since `since` (two-factor-bind-code). */
+const registrationCodes = (email, since) =>
+  Number(
+    sql(`SELECT COUNT(*) FROM dbo.NotificationOutbox WHERE Recipient = N'${email}' AND NotificationTypeCode = N'two-factor-bind-code' AND CreatedAt >= '${since}';`)[0]
+  )
+
+const passkeyRow = (userId) =>
+  sql(`SELECT CONCAT(RpId, '|', IsUserVerified, '|', CASE WHEN RevokedAt IS NULL THEN 'live' ELSE 'revoked' END) FROM dbo.UserPasskeys WHERE UserId = '${userId}';`)
+
+async function offer() {
+  const { callback, started } = applicationServer()
+  const server = await started
+  try {
+    const client = await freshApplication(callback, false)
+    const account = await freshAccount("offer")
+    await withAuthenticator(async (page) => {
+      await withoutSuggestion(page)
+      const request = authorizeRequest(client, callback)
+      await page.goto(request.url, { waitUntil: "networkidle" })
+      await page.waitForURL(`${accountsUrl()}/login?**`, { timeout: 30_000 })
+      const since = sqlNow()
+      await signInByCode(page, account)
+
+      const screen = page.getByTestId("passkey-offer")
+      await screen.waitFor({ timeout: 30_000 })
+      check("the offer stands between the sign-in by code and the application", new URL(page.url()).pathname === "/passkey/offer", page.url())
+      await screen.getByRole("button", { name: "Add a passkey" }).click()
+
+      // A password account signed in by code proved its mailbox only: the window asks for its
+      // password first (the gate's first-factor rule), in place.
+      const proof = proofWindow(page)
+      await proof.waitFor({ timeout: 30_000 })
+      await proof.getByLabel("Password").fill(account.password)
+      await confirmProof(proof)
+
+      const dialog = addDialog(page)
+      await dialog.waitFor({ timeout: 30_000 })
+      const asked = await dialog.getByRole("button", { name: "Email me a code" }).isVisible()
+      check("after the window, the device and no second emailed code", !asked)
+      await dialog.getByRole("button", { name: "Create the passkey" }).click()
+      await landedOnCallback(page, "the offer's addition, then one resume to the application, and a token", client, callback, request.verifier)
+
+      check("no registration code was emailed", registrationCodes(account.email, since) === 0)
+      const row = passkeyRow(account.id)
+      check("the passkey is bound (localhost, user-verified, live)", row.length === 1 && row[0] === "localhost|1|live", JSON.stringify(row))
+    })
+  } finally {
+    server.close()
+  }
+}
+
+// ── set-up-passkey (OI-280 PR B) ────────────────────────────────────────────
+
+async function setUpPasskey() {
+  const { callback, started } = applicationServer()
+  const server = await started
+  try {
+    const client = await freshApplication(callback, true)
+    const account = await freshAccount("setup")
+    await withAuthenticator(async (page) => {
+      await withoutSuggestion(page)
+      const request = authorizeRequest(client, callback)
+      await page.goto(request.url, { waitUntil: "networkidle" })
+      await page.waitForURL(`${accountsUrl()}/login?**`, { timeout: 30_000 })
+      await typePassword(page, account)
+
+      // The requirement is the server's to say, on the resume: the offer comes first (D-B8).
+      const offered = page.getByTestId("passkey-offer")
+      await offered.waitFor({ timeout: 30_000 })
+      await offered.getByRole("button", { name: "Not now" }).click()
+
+      // The application requires two steps and the account has none: back from the resume, the
+      // set-up page with no second sign-in (OI-275), which offers a passkey beside the app (T-B8).
+      await page.waitForURL((url) => url.pathname === "/two-factor/required", { timeout: 30_000 })
+      check("the offer first, then «Not now» to the set-up page with no second sign-in", true)
+      const add = page.getByTestId("set-up-add-passkey")
+      await add.waitFor({ timeout: 30_000 })
+      check("the set-up page offers a passkey beside the app", await page.getByRole("button", { name: "Turn on the authenticator app" }).isVisible())
+      await add.click()
+
+      // A password sign-in proved no mailbox: the registration's own code (X02).
+      const dialog = addDialog(page)
+      await dialog.waitFor({ timeout: 30_000 })
+      const send = dialog.getByRole("button", { name: "Email me a code" })
+      check("a password sign-in is asked for the emailed code", await send.isVisible())
+      const since = sqlNow()
+      await send.click()
+      const code = await emailedCode(account.email, since, "two-factor-bind-code")
+      await dialog.locator("[data-slot=input-otp]").click()
+      await page.keyboard.type(code)
+      await dialog.getByRole("button", { name: "Create the passkey" }).click()
+
+      // Added, not used: a registration raises no session (D-B5).
+      const useIt = passkeyButton(page, "Use my passkey")
+      await useIt.waitFor({ timeout: 30_000 })
+      const session = newestSession(account.id)
+      const added = sessionRow(session)
+      check("the registration raised no session", added.proof !== String(STORED.passkey), JSON.stringify(added))
+      await useIt.click()
+      await landedOnCallback(page, "the passkey used once in place, then one resume to the application, and a token", client, callback, request.verifier)
+      const used = sessionRow(session)
+      check("the proof in place is the passkey's, in the same session", used.live && used.proof === String(STORED.passkey), JSON.stringify(used))
+    })
+  } finally {
+    server.close()
+  }
+}
+
 // ── locks ───────────────────────────────────────────────────────────────────
 
 async function locks() {
@@ -938,10 +1115,9 @@ async function locks() {
     if (locked.status !== 204) throw new Inconclusive(`cannot lock: ${locked.status} ${locked.text.slice(0, 200)}`)
     await page.goto(`${accountsUrl()}/login`)
     // A locked account still answers that it holds a passkey: the sign-in judges the lock.
-    await toPasskeyScreen(page, account.email)
-    const answered = page.waitForResponse((response) => response.url().endsWith("/assertion/verify"), { timeout: 30_000 })
-    await pressPasskey(page)
-    const refused = await (await answered).json().catch(() => ({}))
+    // The screen's own window is the attempt (T-B14).
+    const answered = await signInOnPasskeyScreen(page, account.email)
+    const refused = await answered.json().catch(() => ({}))
     const refusal = page.getByTestId("passkey-message")
     await refusal.waitFor({ timeout: 30_000 })
     check(
@@ -965,8 +1141,7 @@ async function locks() {
     }
     await clear()
     await page.goto(`${accountsUrl()}/login`)
-    await toPasskeyScreen(page, account.email)
-    await pressPasskey(page)
+    await signInOnPasskeyScreen(page, account.email)
     await page.waitForURL(left("/login"), { timeout: 30_000 })
     const after = rowOf(account.id)
     check("a timed lock admits the passkey", true, `row before ${JSON.stringify(before)}`)
@@ -1000,8 +1175,7 @@ async function passkeyOnlyAdmin() {
     await pressPasskey(page)
     await page.waitForURL(left("/login"), { timeout: 30_000 })
     await page.goto(`${consoleUrl()}/login`)
-    await toPasskeyScreen(page, account.email)
-    await pressPasskey(page)
+    await signInOnPasskeyScreen(page, account.email)
     await page.waitForURL(left("/login"), { timeout: 30_000 })
     await page.goto(`${consoleUrl()}/users`)
     await page.locator('[data-slot="sidebar-inset"]').waitFor({ timeout: 30_000 })
@@ -1043,8 +1217,7 @@ async function recovery() {
 
     await page.goto(`${accountsUrl()}/login`)
     // An account waiting for its deletion still answers that it holds a passkey (OI-280).
-    await toPasskeyScreen(page, account.email)
-    await pressPasskey(page)
+    await signInOnPasskeyScreen(page, account.email)
     await page.waitForURL((url) => url.pathname === "/account-recovery", { timeout: 30_000 })
     check("the passkey sign-in goes to the recovery page", true)
     await pressPasskey(page, "Cancel the deletion with your passkey")
@@ -1539,9 +1712,13 @@ async function proofEmail() {
     await add.waitFor({ timeout: 30_000 })
     check("the right code goes on, with nothing reloaded", await sameDocument(page), page.url())
     check("stamped with the mailbox as this account's first factor", sessionRow(session).proof === String(STORED.emailCodeFirstFactor), JSON.stringify(sessionRow(session)))
-    const own = add.getByRole("button", { name: "Email me a code" })
-    await own.waitFor({ timeout: 30_000 })
-    check("the addition still asks for its own emailed code (OI-280 is not here)", await own.isVisible())
+    // OI-280 PR B (T-B4): that code proved the mailbox moments ago, so the addition asks for no
+    // second one.
+    await add.getByRole("button", { name: "Create the passkey" }).waitFor({ timeout: 30_000 })
+    check(
+      "the addition asks for no second emailed code: the window's code counts (OI-280 PR B)",
+      (await add.getByRole("button", { name: "Email me a code" }).count()) === 0
+    )
   })
 }
 
@@ -1573,8 +1750,13 @@ async function proofWayOut() {
     check("signing out ends that session", ended)
 
     await typePassword(page, account)
+    // OI-280 PR B: this account has no passkey yet, so the offer stands between the sign-in and
+    // the page; «Not now» goes on to it.
+    const offered = page.getByTestId("passkey-offer")
+    await offered.waitFor({ timeout: 30_000 })
+    await offered.getByRole("button", { name: "Not now" }).click()
     await page.waitForURL((url) => url.pathname === "/profile", { timeout: 30_000 })
-    check("and the sign-in comes back to the page", page.url().endsWith("/profile?tab=security"), page.url())
+    check("and the sign-in comes back to the page, past the offer", page.url().endsWith("/profile?tab=security"), page.url())
   })
 }
 
@@ -1665,6 +1847,8 @@ const scenarios = {
   lookup,
   origin,
   "app-return": appReturn,
+  offer,
+  "set-up-passkey": setUpPasskey,
   locks,
   "passkey-only-admin": passkeyOnlyAdmin,
   recovery,

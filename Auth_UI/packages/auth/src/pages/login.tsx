@@ -13,7 +13,6 @@ import { Checkbox } from "@authsystem/ui/checkbox"
 import {
   Field,
   FieldContent,
-  FieldDescription,
   FieldGroup,
   FieldLegend,
   FieldSet,
@@ -41,6 +40,7 @@ import { useFlowBranding } from "../flow-branding"
 import { useLoginCompletion } from "../login-completion"
 import { PasskeyButton } from "../passkey/passkey-button"
 import { passkeyFailureMessage } from "../passkey/passkey-errors"
+import { notePasskeysOff } from "../passkey/passkey-offer"
 import { PasskeyRequiredProvider, passkeyRequiredNotice } from "../passkey/passkey-required"
 import { usePasskeySignIn, type PasskeyOutcome } from "../passkey/use-passkey-sign-in"
 import type { AuthenticationResponseJSON } from "../passkey/webauthn"
@@ -239,6 +239,9 @@ export function LoginPage({
   const passkeyScreenButtonRef = React.useRef<HTMLButtonElement>(null)
   // "Try another way" on the passkey screen (D-S20-16): closed until asked.
   const [otherWaysOpen, setOtherWaysOpen] = React.useState(false)
+  // Each arrival on the passkey screen, counted by "Continue" (OI-280 PR B,
+  // T-B14): the window opens by itself once per arrival.
+  const [passkeyArrival, setPasskeyArrival] = React.useState(0)
   // The list's code item sends an email: one at a time, decided in the click.
   const sendingFromListRef = React.useRef(false)
   const [sendingFromList, setSendingFromList] = React.useState(false)
@@ -279,6 +282,15 @@ export function LoginPage({
     () => offered.current === true && getValues("staySignedIn") === true,
     [getValues]
   )
+  // OI-280 PR B (T-B14): a window the passkey screen opened by itself carries the
+  // box as it stood when it opened, the choice made on the first screen; a window
+  // the button opened reads it when its answer comes back, as before. Taken once.
+  const staySignedInAtOpen = React.useRef<boolean | null>(null)
+  const takeStaySignedIn = React.useCallback(() => {
+    const atOpen = staySignedInAtOpen.current
+    staySignedInAtOpen.current = null
+    return atOpen ?? readStaySignedIn()
+  }, [readStaySignedIn])
 
   // Pending deletion (only surfaced on VALID credentials): route to the
   // recovery screen instead of a dead-end error. The server's localized message
@@ -306,14 +318,15 @@ export function LoginPage({
     credential: AuthenticationResponseJSON
   ): Promise<PasskeyOutcome> => {
     try {
-      const result = await loginWithPasskey(credential, readStaySignedIn())
+      const result = await loginWithPasskey(credential, takeStaySignedIn())
       if (result.status === "twoFactorRequired") {
         challenge(result.challengeToken, result.methods)
         return { leaving: true }
       }
       passkeySignInEnded()
       toast.success(t("auth.welcomeBack"))
-      complete(result)
+      // The person holds a passkey: no offer to add one follows (OI-280 PR B).
+      complete(result, { signedInWithPasskey: true })
       return { leaving: true }
     } catch (error) {
       if (toRecovery(error)) return { leaving: true }
@@ -341,6 +354,13 @@ export function LoginPage({
     options?.passkeySignInOffered === true &&
     passkey.phase !== "unavailable" &&
     !lookupOff
+  // OI-280 PR B: what this page learned, that passkeys do not run here (the
+  // options' or the lookup's 404) or that this browser cannot use one, is kept
+  // for the page's life: no offer to add a passkey follows a sign-in from here.
+  const passkeysOffHere = passkey.phase === "unavailable" || lookupOff
+  React.useEffect(() => {
+    if (passkeysOffHere) notePasskeysOff()
+  }, [passkeysOffHere])
   // Password mode while passkeys may run: the address first, the password next.
   const addressFirst =
     step.kind === "credentials" && passkeysMayRun && method === "password"
@@ -370,6 +390,47 @@ export function LoginPage({
   React.useEffect(() => {
     if (onPasskeyScreen && passkeyReady) passkeyScreenButtonRef.current?.focus()
   }, [onPasskeyScreen, passkeyReady])
+  // OI-280 PR B (T-B14, owner Q4 (b), reversing D8): each arrival on the passkey
+  // screen opens the browser's window by itself, once, as soon as the options
+  // are in hand. Tried, never detected by the browser's name: a browser that
+  // grants the window only to a click (WebKit, T-C2) answers NotAllowedError,
+  // which the ceremony takes as a cancel, so the screen stays as it is, its
+  // button focused and nothing said. Never twice for one arrival, and not at all
+  // once "Try another way" is open, while the cookies note shows, or when
+  // passkeys are gone; the first screen's passkey-first entries never reach
+  // here. The button stays the way to try again, inside its own click.
+  const { start: startPasskey } = passkey
+  const passkeyGoneHere = passkey.phase === "unavailable"
+  const openedForArrival = React.useRef(0)
+  React.useEffect(() => {
+    if (!onPasskeyScreen || passkeyArrival === 0) {
+      // Off the screen, a window opened from anywhere else reads the box anew.
+      staySignedInAtOpen.current = null
+      return
+    }
+    if (openedForArrival.current === passkeyArrival) {
+      // That window closed without an answer: the button reads the box anew.
+      if (passkeyReady) staySignedInAtOpen.current = null
+      return
+    }
+    if (otherWaysOpen || cookieBlocked || passkeyGoneHere) {
+      openedForArrival.current = passkeyArrival
+      return
+    }
+    if (!passkeyReady) return
+    openedForArrival.current = passkeyArrival
+    staySignedInAtOpen.current = readStaySignedIn()
+    startPasskey()
+  }, [
+    onPasskeyScreen,
+    passkeyArrival,
+    otherWaysOpen,
+    cookieBlocked,
+    passkeyGoneHere,
+    passkeyReady,
+    readStaySignedIn,
+    startPasskey,
+  ])
   // A provider in that screen's list answered that the account signs in with
   // its passkey: the sentence shows above the button, which takes the focus back.
   React.useEffect(() => {
@@ -497,6 +558,7 @@ export function LoginPage({
       // The server said passkeys run here, for this address.
       confirmPasskeys()
       setOtherWaysOpen(false)
+      setPasskeyArrival((arrival) => arrival + 1)
       setStep({ kind: "passkey", email: values.email })
       return
     }
@@ -621,7 +683,6 @@ export function LoginPage({
           </FormControl>
           <FieldContent>
             <FormLabel>{t("auth.staySignedIn")}</FormLabel>
-            <FormDescription>{t("auth.staySignedInHint")}</FormDescription>
           </FieldContent>
         </FormItem>
       )}
@@ -639,7 +700,6 @@ export function LoginPage({
       <span className="size-4 shrink-0" />
       <FieldContent>
         <FieldTitle>{t("auth.staySignedIn")}</FieldTitle>
-        <FieldDescription>{t("auth.staySignedInHint")}</FieldDescription>
       </FieldContent>
     </Field>
   ) : null
@@ -666,11 +726,11 @@ export function LoginPage({
 
   if (step.kind === "passkey") {
     // OI-280 (T-A7, T-A8): the passkey screen. The button uses the options the
-    // page fetched on load, and the ceremony starts inside its click (T-C2);
-    // nothing starts by itself (D8), and nothing is sent or written before the
-    // person chooses. Passkeys switched off since the answer: the button renders
-    // nothing, and the list is shown without its link, so the screen is never
-    // empty (T-A10).
+    // page fetched on load, and the ceremony starts inside its click (T-C2); the
+    // window also opens by itself once per arrival where the browser allows it
+    // (PR B, T-B14), and nothing is sent or written before the person chooses.
+    // Passkeys switched off since the answer: the button renders nothing, and
+    // the list is shown without its link, so the screen is never empty (T-A10).
     const passkeyGone = passkey.phase === "unavailable"
     // Under `mfa_passkey` (`lostPasskeyOnly`) every other way would resume the
     // request into the application's refusal (D-152-2): the list holds the way

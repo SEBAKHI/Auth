@@ -15,11 +15,10 @@ export const PASSKEYS_QUERY_KEY = ["me", "passkeys"] as const
 
 /**
  * The longest name the server stores, in code points (`UserPasskey.MaxNameCodePoints`;
- * passkey-list.test.ts reads the C# constant). The server checks it after the
- * ceremony; the add dialog asks first, so no fingerprint is spent on a name that
- * would be refused.
+ * passkey-list.test.ts reads the C# constant). Defined beside the addition that asks
+ * for it before the ceremony (OI-280 PR B), which every page shares.
  */
-export const PASSKEY_NAME_MAX_CODE_POINTS = 64
+export { PASSKEY_NAME_MAX_CODE_POINTS } from "@authsystem/auth/passkey/passkey-name"
 
 /**
  * Reads the list, and tells the browser which passkeys the account still has

@@ -125,6 +125,9 @@ public class SystemSettingsDefaultParityTests
     // a passkey feature switched on for every new database.
     [InlineData("Passkeys", "Enabled", "False")]
     [InlineData("Passkeys", "RpId", "")]
+    // OI-280 PR B, D-S20-21: a sign-in by code counts as the mailbox proof for five minutes when
+    // the session adds a passkey.
+    [InlineData("Passkeys", "CodeSignInProofMinutes", "5")]
     public void ProductionDefaults_AgreeInFileClassAndRegistry(
         string configRoot, string fieldPath, string expected)
     {
@@ -168,6 +171,30 @@ public class SystemSettingsDefaultParityTests
         field.Min.Should().Be(TwoFactorSettings.MinReauthenticationMaxAgeMinutes).And.Be(5);
         field.Max.Should().Be(TwoFactorSettings.MaxReauthenticationMaxAgeMinutes).And.Be(60);
         field.RestartRequired.Should().BeFalse("the guard reads it per request");
+    }
+
+    /// <summary>
+    /// OI-280 PR B (D-S20-21): how long a sign-in by code counts as the mailbox proof when the
+    /// session adds a passkey. Registered, hot, bounded to 1–15 in the registry the console edits and
+    /// in the value the gate reads, whatever the configuration says, and 5 in both places.
+    /// </summary>
+    [Fact]
+    public void CodeSignInProofTime_IsRegisteredWithItsClassDefaultAndRange()
+    {
+        var section = SystemSettingsRegistry.Sections.Single(s => s.Key == "Passkeys");
+        var field = section.Fields.SingleOrDefault(f => f.Path == "CodeSignInProofMinutes");
+
+        field.Should().NotBeNull("Passkeys:CodeSignInProofMinutes must be editable from the console");
+        field!.Kind.Should().Be(SettingKind.Int);
+        Normalize(field.DefaultValue).Should().Be("5");
+        Normalize(ResolveProperty(SettingsInstances["Passkeys"], "CodeSignInProofMinutes")).Should().Be("5");
+        field.Min.Should().Be(PasskeySettings.MinCodeSignInProofMinutes).And.Be(1);
+        field.Max.Should().Be(PasskeySettings.MaxCodeSignInProofMinutes).And.Be(15);
+        field.RestartRequired.Should().BeFalse("the gate reads it per request");
+
+        new PasskeySettings { CodeSignInProofMinutes = 0 }.CodeSignInProof.Should().Be(TimeSpan.FromMinutes(1));
+        new PasskeySettings { CodeSignInProofMinutes = 99 }.CodeSignInProof.Should().Be(TimeSpan.FromMinutes(15));
+        new PasskeySettings().CodeSignInProof.Should().Be(TimeSpan.FromMinutes(5));
     }
 
     /// <summary>
