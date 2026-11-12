@@ -164,11 +164,13 @@ interface AuthContextValue {
   /**
    * Signs in with the password. `staySignedIn` is the sign-in page's "Stay
    * signed in" box (OI-154): absent or false, the sign-in ends with the browser.
+   * `botToken` is the page's bot-check token (S13), omitted when there is none.
    */
   login: (
     email: string,
     password: string,
-    staySignedIn?: boolean
+    staySignedIn?: boolean,
+    botToken?: string
   ) => Promise<LoginResult>
   loginExternal: (
     provider: string,
@@ -482,13 +484,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (
       email: string,
       password: string,
-      staySignedIn = false
+      staySignedIn = false,
+      botToken?: string
     ): Promise<LoginResult> => {
       // The browser identifier is no longer passed here. It rides on every
       // request as a header set by the API client, so the three flows that used
       // to remember it and the two that forgot are now identical.
       const { data, error } = await api.POST("/api/v1/Auth/login", {
-        body: { email, password, staySignedIn },
+        // The bot-check token is omitted, not null, when there is none (BD2).
+        body: { email, password, staySignedIn, ...(botToken ? { botToken } : {}) },
       })
       if (error || !data) {
         throw error ?? new Error("Login failed")

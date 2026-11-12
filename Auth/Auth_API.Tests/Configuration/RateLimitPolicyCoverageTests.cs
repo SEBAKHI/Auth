@@ -254,6 +254,35 @@ public class RateLimitPolicyCoverageTests
             .Should().BeEmpty("a limit no policy reads throttles nothing while looking like a setting");
     }
 
+    /// <summary>
+    /// S13 (RL4, ARR-0412): the bot check's per-address allowance has no endpoint, so no
+    /// <c>[EnableRateLimiting]</c> names it; its pair is named here, in its three homes, so the
+    /// walk above cannot lose it unseen.
+    /// </summary>
+    [Theory]
+    [InlineData("BotFallbackPermitLimit", 5)]
+    [InlineData("BotFallbackWindowSeconds", 300)]
+    public void TheBotFallbackAllowance_ReadsTheSameNumberFromAllThreeOfItsHomes(string field, long expected)
+    {
+        var root = SolutionDirectory();
+        var program = File.ReadAllText(Path.Combine(root, "Auth_API", "Program.cs"));
+
+        program.Should().Contain($"GetValue(\"RateLimiting:{field}\", {expected})", "Program.cs reads it with this fallback");
+
+        using var settings = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(root, "Auth_API", "appsettings.json")),
+            new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+        settings.RootElement.GetProperty("RateLimiting").GetProperty(field).GetInt64().Should().Be(expected);
+
+        var registryField = SystemSettingsRegistry.TryGetField(SystemSettingsRegistry.TryGet("RateLimiting")!, field);
+        registryField.Should().NotBeNull();
+        Convert.ToInt64(registryField!.DefaultValue).Should().Be(expected);
+        if (field == "BotFallbackPermitLimit")
+        {
+            registryField.Max.Should().Be(10, "at most half the login default: an outage never hands a robot more");
+        }
+    }
+
     private static string SolutionDirectory()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

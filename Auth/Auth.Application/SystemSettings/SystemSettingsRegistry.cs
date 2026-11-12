@@ -371,7 +371,14 @@ public static class SystemSettingsRegistry
                 // spends one login permit (at external-login) and one of these, never two of the
                 // login twenty. Appended last, as the pairs above were.
                 new SettingFieldDefinition("ExternalCodePermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
-                new SettingFieldDefinition("ExternalCodeWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
+                new SettingFieldDefinition("ExternalCodeWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // The bot check's per-address allowance (S13, BD6, "bot-fallback"): how many sign-ins,
+                // code starts and reset requests one address may send while the check cannot run
+                // (Cloudflare unreachable, keys not in place). A policy with no endpoint. At most half
+                // the login default, so an outage never hands a robot more than the login policy.
+                // Appended last, as the pairs above were.
+                new SettingFieldDefinition("BotFallbackPermitLimit", SettingKind.Int, Min: 1, Max: 10, DefaultValue: 5),
+                new SettingFieldDefinition("BotFallbackWindowSeconds", SettingKind.Int, Min: 60, Max: 3600, DefaultValue: 300)
             ]),
 
         new SettingSectionDefinition(
@@ -494,6 +501,31 @@ public static class SystemSettingsRegistry
                 // rollback for a client that cannot. Read per sign-in, so either
                 // direction takes effect without a restart.
                 new SettingFieldDefinition("RequireNonce", SettingKind.Bool, DefaultValue: true)
+            ]),
+
+        new SettingSectionDefinition(
+            // S13: Cloudflare Turnstile on the anonymous sign-in surfaces. Every field is read
+            // per request (IOptionsMonitor), so none needs a restart. No array.
+            Key: "BotDefense",
+            ConfigRoot: "BotDefense",
+            Group: SettingGroups.Access,
+            Editable: true,
+            Fields:
+            [
+                new SettingFieldDefinition("Mode", SettingKind.Enum, AllowedValues: ["Off", "Monitor", "Enforce"], DefaultValue: "Off"),
+                new SettingFieldDefinition("FailMode", SettingKind.Enum, AllowedValues: ["PerSurface", "Closed"], DefaultValue: "PerSurface"),
+                // The widget's public key. In Production a testing sitekey is refused, and so is
+                // an empty one while the secret is set (SystemSettingsValueValidator).
+                new SettingFieldDefinition("SiteKey", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition(
+                    "SiteverifyTimeoutMs",
+                    SettingKind.Int,
+                    Min: Configuration.BotDefenseSettings.MinSiteverifyTimeoutMs,
+                    Max: Configuration.BotDefenseSettings.MaxSiteverifyTimeoutMs,
+                    DefaultValue: 2000),
+                // Secret-owned (SecretOwnedKeys, by its exact name): set on the console's Secrets
+                // page, shown here as a link to it, like Google's client secret.
+                new SettingFieldDefinition("TurnstileSecret", SettingKind.String, Sensitive: true)
             ]),
 
         new SettingSectionDefinition(

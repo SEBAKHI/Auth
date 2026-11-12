@@ -379,6 +379,16 @@ export const tr: TranslationResources = {
     sidebarDescription: "Ana bölümlere bağlantılar.",
     toggleSidebar: "Gezinmeyi aç veya kapat",
   },
+  botCheck: {
+    label: "Güvenlik denetimi",
+    completeTheCheck: "Yukarıdaki güvenlik denetimini tamamlayın, ardından yeniden deneyin.",
+    blockedTitle: "Güvenlik denetimi burada çalışamıyor",
+    blockedBody: "Bu tarayıcı veya ağ Cloudflare denetimini tamamlayamıyor. Yeniden deneyin, başka bir tarayıcı veya ağ kullanın ya da başka bir yolla oturum açın.",
+    loadFailedTitle: "Güvenlik denetimi yüklenmedi",
+    loadFailedBody: "Bir tarayıcı eklentisi ya da ağ gibi bir şey Cloudflare denetiminin yüklenmesini engelledi. Yeniden deneyin ya da başka bir tarayıcı veya ağ kullanın.",
+    configFailedTitle: "Güvenlik denetimi hazır değil",
+    configFailedBody: "Ayarları yüklenemedi. Yeniden deneyin; sorun sürerse istek yine de geçebilir.",
+  },
   auth: {
     mfaPasskeyAlreadyEnrolled: "Hesabınızda zaten bir geçiş anahtarı (passkey) var. Uygulamaya devam edin; oturum açmanız istenirse geçiş anahtarını kullanın.",
     mfaRequiredPasskey: "Hesabınızın ikinci faktörü bir geçiş anahtarı (passkey). Devam etmek için onunla oturum açın: geçiş anahtarı iki adımı birlikte kanıtlar.",
@@ -1528,6 +1538,7 @@ export const tr: TranslationResources = {
       passwordCreated: "Parolası olmayan bir hesaba parola eklendi",
       passwordChanged: "Parola değiştirildi",
       passwordRemoved: "Parola kaldırıldı",
+      passwordResetLinkIssued: "Oturum açmış bir kişinin isteğiyle parola sıfırlama bağlantısı gönderildi",
       twofactorEnabled: "İki adımlı doğrulama etkinleştirildi",
       twofactorDisabled: "İki adımlı doğrulama devre dışı bırakıldı",
       twofactorRecoveryCodesRegenerated: "Kurtarma kodları yeniden oluşturuldu",
@@ -1634,6 +1645,7 @@ export const tr: TranslationResources = {
         "E-posta sağlayıcınıza aittir — sistem yalnızca onların verdiğini saklar.",
       googleClientSecret:
         "Google Cloud Console'a aittir — sistem yalnızca onun verdiğini saklar. Sunucu her Google ile oturum açmayı bununla tamamlar.",
+      turnstileSecret: "Bu dağıtımın Turnstile widget'ı için Cloudflare tarafından verilir: sunucu bununla Cloudflare'e bir kişinin bot denetimini geçip geçmediğini sorar.",
       connectionString:
         "Veritabanı sunucusuna aittir. Saklanmadan önce sunucuya karşı denetlenir.",
     },
@@ -1653,6 +1665,11 @@ export const tr: TranslationResources = {
     setSmtpPassword: "SMTP parolasını ayarla",
     setSmtpPasswordHint:
       "Şifreli saklanır ve Email:Password ayarı yerine kullanılır. Doğrulamak için yeniden başlattıktan sonra test e-postası gönderin.",
+    setTurnstileSecret: "Turnstile gizli anahtarını ayarla",
+    setTurnstileSecretHint: "Bu dağıtımın Turnstile widget'ının gizli anahtarı, Cloudflare panelinden. API yeniden başlatıldıktan sonra geçerli olur. Canlı ortamda (Production) Cloudflare'in test gizli anahtarları reddedilir.",
+    clearTurnstileSecretTitle: "Turnstile gizli anahtarı kaldırılsın mı?",
+    clearTurnstileSecretBody: "API'nin bir sonraki yeniden başlatılmasından sonra bot denetiminin gizli anahtarı olmaz. Site anahtarı ayarlı ve mod Zorunlu olduğu sürece her oturum açma için \"denetim çalışamadığında\" ayarı karar verir.",
+    turnstileSecretCleared: "Kaldırıldı. Uygulamak için API'yi yeniden başlatın.",
     setGoogleClientSecret: "Google istemci gizli anahtarını ayarla",
     setGoogleClientSecretHint:
       "Google Cloud Console → Kimlik bilgileri → OAuth istemciniz. Şifreli saklanır. Ayarlanıp API yeniden başlatılana kadar Google ile oturum açma başarısız olur.",
@@ -2789,6 +2806,10 @@ export const tr: TranslationResources = {
       passkeyLookupWindowSeconds: "Geçiş anahtarı denetimi penceresi (saniye)",
       passkeyLookupWindowSecondsHint:
         "Yukarıdaki geçiş anahtarı denetimi sayısının ölçüldüğü süre; diğerleriyle aynı sabit pencere mekaniğiyle: pencere bitince sayaç sıfıra döner. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
+      botFallbackPermitLimit: "Bot denetimi çalışamazken adres başına istek",
+      botFallbackPermitLimitHint: "Yüzey başına ayarıyla Zorunlu modda, Cloudflare'e ulaşılamadığı ya da anahtarlar ayarlı olmadığı sürece: bir istemci IP'sinin bir pencerede hâlâ gönderebileceği oturum açma, kod ve sıfırlama isteği sayısı. Kayıtlar reddedilir. Bilerek küçük tutulur: en fazla kimlik doğrulama sınırının yarısı.",
+      botFallbackWindowSeconds: "Bu payın penceresi (saniye)",
+      botFallbackWindowSecondsHint: "Yukarıdaki payın sayıldığı süre. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
       externalCodePermitLimit: "Pencere başına Google oturum açma kodu değişimi",
       externalCodePermitLimitHint:
         "Tek bir istemci IP'sinin bir pencerede bu sunucuya Google oturum açma kodunu Google'da kaç kez değiştirtebileceği; sonrası 429 ile reddedilir. Her Google ile oturum açma bunlardan birini ve bir kimlik doğrulama denemesini (ardından gelen oturum açma) harcar; bu yüzden dakikada yirmi, kimlik doğrulama varsayılanına eşittir. Burada tahmin edilebilecek bir şey yoktur: bu sayı, bir adresin sunucuya Google'ı ne sıklıkla çağırtabileceğini sınırlar. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
@@ -2870,6 +2891,28 @@ export const tr: TranslationResources = {
       passkeyLookupWindowSeconds: "Geçiş anahtarı denetimi penceresi (saniye)",
       passkeyLookupWindowSecondsHint:
         "Geçiş anahtarı denetimlerinin uçta sayıldığı süre, aynı sabit pencere mekaniğiyle. Değişiklik ağ geçidine anında değil yaklaşık 30 saniye içinde ulaşır, çünkü ayarlarını kendisi çeker.",
+    },
+    botDefense: {
+      title: "Bot denetimi (Cloudflare Turnstile)",
+      description: "Oturum açma, kayıt, kod isteği ve parola sıfırlamanın arkasında bir robot değil bir insan olduğunu, sunucu onlar için iş yapmadan önce doğrulayan denetim. Site anahtarı (sitekey) herkese açıktır; gizli anahtar Gizli bilgi yönetiminde ayarlanır.",
+      mode: "Mod",
+      modeHint: "Kapalı: denetim yok, Cloudflare'den hiçbir şey yüklenmez. İzleme: denetim çalışır ve günlüğe yazılır ama hiçbir şey reddedilmez; henüz kimseyi korumaz, gerçek oturum açmaların ne kadarının geçtiğini gösterir. Zorunlu: geçerli belirteci olmayan istek reddedilir. Zorunluya ancak izleme her uygulama için 7 gün boyunca en az %99 geçiş gösterdikten sonra geçin.",
+      modeOptions: {
+        Off: "Kapalı",
+        Monitor: "İzleme (yalnızca günlük)",
+        Enforce: "Zorunlu",
+      },
+      failMode: "Denetim çalışamadığında",
+      failModeHint: "Cloudflare'e ulaşılamadığı ya da anahtarlar ayarlı olmadığı sürece Zorunlu modun yaptığı. Yüzey başına: kayıt reddedilir; oturum açma, kod ve sıfırlama istekleri adres başına birkaç kez geçer (Hız sınırlama altındaki pay). Kapalı: yöneticiler dahil dördü de denetim yeniden çalışana kadar reddedilir.",
+      failModeOptions: {
+        PerSurface: "Yüzey başına (önerilen)",
+        Closed: "Kapalı (her şeyi reddet)",
+      },
+      siteKey: "Site anahtarı (sitekey)",
+      siteKeyHint: "Bu dağıtımın kendi Turnstile widget'ının herkese açık anahtarı, Cloudflare panelinden. Canlı ortamda (Production) Cloudflare'in test site anahtarı reddedilir; gizli anahtar ayarlıyken boş anahtar da reddedilir: denetimi kapatmak için modu Kapalı yapın.",
+      siteverifyTimeoutMs: "Doğrulama süre sınırı (ms)",
+      siteverifyTimeoutMsHint: "Cloudflare'de bir doğrulamanın ikinci deneme dahil sürebileceği en uzun süre. Sonrasında denetim kullanılamaz sayılır ve yukarıdaki ayar karar verir.",
+      turnstileSecret: "Turnstile gizli anahtarı",
     },
     externalAuth: {
       requireNonce: "Sunucunun verdiği nonce zorunlu olsun",

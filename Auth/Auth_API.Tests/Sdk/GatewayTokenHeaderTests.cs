@@ -8,6 +8,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Auth_API.Tests.Sdk;
 
+// LoginAsync is obsolete since S13 (the password sign-in carries a bot check the SDK cannot
+// answer). It still sends the gateway header like every call of the main client, and the
+// header is all these tests read, so they keep it as their call.
+#pragma warning disable CS0618
+
 /// <summary>
 /// The SDK attached <c>X-Gateway-Token</c> twice — once in the named-client
 /// registration and once again in <c>AuthSystemClient.CreateClient</c>.

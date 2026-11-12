@@ -45,6 +45,7 @@ import {
   type PendingEmailCode,
 } from "../email-code"
 import { useFlowBranding } from "../flow-branding"
+import { useBotCheck } from "../bot-defense/bot-check"
 import { useLoginCompletion, type CompletionOptions } from "../login-completion"
 import { offerCredential } from "../offer-credential"
 import { PasswordField } from "../password-field"
@@ -99,7 +100,7 @@ export function EmailCodeFlow({
   /** What this sign-in adds to the completion rule (an invitation's landing). */
   completionOptions?: CompletionOptions
   /** How a new code is asked for: the sign-up passes its own start. */
-  startCode?: (email: string, preferredLanguage: string) => Promise<PendingEmailCode>
+  startCode?: (email: string, preferredLanguage: string, botToken?: string) => Promise<PendingEmailCode>
   /**
    * The account signs in with its passkey alone (S20, D-S20-4 (ii-s)): the code
    * matched, and the sign-in, or the recovery, answered `Auth.PasskeyRequired`.
@@ -304,9 +305,11 @@ function CodeStage({
   onChangeAddress: () => void
   onResent: (pending: PendingEmailCode) => void
   onVerified: (otp: string, next: EmailCodeNextStep) => Promise<void>
-  startCode: (email: string, preferredLanguage: string) => Promise<PendingEmailCode>
+  startCode: (email: string, preferredLanguage: string, botToken?: string) => Promise<PendingEmailCode>
 }) {
   const { t, i18n } = useTranslation()
+  // S13: a new code is a code start, which carries the bot check's token.
+  const botCheck = useBotCheck("email-code")
   const [otp, setOtp] = React.useState("")
   const [errorMessage, setErrorMessage] = React.useState<string | null>(notice)
   const [submitting, setSubmitting] = React.useState(false)
@@ -368,11 +371,16 @@ function CodeStage({
     if (!canResend) return
     setRequesting(true)
     setErrorMessage(null)
+    const bot = await botCheck.prepare("email-code")
+    if (!bot.proceed) {
+      setRequesting(false)
+      return
+    }
     // Started before the answer: a refusal must not leave the button ready to
     // be hammered.
     setCooldownUntil(new Date(Date.now() + RESEND_COOLDOWN_MS))
     try {
-      onResent(await startCode(pending.email, i18n.language))
+      onResent(await startCode(pending.email, i18n.language, bot.token))
       // The new code voids the old one, and its five tries are new too.
       setOtp("")
       setExhausted(false)
@@ -380,6 +388,7 @@ function CodeStage({
       setErrorMessage(getErrorMessage(error))
     } finally {
       setRequesting(false)
+      if (bot.token) botCheck.spent()
     }
   }
 
@@ -425,6 +434,8 @@ function CodeStage({
           {submitting ? <Spinner data-icon="inline-start" /> : null}
           {t("auth.verify")}
         </Button>
+
+        {botCheck.field}
 
         <Button
           type="button"

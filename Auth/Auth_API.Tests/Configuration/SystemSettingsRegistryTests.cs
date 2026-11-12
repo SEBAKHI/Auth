@@ -56,6 +56,11 @@ public class SystemSettingsRegistryTests
     [InlineData("Keyring:IssueUnderPurposeKeys", false)]
     // The legacy encrypted HMAC key is gone with its setting (S11).
     [InlineData("Jwt:RefreshTokenEncryptedKey", false)]
+    // S13: the Turnstile secret by its exact name; the public sitekey beside it stays editable,
+    // which an owned "BotDefense:" prefix would take away.
+    [InlineData("BotDefense:TurnstileSecret", true)]
+    [InlineData("BotDefense:SiteKey", false)]
+    [InlineData("BotDefense:Mode", false)]
     public void TheKeyrings_AreSecretOwned_ByTheirOwnPrefixes(string key, bool owned)
     {
         SecretOwnedKeys.IsSecretOwned(key).Should().Be(owned);

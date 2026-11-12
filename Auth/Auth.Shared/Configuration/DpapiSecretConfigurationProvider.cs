@@ -192,6 +192,12 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
             Data["ExternalAuth:Google:ClientSecret"] = secrets.GoogleClientSecret;
         }
 
+        // Cloudflare Turnstile's secret for the bot check (S13); issued by Cloudflare, never generated
+        if (!string.IsNullOrEmpty(secrets.TurnstileSecretKey))
+        {
+            Data["BotDefense:TurnstileSecret"] = secrets.TurnstileSecretKey;
+        }
+
         // Email settings - SMTP password
         if (!string.IsNullOrEmpty(secrets.SmtpPassword))
         {

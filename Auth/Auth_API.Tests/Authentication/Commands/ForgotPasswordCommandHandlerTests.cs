@@ -1,4 +1,5 @@
 using Auth.Application.Configuration;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Authentication.ForgotPassword;
 using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
@@ -28,6 +29,8 @@ public class ForgotPasswordCommandHandlerTests
     private readonly Mock<INotificationService> _notificationServiceMock;
     private readonly Mock<IEnvironmentInfo> _environmentInfoMock;
     private readonly Mock<ILogger<ForgotPasswordCommandHandler>> _loggerMock;
+    // S13 (D7): the link is issued by the shared issuer, which writes the reset-link line.
+    private readonly Mock<ILogger<PasswordResetLinkIssuer>> _issuerLoggerMock;
     private readonly EmailSettings _emailSettings;
     private readonly ForgotPasswordCommandHandler _handler;
 
@@ -43,6 +46,7 @@ public class ForgotPasswordCommandHandlerTests
         // shut. Mirrors SecretChallengeTestContext.
         _environmentInfoMock = new Mock<IEnvironmentInfo>();
         _loggerMock = new Mock<ILogger<ForgotPasswordCommandHandler>>();
+        _issuerLoggerMock = new Mock<ILogger<PasswordResetLinkIssuer>>();
 
         _tokenGeneratorMock.Setup(g => g.Generate()).Returns(GeneratedToken);
         _tokenKeyServiceMock.MapAll(token => $"hmac({token})");
@@ -59,14 +63,21 @@ public class ForgotPasswordCommandHandlerTests
             FrontendBaseUrl = "https://accounts.example.com"
         };
 
-        _handler = new ForgotPasswordCommandHandler(
-            _userRepositoryMock.Object,
+        // The real issuer over the same mocks: these tests hold the anonymous request's whole
+        // behaviour, which moved behind IPasswordResetLinkIssuer without changing (S13, D7).
+        var issuer = new PasswordResetLinkIssuer(
             _passwordResetTokenRepositoryMock.Object,
             _tokenGeneratorMock.Object,
             _tokenKeyServiceMock,
             _notificationServiceMock.Object,
             TestHelpers.CreateOptions(_emailSettings),
             _environmentInfoMock.Object,
+            _issuerLoggerMock.Object);
+
+        _handler = new ForgotPasswordCommandHandler(
+            _userRepositoryMock.Object,
+            issuer,
+            TestHelpers.CreateOptions(_emailSettings),
             _loggerMock.Object);
     }
 
@@ -280,11 +291,11 @@ public class ForgotPasswordCommandHandlerTests
     }
 
     /// <summary>
-    /// The reset-link line is the only Warning this handler writes - everything else
+    /// The reset-link line is the only Warning the issuer writes - everything else
     /// is Information or Error - so the level alone identifies it.
     /// </summary>
     private void VerifyResetLinkLogged(Times times) =>
-        _loggerMock.Verify(
+        _issuerLoggerMock.Verify(
             l => l.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),

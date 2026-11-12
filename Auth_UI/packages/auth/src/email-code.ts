@@ -70,11 +70,13 @@ export function toEmailCodeNextStep(
 
 export async function startEmailCode(
   email: string,
-  preferredLanguage: string
+  preferredLanguage: string,
+  botToken?: string
 ): Promise<PendingEmailCode> {
   const data = await unwrap(
     api.POST("/api/v1/Auth/email-code/start", {
-      body: { email, preferredLanguage },
+      // The bot-check token (S13) is omitted, not null, when there is none (BD2).
+      body: { email, preferredLanguage, ...(botToken ? { botToken } : {}) },
     })
   )
   return {

@@ -4,9 +4,20 @@ import { HOSTS } from "./topology"
 
 /**
  * The hosts whose pages a test writes: the two attackers, the fake linked application, and
- * the stand-in for Google's authorization page (S02 PR D).
+ * the stand-ins for Google's authorization page (S02 PR D) and Cloudflare Turnstile (S13).
  */
-export type AttackerHost = typeof HOSTS.apex | typeof HOSTS.attacker | typeof HOSTS.linkedApp | typeof HOSTS.google
+export type AttackerHost =
+  | typeof HOSTS.apex
+  | typeof HOSTS.attacker
+  | typeof HOSTS.linkedApp
+  | typeof HOSTS.google
+  | typeof HOSTS.cloudflare
+
+/** The third parties a test stands in for, by the name an unserved request is reported with. */
+const STAND_INS: ReadonlyMap<string, string> = new Map([
+  [HOSTS.google, "Google"],
+  [HOSTS.cloudflare, "Cloudflare"],
+])
 
 /**
  * The two attacker origins: https://example.com (the apex - SAME-SITE with the
@@ -17,11 +28,12 @@ export type AttackerHost = typeof HOSTS.apex | typeof HOSTS.attacker | typeof HO
  */
 export class AttackerPages {
   readonly #pages = new Map<string, { html: string; headers: Record<string, string> }>()
-  // Requests to the Google stand-in at a path no test served. Before the stand-in, any request
-  // to accounts.google.com failed the egress check; this keeps that true for every request a
-  // test did not serve a page for (REVIEW 162 F8.9). Not emptied by clear(): the egress
-  // fixture reads it at the test's end, after this fixture's own teardown.
-  readonly #unservedGoogle: string[] = []
+  // Requests to a third party's stand-in at a path no test served. Before the stand-ins, any
+  // request to accounts.google.com or challenges.cloudflare.com failed the egress check; this
+  // keeps that true for every request a test did not serve a page for (REVIEW 162 F8.9).
+  // Not emptied by clear(): the egress fixture reads it at the test's end, after this
+  // fixture's own teardown.
+  readonly #unservedStandIns: Array<{ name: string; url: string }> = []
 
   /** Serves `html` at https://<host><path> for the rest of the test. */
   serve(host: AttackerHost, path: string, html: string, headers: Record<string, string> = {}) {
@@ -34,23 +46,25 @@ export class AttackerPages {
     this.#pages.clear()
   }
 
-  /** The Google stand-in's requests at a path no test served, oldest first. */
-  unservedGoogle(): readonly string[] {
-    return [...this.#unservedGoogle]
+  /** The stand-ins' requests at a path no test served, oldest first, each with its third party. */
+  unservedStandIns(): ReadonlyArray<{ name: string; url: string }> {
+    return [...this.#unservedStandIns]
   }
 
-  clearUnservedGoogle() {
-    this.#unservedGoogle.length = 0
+  clearUnservedStandIns() {
+    this.#unservedStandIns.length = 0
   }
 
   answer(host: string, url: URL, response: ServerResponse) {
     const page = this.#pages.get(`${host}${url.pathname}`)
     if (!page) {
-      if (host === HOSTS.google) this.#unservedGoogle.push(`https://${host}${url.pathname}`)
+      const standIn = STAND_INS.get(host)
+      if (standIn) this.#unservedStandIns.push({ name: standIn, url: `https://${host}${url.pathname}` })
       response.writeHead(404, { "content-type": "text/plain; charset=utf-8" })
       response.end(`no attacker page at https://${host}${url.pathname}`)
       return
     }
+    // A test may serve a script (Cloudflare's api.js): its headers name its own content type.
     response.writeHead(200, { "content-type": "text/html; charset=utf-8", ...page.headers })
     response.end(page.html)
   }

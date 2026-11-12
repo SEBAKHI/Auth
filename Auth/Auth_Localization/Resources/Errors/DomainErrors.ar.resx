@@ -1810,4 +1810,16 @@
   <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
     <value>لا يمكن إخفاء إلا لغةٍ من اللغات التي يوفّرها التطبيقان.</value>
   </data>
+  <data name="BotDefense.TokenMissing" xml:space="preserve">
+    <value>تعذّر التأكد من أنك لست برنامجًا آليًّا. انتظر حتى ينتهي التحقق في الصفحة، ثم أعد المحاولة.</value>
+  </data>
+  <data name="BotDefense.TokenRejected" xml:space="preserve">
+    <value>لم يُقبل التحقق من أنك لست برنامجًا آليًّا. سيُعاد التحقق تلقائيًّا، ثم أعد المحاولة.</value>
+  </data>
+  <data name="BotDefense.Unavailable" xml:space="preserve">
+    <value>لا يمكن الآن التأكد من أنك لست برنامجًا آليًّا. أعد المحاولة بعد بضع دقائق.</value>
+  </data>
+  <data name="BotDefense.TestingKeyInProduction" xml:space="preserve">
+    <value>مفاتيح الاختبار من Cloudflare تجتاز كل تحقق، فلا تُستعمل في بيئة الإنتاج (Production). استعمل مفاتيح الـ widget الخاص بك في Turnstile.</value>
+  </data>
 </root>

@@ -17,4 +17,11 @@ public interface IEnvironmentInfo
     /// Gets whether the process is running in the Development environment.
     /// </summary>
     bool IsDevelopment { get; }
+
+    /// <summary>
+    /// Gets whether the process is running in the Production environment. What only
+    /// Production refuses keys on it (S13: Cloudflare's testing keys, which pass every
+    /// check, are refused there and accepted in every other environment).
+    /// </summary>
+    bool IsProduction { get; }
 }

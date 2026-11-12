@@ -8,6 +8,11 @@ namespace Auth.Shared.Configuration;
 /// key material (RSA signing key pair, HMAC key, gateway token) and formatting keys as PEM.
 /// Used by every storage mode so the generated material is identical regardless of
 /// where it is ultimately stored (plain text, certificate-protected file, or DPAPI file).
+/// <para>
+/// It never generates a vendor-issued secret (<see cref="RequiredSecretsRegistry.VendorIssued"/>,
+/// such as Cloudflare Turnstile's secret key): the vendor issues it and the owner transcribes it,
+/// so it has no method here, and a value made up locally would only look provisioned.
+/// </para>
 /// </summary>
 public static class KeyMaterialGenerator
 {

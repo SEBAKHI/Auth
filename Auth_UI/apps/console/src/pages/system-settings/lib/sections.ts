@@ -35,6 +35,7 @@ export const SECTION_I18N: Record<string, string> = {
   RateLimiting: "rateLimiting",
   GatewayRateLimiting: "gatewayRateLimiting",
   ExternalAuth: "externalAuth",
+  BotDefense: "botDefense",
   Registration: "registration",
   Organizations: "organizations",
   IdentityProvider: "identityProvider",
@@ -170,6 +171,11 @@ export const HIGH_IMPACT_PATHS: Record<string, string[]> = {
     "AdminPermitLimit",
   ],
   ExternalAuth: ["RequireNonce"],
+  // The bot check (S13): Enforce refuses every sign-in without a token, Closed
+  // refuses them all, administrators included, while Cloudflare cannot be
+  // reached, and a mistyped sitekey under Enforce leaves no widget that can
+  // make a token. Each locks people out the moment it is saved.
+  BotDefense: ["Mode", "FailMode", "SiteKey"],
   IdentityProvider: ["IdpSessionCookieName"],
 }
 

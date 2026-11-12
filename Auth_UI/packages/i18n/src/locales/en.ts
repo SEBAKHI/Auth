@@ -386,6 +386,16 @@ export const en = {
     sidebarDescription: "Links to the main sections.",
     toggleSidebar: "Toggle navigation",
   },
+  botCheck: {
+    label: "Security check",
+    completeTheCheck: "Complete the security check above, then try again.",
+    blockedTitle: "The security check can't run here",
+    blockedBody: "This browser or network can't complete Cloudflare's check. Try again, use another browser or network, or sign in another way.",
+    loadFailedTitle: "The security check didn't load",
+    loadFailedBody: "Something stopped Cloudflare's check from loading, such as a browser extension or the network. Try again, or use another browser or network.",
+    configFailedTitle: "The security check isn't ready",
+    configFailedBody: "Its settings could not be loaded. Try again; if it keeps failing, the request may still go through.",
+  },
   auth: {
     mfaPasskeyAlreadyEnrolled: "Your account already has a passkey. Continue to the application; if you are asked to sign in, use the passkey.",
     mfaRequiredPasskey: "Your account's second factor is a passkey. Sign in with it to continue: a passkey proves both steps at once.",
@@ -1536,6 +1546,7 @@ export const en = {
       passwordCreated: "Password added to an account that had none",
       passwordChanged: "Password changed",
       passwordRemoved: "Password removed",
+      passwordResetLinkIssued: "Password reset link sent at a signed-in person's request",
       twofactorEnabled: "Two-factor authentication enabled",
       twofactorDisabled: "Two-factor authentication disabled",
       twofactorRecoveryCodesRegenerated: "Recovery codes regenerated",
@@ -1649,6 +1660,7 @@ export const en = {
         "Owned by your mail provider — the system only stores what they issued.",
       googleClientSecret:
         "Owned by Google Cloud Console — the system only stores what it issued. The server finishes every Google sign-in with it.",
+      turnstileSecret: "Issued by Cloudflare for the deployment's Turnstile widget: the server asks Cloudflare with it whether a person passed the bot check.",
       connectionString:
         "Owned by the database server. Checked against it before it is stored.",
     },
@@ -1668,6 +1680,11 @@ export const en = {
     setSmtpPassword: "Set SMTP password",
     setSmtpPasswordHint:
       "Stored encrypted and used instead of the Email:Password setting. Send a test email after restarting to confirm it.",
+    setTurnstileSecret: "Set Turnstile secret",
+    setTurnstileSecretHint: "The secret key of the deployment's Turnstile widget, from the Cloudflare dashboard. Applies after the API restarts. In Production Cloudflare's testing secrets are refused.",
+    clearTurnstileSecretTitle: "Remove the Turnstile secret?",
+    clearTurnstileSecretBody: "After the next API restart the bot check has no secret. While a sitekey is set and the mode is Enforce, the setting for when the check cannot run then decides for every sign-in.",
+    turnstileSecretCleared: "Removed. Restart the API to apply it.",
     setGoogleClientSecret: "Set Google client secret",
     setGoogleClientSecretHint:
       "From Google Cloud Console → Credentials → your OAuth client. Stored encrypted. Until it is set and the API restarts, Google sign-in fails.",
@@ -2803,6 +2820,10 @@ export const en = {
       passkeyLookupWindowSeconds: "Passkey check window (seconds)",
       passkeyLookupWindowSecondsHint:
         "The span the passkey check count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new client windows the moment you save.",
+      botFallbackPermitLimit: "Requests per address while the bot check cannot run",
+      botFallbackPermitLimitHint: "Under Enforce with the per-surface setting, while Cloudflare cannot be reached or the keys are not in place: how many sign-ins, codes and reset requests one client IP may still send in a window. Sign-ups are refused. Kept small on purpose: at most half the authentication limit.",
+      botFallbackWindowSeconds: "Window of that allowance (seconds)",
+      botFallbackWindowSecondsHint: "The span the allowance above is counted over. Applies to new client windows the moment you save.",
       externalCodePermitLimit: "Google sign-in code exchanges per window",
       externalCodePermitLimitHint:
         "How many times one client IP may have this server exchange a Google sign-in code at Google in a window, before it is refused with 429. One Google sign-in spends one of these and one authentication attempt (the sign-in that follows), so twenty a minute equals the authentication default. Nothing can be guessed here: this bounds how often one address can make the server call Google. Applies to new client windows the moment you save.",
@@ -2883,6 +2904,28 @@ export const en = {
       passkeyLookupWindowSeconds: "Passkey check window (seconds)",
       passkeyLookupWindowSecondsHint:
         "The span passkey checks are counted over at the edge, on the same fixed-window mechanic. A change reaches the gateway within about 30 seconds rather than instantly, because it pulls its own settings.",
+    },
+    botDefense: {
+      title: "Bot check (Cloudflare Turnstile)",
+      description: "A check that a person, not a robot, is behind the sign-in, the sign-up, the code and the password reset requests, before the server does any work for them. The sitekey is public; the secret is set under Secret management.",
+      mode: "Mode",
+      modeHint: "Off: no check and nothing loaded from Cloudflare. Monitor: the check runs and is logged, but nothing is refused: it protects nobody yet, it shows how many real sign-ins pass. Enforce: a request without a valid token is refused. Move to Enforce only after Monitor has shown at least 99 % passing for each app for 7 days.",
+      modeOptions: {
+        Off: "Off",
+        Monitor: "Monitor (logs only)",
+        Enforce: "Enforce",
+      },
+      failMode: "When the check cannot run",
+      failModeHint: "What Enforce does while Cloudflare cannot be reached or the keys are not in place. Per surface: a sign-up is refused, and a sign-in, a code or a reset request goes on a few times per address (the allowance under Rate limiting). Closed: all four are refused, administrators included, until the check runs again.",
+      failModeOptions: {
+        PerSurface: "Per surface (recommended)",
+        Closed: "Closed (refuse everything)",
+      },
+      siteKey: "Sitekey",
+      siteKeyHint: "The public key of the deployment's own Turnstile widget, from the Cloudflare dashboard. In Production one of Cloudflare's testing sitekeys is refused, and so is an empty one while the secret is set: to switch the check off, set Mode to Off.",
+      siteverifyTimeoutMs: "Verification time limit (ms)",
+      siteverifyTimeoutMsHint: "How long one verification may take at Cloudflare, a second attempt included. Past it the check counts as unavailable and the setting above decides.",
+      turnstileSecret: "Turnstile secret",
     },
     externalAuth: {
       requireNonce: "Require a server-issued nonce",

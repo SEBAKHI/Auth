@@ -323,12 +323,24 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
         "ApiKeyValidateWindowSeconds",
         "RegistrationFollowupPermitLimit",
         "RegistrationFollowupWindowSeconds",
+        // X02 PR B (#38) and OI-194 declared these three pairs without placing
+        // them, so they fell under no heading at the card's foot until S13's
+        // guard (sections.test.ts) asked for every field.
+        "TwoFactorEmailCodePermitLimit",
+        "TwoFactorEmailCodeWindowSeconds",
+        "AppReadApplicationPermitLimit",
+        "AppReadApplicationWindowSeconds",
+        "AppReadAddressPermitLimit",
+        "AppReadAddressWindowSeconds",
         // OI-280: the sign-in page's passkey check after the address.
         "PasskeyLookupPermitLimit",
         "PasskeyLookupWindowSeconds",
         // S02 PR D: the Google sign-in's code exchange.
         "ExternalCodePermitLimit",
         "ExternalCodeWindowSeconds",
+        // S13: what still goes through while the bot check cannot run.
+        "BotFallbackPermitLimit",
+        "BotFallbackWindowSeconds",
       ],
     },
     { kind: "group", key: "concurrency", claims: ["ImageUploadConcurrencyLimit"] },

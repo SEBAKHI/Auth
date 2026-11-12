@@ -1808,4 +1808,16 @@
   <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
     <value>صرف وہی زبان چھپائی جا سکتی ہے جو ایپس فراہم کرتی ہیں۔</value>
   </data>
+  <data name="BotDefense.TokenMissing" xml:space="preserve">
+    <value>یہ تصدیق نہیں ہو سکی کہ آپ روبوٹ نہیں ہیں۔ صفحے پر جانچ مکمل ہونے کا انتظار کریں، پھر دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="BotDefense.TokenRejected" xml:space="preserve">
+    <value>یہ جانچ کہ آپ روبوٹ نہیں ہیں، کامیاب نہیں ہوئی۔ جانچ خود دوبارہ چلے گی؛ پھر دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="BotDefense.Unavailable" xml:space="preserve">
+    <value>ابھی یہ تصدیق نہیں ہو سکتی کہ آپ روبوٹ نہیں ہیں۔ چند منٹ بعد دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="BotDefense.TestingKeyInProduction" xml:space="preserve">
+    <value>Cloudflare کی ٹیسٹنگ کیز ہر جانچ پاس کر دیتی ہیں، اس لیے Production میں استعمال نہیں ہو سکتیں۔ اپنے Turnstile ویجیٹ کی کیز استعمال کریں۔</value>
+  </data>
 </root>

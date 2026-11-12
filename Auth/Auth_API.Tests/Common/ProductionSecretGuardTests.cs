@@ -47,6 +47,19 @@ public class ProductionSecretGuardTests
     }
 
     [Fact]
+    public void Production_WithAPlaintextTurnstileSecret_Throws_NamingIt()
+    {
+        // S13: whoever holds it can ask Cloudflare to judge tokens as this deployment.
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["BotDefense:TurnstileSecret"] = "0x4AAAAAAAplaintext" })
+            .Build();
+
+        var act = () => ProductionSecretGuard.EnsureNoPlaintextSecrets(configuration, isProduction: true);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*BotDefense:TurnstileSecret*");
+    }
+
+    [Fact]
     public void Production_WithNoPlaintextSecrets_DoesNotThrow()
     {
         // Encrypted values (PrivateKeyEncrypted) are allowed; only plaintext is forbidden.

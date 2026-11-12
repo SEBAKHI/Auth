@@ -1810,4 +1810,16 @@
   <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
     <value>Only a language the apps ship can be hidden.</value>
   </data>
+  <data name="BotDefense.TokenMissing" xml:space="preserve">
+    <value>We could not confirm that you are not a robot. Wait for the check on the page to finish, then try again.</value>
+  </data>
+  <data name="BotDefense.TokenRejected" xml:space="preserve">
+    <value>The check that you are not a robot did not pass. It runs again by itself; then try again.</value>
+  </data>
+  <data name="BotDefense.Unavailable" xml:space="preserve">
+    <value>We cannot confirm that you are not a robot right now. Try again in a few minutes.</value>
+  </data>
+  <data name="BotDefense.TestingKeyInProduction" xml:space="preserve">
+    <value>Cloudflare's testing keys pass every check and cannot be used in Production. Use the keys of your own Turnstile widget.</value>
+  </data>
 </root>

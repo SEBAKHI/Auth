@@ -1,11 +1,39 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 
 import "@authsystem/i18n"
 
 const postMock = vi.fn()
+// S13: the bot check is turnstile-widget.test.tsx's own. Here a stand-in records
+// what the page asks of it. By default it is the shipped Off (no field, no token);
+// a test sets a token, or a hold, to see where the page sends it.
+const bot = vi.hoisted(() => ({
+  token: undefined as string | undefined,
+  hold: false,
+  prepared: [] as string[],
+  spent: 0,
+}))
+vi.mock("@authsystem/auth/bot-defense/bot-check", () => ({
+  useBotCheck: () => ({
+    field: null,
+    prepare: async (action: string) => {
+      bot.prepared.push(action)
+      if (bot.hold) return { proceed: false }
+      return bot.token ? { proceed: true, token: bot.token } : { proceed: true }
+    },
+    spent: () => {
+      bot.spent += 1
+    },
+  }),
+}))
+beforeEach(() => {
+  bot.token = undefined
+  bot.hold = false
+  bot.prepared = []
+  bot.spent = 0
+})
 vi.mock("@authsystem/api/client", () => ({
   api: { POST: (...args: unknown[]) => postMock(...args) },
 }))
@@ -144,5 +172,48 @@ describe("ForgotPasswordPage", () => {
 
     expect(screen.queryByText(/check your email/i)).not.toBeInTheDocument()
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
+  })
+})
+
+describe("ForgotPasswordPage: the bot check (S13)", () => {
+  beforeEach(() => {
+    postMock.mockReset()
+  })
+
+  it("sends the token made for a reset request, then has the widget make a fresh one", async () => {
+    bot.token = "bot-token"
+    resolveWith(30)
+    renderPage()
+
+    await submitEmail()
+
+    await screen.findByText(/check your email/i)
+    expect(bot.prepared).toEqual(["forgot-password"])
+    expect(postMock).toHaveBeenCalledWith("/api/v1/Auth/forgot-password", {
+      body: { email: "john@example.com", botToken: "bot-token" },
+    })
+    expect(bot.spent).toBe(1)
+  })
+
+  it("spends the token on a refused request too", async () => {
+    bot.token = "bot-token"
+    postMock.mockResolvedValue({ data: undefined, error: { status: 400, code: "BotDefense.TokenRejected" } })
+    renderPage()
+
+    await submitEmail()
+
+    await waitFor(() => expect(bot.spent).toBe(1))
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
+  })
+
+  it("sends nothing while the check holds the request", async () => {
+    bot.hold = true
+    renderPage()
+
+    await submitEmail()
+
+    await waitFor(() => expect(bot.prepared).toEqual(["forgot-password"]))
+    expect(postMock).not.toHaveBeenCalled()
+    expect(bot.spent).toBe(0)
   })
 })

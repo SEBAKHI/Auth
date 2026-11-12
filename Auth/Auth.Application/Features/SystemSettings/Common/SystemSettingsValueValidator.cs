@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Auth.Application.Common.BotDefense;
 using Auth.Application.Configuration;
 using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.SystemSettings;
@@ -120,6 +121,10 @@ internal static class SystemSettingsValueValidator
     /// the running configuration on the save path; the reset path, whose
     /// <paramref name="effectiveValue"/> is the baseline, passes it.
     /// </param>
+    /// <param name="isProduction">
+    /// Whether the process runs in Production, where some values are refused that every
+    /// other environment accepts (S13: Cloudflare's testing sitekeys).
+    /// </param>
     public static void ValidateSectionRules(
         SettingSectionDefinition section,
         IReadOnlyList<KeyValuePair<string, JsonElement>> values,
@@ -127,10 +132,15 @@ internal static class SystemSettingsValueValidator
         Func<string, string?> effectiveValue,
         string? requestOrigin = null,
         Func<string, string?>? baselineValue = null,
-        Func<string, string?>? liveValue = null)
+        Func<string, string?>? liveValue = null,
+        bool isProduction = false)
     {
         switch (section.Key)
         {
+            case "BotDefense":
+                ValidateBotDefense(values, section, errors, baselineValue ?? effectiveValue, liveValue ?? effectiveValue, isProduction);
+                break;
+
             case "Jwt":
                 RequireAbsoluteUrl(values, "Issuer", allowEmpty: false, errors);
                 RequireAbsoluteUrl(values, "Audience", allowEmpty: false, errors);
@@ -958,6 +968,38 @@ internal static class SystemSettingsValueValidator
     /// lookup returns. With the live configuration that is the value NOW, not after
     /// the save: an omitted field falls back to the baseline once the row is replaced.
     /// </summary>
+    /// <summary>
+    /// S13 (BD8, TS10), in Production only: the sitekey after the save may be neither one of
+    /// Cloudflare's testing sitekeys, which pass every check, nor empty while the Turnstile secret
+    /// is set. An empty sitekey with a secret is a setup fault the check refuses to judge by
+    /// (Misconfigured), not a way to switch it off: Mode Off is that way, and it is logged.
+    /// </summary>
+    private static void ValidateBotDefense(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        SettingSectionDefinition section,
+        List<Error> errors,
+        Func<string, string?> afterSaveValue,
+        Func<string, string?> runningValue,
+        bool isProduction)
+    {
+        if (!isProduction)
+        {
+            return;
+        }
+
+        var siteKey = PayloadOrEffective(values, section, "SiteKey", afterSaveValue)?.Trim() ?? string.Empty;
+        if (TurnstileTestingKeys.IsTestingKey(siteKey))
+        {
+            errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                "SiteKey", "must not be one of Cloudflare's testing sitekeys in Production: they pass every check."));
+        }
+        else if (siteKey.Length == 0 && !string.IsNullOrWhiteSpace(runningValue(section.FullKey("TurnstileSecret"))))
+        {
+            errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                "SiteKey", "must stay set while the Turnstile secret is set; to switch the check off, set Mode to Off."));
+        }
+    }
+
     private static string? PayloadOrEffective(
         IReadOnlyList<KeyValuePair<string, JsonElement>> values,
         SettingSectionDefinition section,

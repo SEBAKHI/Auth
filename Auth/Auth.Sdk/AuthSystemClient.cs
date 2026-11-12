@@ -229,11 +229,18 @@ public sealed class AuthSystemClient : IDisposable
     /// Authenticates with the AuthSystem and stores tokens for auto-refresh.
     /// Subsequent HTTP requests via the SDK will automatically include and refresh the token.
     /// </summary>
+    /// <remarks>
+    /// Obsolete (S13): the password sign-in is a browser surface with a bot check. While a
+    /// deployment's check is enforced, a request from a server carries no token and is refused
+    /// (400 <c>BotDefense.TokenMissing</c>), and this returns false. A server-side application
+    /// signs its users in with the authorization code flow (with PKCE) instead.
+    /// </remarks>
     /// <param name="email">User email address.</param>
     /// <param name="password">User password.</param>
     /// <param name="applicationId">Target application ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>True if login succeeded, false otherwise.</returns>
+    [Obsolete("The password sign-in carries a bot check: once a deployment enforces it, this call is refused and returns false. Use the authorization code flow with PKCE.")]
     public async Task<bool> LoginAsync(string email, string password, string applicationId, CancellationToken cancellationToken = default)
     {
         try

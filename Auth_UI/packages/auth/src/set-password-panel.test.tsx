@@ -7,7 +7,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
  *
  * What is worth pinning here is not the markup but the two decisions inside it:
  * the link goes to the signed-in user's own address and nowhere else, and the
- * resend is rate-limited client-side. /forgot-password shares the "login"
+ * resend is rate-limited client-side. Since S13 (D7) the request names no address
+ * at all: POST /Auth/me/password-setup-link mails the session's own account, and
+ * needs no bot check because the caller is signed in. It shares the "login"
  * bucket with real sign-ins, so an ungated resend lets a user 429 themselves out
  * of the thing they are trying to reach.
  *
@@ -41,7 +43,7 @@ describe("SetPasswordPanel", () => {
     toastError.mockReset()
   })
 
-  it("emails the link to the signed-in address", async () => {
+  it("asks for the link to the signed-in account, naming no address", async () => {
     post.mockResolvedValue({ data: { maskedEmail: "j***@example.com" } })
 
     render(<SetPasswordPanel email="john@example.com" />)
@@ -49,9 +51,9 @@ describe("SetPasswordPanel", () => {
       screen.getByRole("button", { name: "profile.emailSetPasswordLink" })
     )
 
-    expect(post).toHaveBeenCalledWith("/api/v1/Auth/forgot-password", {
-      body: { email: "john@example.com" },
-    })
+    // No body: the server mails the session's own address (S13, D7), so nothing
+    // in this request could send the link anywhere else, and no bot token is due.
+    expect(post.mock.calls).toEqual([["/api/v1/Auth/me/password-setup-link"]])
   })
 
   it("reports back with the masked address the server returned", async () => {

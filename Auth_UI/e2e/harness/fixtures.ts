@@ -138,6 +138,8 @@ export interface HarnessApi {
        * A test may hold the promise to keep the answer back.
        */
       externalProviders?: () => Promise<unknown[]>
+      /** What /platform/bot-defense answers (default: Off, no sitekey, as shipped; S13). */
+      botDefense?: { mode: "Off" | "Monitor" | "Enforce"; siteKey: string | null }
     }
   ): Promise<void>
 }
@@ -192,6 +194,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
           [HOSTS.attacker]: (_, response, url) => attacker.answer(HOSTS.attacker, url, response),
           [HOSTS.linkedApp]: (_, response, url) => attacker.answer(HOSTS.linkedApp, url, response),
           [HOSTS.google]: (_, response, url) => attacker.answer(HOSTS.google, url, response),
+          [HOSTS.cloudflare]: (_, response, url) => attacker.answer(HOSTS.cloudflare, url, response),
         },
         log
       )
@@ -341,7 +344,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
             return true
           }
           return (
-            (await answerAnonymousDefaults(route.asRoute(), path, options?.branding)) ||
+            (await answerAnonymousDefaults(route.asRoute(), path, options?.branding, options?.botDefense)) ||
             (await handle(route.asRoute(), url, body))
           )
         })
@@ -364,7 +367,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   egress: [
     async ({ harness, context }, provide) => {
       harness.proxy.clearEgress()
-      harness.attacker.clearUnservedGoogle()
+      harness.attacker.clearUnservedStandIns()
       // The proxy sees only host:port; the context says which page asked.
       const pagesByHost = new Map<string, Set<string>>()
       context.on("request", (request) => {
@@ -388,21 +391,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         list: () => harness.proxy.egress(),
         clear: () => {
           harness.proxy.clearEgress()
-          harness.attacker.clearUnservedGoogle()
+          harness.attacker.clearUnservedStandIns()
         },
         verify: () => {
           const attempts = harness.proxy.egress()
-          const unservedGoogle = harness.attacker.unservedGoogle()
-          if (!attempts.length && !unservedGoogle.length) return
+          const unserved = harness.attacker.unservedStandIns()
+          if (!attempts.length && !unserved.length) return
           const lines = attempts.map((attempt) => {
             const host = attempt.kind === "CONNECT" ? attempt.target.replace(/:443$/, "") : new URL(attempt.target).host
             const pages = [...(pagesByHost.get(host) ?? [])]
             return `  ${attempt.kind} ${attempt.target} requested by ${pages.length ? pages.join(", ") : "(unknown page)"}`
           })
-          // accounts.google.com is in the topology only for the page a test serves there (s02d).
-          const google = [...(pagesByHost.get(HOSTS.google) ?? [])]
-          for (const url of unservedGoogle) {
-            lines.push(`  ${url} (Google, served by no test) requested by ${google.length ? google.join(", ") : "(unknown page)"}`)
+          // accounts.google.com (s02d) and challenges.cloudflare.com (S13) are in the topology
+          // only for the pages a test serves there.
+          for (const { name, url } of unserved) {
+            const pages = [...(pagesByHost.get(new URL(url).host) ?? [])]
+            lines.push(`  ${url} (${name}, served by no test) requested by ${pages.length ? pages.join(", ") : "(unknown page)"}`)
           }
           throw new Error(
             "The browser tried to leave the harness topology; the proxy refused and nothing " +

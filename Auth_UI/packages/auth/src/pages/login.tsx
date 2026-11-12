@@ -34,6 +34,7 @@ import { isCookieBlocked } from "@authsystem/api/token-store"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { useBranding, type SignInMethod } from "@authsystem/ui/branding"
 
+import { useBotCheck, type BotAction } from "../bot-defense/bot-check"
 import { startEmailCode, type PendingEmailCode } from "../email-code"
 import { isAbsoluteUrl } from "../external/recovery-navigation"
 import { useFlowBranding } from "../flow-branding"
@@ -248,6 +249,15 @@ export function LoginPage({
 
   const passwordToFinish = step.kind === "password" && step.afterCode
   const passwordStep = step.kind === "password" && !step.afterCode
+
+  // S13 (D4): one bot check for the whole page, kept across the address, passkey
+  // and password steps. Its token is made for the request the page sends next:
+  // the password sign-in, or the code start.
+  const botAction: BotAction =
+    step.kind === "password" || (step.kind === "credentials" && method === "password")
+      ? "login"
+      : "email-code"
+  const botCheck = useBotCheck(botAction)
 
   // The password is required where it is shown; that check is the submit's,
   // since the form keeps the resolver it was made with.
@@ -471,6 +481,8 @@ export function LoginPage({
   )
 
   const signInWithPassword = async (values: z.infer<typeof schema>) => {
+    const bot = await botCheck.prepare("login")
+    if (!bot.proceed) return
     try {
       const result = await login(
         values.email,
@@ -478,7 +490,8 @@ export function LoginPage({
         // A box not shown sends false. This handler is made afresh on every
         // render, so it reads the current answer; the ref is only for the
         // provider buttons' reader, which must stay one function.
-        staySignedInOffered === true && values.staySignedIn
+        staySignedInOffered === true && values.staySignedIn,
+        bot.token
       )
       if (result.status === "twoFactorRequired") {
         rememberMethodForChallenge(result.challengeToken, "password")
@@ -516,15 +529,22 @@ export function LoginPage({
         return
       }
       toast.error(getErrorMessage(error))
+    } finally {
+      // The token went out with this request, accepted or not: a fresh one is made.
+      if (bot.token) botCheck.spent()
     }
   }
 
   const sendCode = async (values: z.infer<typeof schema>) => {
+    const bot = await botCheck.prepare("email-code")
+    if (!bot.proceed) return
     try {
-      const pending = await startEmailCode(values.email, i18n.language)
+      const pending = await startEmailCode(values.email, i18n.language, bot.token)
       setStep({ kind: "code", pending })
     } catch (error) {
       toast.error(getErrorMessage(error))
+    } finally {
+      if (bot.token) botCheck.spent()
     }
   }
 
@@ -744,95 +764,100 @@ export function LoginPage({
         {...appHeader}
       >
         <Form {...form}>
-          <FieldGroup>
-            {cookiesBlockedNote}
-            {addressField}
-            {staySignedInField}
-            {/* A provider in the list answered that this account signs in with
-                its passkey: the API's sentence stays on the screen, above the
-                button, as on the first screen. */}
-            {passkeyNotice ? (
-              <Alert data-testid="passkey-required-note">
-                <KeyRound />
-                <AlertDescription>{passkeyNotice}</AlertDescription>
-              </Alert>
-            ) : null}
-            <PasskeyButton
-              ceremony={passkey}
-              label={t("auth.passkey.signIn")}
-              variant="default"
-              buttonRef={passkeyScreenButtonRef}
-            />
-            {/* A disclosure: the link shows the list in place (D-S20-16). Without
-                the button, the list is all the screen offers, so it is shown. */}
-            {passkeyGone ? null : (
-              <Button
-                type="button"
-                variant="link"
-                className="w-full text-muted-foreground"
-                aria-expanded={otherWaysOpen}
-                aria-controls={OTHER_WAYS_ID}
-                data-testid="try-another-way"
-                onClick={() => setOtherWaysOpen((open) => !open)}
-              >
-                {t("auth.passkey.tryAnotherWay")}
-              </Button>
-            )}
-            {otherWaysOpen || passkeyGone ? (
-              <FieldSet id={OTHER_WAYS_ID} data-testid="other-ways">
-                <FieldLegend variant="label">
-                  {t("auth.passkey.otherWaysHeading")}
-                </FieldLegend>
-                {lostPasskeyOnly ? (
-                  // D-152-2's link, as in the reason's sentence: it drops the
-                  // request, and the sign-in then lands on Profile › Security.
-                  <Button asChild variant="outline" className="w-full">
-                    <Link
-                      to="/login"
-                      replace
-                      state={{ from: LOST_PASSKEY_DESTINATION }}
-                      data-testid="passkey-lost-link"
-                    >
-                      {t("auth.passkey.lostIt")}
-                    </Link>
-                  </Button>
-                ) : (
-                  // The same list for every account (D-S20-16): the
-                  // deployment's options decide it, never the account.
-                  <div ref={otherWaysListRef} className="flex flex-col gap-3">
-                    {codeOffered ? (
+          {/* A form, inert on this step, as on the other steps: the steps then share one
+              FieldGroup, and the bot check's widget stays one widget across them (S13, D4). */}
+          <form onSubmit={(event) => event.preventDefault()}>
+            <FieldGroup>
+              {cookiesBlockedNote}
+              {addressField}
+              {staySignedInField}
+              {/* A provider in the list answered that this account signs in with
+                  its passkey: the API's sentence stays on the screen, above the
+                  button, as on the first screen. */}
+              {passkeyNotice ? (
+                <Alert data-testid="passkey-required-note">
+                  <KeyRound />
+                  <AlertDescription>{passkeyNotice}</AlertDescription>
+                </Alert>
+              ) : null}
+              <PasskeyButton
+                ceremony={passkey}
+                label={t("auth.passkey.signIn")}
+                variant="default"
+                buttonRef={passkeyScreenButtonRef}
+              />
+              {/* A disclosure: the link shows the list in place (D-S20-16). Without
+                  the button, the list is all the screen offers, so it is shown. */}
+              {passkeyGone ? null : (
+                <Button
+                  type="button"
+                  variant="link"
+                  className="w-full text-muted-foreground"
+                  aria-expanded={otherWaysOpen}
+                  aria-controls={OTHER_WAYS_ID}
+                  data-testid="try-another-way"
+                  onClick={() => setOtherWaysOpen((open) => !open)}
+                >
+                  {t("auth.passkey.tryAnotherWay")}
+                </Button>
+              )}
+              {otherWaysOpen || passkeyGone ? (
+                <FieldSet id={OTHER_WAYS_ID} data-testid="other-ways">
+                  <FieldLegend variant="label">
+                    {t("auth.passkey.otherWaysHeading")}
+                  </FieldLegend>
+                  {lostPasskeyOnly ? (
+                    // D-152-2's link, as in the reason's sentence: it drops the
+                    // request, and the sign-in then lands on Profile › Security.
+                    <Button asChild variant="outline" className="w-full">
+                      <Link
+                        to="/login"
+                        replace
+                        state={{ from: LOST_PASSKEY_DESTINATION }}
+                        data-testid="passkey-lost-link"
+                      >
+                        {t("auth.passkey.lostIt")}
+                      </Link>
+                    </Button>
+                  ) : (
+                    // The same list for every account (D-S20-16): the
+                    // deployment's options decide it, never the account.
+                    <div ref={otherWaysListRef} className="flex flex-col gap-3">
+                      {codeOffered ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full"
+                          disabled={sendingFromList}
+                          onClick={() => void sendCodeFromList(email)}
+                        >
+                          {sendingFromList ? (
+                            <Spinner data-icon="inline-start" />
+                          ) : null}
+                          {sendingFromList
+                            ? t("auth.sendingCode")
+                            : t("auth.signInWithEmailCode")}
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="outline"
                         className="w-full"
-                        disabled={sendingFromList}
-                        onClick={() => void sendCodeFromList(email)}
+                        onClick={() => {
+                          setChosen("password")
+                          toPasswordStep(email)
+                        }}
                       >
-                        {sendingFromList ? (
-                          <Spinner data-icon="inline-start" />
-                        ) : null}
-                        {sendingFromList
-                          ? t("auth.sendingCode")
-                          : t("auth.signInWithEmailCode")}
+                        {t("auth.signInWithPasswordInstead")}
                       </Button>
-                    ) : null}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        setChosen("password")
-                        toPasswordStep(email)
-                      }}
-                    >
-                      {t("auth.signInWithPasswordInstead")}
-                    </Button>
-                    {providerButtons}
-                  </div>
-                )}
-              </FieldSet>
-            ) : null}
-          </FieldGroup>
+                      {providerButtons}
+                    </div>
+                  )}
+                </FieldSet>
+              ) : null}
+              {botCheck.field}
+            </FieldGroup>
+          </form>
         </Form>
       </AuthLayout>
     )
@@ -944,6 +969,7 @@ export function LoginPage({
               />
             ) : null}
             {passwordToFinish ? null : staySignedInField}
+            {botCheck.field}
             <Button
               type="submit"
               // The password step has no passkey above it: its button is the page's.

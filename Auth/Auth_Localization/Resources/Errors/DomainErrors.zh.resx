@@ -1808,4 +1808,16 @@
   <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
     <value>只能隐藏应用提供的语言。</value>
   </data>
+  <data name="BotDefense.TokenMissing" xml:space="preserve">
+    <value>无法确认您不是机器人。请等待页面上的验证完成，然后重试。</value>
+  </data>
+  <data name="BotDefense.TokenRejected" xml:space="preserve">
+    <value>人机验证未通过。验证会自动重新运行，之后请重试。</value>
+  </data>
+  <data name="BotDefense.Unavailable" xml:space="preserve">
+    <value>目前无法确认您不是机器人。请几分钟后重试。</value>
+  </data>
+  <data name="BotDefense.TestingKeyInProduction" xml:space="preserve">
+    <value>Cloudflare 的测试密钥会通过所有验证，不能在生产环境（Production）中使用。请使用您自己的 Turnstile 小组件的密钥。</value>
+  </data>
 </root>

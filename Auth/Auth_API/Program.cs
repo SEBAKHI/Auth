@@ -20,6 +20,7 @@ using Auth_API.Tools;
 using Auth.Application.Interfaces;
 using Auth.Application.Common;
 using Auth.Application.Configuration;
+using Auth.Application.Common.BotDefense;
 using Auth.Application.Security;
 using Auth.Application.SystemSettings;
 using Auth.Domain.Interfaces.Repositories;
@@ -27,6 +28,7 @@ using Auth.Infrastructure;
 using Auth.Infrastructure.Authentication;
 using Auth.Infrastructure.Authentication.Passkeys;
 using Auth.Infrastructure.Authorization;
+using Auth.Infrastructure.BotDefense;
 using Auth.Infrastructure.Persistence;
 using Auth.Infrastructure.Services;
 using Auth_API.Modules.Media;
@@ -134,6 +136,10 @@ builder.Services.AddOptions<EmailSettings>()
 builder.Services.Configure<NotificationSettings>(builder.Configuration.GetSection(NotificationSettings.SectionName));
 builder.Services.Configure<GeoIpSettings>(builder.Configuration.GetSection(GeoIpSettings.SectionName));
 builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSection(ExternalAuthSettings.SectionName));
+// S13: the bot check. Every field is read per request (IOptionsMonitor), so the console's
+// changes apply without a restart; the secret reaches configuration from the encrypted secrets
+// file at startup (BotDefense:TurnstileSecret).
+builder.Services.Configure<BotDefenseSettings>(builder.Configuration.GetSection(BotDefenseSettings.SectionName));
 builder.Services.Configure<AccountDeletionSettings>(builder.Configuration.GetSection(AccountDeletionSettings.SectionName));
 builder.Services.Configure<DataRetentionSettings>(builder.Configuration.GetSection(DataRetentionSettings.SectionName));
 builder.Services.Configure<DataControllerSettings>(builder.Configuration.GetSection(DataControllerSettings.SectionName));
@@ -962,6 +968,8 @@ builder.Services.AddSingleton<ISecurityPostureContributor, PasskeyPostureContrib
 builder.Services.AddSingleton<ISecurityPostureContributor, RetentionBoundsPostureContributor>();
 // S02 PR D: Google offered while its code exchange cannot complete (no secret, no first-party origin).
 builder.Services.AddSingleton<ISecurityPostureContributor, GoogleSignInPostureContributor>();
+// S13: the bot check's mode, keys, reachability, pass rate and token-missing share.
+builder.Services.AddSingleton<ISecurityPostureContributor, BotDefensePostureContributor>();
 builder.Services.AddHostedService<SecurityPostureCheck>();
 
 // External Authentication
@@ -990,6 +998,25 @@ builder.Services.AddHttpClient<IGoogleCodeExchanger, GoogleCodeExchanger>(client
     AllowAutoRedirect = false,
     UseCookies = false,
 });
+// S13: Cloudflare Turnstile's siteverify. The per-call deadline (BotDefense:SiteverifyTimeoutMs,
+// hot) decides, so the client's own timeout sits above its largest value. No redirect is
+// followed and no cookie kept. One breaker per process (D5).
+builder.Services.AddSingleton<BotDefenseCircuitBreaker>();
+builder.Services.AddHttpClient<ITurnstileSiteverifyClient, TurnstileSiteverifyClient>(client =>
+{
+    client.Timeout = TurnstileSiteverifyClient.ClientTimeout;
+    client.MaxResponseContentBufferSize = TurnstileSiteverifyClient.MaxResponseBytes;
+})
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    AllowAutoRedirect = false,
+    UseCookies = false,
+});
+builder.Services.AddScoped<IBotDefenseVerifier, TurnstileBotDefenseVerifier>();
+builder.Services.AddScoped<BotDefenseFailurePolicy>();
+builder.Services.AddSingleton<BotDefenseVerdictCounts>();
+builder.Services.AddSingleton<IRequestOriginContext, RequestOriginContext>();
+builder.Services.AddSingleton<IBotDefenseVerdictRecorder, BotDefenseVerdictRecorder>();
 // Provider profile-picture import. The URL comes out of a provider-signed ID token
 // rather than from user input, but it is still an outbound fetch on the sign-in
 // path, so the handler refuses redirects, sends no cookies and does not decompress.
@@ -1028,6 +1055,9 @@ builder.Services.AddScoped<IPasskeyRpIdChange, PasskeyRpIdChange>();
 // Whether a sign-in came from a browser page: only then is it tied to its IAM session.
 builder.Services.AddScoped<IBrowserSignInContext, RequestOriginBrowserSignInContext>();
 builder.Services.AddScoped<IAccountLockout, AccountLockout>();
+// S13 (D7): the one place a password reset link is issued, for the anonymous request and the
+// two signed-in ones.
+builder.Services.AddScoped<IPasswordResetLinkIssuer, PasswordResetLinkIssuer>();
 // The second factor's consecutive-failure limit (Password:ConsecutiveFailureLimit,
 // hot) and its one transition signal; read by the verifier and the administrator's
 // reset gate alike.
@@ -1104,6 +1134,9 @@ builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssemblyContaining<IPasswordHasher>();
     cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(Auth.Application.Behaviors.LoggingBehavior<,>));
     cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(Auth.Application.Behaviors.ValidationBehavior<,>));
+    // S13: after validation, before every handler, so before any database work. Only the four
+    // commands marked IBotProtectedRequest are checked; every other request passes through.
+    cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(Auth.Application.Behaviors.BotDefenseBehavior<,>));
 });
 
 // FluentValidation
@@ -1162,6 +1195,16 @@ builder.Services.AddSingleton(_ => new TokenAssertionFailureBudget(
 // Each verified client assertion counts on its application's budget once (OI-178);
 // a copy counts on its address.
 builder.Services.AddSingleton<TokenAssertionSightings>();
+
+// S13 (BD6, RL1 "bot-fallback"): while the bot check cannot run, a sign-in, a code start or a
+// reset request goes on this many times per address and window. A policy with no endpoint: the
+// bot-check behavior takes the permit. Read when a window opens; the key carries the settings
+// version, as the named policies' keys do.
+builder.Services.AddSingleton<IBotFallbackLimiter>(_ => new BotFallbackLimiter(
+    () => settingsVersion(),
+    () => new FixedWindowBudget(
+        builder.Configuration.GetValue("RateLimiting:BotFallbackPermitLimit", 5),
+        builder.Configuration.GetValue("RateLimiting:BotFallbackWindowSeconds", 300))));
 
 // Rate Limiting
 builder.Services.AddRateLimiter(options =>

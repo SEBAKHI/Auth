@@ -1808,4 +1808,16 @@
   <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
     <value>Yalnızca uygulamaların sunduğu bir dil gizlenebilir.</value>
   </data>
+  <data name="BotDefense.TokenMissing" xml:space="preserve">
+    <value>Robot olmadığınız doğrulanamadı. Sayfadaki doğrulamanın bitmesini bekleyin, sonra yeniden deneyin.</value>
+  </data>
+  <data name="BotDefense.TokenRejected" xml:space="preserve">
+    <value>Robot olmadığınızın doğrulaması geçmedi. Doğrulama kendiliğinden yeniden çalışır; ardından yeniden deneyin.</value>
+  </data>
+  <data name="BotDefense.Unavailable" xml:space="preserve">
+    <value>Robot olmadığınız şu anda doğrulanamıyor. Birkaç dakika sonra yeniden deneyin.</value>
+  </data>
+  <data name="BotDefense.TestingKeyInProduction" xml:space="preserve">
+    <value>Cloudflare'in test anahtarları her doğrulamayı geçer ve canlı ortamda (Production) kullanılamaz. Kendi Turnstile widget'ınızın anahtarlarını kullanın.</value>
+  </data>
 </root>

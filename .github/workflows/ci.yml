@@ -156,7 +156,9 @@ jobs:
         run: |
           # Empty strings and {{PLACEHOLDER}} values are the shipped, correct state.
           # Anything else in these keys is real key material in a tracked file.
-          pattern='"(JwtPrivateKeyPem|PrivateKeyPem|PrivateKeyEncrypted|RefreshTokenHmacKeyPlain|IdentifierHmacKeyPlain|ExpectedToken|GatewayToken)"[[:space:]]*:[[:space:]]*"[^"{]+"'
+          # ClientSecret (Google's, S02 PR D) and TurnstileSecret/TurnstileSecretKey (Cloudflare's,
+          # S13) are secrets a vendor issues: in this public repository a filled one is published.
+          pattern='"(JwtPrivateKeyPem|PrivateKeyPem|PrivateKeyEncrypted|RefreshTokenHmacKeyPlain|IdentifierHmacKeyPlain|ExpectedToken|GatewayToken|ClientSecret|TurnstileSecret|TurnstileSecretKey)"[[:space:]]*:[[:space:]]*"[^"{]+"'
           if git grep -I -n -E -- "$pattern" -- '*.json' ':!.github/workflows/ci.yml'; then
             echo "::error::A crown-jewel secret has a non-empty value in a tracked JSON file. It belongs in the encrypted secrets file, never in configuration."
             exit 1
@@ -186,8 +188,10 @@ jobs:
         with:
           node-version: '24'
 
+      # Tools/probes: the owner counting scripts that carry their own tests
+      # (verdict-window.mjs, S13), so a script a gate is read with cannot drift.
       - name: Governance guards
-        run: node --test "Tools/github/*.test.mjs"
+        run: node --test "Tools/github/*.test.mjs" "Tools/probes/*.test.mjs"
 
   # Fails a pull request that ADDS a dependency version with a moderate or higher
   # advisory. It compares the pull request's dependencies with its base, so an

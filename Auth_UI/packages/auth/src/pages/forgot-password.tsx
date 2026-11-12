@@ -24,6 +24,7 @@ import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { useCountdown } from "@authsystem/ui/hooks/use-countdown"
 import { Spinner } from "@authsystem/ui/spinner"
 
+import { useBotCheck } from "../bot-defense/bot-check"
 import { type FlowBranding, useFlowBranding } from "../flow-branding"
 import { getValidReturnTo } from "../return-to"
 
@@ -47,6 +48,8 @@ export function ForgotPasswordPage() {
   const { search } = useLocation()
   const { layout: appHeader } = useFlowBranding({ returnTo: getValidReturnTo(search) })
   const [sent, setSent] = React.useState<SentState | null>(null)
+  // S13: the anonymous reset request carries the bot check's token.
+  const botCheck = useBotCheck("forgot-password")
 
   const schema = z.object({
     email: z
@@ -61,9 +64,12 @@ export function ForgotPasswordPage() {
   })
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
+    const bot = await botCheck.prepare("forgot-password")
+    if (!bot.proceed) return
     try {
       const { data, error } = await api.POST("/api/v1/Auth/forgot-password", {
-        body: { email: values.email },
+        // Omitted, not null, when there is none (BD2).
+        body: { email: values.email, ...(bot.token ? { botToken: bot.token } : {}) },
       })
       if (error) throw error
       setSent({
@@ -74,6 +80,8 @@ export function ForgotPasswordPage() {
       })
     } catch (error) {
       toast.error(getErrorMessage(error))
+    } finally {
+      if (bot.token) botCheck.spent()
     }
   }
 
@@ -125,6 +133,7 @@ export function ForgotPasswordPage() {
                 </FormItem>
               )}
             />
+            {botCheck.field}
             <Button
               type="submit"
               className="w-full"

@@ -66,8 +66,12 @@ async function call(path, { method = "GET", body, headers = {}, auth = true } = 
   return { status: response.status, json, text, headers: response.headers };
 }
 
+// S13: Cloudflare Turnstile's dummy token. It passes while the API runs with one of Cloudflare's
+// testing secrets outside Production, and is ignored while BotDefense:Mode is Off.
+const BOT_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
+
 async function login() {
-  const r = await call("/api/v1/Auth/login", { method: "POST", auth: false, body: ADMIN });
+  const r = await call("/api/v1/Auth/login", { method: "POST", auth: false, body: { ...ADMIN, botToken: BOT_TOKEN } });
   if (r.status !== 200) throw new Error(`login failed: ${r.status} ${r.text.slice(0, 300)}`);
   // LoginResponse nests the pair under "token".
   return r.json.token?.accessToken ?? r.json.accessToken;
@@ -145,7 +149,7 @@ async function probePasswordPolicy() {
     call("/api/v1/Auth/registration/start", {
       method: "POST",
       auth: false,
-      body: { email },
+      body: { email, botToken: BOT_TOKEN },
     }));
   if (!started.json?.pendingId) {
     record("Password minimum length", "IOptionsSnapshot (scoped)", false,
@@ -220,7 +224,7 @@ async function probeRateLimit() {
     call("/api/v1/Auth/login", {
       method: "POST",
       auth: false,
-      body: { email: "nobody-probe@example.com", password: "WrongPassword1!" },
+      body: { email: "nobody-probe@example.com", password: "WrongPassword1!", botToken: BOT_TOKEN },
     });
 
   await saveSection("RateLimiting", { LoginPermitLimit: 1, LoginWindowSeconds: 60 });

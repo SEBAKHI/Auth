@@ -19,6 +19,34 @@ const { post, toast, branding } = vi.hoisted(() => ({
   },
 }))
 
+// S13: the bot check is turnstile-widget.test.tsx's own. Here a stand-in records
+// what the page asks of it. By default it is the shipped Off (no field, no token);
+// a test sets a token, or a hold, to see where the page sends it.
+const bot = vi.hoisted(() => ({
+  token: undefined as string | undefined,
+  hold: false,
+  prepared: [] as string[],
+  spent: 0,
+}))
+vi.mock("@authsystem/auth/bot-defense/bot-check", () => ({
+  useBotCheck: () => ({
+    field: null,
+    prepare: async (action: string) => {
+      bot.prepared.push(action)
+      if (bot.hold) return { proceed: false }
+      return bot.token ? { proceed: true, token: bot.token } : { proceed: true }
+    },
+    spent: () => {
+      bot.spent += 1
+    },
+  }),
+}))
+beforeEach(() => {
+  bot.token = undefined
+  bot.hold = false
+  bot.prepared = []
+  bot.spent = 0
+})
 vi.mock("sonner", () => ({ toast }))
 // The deployment's public sign-in options, as the branding answer carries them.
 vi.mock("@authsystem/ui/branding", async (importOriginal) => ({
@@ -327,6 +355,44 @@ describe("RegisterPage", () => {
     await submitAddress(user, "jane@one")
 
     expect(await screen.findByText(/valid email/i)).toBeVisible()
+    expect(post).not.toHaveBeenCalled()
+  })
+})
+
+describe("RegisterPage: the bot check (S13)", () => {
+  beforeEach(() => {
+    post.mockReset()
+    clearRegistrationFlow()
+    branding.signInOptions = null
+  })
+
+  it("sends the token made for a code start with the address", async () => {
+    bot.token = "bot-token"
+    post.mockResolvedValue({ data: STARTED })
+    const user = userEvent.setup()
+    renderAt("/register")
+
+    await submitAddress(user, "jane@one.example")
+
+    await waitFor(() =>
+      expect(screen.getByTestId("landing")).toHaveTextContent("/register/verify")
+    )
+    // The page starts a sign-up by code (OI-215): the code start's action, not "register".
+    expect(bot.prepared).toEqual(["email-code"])
+    expect(post).toHaveBeenCalledWith("/api/v1/Auth/email-code/start", {
+      body: { email: "jane@one.example", preferredLanguage: "en", botToken: "bot-token" },
+    })
+    expect(bot.spent).toBe(1)
+  })
+
+  it("sends nothing while the check holds the request", async () => {
+    bot.hold = true
+    const user = userEvent.setup()
+    renderAt("/register")
+
+    await submitAddress(user, "jane@one.example")
+
+    await waitFor(() => expect(bot.prepared).toEqual(["email-code"]))
     expect(post).not.toHaveBeenCalled()
   })
 })

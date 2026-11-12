@@ -1243,6 +1243,11 @@ Google returns to `/google-callback.html`, which each `web.config` serves with
 `Cache-Control: no-store` and `Referrer-Policy: no-referrer` (its own `<location>`). Deploy that page
 with the rest of `dist`.
 
+Both policies name `https://challenges.cloudflare.com` in `script-src` and `frame-src`, and nowhere
+else: the bot check on the sign-in pages loads Cloudflare's Turnstile script and frames its widget from
+there ([§U](#u-the-bot-check-cloudflare-turnstile-botdefense)). Leave the host in place even while the
+bot check is off: a page loads nothing from Cloudflare until the server names a sitekey.
+
 Do not change the rest of either file. Between them they carry the single-page-application fallback
 rule, the caching rules, and the security headers, each with a comment explaining why it is written
 the way it is.
@@ -4432,6 +4437,134 @@ stop a stolen session within that time, since a script that registered a key of 
 (`TwoFactor:ReauthenticationMaxAgeMinutes`, default 15) stays the outer limit, so the shorter of the two
 applies. Shorter is safer; longer is easier for people, and for whoever stole a session. **Nothing to do at
 deployment:** the default is the recommendation, and with `Passkeys:Enabled` off it changes nothing for anyone.
+
+## U. The bot check: Cloudflare Turnstile (`BotDefense:*`)
+
+The four requests anyone can send without signing in, the sign-in, the code start, the reset request
+and `registration/start`, can carry a token from Cloudflare Turnstile's widget, and the server asks
+Cloudflare whether a person made it before it does any work for the request. Most people see nothing:
+the widget shows a box only when Cloudflare asks for a click.
+
+It ships **Off**, and deploying this release changes nothing until you go through the steps below,
+in order. Three settings (**System settings → Bot check (Cloudflare Turnstile)**, hot, no restart):
+
+| Setting | Values | What it does |
+|---|---|---|
+| `BotDefense:Mode` | `Off` (default), `Monitor`, `Enforce` | Off checks nothing. Monitor checks and logs every verdict and refuses nothing: it protects nobody yet, it measures. Enforce refuses a request without a valid token (`400 BotDefense.TokenMissing` / `BotDefense.TokenRejected`). |
+| `BotDefense:SiteKey` | the widget's public sitekey | Pages render the widget only when the server names one. |
+| `BotDefense:FailMode` | `PerSurface` (default), `Closed` | What Enforce does while Cloudflare cannot be reached or the keys are missing (§U.6). |
+
+The secret is not a setting: it is set on the **Secrets** page (§U.3). Two requests a signed-in
+person sends moved off `forgot-password`, so they need no bot check: the console's **Send password
+reset email** (`POST /api/v1/Users/{id}/password-reset`, permission `users.manage`) and the profile's
+**Set a password** link (`POST /api/v1/Auth/me/password-setup-link`). The SDK's `LoginAsync` is
+obsolete: a server cannot answer the widget, so under Enforce its sign-in is refused.
+
+### U.1 Deploy, still Off
+
+Deploy the API first, then both web applications with their sealed `web.config`. Check:
+`GET https://auth.example.com/api/v1/Platform/bot-defense` answers `"mode": "Off"` and no sitekey,
+and a sign-in works in both applications. Rollback: the reverse order, the applications first, then
+the API; then check that the profile's **Set a password** still sends its email.
+
+### U.2 The widget at Cloudflare
+
+In the Cloudflare dashboard, **Turnstile → Add widget**: mode **Managed**, and the two application
+hosts exactly (for example `accounts.example.com` and `console.example.com`). A host missing from
+this list is the likeliest failure in production: Cloudflare answers that page with error `110200`
+and no token, so every request from it would be refused under Enforce. Keep the sitekey for §U.4 and
+the secret for §U.3. Rollback: delete the widget.
+
+### U.3 The secret, through the admin API
+
+1. Turn the admin API on: `SecretManagement:EnableAdminApi` = `true` in the Production file. It is
+   read per request, so no restart. Check: `GET /api/v1/admin/Secrets/status` by an administrator
+   with `secrets.manage` answers 200 (403 "Admin API Disabled" means it is still off).
+2. Console → **Secrets** → the `TurnstileSecretKey` row → **Edit** → paste the secret → **Save**
+   (`PUT /api/v1/admin/Secrets/turnstile-secret`). In Production, Cloudflare's published testing
+   secrets are refused.
+3. **Recycle the API's application pool once.** The secrets file is read when the process starts
+   (`DpapiSecretConfigurationProvider`), so the new secret is used only after it. Check: the status
+   lists `TurnstileSecretKey` as `Configured`.
+4. Turn the admin API off again (`EnableAdminApi` = `false`, no restart). Check: the status answers
+   403.
+5. Copy `secrets.dpapi` to your backup.
+
+Rollback: stay on Off. Removing the secret later is **Remove** on the same row, then a recycle.
+
+### U.4 Monitor
+
+First check that the API can reach Cloudflare: the security posture's `bot.siteverify-reachability`
+must be healthy (the server calls `https://challenges.cloudflare.com/turnstile/v0/siteverify` over
+HTTPS; a host that blocks outbound traffic blocks the check), and note its round-trip time. Keep
+`Serilog:MinimumLevel:Default` at `Information` from here until §U.5 is done: the gates are read from
+the log, one line per verdict:
+
+```text
+Bot defense verdict: action login verdict Passed mode Monitor origin https://accounts.example.com hostname accounts.example.com codes - attempts 1 elapsedMs 143
+```
+
+Then, in **System settings → Bot check (Cloudflare Turnstile)**: the sitekey, and Mode = **Monitor**. Check in a real
+browser that both applications' sign-in pages work, and that the verdict lines name each origin.
+Rollback: Mode = Off.
+
+### U.5 Enforce, after seven days of Monitor
+
+Read the first gate from the log files of the seven days (copy them off the server):
+
+```bash
+node Tools/probes/verdict-window.mjs --gate monitor <folder with auth-api-*.log>
+```
+
+It passes when every application passes at least 99 % of its submissions, with at least 100 of them,
+over at least seven days; it prints each comparator. An application below 100 is `NODATA`: decide it
+by watching real sign-ins on it. Then Mode = **Enforce**. Check: a sign-in request without a
+`botToken` answers `400 BotDefense.TokenMissing`, and a real sign-in works in both applications.
+Seven days later, read the second gate, no 10-minute window where more than half of at least 20
+submissions carried no token:
+
+```bash
+node Tools/probes/verdict-window.mjs --gate enforce <folder with auth-api-*.log>
+```
+
+Rollback: Mode = Monitor.
+
+### U.6 When the check cannot run (`BotDefense:FailMode`)
+
+Under Enforce, while Cloudflare cannot be reached (the call has `BotDefense:SiteverifyTimeoutMs`,
+default 2,000 ms, for both of its attempts; five failures in a row open a circuit breaker for 30
+seconds) or a key is missing or refused:
+
+| FailMode | Registration start | Sign-in, code start, reset request |
+|---|---|---|
+| `PerSurface` | refused (`BotDefense.Unavailable`) | allowed a few times per client address (`RateLimiting:BotFallbackPermitLimit`, default 5, per `RateLimiting:BotFallbackWindowSeconds`, default 300), then refused |
+| `Closed` | refused | refused, administrators included |
+
+### U.7 Rotating the secret
+
+Rotate it in Cloudflare (the old secret keeps working for two hours), then repeat §U.3 within those two
+hours.
+
+### U.8 Break-glass: the bot check refuses every sign-in
+
+For an incident no administrator can fix in the console because they cannot sign in either (a wrong
+sitekey under Enforce, `Closed` during a Cloudflare outage). On the database server:
+
+1. **Export the row first:**
+   `SELECT OverridesJson FROM dbo.SystemSettingsOverrides WHERE SectionKey = N'BotDefense';` and keep
+   the output.
+2. Delete it: `DELETE FROM dbo.SystemSettingsOverrides WHERE SectionKey = N'BotDefense';`, then
+   recycle the API. The file values apply again: Mode `Off`. (Or add the environment variable
+   `AUTH_DISABLE_DB_SETTINGS=true` and recycle, [§B.6](#b6-recovery--a-bad-value-saved-in-the-console):
+   every database setting falls back to the files for that run.)
+3. Check: the log carries the posture's `bot.mode` line, and a sign-in works.
+
+Rollback: insert the exported `OverridesJson` back (or remove `AUTH_DISABLE_DB_SETTINGS`), then
+recycle.
+
+*In code:* `Auth/Auth.Application/Behaviors/BotDefenseBehavior.cs`,
+`Auth/Auth.Infrastructure/BotDefense/`, `Auth_UI/packages/auth/src/bot-defense/`; the live check of
+the server against Cloudflare is `Tools/probes/bot-defense-siteverify.mjs`.
 
 ---
 

@@ -1288,8 +1288,11 @@ const REVIEW_IF_FALLBACK = "github.event_name == 'pull_request' && github.actor 
 const REVIEW_JOB_KEYS = ["name", "runs-on", "timeout-minutes", "if", "steps"];
 const GOVERNANCE_JOB_KEYS = ["name", "runs-on", "timeout-minutes", "steps"];
 const REQUIRED_STEP_KEYS = ["name", "uses", "with", "run"];
-/** The governance step exactly as K1 writes it; S30b, S31 and S17 widen it (ARR-0955) and update this line. */
-const GOVERNANCE_RUN = 'node --test "Tools/github/*.test.mjs"';
+/**
+ * The governance step exactly as K1 writes it; S30b, S31 and S17 widen it (ARR-0955) and update this line.
+ * S13 widened it for Tools/probes, whose owner counting scripts carry their own tests (ARR-0622).
+ */
+const GOVERNANCE_RUN = 'node --test "Tools/github/*.test.mjs" "Tools/probes/*.test.mjs"';
 const CI_TRIGGERS = { push: { branches: ["main"] }, pull_request: { branches: ["main"] }, workflow_dispatch: null };
 
 function checkRequiredJob(job, label, jobKeys, add) {

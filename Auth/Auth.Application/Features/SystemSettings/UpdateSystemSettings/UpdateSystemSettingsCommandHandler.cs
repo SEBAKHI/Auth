@@ -34,6 +34,10 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
     private readonly IPasskeyRpIdChange _passkeyRpIdChange;
     private readonly ILogger<UpdateSystemSettingsCommandHandler> _logger;
 
+    // Resolved from the container in every host (registered by Program.cs); a test that builds the
+    // handler without one gets the rules of an environment that is not Production.
+    private readonly IEnvironmentInfo? _environment;
+
     public UpdateSystemSettingsCommandHandler(
         ISystemSettingsRepository systemSettingsRepository,
         IUserRepository userRepository,
@@ -43,7 +47,8 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         IPublisher publisher,
         IIdpSessionIdleLimitChange idleLimitChange,
         IPasskeyRpIdChange passkeyRpIdChange,
-        ILogger<UpdateSystemSettingsCommandHandler> logger)
+        ILogger<UpdateSystemSettingsCommandHandler> logger,
+        IEnvironmentInfo? environment = null)
     {
         _systemSettingsRepository = systemSettingsRepository;
         _userRepository = userRepository;
@@ -54,6 +59,7 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         _idleLimitChange = idleLimitChange;
         _passkeyRpIdChange = passkeyRpIdChange;
         _logger = logger;
+        _environment = environment;
     }
 
     public async Task<ErrorOr<SystemSettingsSectionDto>> Handle(UpdateSystemSettingsCommand request, CancellationToken cancellationToken)
@@ -115,7 +121,8 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         // The save replaces the section's whole override row, so a field the payload
         // omits falls back to the baseline (every layer but the database).
         SystemSettingsValueValidator.ValidateSectionRules(
-            section, flattened, errors, fullKey => _configuration[fullKey], request.RequestOrigin, _startupSnapshot.Baseline);
+            section, flattened, errors, fullKey => _configuration[fullKey], request.RequestOrigin, _startupSnapshot.Baseline,
+            isProduction: _environment?.IsProduction == true);
 
         if (errors.Count > 0)
         {

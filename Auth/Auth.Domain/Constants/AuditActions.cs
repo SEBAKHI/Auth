@@ -139,6 +139,13 @@ public static class AuditActions
     /// code confirmed the address for the first time. The reason is in the details.
     /// </summary>
     public const string PasswordRemoved = "password.removed";
+
+    /// <summary>
+    /// A password reset link was sent to an account's address at a signed-in person's request
+    /// (S13): an administrator's "send reset link", or the holder setting a password for their
+    /// own account. The subject is the account; the performer is who asked.
+    /// </summary>
+    public const string PasswordResetLinkIssued = "password.reset_link_issued";
     public const string TwoFactorEnabled = "twofactor.enabled";
     public const string TwoFactorDisabled = "twofactor.disabled";
     public const string TwoFactorRecoveryCodesRegenerated = "twofactor.recovery-codes-regenerated";
@@ -279,6 +286,7 @@ public static class AuditActions
             [PasswordCreated] = AuditActionTypes.Security,
             [PasswordChanged] = AuditActionTypes.Security,
             [PasswordRemoved] = AuditActionTypes.Security,
+            [PasswordResetLinkIssued] = AuditActionTypes.Security,
             [TwoFactorEnabled] = AuditActionTypes.Security,
             [TwoFactorDisabled] = AuditActionTypes.Security,
             [TwoFactorRecoveryCodesRegenerated] = AuditActionTypes.Security,

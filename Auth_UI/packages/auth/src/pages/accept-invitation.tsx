@@ -34,6 +34,7 @@ import { useResolvedTheme } from "@authsystem/ui/theme-provider"
 
 import { useSignInOptions } from "@authsystem/ui/branding"
 
+import { useBotCheck } from "../bot-defense/bot-check"
 import { startEmailCode, type PendingEmailCode } from "../email-code"
 import { launchApplication } from "../launch-application"
 import { useLoginCompletion } from "../login-completion"
@@ -389,6 +390,9 @@ function RegisterAndJoin({
   const { login } = useAuth()
   const { complete, challenge } = useLoginCompletion()
   const { policy } = usePasswordPolicy()
+  // S13: after joining, the person signs in with the password just set, or is sent a
+  // code; either request carries the bot check's token.
+  const botCheck = useBotCheck(askPassword ? "login" : "email-code")
   const [codeSignIn, setCodeSignIn] = React.useState<{
     pending: PendingEmailCode
     launchUrl: string | null | undefined
@@ -419,6 +423,9 @@ function RegisterAndJoin({
   })
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
+    // The token first: the account is created only when the sign-in after it can go out.
+    const bot = await botCheck.prepare(askPassword ? "login" : "email-code")
+    if (!bot.proceed) return
     let registered: Schemas["RegisterWithInvitationResponse"]
     try {
       registered = await unwrap(
@@ -432,6 +439,9 @@ function RegisterAndJoin({
         })
       )
     } catch (error) {
+      // The sign-in this token was taken for never goes out: the widget makes a
+      // fresh one for the next submit, which would otherwise wait for nothing.
+      if (bot.token) botCheck.spent()
       if (!askPassword || !applyPasswordServerErrors(form, "password", error)) {
         toast.error(getErrorMessage(error))
       }
@@ -458,7 +468,7 @@ function RegisterAndJoin({
     if (!askPassword) {
       try {
         setCodeSignIn({
-          pending: await startEmailCode(preview.email ?? "", i18n.language),
+          pending: await startEmailCode(preview.email ?? "", i18n.language, bot.token),
           launchUrl: registered.launchUrl,
           landing,
         })
@@ -466,11 +476,13 @@ function RegisterAndJoin({
         // The account exists and has joined: only the sign-in is left to do.
         toast.success(t("auth.invitationRegisterSuccess"))
         navigate("/login", { state: { email: preview.email, from: landing } })
+      } finally {
+        if (bot.token) botCheck.spent()
       }
       return
     }
     try {
-      const result = await login(preview.email ?? "", values.password)
+      const result = await login(preview.email ?? "", values.password, undefined, bot.token)
       if (result.status === "twoFactorRequired") {
         challenge(result.challengeToken, result.methods)
         return
@@ -481,6 +493,8 @@ function RegisterAndJoin({
       // The account exists and has joined: only the sign-in is left to do.
       toast.success(t("auth.invitationRegisterSuccess"))
       navigate("/login", { state: { email: preview.email, from: landing } })
+    } finally {
+      if (bot.token) botCheck.spent()
     }
   }
 
@@ -588,6 +602,7 @@ function RegisterAndJoin({
             />
               </>
             ) : null}
+            {botCheck.field}
             <Button
               type="submit"
               className="w-full"

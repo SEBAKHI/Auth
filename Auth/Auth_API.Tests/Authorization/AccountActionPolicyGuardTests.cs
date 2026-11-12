@@ -66,6 +66,11 @@ public class AccountActionPolicyGuardTests
         ["AssignRoleCommand"] = "hands a role over: PermissionGrantGuard (no amplification) and PlatformGrantFactorGuard",
         ["GrantUserPermissionCommand"] = "hands a permission over: PermissionGrantGuard (no amplification)",
         ["ResetUserTwoFactorCommand"] = "its own rules 1 and 2 (EnsureTwoFactorResettableBy, PermissionGrantGuard); a reset takes no administration away",
+        // S13 (D7): what the console's button always did through the anonymous forgot-password
+        // request, which anyone may send for any address. The link goes to the account's own
+        // mailbox and never to the caller, nothing about the account changes, and one live link
+        // per account (IPasswordResetLinkIssuer) means no second mail while one is live.
+        ["SendUserPasswordResetCommand"] = "mails the account's own address a link the caller never sees, as the anonymous request does for anyone; one live link per account (IPasswordResetLinkIssuer)",
     };
 
     /// <summary>

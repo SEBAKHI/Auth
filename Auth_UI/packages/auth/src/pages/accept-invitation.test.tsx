@@ -44,6 +44,34 @@ const mocks = vi.hoisted(() => ({
   },
 }))
 
+// S13: the bot check is turnstile-widget.test.tsx's own. Here a stand-in records
+// what the page asks of it. By default it is the shipped Off (no field, no token);
+// a test sets a token, or a hold, to see where the page sends it.
+const bot = vi.hoisted(() => ({
+  token: undefined as string | undefined,
+  hold: false,
+  prepared: [] as string[],
+  spent: 0,
+}))
+vi.mock("@authsystem/auth/bot-defense/bot-check", () => ({
+  useBotCheck: () => ({
+    field: null,
+    prepare: async (action: string) => {
+      bot.prepared.push(action)
+      if (bot.hold) return { proceed: false }
+      return bot.token ? { proceed: true, token: bot.token } : { proceed: true }
+    },
+    spent: () => {
+      bot.spent += 1
+    },
+  }),
+}))
+beforeEach(() => {
+  bot.token = undefined
+  bot.hold = false
+  bot.prepared = []
+  bot.spent = 0
+})
 vi.mock("@authsystem/api/env", () => ({
   API_BASE_URL: "https://api.example.com",
 }))
@@ -633,6 +661,51 @@ describe("(c) a new account", () => {
     await waitFor(() => expect(assign).toHaveBeenCalledWith(LAUNCH))
     expect(mocks.warning).not.toHaveBeenCalled()
   })
+
+  it("signs in with the token made for a sign-in (S13)", async () => {
+    bot.token = "bot-token"
+    mocks.login.mockResolvedValue({ status: "authenticated", requiresPasswordChange: false })
+    const user = userEvent.setup()
+    renderPage(preview({ userExists: false }))
+
+    await register(user)
+
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(LAUNCH))
+    expect(bot.prepared).toEqual(["login"])
+    expect(mocks.login).toHaveBeenCalledWith(EMAIL, PASSWORD, undefined, "bot-token")
+    expect(bot.spent).toBe(1)
+  })
+
+  it("creates no account while the check holds the sign-in after it (S13)", async () => {
+    bot.hold = true
+    const user = userEvent.setup()
+    renderPage(preview({ userExists: false }))
+
+    await register(user)
+
+    await waitFor(() => expect(bot.prepared).toEqual(["login"]))
+    expect(mocks.post).not.toHaveBeenCalled()
+    expect(mocks.login).not.toHaveBeenCalled()
+  })
+
+  it("has the widget make a fresh token when the registration is refused (S13)", async () => {
+    // The sign-in the token was taken for never goes out; the next submit
+    // must not wait for a token that is already made and lost.
+    bot.token = "bot-token"
+    mocks.post.mockImplementation(() =>
+      Promise.resolve({
+        error: { status: 409, code: "User.DuplicateEmail" },
+        response: new Response(null, { status: 409 }),
+      })
+    )
+    const user = userEvent.setup()
+    renderPage(preview({ userExists: false }))
+
+    await register(user)
+
+    await waitFor(() => expect(bot.spent).toBe(1))
+    expect(mocks.login).not.toHaveBeenCalled()
+  })
 })
 
 describe("(d) a new account under the sign-up switches (OI-215)", () => {
@@ -724,5 +797,23 @@ describe("(d) a new account under the sign-up switches (OI-215)", () => {
 
     expect(await screen.findByLabelText("First name")).toBeInTheDocument()
     expect(screen.getByLabelText("Password")).toBeInTheDocument()
+  })
+
+  it("sends the code with the token made for a code start (S13)", async () => {
+    bot.token = "bot-token"
+    mocks.signInOptions = OPTIONS
+    const user = userEvent.setup()
+    renderPage(preview({ userExists: false }))
+
+    await user.type(await screen.findByLabelText("First name"), "Rae")
+    await user.type(screen.getByLabelText("Last name"), "Rep")
+    await user.click(screen.getByRole("button", { name: "Create account & join" }))
+
+    expect(await screen.findByRole("heading", { name: "Check your email" })).toBeInTheDocument()
+    expect(bot.prepared).toEqual(["email-code"])
+    expect(mocks.post).toHaveBeenCalledWith("/api/v1/Auth/email-code/start", {
+      body: { email: EMAIL, preferredLanguage: "en", botToken: "bot-token" },
+    })
+    expect(bot.spent).toBe(1)
   })
 })

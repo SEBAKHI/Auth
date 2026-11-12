@@ -128,7 +128,14 @@ describe("the accounts app ships no policy document", () => {
     const undeclared = site.flatMap((header) =>
       Object.entries(header.directives).flatMap(([name, sources]) =>
         sources
-          .filter((s) => !ALLOWED.has(s) && !(name === "style-src" && HASHES.has(s)))
+          .filter(
+            (s) =>
+              !ALLOWED.has(s) &&
+              !(name === "style-src" && HASHES.has(s)) &&
+              // S13: Cloudflare's bot check, a script and a frame source only
+              // (accounts-login-surface.test.ts holds the rule).
+              !(s === "https://challenges.cloudflare.com" && (name === "script-src" || name === "frame-src"))
+          )
           .map((s) => `${header.name}: ${name} ${s}`)
       )
     )

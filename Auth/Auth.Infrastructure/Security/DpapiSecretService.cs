@@ -749,6 +749,7 @@ public class DpapiSecretService : IDpapiSecretService
                 ["RefreshTokenHmacKey"] = SecretStatus.NotConfigured,
                 ["SmtpPassword"] = SecretStatus.NotConfigured,
                 ["GoogleClientSecret"] = SecretStatus.NotConfigured,
+                ["TurnstileSecretKey"] = SecretStatus.NotConfigured,
                 ["GatewayToken"] = SecretStatus.NotConfigured,
                 ["AccountDeletionIdentifierHmacKey"] = SecretStatus.NotConfigured,
                 ["ConnectionStrings.AuthDb"] = SecretStatus.NotConfigured
@@ -768,6 +769,7 @@ public class DpapiSecretService : IDpapiSecretService
             ["RefreshTokenHmacKey"] = GetStatus(secrets.RefreshTokenHmacKey),
             ["SmtpPassword"] = GetStatus(secrets.SmtpPassword),
             ["GoogleClientSecret"] = GetStatus(secrets.GoogleClientSecret),
+            ["TurnstileSecretKey"] = GetStatus(secrets.TurnstileSecretKey),
             ["GatewayToken"] = GetStatus(secrets.GatewayToken),
             ["AccountDeletionIdentifierHmacKey"] = GetStatus(secrets.AccountDeletionIdentifierHmacKey),
             ["PasswordPepper"] = secrets.PasswordPeppers.Count > 0 ? SecretStatus.Configured : SecretStatus.NotConfigured,

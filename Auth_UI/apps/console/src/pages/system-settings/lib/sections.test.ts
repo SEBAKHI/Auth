@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest"
 
 import { en } from "@authsystem/i18n/locales/en"
 
+import { resolveSectionLayout } from "./section-layout"
 import {
   HIGH_IMPACT_PATHS,
   PROSE_VALUE_PATHS,
@@ -269,5 +270,21 @@ describe("isHighImpactPath / isProseValuePath", () => {
     expect(valueDirection(undefined, "LegalName")).toBe("ltr")
     expect(valueDirection("Jwt", "Issuer")).toBe("ltr")
     expect(valueDirection("DataController", "Address")).toBe("auto")
+  })
+})
+
+describe("the rate limits as the registry declares them", () => {
+  // Every limit/window pair belongs to the "windows" group and the upload cap to
+  // "concurrency", so a pair added to the registry but not to SECTION_BLOCKS
+  // would fall to the bottom of the card, under no heading, away from the pairs
+  // it belongs with. S13 added one (BotFallbackPermitLimit / WindowSeconds).
+  it("places every RateLimiting field in a group", () => {
+    const fields = registryFields("RateLimiting").map(({ name }) => ({ path: name, kind: "int" }))
+    expect(fields.map((f) => f.path)).toContain("BotFallbackPermitLimit")
+
+    const layout = resolveSectionLayout("RateLimiting", fields as Parameters<typeof resolveSectionLayout>[1])
+
+    expect(layout.general.map((f) => f.path)).toEqual([])
+    expect(layout.blocks.flatMap((b) => b.fields).length).toBe(fields.length)
   })
 })

@@ -84,6 +84,11 @@ export async function answerAuthenticatedDefaults(
     await fulfillJson(route, options?.branding ?? { platformName: "AuthSystem", staySignedInOffered: true })
     return true
   }
+  // S13: the bot check is off, so no page loads Cloudflare's script (the shipped default).
+  if (url.pathname.toLowerCase() === "/api/v1/platform/bot-defense") {
+    await fulfillJson(route, { mode: "Off", siteKey: null })
+    return true
+  }
   if (url.pathname.toLowerCase() === "/api/v1/platform/password-policy") {
     await fulfillJson(route, {
       minimumLength: 8,

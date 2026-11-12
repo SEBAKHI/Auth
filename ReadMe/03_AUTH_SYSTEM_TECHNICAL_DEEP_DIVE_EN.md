@@ -1764,13 +1764,27 @@ computed under it. Rotate it and the registry can no longer recognize a destroye
 a deleted email address becomes re-registerable before its reservation window has run out. Back it up;
 never regenerate it.
 
-Two further keys are secret-managed but not startup-required: `ExternalAuth:Apple:PrivateKeyPem` (the
-Apple `.p8` signing key) and the SMTP password `Email:Password`.
+Four further keys are secret-managed but not startup-required: `ExternalAuth:Apple:PrivateKeyPem` (the
+Apple `.p8` signing key), the SMTP password `Email:Password`, Google's client secret
+`ExternalAuth:Google:ClientSecret`, and Cloudflare's Turnstile secret `BotDefense:TurnstileSecret`.
 
 **A startup guard refuses to boot if any crown-jewel secret is present in plaintext Production
 configuration.** It checks `Jwt:PrivateKeyPem`, `Jwt:PrivateKeyPath` (a plaintext key file),
-`Jwt:RefreshTokenHmacKeyPlain`, `AccountDeletion:IdentifierHmacKeyPlain` and
-`ExternalAuth:Apple:PrivateKeyPem`, and it runs *before* the secret provider is layered.
+`Jwt:RefreshTokenHmacKeyPlain`, `AccountDeletion:IdentifierHmacKeyPlain`,
+`ExternalAuth:Apple:PrivateKeyPem`, `ExternalAuth:Google:ClientSecret` and `BotDefense:TurnstileSecret`, and
+it runs *before* the secret provider is layered.
+
+**Vendor-issued secrets are transcribed, never generated (S13).** The Turnstile secret is issued by
+Cloudflare for the deployment's widget, like Google's client secret by Google: the system cannot mint a
+correct one, so `KeyMaterialGenerator` never generates it and `RequiredSecretsRegistry.VendorIssued`
+lists it apart from the startup-required keys. An administrator sets it with
+`PUT /api/v1/admin/Secrets/turnstile-secret` (and removes it with `DELETE`); it is stored as
+`TurnstileSecretKey` and reaches the bot check as `BotDefense:TurnstileSecret` after the next restart,
+because the secret provider loads once. In Production one of Cloudflare's published testing secrets is
+refused, at the endpoint and by the settings validator, and the posture reports one in use as Critical.
+Without the secret the bot check counts as not configured, and `BotDefense:FailMode` decides what
+Enforce does
+([PRODUCTION_DEPLOYMENT_GUIDE.md](PRODUCTION_DEPLOYMENT_GUIDE.md#u-the-bot-check-cloudflare-turnstile-botdefense)).
 
 ### Provisioning
 

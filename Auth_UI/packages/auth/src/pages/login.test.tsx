@@ -19,6 +19,11 @@ const mocks = vi.hoisted(() => ({
   branding: { staySignedInOffered: true as boolean | null },
 }))
 
+// S13: the bot check is turnstile-widget.test.tsx's own. Here it is the shipped
+// default, Off: no field, and every request goes out without a token.
+vi.mock("@authsystem/auth/bot-defense/bot-check", () => ({
+  useBotCheck: () => ({ field: null, prepare: async () => ({ proceed: true }), spent: () => {} }),
+}))
 vi.mock("@authsystem/ui/branding", () => ({
   useBranding: () => ({ name: "AuthSystem", logoUrl: null, isPending: false, ...mocks.branding }),
 }))
@@ -119,7 +124,7 @@ describe("LoginPage: Stay signed in", () => {
 
     await signIn(user)
 
-    expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", false)
+    expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", false, undefined)
     // The password proved the first step (OI-275: kept with the resume marker).
     await waitFor(() =>
       expect(mocks.complete).toHaveBeenCalledWith(
@@ -136,7 +141,7 @@ describe("LoginPage: Stay signed in", () => {
     await user.click(screen.getByRole("checkbox", { name: "auth.staySignedIn" }))
     await signIn(user)
 
-    expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", true)
+    expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", true, undefined)
   })
 
   it("hands the provider buttons the box as it is when they sign in", async () => {
@@ -225,7 +230,7 @@ describe("LoginPage: Stay signed in, when the administrator decides", () => {
     await signIn(user)
 
     expect(seen).toEqual([false])
-    expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", false)
+    expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", false, undefined)
   })
 })
 
