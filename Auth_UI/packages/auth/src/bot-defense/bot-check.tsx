@@ -28,7 +28,11 @@ export interface BotCheck {
   /**
    * A token for `action`. Off, or no sitekey: proceed with none. Monitor:
    * proceed with the ready token, or none, never waiting. Enforce: wait for the
-   * token; with none in time, do not proceed, and the field says why.
+   * token. With none in time while Cloudflare's box is on screen, hold the
+   * request and ask for the click; with nothing to click (a challenge that keeps
+   * failing, a widget that cannot run here), proceed without a token, so the
+   * server answers as Enforce does and counts the failure, and the field names
+   * the ways out.
    */
   prepare: (action: BotAction) => Promise<BotTokenResult>
   /**
@@ -71,12 +75,24 @@ export function useBotCheck(expected: BotAction): BotCheck {
       const ready = slot.action === needed ? slot.take(needed) : null
       if (ready) return { proceed: true, token: ready }
       if (current.mode !== "Enforce") return { proceed: true }
+      // Nothing will come from this widget: no reason to make the person wait.
+      if (slot.failed && slot.action === needed) return { proceed: true }
 
-      setState((previous) => (previous.kind === "incomplete" ? { kind: "quiet" } : previous))
+      setState((previous) =>
+        previous.kind === "incomplete" || previous.kind === "stalled" ? { kind: "quiet" } : previous
+      )
       const token = await slot.wait(needed, ENFORCED_WAIT_MS)
       if (token) return { proceed: true, token }
-      setState((previous) => (previous.kind === "quiet" ? { kind: "incomplete" } : previous))
-      return { proceed: false }
+      if (slot.failed) return { proceed: true }
+      if (slot.interactive) {
+        // Cloudflare's box is on screen and was not ticked: ask for the click.
+        setState({ kind: "incomplete" })
+        return { proceed: false }
+      }
+      // Nothing to click and no token in time: the request goes out without one, so the
+      // server sees the failure (its token-missing count), and the field names the ways out.
+      setState({ kind: "stalled" })
+      return { proceed: true }
     },
     [queryClient, slot, expected]
   )
@@ -100,7 +116,8 @@ export function useBotCheck(expected: BotAction): BotCheck {
         configFailed={isError}
         onRetry={() => {
           setState({ kind: "quiet" })
-          if (isError) refetch()
+          // The configuration too: an owner who switched the check off is heard at once.
+          refetch()
           setGeneration((value) => value + 1)
         }}
       />

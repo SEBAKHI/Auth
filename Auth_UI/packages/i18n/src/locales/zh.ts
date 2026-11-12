@@ -380,11 +380,13 @@ export const zh: TranslationResources = {
     label: "安全验证",
     completeTheCheck: "请完成上方的安全验证，然后重试。",
     blockedTitle: "此处无法运行安全验证",
-    blockedBody: "此浏览器或网络无法完成 Cloudflare 的验证。请重试、换用其他浏览器或网络，或用其他方式登录。",
+    blockedBody: "此浏览器或网络无法完成 Cloudflare 的验证。请重试、检查此设备的日期和时间是否正确、换用其他浏览器或网络、用其他方式登录，或向管理员求助。",
     loadFailedTitle: "安全验证未能加载",
     loadFailedBody: "某些因素（如浏览器扩展或网络）阻止了 Cloudflare 验证的加载。请重试，或换用其他浏览器或网络。",
     configFailedTitle: "安全验证尚未就绪",
     configFailedBody: "无法加载其设置。请重试；如果仍然失败，请求可能仍会通过。",
+    stalledTitle: "安全验证未完成",
+    stalledBody: "Cloudflare 的验证在此浏览器中未能得出结果，这在某些网络和 VPN 中会发生。请重试。如果反复出现，请检查此设备的日期和时间是否正确、换用其他浏览器或网络、用其他方式登录，或向管理员求助。",
   },
   auth: {
     mfaPasskeyAlreadyEnrolled: "您的账户已有通行密钥（passkey）。请继续前往该应用；如果要求您登录，请使用通行密钥。",
@@ -2662,7 +2664,7 @@ export const zh: TranslationResources = {
       passkeyLookupWindowSecondsHint:
         "上面通行密钥检查计数的统计时长，与其他项相同的固定窗口机制：窗口结束时计数器归零。保存后立即对新的客户端窗口生效。",
       botFallbackPermitLimit: "机器人验证不可用时每个地址的请求数",
-      botFallbackPermitLimitHint: "在强制模式且为“按入口”设置时，若 Cloudflare 无法访问或密钥未配置：一个客户端 IP 在一个窗口内仍可发送的登录、验证码和重置请求数。注册会被拒绝。刻意保持较小：至多为认证限制的一半。",
+      botFallbackPermitLimitHint: "在强制模式且为“按入口”设置时，若服务器无法向 Cloudflare 核验令牌或缺少密钥：一个客户端 IP 在一个窗口内仍可发送的登录、验证码和重置请求数。验证码请求也可以通过验证码开始新账户。刻意保持较小：至多为认证限制的一半。",
       botFallbackWindowSeconds: "该额度的窗口（秒）",
       botFallbackWindowSecondsHint: "上方额度的计数时长。保存后立即作用于新的客户端窗口。",
       externalCodePermitLimit: "每个窗口的 Google 登录代码交换次数",
@@ -2757,7 +2759,7 @@ export const zh: TranslationResources = {
         Enforce: "强制",
       },
       failMode: "无法进行验证时",
-      failModeHint: "当 Cloudflare 无法访问或密钥未配置时，强制模式的处理方式。按入口：拒绝注册；登录、验证码和重置请求每个地址可通过几次（见“速率限制”中的额度）。关闭：四类请求全部拒绝（包括管理员登录），直到验证恢复。",
+      failModeHint: "当服务器无法向 Cloudflare 核验令牌或缺少密钥时，强制模式的处理方式。按入口：拒绝开始注册；登录、验证码请求（也可以通过验证码开始新账户）和重置请求每个地址可通过几次（见“速率限制”中的额度）。关闭：四类请求全部拒绝，包括管理员登录。浏览器若根本拿不到令牌（Cloudflare 小组件被拦截或停止服务，或站点密钥错误），两种设置下都会被拒绝。",
       failModeOptions: {
         PerSurface: "按入口（推荐）",
         Closed: "关闭（全部拒绝）",

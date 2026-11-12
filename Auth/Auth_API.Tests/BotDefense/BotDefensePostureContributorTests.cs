@@ -113,10 +113,13 @@ public class BotDefensePostureContributorTests
         posture.Probe!.Succeeded.Should().BeTrue();
     }
 
-    [Fact]
-    public async Task Reachability_ASecretCloudflareRefuses_IsCriticalInProduction()
+    [Theory]
+    [InlineData("invalid-input-secret")]
+    // The probe's token is well formed, so a bad-request is the server's own request (review of PR 167).
+    [InlineData("bad-request")]
+    public async Task Reachability_ASecretCloudflareRefuses_IsCriticalInProduction(string code)
     {
-        _client.Answers(BotDefenseTestDoubles.Refused("invalid-input-secret"));
+        _client.Answers(BotDefenseTestDoubles.Refused(code));
 
         var posture = await Contributor(BotDefenseTestDoubles.Settings(), production: true).EvaluateAsync(CancellationToken.None);
 
@@ -154,6 +157,21 @@ public class BotDefensePostureContributorTests
     }
 
     [Fact]
+    public async Task ThePassRate_LeavesJunkTokensOut_AndSaysHowMany()
+    {
+        _counts.Add("https://accounts.example.com", BotDefenseMode.Monitor, BotDefenseVerdictKind.Passed);
+        _counts.Add("https://accounts.example.com", BotDefenseMode.Monitor, BotDefenseVerdictKind.Rejected, junkToken: true);
+        _counts.Add("https://accounts.example.com", BotDefenseMode.Monitor, BotDefenseVerdictKind.Rejected, junkToken: true);
+        _counts.Add("other", BotDefenseMode.Monitor, BotDefenseVerdictKind.Rejected, junkToken: true);
+
+        var posture = await Contributor(BotDefenseTestDoubles.Settings(BotDefenseMode.Monitor, secret: ""), production: false)
+            .EvaluateAsync(CancellationToken.None);
+
+        Line(posture, "bot.monitor-pass-rate").Arguments.Single().Should().Be(
+            "https://accounts.example.com 1/1 (100.0 %), 2 junk token(s) not counted; other 0/0 (-), 1 junk token(s) not counted");
+    }
+
+    [Fact]
     public async Task MoreThanHalfOfTwentyEnforcedSubmissionsWithoutAToken_IsCritical()
     {
         for (var i = 0; i < 9; i++)
@@ -178,4 +196,48 @@ public class BotDefensePostureContributorTests
         Line(await contributor.EvaluateAsync(CancellationToken.None), "bot.token-missing-spike").Level
             .Should().Be(LogLevel.Information, "the window is ten minutes");
     }
+
+    [Fact]
+    public async Task MoreThanHalfOfTwentyEnforcedSubmissionsRefusedForTheDeploymentsOwnSetup_IsCritical()
+    {
+        // An app host missing from the accepted origins turns every sign-in from that app into
+        // TokenRejected, which no fail mode softens (review of PR 167): the posture says so.
+        for (var i = 0; i < 9; i++)
+        {
+            _counts.Add("https://console.example.com", BotDefenseMode.Enforce, BotDefenseVerdictKind.Passed);
+        }
+
+        for (var i = 0; i < 10; i++)
+        {
+            _counts.Add("https://console.example.com", BotDefenseMode.Enforce, BotDefenseVerdictKind.Rejected, localRejection: true);
+        }
+
+        var contributor = Contributor(BotDefenseTestDoubles.Settings(secret: ""), production: true);
+        Line(await contributor.EvaluateAsync(CancellationToken.None), "bot.local-rejection-spike").Level
+            .Should().Be(LogLevel.Information, "19 submissions say nothing (the floor is 20)");
+
+        _counts.Add("https://console.example.com", BotDefenseMode.Enforce, BotDefenseVerdictKind.Rejected, localRejection: true);
+        var posture = await contributor.EvaluateAsync(CancellationToken.None);
+        Line(posture, "bot.local-rejection-spike").Level.Should().Be(LogLevel.Critical, "11 of 20 were refused for the setup");
+        posture.Reasons.Should().Contain("bot.local-rejection-spike");
+        Line(posture, "bot.token-missing-spike").Level.Should().Be(LogLevel.Information, "none of them lacked a token");
+
+        _clock.Advance(BotDefenseVerdictCounts.SpikeWindow + TimeSpan.FromMinutes(1));
+        Line(await contributor.EvaluateAsync(CancellationToken.None), "bot.local-rejection-spike").Level
+            .Should().Be(LogLevel.Information, "the window is ten minutes");
+    }
+
+    [Fact]
+    public async Task ARefusalOfAJunkToken_IsNotTheDeploymentsOwn()
+    {
+        for (var i = 0; i < 20; i++)
+        {
+            _counts.Add("other", BotDefenseMode.Enforce, BotDefenseVerdictKind.Rejected);
+        }
+
+        var contributor = Contributor(BotDefenseTestDoubles.Settings(secret: ""), production: true);
+        Line(await contributor.EvaluateAsync(CancellationToken.None), "bot.local-rejection-spike").Level
+            .Should().Be(LogLevel.Information, "robots' junk tokens are refused as invalid-input-response, not counted here");
+    }
+
 }

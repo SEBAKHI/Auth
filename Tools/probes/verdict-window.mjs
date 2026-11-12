@@ -9,10 +9,19 @@
  * reads these verdicts as signals, this script is how the gates are read.
  *
  * What counts. A submission is a verdict that judged a request: every verdict except
- * Unconfigured (no check ran) and ProbeAsserted (S17's sign-in probe, which never meets
- * Cloudflare). This is the posture's own definition (BotDefenseVerdictCounts), so the
- * console's bot.monitor-pass-rate and this script agree. A check that could not run
- * (Unavailable, Misconfigured) is a submission that did not pass.
+ * Unconfigured (no check ran), ProbeAsserted (S17's sign-in probe, which never meets
+ * Cloudflare), and a junk token: a Rejected verdict with a code no real widget makes
+ * (JUNK_TOKEN_CODES), which is counted apart and printed. Junk can be sent by anyone with
+ * a listed app's Origin; counted, eleven junk tokens among a thousand sign-ins would hold
+ * the move to Enforce back, and a flood of them would hide a token-missing spike. This is
+ * the posture's own definition (BotDefenseVerdictCounts), so the console's
+ * bot.monitor-pass-rate and this script agree. A check that could not run (Unavailable,
+ * Misconfigured) is a submission that did not pass.
+ *
+ * Cloudflare's answer time. Every verdict that went to Cloudflare (attempts >= 1, whatever
+ * its outcome, timeouts included) gives its elapsedMs; the report prints, per app, the
+ * count, the median, the 95th percentile (nearest rank) and the longest. Not a gate: it is
+ * how long the check adds to a sign-in.
  *
  * Gate 1, Monitor -> Enforce: bot.monitor-pass-rate per app. Over the Monitor lines,
  * for every listed app (origin), Passed / submissions >= 99 %, with at least 100
@@ -48,6 +57,12 @@ export const PASS_RATE_MINIMUM = 0.99
 export const APP_MINIMUM = 100
 export const GATE_DAYS = 7
 const DAY_MS = 24 * 60 * 60 * 1000
+
+/** Codes no real widget's token gets: TurnstileBotDefenseVerifier.JunkTokenCodes. Change both together. */
+export const JUNK_TOKEN_CODES = ["invalid-input-response", "token-too-long", "token-malformed", "dummy-token"]
+
+const isJunk = (verdict) =>
+  verdict.verdict === "Rejected" && verdict.codes.split(",").some((code) => JUNK_TOKEN_CODES.includes(code))
 
 const HEAD = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d+))?\s*(Z|[+-]\d{2}:?\d{2})?\s+\[(\w{3})\]\s+(.*)$/
 // Quotes are optional: the file sink renders the message with :lj (no quotes), a template
@@ -87,6 +102,9 @@ export function tally(verdicts, { from, to } = {}) {
     read: 0,
     probeAsserted: 0,
     unconfigured: 0,
+    junk: 0,
+    junkByApp: new Map(),
+    answerTimes: new Map(),
     monitor: { first: undefined, last: undefined },
     enforce: { first: undefined, last: undefined },
     apps,
@@ -106,6 +124,16 @@ export function tally(verdicts, { from, to } = {}) {
     }
     if (verdict.verdict === "Unconfigured") {
       result.unconfigured += 1
+      continue
+    }
+    if (verdict.attempts >= 1) {
+      const times = result.answerTimes.get(verdict.origin) ?? []
+      times.push(verdict.elapsedMs)
+      result.answerTimes.set(verdict.origin, times)
+    }
+    if (isJunk(verdict)) {
+      result.junk += 1
+      result.junkByApp.set(verdict.origin, (result.junkByApp.get(verdict.origin) ?? 0) + 1)
       continue
     }
     if (verdict.mode === "Monitor") {
@@ -201,6 +229,26 @@ export function gateEnforce(counts) {
   }
 }
 
+/** The value at `share` of the sorted list, by nearest rank: the 95th of 20 values is the 19th. */
+export function percentile(values, share) {
+  if (values.length === 0) return undefined
+  const sorted = [...values].sort((a, b) => a - b)
+  return sorted[Math.max(1, Math.ceil(share * sorted.length)) - 1]
+}
+
+/** Per app: how many verdicts went to Cloudflare, and how long its answers took. */
+export function answerTimes(counts) {
+  return [...counts.answerTimes.entries()]
+    .sort(([a], [b]) => (a === "other") - (b === "other") || a.localeCompare(b))
+    .map(([origin, times]) => ({
+      origin,
+      count: times.length,
+      p50: percentile(times, 0.5),
+      p95: percentile(times, 0.95),
+      max: Math.max(...times),
+    }))
+}
+
 const percent = (rate) => `${(rate * 100).toFixed(2)} %`
 const stamp = (at) => new Date(at).toISOString().replace("T", " ").slice(0, 16) + " UTC"
 
@@ -209,8 +257,12 @@ export function formatReport(counts, monitor, enforce, gates = "both") {
   const lines = []
   lines.push(`Bot check verdicts: ${counts.read} lines read.`)
   lines.push(
-    `  not counted: ${counts.probeAsserted} ProbeAsserted (S17's probe, never checked with Cloudflare), ${counts.unconfigured} Unconfigured (no check ran)`
+    `  not counted: ${counts.probeAsserted} ProbeAsserted (S17's probe, never checked with Cloudflare), ${counts.unconfigured} Unconfigured (no check ran), ${counts.junk} junk token(s) (${JUNK_TOKEN_CODES.join(", ")}: no real widget makes one)`
   )
+  if (counts.junk > 0) {
+    const byApp = [...counts.junkByApp.entries()].sort(([a], [b]) => a.localeCompare(b))
+    lines.push(`  junk tokens per app: ${byApp.map(([origin, count]) => `${origin} ${count}`).join("; ")}`)
+  }
   if (gates !== "enforce") {
     lines.push("")
     lines.push("Gate 1, Monitor -> Enforce: bot.monitor-pass-rate per app")
@@ -248,6 +300,17 @@ export function formatReport(counts, monitor, enforce, gates = "both") {
       lines.push(`    spike: ${stamp(spike.start)}, ${spike.missing} of ${spike.submissions} without a token`)
     }
     lines.push(`  RESULT: ${enforce.result}: ${enforce.reason}`)
+  }
+  lines.push("")
+  lines.push("Cloudflare's answer time (every verdict that went to Cloudflare; not a gate)")
+  const times = answerTimes(counts)
+  if (times.length === 0) {
+    lines.push("  no verdict went to Cloudflare")
+  } else {
+    lines.push("  app | verifications | median ms | p95 ms | longest ms")
+    for (const row of times) {
+      lines.push(`  ${row.origin} | ${row.count} | ${row.p50} | ${row.p95} | ${row.max}`)
+    }
   }
   return lines.join("\n")
 }

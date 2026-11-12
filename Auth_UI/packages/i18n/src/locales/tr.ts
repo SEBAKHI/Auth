@@ -383,11 +383,13 @@ export const tr: TranslationResources = {
     label: "Güvenlik denetimi",
     completeTheCheck: "Yukarıdaki güvenlik denetimini tamamlayın, ardından yeniden deneyin.",
     blockedTitle: "Güvenlik denetimi burada çalışamıyor",
-    blockedBody: "Bu tarayıcı veya ağ Cloudflare denetimini tamamlayamıyor. Yeniden deneyin, başka bir tarayıcı veya ağ kullanın ya da başka bir yolla oturum açın.",
+    blockedBody: "Bu tarayıcı veya ağ Cloudflare denetimini tamamlayamıyor. Yeniden deneyin, bu cihazın tarih ve saatinin doğru olduğunu denetleyin, başka bir tarayıcı veya ağ kullanın, başka bir yolla oturum açın ya da yöneticinizden yardım isteyin.",
     loadFailedTitle: "Güvenlik denetimi yüklenmedi",
     loadFailedBody: "Bir tarayıcı eklentisi ya da ağ gibi bir şey Cloudflare denetiminin yüklenmesini engelledi. Yeniden deneyin ya da başka bir tarayıcı veya ağ kullanın.",
     configFailedTitle: "Güvenlik denetimi hazır değil",
     configFailedBody: "Ayarları yüklenemedi. Yeniden deneyin; sorun sürerse istek yine de geçebilir.",
+    stalledTitle: "Güvenlik denetimi tamamlanmadı",
+    stalledBody: "Cloudflare denetimi bu tarayıcıda bir sonuca ulaşmadı; bu bazı ağlarda ve VPN'lerde olur. Yeniden deneyin. Tekrarlanırsa bu cihazın tarih ve saatinin doğru olduğunu denetleyin, başka bir tarayıcı veya ağ kullanın, başka bir yolla oturum açın ya da yöneticinizden yardım isteyin.",
   },
   auth: {
     mfaPasskeyAlreadyEnrolled: "Hesabınızda zaten bir geçiş anahtarı (passkey) var. Uygulamaya devam edin; oturum açmanız istenirse geçiş anahtarını kullanın.",
@@ -2807,7 +2809,7 @@ export const tr: TranslationResources = {
       passkeyLookupWindowSecondsHint:
         "Yukarıdaki geçiş anahtarı denetimi sayısının ölçüldüğü süre; diğerleriyle aynı sabit pencere mekaniğiyle: pencere bitince sayaç sıfıra döner. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
       botFallbackPermitLimit: "Bot denetimi çalışamazken adres başına istek",
-      botFallbackPermitLimitHint: "Yüzey başına ayarıyla Zorunlu modda, Cloudflare'e ulaşılamadığı ya da anahtarlar ayarlı olmadığı sürece: bir istemci IP'sinin bir pencerede hâlâ gönderebileceği oturum açma, kod ve sıfırlama isteği sayısı. Kayıtlar reddedilir. Bilerek küçük tutulur: en fazla kimlik doğrulama sınırının yarısı.",
+      botFallbackPermitLimitHint: "Yüzey başına ayarıyla Zorunlu modda, sunucu bir belirteci Cloudflare'de denetleyemediği ya da bir anahtar eksik olduğu sürece: bir istemci IP'sinin bir pencerede hâlâ gönderebileceği oturum açma, kod ve sıfırlama isteği sayısı. Bir kod isteği kodla yeni bir hesap da başlatabilir. Bilerek küçük tutulur: en fazla kimlik doğrulama sınırının yarısı.",
       botFallbackWindowSeconds: "Bu payın penceresi (saniye)",
       botFallbackWindowSecondsHint: "Yukarıdaki payın sayıldığı süre. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
       externalCodePermitLimit: "Pencere başına Google oturum açma kodu değişimi",
@@ -2903,7 +2905,7 @@ export const tr: TranslationResources = {
         Enforce: "Zorunlu",
       },
       failMode: "Denetim çalışamadığında",
-      failModeHint: "Cloudflare'e ulaşılamadığı ya da anahtarlar ayarlı olmadığı sürece Zorunlu modun yaptığı. Yüzey başına: kayıt reddedilir; oturum açma, kod ve sıfırlama istekleri adres başına birkaç kez geçer (Hız sınırlama altındaki pay). Kapalı: yöneticiler dahil dördü de denetim yeniden çalışana kadar reddedilir.",
+      failModeHint: "Sunucu bir belirteci Cloudflare'de denetleyemediği ya da bir anahtar eksik olduğu sürece Zorunlu modun yaptığı. Yüzey başına: kayıt başlatma reddedilir; oturum açma, kod isteği (kodla yeni bir hesap da başlatabilir) ve sıfırlama isteği adres başına birkaç kez geçer (Hız sınırlama altındaki pay). Kapalı: yöneticiler dahil dördü de reddedilir. Cloudflare widget'ı engellendiği ya da çalışmadığı veya site anahtarı yanlış olduğu için hiç belirteç alamayan bir tarayıcı her iki durumda da reddedilir.",
       failModeOptions: {
         PerSurface: "Yüzey başına (önerilen)",
         Closed: "Kapalı (her şeyi reddet)",

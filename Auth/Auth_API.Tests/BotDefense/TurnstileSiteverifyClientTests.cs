@@ -60,6 +60,18 @@ public class TurnstileSiteverifyClientTests
     }
 
     [Fact]
+    public async Task TheAnswerCarriesCloudflaresOwnTime_FromItsDateHeader()
+    {
+        var answeredAt = new DateTimeOffset(2026, 11, 12, 10, 0, 1, TimeSpan.Zero);
+        _cloudflare.ThenAnsweredAt(answeredAt, Success);
+
+        var result = await Client().VerifyAsync("s", "t", CancellationToken.None);
+
+        result.Answer!.RespondedAt.Should().Be(answeredAt, "the challenge's age is measured on Cloudflare's clock");
+        result.Answer.ChallengeTs.Should().Be(new DateTimeOffset(2026, 11, 12, 9, 59, 55, TimeSpan.Zero));
+    }
+
+    [Fact]
     public async Task A5xx_IsTriedOnceMore_WithTheSameKey()
     {
         _cloudflare.Then(HttpStatusCode.ServiceUnavailable, "").Then(HttpStatusCode.OK, Success);
@@ -196,6 +208,17 @@ public class TurnstileSiteverifyClientTests
         public StubCloudflare Then(HttpStatusCode status, string body)
         {
             _replies.Enqueue(_ => Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) }));
+            return this;
+        }
+
+        public StubCloudflare ThenAnsweredAt(DateTimeOffset date, string body)
+        {
+            _replies.Enqueue(_ =>
+            {
+                var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) };
+                response.Headers.Date = date;
+                return Task.FromResult(response);
+            });
             return this;
         }
 

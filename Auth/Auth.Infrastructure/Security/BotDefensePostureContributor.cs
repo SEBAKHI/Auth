@@ -25,7 +25,8 @@ namespace Auth.Infrastructure.Security;
 /// with it. An answer without a secret error means Cloudflare answers and knows the secret; a
 /// secret error is Critical in Production; no answer is a Warning in Production. Probed at most
 /// once in five minutes, and its time is written, which the owner reads before Monitor.</item>
-/// <item><c>bot.monitor-pass-rate</c>: per app, since this process started (Information).</item>
+/// <item><c>bot.monitor-pass-rate</c>: per app, since this process started (Information); a
+/// token no real widget makes is left out and its number said.</item>
 /// <item><c>bot.token-missing-spike</c>: under Enforce, more than half of at least 20
 /// submissions in ten minutes without a token: Critical (a page that no longer sends one).</item>
 /// </list>
@@ -50,6 +51,8 @@ public sealed class BotDefensePostureContributor : ISecurityPostureContributor
     private const string PassRateTemplate = "Bot defense posture bot.monitor-pass-rate: {PassRates}";
     private const string SpikeTemplate =
         "Bot defense posture bot.token-missing-spike: {Missing} of {Submissions} submissions in the last 10 minutes carried no token";
+    private const string LocalRejectionTemplate =
+        "Bot defense posture bot.local-rejection-spike: {Local} of {Submissions} submissions in the last 10 minutes were refused for this deployment's own setup (hostname, action or challenge age); check the widget's hosts against IdentityProvider:FirstPartySpaOrigins, else Cors:AllowedOrigins, and the server's clock";
 
     private readonly IOptionsMonitor<BotDefenseSettings> _settings;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -184,21 +187,32 @@ public sealed class BotDefensePostureContributor : ISecurityPostureContributor
         var rates = _counts.PassRates();
         var rateText = rates.Count == 0
             ? "no submission yet"
-            : string.Join("; ", rates.OrderBy(rate => rate.Key, StringComparer.Ordinal).Select(rate =>
-                $"{rate.Key} {rate.Value.Passed}/{rate.Value.Submissions} ({100.0 * rate.Value.Passed / rate.Value.Submissions:0.0} %)"));
+            : string.Join("; ", rates.OrderBy(rate => rate.Key, StringComparer.Ordinal).Select(rate => PassRateText(rate.Key, rate.Value)));
         lines.Add(new SecurityPostureLine(LogLevel.Information, PassRateTemplate, [rateText]));
 
-        // bot.token-missing-spike
+        // bot.token-missing-spike and bot.local-rejection-spike
         if (settings.Mode == BotDefenseMode.Enforce)
         {
-            var (submissions, missingTokens) = _counts.EnforcedWindow();
-            var spike = submissions >= BotDefenseVerdictCounts.SpikeMinimumSubmissions && missingTokens * 2 > submissions;
+            var (submissions, missingTokens, localRejected) = _counts.EnforcedWindow();
+            var enough = submissions >= BotDefenseVerdictCounts.SpikeMinimumSubmissions;
+            var spike = enough && missingTokens * 2 > submissions;
             lines.Add(new SecurityPostureLine(
                 spike ? LogLevel.Critical : LogLevel.Information, SpikeTemplate, [missingTokens, submissions]));
             if (spike)
             {
                 reasons.Add("bot.token-missing-spike");
                 state.Add("spike");
+            }
+
+            // Refused people, not robots: a host missing from the accepted origins, for instance,
+            // turns every sign-in from one app into TokenRejected, which no fail mode softens.
+            var localSpike = enough && localRejected * 2 > submissions;
+            lines.Add(new SecurityPostureLine(
+                localSpike ? LogLevel.Critical : LogLevel.Information, LocalRejectionTemplate, [localRejected, submissions]));
+            if (localSpike)
+            {
+                reasons.Add("bot.local-rejection-spike");
+                state.Add("local-rejections");
             }
         }
 
@@ -208,6 +222,13 @@ public sealed class BotDefensePostureContributor : ISecurityPostureContributor
             lines,
             string.Join('|', state),
             probe);
+    }
+
+    private static string PassRateText(string origin, (long Submissions, long Passed, long Junk) rate)
+    {
+        var share = rate.Submissions == 0 ? "-" : $"{100.0 * rate.Passed / rate.Submissions:0.0} %";
+        var junk = rate.Junk == 0 ? "" : $", {rate.Junk} junk token(s) not counted";
+        return $"{origin} {rate.Passed}/{rate.Submissions} ({share}){junk}";
     }
 
     /// <summary>
@@ -229,7 +250,8 @@ public sealed class BotDefensePostureContributor : ISecurityPostureContributor
         (SecurityPostureProbe, string?) outcome = result.Answer switch
         {
             null => (new SecurityPostureProbe(result.Failure ?? "Unreachable", result.ElapsedMs), null),
-            { ErrorCodes: var codes } when codes.Any(code => code is "missing-input-secret" or "invalid-input-secret") =>
+            // The probe's token is well formed, so bad-request here is the server's own request.
+            { ErrorCodes: var codes } when codes.Any(code => code is "missing-input-secret" or "invalid-input-secret" or "bad-request") =>
                 (new SecurityPostureProbe("SecretRejected", result.ElapsedMs), string.Join(",", codes)),
             _ => (new SecurityPostureProbe(SecurityPostureProbe.Reachable, result.ElapsedMs), null),
         };

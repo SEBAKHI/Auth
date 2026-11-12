@@ -4,6 +4,7 @@ using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.ForgotPassword;
 using Auth.Application.Features.Authentication.Login;
+using Auth.Application.Features.Authentication.StartEmailCodeSignIn;
 using Auth.Application.Features.Authentication.StartRegistration;
 using Auth.Application.Features.Platform.GetPasswordPolicy;
 using Auth.Domain.Errors;
@@ -165,6 +166,29 @@ public class BotDefenseBehaviorTests
         var sixth = await SignIn(settings, token: "a-token");
         sixth.FirstError.Code.Should().Be(BotDefenseErrors.Unavailable.Code);
         _handlerRuns.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task Handle_TheCodeStart_IsRefusedWithoutAToken_AndTakesTheAllowanceWhenCloudflareIsUnreachable()
+    {
+        var settings = BotDefenseTestDoubles.Settings();
+        Task<ErrorOr<StartRegistrationResponse>> Start(string? token) =>
+            Behavior<StartEmailCodeSignInCommand, StartRegistrationResponse>(settings).Handle(
+                new StartEmailCodeSignInCommand("person@example.com", "en", "203.0.113.7", "agent", token),
+                _ =>
+                {
+                    _handlerRuns++;
+                    return Task.FromResult<ErrorOr<StartRegistrationResponse>>(Error.Validation("Handler.Ran", "the handler ran"));
+                },
+                CancellationToken.None);
+
+        (await Start(null)).FirstError.Code.Should().Be(BotDefenseErrors.TokenMissing.Code);
+        _handlerRuns.Should().Be(0);
+
+        _client.Answers(BotDefenseTestDoubles.NoAnswer());
+        (await Start("a-token")).FirstError.Code.Should().Be("Handler.Ran", "the code start is in the allowance class (D-S13-1)");
+        _allowance.Asked.Should().ContainSingle().Which.Should().Be("203.0.113.7");
+        _verdicts.Recorded.Select(record => record.Action).Should().Equal(BotDefenseActions.EmailCode, BotDefenseActions.EmailCode);
     }
 
     [Fact]

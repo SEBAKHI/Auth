@@ -46,8 +46,12 @@ internal static class BotDefenseTestDoubles
             timeProvider ?? TimeProvider.System);
 
     /// <summary>Cloudflare's answer accepting a token made for <paramref name="action"/> on <paramref name="hostname"/>.</summary>
-    public static SiteverifyResult Accepted(string action, string hostname = "accounts.example.com", DateTimeOffset? solvedAt = null) =>
-        new(new SiteverifyAnswer(true, [], hostname, action, solvedAt ?? DateTimeOffset.UtcNow.AddSeconds(-5)), null, 1, 40);
+    public static SiteverifyResult Accepted(
+        string action,
+        string hostname = "accounts.example.com",
+        DateTimeOffset? solvedAt = null,
+        DateTimeOffset? respondedAt = null) =>
+        new(new SiteverifyAnswer(true, [], hostname, action, solvedAt ?? DateTimeOffset.UtcNow.AddSeconds(-5), respondedAt), null, 1, 40);
 
     public static SiteverifyResult Refused(params string[] codes) =>
         new(new SiteverifyAnswer(false, codes, null, null, null), null, 1, 40);

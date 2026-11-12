@@ -82,8 +82,14 @@ export function BotCheckField({
           },
           "expired-callback": () => slot.clear(),
           "timeout-callback": () => slot.clear(),
-          "before-interactive-callback": () => onState({ kind: "interactive" }),
-          "after-interactive-callback": () => onState({ kind: "quiet" }),
+          "before-interactive-callback": () => {
+            slot.interactive = true
+            onState({ kind: "interactive" })
+          },
+          "after-interactive-callback": () => {
+            slot.interactive = false
+            onState({ kind: "quiet" })
+          },
           "unsupported-callback": () => {
             slot.fail()
             onState({ kind: "blocked", code: "unsupported" })
@@ -116,7 +122,9 @@ export function BotCheckField({
         ? { title: t("botCheck.blockedTitle"), body: t("botCheck.blockedBody") }
         : state.kind === "load-failed"
           ? { title: t("botCheck.loadFailedTitle"), body: t("botCheck.loadFailedBody") }
-          : null
+          : state.kind === "stalled"
+            ? { title: t("botCheck.stalledTitle"), body: t("botCheck.stalledBody") }
+            : null
   // Nothing to show while the check runs unseen: the field then takes no place in
   // the form (out of the flow, so the group's gap is not spent on it), but the
   // widget stays in the page, where Cloudflare can still run its check.

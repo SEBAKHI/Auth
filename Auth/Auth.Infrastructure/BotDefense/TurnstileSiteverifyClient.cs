@@ -11,12 +11,16 @@ namespace Auth.Infrastructure.BotDefense;
 /// <param name="Hostname">The host the token was made on.</param>
 /// <param name="Action">The action the widget was rendered with.</param>
 /// <param name="ChallengeTs">When the challenge was solved.</param>
+/// <param name="RespondedAt">When Cloudflare answered, by its own clock (the response's
+/// <c>Date</c> header): the challenge's age is measured against it, so a server whose clock
+/// runs ahead does not refuse fresh tokens.</param>
 public sealed record SiteverifyAnswer(
     bool Success,
     IReadOnlyList<string> ErrorCodes,
     string? Hostname,
     string? Action,
-    DateTimeOffset? ChallengeTs);
+    DateTimeOffset? ChallengeTs,
+    DateTimeOffset? RespondedAt = null);
 
 /// <summary>One verification: Cloudflare's answer, or why there was none.</summary>
 /// <param name="Answer">The answer, or null when none was reached.</param>
@@ -203,7 +207,8 @@ public sealed class TurnstileSiteverifyClient : ITurnstileSiteverifyClient
                 codes,
                 root.TryGetProperty("hostname", out var host) && host.ValueKind == JsonValueKind.String ? host.GetString() : null,
                 root.TryGetProperty("action", out var action) && action.ValueKind == JsonValueKind.String ? action.GetString() : null,
-                challengeTs);
+                challengeTs,
+                response.Headers.Date);
         }
         catch (JsonException)
         {

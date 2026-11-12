@@ -112,6 +112,39 @@ public class TurnstileBotDefenseVerifierTests
         _client.Calls.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData("tok\u00e9n")]
+    [InlineData("a token")]
+    [InlineData("tok\u0000en")]
+    [InlineData("\u0627\u0644\u0631\u0645\u0632")]
+    public async Task ATokenOutsidePrintableAscii_IsRejected_WithoutACall(string token)
+    {
+        var verdict = await Verify(BotDefenseTestDoubles.Settings(), token: token);
+
+        verdict.Kind.Should().Be(BotDefenseVerdictKind.Rejected);
+        verdict.Codes.Should().Equal("token-malformed");
+        _client.Calls.Should().BeEmpty("Cloudflare's tokens are printable ASCII; anything else is refused before the call");
+    }
+
+    [Fact]
+    public async Task TheChallengesAge_IsMeasuredOnCloudflaresClock_NotTheServers()
+    {
+        var solvedAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        // The server's clock runs ten minutes ahead: by it, every token is too old.
+        var aheadOfCloudflare = new ManualTimeProvider(DateTimeOffset.UtcNow.AddMinutes(10));
+
+        _client.Answers(BotDefenseTestDoubles.Accepted(
+            BotDefenseActions.Login, solvedAt: solvedAt, respondedAt: solvedAt.AddSeconds(20)));
+        (await Verify(BotDefenseTestDoubles.Settings(), clock: aheadOfCloudflare)).Kind
+            .Should().Be(BotDefenseVerdictKind.Passed, "20 seconds by Cloudflare's own clock");
+
+        _client.Answers(BotDefenseTestDoubles.Accepted(
+            BotDefenseActions.Login, solvedAt: solvedAt, respondedAt: solvedAt.AddSeconds(301)));
+        var old = await Verify(BotDefenseTestDoubles.Settings(), clock: aheadOfCloudflare);
+        old.Kind.Should().Be(BotDefenseVerdictKind.Rejected);
+        old.Codes.Should().Equal("challenge-too-old");
+    }
+
     [Fact]
     public async Task NoAnswerFromCloudflare_IsUnavailable()
     {
@@ -126,7 +159,9 @@ public class TurnstileBotDefenseVerifierTests
     [Theory]
     [InlineData("invalid-input-secret", BotDefenseVerdictKind.Misconfigured)]
     [InlineData("missing-input-secret", BotDefenseVerdictKind.Misconfigured)]
-    [InlineData("bad-request", BotDefenseVerdictKind.Misconfigured)]
+    // A per-request answer is the token's (review of PR 167): only the two secret codes are the
+    // server's state, so no token can steer a request into the outage allowance.
+    [InlineData("bad-request", BotDefenseVerdictKind.Rejected)]
     [InlineData("internal-error", BotDefenseVerdictKind.Unavailable)]
     [InlineData("invalid-input-response", BotDefenseVerdictKind.Rejected)]
     [InlineData("timeout-or-duplicate", BotDefenseVerdictKind.Rejected)]

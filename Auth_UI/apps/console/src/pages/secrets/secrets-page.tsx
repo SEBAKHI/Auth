@@ -243,9 +243,9 @@ function isSettableKnownSecret(key: string): key is KnownSecretKey {
 
 /**
  * The credential secrets that may also be removed: the feature that reads them works without
- * them (Google sign-in is then refused with "not configured"; the bot check then counts as
- * not configured, and its setting for when it cannot run decides), so taking one out is a
- * decision, not a breakage of the platform. Removing asks first, and applies at the next API
+ * them (Google sign-in is then refused with "not configured"; the bot check, while a sitekey
+ * is still set, counts as misconfigured, and its setting for when it cannot run decides), so
+ * taking one out is a decision, not a breakage of the platform. Removing asks first, and applies at the next API
  * restart.
  */
 const CLEARABLE_KNOWN_SECRETS = {

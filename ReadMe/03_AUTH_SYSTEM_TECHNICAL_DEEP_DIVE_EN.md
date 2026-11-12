@@ -1781,8 +1781,10 @@ lists it apart from the startup-required keys. An administrator sets it with
 `PUT /api/v1/admin/Secrets/turnstile-secret` (and removes it with `DELETE`); it is stored as
 `TurnstileSecretKey` and reaches the bot check as `BotDefense:TurnstileSecret` after the next restart,
 because the secret provider loads once. In Production one of Cloudflare's published testing secrets is
-refused, at the endpoint and by the settings validator, and the posture reports one in use as Critical.
-Without the secret the bot check counts as not configured, and `BotDefense:FailMode` decides what
+refused at the endpoint, and a testing sitekey by the settings validator; the posture reports either in
+use as Critical. With neither key set the bot check is Unconfigured and refuses nothing, which the
+posture's `bot.keys-missing` says (Critical in Production while the mode is not Off). With one key
+missing, or a testing key in Production, it is Misconfigured, and `BotDefense:FailMode` decides what
 Enforce does
 ([PRODUCTION_DEPLOYMENT_GUIDE.md](PRODUCTION_DEPLOYMENT_GUIDE.md#u-the-bot-check-cloudflare-turnstile-botdefense)).
 

@@ -12,6 +12,7 @@ export type CheckState =
   | { kind: "blocked"; code: string }
   | { kind: "load-failed" }
   | { kind: "incomplete" }
+  | { kind: "stalled" }
 
 /**
  * The widget's token, which action it was made for, and who waits for one. Plain
@@ -19,6 +20,10 @@ export type CheckState =
  */
 export class TokenSlot {
   action: BotAction
+  /** No token can come from this widget (its script refused, a lasting error, an unsupported browser). */
+  failed = false
+  /** Cloudflare's box is on screen, waiting for the person's click. */
+  interactive = false
   private token: { value: string; action: BotAction } | null = null
   private waiters: Array<{ action: BotAction; resolve: (token: string | null) => void }> = []
   private resetWidget: (() => void) | null = null
@@ -31,6 +36,8 @@ export class TokenSlot {
   begin(action: BotAction, reset: () => void) {
     this.action = action
     this.token = null
+    this.failed = false
+    this.interactive = false
     this.resetWidget = reset
   }
 
@@ -59,6 +66,7 @@ export class TokenSlot {
 
   /** No token is coming (a lasting error, an unsupported browser, the page left): the waiting submits stop. */
   fail() {
+    this.failed = true
     const waiting = this.waiters
     this.waiters = []
     for (const waiter of waiting) waiter.resolve(null)

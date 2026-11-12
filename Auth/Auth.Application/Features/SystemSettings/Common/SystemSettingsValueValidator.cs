@@ -964,11 +964,6 @@ internal static class SystemSettingsValueValidator
     }
 
     /// <summary>
-    /// The payload's value when the field is part of it, otherwise what the given
-    /// lookup returns. With the live configuration that is the value NOW, not after
-    /// the save: an omitted field falls back to the baseline once the row is replaced.
-    /// </summary>
-    /// <summary>
     /// S13 (BD8, TS10), in Production only: the sitekey after the save may be neither one of
     /// Cloudflare's testing sitekeys, which pass every check, nor empty while the Turnstile secret
     /// is set. An empty sitekey with a secret is a setup fault the check refuses to judge by
@@ -1000,6 +995,11 @@ internal static class SystemSettingsValueValidator
         }
     }
 
+    /// <summary>
+    /// The payload's value when the field is part of it, otherwise what the given
+    /// lookup returns. With the live configuration that is the value NOW, not after
+    /// the save: an omitted field falls back to the baseline once the row is replaced.
+    /// </summary>
     private static string? PayloadOrEffective(
         IReadOnlyList<KeyValuePair<string, JsonElement>> values,
         SettingSectionDefinition section,

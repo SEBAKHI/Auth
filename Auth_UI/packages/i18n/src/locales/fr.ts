@@ -383,11 +383,13 @@ export const fr: TranslationResources = {
     label: "Vérification de sécurité",
     completeTheCheck: "Terminez la vérification de sécurité ci-dessus, puis réessayez.",
     blockedTitle: "La vérification de sécurité ne peut pas s'exécuter ici",
-    blockedBody: "Ce navigateur ou ce réseau ne peut pas terminer la vérification de Cloudflare. Réessayez, utilisez un autre navigateur ou réseau, ou connectez-vous autrement.",
+    blockedBody: "Ce navigateur ou ce réseau ne peut pas terminer la vérification de Cloudflare. Réessayez, vérifiez la date et l'heure de cet appareil, utilisez un autre navigateur ou réseau, connectez-vous autrement, ou demandez de l'aide à votre administrateur.",
     loadFailedTitle: "La vérification de sécurité ne s'est pas chargée",
     loadFailedBody: "Quelque chose a empêché le chargement de la vérification de Cloudflare, comme une extension du navigateur ou le réseau. Réessayez, ou utilisez un autre navigateur ou réseau.",
     configFailedTitle: "La vérification de sécurité n'est pas prête",
     configFailedBody: "Ses paramètres n'ont pas pu être chargés. Réessayez ; si l'échec persiste, la demande peut tout de même aboutir.",
+    stalledTitle: "La vérification de sécurité n'a pas abouti",
+    stalledBody: "La vérification de Cloudflare n'a pas abouti dans ce navigateur, ce qui arrive sur certains réseaux et VPN. Réessayez. Si cela se reproduit, vérifiez la date et l'heure de cet appareil, utilisez un autre navigateur ou réseau, connectez-vous autrement, ou demandez de l'aide à votre administrateur.",
   },
   auth: {
     mfaPasskeyAlreadyEnrolled: "Votre compte a déjà une clé d’accès (passkey). Continuez vers l’application ; si l’on vous demande de vous connecter, utilisez la clé d’accès.",
@@ -2856,7 +2858,7 @@ export const fr: TranslationResources = {
       passkeyLookupWindowSecondsHint:
         "La durée sur laquelle le compte de vérifications ci-dessus est mesuré, avec la même mécanique de fenêtre fixe : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres clientes dès l'enregistrement.",
       botFallbackPermitLimit: "Demandes par adresse quand la vérification anti-robot est indisponible",
-      botFallbackPermitLimitHint: "En mode application avec le réglage par surface, tant que Cloudflare est injoignable ou que les clés ne sont pas en place : combien de connexions, de codes et de réinitialisations une adresse IP peut encore envoyer par fenêtre. Les inscriptions sont refusées. Volontairement faible : au plus la moitié de la limite d'authentification.",
+      botFallbackPermitLimitHint: "En mode application avec le réglage par surface, tant que le serveur ne peut pas vérifier un jeton auprès de Cloudflare ou qu'une clé manque : combien de connexions, de demandes de code et de réinitialisations une adresse IP peut encore envoyer par fenêtre. Une demande de code peut aussi commencer un nouveau compte par code. Volontairement faible : au plus la moitié de la limite d'authentification.",
       botFallbackWindowSeconds: "Fenêtre de cette tolérance (secondes)",
       botFallbackWindowSecondsHint: "La durée sur laquelle la tolérance ci-dessus est comptée. S'applique aux nouvelles fenêtres client dès l'enregistrement.",
       externalCodePermitLimit: "Échanges de code de connexion Google par fenêtre",
@@ -2953,7 +2955,7 @@ export const fr: TranslationResources = {
         Enforce: "Application",
       },
       failMode: "Quand la vérification ne peut pas s'exécuter",
-      failModeHint: "Ce que fait l'application tant que Cloudflare est injoignable ou que les clés ne sont pas en place. Par surface : l'inscription est refusée, et la connexion, le code et la réinitialisation passent quelques fois par adresse (la tolérance sous Limitation de débit). Fermé : les quatre sont refusées, administrateurs compris, jusqu'au retour de la vérification.",
+      failModeHint: "Ce que fait l'application tant que le serveur ne peut pas vérifier un jeton auprès de Cloudflare ou qu'une clé manque. Par surface : le début d'inscription est refusé, et la connexion, la demande de code (qui peut aussi commencer un nouveau compte par code) et la réinitialisation passent quelques fois par adresse (la tolérance sous Limitation de débit). Fermé : les quatre sont refusées, administrateurs compris. Un navigateur qui n'obtient aucun jeton, parce que le widget de Cloudflare est bloqué ou en panne ou que la clé de site est fausse, est refusé dans les deux cas.",
       failModeOptions: {
         PerSurface: "Par surface (recommandé)",
         Closed: "Fermé (tout refuser)",

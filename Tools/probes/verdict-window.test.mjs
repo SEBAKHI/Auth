@@ -3,7 +3,9 @@
 // The owner's gate counter for the bot check (S13, ARR-0622), on a pinned log: a window
 // below 20 submissions is NODATA and never a pass, ProbeAsserted is not counted, and both
 // gates print their comparators and decide PASS, FAIL or NODATA as [S13-O6] reads them.
-// Deliberate breaks, seen red: the 20-submission floor removed; ProbeAsserted counted.
+// Deliberate breaks, seen red: the 20-submission floor removed; ProbeAsserted counted; a junk
+// token counted as a submission; the answer time read from verdicts that never met Cloudflare;
+// the 95th percentile taken one rank too high.
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
@@ -13,11 +15,13 @@ import { describe, it } from "node:test"
 import { fileURLToPath } from "node:url"
 
 import {
+  answerTimes,
   exitCode,
   formatReport,
   gateEnforce,
   gateMonitor,
   parseVerdictLine,
+  percentile,
   tally,
 } from "./verdict-window.mjs"
 
@@ -29,13 +33,24 @@ const MINUTE = 60 * 1000
 const DAY = 24 * 60 * MINUTE
 
 /** A line as the file sink writes it ("yyyy-MM-dd HH:mm:ss.fff zzz [LVL] message"). */
-function line(at, { verdict = "Passed", mode = "Monitor", origin = ACCOUNTS, action = "login", quoted = false } = {}) {
+function line(
+  at,
+  { verdict = "Passed", mode = "Monitor", origin = ACCOUNTS, action = "login", quoted = false, codes = "-", attempts = 1, elapsedMs = 140 } = {}
+) {
   const q = (value) => (quoted ? `"${value}"` : value)
   const time = new Date(at).toISOString().replace("T", " ").replace("Z", " +00:00")
   const level = verdict === "Unavailable" || verdict === "Misconfigured" ? "WRN" : "INF"
   return (
     `${time} [${level}] Bot defense verdict: action ${q(action)} verdict ${q(verdict)} mode ${q(mode)} ` +
-    `origin ${q(origin)} hostname ${q("accounts.example.com")} codes ${q("-")} attempts 1 elapsedMs 140`
+    `origin ${q(origin)} hostname ${q("accounts.example.com")} codes ${q(codes)} attempts ${attempts} elapsedMs ${elapsedMs}`
+  )
+}
+
+/** `count` junk tokens from `origin`: Cloudflare's invalid-input-response, or a local refusal. */
+function junk(at, count, { mode = "Monitor", origin = ACCOUNTS, codes = "invalid-input-response" } = {}) {
+  const local = codes !== "invalid-input-response"
+  return Array.from({ length: count }, (_, index) =>
+    line(at + index * 1000, { mode, origin, verdict: "Rejected", codes, attempts: local ? 0 : 1, elapsedMs: local ? 0 : 90 })
   )
 }
 
@@ -114,6 +129,15 @@ describe("gate 2: token-missing spike windows under Enforce", () => {
     assert.equal(gateEnforce(counts).counted, 0)
   })
 
+  it("junk neither hides a spike nor makes a window count", () => {
+    const masked = gateEnforce(tally(parse([...enforcedWindow(T0, 20, 11), ...junk(T0 + 30_000, 40, { mode: "Enforce" })])))
+    const padded = gateEnforce(tally(parse([...enforcedWindow(T0, 19, 0), ...junk(T0 + 30_000, 40, { mode: "Enforce" })])))
+
+    assert.deepEqual(masked.spikes, [{ start: T0, submissions: 20, missing: 11 }])
+    assert.equal(padded.counted, 0)
+    assert.equal(padded.nodata, 1)
+  })
+
   it("passes with no spike over 7 days, and not over 6", () => {
     const week = [...enforcedWindow(T0, 20, 0), ...enforcedWindow(T0 + 7 * DAY, 25, 3)]
     const sixDays = [...enforcedWindow(T0, 20, 0), ...enforcedWindow(T0 + 6 * DAY, 25, 3)]
@@ -167,6 +191,35 @@ describe("gate 1: the pass rate per app under Monitor", () => {
     assert.equal(counts.unconfigured, 1)
   })
 
+  it("leaves junk tokens out, so junk sent with an app's Origin cannot hold the move back", () => {
+    const lines = [
+      ...monitored(ACCOUNTS, 100, 0),
+      ...junk(T0 + DAY, 5),
+      ...junk(T0 + DAY, 2, { codes: "token-malformed" }),
+      ...junk(T0 + DAY, 1, { codes: "dummy-token" }),
+      ...junk(T0 + DAY, 1, { codes: "token-too-long" }),
+    ]
+
+    const counts = tally(parse(lines))
+    const gate = gateMonitor(counts)
+
+    // Counted, 100 of 109 would be 91.74 %: a FAIL that no person caused.
+    assert.equal(gate.rows[0].submissions, 100)
+    assert.equal(gate.result, "PASS")
+    assert.equal(counts.junk, 9)
+    assert.deepEqual([...counts.junkByApp.entries()], [[ACCOUNTS, 9]])
+    assert.match(formatReport(counts, gate, gateEnforce(counts)), /junk tokens per app: https:\/\/accounts\.example\.com 9/)
+  })
+
+  it("still counts a refused real token: timeout-or-duplicate is a submission that did not pass", () => {
+    const lines = [...monitored(ACCOUNTS, 100, 0), line(T0 + DAY, { verdict: "Rejected", codes: "timeout-or-duplicate" })]
+
+    const gate = gateMonitor(tally(parse(lines)))
+
+    assert.equal(gate.rows[0].submissions, 101)
+    assert.equal(gate.rows[0].rejected, 1)
+  })
+
   it("is NODATA while the Monitor lines cover fewer than 7 days", () => {
     const gate = gateMonitor(tally(parse(monitored(ACCOUNTS, 100, 0, 6 * DAY))))
 
@@ -186,6 +239,34 @@ describe("the report and the exit", () => {
     assert.match(report, /comparator: spike windows = 0 over >= 7 days of Enforce lines; a 10-minute window counts with >= 20 submissions/)
     assert.match(report, /windows: 1 counted, 0 NODATA \(< 20 submissions\), 1 spike\(s\) \(= 0 asked\)/)
     assert.match(report, /spike: 2026-11-01 00:00 UTC, 11 of 20 without a token/)
+  })
+
+  it("prints Cloudflare's answer time per app, from the verdicts that went to Cloudflare", () => {
+    const live = Array.from({ length: 20 }, (_, index) => line(T0 + index * 1000, { elapsedMs: (index + 1) * 10 }))
+    // Never sent to Cloudflare: a request without a token, a local junk refusal.
+    const local = [
+      line(T0 + DAY, { verdict: "Missing", attempts: 0, elapsedMs: 0 }),
+      ...junk(T0 + DAY, 3, { codes: "token-malformed" }),
+    ]
+    // A timeout is an answer time too: the check added it to a sign-in.
+    const timedOut = line(T0 + DAY, { origin: CONSOLE, verdict: "Unavailable", codes: "timeout", attempts: 3, elapsedMs: 6000 })
+
+    const counts = tally(parse([...live, ...local, timedOut]))
+
+    assert.deepEqual(answerTimes(counts), [
+      { origin: ACCOUNTS, count: 20, p50: 100, p95: 190, max: 200 },
+      { origin: CONSOLE, count: 1, p50: 6000, p95: 6000, max: 6000 },
+    ])
+    const report = formatReport(counts, gateMonitor(counts), gateEnforce(counts))
+    assert.match(report, /app \| verifications \| median ms \| p95 ms \| longest ms/)
+    assert.match(report, /https:\/\/accounts\.example\.com \| 20 \| 100 \| 190 \| 200/)
+  })
+
+  it("takes a percentile by nearest rank", () => {
+    assert.equal(percentile([5], 0.95), 5)
+    assert.equal(percentile([1, 2], 0.5), 1)
+    assert.equal(percentile(Array.from({ length: 100 }, (_, index) => index + 1), 0.95), 95)
+    assert.equal(percentile([], 0.95), undefined)
   })
 
   it("exits 0 only when every gate asked passes, 1 on a failure, 4 when nothing is decided", () => {

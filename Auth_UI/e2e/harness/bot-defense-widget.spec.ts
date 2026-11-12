@@ -17,7 +17,8 @@ import { HOSTS, ORIGINS, expect, test, type AppName } from "./fixtures"
  * violations of the production policies (script-src and frame-src admit the host). And the
  * reset: after a refused sign-in the widget makes a fresh token, and the second request
  * carries it. And the box: when Cloudflare asks for a click, the check is shown and the
- * click goes through.
+ * click goes through. And a check that never finishes: after the wait the request goes out
+ * without a token (the server counts it), and the check names the ways out.
  *
  * Deliberate breaks, each verified red: challenges.cloudflare.com taken out of either app's
  * frame-src (csp fixture: a frame-src violation); the token left out of the forgot-password
@@ -34,9 +35,11 @@ const SR_ONLY = /(?:^|\s)sr-only(?:\s|$)/
 
 /**
  * The stand-in's api.js. `interactive`: each widget first asks for a click in its frame, as
- * Cloudflare does for a visitor it is unsure of, and makes its token only after it.
+ * Cloudflare does for a visitor it is unsure of, and makes its token only after it. `silent`:
+ * the widget renders its frame and never answers, as on a network that stalls Cloudflare's
+ * challenge.
  */
-function standIn(interactive: boolean) {
+function standIn(interactive: boolean, silent = false) {
   return `(() => {
   let issued = 0
   const widgets = new Map()
@@ -66,13 +69,14 @@ function standIn(interactive: boolean) {
       container.appendChild(frame)
       widgets.set(id, { options, frame, waiting: ${interactive} })
       say("render " + options.action + " " + options.appearance + " " + options.language)
+      if (${silent}) return id
       if (${interactive}) options["before-interactive-callback"]()
       else issue(id)
       return id
     },
     reset(id) {
       say("reset")
-      issue(id)
+      if (!${silent}) issue(id)
     },
     remove(id) {
       const widget = widgets.get(id)
@@ -86,8 +90,8 @@ function standIn(interactive: boolean) {
 const FRAME_PAGE = `<!doctype html><title>Cloudflare</title>
 <button type="button" onclick="parent.postMessage('harness-turnstile-clicked', '*')">Verify you are human</button>`
 
-async function serveTurnstile(attacker: import("./attacker-origins").AttackerPages, interactive = false) {
-  attacker.serve(HOSTS.cloudflare, API_JS, standIn(interactive), { "content-type": "text/javascript; charset=utf-8" })
+async function serveTurnstile(attacker: import("./attacker-origins").AttackerPages, interactive = false, silent = false) {
+  attacker.serve(HOSTS.cloudflare, API_JS, standIn(interactive, silent), { "content-type": "text/javascript; charset=utf-8" })
   attacker.serve(HOSTS.cloudflare, FRAME, FRAME_PAGE)
 }
 
@@ -323,5 +327,48 @@ test("s13: a check Cloudflare asks a click for is shown, and the click lets the 
 
   await expect(page.getByText("Check your email")).toBeVisible(FIRST_LOAD)
   expect(tokenOf(sent(seen, "/api/v1/auth/forgot-password")[0])).toMatch(/-forgot-password$/)
+  expect(csp.violations()).toEqual([])
+})
+
+test("s13: a check that never finishes: the request goes out without a token after the wait, and the check names the ways out", async ({
+  page,
+  api,
+  attacker,
+  csp,
+}) => {
+  // The page waits ENFORCED_WAIT_MS (15 s) for a token before it gives up.
+  test.setTimeout(60_000)
+  const seen: SeenRequest[] = []
+  await serveTurnstile(attacker, false, true)
+  await api.useAnonymous(
+    async (route, url) => {
+      if (url.pathname.toLowerCase() !== "/api/v1/auth/login") return false
+      await route.fulfill(problem("BotDefense.TokenMissing"))
+      return true
+    },
+    { seen, botDefense: { mode: "Enforce", siteKey: SITE_KEY } }
+  )
+  const said = turnstileLog(page)
+
+  await page.goto(`${ORIGINS.accounts}/login`)
+  await page.getByLabel("Email").fill("someone@example.com")
+  await page.getByLabel("Password", { exact: true }).fill("not-the-password")
+  await expect.poll(() => said.filter((line) => line.startsWith("render")), FIRST_LOAD).toEqual([
+    "render login interaction-only en",
+  ])
+  const clickedAt = Date.now()
+  await page.getByRole("button", { name: "Sign in", exact: true }).click()
+
+  // Held while the widget may still answer, then sent without a token: the server refuses it
+  // as TokenMissing and counts it, which is what the owner's spike watch reads.
+  await expect.poll(() => sent(seen, "/api/v1/auth/login").length, { timeout: 30_000 }).toBe(1)
+  expect(Date.now() - clickedAt).toBeGreaterThanOrEqual(14_000)
+  expect(tokenOf(sent(seen, "/api/v1/auth/login")[0])).toBeUndefined()
+
+  const check = page.getByTestId("bot-check")
+  await expect(check).toHaveAttribute("data-state", "stalled")
+  await expect(check).not.toHaveClass(SR_ONLY)
+  await expect(check.getByText("The security check didn't finish")).toBeVisible()
+  await expect(check.getByRole("button", { name: "Retry" })).toBeVisible()
   expect(csp.violations()).toEqual([])
 })

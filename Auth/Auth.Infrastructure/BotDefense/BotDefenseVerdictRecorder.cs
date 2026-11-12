@@ -20,7 +20,8 @@ namespace Auth.Infrastructure.BotDefense;
 /// <para>
 /// The origin is the request's <c>Origin</c> when it is one of the listed apps
 /// (<see cref="BotDefenseOrigins"/>), <c>other</c> otherwise. Written at Information, a check
-/// that could not run at Warning: the owner's gate counts these lines with
+/// that could not run, or a refusal the deployment's own setup caused, at Warning: the owner's
+/// gate counts these lines with
 /// <c>Serilog:MinimumLevel:Default</c> at Information.
 /// </para>
 /// </remarks>
@@ -54,9 +55,15 @@ public sealed class BotDefenseVerdictRecorder : IBotDefenseVerdictRecorder
     public void Record(string action, BotDefenseMode mode, BotDefenseVerdict verdict)
     {
         var origin = BotDefenseOrigins.From(_identityProvider.CurrentValue, _configuration).Label(_origin.Origin);
-        _counts.Add(origin, mode, verdict.Kind);
+        var localRejection = verdict.Kind == BotDefenseVerdictKind.Rejected
+            && verdict.Codes.Any(TurnstileBotDefenseVerifier.LocalRejectionCodes.Contains);
+        var junkToken = verdict.Kind == BotDefenseVerdictKind.Rejected
+            && verdict.Codes.Any(TurnstileBotDefenseVerifier.JunkTokenCodes.Contains);
+        _counts.Add(origin, mode, verdict.Kind, localRejection, junkToken);
 
-        var level = verdict.Kind is BotDefenseVerdictKind.Unavailable or BotDefenseVerdictKind.Misconfigured
+        // The deployment's own refusals (an app host not accepted, an action or a clock off) point
+        // at its setup, not at robots: a junk token comes back as invalid-input-response.
+        var level = verdict.Kind is BotDefenseVerdictKind.Unavailable or BotDefenseVerdictKind.Misconfigured || localRejection
             ? LogLevel.Warning
             : LogLevel.Information;
 

@@ -264,6 +264,26 @@ public class RequiredSecretsCoverageTests : IDisposable
     }
 
     [Fact]
+    public void EveryVendorIssuedSecret_IsRefusedInPlaintextProduction_AndScannedByCi()
+    {
+        // Review of PR 167: the registry's comment promises both; a vendor secret added later
+        // (S16 adds more) must not boot from a plaintext Production file, nor slip past CI.
+        var guard = File.ReadAllText(Path.Combine(SolutionDirectory(), "Auth_API", "Common", "ProductionSecretGuard.cs"));
+        var ci = File.ReadAllText(Path.Combine(SolutionDirectory(), "..", ".github", "workflows", "ci.yml"));
+        // The scan's pattern line, not the comment above it that names the same keys.
+        var crownJewels = ci.Split('\n').Single(line =>
+            line.Contains("pattern='", StringComparison.Ordinal) && line.Contains("JwtPrivateKeyPem", StringComparison.Ordinal));
+
+        foreach (var secret in RequiredSecretsRegistry.VendorIssued)
+        {
+            guard.Should().Contain($"\"{secret.ConfigurationKey}\"", "ProductionSecretGuard lists every vendor secret by its key");
+            var leaf = secret.ConfigurationKey.Split(':').Last();
+            crownJewels.Should().Contain(leaf, $"CI's crown-jewel scan names {leaf}");
+            crownJewels.Should().Contain(secret.SecretFileProperty, $"CI's crown-jewel scan names {secret.SecretFileProperty}");
+        }
+    }
+
+    [Fact]
     public async Task NeitherGenerator_EverMakesUpAVendorIssuedSecret()
     {
         var service = CreateEncryptedFileService(out _);

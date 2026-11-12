@@ -4,6 +4,9 @@ import * as fs from "node:fs"
 import * as path from "node:path"
 import { fileURLToPath } from "node:url"
 
+/** Cloudflare Turnstile's public dummy token (S13). */
+const BOT_TOKEN = "XXXX.DUMMY.TOKEN.XXXX"
+
 /**
  * Account-deletion E2E journeys 1–3 (plan §11) against the local dev stack.
  *
@@ -197,7 +200,9 @@ async function signUp(
   )
 
   const since = logOffset()
-  const asked = await apiPost(api, "/api/v1/Auth/forgot-password", { email })
+  // S13: Cloudflare's dummy token passes while the dev API runs with a testing secret, and is
+  // ignored while the bot check is Off.
+  const asked = await apiPost(api, "/api/v1/Auth/forgot-password", { email, botToken: BOT_TOKEN })
   expect(asked.ok(), `forgot-password failed: ${await asked.text()}`).toBe(true)
   const token = decodeURIComponent(
     await waitForLogMatch(resetLinkPattern(email), since)
@@ -214,6 +219,7 @@ async function signUp(
   const signedIn = await apiPost(api, "/api/v1/Auth/login", {
     email,
     password: PASSWORD,
+    botToken: BOT_TOKEN,
   })
   expect(
     signedIn.ok(),

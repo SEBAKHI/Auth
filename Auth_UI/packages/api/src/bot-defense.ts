@@ -66,15 +66,17 @@ export function useBotDefenseConfig(): {
 }
 
 /**
- * The configuration for a submit that is about to go out: the cached answer,
- * or the one on its way. Undefined when it cannot be had; the server decides
- * then, and its refusal carries its own sentence.
+ * The configuration for a submit that is about to go out: the cached answer
+ * while it is under a minute old, else a fresh one, so a page left open hears
+ * the owner switch the check off (the break-glass) at its next submit.
+ * Undefined when it cannot be had; the server decides then, and its refusal
+ * carries its own sentence.
  */
 export async function ensureBotDefenseConfig(
   queryClient: QueryClient
 ): Promise<BotDefenseConfig | undefined> {
   try {
-    return await queryClient.ensureQueryData({
+    return await queryClient.fetchQuery({
       queryKey: BOT_DEFENSE_QUERY_KEY,
       queryFn: fetchBotDefenseConfig,
       staleTime: BOT_DEFENSE_STALE_MS,

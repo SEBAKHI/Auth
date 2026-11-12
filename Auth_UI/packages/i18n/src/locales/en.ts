@@ -390,11 +390,13 @@ export const en = {
     label: "Security check",
     completeTheCheck: "Complete the security check above, then try again.",
     blockedTitle: "The security check can't run here",
-    blockedBody: "This browser or network can't complete Cloudflare's check. Try again, use another browser or network, or sign in another way.",
+    blockedBody: "This browser or network can't complete Cloudflare's check. Try again, check that this device's date and time are right, use another browser or network, sign in another way, or ask your administrator for help.",
     loadFailedTitle: "The security check didn't load",
     loadFailedBody: "Something stopped Cloudflare's check from loading, such as a browser extension or the network. Try again, or use another browser or network.",
     configFailedTitle: "The security check isn't ready",
     configFailedBody: "Its settings could not be loaded. Try again; if it keeps failing, the request may still go through.",
+    stalledTitle: "The security check didn't finish",
+    stalledBody: "Cloudflare's check got no result in this browser, which happens on some networks and VPNs. Try again. If it keeps happening, check that this device's date and time are right, use another browser or network, sign in another way, or ask your administrator for help.",
   },
   auth: {
     mfaPasskeyAlreadyEnrolled: "Your account already has a passkey. Continue to the application; if you are asked to sign in, use the passkey.",
@@ -2821,7 +2823,7 @@ export const en = {
       passkeyLookupWindowSecondsHint:
         "The span the passkey check count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new client windows the moment you save.",
       botFallbackPermitLimit: "Requests per address while the bot check cannot run",
-      botFallbackPermitLimitHint: "Under Enforce with the per-surface setting, while Cloudflare cannot be reached or the keys are not in place: how many sign-ins, codes and reset requests one client IP may still send in a window. Sign-ups are refused. Kept small on purpose: at most half the authentication limit.",
+      botFallbackPermitLimitHint: "Under Enforce with the per-surface setting, while the server cannot check a token with Cloudflare or a key is missing: how many sign-ins, code requests and reset requests one client IP may still send in a window. A code request can also start a new account by code. Kept small on purpose: at most half the authentication limit.",
       botFallbackWindowSeconds: "Window of that allowance (seconds)",
       botFallbackWindowSecondsHint: "The span the allowance above is counted over. Applies to new client windows the moment you save.",
       externalCodePermitLimit: "Google sign-in code exchanges per window",
@@ -2916,7 +2918,7 @@ export const en = {
         Enforce: "Enforce",
       },
       failMode: "When the check cannot run",
-      failModeHint: "What Enforce does while Cloudflare cannot be reached or the keys are not in place. Per surface: a sign-up is refused, and a sign-in, a code or a reset request goes on a few times per address (the allowance under Rate limiting). Closed: all four are refused, administrators included, until the check runs again.",
+      failModeHint: "What Enforce does while the server cannot check a token with Cloudflare, or a key is missing. Per surface: the sign-up start is refused, and a sign-in, a code request (which can also start a new account by code) or a reset request goes on a few times per address (the allowance under Rate limiting). Closed: all four are refused, administrators included. A browser that gets no token at all, because Cloudflare's widget is blocked or down or the sitekey is wrong, is refused in either case.",
       failModeOptions: {
         PerSurface: "Per surface (recommended)",
         Closed: "Closed (refuse everything)",
