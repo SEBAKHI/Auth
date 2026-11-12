@@ -1301,6 +1301,13 @@ pnpm -r build
 That runs `tsc -b && vite build` in each application: a TypeScript compile that fails the build on a
 type error, then the bundler.
 
+Before them, each build checks that the two pnpm patches in `Auth_UI/patches/` are really applied to
+the installed libraries. They keep the code editor and the dialogs' scroll lock styled under the
+strict style policy. A build that says **BUILD REFUSED: an installed library does not carry its pnpm
+patch** means `node_modules` holds an unpatched copy, even if `pnpm install` reports "Already up to
+date". Delete `Auth_UI/node_modules/.pnpm-workspace-state-v1.json` and the folder the message names
+(or all of `node_modules`), run `pnpm install --frozen-lockfile`, and build again.
+
 **What success looks like:** two Vite summaries, one per application, each ending with a `built in …`
 line, and two new folders on disk:
 

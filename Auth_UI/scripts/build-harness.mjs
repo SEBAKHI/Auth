@@ -100,6 +100,7 @@ export function buildApp(app) {
   }
   const before = fingerprint(join(appDir, "dist"))
 
+  step(appDir, env, [join(AUTH_UI, "scripts", "check-library-patches.mjs")], "check-library-patches")
   step(appDir, env, [bin("typescript"), "-b"], "tsc -b")
   step(appDir, env, [bin("vite"), "build", "--outDir", HARNESS_OUT_DIR], "vite build")
   step(

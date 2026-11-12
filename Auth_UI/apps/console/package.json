@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node ../../scripts/seal-web-config.mjs",
-    "build:test": "tsc -b && vite build && node ../../scripts/seal-web-config.mjs --allow-placeholder",
+    "build": "node ../../scripts/check-library-patches.mjs && tsc -b && vite build && node ../../scripts/seal-web-config.mjs",
+    "build:test": "node ../../scripts/check-library-patches.mjs && tsc -b && vite build && node ../../scripts/seal-web-config.mjs --allow-placeholder",
     "typecheck": "tsc -b",
     "preview": "vite preview"
   },
