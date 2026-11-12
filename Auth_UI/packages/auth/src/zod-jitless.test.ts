@@ -7,18 +7,33 @@ import { z } from "zod"
 const AUTH_UI = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..")
 
 /**
- * The module specifiers of a file's import declarations, in source order.
- * Block comments are dropped first, so a commented-out import cannot stand in
- * for the real first one.
+ * The module specifiers a file loads, in source order: its import declarations
+ * and its `export … from` re-exports (both evaluate the named module). Block
+ * comments are dropped first, so a commented-out import cannot stand in for the
+ * real first one; `import type` and `export type` are erased at build time, so
+ * they are not counted.
  */
 function importsOf(source: string): string[] {
   const code = source.replace(/\/\*[\s\S]*?\*\//g, "")
   return [
-    ...code.matchAll(/^import\s+(?:[^"';]*?\s+from\s+)?["']([^"']+)["']/gm),
+    ...code.matchAll(
+      /^(?:import|export)(?!\s+type\s)\s+(?:[^"';]*?\s+from\s+)?["']([^"']+)["']/gm
+    ),
   ].map((match) => match[1])
 }
 
 describe("zod-jitless (card S02 PR B, OI-03)", () => {
+  it("counts a re-export as an import, and a type-only import as none", () => {
+    expect(
+      importsOf('export {} from "./x"\nimport "@authsystem/auth/zod-jitless"')
+    ).toEqual(["./x", "@authsystem/auth/zod-jitless"])
+    expect(
+      importsOf(
+        'import type { X } from "y"\nexport type { Y } from "z"\nimport "@authsystem/auth/zod-jitless"\nexport * from "./w"'
+      )
+    ).toEqual(["@authsystem/auth/zod-jitless", "./w"])
+  })
+
   it("turns zod's JIT off, so zod never probes for eval", async () => {
     await import("./zod-jitless")
     expect(z.config().jitless).toBe(true)

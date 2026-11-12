@@ -224,6 +224,27 @@ if (!headers.some((header) => header.name === "Content-Security-Policy" && heade
   )
 }
 
+// Stage B of card S02: the site-wide policy allows inline styles by hash only.
+// 'unsafe-inline' or 'unsafe-hashes' in its style-src, or a style-src-elem or
+// style-src-attr beside it (which would replace style-src for elements or
+// attributes), undoes that on every page. A <location>'s own policy (the email
+// preview, the sign-in page design frame) keeps its own rules.
+for (const header of headers.filter((candidate) => candidate.location === null)) {
+  const policy = header.policy.toLowerCase()
+  const loose = (sourcesOf(policy, "style-src") ?? []).filter(
+    (source) => source === "'unsafe-inline'" || source === "'unsafe-hashes'"
+  )
+  const split = ["style-src-elem", "style-src-attr"].filter((name) => sourcesOf(policy, name) !== null)
+  if (loose.length > 0 || split.length > 0) {
+    refuse(
+      `the site-wide ${header.name} loosens style-src: ${[...loose, ...split].join(", ")}`,
+      `  Card S02 stage B allows inline styles by hash only (csp/inline-styles.json). A third-party
+  style gets a page and a policy of its own, never 'unsafe-inline'. If a page broke after a
+  deployment, roll back by re-uploading the previous dist in full (assets, html, web.config last).`
+    )
+  }
+}
+
 for (const header of headers) {
   // A site-wide policy needs the API for fetch, images and the platform's fonts
   // (Platform settings > Fonts). A <location>'s own policy (the email preview, the
