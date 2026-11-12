@@ -303,7 +303,11 @@ source via tsconfig paths + Vite aliases (no per-package build step).
     lacks a line its patch adds. pnpm can report "Already up to date" over a
     folder named as the patched package that holds the original files; the
     fix is to delete `node_modules/.pnpm-workspace-state-v1.json` and that
-    folder, then `pnpm install --frozen-lockfile`.
+    folder, then `pnpm install --frozen-lockfile`. CI runs the unit tests only
+    and never builds; its fresh install always applies the patches, so it
+    cannot catch a stale `node_modules`. The check protects the machine that
+    builds the deployed `dist`. It also refuses when it reads no
+    `patchedDependencies` entry, or when a file in `patches/` is named by none.
   - `scripts/seal-web-config.mjs` refuses a build whose bundle lacks one of the
     hashed texts, or creates a `<style>` in a place
     `apps/<app>/csp/bundle-style-sites.json` does not count — a new style

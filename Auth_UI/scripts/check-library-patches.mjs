@@ -14,6 +14,8 @@
 // HOW: every entry of patchedDependencies in pnpm-workspace.yaml names a
 // patch file. Each line the patch adds must be present in the patched file of
 // every installed copy of that package version under node_modules/.pnpm.
+// Reading no entry, or finding a patches/*.patch no entry names, is refused
+// too: a misread pnpm-workspace.yaml must not pass as "nothing to check".
 // packages/ui/src/csp/library-patches.test.ts proves the patched behaviour;
 // this check only proves the patch is on disk, fast enough for every build.
 //
@@ -35,6 +37,8 @@ export function readPatchedDependencies(workspaceYaml) {
       continue
     }
     if (!inBlock) continue
+    // A blank line or a comment (even at column 0) does not end the block.
+    if (/^\s*(#|$)/.test(raw)) continue
     if (/^\S/.test(raw)) break
     const match = /^\s+["']?([^"'\s]+)["']?:\s*["']?([^"'\s#]+)["']?/.exec(raw)
     if (!match) continue
@@ -80,6 +84,18 @@ export function checkLibraryPatches(root = AUTH_UI) {
   const problems = []
   const checked = []
   const entries = readPatchedDependencies(readFileSync(join(root, "pnpm-workspace.yaml"), "utf8"))
+  if (entries.length === 0) {
+    problems.push("pnpm-workspace.yaml: no patchedDependencies entry was read, so no patch would be checked")
+  }
+  // A patch file no entry names is a patch nobody checks (or a misread entry).
+  const named = new Set(entries.map(({ patch }) => patch.replace(/\\/g, "/").replace(/^\.\//, "")))
+  const patchDir = join(root, "patches")
+  const onDisk = existsSync(patchDir) ? readdirSync(patchDir).filter((file) => file.endsWith(".patch")) : []
+  for (const file of onDisk) {
+    if (!named.has(`patches/${file}`)) {
+      problems.push(`patches/${file}: no patchedDependencies entry in pnpm-workspace.yaml names it`)
+    }
+  }
   for (const { name, version, patch } of entries) {
     const patchPath = join(root, patch)
     if (!existsSync(patchPath)) {
