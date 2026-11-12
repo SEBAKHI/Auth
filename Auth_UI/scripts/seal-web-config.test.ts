@@ -53,9 +53,10 @@ const RECEIVER = 'parent.postMessage("ready", location.origin)'
  */
 function stagedApp(
   origin: string,
-  overrides: { report?: string; preview?: string; html?: string; frame?: string } = {}
+  overrides: { site?: string; report?: string; preview?: string; html?: string; frame?: string } = {}
 ) {
   const dir = app(origin)
+  const site = overrides.site ?? POLICY
   const report =
     overrides.report ??
     `default-src 'self'; img-src 'self' ${PLACEHOLDER}; font-src 'self' ${PLACEHOLDER}; connect-src 'self' ${PLACEHOLDER}`
@@ -64,7 +65,7 @@ function stagedApp(
   writeFileSync(
     join(dir, "dist", "web.config"),
     `<?xml version="1.0"?><configuration><system.webServer><httpProtocol><customHeaders>
-  <add name="Content-Security-Policy" value="${POLICY}" />
+  <add name="Content-Security-Policy" value="${site}" />
   <add name="Content-Security-Policy-Report-Only" value="${report}" />
 </customHeaders></httpProtocol></system.webServer>
 <location path="email-preview.html"><system.webServer><httpProtocol><customHeaders>
@@ -183,6 +184,31 @@ describe("seal-web-config.mjs post-conditions (card S02)", () => {
     const run = seal(stagedApp(REAL, { html: `<!doctype html><script>${RECEIVER}\r\n</script>` }))
     expect(run.status).toBe(1)
     expect(run.stderr).toContain("the script-src hash for email-preview.html does not match the file")
+  })
+
+  const HASHED = `style-src 'self' ${sha("p{}")}`
+
+  it.each([
+    ["'unsafe-inline' in style-src", `${POLICY}; style-src 'self' 'unsafe-inline'`, "'unsafe-inline'"],
+    ["'unsafe-hashes' in style-src", `${POLICY}; ${HASHED} 'Unsafe-Hashes'`, "'unsafe-hashes'"],
+    ["a style-src-elem beside it", `${POLICY}; ${HASHED}; style-src-elem 'self' 'unsafe-inline'`, "style-src-elem"],
+    ["a style-src-attr beside it", `${POLICY}; ${HASHED}; style-src-attr 'unsafe-inline'`, "style-src-attr"],
+  ])("refuses a site-wide policy that loosens style-src: %s (S02 stage B)", (_, site, named) => {
+    const run = seal(stagedApp(REAL, { site }))
+    expect(run.status).toBe(1)
+    expect(run.stderr).toContain(`the site-wide Content-Security-Policy loosens style-src: ${named}`)
+    expect(run.stderr).toContain("re-uploading the previous dist in full")
+  })
+
+  it("refuses the same in a site-wide Report-Only header, and leaves a frame's own policy alone", () => {
+    const report = `default-src 'self'; img-src 'self' ${PLACEHOLDER}; connect-src 'self' ${PLACEHOLDER}; style-src 'self' 'unsafe-inline'`
+    const refused = seal(stagedApp(REAL, { report }))
+    expect(refused.status).toBe(1)
+    expect(refused.stderr).toContain("the site-wide Content-Security-Policy-Report-Only loosens style-src: 'unsafe-inline'")
+
+    const frame = `default-src 'none'; script-src ${sha(RECEIVER)}; style-src 'unsafe-inline'; style-src-attr 'unsafe-inline'; font-src 'self' data: ${PLACEHOLDER}; img-src https: data:`
+    const accepted = seal(stagedApp(REAL, { site: `${POLICY}; ${HASHED}`, frame }))
+    expect(accepted.status, accepted.stderr).toBe(0)
   })
 
   it("refuses an inline style from csp/inline-styles.json that the bundle does not contain", () => {

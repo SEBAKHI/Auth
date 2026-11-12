@@ -268,12 +268,14 @@ source via tsconfig paths + Vite aliases (no per-package build step).
   Destructive key operations additionally require an emailed code.
 - A strict CSP ships in **each app's** `public/web.config`, and is pinned by a
   unit test that parses the deployed file directive by directive
-  (`apps/console/src/console-login-surface.test.ts`). No runtime check, e2e run,
-  or `curl` can catch a CSP break — only that test can.
-- **No inline styles (card S02).** The target `style-src` has no
-  `'unsafe-inline'`; while it rolls out it sits in a
-  `Content-Security-Policy-Report-Only` header (stage A) and then replaces the
-  enforced one (stage B). What keeps it true:
+  (`apps/console/src/console-login-surface.test.ts`). The unit test pins the
+  file; it cannot see a page that the policy breaks. The browser harness
+  (`pnpm e2e:harness`, below) serves the built apps under the headers read from
+  their `web.config` and fails on any CSP violation nobody declared.
+- **No inline styles (card S02).** The enforced `style-src` has no
+  `'unsafe-inline'` (stage B; stage A had carried it as a
+  `Content-Security-Policy-Report-Only` header first, and that header is gone).
+  `apps/<app>/src/csp-style-policy.test.ts` pins stage B. What keeps it true:
   - *Constant* `<style>` texts the libraries inject (sonner, Radix ScrollArea and
     Select, input-otp's empty element) are allowed **by hash**. The hashes are
     computed, never typed: `pnpm csp:collect` runs
@@ -462,13 +464,15 @@ Violations the apps raise **today** live in one register,
 `e2e/harness/expected-csp-violations.ts`. Each entry names the script that
 causes it, so the same directive from any other source is still a failure.
 Every test tolerates them, and `harness-smoke.spec.ts` requires them, so a fixed
-cause cannot leave a stale entry. Today it holds zod's `new Function("")` eval
-probe on the sign-in pages, twice: refused by the enforced policy, and reported
-by S02's Report-Only header (that second entry goes with the header in S02's
-stage B). `harness-csp-selftest.spec.ts` deliberately breaks `script-src`,
-`img-src` (top document and a sandboxed frame) and `connect-src`. An inline
-`<style>` is its negative control: in S02's stage A it is *reported* and still
-applies; stage B flips it to refused.
+cause cannot leave a stale entry. Today it is **empty**: its last entry, zod's
+`new Function("")` eval probe on every page that loads zod, went with S02 PR B,
+which turns zod's JIT off before any schema is built
+(`packages/auth/src/zod-jitless.ts`, the first import of each app's `main.tsx`).
+So any violation on any harness page fails. `harness-csp-selftest.spec.ts` deliberately
+breaks `script-src`, `img-src` (top document and a sandboxed frame),
+`connect-src` and `style-src`: an injected `<style>` and a `style` attribute are
+refused and do not apply. (In S02's stage A that inline style was the negative
+control: reported by the Report-Only header, and still applied.)
 
 `s02-csp-styles.spec.ts` opens every surface where a style injector draws
 (toast, code field, editor, charts, dialog with a Select, email preview in both
@@ -476,8 +480,10 @@ schemes, `/privacy` current and archived, a non-default platform appearance),
 reads the styles back, and runs the negative checks (an injected `<style>` and
 style attribute; an email's script, event handler and meta refresh).
 `s02-visual-parity.spec.ts` holds the pixel snapshots taken on the code
-**before** S02 changed it; they are compared, never updated, to prove the look
-did not move.
+**before** S02 changed it; they are compared to prove the look did not move. A
+snapshot is re-recorded only on the unchanged code, when a merged change moved
+that look on purpose, and the commit names that change (S02 PR B did this for
+four snapshots before enforcing).
 
 **Spike (2026-09-29; Chromium 149.0.7827.55, Playwright 1.61.0, Windows 11,
 OpenSSL 3.5.7).** Each design premise was first proved with a throwaway probe:

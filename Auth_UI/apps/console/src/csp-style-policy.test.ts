@@ -23,10 +23,10 @@ import vitestConfig from "../../../vitest.config.ts?raw"
  * of the inline styles its bundle injects (card S02, targets 1-2, 6), and the
  * email preview has its own policy (target 6).
  *
- * Stage A (now): the enforced policy is unchanged and the target sits in a
- * Content-Security-Policy-Report-Only header. Stage B: the target is enforced
- * and the Report-Only header is gone. The stage is read from the file, and a
- * file that is in neither (one header changed without the other) fails.
+ * Stage A (PR A) carried the target in a Content-Security-Policy-Report-Only
+ * header beside the unchanged enforced policy. Stage B (PR B, now): the target
+ * is enforced and the Report-Only header is gone. The stage is read from the
+ * file, and the first test pins stage B.
  */
 
 const AUTH_UI = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..")
@@ -47,13 +47,12 @@ const hashesIn = (directives: Directives) =>
   )
 
 describe("console CSP: inline styles (card S02)", () => {
-  it("is in stage A or B, never in between", () => {
-    if (stage === "B") {
-      expect(reportOnly).toEqual([])
-      expect(enforced.directives["style-src"]).not.toContain("'unsafe-inline'")
-    } else {
-      expect(reportOnly).toHaveLength(1)
-    }
+  it("is in stage B: the target is enforced and no Report-Only header is left (S02 PR B)", () => {
+    // A return to stage A (the Report-Only header back, 'unsafe-inline' back in
+    // the enforced style-src) fails here, by name.
+    expect(stage).toBe("B")
+    expect(reportOnly).toEqual([])
+    expect(enforced.directives["style-src"]).not.toContain("'unsafe-inline'")
   })
 
   it("(a) the target style-src allows exactly the hashes of csp/inline-styles.json, and no other directive has one", () => {

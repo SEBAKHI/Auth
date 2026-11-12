@@ -1,13 +1,25 @@
 import type { BrowserContext, ConsoleMessage, Page } from "@playwright/test"
 
+import { headerValue, type WebConfigModel } from "./web-config-model"
+
 export type CspChannel = "event" | "console" | "audits"
 
 /**
  * Which header reported it: "enforce" (Content-Security-Policy: the browser
  * refused it) or "report" (Content-Security-Policy-Report-Only: the browser
- * only reported it). Card S02 ships its target policy as Report-Only first.
+ * only reported it). Card S02 shipped its target policy as Report-Only first
+ * (stage A); stage B enforces it and sends no Report-Only header.
  */
 export type CspDisposition = "enforce" | "report"
+
+/**
+ * The dispositions a violation of a directive the site-wide headers share is
+ * reported with, read from the built web.config instead of assumed: "enforce"
+ * alone, plus "report" while a Report-Only header repeats the policy.
+ */
+export function cspDispositions(model: WebConfigModel): CspDisposition[] {
+  return headerValue(model, "Content-Security-Policy-Report-Only") ? ["enforce", "report"] : ["enforce"]
+}
 
 export interface CspViolation {
   /** Effective directive, normalised: script-src-elem → script-src. */

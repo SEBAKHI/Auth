@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 /**
- * The side-effect module main.tsx imports first: importing it reads the hints
- * off the address the tab arrived at and takes them off it, before anything
- * else (the router above all) reads that address.
+ * The side-effect module main.tsx imports second, right after zod-jitless, before
+ * anything that reads the address: importing it reads the hints off the address
+ * the tab arrived at and takes them off it, before anything else (the router
+ * above all) reads that address.
  */
 describe("capture-entry-hints", () => {
   afterEach(() => {

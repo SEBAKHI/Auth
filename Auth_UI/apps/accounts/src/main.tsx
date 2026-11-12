@@ -1,4 +1,7 @@
-// FIRST, before any module that reads the address: the application's hints are
+// FIRST: zod's JIT off before any module builds a schema (no eval probe under
+// the strict CSP). It reads nothing from the address.
+import "@authsystem/auth/zod-jitless"
+// Then, before any module that reads the address: the application's hints are
 // taken off it here, and the router snapshots it when ./App.tsx is evaluated.
 import "./capture-entry-hints"
 

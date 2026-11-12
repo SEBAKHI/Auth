@@ -16,9 +16,9 @@ import vitestConfig from "../../../vitest.config.ts?raw"
  * privacy-policy renderer has published, because /privacy is served from this
  * site under this policy (card S02, targets 1-2 and 12, Q3 A).
  *
- * Stage A (now): the enforced policy is unchanged and the target sits in a
- * Content-Security-Policy-Report-Only header. Stage B: the target is enforced
- * and the Report-Only header is gone. A file in neither stage fails.
+ * Stage A (PR A) carried the target in a Content-Security-Policy-Report-Only
+ * header beside the unchanged enforced policy. Stage B (PR B, now): the target
+ * is enforced and the Report-Only header is gone. The first test pins stage B.
  */
 
 const AUTH_UI = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..")
@@ -40,13 +40,12 @@ const hashesIn = (directives: Directives) =>
   )
 
 describe("accounts CSP: inline styles (card S02)", () => {
-  it("is in stage A or B, never in between", () => {
-    if (stage === "B") {
-      expect(reportOnly).toEqual([])
-      expect(enforced.directives["style-src"]).not.toContain("'unsafe-inline'")
-    } else {
-      expect(reportOnly).toHaveLength(1)
-    }
+  it("is in stage B: the target is enforced and no Report-Only header is left (S02 PR B)", () => {
+    // A return to stage A (the Report-Only header back, 'unsafe-inline' back in
+    // the enforced style-src) fails here, by name.
+    expect(stage).toBe("B")
+    expect(reportOnly).toEqual([])
+    expect(enforced.directives["style-src"]).not.toContain("'unsafe-inline'")
   })
 
   it("(a) the target style-src allows exactly the library and privacy hashes, and no other directive has one", () => {

@@ -103,12 +103,11 @@ describe("the accounts app ships no policy document", () => {
     // exact defect the placeholder exists to prevent. Listing the whole allowed
     // set rather than banning one string also makes any new source a decision:
     // add it here, or the build stays red.
-    // 'unsafe-inline' is still allowed: the enforced style-src keeps it until
-    // card S02's stage B, which removes it from this set.
+    // No 'unsafe-inline' (card S02): a site-wide header that allows inline styles
+    // or scripts fails here.
     const ALLOWED = new Set([
       "'self'",
       "'none'",
-      "'unsafe-inline'",
       "data:",
       "https://auth.example.com",
       "https://appleid.apple.com",
@@ -121,8 +120,8 @@ describe("the accounts app ships no policy document", () => {
       ...(JSON.parse(privacyHashesJson) as { hashes: { hash: string }[] }).hashes.map((entry) => `'${entry.hash}'`),
     ])
 
-    // Every site-wide header (the enforced one and the Report-Only target),
-    // read by where it sits rather than as the first match in the file.
+    // Every site-wide header (card S02 left one, the enforced policy), read by
+    // where it sits rather than as the first match in the file.
     const site = cspHeaders(webConfig).filter((header) => header.location === null)
     expect(site.length).toBeGreaterThan(0)
 
