@@ -77,6 +77,17 @@ export function loadTurnstile(): Promise<TurnstileApi> {
   return turnstilePromise
 }
 
+/**
+ * Whether Cloudflare's script is in this document: loaded, or on its way. It
+ * is never removed once added, so it stays for the life of the page (OD3).
+ */
+export function turnstileLoaded(): boolean {
+  return (
+    window.turnstile !== undefined ||
+    document.querySelector(`script[src="${TURNSTILE_SCRIPT_URL}"]`) !== null
+  )
+}
+
 /** Tests only: forget the loaded script. */
 export function forgetTurnstileForTests(): void {
   turnstilePromise = null

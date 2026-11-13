@@ -246,4 +246,46 @@ public class TurnstileSiteverifyClientTests
             return await _replies.Dequeue()(cancellationToken);
         }
     }
+    // ---- REVIEW 167 F5: internal-error is tried once more; a 429 is counted ----
+
+    private const string InternalError = """{"success":false,"error-codes":["internal-error"]}""";
+
+    [Fact]
+    public async Task CloudflaresInternalError_IsTriedOnceMore_WithTheSameKey()
+    {
+        _cloudflare.Then(HttpStatusCode.OK, InternalError).Then(HttpStatusCode.OK, Success);
+
+        var result = await Client().VerifyAsync("s", "t", CancellationToken.None);
+
+        result.Answer!.Success.Should().BeTrue("Cloudflare marks internal-error retryable");
+        result.Attempts.Should().Be(2);
+        _cloudflare.Requests.Select(request => request.Form["idempotency_key"]).Distinct().Should().ContainSingle(
+            "the second attempt repeats the key, so a token is never spent twice");
+    }
+
+    [Fact]
+    public async Task ASecondInternalError_IsTheAnswer()
+    {
+        _cloudflare.Then(HttpStatusCode.OK, InternalError).Then(HttpStatusCode.OK, InternalError);
+
+        var result = await Client().VerifyAsync("s", "t", CancellationToken.None);
+
+        result.Answer!.ErrorCodes.Should().Equal("internal-error");
+        result.Attempts.Should().Be(2);
+        _breaker.Tripped.Should().BeFalse("an answer, even an error, is not an outage of the call");
+    }
+
+    [Fact]
+    public async Task A429_IsCountedForThePosture_ForTenMinutes()
+    {
+        _cloudflare.Then((HttpStatusCode)429, "");
+
+        var result = await Client().VerifyAsync("s", "t", CancellationToken.None);
+
+        result.Failure.Should().Be(BotDefenseCircuitBreaker.ThrottledFailure);
+        _breaker.ThrottledInWindow().Should().Be(1);
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        _breaker.ThrottledInWindow().Should().Be(0);
+    }
+
 }

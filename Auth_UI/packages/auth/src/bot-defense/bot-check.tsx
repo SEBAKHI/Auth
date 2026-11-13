@@ -1,7 +1,8 @@
 import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
 
-import { ensureBotDefenseConfig, useBotDefenseConfig } from "@authsystem/api/bot-defense"
+import { BOT_DEFENSE_QUERY_KEY, ensureBotDefenseConfig, useBotDefenseConfig } from "@authsystem/api/bot-defense"
+import { BOT_DEFENSE_REFUSED_EVENT } from "@authsystem/api/bot-defense-event"
 
 import { BotCheckField } from "./bot-check-field"
 import { TokenSlot, type BotAction, type CheckState } from "./token-slot"
@@ -62,6 +63,19 @@ export function useBotCheck(expected: BotAction): BotCheck {
   const [state, setState] = React.useState<CheckState>({ kind: "quiet" })
   const [generation, setGeneration] = React.useState(0)
   const [slot] = React.useState(() => new TokenSlot(action))
+  // A configuration that cannot be read shows nothing and lets the requests go:
+  // at Off nothing is checked, and a red sentence there would be a false alarm on
+  // every page (REVIEW 167 F6). Once the server refuses a request for the check,
+  // it checks: the configuration is read again, and the field shows.
+  const [serverChecks, setServerChecks] = React.useState(false)
+  React.useEffect(() => {
+    const onRefused = () => {
+      setServerChecks(true)
+      void queryClient.refetchQueries({ queryKey: BOT_DEFENSE_QUERY_KEY })
+    }
+    window.addEventListener(BOT_DEFENSE_REFUSED_EVENT, onRefused)
+    return () => window.removeEventListener(BOT_DEFENSE_REFUSED_EVENT, onRefused)
+  }, [queryClient])
 
   const prepare = React.useCallback(
     async (needed: BotAction): Promise<BotTokenResult> => {
@@ -104,7 +118,7 @@ export function useBotCheck(expected: BotAction): BotCheck {
 
   const siteKey = config?.siteKey ?? null
   const field =
-    siteKey === null && !isError ? null : (
+    siteKey === null && !(isError && serverChecks) ? null : (
       <BotCheckField
         key="bot-check"
         siteKey={siteKey}

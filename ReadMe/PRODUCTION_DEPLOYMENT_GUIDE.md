@@ -4452,7 +4452,7 @@ in order. Three settings (**System settings → Bot check (Cloudflare Turnstile)
 |---|---|---|
 | `BotDefense:Mode` | `Off` (default), `Monitor`, `Enforce` | Off checks nothing. Monitor checks and logs every verdict and refuses nothing: it protects nobody yet, it measures. Enforce refuses a request without a valid token (`400 BotDefense.TokenMissing` / `BotDefense.TokenRejected`). |
 | `BotDefense:SiteKey` | the widget's public sitekey | Pages render the widget only when the server names one. |
-| `BotDefense:FailMode` | `PerSurface` (default), `Closed` | What Enforce does while the server cannot check a token with Cloudflare, or a key is missing (§U.6). A browser that gets no token is refused under Enforce either way. |
+| `BotDefense:FailMode` | `PerSurface` (default), `Closed` | What Enforce does while the server cannot check a token with Cloudflare, or a key is missing (§U.6). A browser that gets no token is refused under Enforce either way, unless the server cannot reach Cloudflare either (§U.6). |
 
 The secret is not a setting: it is set on the **Secrets** page (§U.3). Two requests a signed-in
 person sends moved off `forgot-password`, so they need no bot check: the console's **Send password
@@ -4464,8 +4464,14 @@ obsolete: a server cannot answer the widget, so under Enforce its sign-in is ref
 
 Deploy the API first, then both web applications with their sealed `web.config`. Check:
 `GET https://auth.example.com/api/v1/Platform/bot-defense` answers `"mode": "Off"` and no sitekey,
-and a sign-in works in both applications. Rollback: the reverse order, the applications first, then
-the API; then check that the profile's **Set a password** still sends its email.
+and a sign-in works in both applications. In Production the first start logs
+`Bot defense posture bot.mode: Off` at Critical: expected until Monitor (§U.4), whose line is a
+Warning until Enforce (§U.5), and not a fault. Rollback: the reverse order, the applications first,
+then the API; then check that the profile's **Set a password** still sends its email.
+
+**Before restoring an application build older than this release, set Mode to Off (or Monitor):** an
+old build sends no token, and under Enforce every sign-in from it is refused, administrators
+included.
 
 ### U.2 The widget at Cloudflare
 
@@ -4536,16 +4542,26 @@ Read the first gate from the log files of the seven days (copy them off the serv
 node Tools/probes/verdict-window.mjs --gate monitor <folder with auth-api-*.log>
 ```
 
+Run it on the API's own log files only. It counts the verdict lines the API writes and nothing
+else: a line counts only when its whole message is the verdict, at Information or Warning, so a
+request whose path carries the same words (the request log writes every path into the same file)
+is not one.
+
 It passes when every application passes at least 99 % of its submissions, with at least 100 of them,
 over at least seven days; it prints each comparator. An application below 100 is `NODATA`: decide it
-by watching real sign-ins on it. Junk tokens, which no real widget makes and anyone can send with an
+by watching real sign-ins on it. Anyone can send a request without a token and with an
+application's `Origin`, and it counts as that application's `Missing`: before deciding, read the
+report's hourly `Missing` rows for each application. A burst against its steady share is someone's
+requests, not the widget. Junk tokens, which no real widget makes and anyone can send with an
 application's `Origin` (Cloudflare's `invalid-input-response`, a token too long, malformed, or the
 public dummy one), are counted apart and never as submissions, so a few of them cannot hold the move
 back. The report also prints Cloudflare's answer time per application (median, 95th percentile,
 longest): the time the check adds to a sign-in. Note the 95th percentile. Then Mode = **Enforce**. Check: a sign-in request without a
 `botToken` answers `400 BotDefense.TokenMissing`, and a real sign-in works in both applications.
 Seven days later, read the second gate, no 10-minute window where more than half of at least 20
-submissions carried no token:
+submissions from the listed applications carried no token. Requests from no listed application
+(`other`: no `Origin`, or another one) are what the check refuses: the report prints them apart and
+never counts them, as the posture does:
 
 ```bash
 node Tools/probes/verdict-window.mjs --gate enforce <folder with auth-api-*.log>
@@ -4556,8 +4572,9 @@ Rollback: Mode = Monitor.
 ### U.6 When the check cannot run (`BotDefense:FailMode`)
 
 Under Enforce, while Cloudflare cannot be reached (the call has `BotDefense:SiteverifyTimeoutMs`,
-default 2,000 ms, for both of its attempts; five failures in a row open a circuit breaker for 30
-seconds) or a key is missing or refused:
+default 2,000 ms, for both of its attempts; Cloudflare's own `internal-error` is tried once more;
+five failures in a row open a circuit breaker for 30 seconds, and it closes at the next answer) or a
+key is missing or refused:
 
 | FailMode | Registration start | Sign-in, code start, reset request |
 |---|---|---|
@@ -4572,9 +4589,26 @@ The fail mode is about the server's side. A browser that gets no token at all, b
 widget is blocked there (an extension, a network), fails in it, or does not list the page's host
 (§U.2), sends its request without one, and under Enforce that request is refused
 `BotDefense.TokenMissing` whatever `FailMode` says. The page tells the person to try again, check
-the device's date and time, use another browser or network, or sign in another way. When it happens
-to many people at once, go back to Monitor, or to Off through §U.8 if no administrator can sign in:
-pages already open read the setting again before their next request once their copy is a minute old.
+the device's date and time, use another browser or network, or sign in another way.
+
+**A full Cloudflare outage** stops the widget too, so no token reaches the server and no call is
+made. The server watches for it: while its circuit breaker is open, or the posture's reachability
+probe (every five minutes, made by the server itself) got no answer in the last five minutes, a
+request without a token counts as the outage, not the visitor, and the fail mode applies: under
+`PerSurface`, sign-ins, code starts and reset requests go on through the allowance.
+
+The posture judges `bot.token-missing-spike` and `bot.local-rejection-spike` every minute, over
+the last ten minutes, so either alarm is written within about eleven minutes of its cause. Both count
+the listed applications only. A `Missing` burst can still be robots sending a listed `Origin`
+(anyone can): read the lines' origin and action, and the hourly rows of §U.5, before rolling back.
+When it is real and happens to many people at once, go back to Monitor, or to Off through §U.8 if no
+administrator can sign in: pages already open read the setting again, past the browser's cache,
+before their next request once their copy is a minute old.
+
+Volume can open the breaker: Cloudflare's `429` (too many requests) counts as a failure, so a flood
+of tokens that makes Cloudflare throttle this server opens it, and the fail mode then applies until
+an answer closes it. The posture's `bot.siteverify-throttled` (a Warning) says when 429s came in the
+last ten minutes.
 
 ### U.7 Rotating the secret
 

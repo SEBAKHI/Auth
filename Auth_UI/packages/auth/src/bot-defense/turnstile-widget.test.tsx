@@ -30,6 +30,8 @@ vi.mock("@authsystem/api/client", () => ({
   api: { GET: (...args: unknown[]) => mocks.get(...args) },
 }))
 
+import { BOT_DEFENSE_REFUSED_EVENT } from "@authsystem/api/bot-defense-event"
+
 import { ENFORCED_WAIT_MS, useBotCheck, type BotAction, type BotTokenResult } from "./bot-check"
 import {
   forgetTurnstileForTests,
@@ -66,10 +68,11 @@ const fakeTurnstile: TurnstileApi = {
   },
 }
 
-function answer(config: { mode: string; siteKey: string | null } | "fails") {
+function answer(config: { mode: string; siteKey: string | null } | "fails" | { status: number }) {
   mocks.get.mockImplementation(async (path: string) => {
     if (path !== "/api/v1/Platform/bot-defense") throw new Error(`unexpected GET ${path}`)
     if (config === "fails") return { data: undefined, error: { status: 503 } }
+    if ("status" in config) return { data: undefined, error: { status: config.status } }
     return { data: config, error: undefined }
   })
 }
@@ -148,17 +151,76 @@ describe("nothing from Cloudflare while there is nothing to check", () => {
     expect(widgets).toHaveLength(0)
   })
 
-  it("sends the request without a token when the configuration cannot be read", async () => {
-    answer("fails")
+  it.each([["fails", 503], ["rate-limited", 429]] as const)(
+    "a configuration that cannot be read (%s) shows nothing and lets the request go",
+    async (_, status) => {
+      // REVIEW 167 F6: at Off nothing is checked, so a red sentence on every page
+      // would be a false alarm; the server says when it checks.
+      answer({ status })
+      const results = renderCheck()
+      const user = userEvent.setup()
+
+      await waitFor(() => expect(mocks.get).toHaveBeenCalled())
+      await user.click(screen.getByRole("button", { name: "prepare login" }))
+
+      await waitFor(() => expect(results).toEqual([{ proceed: true }]))
+      expect(screen.queryByTestId("bot-check-problem")).toBeNull()
+      expect(field()).toBeNull()
+      expect(widgets).toHaveLength(0)
+    }
+  )
+
+  it("an API without the endpoint (404) reads as Off", async () => {
+    answer({ status: 404 })
     const results = renderCheck()
     const user = userEvent.setup()
 
-    // Said, with a way to try again, rather than left as a check that never shows.
-    expect(await screen.findByText("The security check isn't ready")).toBeInTheDocument()
+    await waitFor(() => expect(mocks.get).toHaveBeenCalled())
     await user.click(screen.getByRole("button", { name: "prepare login" }))
 
     await waitFor(() => expect(results).toEqual([{ proceed: true }]))
-    expect(widgets).toHaveLength(0)
+    expect(field()).toBeNull()
+
+    // Off, not a failed read: even after a refusal (from a newer API behind the
+    // same address), it says nothing, since the read answered "nothing here".
+    const readsBefore = mocks.get.mock.calls.length
+    act(() => {
+      window.dispatchEvent(new Event(BOT_DEFENSE_REFUSED_EVENT))
+    })
+    await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(readsBefore + 1))
+    // Let the answer render before reading the absence.
+    await act(async () => {
+      await new Promise((settle) => setTimeout(settle, 50))
+    })
+    expect(screen.queryByTestId("bot-check-problem")).toBeNull()
+  })
+
+  it("after a refusal for the check, the configuration is read again and the check shows", async () => {
+    answer("fails")
+    renderCheck()
+    await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
+    expect(field()).toBeNull()
+
+    answer({ mode: "Enforce", siteKey: SITE_KEY })
+    act(() => {
+      window.dispatchEvent(new Event(BOT_DEFENSE_REFUSED_EVENT))
+    })
+
+    await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(2))
+    expect((await oneLiveWidget()).options.sitekey).toBe(SITE_KEY)
+  })
+
+  it("after a refusal for the check, a configuration still unreadable is said, with a way to try again", async () => {
+    answer("fails")
+    renderCheck()
+    await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
+
+    act(() => {
+      window.dispatchEvent(new Event(BOT_DEFENSE_REFUSED_EVENT))
+    })
+
+    expect(await screen.findByText("The security check isn't ready")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument()
   })
 })
 
@@ -573,6 +635,10 @@ describe("when the widget fails, Cloudflare's Retry column decides", () => {
     // Heard at this submit: it goes out at once, without waiting for a token.
     await waitFor(() => expect(results).toEqual([{ proceed: true }]))
     expect(mocks.get).toHaveBeenCalledTimes(2)
+    // Past the browser's own cache too (max-age=60, REVIEW 167 C10); the page's
+    // first read keeps the browser's default.
+    expect(mocks.get.mock.calls[1][1]).toEqual({ cache: "no-cache" })
+    expect(mocks.get.mock.calls[0][1]).toBeUndefined()
   })
 
   it("within the minute, a submit reads no configuration again", async () => {

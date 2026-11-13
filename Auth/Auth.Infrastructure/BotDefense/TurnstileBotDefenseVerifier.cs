@@ -68,6 +68,7 @@ public sealed class TurnstileBotDefenseVerifier : IBotDefenseVerifier
     private readonly IConfiguration _configuration;
     private readonly ITurnstileSiteverifyClient _client;
     private readonly IEnvironmentInfo _environment;
+    private readonly BotDefenseOutageSignal _outage;
     private readonly TimeProvider _timeProvider;
 
     public TurnstileBotDefenseVerifier(
@@ -76,6 +77,7 @@ public sealed class TurnstileBotDefenseVerifier : IBotDefenseVerifier
         IConfiguration configuration,
         ITurnstileSiteverifyClient client,
         IEnvironmentInfo environment,
+        BotDefenseOutageSignal outage,
         TimeProvider timeProvider)
     {
         _settings = settings;
@@ -83,6 +85,7 @@ public sealed class TurnstileBotDefenseVerifier : IBotDefenseVerifier
         _configuration = configuration;
         _client = client;
         _environment = environment;
+        _outage = outage;
         _timeProvider = timeProvider;
     }
 
@@ -119,7 +122,11 @@ public sealed class TurnstileBotDefenseVerifier : IBotDefenseVerifier
 
         if (string.IsNullOrWhiteSpace(token))
         {
-            return BotDefenseVerdict.Local(BotDefenseVerdictKind.Missing);
+            // While Cloudflare looks down from here, the widget is down too: no token is the
+            // outage, not the visitor, and the fail mode decides (OD2).
+            return _outage.CloudflareUnreachable()
+                ? BotDefenseVerdict.Local(BotDefenseVerdictKind.Unavailable, "token-missing-cloudflare-unreachable")
+                : BotDefenseVerdict.Local(BotDefenseVerdictKind.Missing);
         }
 
         if (token.Length > MaxTokenLength)

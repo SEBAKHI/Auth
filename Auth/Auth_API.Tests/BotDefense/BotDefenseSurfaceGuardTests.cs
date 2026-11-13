@@ -74,12 +74,25 @@ public class BotDefenseSurfaceGuardTests
     [Fact]
     public void TheBehavior_IsRegisteredAfterValidation()
     {
+        // REVIEW 167 F9: the registrations as statements (a line that starts with the call), so a
+        // registration commented out reads as missing, not as present.
         var program = File.ReadAllText(Path.Combine(SolutionDirectory(), "Auth_API", "Program.cs"));
 
-        var validation = program.IndexOf("typeof(Auth.Application.Behaviors.ValidationBehavior<,>)", StringComparison.Ordinal);
-        var botDefense = program.IndexOf("typeof(Auth.Application.Behaviors.BotDefenseBehavior<,>)", StringComparison.Ordinal);
+        static int Registration(string program, string behavior)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(
+                program,
+                $@"^[ \t]*cfg\.AddBehavior\(typeof\(IPipelineBehavior<,>\),\s*typeof\(Auth\.Application\.Behaviors\.{behavior}<,>\)\);",
+                System.Text.RegularExpressions.RegexOptions.Multiline);
+            return match.Success ? match.Index : -1;
+        }
 
-        validation.Should().BeGreaterThan(0);
+        var logging = Registration(program, "LoggingBehavior");
+        var validation = Registration(program, "ValidationBehavior");
+        var botDefense = Registration(program, "BotDefenseBehavior");
+
+        logging.Should().BeGreaterThan(0, "the logging behavior is registered");
+        validation.Should().BeGreaterThan(logging);
         botDefense.Should().BeGreaterThan(validation,
             "the check runs after the request's shape is valid and before the handler, so before any database work");
     }

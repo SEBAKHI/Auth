@@ -61,4 +61,17 @@ public class GetBotDefenseConfigQueryTests
         config.Mode.Should().Be(mode);
         config.SiteKey.Should().Be(BotDefenseTestDoubles.SiteKey);
     }
+    [Theory]
+    [InlineData(BotDefenseMode.Monitor)]
+    [InlineData(BotDefenseMode.Enforce)]
+    public async Task NothingToCheck_ReadsOff_WhateverTheMode(BotDefenseMode mode)
+    {
+        // REVIEW 167 S7: the public answer never says "enforced, nothing checked".
+        var noSitekey = await Ask(BotDefenseTestDoubles.Settings(mode, siteKey: ""));
+        var testingKey = await Ask(BotDefenseTestDoubles.Settings(mode, siteKey: "1x00000000000000000000AA"), production: true);
+
+        noSitekey.Should().Be(new BotDefenseConfigDto(BotDefenseMode.Off, null));
+        testingKey.Should().Be(new BotDefenseConfigDto(BotDefenseMode.Off, null));
+    }
+
 }

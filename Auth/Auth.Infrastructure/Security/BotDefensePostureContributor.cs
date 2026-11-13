@@ -10,7 +10,8 @@ using Microsoft.Extensions.Options;
 namespace Auth.Infrastructure.Security;
 
 /// <summary>
-/// The bot check's posture (S13, BD12): seven lines, each named by its identifier.
+/// The bot check's posture (S13, BD12), each line named by its identifier, evaluated after every
+/// reload and every minute (REVIEW 167 F1): the spikes follow the traffic, not the settings.
 /// </summary>
 /// <remarks>
 /// <list type="bullet">
@@ -28,8 +29,14 @@ namespace Auth.Infrastructure.Security;
 /// <item><c>bot.monitor-pass-rate</c>: per app, since this process started (Information); a
 /// token no real widget makes is left out and its number said.</item>
 /// <item><c>bot.token-missing-spike</c>: under Enforce, more than half of at least 20
-/// submissions in ten minutes without a token: Critical (a page that no longer sends one).</item>
+/// submissions from the listed apps in ten minutes without a token: Critical (a page that no
+/// longer sends one).</item>
+/// <item><c>bot.local-rejection-spike</c>: under Enforce, more than half of at least 20 such
+/// submissions refused for the deployment's own setup (a host, an action, a clock): Critical.</item>
+/// <item><c>bot.siteverify-throttled</c>: Cloudflare answered 429 in the last ten minutes: a
+/// Warning (volume can open the breaker, and the fail mode then applies).</item>
 /// </list>
+/// The reachability probe's outcome also feeds <see cref="BotDefenseOutageSignal"/> (OD2).
 /// The counts are this process's (D5); the owner's gate reads every process's log lines.
 /// </remarks>
 public sealed class BotDefensePostureContributor : ISecurityPostureContributor
@@ -50,14 +57,18 @@ public sealed class BotDefensePostureContributor : ISecurityPostureContributor
         "Bot defense posture bot.siteverify-reachability: no answer from Cloudflare ({Failure}) after {ElapsedMs} ms";
     private const string PassRateTemplate = "Bot defense posture bot.monitor-pass-rate: {PassRates}";
     private const string SpikeTemplate =
-        "Bot defense posture bot.token-missing-spike: {Missing} of {Submissions} submissions in the last 10 minutes carried no token";
+        "Bot defense posture bot.token-missing-spike: {Missing} of {Submissions} submissions from the listed apps in the last 10 minutes carried no token";
+    private const string ThrottledTemplate =
+        "Bot defense posture bot.siteverify-throttled: Cloudflare answered 429 (too many requests) {Count} time(s) in the last 10 minutes; while it does, the circuit breaker can open and the fail mode applies";
     private const string LocalRejectionTemplate =
-        "Bot defense posture bot.local-rejection-spike: {Local} of {Submissions} submissions in the last 10 minutes were refused for this deployment's own setup (hostname, action or challenge age); check the widget's hosts against IdentityProvider:FirstPartySpaOrigins, else Cors:AllowedOrigins, and the server's clock";
+        "Bot defense posture bot.local-rejection-spike: {Local} of {Submissions} submissions from the listed apps in the last 10 minutes were refused for this deployment's own setup (hostname, action or challenge age); check the widget's hosts against IdentityProvider:FirstPartySpaOrigins, else Cors:AllowedOrigins, and the server's clock";
 
     private readonly IOptionsMonitor<BotDefenseSettings> _settings;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IEnvironmentInfo _environment;
     private readonly BotDefenseVerdictCounts _counts;
+    private readonly BotDefenseCircuitBreaker _breaker;
+    private readonly BotDefenseOutageSignal _outage;
     private readonly TimeProvider _timeProvider;
     private (DateTimeOffset At, string Secret, SecurityPostureProbe Probe, string? Codes)? _lastProbe;
 
@@ -66,17 +77,24 @@ public sealed class BotDefensePostureContributor : ISecurityPostureContributor
         IServiceScopeFactory scopeFactory,
         IEnvironmentInfo environment,
         BotDefenseVerdictCounts counts,
+        BotDefenseCircuitBreaker breaker,
+        BotDefenseOutageSignal outage,
         TimeProvider timeProvider)
     {
         _settings = settings;
         _scopeFactory = scopeFactory;
         _environment = environment;
         _counts = counts;
+        _breaker = breaker;
+        _outage = outage;
         _timeProvider = timeProvider;
     }
 
     /// <inheritdoc />
     public string Name => "bot-defense";
+
+    /// <summary>Every minute: the spikes and the throttling follow the traffic (REVIEW 167 F1).</summary>
+    public TimeSpan? ReevaluateEvery => TimeSpan.FromMinutes(1);
 
     /// <inheritdoc />
     public async Task<SecurityPosture> EvaluateAsync(CancellationToken cancellationToken)
@@ -216,6 +234,15 @@ public sealed class BotDefensePostureContributor : ISecurityPostureContributor
             }
         }
 
+        // bot.siteverify-throttled
+        var throttled = _breaker.ThrottledInWindow();
+        if (throttled > 0)
+        {
+            lines.Add(new SecurityPostureLine(LogLevel.Warning, ThrottledTemplate, [throttled]));
+            reasons.Add("bot.siteverify-throttled");
+            state.Add("throttled");
+        }
+
         return new SecurityPosture(
             reasons.Count > 0 ? SecurityPostureLevel.Weak : SecurityPostureLevel.Ok,
             reasons,
@@ -257,6 +284,8 @@ public sealed class BotDefensePostureContributor : ISecurityPostureContributor
         };
 
         _lastProbe = (now, secret, outcome.Item1, outcome.Item2);
+        // A refused secret is an answer: only no answer at all reads as an outage (OD2).
+        _outage.RecordProbe(answered: result.Answer is not null);
         return outcome;
     }
 }

@@ -674,6 +674,33 @@ public class ResetSystemSettingsCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_AResetToOffWithAnEmptySitekey_GoesThrough_WhileTheSecretIsSet()
+    {
+        // REVIEW 167 F7: after the secret is set ([S13-O4]), the card's reset brings back the file
+        // values, Mode Off and an empty sitekey; with the check off that is no fault.
+        var configuration = SystemSettingsTestSupport.BuildConfiguration(
+            ("BotDefense:Mode", "Off"), ("BotDefense:SiteKey", ""), ("BotDefense:TurnstileSecret", "0x4AAAAAAA-the-real-secret"));
+        var handler = new ResetSystemSettingsCommandHandler(
+            _settingsRepoMock.Object,
+            configuration,
+            SystemSettingsTestSupport.SnapshotOf(configuration),
+            _reloaderMock.Object,
+            _publisherMock.Object,
+            new Mock<IIdpSessionIdleLimitChange>().Object,
+            new Mock<IPasskeyRpIdChange>().Object,
+            new Mock<ILogger<ResetSystemSettingsCommandHandler>>().Object,
+            new Auth_API.Tests.BotDefense.FakeEnvironment(production: true));
+        _settingsRepoMock
+            .Setup(r => r.GetAsync("BotDefense", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SystemSettingsTestSupport.ExistingRow("BotDefense", """{"Mode":"Enforce","SiteKey":"0x4AAAAAAA-the-real-one"}"""));
+
+        var result = await handler.Handle(new ResetSystemSettingsCommand("BotDefense", Guid.NewGuid()), CancellationToken.None);
+
+        result.IsError.Should().BeFalse("the reset sets Mode Off, and an empty sitekey beside the secret is then no fault");
+        _settingsRepoMock.Verify(r => r.DeleteAsync("BotDefense", It.IsAny<CancellationToken>()), Times.Once());
+    }
+
+    [Fact]
     public async Task Handle_AResetToATestingSitekeyInProduction_IsRefused_ThroughTheHandlersEnvironment()
     {
         // S13 (TS10, review of PR 167): a reset may not fall back to a file value Production refuses.

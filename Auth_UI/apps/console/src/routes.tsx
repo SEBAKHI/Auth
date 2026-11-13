@@ -12,6 +12,7 @@ import { RequireMfaSatisfied } from "@authsystem/auth/require-mfa-satisfied"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { PermissionRoute } from "@authsystem/auth/require-permission"
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
+import { endSignInWithFullNavigationAfterTurnstile } from "@authsystem/auth/login-completion"
 import { LoginPage } from "@authsystem/auth/pages/login"
 import { crumb } from "@authsystem/ui/crumbs"
 import { ForbiddenPage } from "@authsystem/ui/error-pages/forbidden"
@@ -24,6 +25,12 @@ import {
   notificationLandingPath,
   type NotificationDestinationId,
 } from "@/lib/notification-destinations"
+
+// S13 (OD3): a console sign-in whose page loaded Cloudflare's bot check ends with
+// a full navigation, so its script does not stay in the administrator's session.
+// Here, beside the sign-in page that brings the completion in, not in main.tsx:
+// there the import would move it into the entry chunk.
+endSignInWithFullNavigationAfterTurnstile()
 
 /**
  * Every page is loaded on demand.

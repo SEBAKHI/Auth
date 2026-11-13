@@ -1002,6 +1002,7 @@ builder.Services.AddHttpClient<IGoogleCodeExchanger, GoogleCodeExchanger>(client
 // hot) decides, so the client's own timeout sits above its largest value. No redirect is
 // followed and no cookie kept. One breaker per process (D5).
 builder.Services.AddSingleton<BotDefenseCircuitBreaker>();
+builder.Services.AddSingleton<BotDefenseOutageSignal>();
 builder.Services.AddHttpClient<ITurnstileSiteverifyClient, TurnstileSiteverifyClient>(client =>
 {
     client.Timeout = TurnstileSiteverifyClient.ClientTimeout;

@@ -33,7 +33,11 @@ public sealed class GetBotDefenseConfigQueryHandler : IRequestHandler<GetBotDefe
             || (_environment.IsProduction
                 && (TurnstileTestingKeys.IsTestingKey(siteKey) || TurnstileTestingKeys.IsTestingKey(settings.TurnstileSecret)));
 
-        ErrorOr<BotDefenseConfigDto> answer = new BotDefenseConfigDto(settings.Mode, nothingToCheck ? null : siteKey);
+        // Nothing to check reads Off: the public answer never says "enforced, nothing checked"
+        // (REVIEW 167 S7), and the pages then wait for nothing.
+        ErrorOr<BotDefenseConfigDto> answer = nothingToCheck
+            ? new BotDefenseConfigDto(BotDefenseMode.Off, null)
+            : new BotDefenseConfigDto(settings.Mode, siteKey);
         return Task.FromResult(answer);
     }
 }

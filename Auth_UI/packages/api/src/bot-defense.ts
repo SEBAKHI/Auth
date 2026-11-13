@@ -39,8 +39,22 @@ export function normalizeBotDefenseConfig(raw: {
   return { mode, siteKey: mode === "Off" ? null : siteKey }
 }
 
-async function fetchBotDefenseConfig(): Promise<BotDefenseConfig> {
-  return normalizeBotDefenseConfig(await unwrap(api.GET("/api/v1/Platform/bot-defense")))
+const OFF: BotDefenseConfig = { mode: "Off", siteKey: null }
+
+/**
+ * The server's answer. A 404 reads as Off: an API from before S13 (one rolled
+ * back alone) has no such endpoint and checks nothing. `fresh` asks past the
+ * browser's own cache (`max-age=60`), so a submit's read is never older than
+ * the query's minute (REVIEW 167 C10).
+ */
+async function fetchBotDefenseConfig(fresh = false): Promise<BotDefenseConfig> {
+  const answer = fresh
+    ? await api.GET("/api/v1/Platform/bot-defense", { cache: "no-cache" })
+    : await api.GET("/api/v1/Platform/bot-defense")
+  if ((answer.error as { status?: number } | undefined)?.status === 404 || answer.response?.status === 404) {
+    return OFF
+  }
+  return normalizeBotDefenseConfig(await unwrap(Promise.resolve(answer)))
 }
 
 /**
@@ -55,7 +69,7 @@ export function useBotDefenseConfig(): {
 } {
   const query = useQuery({
     queryKey: BOT_DEFENSE_QUERY_KEY,
-    queryFn: fetchBotDefenseConfig,
+    queryFn: () => fetchBotDefenseConfig(),
     staleTime: BOT_DEFENSE_STALE_MS,
   })
   return {
@@ -78,7 +92,7 @@ export async function ensureBotDefenseConfig(
   try {
     return await queryClient.fetchQuery({
       queryKey: BOT_DEFENSE_QUERY_KEY,
-      queryFn: fetchBotDefenseConfig,
+      queryFn: () => fetchBotDefenseConfig(true),
       staleTime: BOT_DEFENSE_STALE_MS,
     })
   } catch {

@@ -27,13 +27,24 @@
  * for every listed app (origin), Passed / submissions >= 99 %, with at least 100
  * submissions, the lines covering at least 7 days. An app below 100 submissions is
  * NODATA: the production observation decides it (BD11). `other` (a request from no
- * listed app) is shown and never gated: bots are expected there.
+ * listed app) is shown and never gated: bots are expected there. The report also prints,
+ * per app, the hours that carried a Missing verdict: anyone can send a request without a
+ * token and with a listed app's Origin, so read a burst against the app's steady share
+ * before deciding (REVIEW 167 F4). Missing stays in the gate: from real pages it is the
+ * widget failure the gate exists to catch.
  *
- * Gate 2, after Enforce: bot.token-missing-spike windows = 0. Over the Enforce lines, in
- * 10-minute windows (aligned to the clock: :00, :10, ...): a window with fewer than 20
- * submissions is NODATA and proves nothing; one with 20 or more spikes when more than
- * half carry no token (the posture's rule). Passes with no spike, at least one window
- * counted, and the lines covering at least 7 days.
+ * Gate 2, after Enforce: bot.token-missing-spike windows = 0. Over the Enforce lines from
+ * the listed apps, in 10-minute windows (aligned to the clock: :00, :10, ...): a window
+ * with fewer than 20 submissions is NODATA and proves nothing; one with 20 or more spikes
+ * when more than half carry no token (the posture's rule). Passes with no spike, at least
+ * one window counted, and the lines covering at least 7 days. A request from no listed app
+ * (`other`) is what the check refuses: it is printed apart and never counted (REVIEW 167
+ * F2), as the server's posture does.
+ *
+ * Only the recorder's own lines count: the message must BE the verdict, from its first word
+ * to its last, at Information or Warning (REVIEW 167 F3). The request log writes every path
+ * into the same file, so a line that merely contains the words is someone's request.
+ * Run the tool on the API's own log files only.
  *
  * NODATA is never a pass: too few submissions, or too short a period, decides nothing.
  *
@@ -57,6 +68,7 @@ export const PASS_RATE_MINIMUM = 0.99
 export const APP_MINIMUM = 100
 export const GATE_DAYS = 7
 const DAY_MS = 24 * 60 * 60 * 1000
+const HOUR_MS = 60 * 60 * 1000
 
 /** Codes no real widget's token gets: TurnstileBotDefenseVerifier.JunkTokenCodes. Change both together. */
 export const JUNK_TOKEN_CODES = ["invalid-input-response", "token-too-long", "token-malformed", "dummy-token"]
@@ -68,12 +80,14 @@ const HEAD = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.(\d+))?\s*(Z|[+-]\
 // Quotes are optional: the file sink renders the message with :lj (no quotes), a template
 // without it quotes every string value.
 const VERDICT =
-  /Bot defense verdict: action "?([\w-]+)"? verdict "?(\w+)"? mode "?(\w+)"? origin "?([^"\s]+)"? hostname "?([^"\s]+)"? codes "?([^"\s]*)"? attempts (\d+) elapsedMs (\d+)/
+  /^Bot defense verdict: action "?([\w-]+)"? verdict "?(\w+)"? mode "?(\w+)"? origin "?([^"\s]+)"? hostname "?([^"\s]+)"? codes "?([^"\s]*)"? attempts (\d+) elapsedMs (\d+)\s*$/
+/** The recorder writes at Information, or at Warning when the check could not run or the setup refused. */
+const RECORDER_LEVELS = new Set(["INF", "WRN"])
 
 /** One verdict line, or null for any other line. */
 export function parseVerdictLine(line) {
   const head = HEAD.exec(line)
-  if (!head) return null
+  if (!head || !RECORDER_LEVELS.has(head[5])) return null
   const body = VERDICT.exec(head[6])
   if (!body) return null
   const fraction = (head[3] ?? "0").slice(0, 3).padEnd(3, "0")
@@ -107,6 +121,8 @@ export function tally(verdicts, { from, to } = {}) {
     answerTimes: new Map(),
     monitor: { first: undefined, last: undefined },
     enforce: { first: undefined, last: undefined },
+    // Under Enforce, from no listed app: shown apart, never counted (F2).
+    otherEnforced: { submissions: 0, missing: 0 },
     apps,
     windows,
   }
@@ -138,13 +154,21 @@ export function tally(verdicts, { from, to } = {}) {
     }
     if (verdict.mode === "Monitor") {
       stretch(result.monitor, verdict.at)
-      const app = apps.get(verdict.origin) ?? { submissions: 0, passed: 0, rejected: 0, missing: 0, notRun: 0 }
+      const app = apps.get(verdict.origin) ?? { submissions: 0, passed: 0, rejected: 0, missing: 0, notRun: 0, hours: new Map() }
       app.submissions += 1
       if (verdict.verdict === "Passed") app.passed += 1
       else if (verdict.verdict === "Rejected") app.rejected += 1
       else if (verdict.verdict === "Missing") app.missing += 1
       else app.notRun += 1
+      const hour = Math.floor(verdict.at / HOUR_MS) * HOUR_MS
+      const share = app.hours.get(hour) ?? { submissions: 0, missing: 0 }
+      share.submissions += 1
+      if (verdict.verdict === "Missing") share.missing += 1
+      app.hours.set(hour, share)
       apps.set(verdict.origin, app)
+    } else if (verdict.mode === "Enforce" && verdict.origin === "other") {
+      result.otherEnforced.submissions += 1
+      if (verdict.verdict === "Missing") result.otherEnforced.missing += 1
     } else if (verdict.mode === "Enforce") {
       stretch(result.enforce, verdict.at)
       const start = Math.floor(verdict.at / WINDOW_MS) * WINDOW_MS
@@ -284,21 +308,32 @@ export function formatReport(counts, monitor, enforce, gates = "both") {
         `  ${row.origin} | ${row.submissions} | ${row.passed} | ${row.rejected} | ${row.missing} | ${row.notRun} | ${percent(row.rate)} | ${verdict}`
       )
     }
+    // F4: anyone can add Missing lines with a listed Origin; a burst shows against the steady share.
+    for (const row of monitor.rows) {
+      const hours = [...row.hours.entries()].filter(([, share]) => share.missing > 0).sort(([a], [b]) => a - b)
+      if (hours.length === 0) continue
+      lines.push(
+        `  hourly Missing, ${row.origin}: ${hours.map(([hour, share]) => `${stamp(hour)} ${share.missing}/${share.submissions}`).join("; ")}`
+      )
+    }
     lines.push(`  RESULT: ${monitor.result}: ${monitor.reason}`)
   }
   if (gates !== "monitor") {
     lines.push("")
     lines.push("Gate 2, after Enforce: bot.token-missing-spike windows")
     lines.push(
-      `  comparator: spike windows = 0 over >= ${GATE_DAYS} days of Enforce lines; a 10-minute window counts with >= ${WINDOW_MINIMUM} submissions, and spikes when more than half carry no token`
+      `  comparator: spike windows = 0 over >= ${GATE_DAYS} days of Enforce lines from the listed apps; a 10-minute window counts with >= ${WINDOW_MINIMUM} submissions from them, and spikes when more than half carry no token`
     )
     lines.push(`  Enforce lines cover ${enforce.covered.toFixed(1)} days (>= ${GATE_DAYS} asked)`)
     lines.push(
       `  windows: ${enforce.counted} counted, ${enforce.nodata} NODATA (< ${WINDOW_MINIMUM} submissions), ${enforce.spikes.length} spike(s) (= 0 asked)`
     )
     for (const spike of enforce.spikes) {
-      lines.push(`    spike: ${stamp(spike.start)}, ${spike.missing} of ${spike.submissions} without a token`)
+      lines.push(`    spike: ${stamp(spike.start)}, ${spike.missing} of ${spike.submissions} from the listed apps without a token`)
     }
+    lines.push(
+      `  from no listed app (other, never counted): ${counts.otherEnforced.submissions} submission(s), ${counts.otherEnforced.missing} without a token`
+    )
     lines.push(`  RESULT: ${enforce.result}: ${enforce.reason}`)
   }
   lines.push("")

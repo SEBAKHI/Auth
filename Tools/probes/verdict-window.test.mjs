@@ -5,7 +5,8 @@
 // gates print their comparators and decide PASS, FAIL or NODATA as [S13-O6] reads them.
 // Deliberate breaks, seen red: the 20-submission floor removed; ProbeAsserted counted; a junk
 // token counted as a submission; the answer time read from verdicts that never met Cloudflare;
-// the 95th percentile taken one rank too high.
+// the 95th percentile taken one rank too high; (REVIEW 167) `other` counted in the Enforce
+// windows; the pattern unanchored; the hourly Missing row dropped.
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
@@ -89,6 +90,21 @@ describe("reading the verdict lines", () => {
     })
   })
 
+  it("counts the recorder's own line only, not a request whose path carries the words", () => {
+    // REVIEW 167 F3: the request log writes every path, 404s included, into the same file.
+    const forged =
+      "2026-11-12 14:03:21.456 +03:00 [INF] HTTP GET /api/v1/auth/Bot defense verdict: action login verdict Passed mode Monitor origin https://accounts.example.com hostname x codes x attempts 1 elapsedMs 1 responded 404 in 3.2 ms"
+    const forgedAtTheEnd =
+      "2026-11-12 14:03:21.456 +03:00 [INF] HTTP GET /x/Bot defense verdict: action login verdict Passed mode Monitor origin https://accounts.example.com hostname x codes x attempts 1 elapsedMs 1"
+    const otherLevel = line(T0).replace("[INF]", "[DBG]")
+
+    assert.equal(parseVerdictLine(forged), null)
+    assert.equal(parseVerdictLine(forgedAtTheEnd), null)
+    assert.equal(parseVerdictLine(otherLevel), null)
+    assert.equal(parseVerdictLine(line(T0)).verdict, "Passed")
+    assert.equal(parseVerdictLine(line(T0, { verdict: "Unavailable" })).level, "WRN")
+  })
+
   it("reads the quoted rendering too, and nothing that is not a verdict line", () => {
     assert.equal(parseVerdictLine(line(T0, { quoted: true })).origin, ACCOUNTS)
     assert.equal(parseVerdictLine(line(T0, { quoted: true })).verdict, "Passed")
@@ -127,6 +143,19 @@ describe("gate 2: token-missing spike windows under Enforce", () => {
     assert.equal(counts.probeAsserted, 5)
     assert.equal(gateEnforce(counts).nodata, 1)
     assert.equal(gateEnforce(counts).counted, 0)
+  })
+
+  it("never counts a request from no listed app, and prints it apart", () => {
+    // REVIEW 167 F2: the robots the check refuses must not raise the alarm that sends the owner back to Monitor.
+    const robots = Array.from({ length: 25 }, (_, index) => line(T0 + index * 1000, { mode: "Enforce", verdict: "Missing", origin: "other" }))
+    const counts = tally(parse([...robots, ...enforcedWindow(T0 + 40_000, 20, 0)]))
+
+    const gate = gateEnforce(counts)
+
+    assert.deepEqual(gate.spikes, [])
+    assert.equal(gate.counted, 1)
+    assert.deepEqual(counts.otherEnforced, { submissions: 25, missing: 25 })
+    assert.match(formatReport(counts, gateMonitor(counts), gate), /from no listed app \(other, never counted\): 25 submission\(s\), 25 without a token/)
   })
 
   it("junk neither hides a spike nor makes a window count", () => {
@@ -211,6 +240,20 @@ describe("gate 1: the pass rate per app under Monitor", () => {
     assert.match(formatReport(counts, gate, gateEnforce(counts)), /junk tokens per app: https:\/\/accounts\.example\.com 9/)
   })
 
+  it("prints the hours that carried a Missing verdict, per app", () => {
+    // REVIEW 167 F4: a burst of forged-Origin Missing shows against the app's steady share.
+    const hour = [
+      ...Array.from({ length: 10 }, (_, index) => line(T0 + index * 1000)),
+      ...Array.from({ length: 3 }, (_, index) => line(T0 + 20_000 + index * 1000, { verdict: "Missing" })),
+      line(T0 + 2 * 60 * MINUTE, { verdict: "Missing" }),
+    ]
+    const counts = tally(parse(hour))
+
+    const report = formatReport(counts, gateMonitor(counts), gateEnforce(counts), "monitor")
+
+    assert.match(report, /hourly Missing, https:\/\/accounts\.example\.com: 2026-11-01 00:00 UTC 3\/13; 2026-11-01 02:00 UTC 1\/1/)
+  })
+
   it("still counts a refused real token: timeout-or-duplicate is a submission that did not pass", () => {
     const lines = [...monitored(ACCOUNTS, 100, 0), line(T0 + DAY, { verdict: "Rejected", codes: "timeout-or-duplicate" })]
 
@@ -236,9 +279,9 @@ describe("the report and the exit", () => {
 
     assert.match(report, /comparator: Passed \/ submissions >= 99\.00 % for every listed app, with >= 100 submissions each, over >= 7 days/)
     assert.match(report, /https:\/\/accounts\.example\.com \| 100 \| 99 \| 0 \| 1 \| 0 \| 99\.00 % \| PASS \(>= 99\.00 %\)/)
-    assert.match(report, /comparator: spike windows = 0 over >= 7 days of Enforce lines; a 10-minute window counts with >= 20 submissions/)
+    assert.match(report, /comparator: spike windows = 0 over >= 7 days of Enforce lines from the listed apps; a 10-minute window counts with >= 20 submissions from them/)
     assert.match(report, /windows: 1 counted, 0 NODATA \(< 20 submissions\), 1 spike\(s\) \(= 0 asked\)/)
-    assert.match(report, /spike: 2026-11-01 00:00 UTC, 11 of 20 without a token/)
+    assert.match(report, /spike: 2026-11-01 00:00 UTC, 11 of 20 from the listed apps without a token/)
   })
 
   it("prints Cloudflare's answer time per app, from the verdicts that went to Cloudflare", () => {

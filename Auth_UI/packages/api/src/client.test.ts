@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import { BOT_DEFENSE_REFUSED_EVENT } from "./bot-defense-event"
+
 /**
  * Multi-tab refresh coordination.
  *
@@ -516,6 +518,25 @@ describe("a failed response", () => {
     // so readProblem never ran.
     expect(response.headers.get("content-type")).toBe("application/problem+json")
     expect(response.text).toBe(read)
+  })
+
+  it("says so when the bot check refused the request, and only then (S13, REVIEW 167 F6)", async () => {
+    const heard = vi.fn()
+    window.addEventListener(BOT_DEFENSE_REFUSED_EVENT, heard)
+    try {
+      // The client keeps the fetch it was made with: one stub, answering by turn.
+      let code = "BotDefense.TokenMissing"
+      vi.stubGlobal("fetch", vi.fn(async () => json(400, { status: 400, code })))
+      const tab = await openTab()
+      await login(tab)
+      expect(heard).toHaveBeenCalledTimes(1)
+
+      code = "User.InvalidCredentials"
+      await login(tab)
+      expect(heard).toHaveBeenCalledTimes(1)
+    } finally {
+      window.removeEventListener(BOT_DEFENSE_REFUSED_EVENT, heard)
+    }
   })
 
   it("keeps Retry-After, the only place a wait travels", async () => {

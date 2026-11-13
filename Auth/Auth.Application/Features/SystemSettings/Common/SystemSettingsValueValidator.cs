@@ -988,12 +988,21 @@ internal static class SystemSettingsValueValidator
             errors.Add(SystemSettingsErrors.InvalidFieldValue(
                 "SiteKey", "must not be one of Cloudflare's testing sitekeys in Production: they pass every check."));
         }
-        else if (siteKey.Length == 0 && !string.IsNullOrWhiteSpace(runningValue(section.FullKey("TurnstileSecret"))))
+        else if (siteKey.Length == 0
+            && !string.IsNullOrWhiteSpace(runningValue(section.FullKey("TurnstileSecret")))
+            && !IsOff(PayloadOrEffective(values, section, "Mode", afterSaveValue)))
         {
             errors.Add(SystemSettingsErrors.InvalidFieldValue(
                 "SiteKey", "must stay set while the Turnstile secret is set; to switch the check off, set Mode to Off."));
         }
     }
+
+    /// <summary>
+    /// Whether a saved Mode value is Off: with the check off, an empty sitekey beside a set secret
+    /// is no fault (the break-glass and the card's reset leave exactly that; REVIEW 167 F7).
+    /// </summary>
+    private static bool IsOff(string? mode) =>
+        Enum.TryParse<BotDefenseMode>(mode?.Trim(), ignoreCase: true, out var parsed) && parsed == BotDefenseMode.Off;
 
     /// <summary>
     /// The payload's value when the field is part of it, otherwise what the given

@@ -46,9 +46,10 @@ public interface ITurnstileSiteverifyClient
 /// <item>One deadline, <c>BotDefense:SiteverifyTimeoutMs</c> read per call, covers both attempts;
 /// it is applied here rather than as <see cref="HttpClient.Timeout"/> so the setting stays hot.
 /// Running out of it is final.</item>
-/// <item>One second attempt, with the same idempotency key, after a transport failure or a 5xx,
-/// and only while half the deadline remains: Cloudflare answers a repeated key as it answered
-/// the first, so a token is never spent twice.</item>
+/// <item>One second attempt, with the same idempotency key, after a transport failure, a 5xx or
+/// Cloudflare's own <c>internal-error</c> (which it marks retryable), and only while half the
+/// deadline remains: Cloudflare answers a repeated key as it answered the first, so a token is
+/// never spent twice.</item>
 /// <item>A 429, and a 4xx without error codes, end the call: no second attempt.</item>
 /// <item>The per-process breaker (<see cref="BotDefenseCircuitBreaker"/>) counts calls without an
 /// answer; while it is open nothing is called.</item>
@@ -139,11 +140,24 @@ public sealed class TurnstileSiteverifyClient : ITurnstileSiteverifyClient
                     // answers; anything else carries nothing to judge the token by.
                     if (answer is not null && (response.IsSuccessStatusCode || (status != 429 && answer.ErrorCodes.Count > 0)))
                     {
-                        _breaker.RecordAnswer();
-                        return new SiteverifyResult(answer, null, attempts, Elapsed(started));
+                        if (!answer.Success && answer.ErrorCodes.Contains("internal-error")
+                            && attempts < 2 && _timeProvider.GetElapsedTime(started) <= timeout / 2)
+                        {
+                            // Cloudflare's own failure, which it marks retryable: one more try with the
+                            // same key, before the request is read as an outage (REVIEW 167 F5).
+                            failure = "internal-error";
+                            retryable = true;
+                        }
+                        else
+                        {
+                            _breaker.RecordAnswer();
+                            return new SiteverifyResult(answer, null, attempts, Elapsed(started));
+                        }
                     }
-
-                    failure = answer is null && response.IsSuccessStatusCode ? "unreadable-answer" : $"http-{status}";
+                    else
+                    {
+                        failure = answer is null && response.IsSuccessStatusCode ? "unreadable-answer" : $"http-{status}";
+                    }
                 }
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)

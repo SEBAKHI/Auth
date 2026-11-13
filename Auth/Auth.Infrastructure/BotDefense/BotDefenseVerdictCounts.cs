@@ -62,7 +62,10 @@ public sealed class BotDefenseVerdictCounts
 
             _byOrigin[origin] = (submissions + 1, passed + (kind == BotDefenseVerdictKind.Passed ? 1 : 0), junk);
 
-            if (mode == BotDefenseMode.Enforce)
+            // The listed apps only (REVIEW 167 F2): a request from no listed app (no Origin, or
+            // another) is what the check exists to refuse, and counted it would raise the spike
+            // that sends the owner back to Monitor.
+            if (mode == BotDefenseMode.Enforce && origin != BotDefenseOrigins.Other)
             {
                 var index = (int)(minute % BucketCount);
                 var bucket = _enforced[index];
@@ -90,8 +93,9 @@ public sealed class BotDefenseVerdictCounts
     }
 
     /// <summary>
-    /// Submissions under Enforce in the last ten minutes (the current minute and the nine before
-    /// it), how many carried no token, and how many were refused for the deployment's own setup.
+    /// Submissions from the listed apps under Enforce in the last ten minutes (the current minute
+    /// and the nine before it), how many carried no token, and how many were refused for the
+    /// deployment's own setup.
     /// </summary>
     public (int Submissions, int Missing, int LocalRejected) EnforcedWindow()
     {

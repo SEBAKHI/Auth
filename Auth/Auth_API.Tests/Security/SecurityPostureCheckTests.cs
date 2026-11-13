@@ -1,6 +1,12 @@
+using Auth.Application.Common.BotDefense;
+using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Application.Security;
+using Auth.Infrastructure.BotDefense;
 using Auth.Infrastructure.Security;
+using Auth_API.Tests.BotDefense;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -208,6 +214,187 @@ public class SecurityPostureCheckTests
         logger.Entries.Select(e => e.Message).Should().BeEquivalentTo(["first", "second"]);
 
         await check.StopAsync(CancellationToken.None);
+    }
+
+    // ---- REVIEW 167 F1: the bot check's spikes are judged every minute, without a reload ----
+
+    private const string Accounts = "https://accounts.example.com";
+
+    private static BotDefensePostureContributor BotDefense(BotDefenseVerdictCounts counts, TimeProvider clock)
+    {
+        var breaker = new BotDefenseCircuitBreaker(clock, NullLogger<BotDefenseCircuitBreaker>.Instance);
+        return new BotDefensePostureContributor(
+            TestHelpers.CreateOptions(BotDefenseTestDoubles.Settings(BotDefenseMode.Enforce, secret: "")),
+            new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
+            new FakeEnvironment(production: false),
+            counts,
+            breaker,
+            new BotDefenseOutageSignal(breaker, clock),
+            clock);
+    }
+
+    private static async Task<(SecurityPostureCheck Check, CapturingLogger<SecurityPostureCheck> Logger, Func<int> SettingsOnlyCalls)> StartWithBotDefense(
+        BotDefenseVerdictCounts counts, SteppingClock clock)
+    {
+        var settingsOnly = 0;
+        var logger = new CapturingLogger<SecurityPostureCheck>();
+        var check = new SecurityPostureCheck(
+            [
+                BotDefense(counts, clock),
+                new StubContributor("settings-only", _ =>
+                {
+                    Interlocked.Increment(ref settingsOnly);
+                    return Task.FromResult(Posture("settings-only answered"));
+                }),
+            ],
+            EmptyConfiguration, clock, logger, TimeSpan.FromMilliseconds(20));
+        await check.StartAsync(CancellationToken.None);
+        // The startup evaluation is done once the minute's timer is set.
+        await WaitUntil(() => clock.PendingTimers == 1);
+        return (check, logger, () => Volatile.Read(ref settingsOnly));
+    }
+
+    [Fact]
+    public async Task ATokenMissingSpike_IsWrittenWithinAMinute_WithoutAReload()
+    {
+        var clock = new SteppingClock(DateTimeOffset.Parse("2026-11-13T10:00:00Z"));
+        var counts = new BotDefenseVerdictCounts(clock);
+        var (check, logger, settingsOnlyCalls) = await StartWithBotDefense(counts, clock);
+        using var _ = check;
+
+        for (var i = 0; i < 9; i++)
+        {
+            counts.Add(Accounts, BotDefenseMode.Enforce, BotDefenseVerdictKind.Passed);
+        }
+
+        for (var i = 0; i < 11; i++)
+        {
+            counts.Add(Accounts, BotDefenseMode.Enforce, BotDefenseVerdictKind.Missing);
+        }
+
+        logger.Entries.Should().NotContain(entry => entry.Level == LogLevel.Critical, "nothing was counted at startup");
+        clock.Advance(TimeSpan.FromMinutes(1));
+
+        await WaitUntil(() => logger.Entries.Any(entry =>
+            entry.Level == LogLevel.Critical && entry.Message.Contains("bot.token-missing-spike", StringComparison.Ordinal)));
+        await WaitUntil(() => clock.PendingTimers == 1);
+        settingsOnlyCalls().Should().Be(1, "a contributor that did not ask is evaluated at startup and on reloads only");
+
+        await check.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task ALocalRejectionSpike_IsWrittenWithinAMinute_WithoutAReload()
+    {
+        var clock = new SteppingClock(DateTimeOffset.Parse("2026-11-13T10:00:00Z"));
+        var counts = new BotDefenseVerdictCounts(clock);
+        var (check, logger, _) = await StartWithBotDefense(counts, clock);
+        using var __ = check;
+
+        for (var i = 0; i < 9; i++)
+        {
+            counts.Add(Accounts, BotDefenseMode.Enforce, BotDefenseVerdictKind.Passed);
+        }
+
+        for (var i = 0; i < 11; i++)
+        {
+            // hostname-mismatch: the console's origin dropped from the accepted list by a save.
+            counts.Add(Accounts, BotDefenseMode.Enforce, BotDefenseVerdictKind.Rejected, localRejection: true);
+        }
+
+        clock.Advance(TimeSpan.FromMinutes(1));
+
+        await WaitUntil(() => logger.Entries.Any(entry =>
+            entry.Level == LogLevel.Critical && entry.Message.Contains("bot.local-rejection-spike", StringComparison.Ordinal)));
+
+        await check.StopAsync(CancellationToken.None);
+    }
+
+    /// <summary>A clock whose timers fire only when it is advanced.</summary>
+    private sealed class SteppingClock(DateTimeOffset start) : TimeProvider
+    {
+        private readonly Lock _gate = new();
+        private readonly List<SteppingTimer> _timers = [];
+        private DateTimeOffset _now = start;
+
+        public int PendingTimers
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _timers.Count;
+                }
+            }
+        }
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            lock (_gate)
+            {
+                return _now;
+            }
+        }
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            var timer = new SteppingTimer(this, callback, state);
+            timer.Change(dueTime, period);
+            return timer;
+        }
+
+        public void Advance(TimeSpan by)
+        {
+            List<SteppingTimer> due;
+            lock (_gate)
+            {
+                _now += by;
+                due = _timers.Where(timer => timer.DueAt <= _now).ToList();
+                foreach (var timer in due)
+                {
+                    _timers.Remove(timer);
+                }
+            }
+
+            foreach (var timer in due)
+            {
+                timer.Fire();
+            }
+        }
+
+        private void Schedule(SteppingTimer timer, TimeSpan? dueTime)
+        {
+            lock (_gate)
+            {
+                _timers.Remove(timer);
+                if (dueTime is { } due)
+                {
+                    timer.DueAt = _now + due;
+                    _timers.Add(timer);
+                }
+            }
+        }
+
+        private sealed class SteppingTimer(SteppingClock clock, TimerCallback callback, object? state) : ITimer
+        {
+            public DateTimeOffset DueAt { get; set; }
+
+            public bool Change(TimeSpan dueTime, TimeSpan period)
+            {
+                clock.Schedule(this, dueTime == Timeout.InfiniteTimeSpan ? null : dueTime);
+                return true;
+            }
+
+            public void Fire() => callback(state);
+
+            public void Dispose() => clock.Schedule(this, null);
+
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+                return ValueTask.CompletedTask;
+            }
+        }
     }
 
     private static async Task WaitUntil(Func<bool> condition)

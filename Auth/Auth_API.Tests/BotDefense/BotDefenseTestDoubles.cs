@@ -4,6 +4,7 @@ using Auth.Application.Interfaces;
 using Auth.Infrastructure.BotDefense;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Auth_API.Tests.BotDefense;
 
@@ -36,14 +37,20 @@ internal static class BotDefenseTestDoubles
         bool production = false,
         IdentityProviderSettings? firstParty = null,
         IConfiguration? cors = null,
-        TimeProvider? timeProvider = null) =>
+        TimeProvider? timeProvider = null,
+        BotDefenseOutageSignal? outage = null) =>
         new(
             TestHelpers.CreateOptions(settings),
             TestHelpers.CreateOptions(firstParty ?? FirstParty("https://accounts.example.com", "https://console.example.com")),
             cors ?? Cors("https://accounts.example.com", "https://console.example.com"),
             client,
             new FakeEnvironment(production),
+            outage ?? Outage(timeProvider ?? TimeProvider.System),
             timeProvider ?? TimeProvider.System);
+
+    /// <summary>The outage signal over a breaker of its own: Cloudflare reachable until a test says otherwise.</summary>
+    public static BotDefenseOutageSignal Outage(TimeProvider clock, BotDefenseCircuitBreaker? breaker = null) =>
+        new(breaker ?? new BotDefenseCircuitBreaker(clock, NullLogger<BotDefenseCircuitBreaker>.Instance), clock);
 
     /// <summary>Cloudflare's answer accepting a token made for <paramref name="action"/> on <paramref name="hostname"/>.</summary>
     public static SiteverifyResult Accepted(

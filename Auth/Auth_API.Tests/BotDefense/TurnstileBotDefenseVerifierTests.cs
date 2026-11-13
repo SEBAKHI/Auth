@@ -1,6 +1,7 @@
 using Auth.Application.Common.BotDefense;
 using Auth.Application.Configuration;
 using Auth.Infrastructure.BotDefense;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Auth_API.Tests.BotDefense;
 
@@ -244,4 +245,63 @@ public class TurnstileBotDefenseVerifierTests
         verdict.Kind.Should().Be(BotDefenseVerdictKind.Misconfigured);
         _client.Calls.Should().BeEmpty();
     }
+    // ---- OD2 (REVIEW 167): no token while Cloudflare looks down is the outage, not the visitor ----
+
+    private Task<BotDefenseVerdict> VerifyNoToken(BotDefenseOutageSignal outage, TimeProvider clock) =>
+        BotDefenseTestDoubles.Verifier(BotDefenseTestDoubles.Settings(), _client, timeProvider: clock, outage: outage)
+            .VerifyAsync(null, BotDefenseActions.Login, CancellationToken.None);
+
+    [Fact]
+    public async Task NoToken_WhileTheBreakerIsTripped_IsAnOutage_UntilAnAnswerClosesIt()
+    {
+        var clock = new ManualTimeProvider(DateTimeOffset.Parse("2026-11-13T10:00:00Z"));
+        var breaker = new BotDefenseCircuitBreaker(clock, NullLogger<BotDefenseCircuitBreaker>.Instance);
+        var outage = BotDefenseTestDoubles.Outage(clock, breaker);
+        for (var i = 0; i < BotDefenseCircuitBreaker.FailureThreshold; i++)
+        {
+            breaker.RecordFailure("timeout");
+        }
+
+        var verdict = await VerifyNoToken(outage, clock);
+        verdict.Kind.Should().Be(BotDefenseVerdictKind.Unavailable, "the fail mode decides while Cloudflare does not answer");
+        verdict.Codes.Should().Equal("token-missing-cloudflare-unreachable");
+        _client.Calls.Should().BeEmpty();
+
+        clock.Advance(BotDefenseCircuitBreaker.OpenDuration + TimeSpan.FromSeconds(1));
+        (await VerifyNoToken(outage, clock)).Kind.Should().Be(BotDefenseVerdictKind.Unavailable,
+            "past the open period the breaker waits for the call that would close it");
+
+        breaker.RecordAnswer();
+        (await VerifyNoToken(outage, clock)).Kind.Should().Be(BotDefenseVerdictKind.Missing);
+    }
+
+    [Fact]
+    public async Task NoToken_AfterTheReachabilityProbeGotNoAnswer_IsAnOutage_ForFiveMinutes()
+    {
+        var clock = new ManualTimeProvider(DateTimeOffset.Parse("2026-11-13T10:00:00Z"));
+        var outage = BotDefenseTestDoubles.Outage(clock);
+        outage.RecordProbe(answered: false);
+
+        (await VerifyNoToken(outage, clock)).Kind.Should().Be(BotDefenseVerdictKind.Unavailable,
+            "in a full outage no token reaches the server, so only the probe sees it");
+        clock.Advance(BotDefenseOutageSignal.ProbeWindow - TimeSpan.FromSeconds(1));
+        (await VerifyNoToken(outage, clock)).Kind.Should().Be(BotDefenseVerdictKind.Unavailable);
+        clock.Advance(TimeSpan.FromSeconds(2));
+        (await VerifyNoToken(outage, clock)).Kind.Should().Be(BotDefenseVerdictKind.Missing);
+    }
+
+    [Fact]
+    public async Task NoToken_WhileCloudflareAnswers_IsAMissingToken()
+    {
+        var clock = new ManualTimeProvider(DateTimeOffset.Parse("2026-11-13T10:00:00Z"));
+        var neverProbed = BotDefenseTestDoubles.Outage(clock);
+        var recovered = BotDefenseTestDoubles.Outage(clock);
+        recovered.RecordProbe(answered: false);
+        recovered.RecordProbe(answered: true);
+
+        (await VerifyNoToken(neverProbed, clock)).Kind.Should().Be(BotDefenseVerdictKind.Missing);
+        (await VerifyNoToken(recovered, clock)).Kind.Should().Be(BotDefenseVerdictKind.Missing,
+            "an answered probe clears the outage at once");
+    }
+
 }
