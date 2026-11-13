@@ -1,3 +1,5 @@
+using Auth.Infrastructure.Security;
+
 namespace Auth.Infrastructure.BotDefense;
 
 /// <summary>
@@ -19,8 +21,14 @@ namespace Auth.Infrastructure.BotDefense;
 /// </remarks>
 public sealed class BotDefenseOutageSignal
 {
-    /// <summary>How long a failed probe counts.</summary>
-    public static readonly TimeSpan ProbeWindow = TimeSpan.FromMinutes(5);
+    /// <summary>
+    /// How long a failed probe counts: the probe's cache, plus two evaluations (REVIEW-FIXES 167
+    /// F13). The next probe starts at the first tick after the cache lapses and records its result
+    /// only when it ends, up to a deadline later; equal to the cache, the window left those seconds
+    /// uncovered every cycle. An answered probe still clears it at once, so recovery is not slowed.
+    /// </summary>
+    public static readonly TimeSpan ProbeWindow =
+        BotDefensePostureContributor.ProbeCacheDuration + BotDefensePostureContributor.Cadence * 2;
 
     private readonly BotDefenseCircuitBreaker _breaker;
     private readonly TimeProvider _timeProvider;

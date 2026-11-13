@@ -7,7 +7,7 @@ namespace Auth.Infrastructure.BotDefense;
 /// The verdicts this process has seen, for the posture (S13, BD12): the pass rate per app since
 /// the process started, and, over the last ten minutes under Enforce, the share of submissions
 /// without a token and the share refused for the deployment's own setup. Per process (D5) and
-/// lost with it; the owner's gate is read from the log by <c>Tools/probes/verdict-window.mjs</c>,
+/// lost with it; the owner's gate is read from <c>Logs/bot-verdicts-.log</c> by <c>Tools/probes/verdict-window.mjs</c>,
 /// which sees every process and every day and counts the same way.
 /// </summary>
 /// <remarks>

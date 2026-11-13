@@ -31,6 +31,7 @@ using Auth.Infrastructure.Authorization;
 using Auth.Infrastructure.BotDefense;
 using Auth.Infrastructure.Persistence;
 using Auth.Infrastructure.Services;
+using Auth_API.Common.Logging;
 using Auth_API.Modules.Media;
 using Auth.Infrastructure.Notifications;
 using Auth.Infrastructure.Notifications.Channels;
@@ -86,6 +87,10 @@ loggingLevelSwitches.ApplyFrom(builder.Configuration);
 
 var serilogConfiguration = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
+    // S13 (REVIEW-FIXES 167 F11): the bot check's verdicts also go to a file only the recorder
+    // writes, the one the owner's gate counter reads; in code, after the file's sinks, so no
+    // deployment's Serilog section can drop it.
+    .WriteBotVerdictFile()
     .Enrich.FromLogContext()
     // Declared AFTER ReadFrom.Configuration so the switches win control of
     // the default level and the known override namespaces.

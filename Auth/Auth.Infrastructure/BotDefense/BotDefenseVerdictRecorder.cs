@@ -13,7 +13,8 @@ namespace Auth.Infrastructure.BotDefense;
 /// <remarks>
 /// <para>
 /// The line's words are fixed, so <c>Tools/probes/verdict-window.mjs</c> can count the verdicts
-/// from the text log: <c>Bot defense verdict: action {action} verdict {verdict} mode {mode}
+/// from <c>Logs/bot-verdicts-.log</c>, a file only this recorder writes (the API's logger
+/// configuration adds it, REVIEW-FIXES 167 F11); the main log keeps a copy: <c>Bot defense verdict: action {action} verdict {verdict} mode {mode}
 /// origin {origin} hostname {hostname} codes {codes} attempts {n} elapsedMs {ms}</c>. It names
 /// the surface, never the token, the secret or the visitor's address.
 /// </para>

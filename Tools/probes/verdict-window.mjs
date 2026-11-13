@@ -42,20 +42,23 @@
  * F2), as the server's posture does.
  *
  * Only the recorder's own lines count: the message must BE the verdict, from its first word
- * to its last, at Information or Warning (REVIEW 167 F3). The request log writes every path
- * into the same file, so a line that merely contains the words is someone's request.
- * Run the tool on the API's own log files only.
+ * to its last, at Information or Warning (REVIEW 167 F3). And the input is the file only the
+ * recorder writes, Logs/bot-verdicts-YYYYMMDD.log (REVIEW-FIXES 167 F11): in the main log the
+ * request log writes every path decoded, so a path with a percent-encoded line break writes a
+ * whole forged verdict line there. Any non-blank line that is not a verdict line makes both
+ * gates INVALID: the input is not the verdict file, and nothing in it is evidence.
  *
  * NODATA is never a pass: too few submissions, or too short a period, decides nothing.
+ * INVALID is never a pass either.
  *
- * Input: log files, or folders whose *.log files are read (Logs/auth-api-YYYYMMDD.log).
+ * Input: log files, or folders whose *.log files are read (Logs/bot-verdicts-YYYYMMDD.log).
  * A line is read with its own time and offset (the file sink's default
  * "yyyy-MM-dd HH:mm:ss.fff zzz"); a line without an offset is read as this machine's
  * local time. The count holds no token, secret or address: the lines carry none.
  *
  * Usage: node Tools/probes/verdict-window.mjs [--gate monitor|enforce|both]
  *          [--from <ISO time>] [--to <ISO time>] <file or folder>...
- * Exit:  0 PASS (every gate asked) · 1 FAIL · 4 NODATA (no decision) · 2 refused
+ * Exit:  0 PASS (every gate asked) · 1 FAIL · 4 NODATA (no decision) · 3 INVALID (not the verdict file) · 2 refused
  */
 import { createReadStream, readdirSync, statSync } from "node:fs"
 import { join, resolve } from "node:path"
@@ -184,6 +187,12 @@ export function tally(verdicts, { from, to } = {}) {
 const days = (span) => (span.first === undefined ? 0 : (span.last - span.first) / DAY_MS)
 
 /** Gate 1: the pass rate of every listed app under Monitor. */
+const INVALID_REASON = (invalid) =>
+  `${invalid.lines} line(s) are not verdict lines, the first in ${invalid.firstFile}: is this the bot-verdicts file (Logs/bot-verdicts-YYYYMMDD.log)? Only the bot check's recorder writes there`
+
+/** Lines of the input that are not verdict lines: any makes every gate INVALID. */
+const invalidInput = (counts) => (counts.invalid?.lines ?? 0) > 0
+
 export function gateMonitor(counts) {
   const rows = [...counts.apps.entries()]
     .sort(([a], [b]) => (a === "other") - (b === "other") || a.localeCompare(b))
@@ -203,7 +212,10 @@ export function gateMonitor(counts) {
   const covered = days(counts.monitor)
   let result
   let reason
-  if (gated.some((row) => row.status === "FAIL")) {
+  if (invalidInput(counts)) {
+    result = "INVALID"
+    reason = INVALID_REASON(counts.invalid)
+  } else if (gated.some((row) => row.status === "FAIL")) {
     result = "FAIL"
     reason = "an app passes less than 99 %"
   } else if (gated.length === 0) {
@@ -230,7 +242,10 @@ export function gateEnforce(counts) {
   const covered = days(counts.enforce)
   let result
   let reason
-  if (spikes.length > 0) {
+  if (invalidInput(counts)) {
+    result = "INVALID"
+    reason = INVALID_REASON(counts.invalid)
+  } else if (spikes.length > 0) {
     result = "FAIL"
     reason = `${spikes.length} spike window(s), the gate asks for 0`
   } else if (counted.length === 0) {
@@ -280,6 +295,9 @@ const stamp = (at) => new Date(at).toISOString().replace("T", " ").slice(0, 16) 
 export function formatReport(counts, monitor, enforce, gates = "both") {
   const lines = []
   lines.push(`Bot check verdicts: ${counts.read} lines read.`)
+  if (invalidInput(counts)) {
+    lines.push(`  INVALID INPUT: ${INVALID_REASON(counts.invalid)}. Every gate below reads INVALID.`)
+  }
   lines.push(
     `  not counted: ${counts.probeAsserted} ProbeAsserted (S17's probe, never checked with Cloudflare), ${counts.unconfigured} Unconfigured (no check ran), ${counts.junk} junk token(s) (${JUNK_TOKEN_CODES.join(", ")}: no real widget makes one)`
   )
@@ -352,6 +370,7 @@ export function formatReport(counts, monitor, enforce, gates = "both") {
 
 /** 0 PASS, 1 FAIL, 4 NODATA, over the gates asked. */
 export function exitCode(results) {
+  if (results.includes("INVALID")) return 3
   if (results.includes("FAIL")) return 1
   if (results.every((result) => result === "PASS")) return 0
   return 4
@@ -371,16 +390,23 @@ function logFiles(paths) {
   return files
 }
 
+/** The verdicts, and the lines that are none (blank lines aside): any of those makes the input INVALID. */
 async function readVerdicts(files) {
   const verdicts = []
+  const invalid = { lines: 0, firstFile: null }
   for (const file of files) {
     const reader = createInterface({ input: createReadStream(file, "utf8"), crlfDelay: Infinity })
     for await (const line of reader) {
       const verdict = parseVerdictLine(line)
-      if (verdict) verdicts.push(verdict)
+      if (verdict) {
+        verdicts.push(verdict)
+      } else if (line.trim() !== "") {
+        invalid.lines += 1
+        invalid.firstFile ??= file
+      }
     }
   }
-  return verdicts
+  return { verdicts, invalid }
 }
 
 function parseArgs(argv) {
@@ -414,7 +440,9 @@ async function main() {
     console.error(`refused: ${error.message}`)
     return 2
   }
-  const counts = tally(await readVerdicts(files), options)
+  const read = await readVerdicts(files)
+  const counts = tally(read.verdicts, options)
+  counts.invalid = read.invalid
   const monitor = gateMonitor(counts)
   const enforce = gateEnforce(counts)
   console.log(`Read ${files.length} file(s).`)

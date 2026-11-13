@@ -322,8 +322,9 @@ describe("the report and the exit", () => {
   it("reads a folder of log files from the command line", () => {
     const folder = mkdtempSync(join(tmpdir(), "verdict-window-"))
     try {
-      writeFileSync(join(folder, "auth-api-20261101.log"), monitored(ACCOUNTS, 100, 0).join("\n") + "\nnot a verdict\n")
-      writeFileSync(join(folder, "auth-api-20261108.log"), enforcedWindow(T0 + 8 * DAY, 20, 0).join("\r\n"))
+      // The verdict file holds verdict lines only; a blank line is no harm.
+      writeFileSync(join(folder, "bot-verdicts-20261101.log"), monitored(ACCOUNTS, 100, 0).join("\n") + "\n\n")
+      writeFileSync(join(folder, "bot-verdicts-20261108.log"), enforcedWindow(T0 + 8 * DAY, 20, 0).join("\r\n"))
       writeFileSync(join(folder, "notes.txt"), line(T0, { verdict: "Missing" }))
 
       const monitorOnly = spawnSync(process.execPath, [SCRIPT, "--gate", "monitor", folder], { encoding: "utf8" })
@@ -338,6 +339,31 @@ describe("the report and the exit", () => {
       assert.equal(both.status, 4, both.stdout + both.stderr)
       assert.match(both.stdout, /Gate 2[\s\S]*RESULT: NODATA: the Enforce lines cover 0\.0 days/)
       assert.equal(refused.status, 2)
+    } finally {
+      rmSync(folder, { recursive: true, force: true })
+    }
+  })
+
+  it("reads INVALID when the input holds any line that is not a verdict: it is not the verdict file", () => {
+    // REVIEW-FIXES 167 F11: a request whose path carries a percent-encoded line break writes a
+    // whole forged verdict line into the main log, between two pieces of its own line.
+    const folder = mkdtempSync(join(tmpdir(), "verdict-window-"))
+    try {
+      const forged = [
+        "2026-11-13 12:06:59.190 +03:00 [INF] HTTP GET /x",
+        line(T0 + 3 * DAY),
+        "tail responded 404 in 0.0668 ms",
+      ]
+      writeFileSync(join(folder, "auth-api-20261101.log"), [...monitored(ACCOUNTS, 100, 0), ...forged].join("\n"))
+
+      const both = spawnSync(process.execPath, [SCRIPT, folder], { encoding: "utf8" })
+
+      assert.equal(both.status, 3, both.stdout + both.stderr)
+      assert.match(both.stdout, /INVALID INPUT: 2 line\(s\) are not verdict lines, the first in .*auth-api-20261101\.log: is this the bot-verdicts file/)
+      assert.match(both.stdout, /Gate 1[\s\S]*RESULT: INVALID/)
+      assert.match(both.stdout, /Gate 2[\s\S]*RESULT: INVALID/)
+      assert.doesNotMatch(both.stdout, /RESULT: PASS/)
+      assert.equal(exitCode(["PASS", "INVALID"]), 3)
     } finally {
       rmSync(folder, { recursive: true, force: true })
     }

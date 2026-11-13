@@ -326,10 +326,15 @@ export function useLoginCompletion(
       if (launchApplication(options?.launchUrl)) return
 
       // OD3: the document that ran Cloudflare's script is left, not kept. A
-      // replace, as the router's: the sign-in page is not one step back.
+      // replace, as the router's: the sign-in page is not one step back. Only
+      // within this origin, as the router never leaves it (REVIEW-FIXES 167
+      // F12): a destination that names another origin takes the router's way.
       if (fullNavigationAfterTurnstile && turnstileLoaded()) {
-        window.location.replace(destination)
-        return
+        const target = new URL(destination, window.location.origin)
+        if (target.origin === window.location.origin) {
+          window.location.replace(target.pathname + target.search + target.hash)
+          return
+        }
       }
 
       navigate(destination, { replace: true })

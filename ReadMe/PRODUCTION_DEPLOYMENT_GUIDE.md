@@ -2701,7 +2701,12 @@ guide cannot tell you an absolute path — it can only tell you how to find it.
 | Application | Configured path | Rolling | Retention in the base configuration |
 |---|---|---|---|
 | Auth API | `Logs/auth-api-.log` | Daily | 30 files |
+| Auth API, the bot check's verdicts only (S13) | `Logs/bot-verdicts-.log` | Daily | 30 files |
 | API Gateway | `logs/gateway-.log` | Daily | 30 files |
+
+The verdict file is set in code, not in the Serilog section: only the bot check's verdict recorder
+writes it, beside the API's own log, and the bot check's gates are read from it (§U.5). The main log
+keeps a copy of each verdict line.
 
 **Note the capital letter.** The API writes to `Logs/` and the Gateway to `logs/`. On Windows that
 makes no difference; if you ever grep a backup on a case-sensitive filesystem, it does.
@@ -4522,7 +4527,8 @@ Rollback: stay on Off. Removing the secret later is **Remove** on the same row, 
 2. Check that the API reaches Cloudflare: §U.3's `bot.siteverify-reachability` line (the server calls
    `https://challenges.cloudflare.com/turnstile/v0/siteverify` over HTTPS; a host that blocks outbound
    traffic blocks the check). Keep `Serilog:MinimumLevel:Default` at `Information` from here until
-   §U.5 is done: the gates are read from the log, one line per verdict:
+   §U.5 is done: the gates are read from `Logs/bot-verdicts-YYYYMMDD.log`, beside the API's log, one
+   line per verdict:
 
    ```text
    Bot defense verdict: action login verdict Passed mode Monitor origin https://accounts.example.com hostname accounts.example.com codes - attempts 1 elapsedMs 143
@@ -4536,16 +4542,18 @@ Rollback: Mode = Off.
 
 ### U.5 Enforce, after seven days of Monitor
 
-Read the first gate from the log files of the seven days (copy them off the server):
+Read the first gate from the verdict files of the seven days (copy them off the server):
 
 ```bash
-node Tools/probes/verdict-window.mjs --gate monitor <folder with auth-api-*.log>
+node Tools/probes/verdict-window.mjs --gate monitor <folder with bot-verdicts-*.log>
 ```
 
-Run it on the API's own log files only. It counts the verdict lines the API writes and nothing
-else: a line counts only when its whole message is the verdict, at Information or Warning, so a
-request whose path carries the same words (the request log writes every path into the same file)
-is not one.
+Give it the verdict files, `Logs/bot-verdicts-YYYYMMDD.log`, and nothing else: only the bot check's
+recorder writes there. Not the API's main log: the request log writes every path into it decoded, so
+a request whose path carries an encoded line break can write a whole verdict line of its sender's
+making there (seen with Kestrel). The tool counts a line only when its whole message is the verdict,
+at Information or Warning, and any other line in its input makes both gates `INVALID` (exit 3): the
+input is not the verdict file, and nothing in it is evidence.
 
 It passes when every application passes at least 99 % of its submissions, with at least 100 of them,
 over at least seven days; it prints each comparator. An application below 100 is `NODATA`: decide it
@@ -4564,7 +4572,7 @@ submissions from the listed applications carried no token. Requests from no list
 never counts them, as the posture does:
 
 ```bash
-node Tools/probes/verdict-window.mjs --gate enforce <folder with auth-api-*.log>
+node Tools/probes/verdict-window.mjs --gate enforce <folder with bot-verdicts-*.log>
 ```
 
 Rollback: Mode = Monitor.
@@ -4600,7 +4608,8 @@ request without a token counts as the outage, not the visitor, and the fail mode
 The posture judges `bot.token-missing-spike` and `bot.local-rejection-spike` every minute, over
 the last ten minutes, so either alarm is written within about eleven minutes of its cause. Both count
 the listed applications only. A `Missing` burst can still be robots sending a listed `Origin`
-(anyone can): read the lines' origin and action, and the hourly rows of §U.5, before rolling back.
+(anyone can): read the verdict lines' origin and action (`Logs/bot-verdicts-YYYYMMDD.log`), and the
+hourly rows of §U.5, before rolling back.
 When it is real and happens to many people at once, go back to Monitor, or to Off through §U.8 if no
 administrator can sign in: pages already open read the setting again, past the browser's cache,
 before their next request once their copy is a minute old.

@@ -276,7 +276,21 @@ public class TurnstileBotDefenseVerifierTests
     }
 
     [Fact]
-    public async Task NoToken_AfterTheReachabilityProbeGotNoAnswer_IsAnOutage_ForFiveMinutes()
+    public void TheFailedProbeWindow_OutlastsTheNextProbe()
+    {
+        // REVIEW-FIXES 167 F13: the next probe starts at the first tick after the cache lapses and
+        // records its answer only when it ends; a window equal to the cache left those seconds bare.
+        var cadence = new Auth.Infrastructure.Security.BotDefensePostureContributor(
+            Auth_API.Tests.Helpers.TestHelpers.CreateOptions(BotDefenseTestDoubles.Settings()),
+            null!, new FakeEnvironment(false), null!, null!, null!, TimeProvider.System).ReevaluateEvery!.Value;
+
+        BotDefenseOutageSignal.ProbeWindow.Should().BeGreaterThan(
+            Auth.Infrastructure.Security.BotDefensePostureContributor.ProbeCacheDuration + cadence);
+        BotDefenseOutageSignal.ProbeWindow.Should().Be(TimeSpan.FromMinutes(7));
+    }
+
+    [Fact]
+    public async Task NoToken_AfterTheReachabilityProbeGotNoAnswer_IsAnOutage_ForSevenMinutes()
     {
         var clock = new ManualTimeProvider(DateTimeOffset.Parse("2026-11-13T10:00:00Z"));
         var outage = BotDefenseTestDoubles.Outage(clock);

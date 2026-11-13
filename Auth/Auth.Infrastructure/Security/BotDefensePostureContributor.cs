@@ -44,6 +44,9 @@ public sealed class BotDefensePostureContributor : ISecurityPostureContributor
     /// <summary>How long one reachability probe answers for.</summary>
     public static readonly TimeSpan ProbeCacheDuration = TimeSpan.FromMinutes(5);
 
+    /// <summary>How often the posture check evaluates this contributor with no reload (REVIEW 167 F1).</summary>
+    public static readonly TimeSpan Cadence = TimeSpan.FromMinutes(1);
+
     private const string ModeTemplate = "Bot defense posture bot.mode: {Mode}";
     private const string FailModeTemplate = "Bot defense posture bot.fail-mode: {FailMode}";
     private const string KeysMissingTemplate = "Bot defense posture bot.keys-missing: {Missing} (mode {Mode})";
@@ -94,7 +97,7 @@ public sealed class BotDefensePostureContributor : ISecurityPostureContributor
     public string Name => "bot-defense";
 
     /// <summary>Every minute: the spikes and the throttling follow the traffic (REVIEW 167 F1).</summary>
-    public TimeSpan? ReevaluateEvery => TimeSpan.FromMinutes(1);
+    public TimeSpan? ReevaluateEvery => Cadence;
 
     /// <inheritdoc />
     public async Task<SecurityPosture> EvaluateAsync(CancellationToken cancellationToken)

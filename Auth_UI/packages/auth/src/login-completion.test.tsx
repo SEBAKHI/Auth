@@ -38,7 +38,12 @@ beforeEach(() => {
   assign.mockClear()
   replace.mockClear()
   clearPendingTwoFactorChallenge()
-  vi.stubGlobal("location", { assign, replace, href: "https://accounts.example.com/login" })
+  vi.stubGlobal("location", {
+    assign,
+    replace,
+    href: "https://accounts.example.com/login",
+    origin: "https://accounts.example.com",
+  })
 })
 
 /** Reports where the router ended up, and what it carried there. */
@@ -718,6 +723,38 @@ describe("a console sign-in after Cloudflare's script (S13, OD3)", () => {
     expect(replace).toHaveBeenCalledWith("/")
     // The router did not move: the document is left, not kept.
     expect(screen.queryByTestId("landing")).toBeNull()
+  })
+
+  it("leaves the document only for this origin: another origin takes the router's way", async () => {
+    // REVIEW-FIXES 167 F12: the router never leaves the origin, and neither may the full navigation.
+    endSignInWithFullNavigationAfterTurnstile()
+    window.turnstile = turnstile
+    let routerAnswer: unknown = null
+    const { act } = renderCompletion(loginEntry(), (completion) => {
+      try {
+        completion.complete({}, { from: "//evil.example/x" })
+      } catch (refusal) {
+        routerAnswer = refusal
+      }
+    })
+
+    await act()
+
+    expect(replace).not.toHaveBeenCalled()
+    // The router's way, as before OD3: it does not leave the origin either.
+    expect(String(routerAnswer)).toMatch(/External navigation is not allowed/)
+  })
+
+  it("keeps the path, the query and the fragment of a same-origin destination", async () => {
+    endSignInWithFullNavigationAfterTurnstile()
+    window.turnstile = turnstile
+    const { act } = renderCompletion(loginEntry(), (completion) =>
+      completion.complete({}, { from: "/users?page=2#list" })
+    )
+
+    await act()
+
+    expect(replace).toHaveBeenCalledWith("/users?page=2#list")
   })
 
   it("navigates in the app at Off, where no script loaded", async () => {
