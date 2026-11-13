@@ -1,5 +1,6 @@
 import createClient, { type Middleware } from "openapi-fetch"
 
+import { BOT_DEFENSE_REFUSED_EVENT } from "@authsystem/api/bot-defense-event"
 import { API_BASE_URL } from "@authsystem/api/env"
 import { DEVICE_ID_HEADER, getDeviceId } from "@authsystem/api/device-id"
 import type { PublishedErrorCode } from "@authsystem/api/error-codes.generated"
@@ -236,6 +237,24 @@ async function announceMfaRequirement(failure: Response): Promise<void> {
   const { code } = await readProblem(failure.clone())
   if (code === "TwoFactor.RequiredByPolicy") {
     window.dispatchEvent(new Event(MFA_REQUIRED_EVENT))
+  }
+}
+
+/** The bot check's refusals of a request (S13): each makes the pages read its configuration again. */
+const BOT_DEFENSE_REFUSALS: ReadonlySet<string> = new Set<PublishedErrorCode>([
+  "BotDefense.TokenMissing",
+  "BotDefense.TokenRejected",
+  "BotDefense.Unavailable",
+])
+
+/**
+ * A request the bot check refused (S13, REVIEW 167 F6) tells the pages so: one
+ * that could not read the check's configuration reads it again and shows it.
+ */
+async function announceBotDefenseRefusal(failure: Response): Promise<void> {
+  const { code } = await readProblem(failure.clone())
+  if (code && BOT_DEFENSE_REFUSALS.has(code)) {
+    window.dispatchEvent(new Event(BOT_DEFENSE_REFUSED_EVENT))
   }
 }
 
@@ -671,6 +690,7 @@ const authMiddleware: Middleware = {
     if (isPasskeysOffAnswer(request, response)) return response
     const failure = await withTransportStatus(response)
     if (response.status === 403) await announceMfaRequirement(failure)
+    if (response.status === 400) await announceBotDefenseRefusal(failure)
     if (response.status !== 401 || isAuthFlow(request.url)) return failure
 
     // We presented no token, so this 401 was a foregone conclusion and there is

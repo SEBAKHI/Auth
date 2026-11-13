@@ -15,6 +15,7 @@ using Auth.Application.Features.Secrets.GenerateRsaKey;
 using Auth.Application.Features.Secrets.GetHmacKeyring;
 using Auth.Application.Features.Secrets.GetSecretStatus;
 using Auth.Application.Features.Secrets.GoogleClientSecret;
+using Auth.Application.Features.Secrets.TurnstileSecret;
 using Auth.Application.Features.Secrets.ImportGatewayToken;
 using Auth.Application.Features.Secrets.ImportHmacKey;
 using Auth.Application.Features.Secrets.ImportRsaKey;
@@ -781,6 +782,69 @@ public class SecretsController : ApiController
     public async Task<IActionResult> ClearGoogleClientSecret(CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new ClearGoogleClientSecretCommand(GetUserId()), cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Stores Cloudflare Turnstile's secret key in the encrypted secrets file (S13), where it becomes
+    /// <c>BotDefense:TurnstileSecret</c>: the server's half of the bot check on the sign-in pages.
+    /// Takes effect on the next API restart.
+    /// </summary>
+    /// <remarks>
+    /// No step-up confirmation, like the Google client secret: the value is Cloudflare's,
+    /// transcribed here, and a wrong one only makes the check unable to judge. In Production one of
+    /// Cloudflare's testing secrets, which accept every token, is refused. The status reports
+    /// whether it is set, never the value.
+    /// </remarks>
+    /// <param name="request">The secret key.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="204">Secret stored; restart the API to apply it</response>
+    /// <response code="400">Missing or over-long value, or a testing secret in Production</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="409">Storage mode is PlainText - there is no encrypted file to write to</response>
+    [HttpPut("turnstile-secret")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SetTurnstileSecret(
+        [FromBody] SetSecretRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new SetTurnstileSecretCommand(request.Value, GetUserId()),
+            cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Removes Cloudflare Turnstile's secret key from the encrypted secrets file (S13). Takes effect
+    /// on the next API restart; from then on, with a sitekey still set, the check cannot judge and
+    /// the fail mode decides.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="204">Secret removed; restart the API to apply it</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="409">Storage mode is PlainText - there is no encrypted file to write to</response>
+    [HttpDelete("turnstile-secret")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ClearTurnstileSecret(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new ClearTurnstileSecretCommand(GetUserId()), cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),

@@ -26,4 +26,10 @@ public record LoginRequest
     /// ends when the browser closes and after a period without use.
     /// </summary>
     public bool StaySignedIn { get; init; }
+
+    /// <summary>
+    /// The one-time token the page's bot-check widget produced (S13), at most 2048 characters.
+    /// Optional: omitted while the check is off, and an older server ignores it.
+    /// </summary>
+    public string? BotToken { get; init; }
 }

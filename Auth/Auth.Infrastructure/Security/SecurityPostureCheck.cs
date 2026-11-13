@@ -13,7 +13,8 @@ namespace Auth.Infrastructure.Security;
 /// Writes the deployment's security posture to the log: every registered
 /// <see cref="ISecurityPostureContributor"/>, once after startup and again after every
 /// configuration reload (a save in the console, the periodic refresh of the database overrides,
-/// an edited file).
+/// an edited file); and a contributor that asks for it (<see cref="ISecurityPostureContributor.ReevaluateEvery"/>)
+/// again at its period, when no reload came first.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -38,6 +39,8 @@ public sealed class SecurityPostureCheck : BackgroundService
     internal static readonly TimeSpan DefaultReloadSettleDelay = TimeSpan.FromSeconds(1);
 
     private readonly IReadOnlyList<ISecurityPostureContributor> _contributors;
+    private readonly IReadOnlyList<ISecurityPostureContributor> _periodic;
+    private readonly TimeSpan? _period;
     private readonly IConfiguration _configuration;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<SecurityPostureCheck> _logger;
@@ -69,6 +72,9 @@ public sealed class SecurityPostureCheck : BackgroundService
         TimeSpan reloadSettleDelay)
     {
         _contributors = contributors.ToList();
+        _periodic = _contributors.Where(contributor => contributor.ReevaluateEvery > TimeSpan.Zero).ToList();
+        // One timer for all of them, at the shortest period any asks for (today: one contributor).
+        _period = _periodic.Count == 0 ? null : _periodic.Min(contributor => contributor.ReevaluateEvery!.Value);
         _configuration = configuration;
         _timeProvider = timeProvider;
         _logger = logger;
@@ -84,12 +90,13 @@ public sealed class SecurityPostureCheck : BackgroundService
         using var reloads = ChangeToken.OnChange(
             _configuration.GetReloadToken, () => _reloads.Writer.TryWrite(true));
 
+        var due = _contributors;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                await EvaluateAsync(stoppingToken);
-                await WaitForNextEvaluationAsync(stoppingToken);
+                await EvaluateAsync(due, stoppingToken);
+                due = await WaitForNextEvaluationAsync(stoppingToken) ? _contributors : _periodic;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -99,25 +106,45 @@ public sealed class SecurityPostureCheck : BackgroundService
     }
 
     /// <summary>
-    /// The one place that decides when the posture is evaluated again: today, after a
-    /// configuration reload. A periodic re-statement of a non-Ok posture (S16) is a timer raced
-    /// against the reload here.
+    /// The one place that decides when the posture is evaluated again: after a configuration
+    /// reload (true: every contributor), or, for the contributors that ask, once their period
+    /// passed with no reload (false: those only). A periodic re-statement of a non-Ok posture
+    /// (S16) is another timer raced against the reload here.
     /// </summary>
-    private async Task WaitForNextEvaluationAsync(CancellationToken stoppingToken)
+    private async Task<bool> WaitForNextEvaluationAsync(CancellationToken stoppingToken)
     {
-        await _reloads.Reader.ReadAsync(stoppingToken);
+        if (_period is { } period)
+        {
+            using var wait = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+            var reload = _reloads.Reader.WaitToReadAsync(wait.Token).AsTask();
+            var timer = Task.Delay(period, _timeProvider, wait.Token);
+            await Task.WhenAny(reload, timer);
+            wait.Cancel();
+            stoppingToken.ThrowIfCancellationRequested();
+            if (!reload.IsCompletedSuccessfully)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            await _reloads.Reader.WaitToReadAsync(stoppingToken);
+        }
 
-        // Drained before the wait, never after it: a reload that lands while the wait ends may
-        // not have rebound the options yet, so it must stay pending and earn an evaluation (and
-        // a wait) of its own. The cost is one extra evaluation, which writes nothing.
+        // The reload that woke the wait, then any that landed since: drained before the settle
+        // delay, never after it. A reload that lands while the delay ends may not have rebound
+        // the options yet, so it must stay pending and earn an evaluation (and a delay) of its
+        // own. The cost is one extra evaluation, which writes nothing.
+        _reloads.Reader.TryRead(out _);
         _reloads.Reader.TryRead(out _);
         await Task.Delay(_reloadSettleDelay, _timeProvider, stoppingToken);
+        return true;
     }
 
     // Each contributor starts on a thread-pool thread of its own: one that does synchronous work
     // before its first await (a key file, a certificate) must not hold the others' lines back.
-    private Task EvaluateAsync(CancellationToken stoppingToken) =>
-        Task.WhenAll(_contributors.Select(contributor =>
+    private Task EvaluateAsync(IReadOnlyList<ISecurityPostureContributor> contributors, CancellationToken stoppingToken) =>
+        Task.WhenAll(contributors.Select(contributor =>
             Task.Run(() => EvaluateAsync(contributor, stoppingToken), stoppingToken)));
 
     private async Task EvaluateAsync(ISecurityPostureContributor contributor, CancellationToken stoppingToken)

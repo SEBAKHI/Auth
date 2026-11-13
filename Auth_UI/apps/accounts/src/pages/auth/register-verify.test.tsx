@@ -23,6 +23,11 @@ const mocks = vi.hoisted(() => ({
   challenge: vi.fn(),
 }))
 
+// S13: the bot check is turnstile-widget.test.tsx's own. Here it is the shipped
+// default, Off: no field, and every request goes out without a token.
+vi.mock("@authsystem/auth/bot-defense/bot-check", () => ({
+  useBotCheck: () => ({ field: null, prepare: async () => ({ proceed: true }), spent: () => {} }),
+}))
 vi.mock("@authsystem/api/client", () => ({
   api: { POST: (...args: unknown[]) => mocks.post(...args) },
 }))

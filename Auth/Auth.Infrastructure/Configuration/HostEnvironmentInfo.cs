@@ -19,4 +19,7 @@ public class HostEnvironmentInfo : IEnvironmentInfo
 
     /// <inheritdoc />
     public bool IsDevelopment => _hostEnvironment.IsDevelopment();
+
+    /// <inheritdoc />
+    public bool IsProduction => _hostEnvironment.IsProduction();
 }

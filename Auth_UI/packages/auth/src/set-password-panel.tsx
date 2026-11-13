@@ -58,13 +58,12 @@ export function SetPasswordPanel({ email }: SetPasswordPanelProps) {
   const send = async () => {
     setPending(true)
     try {
-      const { data, error } = await api.POST("/api/v1/Auth/forgot-password", {
-        body: { email },
-      })
+      // Signed in, so no bot check (S13, D7): the server sends the link to the
+      // session's own address, never to one this request names.
+      const { data, error } = await api.POST("/api/v1/Auth/me/password-setup-link")
       if (error) throw error
       setSent({
-        // The response is deliberately identical for unknown addresses, so the
-        // masked value is what we echo back rather than the address we sent.
+        // The masked address the server mailed, as it answers it.
         maskedEmail: data?.maskedEmail ?? email,
         expiresAt: data?.expiresAt ? new Date(data.expiresAt) : null,
       })

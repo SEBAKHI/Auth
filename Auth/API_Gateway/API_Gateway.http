@@ -19,13 +19,16 @@ Accept: application/json
 ###
 
 ### Login via Gateway (v1)
+# botToken (S13): Cloudflare Turnstile's dummy token. It passes only while the server runs with one of
+# Cloudflare's testing secrets outside Production; ignored while BotDefense:Mode is Off.
 POST {{API_Gateway_HostAddress}}/api/v1/auth/login
 Content-Type: application/json
 
 {
   "email": "admin@authsystem.local",
   "password": "Admin@123!",
-  "applicationCode": "AUTH_SYSTEM"
+  "applicationCode": "AUTH_SYSTEM",
+  "botToken": "XXXX.DUMMY.TOKEN.XXXX"
 }
 
 ###

@@ -11,7 +11,11 @@
  *     S12), `false` and `0` included: those sections hold only key material and
  *     its state, and live in the encrypted secrets file, never in configuration;
  *   - Jwt:PrivateKeyPath, or any PrivateKeyPath, has a value: a path to a private
- *     key in a tracked file points every deployment at a key on disk.
+ *     key in a tracked file points every deployment at a key on disk;
+ *   - a vendor-issued secret has a value: ExternalAuth:Google:ClientSecret (S02 PR D)
+ *     or BotDefense:TurnstileSecret (S13), in either spelling, nested or flat. The
+ *     text step catches `"ClientSecret": "…"` on one line, but not the flat
+ *     `"ExternalAuth:Google:ClientSecret": "…"`, which .NET reads the same way.
  * Configuration keys are case-insensitive, so property names are compared that way;
  * colon-flattened names ("Keyring:Hmac:…") are read like nested ones, and a leading
  * byte-order mark is accepted, as .NET reads both.
@@ -31,6 +35,8 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const KEYRING_SECTIONS = ["keyring:hmac", "keyring:rsa"];
 const KEYRING_PREFIXES = KEYRING_SECTIONS.map((section) => `${section}:`);
+/** Secrets a vendor issues (RequiredSecretsRegistry.VendorIssued, and Google's client secret). */
+const VENDOR_SECRETS = ["externalauth:google:clientsecret", "botdefense:turnstilesecret"];
 
 /**
  * The document as configuration sees it: every leaf with its full key, path
@@ -72,6 +78,8 @@ export function findings(document) {
       found.push(`${key} has a value; keyring material belongs in the encrypted secrets file`);
     } else if (lower.split(":").at(-1) === "privatekeypath") {
       found.push(`${key} has a value; a private key is never referenced from a tracked settings file`);
+    } else if (VENDOR_SECRETS.includes(lower)) {
+      found.push(`${key} has a value; a vendor's secret belongs in the encrypted secrets file`);
     }
   }
   return found;
@@ -127,11 +135,16 @@ function selfTest() {
     ["a key whose only value is false", { Keyring: { Hmac: { Keys: { 1: { Compromised: false } } } } }],
     ["a scalar at the keyring section itself", { Keyring: { Hmac: "a value where a section belongs" } }],
     ["a ring in a file that starts with a byte-order mark", parseSettings('\uFEFF{ "Keyring": { "Hmac": { "CurrentKeyId": 2 } } }')],
+    ["a Turnstile secret", { BotDefense: { TurnstileSecret: "0x4AAAAAAAexample" } }],
+    ["a flat Turnstile secret in another case", { "botdefense:turnstilesecret": "0x4AAAAAAAexample" }],
+    ["a flat Google client secret", { "ExternalAuth:Google:ClientSecret": "a-filled-secret" }],
   ];
   const good = [
     ["the shipped Jwt section", { Jwt: { PrivateKeyPath: "", PrivateKeyPem: "" } }],
     ["an empty keyring", { Keyring: { Hmac: { Keys: {} }, Rsa: {} } }],
     ["the keyring setting", { Keyring: { IssueUnderPurposeKeys: false, Hmac: { Keys: { 1: { Material: "" } } } } }],
+    ["the shipped bot check", { BotDefense: { Mode: "Off", SiteKey: "", TurnstileSecret: "" } }],
+    ["a public sitekey", { BotDefense: { SiteKey: "0x4AAAAAAAexample" } }],
   ];
 
   const problems = [];

@@ -26,6 +26,7 @@ import {
 import { Input } from "@authsystem/ui/input"
 import { Spinner } from "@authsystem/ui/spinner"
 
+import { useBotCheck } from "@authsystem/auth/bot-defense/bot-check"
 import { startSignUpCode } from "@authsystem/auth/email-code"
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 import { useFlowBranding } from "@authsystem/auth/flow-branding"
@@ -71,6 +72,8 @@ export function RegisterPage() {
   const { layout: appHeader } = useFlowBranding({ returnTo: getValidReturnTo(search) })
   const signInOptions = useSignInOptions()
   const [noEmail, setNoEmail] = React.useState(false)
+  // S13: the sign-up starts with a code start, which carries the bot check's token.
+  const botCheck = useBotCheck("email-code")
   const unavailable =
     signInOptions?.selfRegistrationOpen === false
       ? "closed"
@@ -92,11 +95,13 @@ export function RegisterPage() {
   })
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
+    const bot = await botCheck.prepare("email-code")
+    if (!bot.proceed) return
     try {
       // The sign-in page's start (OI-215): an address that already has an
       // account receives a sign-in code, and the code screen signs it in.
       savePendingRegistration(
-        await startSignUpCode(values.email, i18n.language)
+        await startSignUpCode(values.email, i18n.language, bot.token)
       )
       navigate({ pathname: "/register/verify", search })
     } catch (error) {
@@ -105,6 +110,8 @@ export function RegisterPage() {
         return
       }
       toast.error(getErrorMessage(error))
+    } finally {
+      if (bot.token) botCheck.spent()
     }
   }
 
@@ -210,6 +217,7 @@ export function RegisterPage() {
                 </FormItem>
               )}
             />
+            {botCheck.field}
             <Button
               type="submit"
               className="w-full"

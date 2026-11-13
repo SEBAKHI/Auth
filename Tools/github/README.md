@@ -48,10 +48,11 @@ that GHSA for every future pull request that adds it.
 From the repository root, with Node 24 or later (no install; `node:` built-ins only):
 
 ```bash
-node --test "Tools/github/*.test.mjs"
+node --test "Tools/github/*.test.mjs" "Tools/probes/*.test.mjs"
 ```
 
-This is exactly what the "Repository governance" job runs. The guards read the files that
+This is exactly what the "Repository governance" job runs. The second pattern holds the
+tests of the owner counting scripts in `Tools/probes` (S13: `verdict-window.mjs`). The guards read the files that
 `git ls-files` lists, so a new file counts only once it is tracked (`git add -N <path>` is
 enough locally), and they normalise CRLF, so a Windows checkout and CI agree.
 

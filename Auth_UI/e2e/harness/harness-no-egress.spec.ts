@@ -43,6 +43,24 @@ test("a request to Google's stand-in that no test served still fails the test", 
   egress.clear()
 })
 
+/**
+ * S13: challenges.cloudflare.com is in the topology for the Turnstile stand-in
+ * (bot-defense-widget.spec.ts), on the same terms as Google's: a request to it at a path no test
+ * serves still fails the test. Deliberate break, verified red: the host left out of STAND_INS.
+ */
+test("a request to Cloudflare's stand-in that no test served still fails the test", async ({ page, attacker, egress }) => {
+  await page.goto(attacker.serve(HOSTS.attacker, "/", "<!doctype html><title>egress</title>"))
+  await page.evaluate(() =>
+    fetch("https://challenges.cloudflare.com/turnstile/v0/api.js", { mode: "no-cors" }).catch(() => undefined)
+  )
+
+  expect(egress.list()).toEqual([])
+  expect(() => egress.verify()).toThrow(
+    /https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js \(Cloudflare, served by no test\) requested by https:\/\/attacker\.example\.net\//
+  )
+  egress.clear()
+})
+
 test("a context or page a test builds itself, and the request fixture, go through the proxy too", async ({
   browser,
   request,

@@ -42,7 +42,9 @@ public class SystemSettingsDefaultParityTests
         // ExternalAuth is omitted: its Google/Apple sub-objects default to
         // null (provider treats that as "not configured"), so nested class
         // defaults cannot be resolved by reflection.
-        ["SecretManagement"] = new SecretManagementSettings()
+        ["SecretManagement"] = new SecretManagementSettings(),
+        // S13: the bot check ships Off, per surface, without keys.
+        ["BotDefense"] = new BotDefenseSettings()
     };
 
     private static GatewaySettings Normalized(GatewaySettings settings)
@@ -128,6 +130,11 @@ public class SystemSettingsDefaultParityTests
     // OI-280 PR B, D-S20-21: a sign-in by code counts as the mailbox proof for five minutes when
     // the session adds a passkey.
     [InlineData("Passkeys", "CodeSignInProofMinutes", "5")]
+    // S13: the bot check ships Off (no widget, no call) and, once on, fails per surface.
+    [InlineData("BotDefense", "Mode", "Off")]
+    [InlineData("BotDefense", "FailMode", "PerSurface")]
+    [InlineData("BotDefense", "SiteKey", "")]
+    [InlineData("BotDefense", "SiteverifyTimeoutMs", "2000")]
     public void ProductionDefaults_AgreeInFileClassAndRegistry(
         string configRoot, string fieldPath, string expected)
     {

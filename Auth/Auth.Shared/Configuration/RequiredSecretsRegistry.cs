@@ -127,6 +127,30 @@ public static class RequiredSecretsRegistry
     ];
 
     /// <summary>
+    /// Secrets a vendor issues and the deployment's owner transcribes (S13, C10, D-T5 A): optional,
+    /// so never in <see cref="FindMissing"/>'s default list and never a reason to refuse a boot,
+    /// and never generated, by either generator (<see cref="KeyMaterialGenerator"/> and
+    /// <c>PlainTextSecretInitializer</c> produce only the entries of <see cref="All"/>): a value
+    /// made up here would look provisioned and fail at the vendor on first use.
+    ///
+    /// <para>
+    /// Mapped from the secrets file like every other entry, owned by the secret layer
+    /// (<c>SecretOwnedKeys</c>), refused in plaintext in Production (<c>ProductionSecretGuard</c>),
+    /// and named in CI's crown-jewel step. RequiredSecretsCoverageTests holds all of that.
+    /// </para>
+    /// </summary>
+    public static readonly IReadOnlyList<RequiredSecret> VendorIssued =
+    [
+        new RequiredSecret(
+            "BotDefense:TurnstileSecret",
+            nameof(SecretConfiguration.TurnstileSecretKey),
+            SecretPermanence.Rotatable,
+            "Cloudflare Turnstile's secret key: the bot check asks Cloudflare with it whether a token is good; without it " +
+            "the check is not in place (Unconfigured, or Misconfigured while a sitekey is set). Rotated in Cloudflare, " +
+            "where the old one stays valid for two hours, then set again from the console")
+    ];
+
+    /// <summary>
     /// Returns the entries whose configuration value is missing or blank.
     /// </summary>
     public static IReadOnlyList<RequiredSecret> FindMissing(

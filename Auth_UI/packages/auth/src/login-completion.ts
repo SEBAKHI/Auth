@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { currentMfaRequirement } from "@authsystem/api/mfa-requirement"
 import { useSignInOptions } from "@authsystem/ui/branding"
 
+import { turnstileLoaded } from "./bot-defense/turnstile-script"
 import { launchApplication } from "./launch-application"
 import {
   PASSKEY_OFFER_PATH,
@@ -148,6 +149,20 @@ export interface LoginCompletion {
  * A tenth screen added later inherits the correct behavior instead of
  * re-deriving it — that, not the seven fixes, is the point.
  */
+let fullNavigationAfterTurnstile = false
+
+/**
+ * The console's choice (S13, OD3): a sign-in on a page that loaded Cloudflare's
+ * script ends with a full navigation, so the script does not stay in the
+ * session the administrator then works in (the Secrets page included). It costs
+ * about a second and one token refresh per sign-in under Monitor and Enforce,
+ * and nothing at Off, where no script loads. The accounts app does not ask: the
+ * cost would land on every user there.
+ */
+export function endSignInWithFullNavigationAfterTurnstile(on = true): void {
+  fullNavigationAfterTurnstile = on
+}
+
 export function useLoginCompletion(
   options: {
     /**
@@ -309,6 +324,18 @@ export function useLoginCompletion(
       // must happen inside IAM first, and only through the launch check: a
       // value that fails it is ignored, never followed.
       if (launchApplication(options?.launchUrl)) return
+
+      // OD3: the document that ran Cloudflare's script is left, not kept. A
+      // replace, as the router's: the sign-in page is not one step back. Only
+      // within this origin, as the router never leaves it (REVIEW-FIXES 167
+      // F12): a destination that names another origin takes the router's way.
+      if (fullNavigationAfterTurnstile && turnstileLoaded()) {
+        const target = new URL(destination, window.location.origin)
+        if (target.origin === window.location.origin) {
+          window.location.replace(target.pathname + target.search + target.hash)
+          return
+        }
+      }
 
       navigate(destination, { replace: true })
     },

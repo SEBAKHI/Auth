@@ -238,6 +238,69 @@ public class RequiredSecretsCoverageTests : IDisposable
         secrets.HmacCurrentKeyId.Should().Be(0);
     }
 
+    [Fact]
+    public void TheVendorIssuedSecrets_AreMapped_Rotatable_OwnedAndNeverRequired()
+    {
+        // S13 (C10, D-T5 A): Cloudflare Turnstile's secret is issued by Cloudflare. It is mapped
+        // like every secret, rotated at the vendor, owned by the secret layer, and optional: never
+        // a reason to refuse a boot, so never in All.
+        var mapping = File.ReadAllText(Path.Combine(
+            SolutionDirectory(), "Auth.Shared", "Configuration", "DpapiSecretConfigurationProvider.cs"));
+
+        RequiredSecretsRegistry.VendorIssued.Should().ContainSingle(secret => secret.ConfigurationKey == "BotDefense:TurnstileSecret");
+        foreach (var secret in RequiredSecretsRegistry.VendorIssued)
+        {
+            mapping.Should().Contain($"\"{secret.ConfigurationKey}\"");
+            mapping.Should().Contain(secret.SecretFileProperty);
+            typeof(SecretFile).GetProperty(secret.SecretFileProperty).Should().NotBeNull();
+            secret.Permanence.Should().Be(SecretPermanence.Rotatable, "Cloudflare rotates it, with two hours of overlap");
+            Auth.Application.SystemSettings.SecretOwnedKeys.IsSecretOwned(secret.ConfigurationKey).Should().BeTrue();
+            RequiredSecretsRegistry.All.Should().NotContain(required => required.ConfigurationKey == secret.ConfigurationKey);
+        }
+
+        RequiredSecretsRegistry.FindMissing(_ => null)
+            .Should().NotContain(missing => missing.ConfigurationKey == "BotDefense:TurnstileSecret",
+                "an absent vendor secret leaves the check unconfigured; it never stops the process");
+    }
+
+    [Fact]
+    public void EveryVendorIssuedSecret_IsRefusedInPlaintextProduction_AndScannedByCi()
+    {
+        // Review of PR 167: the registry's comment promises both; a vendor secret added later
+        // (S16 adds more) must not boot from a plaintext Production file, nor slip past CI.
+        var guard = File.ReadAllText(Path.Combine(SolutionDirectory(), "Auth_API", "Common", "ProductionSecretGuard.cs"));
+        var ci = File.ReadAllText(Path.Combine(SolutionDirectory(), "..", ".github", "workflows", "ci.yml"));
+        // The scan's pattern line, not the comment above it that names the same keys.
+        var crownJewels = ci.Split('\n').Single(line =>
+            line.Contains("pattern='", StringComparison.Ordinal) && line.Contains("JwtPrivateKeyPem", StringComparison.Ordinal));
+
+        foreach (var secret in RequiredSecretsRegistry.VendorIssued)
+        {
+            guard.Should().Contain($"\"{secret.ConfigurationKey}\"", "ProductionSecretGuard lists every vendor secret by its key");
+            var leaf = secret.ConfigurationKey.Split(':').Last();
+            crownJewels.Should().Contain(leaf, $"CI's crown-jewel scan names {leaf}");
+            crownJewels.Should().Contain(secret.SecretFileProperty, $"CI's crown-jewel scan names {secret.SecretFileProperty}");
+        }
+    }
+
+    [Fact]
+    public async Task NeitherGenerator_EverMakesUpAVendorIssuedSecret()
+    {
+        var service = CreateEncryptedFileService(out _);
+        await service.GenerateMissingKeysAsync(CancellationToken.None);
+        var secrets = await service.LoadSecretsAsync(CancellationToken.None);
+
+        var plainText = PlainTextSecretInitializer.EnsureSecrets(
+            new ConfigurationBuilder().Build(), _workingDirectory, autoGenerate: true, targetFile: "appsettings.Test.local.json");
+
+        foreach (var secret in RequiredSecretsRegistry.VendorIssued)
+        {
+            ReadProperty(secrets, secret.SecretFileProperty).Should().BeNullOrEmpty(
+                "a value made up here would look provisioned and fail at the vendor on first use");
+            plainText.ConfigValues.Should().NotContainKey(secret.ConfigurationKey);
+        }
+    }
+
     private DpapiSecretService CreateEncryptedFileService(out SecretManagementSettings settings)
     {
         settings = new SecretManagementSettings

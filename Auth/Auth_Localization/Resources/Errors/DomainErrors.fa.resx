@@ -1808,4 +1808,16 @@
   <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
     <value>فقط زبانی را می‌توان پنهان کرد که برنامه‌ها ارائه می‌دهند.</value>
   </data>
+  <data name="BotDefense.TokenMissing" xml:space="preserve">
+    <value>تأیید اینکه ربات نیستید ممکن نشد. صبر کنید تا بررسی صفحه تمام شود، سپس دوباره تلاش کنید.</value>
+  </data>
+  <data name="BotDefense.TokenRejected" xml:space="preserve">
+    <value>بررسی اینکه ربات نیستید پذیرفته نشد. بررسی خودبه‌خود دوباره انجام می‌شود؛ سپس دوباره تلاش کنید.</value>
+  </data>
+  <data name="BotDefense.Unavailable" xml:space="preserve">
+    <value>در حال حاضر نمی‌توان تأیید کرد که ربات نیستید. چند دقیقه دیگر دوباره تلاش کنید.</value>
+  </data>
+  <data name="BotDefense.TestingKeyInProduction" xml:space="preserve">
+    <value>کلیدهای آزمایشی Cloudflare از هر بررسی عبور می‌کنند و در محیط Production قابل استفاده نیستند. از کلیدهای ویجت Turnstile خودتان استفاده کنید.</value>
+  </data>
 </root>

@@ -22,6 +22,34 @@ const mocks = vi.hoisted(() => ({
   challenge: vi.fn(),
 }))
 
+// S13: the bot check is turnstile-widget.test.tsx's own. Here a stand-in records
+// what the page asks of it. By default it is the shipped Off (no field, no token);
+// a test sets a token, or a hold, to see where the page sends it.
+const bot = vi.hoisted(() => ({
+  token: undefined as string | undefined,
+  hold: false,
+  prepared: [] as string[],
+  spent: 0,
+}))
+vi.mock("@authsystem/auth/bot-defense/bot-check", () => ({
+  useBotCheck: () => ({
+    field: null,
+    prepare: async (action: string) => {
+      bot.prepared.push(action)
+      if (bot.hold) return { proceed: false }
+      return bot.token ? { proceed: true, token: bot.token } : { proceed: true }
+    },
+    spent: () => {
+      bot.spent += 1
+    },
+  }),
+}))
+beforeEach(() => {
+  bot.token = undefined
+  bot.hold = false
+  bot.prepared = []
+  bot.spent = 0
+})
 vi.mock("@authsystem/api/client", () => ({
   api: { POST: (...args: unknown[]) => mocks.post(...args) },
 }))
@@ -506,5 +534,37 @@ describe("EmailCodeFlow: the account signs in with its passkey (S20)", () => {
 
     expect(await screen.findByText("This account signs in with its passkey.")).toBeInTheDocument()
     expect(mocks.complete).not.toHaveBeenCalled()
+  })
+})
+
+describe("EmailCodeFlow: the bot check on a new code (S13)", () => {
+  beforeEach(() => {
+    for (const mock of Object.values(mocks)) mock.mockReset()
+  })
+
+  it("sends the token made for a code start with the new code's request", async () => {
+    bot.token = "bot-token"
+    const startCode = vi.fn().mockResolvedValue({ ...PENDING, pendingId: "handle-2" })
+    // Already expired, so the resend cooldown is over from the start.
+    renderFlow({ startCode, pending: { ...PENDING, expiresAt: new Date(Date.now() - 1000).toISOString() } })
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Send a new code" }))
+
+    await waitFor(() => expect(startCode).toHaveBeenCalledWith(PENDING.email, "en", "bot-token"))
+    expect(bot.prepared).toEqual(["email-code"])
+    await waitFor(() => expect(bot.spent).toBe(1))
+  })
+
+  it("asks for no new code while the check holds the request", async () => {
+    bot.hold = true
+    const startCode = vi.fn()
+    renderFlow({ startCode, pending: { ...PENDING, expiresAt: new Date(Date.now() - 1000).toISOString() } })
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Send a new code" }))
+
+    await waitFor(() => expect(bot.prepared).toEqual(["email-code"]))
+    expect(startCode).not.toHaveBeenCalled()
+    // Held, not refused: the button is ready again for the next try.
+    expect(screen.getByRole("button", { name: "Send a new code" })).toBeEnabled()
   })
 })

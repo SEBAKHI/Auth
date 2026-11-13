@@ -26,6 +26,8 @@ public static class SecretOwnedKeys
         "Password:Pepper:CurrentKeyId",
         "ExternalAuth:Apple:PrivateKeyPem",
         "ExternalAuth:Google:ClientSecret",
+        // Exact name, NOT "BotDefense:": the sitekey beside it is public and editable (S13).
+        "BotDefense:TurnstileSecret",
         "AccountDeletion:IdentifierHmacKeyPlain",
         "ConnectionStrings:",
         "Secrets:",

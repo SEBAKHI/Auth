@@ -376,6 +376,18 @@ export const zh: TranslationResources = {
     sidebarDescription: "指向主要板块的链接。",
     toggleSidebar: "显示或隐藏导航",
   },
+  botCheck: {
+    label: "安全验证",
+    completeTheCheck: "请完成上方的安全验证，然后重试。",
+    blockedTitle: "此处无法运行安全验证",
+    blockedBody: "此浏览器或网络无法完成 Cloudflare 的验证。请重试、检查此设备的日期和时间是否正确、换用其他浏览器或网络、用其他方式登录，或向管理员求助。",
+    loadFailedTitle: "安全验证未能加载",
+    loadFailedBody: "某些因素（如浏览器扩展或网络）阻止了 Cloudflare 验证的加载。请重试，或换用其他浏览器或网络。",
+    configFailedTitle: "安全验证尚未就绪",
+    configFailedBody: "无法加载其设置。请重试；如果仍然失败，请求可能仍会通过。",
+    stalledTitle: "安全验证未完成",
+    stalledBody: "Cloudflare 的验证在此浏览器中未能得出结果，这在某些网络和 VPN 中会发生。请重试。如果反复出现，请检查此设备的日期和时间是否正确、换用其他浏览器或网络、用其他方式登录，或向管理员求助。",
+  },
   auth: {
     mfaPasskeyAlreadyEnrolled: "您的账户已有通行密钥（passkey）。请继续前往该应用；如果要求您登录，请使用通行密钥。",
     mfaRequiredPasskey: "您账户的第二因素是通行密钥（passkey）。请用它登录以继续：通行密钥可一次证明两个步骤。",
@@ -1469,6 +1481,7 @@ export const zh: TranslationResources = {
       passwordCreated: "为原本没有密码的账户添加密码",
       passwordChanged: "更改密码",
       passwordRemoved: "移除密码",
+      passwordResetLinkIssued: "应已登录用户的请求发送了密码重置链接",
       twofactorEnabled: "启用两步验证",
       twofactorDisabled: "停用两步验证",
       twofactorRecoveryCodesRegenerated: "重新生成两步验证恢复代码",
@@ -1567,6 +1580,7 @@ export const zh: TranslationResources = {
       smtpPassword: "归你的邮件服务商所有 — 系统只存储他们签发的值。",
       googleClientSecret:
         "归 Google Cloud Console 所有 — 系统只存储它签发的值。服务器凭它完成每一次 Google 登录。",
+      turnstileSecret: "由 Cloudflare 为本部署的 Turnstile 小组件签发：服务器用它向 Cloudflare 询问某人是否通过了机器人验证。",
       connectionString: "归数据库服务器所有。存储前会先对其进行连接检查。",
     },
     secretFile: "机密文件",
@@ -1585,6 +1599,11 @@ export const zh: TranslationResources = {
     setSmtpPassword: "设置 SMTP 密码",
     setSmtpPasswordHint:
       "加密存储，并替代 Email:Password 设置。重启后发送测试邮件以确认。",
+    setTurnstileSecret: "设置 Turnstile 密钥",
+    setTurnstileSecretHint: "本部署 Turnstile 小组件的密钥，来自 Cloudflare 控制台。API 重启后生效。生产环境（Production）中会拒绝 Cloudflare 的测试密钥。",
+    clearTurnstileSecretTitle: "移除 Turnstile 密钥？",
+    clearTurnstileSecretBody: "下次 API 重启后，机器人验证将没有密钥。只要设置了站点密钥且模式为“强制”，每次登录都由“无法进行验证时”的设置决定。",
+    turnstileSecretCleared: "已移除。重启 API 以应用。",
     setGoogleClientSecret: "设置 Google 客户端密钥",
     setGoogleClientSecretHint:
       "来自 Google Cloud Console → 凭据 → 您的 OAuth 客户端。加密存储。在设置并重启 API 之前，Google 登录会失败。",
@@ -2644,6 +2663,10 @@ export const zh: TranslationResources = {
       passkeyLookupWindowSeconds: "通行密钥检查窗口（秒）",
       passkeyLookupWindowSecondsHint:
         "上面通行密钥检查计数的统计时长，与其他项相同的固定窗口机制：窗口结束时计数器归零。保存后立即对新的客户端窗口生效。",
+      botFallbackPermitLimit: "机器人验证不可用时每个地址的请求数",
+      botFallbackPermitLimitHint: "在强制模式且为“按入口”设置时，若服务器无法向 Cloudflare 核验令牌或缺少密钥：一个客户端 IP 在一个窗口内仍可发送的登录、验证码和重置请求数。验证码请求也可以通过验证码开始新账户。刻意保持较小：至多为认证限制的一半。",
+      botFallbackWindowSeconds: "该额度的窗口（秒）",
+      botFallbackWindowSecondsHint: "上方额度的计数时长。保存后立即作用于新的客户端窗口。",
       externalCodePermitLimit: "每个窗口的 Google 登录代码交换次数",
       externalCodePermitLimitHint:
         "单个客户端 IP 在一个窗口内可让本服务器向 Google 交换多少次 Google 登录代码，超出后以 429 拒绝。每次 Google 登录消耗一次此额度和一次身份验证尝试（随后的登录），因此每分钟二十次与身份验证默认值相同。这里没有可猜测的内容：此值限制一个地址能让服务器调用 Google 的频率。保存后立即对新的客户端窗口生效。",
@@ -2724,6 +2747,28 @@ export const zh: TranslationResources = {
       passkeyLookupWindowSeconds: "通行密钥检查窗口（秒）",
       passkeyLookupWindowSecondsHint:
         "边缘统计通行密钥检查的时长，采用相同的固定窗口机制。更改在约 30 秒内到达网关而非即时生效，因为网关自行拉取设置。",
+    },
+    botDefense: {
+      title: "机器人验证（Cloudflare Turnstile）",
+      description: "在服务器为登录、注册、验证码请求和密码重置做任何处理之前，确认背后是人而不是机器人。站点密钥（sitekey）是公开的；密钥在“密钥管理”中设置。",
+      mode: "模式",
+      modeHint: "关闭：不验证，也不从 Cloudflare 加载任何内容。监控：运行验证并记录日志，但不拒绝任何请求；它尚未保护任何人，只显示有多少真实登录能通过。强制：没有有效令牌的请求会被拒绝。只有在监控显示每个应用连续 7 天通过率至少 99% 后，才切换到强制。",
+      modeOptions: {
+        Off: "关闭",
+        Monitor: "监控（仅记录）",
+        Enforce: "强制",
+      },
+      failMode: "无法进行验证时",
+      failModeHint: "当服务器无法向 Cloudflare 核验令牌或缺少密钥时，强制模式的处理方式。按入口：拒绝开始注册；登录、验证码请求（也可以通过验证码开始新账户）和重置请求每个地址可通过几次（见“速率限制”中的额度）。关闭：四类请求全部拒绝，包括管理员登录。浏览器若根本拿不到令牌（Cloudflare 小组件被拦截或停止服务，或站点密钥错误），两种设置下都会被拒绝。",
+      failModeOptions: {
+        PerSurface: "按入口（推荐）",
+        Closed: "关闭（全部拒绝）",
+      },
+      siteKey: "站点密钥（sitekey）",
+      siteKeyHint: "本部署自有 Turnstile 小组件的公开密钥，来自 Cloudflare 控制台。在生产环境（Production）中，Cloudflare 的测试站点密钥会被拒绝；在已设置密钥时，空站点密钥也会被拒绝：要关闭验证，请将模式设为“关闭”。",
+      siteverifyTimeoutMs: "验证时限（毫秒）",
+      siteverifyTimeoutMsHint: "在 Cloudflare 完成一次验证（含第二次尝试）的最长时间。超过后验证视为不可用，由上方设置决定。",
+      turnstileSecret: "Turnstile 密钥",
     },
     externalAuth: {
       requireNonce: "要求由服务器签发的一次性随机值",

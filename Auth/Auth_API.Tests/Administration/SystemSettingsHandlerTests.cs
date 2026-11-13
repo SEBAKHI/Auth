@@ -232,6 +232,43 @@ public class UpdateSystemSettingsCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ATestingSitekeyInProduction_IsRefused_ThroughTheHandlersEnvironment()
+    {
+        // S13 (TS10, review of PR 167): the validator's Production rule reaches it through the
+        // handler. Deliberate break, verified red: the handler passing isProduction: false.
+        var configuration = SystemSettingsTestSupport.BuildConfiguration(("BotDefense:Mode", "Off"));
+        var handler = new UpdateSystemSettingsCommandHandler(
+            _settingsRepoMock.Object,
+            _userRepoMock.Object,
+            configuration,
+            SystemSettingsTestSupport.SnapshotOf(configuration),
+            _reloaderMock.Object,
+            _publisherMock.Object,
+            new Mock<IIdpSessionIdleLimitChange>().Object,
+            new Mock<IPasskeyRpIdChange>().Object,
+            new Mock<ILogger<UpdateSystemSettingsCommandHandler>>().Object,
+            new Auth_API.Tests.BotDefense.FakeEnvironment(production: true));
+        _settingsRepoMock
+            .Setup(r => r.GetAsync("BotDefense", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SystemSettingsOverride?)null);
+        _settingsRepoMock
+            .Setup(r => r.UpsertAsync(It.IsAny<SystemSettingsOverride>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SystemSettingsUpsertResult(true, [1, 2, 3, 4, 5, 6, 7, 8], 1));
+
+        var result = await handler.Handle(
+            Command("BotDefense", """{"SiteKey":"1x00000000000000000000AA"}"""), CancellationToken.None);
+
+        result.IsError.Should().BeTrue("Production refuses a testing sitekey");
+        result.FirstError.Code.Should().Be("SystemSettings.InvalidFieldValue");
+        VerifyNothingWritten();
+
+        // Outside Production the same save goes through to the store.
+        var outsideProduction = await _handler.Handle(
+            Command("BotDefense", """{"SiteKey":"1x00000000000000000000AA"}"""), CancellationToken.None);
+        outsideProduction.IsError.Should().BeFalse("a testing sitekey is how a development deployment runs the check");
+    }
+
+    [Fact]
     public async Task Handle_EnumOutsideAllowedValues_ReturnsInvalidFieldValue()
     {
         var result = await _handler.Handle(
@@ -634,6 +671,60 @@ public class ResetSystemSettingsCommandHandlerTests
         _settingsRepoMock.Verify(
             r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never());
         _reloaderMock.Verify(r => r.Reload(), Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_AResetToOffWithAnEmptySitekey_GoesThrough_WhileTheSecretIsSet()
+    {
+        // REVIEW 167 F7: after the secret is set ([S13-O4]), the card's reset brings back the file
+        // values, Mode Off and an empty sitekey; with the check off that is no fault.
+        var configuration = SystemSettingsTestSupport.BuildConfiguration(
+            ("BotDefense:Mode", "Off"), ("BotDefense:SiteKey", ""), ("BotDefense:TurnstileSecret", "0x4AAAAAAA-the-real-secret"));
+        var handler = new ResetSystemSettingsCommandHandler(
+            _settingsRepoMock.Object,
+            configuration,
+            SystemSettingsTestSupport.SnapshotOf(configuration),
+            _reloaderMock.Object,
+            _publisherMock.Object,
+            new Mock<IIdpSessionIdleLimitChange>().Object,
+            new Mock<IPasskeyRpIdChange>().Object,
+            new Mock<ILogger<ResetSystemSettingsCommandHandler>>().Object,
+            new Auth_API.Tests.BotDefense.FakeEnvironment(production: true));
+        _settingsRepoMock
+            .Setup(r => r.GetAsync("BotDefense", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SystemSettingsTestSupport.ExistingRow("BotDefense", """{"Mode":"Enforce","SiteKey":"0x4AAAAAAA-the-real-one"}"""));
+
+        var result = await handler.Handle(new ResetSystemSettingsCommand("BotDefense", Guid.NewGuid()), CancellationToken.None);
+
+        result.IsError.Should().BeFalse("the reset sets Mode Off, and an empty sitekey beside the secret is then no fault");
+        _settingsRepoMock.Verify(r => r.DeleteAsync("BotDefense", It.IsAny<CancellationToken>()), Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_AResetToATestingSitekeyInProduction_IsRefused_ThroughTheHandlersEnvironment()
+    {
+        // S13 (TS10, review of PR 167): a reset may not fall back to a file value Production refuses.
+        var configuration = SystemSettingsTestSupport.BuildConfiguration(
+            ("BotDefense:Mode", "Enforce"), ("BotDefense:SiteKey", "1x00000000000000000000AA"));
+        var handler = new ResetSystemSettingsCommandHandler(
+            _settingsRepoMock.Object,
+            configuration,
+            SystemSettingsTestSupport.SnapshotOf(configuration),
+            _reloaderMock.Object,
+            _publisherMock.Object,
+            new Mock<IIdpSessionIdleLimitChange>().Object,
+            new Mock<IPasskeyRpIdChange>().Object,
+            new Mock<ILogger<ResetSystemSettingsCommandHandler>>().Object,
+            new Auth_API.Tests.BotDefense.FakeEnvironment(production: true));
+        _settingsRepoMock
+            .Setup(r => r.GetAsync("BotDefense", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SystemSettingsTestSupport.ExistingRow("BotDefense", """{"SiteKey":"0x4AAAAAAA-the-real-one"}"""));
+
+        var result = await handler.Handle(new ResetSystemSettingsCommand("BotDefense", Guid.NewGuid()), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("SystemSettings.InvalidFieldValue");
+        _settingsRepoMock.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never());
     }
 
     /// <summary>

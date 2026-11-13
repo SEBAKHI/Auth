@@ -22,6 +22,11 @@ const SITE_HEADERS = cspHeaders(webConfig).filter((header) => header.location ==
 
 const GOOGLE = "https://accounts.google.com"
 
+// S13: Cloudflare's bot check. Its script and its frame come from this host and
+// nothing else of Cloudflare's is loaded, so it is a source of those two only.
+const TURNSTILE = "https://challenges.cloudflare.com"
+const TURNSTILE_DIRECTIVES = new Set(["script-src", "frame-src"])
+
 describe("the accounts login surface", () => {
   // S02 PR D: the button is the app's own, its popup goes to Google, and no Google script,
   // stylesheet or frame is loaded into these pages. Google's own button needed the host in four
@@ -42,6 +47,27 @@ describe("the accounts login surface", () => {
     for (const header of SITE_HEADERS) {
       expect(header.directives["script-src"], header.name).not.toContain("'unsafe-inline'")
       expect(header.directives["script-src"], header.name).not.toContain("'unsafe-eval'")
+    }
+  })
+
+  it("admits Cloudflare's bot check in script-src and frame-src, and nowhere else", () => {
+    // S13 (D9): api.js is a script from that host and the widget a frame from it.
+    // It writes no style into the page and fetches nothing else from the host, so
+    // the host in any other directive would be a source granted for nothing.
+    expect(SITE_HEADERS.length).toBeGreaterThan(0)
+    for (const header of SITE_HEADERS) {
+      expect(header.directives["script-src"], header.name).toContain(TURNSTILE)
+      expect(header.directives["frame-src"], header.name).toContain(TURNSTILE)
+      for (const [directive, sources] of Object.entries(header.directives)) {
+        if (TURNSTILE_DIRECTIVES.has(directive)) continue
+        expect(sources, `${header.name}: ${directive}`).not.toContain(TURNSTILE)
+      }
+    }
+    // The documents with a policy of their own (the design frame, the embed, the Google callback) never load it.
+    const own = cspHeaders(webConfig).filter((header) => header.location !== null)
+    expect(own.length).toBeGreaterThan(0)
+    for (const header of own) {
+      expect(Object.values(header.directives).flat(), `${header.location}: ${header.name}`).not.toContain(TURNSTILE)
     }
   })
 
@@ -71,7 +97,12 @@ describe("the accounts login surface", () => {
     const undeclared = SITE_HEADERS.flatMap((header) =>
       Object.entries(header.directives).flatMap(([directive, sources]) =>
         sources
-          .filter((source) => !ALLOWED.has(source) && !(directive === "style-src" && HASHES.has(source)))
+          .filter(
+            (source) =>
+              !ALLOWED.has(source) &&
+              !(directive === "style-src" && HASHES.has(source)) &&
+              !(source === TURNSTILE && TURNSTILE_DIRECTIVES.has(directive))
+          )
           .map((source) => `${header.name}: ${directive} ${source}`)
       )
     )

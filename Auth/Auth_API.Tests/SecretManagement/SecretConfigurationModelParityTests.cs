@@ -33,6 +33,8 @@ public class SecretConfigurationModelParityTests
     [InlineData("SigningCurrentKid")]
     [InlineData("SigningNextKid")]
     [InlineData("SigningRemovedKeys")]
+    // S13: Cloudflare Turnstile's secret, in both models, so a save through either keeps it.
+    [InlineData("TurnstileSecretKey")]
     public void BothModels_CarryTheKeyrings(string member)
     {
         typeof(ApplicationModel).GetProperty(member).Should().NotBeNull();

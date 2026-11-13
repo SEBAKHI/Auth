@@ -26,7 +26,9 @@ public static class ProductionSecretGuard
         "AccountDeletion:IdentifierHmacKeyPlain",
         "ExternalAuth:Apple:PrivateKeyPem",
         // Whoever holds it can exchange codes for this deployment's Google client.
-        "ExternalAuth:Google:ClientSecret"
+        "ExternalAuth:Google:ClientSecret",
+        // S13: whoever holds it can ask Cloudflare to judge tokens as this deployment.
+        "BotDefense:TurnstileSecret"
     ];
 
     /// <summary>

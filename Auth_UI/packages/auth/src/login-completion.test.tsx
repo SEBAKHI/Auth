@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import {
@@ -14,9 +14,11 @@ vi.mock("@authsystem/api/env", () => ({
 }))
 
 import {
+  endSignInWithFullNavigationAfterTurnstile,
   useLoginCompletion,
   type LoginCompletion,
 } from "./login-completion"
+import type { TurnstileApi } from "./bot-defense/turnstile-script"
 import {
   clearPendingTwoFactorChallenge,
   getPendingReturnTo,
@@ -30,11 +32,18 @@ const AUTHORIZE =
   "https://api.example.com/api/v1/auth/authorize?client_id=app&state=xyz"
 
 const assign = vi.fn()
+const replace = vi.fn()
 
 beforeEach(() => {
   assign.mockClear()
+  replace.mockClear()
   clearPendingTwoFactorChallenge()
-  vi.stubGlobal("location", { assign, href: "https://accounts.example.com/login" })
+  vi.stubGlobal("location", {
+    assign,
+    replace,
+    href: "https://accounts.example.com/login",
+    origin: "https://accounts.example.com",
+  })
 })
 
 /** Reports where the router ended up, and what it carried there. */
@@ -693,5 +702,78 @@ describe("the sign-in marker (OI-275)", () => {
     expect(assign).not.toHaveBeenCalled()
     expect(screen.getByTestId("landing")).toHaveTextContent("/two-factor/required")
     expect(stored()).toBeNull()
+  })
+})
+
+describe("a console sign-in after Cloudflare's script (S13, OD3)", () => {
+  const turnstile: TurnstileApi = { render: () => "w1", reset: () => {}, remove: () => {} }
+
+  afterEach(() => {
+    endSignInWithFullNavigationAfterTurnstile(false)
+    delete window.turnstile
+  })
+
+  it("ends with a full navigation when the page loaded Cloudflare's script", async () => {
+    endSignInWithFullNavigationAfterTurnstile()
+    window.turnstile = turnstile
+    const { act } = renderCompletion(loginEntry(), (completion) => completion.complete({}))
+
+    await act()
+
+    expect(replace).toHaveBeenCalledWith("/")
+    // The router did not move: the document is left, not kept.
+    expect(screen.queryByTestId("landing")).toBeNull()
+  })
+
+  it("leaves the document only for this origin: another origin takes the router's way", async () => {
+    // REVIEW-FIXES 167 F12: the router never leaves the origin, and neither may the full navigation.
+    endSignInWithFullNavigationAfterTurnstile()
+    window.turnstile = turnstile
+    let routerAnswer: unknown = null
+    const { act } = renderCompletion(loginEntry(), (completion) => {
+      try {
+        completion.complete({}, { from: "//evil.example/x" })
+      } catch (refusal) {
+        routerAnswer = refusal
+      }
+    })
+
+    await act()
+
+    expect(replace).not.toHaveBeenCalled()
+    // The router's way, as before OD3: it does not leave the origin either.
+    expect(String(routerAnswer)).toMatch(/External navigation is not allowed/)
+  })
+
+  it("keeps the path, the query and the fragment of a same-origin destination", async () => {
+    endSignInWithFullNavigationAfterTurnstile()
+    window.turnstile = turnstile
+    const { act } = renderCompletion(loginEntry(), (completion) =>
+      completion.complete({}, { from: "/users?page=2#list" })
+    )
+
+    await act()
+
+    expect(replace).toHaveBeenCalledWith("/users?page=2#list")
+  })
+
+  it("navigates in the app at Off, where no script loaded", async () => {
+    endSignInWithFullNavigationAfterTurnstile()
+    const { act } = renderCompletion(loginEntry(), (completion) => completion.complete({}))
+
+    await act()
+
+    expect(replace).not.toHaveBeenCalled()
+    expect(screen.getByTestId("landing")).toHaveTextContent("/|")
+  })
+
+  it("navigates in the app where the app did not ask (the accounts app)", async () => {
+    window.turnstile = turnstile
+    const { act } = renderCompletion(loginEntry(), (completion) => completion.complete({}))
+
+    await act()
+
+    expect(replace).not.toHaveBeenCalled()
+    expect(screen.getByTestId("landing")).toHaveTextContent("/|")
   })
 })

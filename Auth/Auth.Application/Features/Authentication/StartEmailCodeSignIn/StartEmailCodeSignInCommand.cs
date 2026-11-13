@@ -1,3 +1,4 @@
+using Auth.Application.Common.BotDefense;
 using Auth.Application.Features.Authentication.StartRegistration;
 using ErrorOr;
 using MediatR;
@@ -13,8 +14,15 @@ namespace Auth.Application.Features.Authentication.StartEmailCodeSignIn;
 /// <param name="PreferredLanguage">The site language, if the client states one; the request culture otherwise.</param>
 /// <param name="IpAddress">The caller's address as the gateway forwarded it, for the audit trail.</param>
 /// <param name="UserAgent">The caller's user agent, for the audit trail.</param>
+/// <param name="BotToken">The page's bot-check token (S13), or null when the request carried none.</param>
 public record StartEmailCodeSignInCommand(
     string Email,
     string? PreferredLanguage,
     string? IpAddress,
-    string? UserAgent) : IRequest<ErrorOr<StartRegistrationResponse>>;
+    string? UserAgent,
+    string? BotToken = null) : IRequest<ErrorOr<StartRegistrationResponse>>, IBotProtectedRequest
+{
+    string IBotProtectedRequest.Action => BotDefenseActions.EmailCode;
+
+    string? IBotProtectedRequest.ClientIp => IpAddress;
+}

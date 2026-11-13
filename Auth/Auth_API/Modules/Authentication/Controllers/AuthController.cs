@@ -13,6 +13,7 @@ using Auth.Application.Features.AccountDeletion.RecoverAccount;
 using Auth.Application.Features.AccountDeletion.RecoverAccountExternal;
 using Auth.Application.Features.AccountDeletion.RecoverAccountWithEmailCode;
 using Auth.Application.Features.Authentication.RemovePassword;
+using Auth.Application.Features.Authentication.RequestPasswordSetupLink;
 using Auth.Application.Features.Authentication.SignInWithEmailCode;
 using Auth.Application.Features.Authentication.StartEmailCodeSignIn;
 using Auth.Application.Features.Authentication.VerifyEmailCodeSignIn;
@@ -106,7 +107,8 @@ public class AuthController : ApiController
             GetClientIpAddress(),
             GetUserAgent(),
             GetDeviceId(request.DeviceId),
-            request.StaySignedIn);
+            request.StaySignedIn,
+            request.BotToken);
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -140,7 +142,8 @@ public class AuthController : ApiController
             request.Email,
             request.PreferredLanguage,
             GetClientIpAddress(),
-            GetUserAgent());
+            GetUserAgent(),
+            request.BotToken);
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -238,7 +241,8 @@ public class AuthController : ApiController
             request.Email,
             request.PreferredLanguage,
             GetClientIpAddress(),
-            GetUserAgent());
+            GetUserAgent(),
+            request.BotToken);
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -1201,7 +1205,7 @@ public class AuthController : ApiController
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
     {
-        var command = new ForgotPasswordCommand(request.Email);
+        var command = new ForgotPasswordCommand(request.Email, GetClientIpAddress(), request.BotToken);
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
@@ -1495,6 +1499,39 @@ public class AuthController : ApiController
 
         return result.Match<IActionResult>(
             _ => Ok(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Sends the signed-in person a link, to their own address, to set a password (S13): the
+    /// set-password panel of the profile and of the forced password change. The address is the
+    /// session's account's, never one the request names.
+    /// </summary>
+    /// <remarks>
+    /// Signed in, so no bot check: the anonymous forgot-password request carries one, and the
+    /// panel used to call it. One live link per account, as there. An issued link is audited
+    /// (<c>password.reset_link_issued</c>). Rate-limited by the <c>login</c> policy.
+    /// </remarks>
+    /// <returns>Where the link went, masked, and until when it works.</returns>
+    [HttpPost("me/password-setup-link")]
+    [Authorize]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(PasswordResetLinkResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> RequestPasswordSetupLink(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _sender.Send(new RequestPasswordSetupLinkCommand(userId), cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
             errors => Problem(errors));
     }
 

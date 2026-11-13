@@ -736,8 +736,10 @@ export function UserDetailPage() {
 
   const sendPasswordReset = useMutation({
     mutationFn: async () => {
-      const { error } = await api.POST("/api/v1/Auth/forgot-password", {
-        body: { email: user?.email ?? "" },
+      // An administrator's request (S13, D7): users.manage, no bot check, and the
+      // link goes to the account's own address, never to the administrator.
+      const { error } = await api.POST("/api/v1/Users/{id}/password-reset", {
+        params: { path: { id: user?.id ?? "" } },
       })
       if (error) throw error
     },

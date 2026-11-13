@@ -430,6 +430,10 @@ beneath that prefix.
   referrer headers. A request that is not HTTPS is logged but still accepted.
 - **The token store is one process-wide slot, not one per user.** A `LoginAsync` call replaces the
   token for the whole process. This is a service-identity design, not a user-session one.
+- **`LoginAsync` is obsolete.** The password sign-in is a browser surface with a bot check (Cloudflare
+  Turnstile). Once a deployment enforces it, a sign-in sent from a server carries no token and is
+  refused (`400 BotDefense.TokenMissing`), and `LoginAsync` returns false. Sign people in with the
+  authorization code flow (with PKCE) instead; the compiler flags every remaining call (CS0618).
 - **Failures are silent.** A validation call that fails for any reason — server unreachable, refused,
   malformed response — returns the same "not valid" answer as a genuinely bad key.
 ~~~

@@ -107,6 +107,23 @@ describe("Stay signed in, on the wire (OI-154)", () => {
     expect(bodyOf("/api/v1/Auth/login").staySignedIn).toBe(true)
   })
 
+  it("the password sign-in carries the bot check's token, and omits it when there is none (S13)", async () => {
+    post.mockResolvedValue(SIGNED_IN)
+    const { login } = renderProvider()
+
+    await act(() => login("jane@one.example", "pw", false, "bot-token").then(() => undefined))
+    expect(bodyOf("/api/v1/Auth/login")).toEqual({
+      email: "jane@one.example",
+      password: "pw",
+      staySignedIn: false,
+      botToken: "bot-token",
+    })
+
+    // Omitted, not null (BD2): a server that checks nothing reads the same body as before.
+    await act(() => login("jane@one.example", "pw", false, undefined).then(() => undefined))
+    expect(bodyOf("/api/v1/Auth/login")).not.toHaveProperty("botToken")
+  })
+
   it("the provider sign-in carries the choice", async () => {
     post.mockResolvedValue(SIGNED_IN)
     const { loginExternal } = renderProvider()

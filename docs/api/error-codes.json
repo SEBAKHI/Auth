@@ -610,6 +610,30 @@
       "pointer": null
     },
     {
+      "code": "BotDefense.TestingKeyInProduction",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/value"
+    },
+    {
+      "code": "BotDefense.TokenMissing",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/botToken"
+    },
+    {
+      "code": "BotDefense.TokenRejected",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/botToken"
+    },
+    {
+      "code": "BotDefense.Unavailable",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
       "code": "Code.InvalidFormat",
       "status": 400,
       "source": "catalog",

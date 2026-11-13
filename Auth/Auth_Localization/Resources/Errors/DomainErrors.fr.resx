@@ -1808,4 +1808,16 @@
   <data name="HiddenLanguages.UnsupportedLanguage" xml:space="preserve">
     <value>Seule une langue proposée par les applications peut être masquée.</value>
   </data>
+  <data name="BotDefense.TokenMissing" xml:space="preserve">
+    <value>Nous n'avons pas pu vérifier que vous n'êtes pas un robot. Attendez la fin de la vérification sur la page, puis réessayez.</value>
+  </data>
+  <data name="BotDefense.TokenRejected" xml:space="preserve">
+    <value>La vérification anti-robot n'a pas abouti. Elle se relance d'elle-même ; réessayez ensuite.</value>
+  </data>
+  <data name="BotDefense.Unavailable" xml:space="preserve">
+    <value>Impossible de vérifier pour le moment que vous n'êtes pas un robot. Réessayez dans quelques minutes.</value>
+  </data>
+  <data name="BotDefense.TestingKeyInProduction" xml:space="preserve">
+    <value>Les clés de test de Cloudflare valident toutes les vérifications et ne peuvent pas être utilisées en production. Utilisez les clés de votre propre widget Turnstile.</value>
+  </data>
 </root>

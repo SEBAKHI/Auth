@@ -1243,6 +1243,11 @@ Google returns to `/google-callback.html`, which each `web.config` serves with
 `Cache-Control: no-store` and `Referrer-Policy: no-referrer` (its own `<location>`). Deploy that page
 with the rest of `dist`.
 
+Both policies name `https://challenges.cloudflare.com` in `script-src` and `frame-src`, and nowhere
+else: the bot check on the sign-in pages loads Cloudflare's Turnstile script and frames its widget from
+there ([§U](#u-the-bot-check-cloudflare-turnstile-botdefense)). Leave the host in place even while the
+bot check is off: a page loads nothing from Cloudflare until the server names a sitekey.
+
 Do not change the rest of either file. Between them they carry the single-page-application fallback
 rule, the caching rules, and the security headers, each with a comment explaining why it is written
 the way it is.
@@ -2696,7 +2701,12 @@ guide cannot tell you an absolute path — it can only tell you how to find it.
 | Application | Configured path | Rolling | Retention in the base configuration |
 |---|---|---|---|
 | Auth API | `Logs/auth-api-.log` | Daily | 30 files |
+| Auth API, the bot check's verdicts only (S13) | `Logs/bot-verdicts-.log` | Daily | 30 files |
 | API Gateway | `logs/gateway-.log` | Daily | 30 files |
+
+The verdict file is set in code, not in the Serilog section: only the bot check's verdict recorder
+writes it, beside the API's own log, and the bot check's gates are read from it (§U.5). The main log
+keeps a copy of each verdict line.
 
 **Note the capital letter.** The API writes to `Logs/` and the Gateway to `logs/`. On Windows that
 makes no difference; if you ever grep a backup on a case-sensitive filesystem, it does.
@@ -4432,6 +4442,217 @@ stop a stolen session within that time, since a script that registered a key of 
 (`TwoFactor:ReauthenticationMaxAgeMinutes`, default 15) stays the outer limit, so the shorter of the two
 applies. Shorter is safer; longer is easier for people, and for whoever stole a session. **Nothing to do at
 deployment:** the default is the recommendation, and with `Passkeys:Enabled` off it changes nothing for anyone.
+
+## U. The bot check: Cloudflare Turnstile (`BotDefense:*`)
+
+The four requests anyone can send without signing in, the sign-in, the code start, the reset request
+and `registration/start`, can carry a token from Cloudflare Turnstile's widget, and the server asks
+Cloudflare whether a person made it before it does any work for the request. Most people see nothing:
+the widget shows a box only when Cloudflare asks for a click.
+
+It ships **Off**, and deploying this release changes nothing until you go through the steps below,
+in order. Three settings (**System settings → Bot check (Cloudflare Turnstile)**, hot, no restart):
+
+| Setting | Values | What it does |
+|---|---|---|
+| `BotDefense:Mode` | `Off` (default), `Monitor`, `Enforce` | Off checks nothing. Monitor checks and logs every verdict and refuses nothing: it protects nobody yet, it measures. Enforce refuses a request without a valid token (`400 BotDefense.TokenMissing` / `BotDefense.TokenRejected`). |
+| `BotDefense:SiteKey` | the widget's public sitekey | Pages render the widget only when the server names one. |
+| `BotDefense:FailMode` | `PerSurface` (default), `Closed` | What Enforce does while the server cannot check a token with Cloudflare, or a key is missing (§U.6). A browser that gets no token is refused under Enforce either way, unless the server cannot reach Cloudflare either (§U.6). |
+
+The secret is not a setting: it is set on the **Secrets** page (§U.3). Two requests a signed-in
+person sends moved off `forgot-password`, so they need no bot check: the console's **Send password
+reset email** (`POST /api/v1/Users/{id}/password-reset`, permission `users.manage`) and the profile's
+**Set a password** link (`POST /api/v1/Auth/me/password-setup-link`). The SDK's `LoginAsync` is
+obsolete: a server cannot answer the widget, so under Enforce its sign-in is refused.
+
+### U.1 Deploy, still Off
+
+Deploy the API first, then both web applications with their sealed `web.config`. Check:
+`GET https://auth.example.com/api/v1/Platform/bot-defense` answers `"mode": "Off"` and no sitekey,
+and a sign-in works in both applications. In Production the first start logs
+`Bot defense posture bot.mode: Off` at Critical: expected until Monitor (§U.4), whose line is a
+Warning until Enforce (§U.5), and not a fault. Rollback: the reverse order, the applications first,
+then the API; then check that the profile's **Set a password** still sends its email.
+
+**Before restoring an application build older than this release, set Mode to Off (or Monitor):** an
+old build sends no token, and under Enforce every sign-in from it is refused, administrators
+included.
+
+### U.2 The widget at Cloudflare
+
+In the Cloudflare dashboard, **Turnstile → Add widget**: mode **Managed**, and the two application
+hosts exactly (for example `accounts.example.com` and `console.example.com`). A host missing from
+this list is the likeliest failure in production: Cloudflare answers that page with error `110200`
+and no token, so every request from it would be refused under Enforce. Keep the sitekey for §U.4 and
+the secret for §U.3. Rollback: delete the widget.
+
+### U.3 The secret, through the admin API
+
+1. Turn the admin API on: `SecretManagement:EnableAdminApi` = `true` in the Production file. It is
+   read per request, so no restart. Check: `GET /api/v1/admin/Secrets/status` by an administrator
+   with `secrets.manage` answers 200 (403 "Admin API Disabled" means it is still off).
+2. Console → **Secrets** → the `TurnstileSecretKey` row → **Edit** → paste the secret → **Save**
+   (`PUT /api/v1/admin/Secrets/turnstile-secret`). In Production, Cloudflare's published testing
+   secrets are refused.
+3. **Recycle the API's application pool once.** The secrets file is read when the process starts
+   (`DpapiSecretConfigurationProvider`), so the new secret is used only after it. Check: the status
+   lists `TurnstileSecretKey` as `Configured`, and once the API has started again, its log of the
+   day (`Logs/auth-api-YYYYMMDD.log` in the API's folder) carries:
+
+   ```text
+   Bot defense posture bot.siteverify-reachability: Cloudflare answered in 212 ms
+   ```
+
+   The server sent Cloudflare's public dummy token with the secret, even while the mode is Off: this
+   answer means Cloudflare reaches the server and knows the secret. Note the time. `Cloudflare refused
+   the secret` means the secret pasted is not this widget's: paste it again. `no answer from
+   Cloudflare` means the server cannot reach `https://challenges.cloudflare.com` over HTTPS: allow it
+   through the outbound firewall. The line is written at `Information`; a Production file that raises
+   `Serilog:MinimumLevel:Default` shows only the failures.
+4. Turn the admin API off again (`EnableAdminApi` = `false`, no restart). Check: the status answers
+   403.
+5. Copy `secrets.dpapi` to your backup.
+
+Rollback: stay on Off. Removing the secret later is **Remove** on the same row, then a recycle.
+
+### U.4 Monitor
+
+1. **The privacy notice first.** From Monitor on, every visitor of the sign-in pages loads
+   Cloudflare's widget, and the browser sends Cloudflare its IP address, browser and TLS signals, the
+   sitekey and the page's origin; the API sends Cloudflare the token and the secret, never the
+   visitor's address. Before Monitor, add to your privacy notice that the sign-in pages use Cloudflare
+   Turnstile to tell people from automated requests, what it receives, and that Cloudflare also
+   processes it under its own privacy policy. Check: the published notice names Turnstile. Rollback:
+   the previous notice, with the mode left Off.
+2. Check that the API reaches Cloudflare: §U.3's `bot.siteverify-reachability` line (the server calls
+   `https://challenges.cloudflare.com/turnstile/v0/siteverify` over HTTPS; a host that blocks outbound
+   traffic blocks the check). Keep `Serilog:MinimumLevel:Default` at `Information` from here until
+   §U.5 is done: the gates are read from `Logs/bot-verdicts-YYYYMMDD.log`, beside the API's log, one
+   line per verdict:
+
+   ```text
+   Bot defense verdict: action login verdict Passed mode Monitor origin https://accounts.example.com hostname accounts.example.com codes - attempts 1 elapsedMs 143
+   ```
+
+3. Then, in **System settings → Bot check (Cloudflare Turnstile)**: the sitekey, and Mode =
+   **Monitor**. Check in a real browser that both applications' sign-in pages work, and that the
+   verdict lines name each origin.
+
+Rollback: Mode = Off.
+
+### U.5 Enforce, after seven days of Monitor
+
+Read the first gate from the verdict files of the seven days (copy them off the server):
+
+```bash
+node Tools/probes/verdict-window.mjs --gate monitor <folder with bot-verdicts-*.log>
+```
+
+Give it the verdict files, `Logs/bot-verdicts-YYYYMMDD.log`, and nothing else: only the bot check's
+recorder writes there. Not the API's main log: the request log writes every path into it decoded, so
+a request whose path carries an encoded line break can write a whole verdict line of its sender's
+making there (seen with Kestrel). The tool counts a line only when its whole message is the verdict,
+at Information or Warning, and any other line in its input makes both gates `INVALID` (exit 3): the
+input is not the verdict file, and nothing in it is evidence.
+
+It passes when every application passes at least 99 % of its submissions, with at least 100 of them,
+over at least seven days; it prints each comparator. An application below 100 is `NODATA`: decide it
+by watching real sign-ins on it. Anyone can send a request without a token and with an
+application's `Origin`, and it counts as that application's `Missing`: before deciding, read the
+report's hourly `Missing` rows for each application. A burst against its steady share is someone's
+requests, not the widget. Junk tokens, which no real widget makes and anyone can send with an
+application's `Origin` (Cloudflare's `invalid-input-response`, a token too long, malformed, or the
+public dummy one), are counted apart and never as submissions, so a few of them cannot hold the move
+back. The report also prints Cloudflare's answer time per application (median, 95th percentile,
+longest): the time the check adds to a sign-in. Note the 95th percentile. Then Mode = **Enforce**. Check: a sign-in request without a
+`botToken` answers `400 BotDefense.TokenMissing`, and a real sign-in works in both applications.
+Seven days later, read the second gate, no 10-minute window where more than half of at least 20
+submissions from the listed applications carried no token. Requests from no listed application
+(`other`: no `Origin`, or another one) are what the check refuses: the report prints them apart and
+never counts them, as the posture does:
+
+```bash
+node Tools/probes/verdict-window.mjs --gate enforce <folder with bot-verdicts-*.log>
+```
+
+Rollback: Mode = Monitor.
+
+### U.6 When the check cannot run (`BotDefense:FailMode`)
+
+Under Enforce, while Cloudflare cannot be reached (the call has `BotDefense:SiteverifyTimeoutMs`,
+default 2,000 ms, for both of its attempts; Cloudflare's own `internal-error` is tried once more;
+five failures in a row open a circuit breaker for 30 seconds, and it closes at the next answer) or a
+key is missing or refused:
+
+| FailMode | Registration start | Sign-in, code start, reset request |
+|---|---|---|
+| `PerSurface` | refused (`BotDefense.Unavailable`) | allowed a few times per client address (`RateLimiting:BotFallbackPermitLimit`, default 5, per `RateLimiting:BotFallbackWindowSeconds`, default 300), then refused |
+| `Closed` | refused | refused, administrators included |
+
+The code start also begins a new account for an address that has none (sign-up by code), so under
+`PerSurface` new accounts by code go on at the allowance's rate while the check cannot run; `Closed`
+stops them too.
+
+The fail mode is about the server's side. A browser that gets no token at all, because Cloudflare's
+widget is blocked there (an extension, a network), fails in it, or does not list the page's host
+(§U.2), sends its request without one, and under Enforce that request is refused
+`BotDefense.TokenMissing` whatever `FailMode` says. The page tells the person to try again, check
+the device's date and time, use another browser or network, or sign in another way.
+
+**A full Cloudflare outage** stops the widget too, so no token reaches the server and no call is
+made. The server watches for it: while its circuit breaker is open, or the posture's reachability
+probe (every five minutes, made by the server itself) got no answer in the last five minutes, a
+request without a token counts as the outage, not the visitor, and the fail mode applies: under
+`PerSurface`, sign-ins, code starts and reset requests go on through the allowance.
+
+The posture judges `bot.token-missing-spike` and `bot.local-rejection-spike` every minute, over
+the last ten minutes, so either alarm is written within about eleven minutes of its cause. Both count
+the listed applications only. A `Missing` burst can still be robots sending a listed `Origin`
+(anyone can): read the verdict lines' origin and action (`Logs/bot-verdicts-YYYYMMDD.log`), and the
+hourly rows of §U.5, before rolling back.
+When it is real and happens to many people at once, go back to Monitor, or to Off through §U.8 if no
+administrator can sign in: pages already open read the setting again, past the browser's cache,
+before their next request once their copy is a minute old.
+
+Volume can open the breaker: Cloudflare's `429` (too many requests) counts as a failure, so a flood
+of tokens that makes Cloudflare throttle this server opens it, and the fail mode then applies until
+an answer closes it. The posture's `bot.siteverify-throttled` (a Warning) says when 429s came in the
+last ten minutes.
+
+### U.7 Rotating the secret
+
+Rotate it in Cloudflare (the old secret keeps working for two hours), then repeat §U.3 within those two
+hours.
+
+### U.8 Break-glass: the bot check refuses every sign-in
+
+For an incident no administrator can fix in the console because they cannot sign in either (a wrong
+sitekey under Enforce, Cloudflare's widget failing in browsers under Enforce, `Closed` during a
+Cloudflare outage). On the database server:
+
+1. **Export the row first:**
+   `SELECT OverridesJson FROM dbo.SystemSettingsOverrides WHERE SectionKey = N'BotDefense';` and keep
+   the output.
+2. Delete it: `DELETE FROM dbo.SystemSettingsOverrides WHERE SectionKey = N'BotDefense';`, then
+   recycle the API. The file values apply again: Mode `Off`. (Or add the environment variable
+   `AUTH_DISABLE_DB_SETTINGS=true` and recycle, [§B.6](#b6-recovery--a-bad-value-saved-in-the-console):
+   every database setting falls back to the files for that run.)
+3. Check: the log carries the posture's `bot.mode` line, and a sign-in works. Pages already open
+   pick up Off before their next request once their copy of the setting is a minute old; a reloaded
+   page, at once.
+
+Rollback: insert the exported `OverridesJson` back (or remove `AUTH_DISABLE_DB_SETTINGS`), then
+recycle.
+
+### U.9 After the rollout
+
+`Off` and `Monitor` exist for this rollout. A later release removes `BotDefense:Mode`, so the check
+runs whenever a sitekey and a secret are set; until then, Mode Off is the way back (§U.8). Finish
+§U.5, both gates, within 30 days of deploying this release.
+
+*In code:* `Auth/Auth.Application/Behaviors/BotDefenseBehavior.cs`,
+`Auth/Auth.Infrastructure/BotDefense/`, `Auth_UI/packages/auth/src/bot-defense/`; the live check of
+the server against Cloudflare is `Tools/probes/bot-defense-siteverify.mjs`.
 
 ---
 

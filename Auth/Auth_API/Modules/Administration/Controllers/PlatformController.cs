@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Auth_API.Common;
 using Auth.Application.DTOs;
+using Auth.Application.Features.Platform.GetBotDefenseConfig;
 using Auth.Application.Features.Platform.GetPasswordPolicy;
 using Auth.Application.Features.Platform.GetPlatformBranding;
 using Auth.Application.Features.LoginDesigns.GetPublicLoginDesign;
@@ -104,6 +105,33 @@ public class PlatformController : ApiController
 
         return result.Match(
             policy => Ok(policy),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Gets what the sign-in pages need to offer the bot check (S13): the mode, and the widget's
+    /// public sitekey, or null where there is nothing to check.
+    /// </summary>
+    /// <remarks>
+    /// Anonymous and public: the same for every caller, and nothing in it is secret, so no
+    /// first-party Origin is required. Page data, so the per-address sign-in-page allowance.
+    /// Cached a minute, like the password policy: a change from the console reaches the next
+    /// visitor within the minute.
+    /// </remarks>
+    /// <response code="200">Returns the mode and the sitekey</response>
+    [HttpGet("bot-defense")]
+    [AllowAnonymous]
+    [EnableRateLimiting("sign-in-page")]
+    [ProducesResponseType(typeof(BotDefenseConfigDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> GetBotDefense(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetBotDefenseConfigQuery(), cancellationToken);
+
+        Response.Headers.CacheControl = "public, max-age=60";
+
+        return result.Match(
+            config => Ok(config),
             errors => Problem(errors));
     }
 }

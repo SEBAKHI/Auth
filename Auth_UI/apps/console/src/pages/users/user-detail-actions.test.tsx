@@ -218,12 +218,14 @@ describe("UserDetailPage action surface", () => {
     ).toBeVisible()
 
     await clickAction(userEventApi, "Send password reset email")
+    // The administrator's own endpoint (S13, D7): users.manage, no bot check, and
+    // the account named by its id; the link goes to the account's own address.
     await waitFor(() =>
-      expect(apiCall).toHaveBeenCalledWith(
-        "/api/v1/Auth/forgot-password",
-        expect.objectContaining({ body: { email: user.email } })
-      )
+      expect(apiCall).toHaveBeenCalledWith("/api/v1/Users/{id}/password-reset", {
+        params: { path: { id: user.id } },
+      })
     )
+    expect(apiCall).not.toHaveBeenCalledWith("/api/v1/Auth/forgot-password", expect.anything())
     await clickAction(userEventApi, "Deactivate")
     await waitFor(() =>
       expect(apiCall).toHaveBeenCalledWith(

@@ -27,6 +27,10 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
     private readonly IPasskeyRpIdChange _passkeyRpIdChange;
     private readonly ILogger<ResetSystemSettingsCommandHandler> _logger;
 
+    // Resolved from the container in every host (registered by Program.cs); a test that builds the
+    // handler without one gets the rules of an environment that is not Production.
+    private readonly IEnvironmentInfo? _environment;
+
     public ResetSystemSettingsCommandHandler(
         ISystemSettingsRepository systemSettingsRepository,
         IConfiguration configuration,
@@ -35,7 +39,8 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
         IPublisher publisher,
         IIdpSessionIdleLimitChange idleLimitChange,
         IPasskeyRpIdChange passkeyRpIdChange,
-        ILogger<ResetSystemSettingsCommandHandler> logger)
+        ILogger<ResetSystemSettingsCommandHandler> logger,
+        IEnvironmentInfo? environment = null)
     {
         _systemSettingsRepository = systemSettingsRepository;
         _configuration = configuration;
@@ -45,6 +50,7 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
         _idleLimitChange = idleLimitChange;
         _passkeyRpIdChange = passkeyRpIdChange;
         _logger = logger;
+        _environment = environment;
     }
 
     public async Task<ErrorOr<SystemSettingsSectionDto>> Handle(ResetSystemSettingsCommand request, CancellationToken cancellationToken)
@@ -76,7 +82,8 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
             var resetErrors = new List<Error>();
             SystemSettingsValueValidator.ValidateSectionRules(
                 section, [], resetErrors, _startupSnapshot.Baseline, request.RequestOrigin,
-                liveValue: fullKey => _configuration[fullKey]);
+                liveValue: fullKey => _configuration[fullKey],
+                isProduction: _environment?.IsProduction == true);
 
             if (resetErrors.Count > 0)
             {

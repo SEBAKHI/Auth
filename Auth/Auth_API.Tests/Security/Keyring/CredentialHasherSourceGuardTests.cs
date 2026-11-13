@@ -42,7 +42,9 @@ public class CredentialHasherSourceGuardTests
         App + "Authentication/Common/TwoFactorChallengeService.cs:79 Hash TwoFactorChallenge",
         App + "Authentication/EnableTwoFactor/EnableTwoFactorCommandHandler.cs:283 Candidates IdpSession",
         App + "Authentication/ExternalLogin/IssueExternalNonceCommandHandler.cs:34 Hash ExternalNonce",
-        App + "Authentication/ForgotPassword/ForgotPasswordCommandHandler.cs:111 Hash PasswordReset",
+        // S13 (D7): the issuing moved out of the forgot-password handler into the one issuer
+        // the anonymous request and the two signed-in ones share; same purpose.
+        App + "Authentication/Common/PasswordResetLinkIssuer.cs:82 Hash PasswordReset",
         App + "Authentication/IntrospectToken/IntrospectTokenQueryHandler.cs:174 Candidates RefreshToken",
         App + "Authentication/Logout/LogoutCommandHandler.cs:73 Candidates RefreshToken",
         App + "Authentication/LogoutWithRefreshCookie/LogoutWithRefreshCookieCommandHandler.cs:48 Candidates RefreshToken",

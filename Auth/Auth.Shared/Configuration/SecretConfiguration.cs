@@ -66,6 +66,14 @@ public class SecretConfiguration
     public string? GoogleClientSecret { get; set; }
 
     /// <summary>
+    /// Cloudflare Turnstile's secret key for the bot check (S13): the server's half of the widget,
+    /// with which it asks Cloudflare whether a token is good. Issued by Cloudflare, so never
+    /// generated here (RequiredSecretsRegistry.VendorIssued). Mapped to configuration as
+    /// <c>BotDefense:TurnstileSecret</c>.
+    /// </summary>
+    public string? TurnstileSecretKey { get; set; }
+
+    /// <summary>
     /// SMTP password for email service.
     /// </summary>
     public string? SmtpPassword { get; set; }

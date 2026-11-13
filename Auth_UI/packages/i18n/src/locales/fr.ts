@@ -379,6 +379,18 @@ export const fr: TranslationResources = {
     sidebarDescription: "Liens vers les sections principales.",
     toggleSidebar: "Afficher ou masquer la navigation",
   },
+  botCheck: {
+    label: "Vérification de sécurité",
+    completeTheCheck: "Terminez la vérification de sécurité ci-dessus, puis réessayez.",
+    blockedTitle: "La vérification de sécurité ne peut pas s'exécuter ici",
+    blockedBody: "Ce navigateur ou ce réseau ne peut pas terminer la vérification de Cloudflare. Réessayez, vérifiez la date et l'heure de cet appareil, utilisez un autre navigateur ou réseau, connectez-vous autrement, ou demandez de l'aide à votre administrateur.",
+    loadFailedTitle: "La vérification de sécurité ne s'est pas chargée",
+    loadFailedBody: "Quelque chose a empêché le chargement de la vérification de Cloudflare, comme une extension du navigateur ou le réseau. Réessayez, ou utilisez un autre navigateur ou réseau.",
+    configFailedTitle: "La vérification de sécurité n'est pas prête",
+    configFailedBody: "Ses paramètres n'ont pas pu être chargés. Réessayez ; si l'échec persiste, la demande peut tout de même aboutir.",
+    stalledTitle: "La vérification de sécurité n'a pas abouti",
+    stalledBody: "La vérification de Cloudflare n'a pas abouti dans ce navigateur, ce qui arrive sur certains réseaux et VPN. Réessayez. Si cela se reproduit, vérifiez la date et l'heure de cet appareil, utilisez un autre navigateur ou réseau, connectez-vous autrement, ou demandez de l'aide à votre administrateur.",
+  },
   auth: {
     mfaPasskeyAlreadyEnrolled: "Votre compte a déjà une clé d’accès (passkey). Continuez vers l’application ; si l’on vous demande de vous connecter, utilisez la clé d’accès.",
     mfaRequiredPasskey: "Le second facteur de votre compte est une clé d’accès (passkey). Connectez-vous avec elle pour continuer : une clé d’accès prouve les deux étapes à la fois.",
@@ -1550,6 +1562,7 @@ export const fr: TranslationResources = {
       passwordCreated: "Mot de passe ajouté à un compte qui n'en avait pas",
       passwordChanged: "Mot de passe modifié",
       passwordRemoved: "Mot de passe supprimé",
+      passwordResetLinkIssued: "Lien de réinitialisation du mot de passe envoyé à la demande d'une personne connectée",
       twofactorEnabled: "Authentification à deux facteurs activée",
       twofactorDisabled: "Authentification à deux facteurs désactivée",
       twofactorRecoveryCodesRegenerated: "Codes de récupération régénérés",
@@ -1660,6 +1673,7 @@ export const fr: TranslationResources = {
         "Appartient à votre fournisseur de messagerie — le système ne stocke que ce qu'il a émis.",
       googleClientSecret:
         "Appartient à Google Cloud Console — le système ne stocke que ce qu'elle a émis. Le serveur termine chaque connexion Google avec lui.",
+      turnstileSecret: "Émis par Cloudflare pour le widget Turnstile de ce déploiement : le serveur demande avec lui à Cloudflare si une personne a passé la vérification anti-robot.",
       connectionString:
         "Appartient au serveur de base de données. Vérifiée auprès de lui avant d'être stockée.",
     },
@@ -1679,6 +1693,11 @@ export const fr: TranslationResources = {
     setSmtpPassword: "Définir le mot de passe SMTP",
     setSmtpPasswordHint:
       "Stocké chiffré et utilisé à la place du paramètre Email:Password. Envoyez un e-mail de test après le redémarrage pour le confirmer.",
+    setTurnstileSecret: "Définir le secret Turnstile",
+    setTurnstileSecretHint: "La clé secrète du widget Turnstile de ce déploiement, depuis le tableau de bord Cloudflare. S'applique après le redémarrage de l'API. En production, les secrets de test de Cloudflare sont refusés.",
+    clearTurnstileSecretTitle: "Supprimer le secret Turnstile ?",
+    clearTurnstileSecretBody: "Après le prochain redémarrage de l'API, la vérification anti-robot n'a plus de secret. Tant qu'une clé de site est définie et que le mode est Application, le réglage « quand la vérification ne peut pas s'exécuter » décide pour chaque connexion.",
+    turnstileSecretCleared: "Supprimé. Redémarrez l'API pour l'appliquer.",
     setGoogleClientSecret: "Définir le secret client Google",
     setGoogleClientSecretHint:
       "Dans Google Cloud Console → Identifiants → votre client OAuth. Stocké chiffré. Tant qu'il n'est pas défini et que l'API n'a pas redémarré, la connexion Google échoue.",
@@ -2838,6 +2857,10 @@ export const fr: TranslationResources = {
         "Fenêtre de vérification de clé d'accès (secondes)",
       passkeyLookupWindowSecondsHint:
         "La durée sur laquelle le compte de vérifications ci-dessus est mesuré, avec la même mécanique de fenêtre fixe : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres clientes dès l'enregistrement.",
+      botFallbackPermitLimit: "Demandes par adresse quand la vérification anti-robot est indisponible",
+      botFallbackPermitLimitHint: "En mode application avec le réglage par surface, tant que le serveur ne peut pas vérifier un jeton auprès de Cloudflare ou qu'une clé manque : combien de connexions, de demandes de code et de réinitialisations une adresse IP peut encore envoyer par fenêtre. Une demande de code peut aussi commencer un nouveau compte par code. Volontairement faible : au plus la moitié de la limite d'authentification.",
+      botFallbackWindowSeconds: "Fenêtre de cette tolérance (secondes)",
+      botFallbackWindowSecondsHint: "La durée sur laquelle la tolérance ci-dessus est comptée. S'applique aux nouvelles fenêtres client dès l'enregistrement.",
       externalCodePermitLimit: "Échanges de code de connexion Google par fenêtre",
       externalCodePermitLimitHint:
         "Combien de fois une même IP cliente peut faire échanger par ce serveur un code de connexion Google auprès de Google dans une fenêtre, avant d'être refusée avec 429. Une connexion Google en consomme un, plus une tentative d'authentification (la connexion qui suit) : vingt par minute égalent donc la valeur par défaut de l'authentification. Rien ne peut être deviné ici : cette limite borne la fréquence à laquelle une adresse fait appeler Google par le serveur. S'applique aux nouvelles fenêtres client dès l'enregistrement.",
@@ -2920,6 +2943,28 @@ export const fr: TranslationResources = {
         "Fenêtre de vérification de clé d'accès (secondes)",
       passkeyLookupWindowSecondsHint:
         "La durée sur laquelle les vérifications de clé d'accès sont comptées en bordure, avec la même mécanique de fenêtre fixe. Un changement atteint la passerelle en 30 secondes environ plutôt qu'instantanément, car elle tire elle-même ses réglages.",
+    },
+    botDefense: {
+      title: "Vérification anti-robot (Cloudflare Turnstile)",
+      description: "Une vérification qu'une personne, et non un robot, est derrière la connexion, l'inscription, la demande de code et la réinitialisation du mot de passe, avant que le serveur ne travaille pour elles. La clé de site (sitekey) est publique ; le secret se règle dans la gestion des secrets.",
+      mode: "Mode",
+      modeHint: "Désactivé : aucune vérification et rien de chargé depuis Cloudflare. Surveillance : la vérification s'exécute et est journalisée, mais rien n'est refusé ; elle ne protège encore personne, elle montre combien de connexions réelles passent. Application : une demande sans jeton valide est refusée. Ne passez en application qu'après une surveillance montrant au moins 99 % de réussite pour chaque application pendant 7 jours.",
+      modeOptions: {
+        Off: "Désactivé",
+        Monitor: "Surveillance (journal seulement)",
+        Enforce: "Application",
+      },
+      failMode: "Quand la vérification ne peut pas s'exécuter",
+      failModeHint: "Ce que fait l'application tant que le serveur ne peut pas vérifier un jeton auprès de Cloudflare ou qu'une clé manque. Par surface : le début d'inscription est refusé, et la connexion, la demande de code (qui peut aussi commencer un nouveau compte par code) et la réinitialisation passent quelques fois par adresse (la tolérance sous Limitation de débit). Fermé : les quatre sont refusées, administrateurs compris. Un navigateur qui n'obtient aucun jeton, parce que le widget de Cloudflare est bloqué ou en panne ou que la clé de site est fausse, est refusé dans les deux cas.",
+      failModeOptions: {
+        PerSurface: "Par surface (recommandé)",
+        Closed: "Fermé (tout refuser)",
+      },
+      siteKey: "Clé de site (sitekey)",
+      siteKeyHint: "La clé publique du widget Turnstile propre à ce déploiement, depuis le tableau de bord Cloudflare. En production, une clé de test de Cloudflare est refusée, ainsi qu'une clé vide tant que le secret est défini : pour couper la vérification, mettez le mode sur Désactivé.",
+      siteverifyTimeoutMs: "Délai de vérification (ms)",
+      siteverifyTimeoutMsHint: "La durée maximale d'une vérification chez Cloudflare, seconde tentative comprise. Au-delà, la vérification est considérée comme indisponible et le réglage ci-dessus décide.",
+      turnstileSecret: "Secret Turnstile",
     },
     externalAuth: {
       requireNonce: "Exiger un nonce émis par le serveur",

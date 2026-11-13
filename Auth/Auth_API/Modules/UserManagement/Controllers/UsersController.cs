@@ -23,6 +23,7 @@ using Auth.Application.Features.Users.LockAccount;
 using Auth.Application.Features.Users.RemoveProfileImage;
 using Auth.Application.Features.Users.RemoveUserRole;
 using Auth.Application.Features.Users.ResetUserTwoFactor;
+using Auth.Application.Features.Users.SendUserPasswordReset;
 using Auth.Application.Features.Users.RevokeUserPermission;
 using Auth.Application.Features.Users.SetProfileImage;
 using Auth.Application.Features.Users.UiPreferences;
@@ -521,6 +522,34 @@ public class UsersController : ApiController
 
         return result.Match<IActionResult>(
             _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Sends a password reset link to the account's own address (S13): the console's "send reset
+    /// link". The link goes to the account's address only; the caller never sees it.
+    /// </summary>
+    /// <remarks>
+    /// Signed in, so no bot check: the anonymous forgot-password request carries one, and this
+    /// button used to call it. One live link per account, as there: while one is live nothing is
+    /// reissued and the answer is the same. An issued link is audited
+    /// (<c>password.reset_link_issued</c>), the account as subject and the caller as performer.
+    /// Rate-limited by the <c>login</c> policy, like the anonymous request.
+    /// </remarks>
+    [HttpPost("{id:guid}/password-reset")]
+    [RequirePermission(PermissionCodes.Users.Manage)]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(PasswordResetLinkResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> SendPasswordReset(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new SendUserPasswordResetCommand(id, GetCurrentUserId()), cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
             errors => Problem(errors));
     }
 

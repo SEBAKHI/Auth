@@ -5,8 +5,9 @@ namespace Auth.Application.Interfaces;
 /// <summary>
 /// One area of the deployment's security posture (a control's configuration, and whether a
 /// dependency it needs answers). The posture check collects every registered contributor, runs
-/// each at startup and after every configuration reload, and writes its lines when its state
-/// differs from the last one written.
+/// each at startup and after every configuration reload (and, for one that asks, at its own
+/// period: <see cref="ReevaluateEvery"/>), and writes its lines when its state differs from the
+/// last one written.
 /// </summary>
 /// <remarks>
 /// <para>The contract every contributor keeps:</para>
@@ -28,4 +29,11 @@ public interface ISecurityPostureContributor
     /// <summary>Evaluates the area against the configuration in force now.</summary>
     /// <param name="cancellationToken">The host's stopping token.</param>
     Task<SecurityPosture> EvaluateAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// How often to evaluate this contributor again when no reload came; null (the default) for
+    /// startup and reloads only. For a posture that follows what the traffic does, not only the
+    /// configuration: the bot check's spike alarms (S13, REVIEW 167 F1). S16 generalises this.
+    /// </summary>
+    TimeSpan? ReevaluateEvery => null;
 }

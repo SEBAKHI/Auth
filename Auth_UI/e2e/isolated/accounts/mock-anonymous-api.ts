@@ -64,6 +64,8 @@ export async function installAnonymousApi(
     seen?: SeenRequest[]
     /** Merged into what /platform/branding answers (OI-280: `passkeySignInOffered`). */
     branding?: Record<string, unknown>
+    /** What /platform/bot-defense answers (default: Off, no sitekey, as shipped; S13). */
+    botDefense?: { mode: "Off" | "Monitor" | "Enforce"; siteKey: string | null }
   }
 ) {
   await page.route("**/api/v1/**", async (route) => {
@@ -76,7 +78,7 @@ export async function installAnonymousApi(
       options?.seen?.push({ method: request.method(), path, body })
     }
 
-    if (await answerAnonymousDefaults(route, path, options?.branding)) return
+    if (await answerAnonymousDefaults(route, path, options?.branding, options?.botDefense)) return
     if (await handle(route, url, body)) return
 
     await fulfillJson(route, { title: "Unexpected isolated API request" }, 404)
@@ -89,9 +91,19 @@ export async function installAnonymousApi(
  * real API host. `path` is the lower-cased pathname. Returns false when the
  * request is not one of the defaults.
  */
-export async function answerAnonymousDefaults(route: Route, path: string, branding?: Record<string, unknown>) {
+export async function answerAnonymousDefaults(
+  route: Route,
+  path: string,
+  branding?: Record<string, unknown>,
+  botDefense?: { mode: "Off" | "Monitor" | "Enforce"; siteKey: string | null }
+) {
   if (path === "/api/v1/platform/branding") {
     await fulfillJson(route, { platformName: "AuthSystem", staySignedInOffered: true, ...branding })
+    return true
+  }
+  // S13: by default the bot check is off, so no page loads Cloudflare's script (as shipped).
+  if (path === "/api/v1/platform/bot-defense") {
+    await fulfillJson(route, botDefense ?? { mode: "Off", siteKey: null })
     return true
   }
   if (path === "/api/v1/platform/password-policy") {

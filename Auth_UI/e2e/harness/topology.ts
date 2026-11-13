@@ -34,6 +34,13 @@ export const HOSTS = {
    * the code flow runs end to end with nothing reaching the real Google.
    */
   google: "accounts.google.com",
+  /**
+   * A stand-in for Cloudflare Turnstile (S13): the bot check loads
+   * https://challenges.cloudflare.com/turnstile/v0/api.js and frames a page from the same
+   * host, which a test serves (AttackerPages) so the widget runs under the production
+   * policies with nothing reaching the real Cloudflare.
+   */
+  cloudflare: "challenges.cloudflare.com",
 } as const
 
 export type HostName = (typeof HOSTS)[keyof typeof HOSTS]
@@ -46,6 +53,7 @@ export const ORIGINS = {
   linkedApp: `https://${HOSTS.linkedApp}`,
   attacker: `https://${HOSTS.attacker}`,
   google: `https://${HOSTS.google}`,
+  cloudflare: `https://${HOSTS.cloudflare}`,
 } as const
 
 export const TOPOLOGY_HOSTS: readonly string[] = Object.values(HOSTS)

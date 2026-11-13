@@ -25,6 +25,11 @@ const mocks = vi.hoisted(() => ({
   },
 }))
 
+// S13: the bot check is turnstile-widget.test.tsx's own. Here it is the shipped
+// default, Off: no field, and every request goes out without a token.
+vi.mock("@authsystem/auth/bot-defense/bot-check", () => ({
+  useBotCheck: () => ({ field: null, prepare: async () => ({ proceed: true }), spent: () => {} }),
+}))
 vi.mock("@authsystem/ui/branding", () => ({
   useBranding: () => ({ name: "AuthSystem", logoUrl: null, isPending: false, ...mocks.branding }),
 }))
@@ -246,7 +251,7 @@ describe("LoginPage: the code and the password", () => {
     await user.click(screen.getByRole("button", { name: "auth.signIn" }))
 
     await waitFor(() => expect(mocks.complete).toHaveBeenCalled())
-    expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", false)
+    expect(mocks.login).toHaveBeenCalledWith("jane@one.example", "pw", false, undefined)
     expect(window.localStorage.getItem(LAST_SIGN_IN_METHOD_KEY)).toBe("password")
   })
 
