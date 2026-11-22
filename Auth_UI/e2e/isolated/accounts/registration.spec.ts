@@ -421,10 +421,9 @@ test("the sign-up screens render right-to-left in Arabic with their own copy", a
   await expect(
     page.getByRole("button", { name: "إظهار كلمة المرور" })
   ).toBeVisible()
-  // The address itself stays left-to-right inside the right-to-left form.
-  await expect(page.getByRole("textbox", { name: "البريد الإلكتروني" })).toHaveAttribute(
-    "dir",
-    "ltr"
+  // The address is the chip back to the code screen, described in Arabic.
+  await expect(page.getByRole("button", { name: "jane@one.example" })).toHaveAccessibleDescription(
+    "تغيير البريد الإلكتروني"
   )
 })
 

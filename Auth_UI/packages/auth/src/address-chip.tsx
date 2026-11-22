@@ -50,7 +50,12 @@ export function AddressChip({
         data-testid="address-chip"
       >
         <CircleUserRound data-icon="inline-start" />
-        <span className="min-w-0 truncate">{email}</span>
+        {/* `auto`, not a forced direction: the address's own first letter
+            decides, so on a right-to-left page a long Latin address keeps its
+            start (the person's name) and loses its end, not the reverse. */}
+        <span dir="auto" className="min-w-0 truncate">
+          {email}
+        </span>
         <ChevronDown data-icon="inline-end" />
       </Button>
       <span id={descriptionId} className="sr-only">
