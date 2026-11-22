@@ -70,14 +70,14 @@ export function AccountPicker({
         {accounts.map((account, index) => {
           const title = account.name ?? account.email
           return (
-            // One bordered row holds the account and its menu button, so the
-            // "⋯" reads as this account's; each keeps its own highlight, since
-            // the account's says "press to pick it", which the "⋯" is not
-            // (owner, 2026-11-22: tried in place of Microsoft's one highlight).
+            // One row holds the account and its menu button, with no border
+            // (owner, 2026-11-22: a border on every account was rejected; the
+            // "⋯" stays always shown, as Microsoft's does, and a phone has no
+            // hover to show it by). Each keeps its own highlight, since the
+            // account's says "press to pick it", which the "⋯" is not.
             <Item
               key={account.id}
               asChild
-              variant="outline"
               size="xs"
               className="flex-nowrap items-stretch gap-1 p-1"
             >
@@ -169,8 +169,8 @@ export function AccountPicker({
           )
         })}
       </ul>
-      {/* Not an account, so no border; set in the same row box, so its circle
-          lines up with the accounts' circles. */}
+      {/* In the same row box as the accounts, so its circle lines up with
+          theirs. */}
       <Item size="xs" className="flex-nowrap gap-1 p-1">
         <Button
           type="button"
