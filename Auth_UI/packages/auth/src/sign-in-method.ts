@@ -8,9 +8,15 @@ import type { SignInMethod, SignInOptions } from "@authsystem/ui/branding"
  * written only once a sign-in ended in a session: "code" when the emailed code
  * was the first proof, "password" when a password was typed. It decides which
  * method the page puts first, and nothing else: the other method stays a visible
- * link, and a word the current options do not offer is ignored. Never the
- * address, nor anything about the account: the next person at this browser
- * learns only how the last sign-in here was made.
+ * link, and a word the current options do not offer is ignored. The word holds
+ * nothing about the account.
+ *
+ * D-215-4 ALSO SAID the page never keeps the address, so that the next person at
+ * a shared browser learned nothing about the last account. The owner REVERSED
+ * that half on 2026-11-22, under the private-device default (2026-10-19): the
+ * page now lists the accounts this browser signed in with, as Microsoft's
+ * "Pick an account" does (remembered-accounts.ts). Its price is that shared
+ * browser, where the next person sees who signed in; each entry can be removed.
  *
  * THE FULL-PROOF REASON. The "sign in again" dialog signs out before a security
  * change; the route guard then brings the person to the sign-in page. A sign-in

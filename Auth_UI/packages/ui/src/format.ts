@@ -208,9 +208,5 @@ export function fullName(
   return name || fallback
 }
 
-/** Initials for an avatar fallback. */
-export function initials(value: string | null | undefined): string {
-  if (!value) return "?"
-  const parts = value.trim().split(/\s+/).slice(0, 2)
-  return parts.map((p) => p.charAt(0).toUpperCase()).join("") || "?"
-}
+/** Initials for an avatar fallback, from their own module (initials.ts). */
+export { initials } from "./initials"

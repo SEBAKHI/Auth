@@ -647,6 +647,14 @@ export const en = {
     sendingCode: "Sending code…",
     requestNewCode: "Send a new code",
     useDifferentEmail: "Use a different email address",
+    // The sign-in page's list of accounts this browser signed in with.
+    accounts: {
+      pickTitle: "Pick an account",
+      listLabel: "Accounts used on this browser",
+      moreOptions: "More options for {{account}}",
+      remove: "Remove from this list",
+      showList: "Pick a saved account",
+    },
     theApplication: "the application",
     createOrganizationTitle: "Create your organization",
     createOrganizationSubtitle:

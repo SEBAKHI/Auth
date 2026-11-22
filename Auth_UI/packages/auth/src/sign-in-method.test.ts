@@ -16,7 +16,8 @@ import {
 
 /**
  * D-215-4: the sign-in page remembers, on this browser, the method that last
- * ended in a session — one word, never the address — and the "sign in again"
+ * ended in a session — one word, nothing about the account; the accounts are
+ * remembered-accounts.ts's since 2026-11-22 — and the "sign in again"
  * dialog's add-only reason rides through the sign-out in this tab only.
  */
 

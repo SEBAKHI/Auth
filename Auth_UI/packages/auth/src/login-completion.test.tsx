@@ -26,6 +26,7 @@ import {
   setPendingReturnTo,
 } from "./pending-challenge"
 import { setAccessToken } from "@authsystem/api/token-store"
+import { readRememberedAccounts } from "./remembered-accounts"
 import { requestKey, SIGN_IN_MARKER_KEY } from "./sign-in-marker"
 
 const AUTHORIZE =
@@ -775,5 +776,74 @@ describe("a console sign-in after Cloudflare's script (S13, OD3)", () => {
 
     expect(replace).not.toHaveBeenCalled()
     expect(screen.getByTestId("landing")).toHaveTextContent("/|")
+  })
+})
+
+describe("the sign-in page's account list (owner, 2026-11-22, reversing D-215-4)", () => {
+  const SIGNED_IN = {
+    sub: "user-1",
+    email: "ada@example.com",
+    name: "Ada Lovelace",
+  }
+
+  beforeEach(() => {
+    window.localStorage.clear()
+    setAccessToken(tokenWith(SIGNED_IN))
+  })
+  afterEach(() => setAccessToken(null))
+
+  function kept(): string[] {
+    return readRememberedAccounts().map((account) => account.email)
+  }
+
+  it.each([
+    ["a password", { proof: "password" as const }],
+    ["a code", { proof: "code" as const }],
+    ["a passkey", { signedInWithPasskey: true }],
+  ])(
+    "keeps the account of a sign-in by %s, before a resume leaves the page",
+    async (_, options) => {
+      const { act } = renderCompletion(loginEntry(AUTHORIZE), (completion) =>
+        completion.complete({}, options)
+      )
+
+      await act()
+
+      expect(assign).toHaveBeenCalledWith(AUTHORIZE)
+      expect(readRememberedAccounts()).toEqual([
+        { id: "user-1", email: "ada@example.com", name: "Ada Lovelace" },
+      ])
+    }
+  )
+
+  it("keeps nothing for a Google or Apple sign-in, nor where the screen said nothing", async () => {
+    const { act } = renderCompletion(loginEntry(), (completion) => {
+      completion.complete({}, { proof: "external" })
+      completion.complete({})
+    })
+
+    await act()
+
+    expect(kept()).toEqual([])
+  })
+
+  it("keeps nothing for a completion that ends no sign-in", async () => {
+    const { act } = renderCompletion(loginEntry(AUTHORIZE), (completion) =>
+      completion.complete({}, { proof: "password", endsSignIn: false })
+    )
+
+    await act()
+
+    expect(kept()).toEqual([])
+  })
+
+  it("keeps nothing for a sign-in that stopped at its second step", async () => {
+    const { act } = renderCompletion(loginEntry(), (completion) =>
+      completion.challenge("challenge-1", ["totp"])
+    )
+
+    await act()
+
+    expect(kept()).toEqual([])
   })
 })

@@ -636,6 +636,13 @@ export const ar: TranslationResources = {
     sendingCode: "جارٍ إرسال الرمز…",
     requestNewCode: "إرسال رمز جديد",
     useDifferentEmail: "استخدام بريد إلكتروني آخر",
+    accounts: {
+      pickTitle: "اختر حسابًا",
+      listLabel: "الحسابات المستخدمة على هذا المتصفح",
+      moreOptions: "خيارات أخرى للحساب {{account}}",
+      remove: "إزالة من هذه القائمة",
+      showList: "اختيار حساب محفوظ",
+    },
     theApplication: "التطبيق",
     createOrganizationTitle: "أنشئ منظمتك",
     createOrganizationSubtitle:

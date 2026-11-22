@@ -20,6 +20,7 @@ import {
   setPendingReturnTo,
   type TwoFactorMethod,
 } from "./pending-challenge"
+import { rememberSignedInAccount } from "./remembered-accounts"
 import { TWO_FACTOR_REQUIRED_PATH } from "./require-mfa-satisfied"
 import { getValidReturnTo, validateReturnToUrl } from "./return-to"
 import {
@@ -222,6 +223,22 @@ export function useLoginCompletion(
       options?: CompletionOptions
     ) => {
       const destination = options?.from ?? from
+
+      // The sign-in page's account list (owner, 2026-11-22, reversing D-215-4):
+      // a sign-in whose first step was the address keeps its account there, as
+      // the token just stored names it, before anything below leaves the page.
+      // A password or a code, said by the screen that ended it (the second
+      // step's screen passes on the sign-in page's word), or a passkey. Not a
+      // Google or Apple sign-in, whose button stays the way in (Q1 (a)), and not
+      // a completion that ends no sign-in.
+      if (
+        options?.endsSignIn !== false &&
+        (options?.proof === "password" ||
+          options?.proof === "code" ||
+          options?.signedInWithPasskey === true)
+      ) {
+        rememberSignedInAccount()
+      }
 
       // The offer to add a passkey (OI-280 PR B: D-S20-12, Q1 (a)), after any
       // sign-in, whatever its destination, once nothing below claims it first
