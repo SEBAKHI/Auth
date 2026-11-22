@@ -1,4 +1,4 @@
-import { ChevronDown, CircleUserRound } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import * as React from "react"
 
 import { Button } from "@authsystem/ui/button"
@@ -10,6 +10,10 @@ import { Button } from "@authsystem/ui/button"
  * It replaced a read-only email field, which looked typeable and was not: a
  * person who wanted another account typed into it, saw nothing happen and took
  * the page for broken. The way back is now the address itself.
+ *
+ * Its one icon is a back arrow before the address, as Microsoft's sign-in
+ * shows it, because pressing it goes back a step. A down chevron (Google's)
+ * promised a menu that never opened; a pencil would promise editing in place.
  *
  * Password managers still pair the address with the password: the hidden
  * `username` input beside the button carries it, inside the same form, as
@@ -49,14 +53,15 @@ export function AddressChip({
         onClick={onChange}
         data-testid="address-chip"
       >
-        <CircleUserRound data-icon="inline-start" />
+        {/* Back points toward where reading starts: left in a left-to-right
+            language, right in a right-to-left one. */}
+        <ArrowLeft data-icon="inline-start" className="rtl:rotate-180" />
         {/* `auto`, not a forced direction: the address's own first letter
             decides, so on a right-to-left page a long Latin address keeps its
             start (the person's name) and loses its end, not the reverse. */}
         <span dir="auto" className="min-w-0 truncate">
           {email}
         </span>
-        <ChevronDown data-icon="inline-end" />
       </Button>
       <span id={descriptionId} className="sr-only">
         {label}
