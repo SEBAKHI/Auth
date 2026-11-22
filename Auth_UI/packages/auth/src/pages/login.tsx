@@ -1052,26 +1052,14 @@ export function LoginPage({
             {passwordToFinish ? null : staySignedInField}
             {botCheck.field}
             {/* The list's rows are its "Continue": no button under them. On
-                the address field opened from the list, "Back" sits beside
-                "Continue", as Microsoft's sign-in has it, and returns there. */}
+                the address field opened from the list, "Back" sits under
+                "Continue" (owner, 2026-11-22) and returns there. */}
             {accountsView ? null : (
-              <div className="flex gap-2">
-              {backToAccounts ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  data-testid="back-to-accounts"
-                  onClick={() => navigate(-1)}
-                >
-                  {t("common.back")}
-                </Button>
-              ) : null}
               <Button
                 type="submit"
                 // The password step has no passkey above it: its button is the page's.
                 variant={passkeyLeads && !passwordStep ? "secondary" : "default"}
-                className="flex-1"
+                className="w-full"
                 disabled={form.formState.isSubmitting}
               >
                 {form.formState.isSubmitting ? (
@@ -1095,8 +1083,18 @@ export function LoginPage({
                   t("auth.continueWithEmail")
                 )}
               </Button>
-              </div>
             )}
+            {backToAccounts ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                data-testid="back-to-accounts"
+                onClick={() => navigate(-1)}
+              >
+                {t("common.back")}
+              </Button>
+            ) : null}
             {/* The other method, always a visible link (D-215-2). From the
                 password step it sends the code for the address on that step,
                 as the passkey screen's list does: the address is not asked
