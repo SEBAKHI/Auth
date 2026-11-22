@@ -245,7 +245,9 @@ describe("LoginPage: the code and the password", () => {
     await user.click(await screen.findByRole("button", { name: "code flow" }))
 
     expect(screen.getByRole("heading")).toHaveTextContent("auth.passwordToFinishTitle")
-    expect(screen.getByLabelText("auth.email")).toHaveAttribute("readonly")
+    // The address the code proved, as the chip back to it; no field to type in.
+    expect(screen.queryByRole("textbox", { name: "auth.email" })).toBeNull()
+    expect(screen.getByTestId("address-chip")).toHaveAccessibleName("jane@one.example")
     expect(codeLink()).toBeNull()
     await user.type(passwordField()!, "pw")
     await user.click(screen.getByRole("button", { name: "auth.signIn" }))

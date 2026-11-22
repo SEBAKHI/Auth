@@ -259,14 +259,18 @@ async function signUpWalk(page: Page, shape: (typeof SHAPES)[number]) {
     { pendingId: "handle-1", otp: "123456" },
   ])
 
-  // The address comes back real and read-only, in the field a password
-  // manager pairs the new password with; there is no confirm field.
-  const email = page.getByLabel("Email")
-  await expect(email).toHaveValue("jane@one.example")
-  await expect(email).toHaveAttribute("readonly", "")
-  await expect(email).toHaveAttribute("autocomplete", "username")
+  // The address comes back as the chip that goes back to change it, never a
+  // field that looks typeable; the hidden username field beside it is the one
+  // a password manager pairs the new password with. There is no confirm field.
+  await expect(page.getByRole("textbox", { name: "Email" })).toHaveCount(0)
+  const chip = page.getByRole("button", { name: "jane@one.example" })
+  await expect(chip).toBeVisible()
+  await expect(chip).toHaveAccessibleDescription("Change email")
+  const username = page.getByTestId("address-chip-username")
+  await expect(username).toHaveValue("jane@one.example")
+  await expect(username).toHaveAttribute("readonly", "")
+  await expect(username).toHaveAttribute("autocomplete", "username")
   await expect(page.getByLabel(/confirm/i)).toHaveCount(0)
-  await expect(page.getByRole("button", { name: "Change email" })).toBeVisible()
 
   // A reload here forgets the code - it lives in memory only - and returns to
   // the code screen, where the identity is still known.

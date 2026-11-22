@@ -591,7 +591,7 @@ describe("the first screen while passkeys may run (OI-280, D-S20-11)", () => {
     expect(posted()).toEqual([LOOKUP_PATH])
   })
 
-  it("password mode, `none`: the password step, with the address read-only and the way back", async () => {
+  it("password mode, `none`: the password step, with the address as the chip back to it and the hidden username field", async () => {
     serverWithLookup()
     mocks.login.mockResolvedValue(SIGNED_IN)
     mocks.branding.signInOptions = PASSKEYS_PASSWORD_ONLY
@@ -600,15 +600,25 @@ describe("the first screen while passkeys may run (OI-280, D-S20-11)", () => {
 
     await continueWith("someone@example.com")
 
-    const password = await screen.findByLabelText("auth.password")
-    const address = screen.getByLabelText("auth.email")
-    expect(address).toHaveAttribute("readonly")
-    expect(address).toHaveValue("someone@example.com")
-    // Password managers pair the two (T-A5).
-    expect(address.getAttribute("autocomplete")).toMatch(/^username/)
+    const password = await screen.findByLabelText<HTMLInputElement>("auth.password")
+    // The address is no field that looks typeable and is not: a person who
+    // wanted another account typed into the read-only field and saw nothing.
+    expect(screen.queryByRole("textbox", { name: "auth.email" })).toBeNull()
+    // It is the chip that goes back to it, named by the address it shows.
     expect(
-      screen.getByRole("button", { name: "auth.useDifferentEmail" })
+      screen.getByRole("button", {
+        name: "someone@example.com",
+        description: "auth.useDifferentEmail",
+      })
     ).toBeInTheDocument()
+    // Password managers still pair the two (T-A5): the hidden username field
+    // carries the address, read-only, in the password's own form.
+    const username = screen.getByTestId<HTMLInputElement>("address-chip-username")
+    expect(username).toHaveValue("someone@example.com")
+    expect(username).toHaveAttribute("autocomplete", "username")
+    expect(username).toHaveAttribute("readonly")
+    expect(username.form).not.toBeNull()
+    expect(username.form).toBe(password.form)
     expect(password).toHaveFocus()
 
     await userEvent.setup().type(password, "pw")
@@ -705,7 +715,7 @@ describe("the first screen while passkeys may run (OI-280, D-S20-11)", () => {
     // Back at the address: the page as before, one screen, and no second question.
     await userEvent
       .setup()
-      .click(screen.getByRole("button", { name: "auth.useDifferentEmail" }))
+      .click(screen.getByRole("button", { description: "auth.useDifferentEmail" }))
     expect(await screen.findByLabelText("auth.password")).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "auth.signIn" })
@@ -715,19 +725,19 @@ describe("the first screen while passkeys may run (OI-280, D-S20-11)", () => {
 })
 
 describe("the passkey screen (OI-280, T-A7)", () => {
-  it("shows the address read-only, the passkey button focused, and one link; nothing is sent before the person chooses", async () => {
+  it("shows the address as the chip back to it, the passkey button focused, and one link; nothing is sent before the person chooses", async () => {
     serverWithLookup()
     mocks.branding.signInOptions = PASSKEYS_CODE_OFFERED_PASSWORD_FIRST
     renderPage()
 
     const button = await onPasskeyScreen()
 
-    const address = screen.getByLabelText("auth.email")
-    expect(address).toHaveAttribute("readonly")
-    expect(address).toHaveValue("holder@example.com")
-    expect(address).toHaveAttribute("dir", "ltr")
+    expect(screen.queryByRole("textbox", { name: "auth.email" })).toBeNull()
     expect(
-      screen.getByRole("button", { name: "auth.useDifferentEmail" })
+      screen.getByRole("button", {
+        name: "holder@example.com",
+        description: "auth.useDifferentEmail",
+      })
     ).toBeInTheDocument()
     expect(button).toHaveAttribute("data-variant", "default")
     await waitFor(() => expect(button).toHaveFocus())
@@ -756,7 +766,7 @@ describe("the passkey screen (OI-280, T-A7)", () => {
     // A passkey sign-in needs the same cookie.
     const note = screen.getByTestId("cookies-blocked-note")
     expect(note).toHaveTextContent("auth.cookiesBlockedNote")
-    expect(precedes(note, screen.getByLabelText("auth.email"))).toBe(true)
+    expect(precedes(note, screen.getByTestId("address-chip"))).toBe(true)
     // T-B14: while the note shows, the window does not open by itself; the person reads first.
     expect(mocks.startAuthentication).not.toHaveBeenCalled()
   })
@@ -840,7 +850,7 @@ describe("the passkey screen (OI-280, T-A7)", () => {
 
     await userEvent
       .setup()
-      .click(screen.getByRole("button", { name: "auth.useDifferentEmail" }))
+      .click(screen.getByRole("button", { description: "auth.useDifferentEmail" }))
 
     const address = await screen.findByLabelText("auth.email")
     expect(address).not.toHaveAttribute("readonly")
@@ -990,7 +1000,7 @@ describe("the passkey screen opens the browser's window by itself (T-B14)", () =
     await waitFor(() => expect(opened()).toHaveLength(1))
 
     // The window the screen opened is still up, carrying the ticked box, when the person leaves.
-    await user.click(screen.getByRole("button", { name: "auth.useDifferentEmail" }))
+    await user.click(screen.getByRole("button", { description: "auth.useDifferentEmail" }))
     await act(async () => {
       opened()[0].fail(notAllowed())
     })
@@ -1080,7 +1090,7 @@ describe("the passkey screen opens the browser's window by itself (T-B14)", () =
     await continueWith("holder@example.com")
     await waitFor(() => expect(mocks.startAuthentication).toHaveBeenCalledTimes(1))
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "auth.useDifferentEmail" }))
+    await userEvent.setup().click(screen.getByRole("button", { description: "auth.useDifferentEmail" }))
     await userEvent.setup().clear(await screen.findByLabelText("auth.email"))
     await continueWith("holder.two@example.com")
 
@@ -1202,7 +1212,7 @@ describe("Try another way (OI-280, T-A8, D-S20-16)", () => {
       )
 
     const password = await screen.findByLabelText("auth.password")
-    expect(screen.getByLabelText("auth.email")).toHaveValue(
+    expect(screen.getByTestId("address-chip-username")).toHaveValue(
       "holder@example.com"
     )
     await userEvent.setup().type(password, "pw")
