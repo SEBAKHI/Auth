@@ -49,6 +49,7 @@ import { withRetryAfter } from "./passkey/passkey-errors"
 import type { AuthenticationResponseJSON } from "./passkey/webauthn"
 import { permissionMatches } from "./permission-matching"
 import { markRecoveryCodeSignIn } from "./recovery-code-notice"
+import { accountName, refreshRememberedAccount } from "./remembered-accounts"
 import { challengeEnded } from "./sign-in-method"
 import { clearSignInMarker } from "./sign-in-marker"
 
@@ -279,6 +280,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Binds stored table layouts to this account and pulls the server copy.
       // Without it, two accounts on one browser share one set of layouts.
       setDataTableScope(profile?.id ?? null)
+      // The sign-in page's list shows the account as it is today: an address or
+      // a name changed in Profile is put right there. Never added from here.
+      if (profile) {
+        refreshRememberedAccount({
+          id: profile.id,
+          email: profile.email,
+          name: accountName(profile.firstName, profile.lastName),
+        })
+      }
 
       if (languageAdoptedRef.current) return
       languageAdoptedRef.current = true

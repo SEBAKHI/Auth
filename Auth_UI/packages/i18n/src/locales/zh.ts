@@ -631,6 +631,12 @@ export const zh: TranslationResources = {
     sendingCode: "正在发送验证码…",
     requestNewCode: "发送新验证码",
     useDifferentEmail: "使用其他电子邮件地址",
+    accounts: {
+      pickTitle: "选择账户",
+      listLabel: "在此浏览器上使用过的账户",
+      moreOptions: "{{account}} 的更多选项",
+      remove: "从此列表中移除",
+    },
     theApplication: "该应用",
     createOrganizationTitle: "创建您的组织",
     createOrganizationSubtitle: "{{app}} 以组织为单位工作。请输入您使用它的公司或机构名称。",

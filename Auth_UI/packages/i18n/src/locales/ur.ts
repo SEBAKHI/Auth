@@ -638,6 +638,12 @@ export const ur: TranslationResources = {
     sendingCode: "کوڈ بھیجا جا رہا ہے…",
     requestNewCode: "نیا کوڈ بھیجیں",
     useDifferentEmail: "کوئی اور ای میل پتہ استعمال کریں",
+    accounts: {
+      pickTitle: "اکاؤنٹ منتخب کریں",
+      listLabel: "اس براؤزر پر استعمال ہونے والے اکاؤنٹس",
+      moreOptions: "{{account}} کے لیے مزید اختیارات",
+      remove: "اس فہرست سے ہٹائیں",
+    },
     theApplication: "ایپلیکیشن",
     createOrganizationTitle: "اپنی تنظیم بنائیں",
     createOrganizationSubtitle:

@@ -19,7 +19,8 @@ export function isPasskeyOfferPath(path: string): boolean {
 }
 /**
  * «Don't ask on this device» (D-B7): one flag for the whole browser, holding neither an address
- * nor an account id (D-215-4). On a browser two people share, one person's choice stops the offer
+ * nor an account id (as D-215-4 asked when it was written; the sign-in page's account list, since
+ * 2026-11-22, is a list of its own). On a browser two people share, one person's choice stops the offer
  * for both (the private-device default). «Not now» stores nothing (Q2 (a)).
  */
 export const PASSKEY_OFFER_OFF_KEY = "auth.passkeyOffer.off"

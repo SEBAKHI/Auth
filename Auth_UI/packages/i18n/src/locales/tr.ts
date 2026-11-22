@@ -641,6 +641,12 @@ export const tr: TranslationResources = {
     sendingCode: "Kod gönderiliyor…",
     requestNewCode: "Yeni kod gönder",
     useDifferentEmail: "Farklı bir e-posta adresi kullan",
+    accounts: {
+      pickTitle: "Bir hesap seçin",
+      listLabel: "Bu tarayıcıda kullanılan hesaplar",
+      moreOptions: "{{account}} için diğer seçenekler",
+      remove: "Bu listeden kaldır",
+    },
     theApplication: "uygulama",
     createOrganizationTitle: "Organizasyonunuzu oluşturun",
     createOrganizationSubtitle:

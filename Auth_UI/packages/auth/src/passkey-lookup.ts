@@ -13,7 +13,9 @@ import { api } from "@authsystem/api/client"
  * - `unknown` — anything else (network, 5xx, 429, 400, or no answer within
  *   {@link PASSKEY_LOOKUP_TIMEOUT_MS}): the next step as before, silently.
  *
- * Nothing about the answer is kept anywhere (D-215-4): the page acts on it once.
+ * Nothing about the answer is kept anywhere: the page acts on it once. (The
+ * account list the page keeps since D-215-4's reversal, 2026-11-22, holds an
+ * address only after a sign-in, never this answer.)
  */
 export type PasskeyLookup = "passkey" | "none" | "off" | "unknown"
 

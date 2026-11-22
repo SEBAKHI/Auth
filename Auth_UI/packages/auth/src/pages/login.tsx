@@ -34,6 +34,7 @@ import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { useBranding, type SignInMethod } from "@authsystem/ui/branding"
 
 import { useBotCheck, type BotAction } from "../bot-defense/bot-check"
+import { AccountPicker } from "../account-picker"
 import { AddressChip } from "../address-chip"
 import { startEmailCode, type PendingEmailCode } from "../email-code"
 import { isAbsoluteUrl } from "../external/recovery-navigation"
@@ -46,6 +47,11 @@ import { PasskeyRequiredProvider, passkeyRequiredNotice } from "../passkey/passk
 import { usePasskeySignIn, type PasskeyOutcome } from "../passkey/use-passkey-sign-in"
 import type { AuthenticationResponseJSON } from "../passkey/webauthn"
 import { lookUpPasskey, type PasskeyLookup } from "../passkey-lookup"
+import {
+  forgetAccount,
+  readRememberedAccounts,
+  type RememberedAccount,
+} from "../remembered-accounts"
 import { FullScreenLoader } from "../require-auth"
 import { toAccountsSearch } from "../return-to"
 import { canSkipSignIn } from "../sign-in-marker"
@@ -108,6 +114,12 @@ interface LocationState {
    * the password lands here with the password first, not with a second code.
    */
   method?: SignInMethod
+  /**
+   * "Use a different account" was pressed on the account list: this history
+   * entry is the address field, and the one before it the list, so the
+   * browser's Back and the page's own "Back" both return there.
+   */
+  addressField?: boolean
 }
 
 /**
@@ -215,6 +227,20 @@ export function LoginPage({
   const [fullProofAsked] = React.useState(isFullProofRequested)
   const fullProof = fullProofAsked || reason !== null
   const [step, setStep] = React.useState<Step>({ kind: "credentials" })
+  // The accounts this browser signed in with (owner, 2026-11-22, reversing
+  // D-215-4), read once as the page opens. With any, the first step lists them
+  // in place of the address field, unless another screen handed the address
+  // over. "Use a different account" opens the field as a step of the browser's
+  // history, as Microsoft's sign-in does: the browser's Back, and a "Back" beside
+  // "Continue", return to the list. The steps after the address come back to
+  // where they left.
+  const [accounts, setAccounts] = React.useState(readRememberedAccounts)
+  const addressFieldChosen = state?.addressField === true
+  const showAccounts = presetEmail === "" && !addressFieldChosen
+  // The pressed account, on its way to the next step: one at a time, decided in
+  // the press, as "Continue" is.
+  const pickingRef = React.useRef(false)
+  const [picking, setPicking] = React.useState<string | null>(null)
   // OI-280: the lookup answered that passkeys do not run here; it is not asked
   // again for the rest of this page's life, which is then the page as before.
   const [lookupOff, setLookupOff] = React.useState(false)
@@ -374,9 +400,16 @@ export function LoginPage({
   // Password mode while passkeys may run: the address first, the password next.
   const addressFirst =
     step.kind === "credentials" && passkeysMayRun && method === "password"
+  // The first step lists the remembered accounts instead of asking the address;
+  // the password, where it would share that step, waits for the account pressed.
+  const accountsView =
+    step.kind === "credentials" && showAccounts && accounts.length > 0
   const showPassword =
     step.kind === "password" ||
-    (step.kind === "credentials" && method === "password" && !passkeysMayRun)
+    (step.kind === "credentials" &&
+      method === "password" &&
+      !passkeysMayRun &&
+      !accountsView)
   const codeFirst = step.kind === "credentials" && method === "code"
   // A door answered that the account signs in with its passkey: passkeys run
   // here, so the button is asked for at once, and a failure is said.
@@ -615,6 +648,50 @@ export function LoginPage({
     }
   }
 
+  // A listed account pressed: its address, then what "Continue" does with it.
+  // While passkeys may run, the one question and its answer's step; otherwise
+  // the code, in code mode, or the password step with the address chip, which
+  // the address field's password mode joins on one screen. Latched in the
+  // press: one question, and at most one code, per press.
+  const pickAccount = async (account: RememberedAccount) => {
+    if (pickingRef.current) return
+    pickingRef.current = true
+    setPicking(account.id)
+    setPasskeyNotice(null)
+    form.clearErrors()
+    form.setValue("email", account.email)
+    const values = { ...getValues(), email: account.email }
+    try {
+      if (passkeysMayRun) await continueAfterAddress(values)
+      else if (method === "password") toPasswordStep(account.email)
+      else await sendCode(values)
+    } finally {
+      pickingRef.current = false
+      setPicking(null)
+    }
+  }
+
+  // Removed from this browser's list only: nothing is sent. The last one gone,
+  // the address field is the first step again, with nothing to go back to.
+  const removeAccount = (account: RememberedAccount) => {
+    setAccounts(forgetAccount(account.id))
+  }
+
+  // A step of the browser's history, on the same page and query string, its
+  // router state kept (the pending request, the origin to land on): the Back
+  // that follows lands on the list.
+  const toAddressField = () => {
+    form.clearErrors()
+    form.setValue("email", "")
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { state: { ...(state ?? {}), addressField: true } }
+    )
+  }
+  // Back to the list: the history entry before this one is the list itself.
+  const backToAccounts =
+    step.kind === "credentials" && addressFieldChosen && accounts.length > 0
+
   if (skipSignIn) return <FullScreenLoader />
 
   if (step.kind === "code") {
@@ -646,11 +723,18 @@ export function LoginPage({
     )
   }
 
-  // The address: typed on the first step; on the steps after it, the chip that
-  // goes back to it, beside the hidden `username` field that keeps it paired
-  // with the password for password managers (AddressChip).
-  const addressField =
-    step.kind === "credentials" ? (
+  // The address: picked from the list or typed on the first step; on the steps
+  // after it, the chip that goes back to it, beside the hidden `username` field
+  // that keeps it paired with the password for password managers (AddressChip).
+  const addressField = accountsView ? (
+    <AccountPicker
+      accounts={accounts}
+      picking={picking}
+      onPick={(account) => void pickAccount(account)}
+      onRemove={removeAccount}
+      onUseAnother={toAddressField}
+    />
+  ) : step.kind === "credentials" ? (
       <FormField
         control={form.control}
         name="email"
@@ -863,7 +947,9 @@ export function LoginPage({
       title={
         passwordToFinish
           ? t("auth.passwordToFinishTitle")
-          : codeFirst && options?.selfRegistrationOpen
+          : accountsView
+            ? t("auth.accounts.pickTitle")
+            : codeFirst && options?.selfRegistrationOpen
             ? t("auth.signInOrCreateTitle")
             : t("auth.signInTitle")
       }
@@ -965,39 +1051,56 @@ export function LoginPage({
             ) : null}
             {passwordToFinish ? null : staySignedInField}
             {botCheck.field}
-            <Button
-              type="submit"
-              // The password step has no passkey above it: its button is the page's.
-              variant={passkeyLeads && !passwordStep ? "secondary" : "default"}
-              className="w-full"
-              disabled={form.formState.isSubmitting}
-            >
-              {form.formState.isSubmitting ? (
-                <>
-                  <Spinner />
-                  {showPassword
-                    ? t("auth.signingIn")
-                    : addressFirst
-                      ? t("auth.continue")
-                      : lookingUp
-                        ? // Code mode while the question after the address is
-                          // on its way: no code yet (REVIEW 159 F1).
-                          t("auth.continueWithEmail")
-                        : t("auth.sendingCode")}
-                </>
-              ) : showPassword ? (
-                t("auth.signIn")
-              ) : addressFirst ? (
-                t("auth.continue")
-              ) : (
-                t("auth.continueWithEmail")
-              )}
-            </Button>
+            {/* The list's rows are its "Continue": no button under them. On
+                the address field opened from the list, "Back" sits under
+                "Continue" (owner, 2026-11-22) and returns there. */}
+            {accountsView ? null : (
+              <Button
+                type="submit"
+                // The password step has no passkey above it: its button is the page's.
+                variant={passkeyLeads && !passwordStep ? "secondary" : "default"}
+                className="w-full"
+                disabled={form.formState.isSubmitting}
+              >
+                {form.formState.isSubmitting ? (
+                  <>
+                    <Spinner />
+                    {showPassword
+                      ? t("auth.signingIn")
+                      : addressFirst
+                        ? t("auth.continue")
+                        : lookingUp
+                          ? // Code mode while the question after the address is
+                            // on its way: no code yet (REVIEW 159 F1).
+                            t("auth.continueWithEmail")
+                          : t("auth.sendingCode")}
+                  </>
+                ) : showPassword ? (
+                  t("auth.signIn")
+                ) : addressFirst ? (
+                  t("auth.continue")
+                ) : (
+                  t("auth.continueWithEmail")
+                )}
+              </Button>
+            )}
+            {backToAccounts ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                data-testid="back-to-accounts"
+                onClick={() => navigate(-1)}
+              >
+                {t("common.back")}
+              </Button>
+            ) : null}
             {/* The other method, always a visible link (D-215-2). From the
                 password step it sends the code for the address on that step,
                 as the passkey screen's list does: the address is not asked
-                about again. */}
-            {codeOffered && !passwordToFinish ? (
+                about again. Not under the account list, where it would change
+                nothing in sight: the step after a row offers the other method. */}
+            {codeOffered && !passwordToFinish && !accountsView ? (
               <Button
                 type="button"
                 variant="link"

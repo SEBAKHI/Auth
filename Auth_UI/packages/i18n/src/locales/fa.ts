@@ -637,6 +637,12 @@ export const fa: TranslationResources = {
     sendingCode: "در حال ارسال کد…",
     requestNewCode: "ارسال کد جدید",
     useDifferentEmail: "استفاده از نشانی ایمیل دیگر",
+    accounts: {
+      pickTitle: "یک حساب انتخاب کنید",
+      listLabel: "حساب‌های استفاده‌شده در این مرورگر",
+      moreOptions: "گزینه‌های بیشتر برای {{account}}",
+      remove: "حذف از این فهرست",
+    },
     theApplication: "برنامه",
     createOrganizationTitle: "سازمان خود را بسازید",
     createOrganizationSubtitle:

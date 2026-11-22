@@ -647,6 +647,12 @@ export const fr: TranslationResources = {
     sendingCode: "Envoi du code…",
     requestNewCode: "Envoyer un nouveau code",
     useDifferentEmail: "Utiliser une autre adresse e-mail",
+    accounts: {
+      pickTitle: "Choisissez un compte",
+      listLabel: "Comptes utilisés sur ce navigateur",
+      moreOptions: "Plus d’options pour {{account}}",
+      remove: "Retirer de cette liste",
+    },
     theApplication: "l'application",
     createOrganizationTitle: "Créez votre organisation",
     createOrganizationSubtitle:
