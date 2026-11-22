@@ -107,6 +107,30 @@ test("a sign-in keeps its account, and the next visit picks it instead of typing
   })
 })
 
+test("the browser's Back, and the page's, return from 'Use a different account' to the list, on the sign-in page", async ({
+  page,
+}) => {
+  await installApi(page, [])
+  await page.addInitScript(
+    ([key, value]) => window.localStorage.setItem(key, value),
+    [ACCOUNTS_KEY, JSON.stringify([SEEDED[0]])] as const
+  )
+  await page.goto("/login?returnTo=%2Fprofile")
+  const row = accountList(page).getByRole("button", { name: /^Ada Lovelace/ })
+
+  await page.getByRole("button", { name: "Use a different account" }).click()
+  await expect(page.getByRole("textbox", { name: "Email" })).toBeFocused()
+  // A same-document step, not a reload: Back returns without a load event.
+  await page.evaluate(() => history.back())
+  await expect(row).toBeFocused()
+  await expect(page).toHaveURL(/\/login\?returnTo=%2Fprofile$/)
+
+  await page.getByRole("button", { name: "Use a different account" }).click()
+  await page.getByRole("button", { name: "Back", exact: true }).click()
+  await expect(row).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Email" })).toHaveCount(0)
+})
+
 test("removing an account sends nothing, and the last one gone leaves the address field", async ({ page }) => {
   const seen: SeenRequest[] = []
   await installApi(page, seen)

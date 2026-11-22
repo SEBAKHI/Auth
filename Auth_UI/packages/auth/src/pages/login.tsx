@@ -114,6 +114,12 @@ interface LocationState {
    * the password lands here with the password first, not with a second code.
    */
   method?: SignInMethod
+  /**
+   * "Use a different account" was pressed on the account list: this history
+   * entry is the address field, and the one before it the list, so the
+   * browser's Back and the page's own "Back" both return there.
+   */
+  addressField?: boolean
 }
 
 /**
@@ -224,12 +230,13 @@ export function LoginPage({
   // The accounts this browser signed in with (owner, 2026-11-22, reversing
   // D-215-4), read once as the page opens. With any, the first step lists them
   // in place of the address field, unless another screen handed the address
-  // over. "Use a different account" shows the field, and a link under it brings
-  // the list back; the steps after the address come back to where they left.
+  // over. "Use a different account" opens the field as a step of the browser's
+  // history, as Microsoft's sign-in does: the browser's Back, and a "Back" beside
+  // "Continue", return to the list. The steps after the address come back to
+  // where they left.
   const [accounts, setAccounts] = React.useState(readRememberedAccounts)
-  const [showAccounts, setShowAccounts] = React.useState(
-    () => presetEmail === "" && accounts.length > 0
-  )
+  const addressFieldChosen = state?.addressField === true
+  const showAccounts = presetEmail === "" && !addressFieldChosen
   // The pressed account, on its way to the next step: one at a time, decided in
   // the press, as "Continue" is.
   const pickingRef = React.useRef(false)
@@ -665,18 +672,25 @@ export function LoginPage({
   }
 
   // Removed from this browser's list only: nothing is sent. The last one gone,
-  // the address field is the first step again.
+  // the address field is the first step again, with nothing to go back to.
   const removeAccount = (account: RememberedAccount) => {
-    const left = forgetAccount(account.id)
-    setAccounts(left)
-    if (left.length === 0) setShowAccounts(false)
+    setAccounts(forgetAccount(account.id))
   }
 
+  // A step of the browser's history, on the same page and query string, its
+  // router state kept (the pending request, the origin to land on): the Back
+  // that follows lands on the list.
   const toAddressField = () => {
     form.clearErrors()
     form.setValue("email", "")
-    setShowAccounts(false)
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { state: { ...(state ?? {}), addressField: true } }
+    )
   }
+  // Back to the list: the history entry before this one is the list itself.
+  const backToAccounts =
+    step.kind === "credentials" && addressFieldChosen && accounts.length > 0
 
   if (skipSignIn) return <FullScreenLoader />
 
@@ -1037,13 +1051,27 @@ export function LoginPage({
             ) : null}
             {passwordToFinish ? null : staySignedInField}
             {botCheck.field}
-            {/* The list's rows are its "Continue": no button under them. */}
+            {/* The list's rows are its "Continue": no button under them. On
+                the address field opened from the list, "Back" sits beside
+                "Continue", as Microsoft's sign-in has it, and returns there. */}
             {accountsView ? null : (
+              <div className="flex gap-2">
+              {backToAccounts ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  data-testid="back-to-accounts"
+                  onClick={() => navigate(-1)}
+                >
+                  {t("common.back")}
+                </Button>
+              ) : null}
               <Button
                 type="submit"
                 // The password step has no passkey above it: its button is the page's.
                 variant={passkeyLeads && !passwordStep ? "secondary" : "default"}
-                className="w-full"
+                className="flex-1"
                 disabled={form.formState.isSubmitting}
               >
                 {form.formState.isSubmitting ? (
@@ -1067,6 +1095,7 @@ export function LoginPage({
                   t("auth.continueWithEmail")
                 )}
               </Button>
+              </div>
             )}
             {/* The other method, always a visible link (D-215-2). From the
                 password step it sends the code for the address on that step,
@@ -1091,22 +1120,6 @@ export function LoginPage({
                 {codeFirst
                   ? t("auth.signInWithPasswordInstead")
                   : t("auth.signInWithEmailCode")}
-              </Button>
-            ) : null}
-            {/* Back to the list from the address field, so "Use a different
-                account" is never a one-way door. */}
-            {step.kind === "credentials" && !accountsView && accounts.length > 0 ? (
-              <Button
-                type="button"
-                variant="link"
-                className="text-muted-foreground"
-                data-testid="show-account-list"
-                onClick={() => {
-                  form.clearErrors()
-                  setShowAccounts(true)
-                }}
-              >
-                {t("auth.accounts.showList")}
               </Button>
             ) : null}
           </FieldGroup>

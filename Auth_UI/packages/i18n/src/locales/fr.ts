@@ -652,7 +652,6 @@ export const fr: TranslationResources = {
       listLabel: "Comptes utilisés sur ce navigateur",
       moreOptions: "Plus d’options pour {{account}}",
       remove: "Retirer de cette liste",
-      showList: "Choisir un compte enregistré",
     },
     theApplication: "l'application",
     createOrganizationTitle: "Créez votre organisation",

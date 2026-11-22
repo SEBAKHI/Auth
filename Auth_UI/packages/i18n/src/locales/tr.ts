@@ -646,7 +646,6 @@ export const tr: TranslationResources = {
       listLabel: "Bu tarayıcıda kullanılan hesaplar",
       moreOptions: "{{account}} için diğer seçenekler",
       remove: "Bu listeden kaldır",
-      showList: "Kayıtlı bir hesap seçin",
     },
     theApplication: "uygulama",
     createOrganizationTitle: "Organizasyonunuzu oluşturun",

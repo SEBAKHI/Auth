@@ -643,7 +643,6 @@ export const ur: TranslationResources = {
       listLabel: "اس براؤزر پر استعمال ہونے والے اکاؤنٹس",
       moreOptions: "{{account}} کے لیے مزید اختیارات",
       remove: "اس فہرست سے ہٹائیں",
-      showList: "محفوظ اکاؤنٹ منتخب کریں",
     },
     theApplication: "ایپلیکیشن",
     createOrganizationTitle: "اپنی تنظیم بنائیں",

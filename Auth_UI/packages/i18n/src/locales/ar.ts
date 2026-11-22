@@ -641,7 +641,6 @@ export const ar: TranslationResources = {
       listLabel: "الحسابات المستخدمة على هذا المتصفح",
       moreOptions: "خيارات أخرى للحساب {{account}}",
       remove: "إزالة من هذه القائمة",
-      showList: "اختيار حساب محفوظ",
     },
     theApplication: "التطبيق",
     createOrganizationTitle: "أنشئ منظمتك",

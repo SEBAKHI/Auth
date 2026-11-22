@@ -1,7 +1,7 @@
 import type * as React from "react"
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { MemoryRouter, Route, Routes } from "react-router-dom"
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { SignInOptions } from "@authsystem/ui/branding"
@@ -145,11 +145,24 @@ function remember(...accounts: Array<{ id: string; email: string; name: string |
   window.localStorage.setItem(REMEMBERED_ACCOUNTS_KEY, JSON.stringify(accounts))
 }
 
-function renderPage(state?: { email: string }) {
+/** The router state of the entry on screen. */
+function RouterState() {
+  return <pre data-testid="router-state">{JSON.stringify(useLocation().state ?? null)}</pre>
+}
+
+function renderPage(state?: { email?: string; from?: string }) {
   return render(
     <MemoryRouter initialEntries={[{ pathname: "/login", state }]}>
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/login"
+          element={
+            <>
+              <LoginPage />
+              <RouterState />
+            </>
+          }
+        />
       </Routes>
     </MemoryRouter>
   )
@@ -217,7 +230,7 @@ describe("the first step with remembered accounts", () => {
 
     expect(screen.queryByRole("list", { name: "auth.accounts.listLabel" })).toBeNull()
     expect(screen.getByLabelText("auth.email")).toBeInTheDocument()
-    expect(screen.queryByTestId("show-account-list")).toBeNull()
+    expect(screen.queryByRole("button", { name: "common.back" })).toBeNull()
   })
 
   it("is the address field when another screen handed the address over", () => {
@@ -228,10 +241,10 @@ describe("the first step with remembered accounts", () => {
     expect(screen.queryByRole("list", { name: "auth.accounts.listLabel" })).toBeNull()
   })
 
-  it("shows the empty address field on 'Use a different account', and the list again on its link", async () => {
+  it("opens the empty address field as a step of the history on 'Use a different account', which Back leaves for the list", async () => {
     const user = userEvent.setup()
     remember(ADA)
-    renderPage()
+    renderPage({ from: "/profile" })
 
     await user.click(screen.getByRole("button", { name: /auth\.useDifferentAccount/ }))
 
@@ -239,10 +252,21 @@ describe("the first step with remembered accounts", () => {
     expect(field).toHaveValue("")
     expect(field).toHaveFocus()
     expect(screen.getByRole("heading", { name: "auth.signInTitle" })).toBeInTheDocument()
+    // The page's own buttons, as on the address field without a list, plus Back.
+    expect(screen.getByRole("button", { name: "auth.signIn" })).toBeInTheDocument()
+    // The router state the page arrived with rides along (where to land after).
+    expect(JSON.parse(screen.getByTestId("router-state").textContent ?? "null")).toEqual({
+      from: "/profile",
+      addressField: true,
+    })
 
-    await user.click(screen.getByRole("button", { name: "auth.accounts.showList" }))
+    // Back goes one step back in the history: to the list, not off the page.
+    await user.click(screen.getByRole("button", { name: "common.back" }))
 
     expect(row("Ada Lovelace")).toBeInTheDocument()
+    expect(JSON.parse(screen.getByTestId("router-state").textContent ?? "null")).toEqual({
+      from: "/profile",
+    })
     expect(posted()).toEqual([])
   })
 })
@@ -375,6 +399,8 @@ describe("removing an account from the list", () => {
 
     expect(await screen.findByLabelText("auth.email")).toHaveFocus()
     expect(window.localStorage.getItem(REMEMBERED_ACCOUNTS_KEY)).toBeNull()
-    expect(screen.queryByTestId("show-account-list")).toBeNull()
+    // Nothing to go back to: no Back, and no step added to the history.
+    expect(screen.queryByRole("button", { name: "common.back" })).toBeNull()
+    expect(screen.getByTestId("router-state")).toHaveTextContent("null")
   })
 })

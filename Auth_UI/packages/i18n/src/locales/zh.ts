@@ -636,7 +636,6 @@ export const zh: TranslationResources = {
       listLabel: "在此浏览器上使用过的账户",
       moreOptions: "{{account}} 的更多选项",
       remove: "从此列表中移除",
-      showList: "选择已保存的账户",
     },
     theApplication: "该应用",
     createOrganizationTitle: "创建您的组织",

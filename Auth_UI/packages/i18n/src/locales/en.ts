@@ -653,7 +653,6 @@ export const en = {
       listLabel: "Accounts used on this browser",
       moreOptions: "More options for {{account}}",
       remove: "Remove from this list",
-      showList: "Pick a saved account",
     },
     theApplication: "the application",
     createOrganizationTitle: "Create your organization",

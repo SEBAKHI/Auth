@@ -642,7 +642,6 @@ export const fa: TranslationResources = {
       listLabel: "حساب‌های استفاده‌شده در این مرورگر",
       moreOptions: "گزینه‌های بیشتر برای {{account}}",
       remove: "حذف از این فهرست",
-      showList: "انتخاب حساب ذخیره‌شده",
     },
     theApplication: "برنامه",
     createOrganizationTitle: "سازمان خود را بسازید",
