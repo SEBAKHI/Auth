@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@authsystem/ui/dropdown-menu"
 import { initials } from "@authsystem/ui/initials"
+import { Item } from "@authsystem/ui/item"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import type { RememberedAccount } from "./remembered-accounts"
@@ -69,105 +70,124 @@ export function AccountPicker({
         {accounts.map((account, index) => {
           const title = account.name ?? account.email
           return (
-            <li key={account.id} className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                // The row's height follows its two lines; its contents start
-                // where reading starts.
-                className="h-auto min-w-0 flex-1 justify-start gap-3 py-2"
-                // The other rows wait while one is on its way; the one pressed
-                // stays as it is, showing the wait, and its second press is
-                // the page's to ignore.
-                disabled={busy && picking !== account.id}
-                aria-busy={picking === account.id}
-                // The list takes the focus as the address field did.
-                autoFocus={index === 0}
-                data-account={account.id}
-                onClick={() => onPick(account)}
-              >
-                <Avatar size="lg" aria-hidden="true">
-                  <AvatarFallback>{initials(title)}</AvatarFallback>
-                </Avatar>
-                {/* Each line as wide as its text, never wider than the row,
+            // One bordered row holds the account and its menu button, so the
+            // "⋯" reads as this account's; each keeps its own highlight, since
+            // the account's says "press to pick it", which the "⋯" is not
+            // (owner, 2026-11-22: tried in place of Microsoft's one highlight).
+            <Item
+              key={account.id}
+              asChild
+              variant="outline"
+              size="xs"
+              className="flex-nowrap items-stretch gap-1 p-1"
+            >
+              <li>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  // The row's height follows its two lines; its contents start
+                  // where reading starts.
+                  className="h-auto min-w-0 flex-1 justify-start gap-3 py-2"
+                  // The other rows wait while one is on its way; the one pressed
+                  // stays as it is, showing the wait, and its second press is
+                  // the page's to ignore.
+                  disabled={busy && picking !== account.id}
+                  aria-busy={picking === account.id}
+                  // The list takes the focus as the address field did.
+                  autoFocus={index === 0}
+                  data-account={account.id}
+                  onClick={() => onPick(account)}
+                >
+                  <Avatar size="lg" aria-hidden="true">
+                    <AvatarFallback>{initials(title)}</AvatarFallback>
+                  </Avatar>
+                  {/* Each line as wide as its text, never wider than the row,
                     and in its own direction: a Latin address on a
                     right-to-left page sits at the row's start and, cut short,
                     loses its end rather than its first letters. */}
-                <span className="flex min-w-0 flex-1 flex-col items-start">
-                  <span dir="auto" className="max-w-full truncate">
-                    {title}
-                  </span>
-                  {account.name ? (
-                    <span
-                      dir="auto"
-                      className="max-w-full truncate font-normal text-muted-foreground"
-                    >
-                      {account.email}
+                  <span className="flex min-w-0 flex-1 flex-col items-start">
+                    <span dir="auto" className="max-w-full truncate">
+                      {title}
                     </span>
+                    {account.name ? (
+                      <span
+                        dir="auto"
+                        className="max-w-full truncate font-normal text-muted-foreground"
+                      >
+                        {account.email}
+                      </span>
+                    ) : null}
+                  </span>
+                  {picking === account.id ? (
+                    <Spinner data-icon="inline-end" />
                   ) : null}
-                </span>
-                {picking === account.id ? (
-                  <Spinner data-icon="inline-end" />
-                ) : null}
-              </Button>
-              {/* Not modal: the row, and the menu with it, unmounts in the
+                </Button>
+                {/* Not modal: the row, and the menu with it, unmounts in the
                   same render that removes the account, and a modal menu
                   would leave the page's pointer lock to that unmount. */}
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    disabled={busy}
-                    aria-label={t("auth.accounts.moreOptions", {
-                      account: account.email,
-                    })}
-                    data-testid="account-options"
-                  >
-                    <Ellipsis />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  onCloseAutoFocus={(event) => {
-                    // The trigger is gone with its row: the effect above
-                    // places the focus.
-                    if (removedRef.current) event.preventDefault()
-                  }}
-                >
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        removedRef.current = true
-                        onRemove(account)
-                      }}
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      // As tall as the row: a finger finds it anywhere on the
+                      // row's end, not only on the three dots.
+                      className="h-auto"
+                      disabled={busy}
+                      aria-label={t("auth.accounts.moreOptions", {
+                        account: account.email,
+                      })}
+                      data-testid="account-options"
                     >
-                      <X />
-                      {t("auth.accounts.remove")}
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </li>
+                      <Ellipsis />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    onCloseAutoFocus={(event) => {
+                      // The trigger is gone with its row: the effect above
+                      // places the focus.
+                      if (removedRef.current) event.preventDefault()
+                    }}
+                  >
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          removedRef.current = true
+                          onRemove(account)
+                        }}
+                      >
+                        <X />
+                        {t("auth.accounts.remove")}
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </li>
+            </Item>
           )
         })}
       </ul>
-      <Button
-        type="button"
-        variant="ghost"
-        className="h-auto justify-start gap-3 py-2"
-        disabled={busy}
-        onClick={onUseAnother}
-        data-testid="use-another-account"
-      >
-        <Avatar size="lg" aria-hidden="true">
-          <AvatarFallback>
-            <UserPlus />
-          </AvatarFallback>
-        </Avatar>
-        {t("auth.useDifferentAccount")}
-      </Button>
+      {/* Not an account, so no border; set in the same row box, so its circle
+          lines up with the accounts' circles. */}
+      <Item size="xs" className="flex-nowrap gap-1 p-1">
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-auto min-w-0 flex-1 justify-start gap-3 py-2"
+          disabled={busy}
+          onClick={onUseAnother}
+          data-testid="use-another-account"
+        >
+          <Avatar size="lg" aria-hidden="true">
+            <AvatarFallback>
+              <UserPlus />
+            </AvatarFallback>
+          </Avatar>
+          {t("auth.useDifferentAccount")}
+        </Button>
+      </Item>
     </div>
   )
 }
