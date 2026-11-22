@@ -21,7 +21,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -35,6 +34,7 @@ import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { useBranding, type SignInMethod } from "@authsystem/ui/branding"
 
 import { useBotCheck, type BotAction } from "../bot-defense/bot-check"
+import { AddressChip } from "../address-chip"
 import { startEmailCode, type PendingEmailCode } from "../email-code"
 import { isAbsoluteUrl } from "../external/recovery-navigation"
 import { useFlowBranding } from "../flow-branding"
@@ -646,47 +646,42 @@ export function LoginPage({
     )
   }
 
-  // The address as the steps after it show it: read-only, with the way back to
-  // it. `username` keeps it paired with the password for password managers.
-  const addressField = (
-    <FormField
-      control={form.control}
-      name="email"
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel>{t("auth.email")}</FormLabel>
-          <FormControl>
-            <Input
-              type="email"
-              // The passkey suggestion (conditional UI, T-C5): only where
-              // the browser offers it and passkeys run here.
-              autoComplete={
-                passkey.suggestionSupported ? "username webauthn" : "username"
-              }
-              autoFocus={step.kind === "credentials"}
-              readOnly={step.kind !== "credentials"}
-              placeholder="name@example.com"
-              dir="ltr"
-              {...field}
-            />
-          </FormControl>
-          {step.kind !== "credentials" ? (
-            <FormDescription>
-              <Button
-                type="button"
-                variant="link"
-                className="h-auto p-0 text-xs text-muted-foreground"
-                onClick={backToAddress}
-              >
-                {t("auth.useDifferentEmail")}
-              </Button>
-            </FormDescription>
-          ) : null}
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  )
+  // The address: typed on the first step; on the steps after it, the chip that
+  // goes back to it, beside the hidden `username` field that keeps it paired
+  // with the password for password managers (AddressChip).
+  const addressField =
+    step.kind === "credentials" ? (
+      <FormField
+        control={form.control}
+        name="email"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("auth.email")}</FormLabel>
+            <FormControl>
+              <Input
+                type="email"
+                // The passkey suggestion (conditional UI, T-C5): only where
+                // the browser offers it and passkeys run here.
+                autoComplete={
+                  passkey.suggestionSupported ? "username webauthn" : "username"
+                }
+                autoFocus
+                placeholder="name@example.com"
+                dir="ltr"
+                {...field}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    ) : (
+      <AddressChip
+        email={step.email}
+        label={t("auth.useDifferentEmail")}
+        onChange={backToAddress}
+      />
+    )
 
   const staySignedInField = staySignedInOffered ? (
     <FormField

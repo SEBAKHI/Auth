@@ -34,6 +34,7 @@ import { useCountdown } from "@authsystem/ui/hooks/use-countdown"
 import { Input } from "@authsystem/ui/input"
 import { Spinner } from "@authsystem/ui/spinner"
 
+import { AddressChip } from "../address-chip"
 import { useAuth, type EmailCodeSignInResult } from "../auth-context"
 import { deletionCancelledOutcome } from "../deletion-cancelled"
 import { passkeyRequiredNotice } from "../passkey/passkey-required"
@@ -550,33 +551,14 @@ function CompleteAccountStage({
       <Form {...form}>
           <form onSubmit={form.handleSubmit(create)}>
             <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="complete-account-email">
-                  {t("auth.email")}
-                </FieldLabel>
-                {/* The real address in the username field: the field password
-                    managers pair a new password with. */}
-                <Input
-                  id="complete-account-email"
-                  type="email"
-                  name="email"
-                  autoComplete="username"
-                  value={pending.email}
-                  readOnly
-                  tabIndex={-1}
-                  dir="ltr"
-                />
-                <FieldDescription>
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="h-auto p-0"
-                    onClick={onChangeAddress}
-                  >
-                    {t("auth.changeEmail")}
-                  </Button>
-                </FieldDescription>
-              </Field>
+              {/* The address the code proved, and the way back to change it;
+                  its hidden `username` field is the one password managers
+                  pair the new password with. */}
+              <AddressChip
+                email={pending.email}
+                label={t("auth.changeEmail")}
+                onChange={onChangeAddress}
+              />
               {askName ? (
                 <>
                   <FormField
