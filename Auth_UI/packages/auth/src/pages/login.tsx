@@ -232,11 +232,28 @@ export function LoginPage({
   // in place of the address field, unless another screen handed the address
   // over. "Use a different account" opens the field as a step of the browser's
   // history, as Microsoft's sign-in does: the browser's Back, and a "Back" beside
-  // "Continue", return to the list. The steps after the address come back to
-  // where they left.
+  // "Continue", return to the list. The steps after the address go back to
+  // where it was chosen: a row's to the list, a typed one's to the list before
+  // its field too, as Google's address chip goes back to its account chooser
+  // (owner, 2026-11-23).
   const [accounts, setAccounts] = React.useState(readRememberedAccounts)
   const addressFieldChosen = state?.addressField === true
   const showAccounts = presetEmail === "" && !addressFieldChosen
+  // The history left the address field for the list before it, by the browser's
+  // Back or the address chip, from a step the typed address had reached: the
+  // page follows it to the list. Decided while rendering, so no later step is
+  // painted on the list's entry of the history.
+  const [onAddressField, setOnAddressField] = React.useState(addressFieldChosen)
+  if (onAddressField !== addressFieldChosen) {
+    setOnAddressField(addressFieldChosen)
+    if (!addressFieldChosen && step.kind !== "credentials") {
+      setStep({ kind: "credentials" })
+    }
+  }
+  // The address in the form is a listed account's, put there by its row and not
+  // typed: "Use a different account" then opens the field empty, and otherwise
+  // with what the person typed, to correct rather than type again.
+  const pickedRef = React.useRef(false)
   // The pressed account, on its way to the next step: one at a time, decided in
   // the press, as "Continue" is.
   const pickingRef = React.useRef(false)
@@ -659,6 +676,7 @@ export function LoginPage({
     setPicking(account.id)
     setPasskeyNotice(null)
     form.clearErrors()
+    pickedRef.current = true
     form.setValue("email", account.email)
     const values = { ...getValues(), email: account.email }
     try {
@@ -682,15 +700,31 @@ export function LoginPage({
   // that follows lands on the list.
   const toAddressField = () => {
     form.clearErrors()
-    form.setValue("email", "")
+    if (pickedRef.current) {
+      pickedRef.current = false
+      form.setValue("email", "")
+    }
     navigate(
       { pathname: location.pathname, search: location.search, hash: location.hash },
       { state: { ...(state ?? {}), addressField: true } }
     )
   }
-  // Back to the list: the history entry before this one is the list itself.
-  const backToAccounts =
-    step.kind === "credentials" && addressFieldChosen && accounts.length > 0
+  // The history entry before this one is the list itself.
+  const listBehind = addressFieldChosen && accounts.length > 0
+  // Back to the list, from the address field.
+  const backToAccounts = step.kind === "credentials" && listBehind
+  // The address chip, and the code steps' "Use a different email": back to where
+  // the address was chosen. A typed address under "Use a different account" goes
+  // back to the list before its field, which then keeps it; a row's address to
+  // the list; without a list, to the field with the address in it.
+  const changeAddress = () => {
+    if (!listBehind) {
+      backToAddress()
+      return
+    }
+    form.setValue("password", "")
+    navigate(-1)
+  }
 
   if (skipSignIn) return <FullScreenLoader />
 
@@ -712,7 +746,7 @@ export function LoginPage({
           }
           requireFullProof={fullProof}
           pageFooter={pageFooter}
-          onChangeAddress={backToAddress}
+          onChangeAddress={changeAddress}
           onPasswordRequired={continueWithPassword}
           onPasskeyRequired={(notice) => {
             backToAddress()
@@ -763,7 +797,7 @@ export function LoginPage({
       <AddressChip
         email={step.email}
         label={t("auth.useDifferentEmail")}
-        onChange={backToAddress}
+        onChange={changeAddress}
       />
     )
 

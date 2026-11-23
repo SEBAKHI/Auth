@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import * as React from "react"
 
 import { Button } from "@authsystem/ui/button"
@@ -11,9 +11,14 @@ import { Button } from "@authsystem/ui/button"
  * person who wanted another account typed into it, saw nothing happen and took
  * the page for broken. The way back is now the address itself.
  *
- * Its one icon is a back arrow before the address, as Microsoft's sign-in
- * shows it, because pressing it goes back a step. A down chevron (Google's)
- * promised a menu that never opened; a pencil would promise editing in place.
+ * Its one icon is a down chevron after the address, as Google's sign-in shows
+ * it (owner, 2026-11-23), now that a sign-in page can list the accounts this
+ * browser signed in with: pressing it goes back to where the address was
+ * chosen, that list where there is one. Google's own chip is a link to its
+ * account chooser, not a menu (its page, read 2026-11-23), so this one opens no
+ * menu either and claims none (no `aria-haspopup`). It replaced Microsoft's
+ * back arrow, which the owner first chose (PR 171) while there was no list to
+ * go back to. A pencil would promise editing in place.
  *
  * Password managers still pair the address with the password: the hidden
  * `username` input beside the button carries it, inside the same form, as
@@ -32,7 +37,7 @@ export function AddressChip({
   email: string
   /** What the button does, read after the address by a screen reader. */
   label: string
-  /** Back to the step where the address is typed. */
+  /** Back to where the address was chosen: the account list, or the field. */
   onChange: () => void
 }) {
   const descriptionId = React.useId()
@@ -53,15 +58,15 @@ export function AddressChip({
         onClick={onChange}
         data-testid="address-chip"
       >
-        {/* Back points toward where reading starts: left in a left-to-right
-            language, right in a right-to-left one. */}
-        <ArrowLeft data-icon="inline-start" className="rtl:rotate-180" />
         {/* `auto`, not a forced direction: the address's own first letter
             decides, so on a right-to-left page a long Latin address keeps its
             start (the person's name) and loses its end, not the reverse. */}
         <span dir="auto" className="min-w-0 truncate">
           {email}
         </span>
+        {/* After the address in either direction: a down chevron has no side
+            to point to, so it never turns. */}
+        <ChevronDown data-icon="inline-end" />
       </Button>
       <span id={descriptionId} className="sr-only">
         {label}
