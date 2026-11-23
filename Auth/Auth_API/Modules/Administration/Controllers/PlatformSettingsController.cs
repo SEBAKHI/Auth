@@ -7,6 +7,7 @@ using Auth.Application.DTOs;
 using Auth.Application.Features.Platform.GetPlatformSettings;
 using Auth.Application.Features.Platform.SetPlatformFont;
 using Auth.Application.Features.Platform.UpdatePlatformHiddenLanguages;
+using Auth.Application.Features.Platform.UpdatePlatformLoginPanel;
 using Auth.Application.Features.Platform.UpdatePlatformLogoHeight;
 using Auth.Application.Features.Platform.UpdatePlatformSettings;
 using Auth.Application.Features.Platform.UpdatePlatformTheme;
@@ -175,6 +176,32 @@ public class PlatformSettingsController : ApiController
     {
         var result = await _sender.Send(
             new UpdatePlatformHiddenLanguagesCommand(request.HiddenLanguages, GetUserId()),
+            cancellationToken);
+
+        return result.Match(
+            settings => Ok(settings),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Shows or hides the panel beside the sign-in form. Hidden, the platform's sign-in pages
+    /// have no panel, nor has an application's page without an active design of its own; an
+    /// application's own active design still shows. Nothing else in the settings changes.
+    /// </summary>
+    /// <response code="200">Returns the updated platform settings</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions</response>
+    [HttpPut("login-panel")]
+    [RequirePermission(PermissionCodes.PlatformSettings.Manage)]
+    [ProducesResponseType(typeof(PlatformSettingsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpdateLoginPanel(
+        [FromBody] UpdateLoginPanelRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new UpdatePlatformLoginPanelCommand(request.Shown, GetUserId()),
             cancellationToken);
 
         return result.Match(

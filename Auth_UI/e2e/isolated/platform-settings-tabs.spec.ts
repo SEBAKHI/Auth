@@ -59,6 +59,12 @@ async function install(page: Page, language: keyof typeof catalogs, mode: "light
         await route.fulfill({ status: 204 })
         return true
       }
+      if (path === "/api/v1/admin/platform-settings/login-panel") {
+        const shown = (request.postDataJSON() as { shown: boolean }).shown
+        seen.push({ method: request.method(), path: `${path}:${shown}` })
+        await fulfillJson(route, { platformName: "Isolated Platform", loginPanelShown: shown })
+        return true
+      }
       if (path === "/api/v1/admin/platform-settings") {
         await fulfillJson(route, { platformName: "Isolated Platform", logoUrl: null, logoUrlDark: null, faviconUrl: null, theme: null })
         return true
@@ -143,7 +149,17 @@ for (const language of ["en", "ar"] as const) {
         await expect(panel.getByRole("table")).toBeVisible()
         await expect(panel.getByText(fill(t.loginDesigns.visitorsSee, { name: "Autumn" }))).toBeVisible()
         await expect(panel.getByRole("link", { name: "Spring" })).toBeVisible()
+        // The switch that shows or hides the panel itself, above the designs, saved on the click.
+        const panelSwitch = panel.getByRole("switch", { name: t.loginDesigns.panelShown })
+        await expect(panelSwitch).toBeChecked()
+        await expect(panel.getByText(t.loginDesigns.panelShownHint)).toBeVisible()
         await expectNoShellOverflow(page, `templates ${where}`)
+        await page.screenshot({ path: testInfo.outputPath(`templates-switch-${language}-${mode}-${width}.png`) })
+        await panelSwitch.click()
+        await expect(panelSwitch).not.toBeChecked()
+        expect(seen).toContainEqual({ method: "PUT", path: "/api/v1/admin/platform-settings/login-panel:false" })
+        await panelSwitch.click()
+        await expect(panelSwitch).toBeChecked()
 
         // The active design keeps Delete, disabled; an inactive one is deleted after a named confirmation.
         const activeMenu = await rowMenu(page, "Autumn", fill(t.loginDesigns.actions, { name: "Autumn" }))

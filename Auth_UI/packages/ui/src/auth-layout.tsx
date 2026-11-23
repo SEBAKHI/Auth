@@ -10,6 +10,7 @@ import LoginDesignPanel from "@authsystem/ui/login-design/login-design-panel"
 import { LOGO_HEIGHT, LOGO_MAX_ASPECT, LogoMark, PlatformMark, resolveLogoHeight } from "@authsystem/ui/logo-mark"
 import { pickLogo } from "@authsystem/ui/theme/pick-logo"
 import { useResolvedTheme } from "@authsystem/ui/theme-provider"
+import { cn } from "@authsystem/ui/utils"
 
 // Imported with the page, not as a chunk of its own: it is 2 KB, and a lazy component put
 // a round trip in front of the design on a first visit and, on every visit, React's hold
@@ -47,8 +48,9 @@ export type FlowLoginDesign = { clientId: string; design: LoginDesignRef | null 
  *
  * The half on the inline-start side is the platform's: its mark in the corner,
  * the screen's title and form, and the trust marker. The other half is the
- * panel, shown from the `lg` breakpoint up; it is a plain surface until an
- * application's design fills it.
+ * panel, shown from the `lg` breakpoint up; it is a plain surface until a
+ * design fills it. The administrator may hide it: the page is then the form
+ * half alone, except where an application's own design still fills it.
  *
  * Each logo has one place. The platform's mark is in the corner, at the height
  * the administrator chose for it, on every page. Behind a pending authorize
@@ -129,10 +131,15 @@ export function AuthLayout({
     logoHeightPx: platformLogoHeight,
     name: platformName,
     isPending: brandingPending,
+    loginPanelShown,
   } = useBranding()
   // The application's flow names its design (its own, else the platform's, decided by the
   // server); the platform's own pages show the platform's.
   const design = loginDesign ? loginDesign.design : platformDesign
+  // Hidden by the administrator, the panel goes and the form takes the whole page. A design
+  // the page still names is an application's own (the server offers the platform's nowhere
+  // then), and it keeps its panel. Kept while either answer is unknown: no guess removes it.
+  const hasPanel = !(loginPanelShown === false && design === null)
   const designClientId = loginDesign?.clientId ?? null
   const panelShown = usePanelShown()
   const panelKey = design && panelShown ? `${designClientId ?? ""}|${design.id}|${design.contentHash}` : null
@@ -159,7 +166,7 @@ export function AuthLayout({
   const showsPlatformMark = !appName || keepsPlatformLogo
 
   return (
-    <div className="grid min-h-svh lg:grid-cols-2">
+    <div className={cn("grid min-h-svh", hasPanel && "lg:grid-cols-2")}>
       <div className="flex min-w-0 flex-col gap-6 p-4 md:p-6">
         <header className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center">
@@ -236,23 +243,25 @@ export function AuthLayout({
 
       {/* Plain until a design has rendered in it, which is also when it starts to count for
           assistive technology: the design may hold links. */}
-      <div
-        aria-hidden={panelState === "rendered" ? undefined : true}
-        data-slot="auth-panel"
-        data-design-state={panelKey ? panelState : undefined}
-        className="relative hidden overflow-hidden bg-muted lg:block"
-      >
-        {design && panelKey ? (
-          <div className="absolute inset-0">
-            <LoginDesignPanel
-              key={panelKey}
-              clientId={designClientId}
-              design={design}
-              onStateChange={(state) => setPanel({ key: panelKey, state })}
-            />
-          </div>
-        ) : null}
-      </div>
+      {hasPanel ? (
+        <div
+          aria-hidden={panelState === "rendered" ? undefined : true}
+          data-slot="auth-panel"
+          data-design-state={panelKey ? panelState : undefined}
+          className="relative hidden overflow-hidden bg-muted lg:block"
+        >
+          {design && panelKey ? (
+            <div className="absolute inset-0">
+              <LoginDesignPanel
+                key={panelKey}
+                clientId={designClientId}
+                design={design}
+                onStateChange={(state) => setPanel({ key: panelKey, state })}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }

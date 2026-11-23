@@ -726,8 +726,9 @@ public class PlatformFontsTests : IDisposable
     {
         var columns = OrganizationCreationSchemaTests.DeclaredColumns(TableSource(), "PlatformSettings");
 
-        // A column a later batch appended after these (the hidden languages: HiddenLanguagesTests).
-        columns = columns.SkipLast(1).ToList();
+        // Columns later batches appended after these (the hidden languages: HiddenLanguagesTests;
+        // the sign-in panel switch).
+        columns = columns.SkipLast(2).ToList();
 
         columns.Select(c => c.Name).TakeLast(4).Should().Equal(
             ["HeadingFontKey", "HeadingFontName", "BodyFontKey", "BodyFontName"],

@@ -330,9 +330,9 @@ const TAB_PANELS: Record<PlatformSettingsTabValue, PlatformSettingsTabPanel> = {
   templates: {
     labelKey: "loginDesigns.tab",
     capped: false,
-    render: () => (
+    render: ({ settings }) => (
       <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
-        <LoginDesignsTab />
+        <LoginDesignsTab settings={settings} />
       </React.Suspense>
     ),
   },

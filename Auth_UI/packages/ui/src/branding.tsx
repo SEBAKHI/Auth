@@ -81,6 +81,12 @@ interface BrandingValue {
    * known yet, so the panel never shows a guess.
    */
   loginDesign: LoginDesignRef | null | undefined
+  /**
+   * Whether the sign-in pages have the panel beside the form: false when the administrator
+   * hid it, undefined while nothing is known yet (the panel keeps its place meanwhile). A
+   * payload without the field (an older API, or a copy cached before it) shows the panel.
+   */
+  loginPanelShown: boolean | undefined
 }
 
 export type SignInMethod = "password" | "code"
@@ -329,9 +335,20 @@ export function BrandingProvider({
     [loginDesignKey]
   )
 
+  const loginPanelShown = query.data ? query.data.loginPanelShown !== false : query.isError ? true : undefined
+
   const value = React.useMemo<BrandingValue>(
-    () => ({ name, logoUrl, logoHeightPx, isPending, staySignedInOffered, signInOptions, loginDesign }),
-    [name, logoUrl, logoHeightPx, isPending, staySignedInOffered, signInOptions, loginDesign]
+    () => ({
+      name,
+      logoUrl,
+      logoHeightPx,
+      isPending,
+      staySignedInOffered,
+      signInOptions,
+      loginDesign,
+      loginPanelShown,
+    }),
+    [name, logoUrl, logoHeightPx, isPending, staySignedInOffered, signInOptions, loginDesign, loginPanelShown]
   )
 
   // Unknown until the branding arrives: applying the default meanwhile would
@@ -456,4 +473,12 @@ export function BrandingLogo({
  */
 export function useSignInOptions(): SignInOptions | null {
   return React.useContext(BrandingContext)?.signInOptions ?? null
+}
+
+/**
+ * Whether the sign-in pages have the panel beside the form, for a screen that only describes
+ * it: undefined while unknown, and outside a BrandingProvider.
+ */
+export function useLoginPanelShown(): boolean | undefined {
+  return React.useContext(BrandingContext)?.loginPanelShown
 }

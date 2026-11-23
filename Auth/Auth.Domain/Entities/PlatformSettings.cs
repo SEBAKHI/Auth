@@ -78,6 +78,12 @@ public class PlatformSettings : EntityBase
     public HiddenLanguages HiddenLanguages { get; private set; } = HiddenLanguages.None;
 
     /// <summary>
+    /// Gets whether the sign-in pages have the panel beside the form. Off, the platform's pages
+    /// have no panel, nor has an application's page without an active design of its own.
+    /// </summary>
+    public bool LoginPanelShown { get; private set; } = true;
+
+    /// <summary>
     /// Gets the last modification timestamp.
     /// </summary>
     public DateTime? ModifiedAt { get; private set; }
@@ -102,9 +108,11 @@ public class PlatformSettings : EntityBase
         PlatformTheme? theme = null,
         LogoHeight? logoHeight = null,
         IReadOnlyDictionary<FontRole, PlatformFont>? fonts = null,
-        HiddenLanguages? hiddenLanguages = null) : base(id)
+        HiddenLanguages? hiddenLanguages = null,
+        bool loginPanelShown = true) : base(id)
     {
         HiddenLanguages = hiddenLanguages ?? HiddenLanguages.None;
+        LoginPanelShown = loginPanelShown;
         PlatformName = platformName;
         LogoUrl = logoUrl;
         LogoUrlDark = logoUrlDark;
@@ -181,6 +189,24 @@ public class PlatformSettings : EntityBase
         }
 
         HiddenLanguages = hiddenLanguages;
+        ModifiedAt = DateTime.UtcNow;
+        ModifiedBy = modifiedBy;
+        return true;
+    }
+
+    /// <summary>
+    /// Shows or hides the panel beside the sign-in form and stamps the modification audit
+    /// fields. Nothing else changes: it is saved on its own, like the appearance.
+    /// </summary>
+    /// <returns>False, and no change, when the panel was already so.</returns>
+    public bool SetLoginPanelShown(bool shown, Guid modifiedBy)
+    {
+        if (LoginPanelShown == shown)
+        {
+            return false;
+        }
+
+        LoginPanelShown = shown;
         ModifiedAt = DateTime.UtcNow;
         ModifiedBy = modifiedBy;
         return true;

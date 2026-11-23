@@ -45,4 +45,11 @@ public interface IPlatformSettingsRepository
     /// the seed row is missing, for the same reason as <see cref="UpdateThemeAsync"/>.
     /// </summary>
     Task UpdateHiddenLanguagesAsync(PlatformSettings settings, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Persists whether the sign-in pages have the panel, and the modification stamp only,
+    /// inserting the row when the seed row is missing, for the same reason as
+    /// <see cref="UpdateThemeAsync"/>.
+    /// </summary>
+    Task UpdateLoginPanelShownAsync(PlatformSettings settings, CancellationToken cancellationToken);
 }

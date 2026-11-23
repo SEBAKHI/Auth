@@ -148,7 +148,13 @@ public class HiddenLanguagesTests
     [Fact]
     public void TheColumn_IsAppendedLast_NullableWithoutADefault_AndLongEnoughForEveryLanguage()
     {
-        var column = OrganizationCreationSchemaTests.DeclaredColumns(TableSource(), "PlatformSettings")[^1];
+        var columns = OrganizationCreationSchemaTests.DeclaredColumns(TableSource(), "PlatformSettings");
+        // Appended after it: the sign-in panel switch, NOT NULL under a named default of 1, so the
+        // publish adds it in place and every existing row keeps its panel.
+        columns[^1].Name.Should().Be("LoginPanelShown");
+        columns[^1].Definition.Should().MatchRegex(
+            @"^BIT\s+NOT NULL\s+CONSTRAINT \[DF_PlatformSettings_LoginPanelShown\]\s+DEFAULT 1$");
+        var column = columns[^2];
 
         column.Name.Should().Be("HiddenLanguages", "appended, the publish is an ALTER TABLE ADD, not a rebuild");
         var match = Regex.Match(column.Definition, @"^NVARCHAR\((\d+)\)\s+NULL$");

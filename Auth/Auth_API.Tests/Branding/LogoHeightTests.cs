@@ -113,8 +113,8 @@ public class LogoHeightTests
     {
         var columns = OrganizationCreationSchemaTests.DeclaredColumns(TableSource(table), table);
         // Columns later batches appended after this one (the platform's fonts: PlatformFontsTests;
-        // the hidden languages: HiddenLanguagesTests).
-        var later = table == "PlatformSettings" ? 5 : 0;
+        // the hidden languages: HiddenLanguagesTests; the sign-in panel switch).
+        var later = table == "PlatformSettings" ? 6 : 0;
 
         columns.Should().NotBeEmpty();
         var column = columns[^(1 + later)];
