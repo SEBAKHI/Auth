@@ -1,7 +1,7 @@
 import type * as React from "react"
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { SignInOptions } from "@authsystem/ui/branding"
@@ -12,7 +12,9 @@ import type { SignInOptions } from "@authsystem/ui/branding"
  * step lists them in place of the address field; a row is that address and
  * "Continue": the passkey question while passkeys may run, else the password
  * step with the address chip, or the code. "Use a different account" shows the
- * field, and a link brings the list back. A row's "⋯" menu removes it locally.
+ * field as a step of the history, which Back leaves for the list. The address
+ * chip goes back to where the address was chosen: the list, for a typed address
+ * too (owner, 2026-11-23). A row's "⋯" menu removes it locally.
  */
 
 const mocks = vi.hoisted(() => ({
@@ -150,6 +152,16 @@ function RouterState() {
   return <pre data-testid="router-state">{JSON.stringify(useLocation().state ?? null)}</pre>
 }
 
+/** The browser's own Back: one entry back in the history, outside the page. */
+function BrowserBack() {
+  const navigate = useNavigate()
+  return (
+    <button type="button" onClick={() => navigate(-1)}>
+      browser back
+    </button>
+  )
+}
+
 function renderPage(state?: { email?: string; from?: string }) {
   return render(
     <MemoryRouter initialEntries={[{ pathname: "/login", state }]}>
@@ -160,12 +172,17 @@ function renderPage(state?: { email?: string; from?: string }) {
             <>
               <LoginPage />
               <RouterState />
+              <BrowserBack />
             </>
           }
         />
       </Routes>
     </MemoryRouter>
   )
+}
+
+function routerState() {
+  return JSON.parse(screen.getByTestId("router-state").textContent ?? "null") as unknown
 }
 
 function list() {
@@ -359,7 +376,37 @@ describe("a row pressed is that address and 'Continue'", () => {
     expect(posted()).toEqual([LOOKUP_PATH, CODE_START_PATH])
   })
 
-  it("comes back to the list from the address chip", async () => {
+})
+
+describe("the address chip goes back to where the address was chosen (owner, 2026-11-23)", () => {
+  /** "Use a different account", an address typed, and "Continue": the password step. */
+  async function typeAnotherAddress(user: ReturnType<typeof userEvent.setup>) {
+    mocks.branding.signInOptions = PASSKEYS_PASSWORD
+    remember(ADA)
+    renderPage({ from: "/profile" })
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(OPTIONS_PATH))
+    await user.click(screen.getByRole("button", { name: /auth\.useDifferentAccount/ }))
+    await user.type(screen.getByLabelText("auth.email"), GRACE.email)
+    await user.click(screen.getByRole("button", { name: "auth.continue" }))
+    await user.type(await screen.findByLabelText("auth.password"), "pw")
+  }
+
+  it("shows Google's down chevron after the address, not a back arrow", async () => {
+    remember(GRACE)
+    renderPage()
+
+    await userEvent.setup().click(row("grace@example.com"))
+
+    const chip = await screen.findByTestId("address-chip")
+    expect(chip.querySelector(".lucide-chevron-down")).not.toBeNull()
+    expect(chip.querySelector(".lucide-arrow-left")).toBeNull()
+    // Last in the chip, after the address: the end in either direction.
+    expect(chip.lastElementChild).toHaveAttribute("data-icon", "inline-end")
+    // It opens no menu, and says none.
+    expect(chip).not.toHaveAttribute("aria-haspopup")
+  })
+
+  it("takes a row's address back to the list, whose 'Use a different account' opens the field empty", async () => {
     const user = userEvent.setup()
     remember(ADA, GRACE)
     renderPage()
@@ -369,6 +416,72 @@ describe("a row pressed is that address and 'Continue'", () => {
 
     expect(row("Ada Lovelace")).toBeInTheDocument()
     expect(screen.queryByLabelText("auth.password")).toBeNull()
+
+    // A listed account's address is never offered as a different account.
+    await user.click(screen.getByRole("button", { name: /auth\.useDifferentAccount/ }))
+    expect(screen.getByLabelText("auth.email")).toHaveValue("")
+  })
+
+  it("takes an address typed under 'Use a different account' back to the list, whose field then keeps it", async () => {
+    const user = userEvent.setup()
+    await typeAnotherAddress(user)
+
+    await user.click(screen.getByTestId("address-chip"))
+
+    // The list, on the history entry the page arrived on: the field's step is gone.
+    await waitFor(() => expect(row("Ada Lovelace")).toHaveFocus())
+    expect(screen.queryByLabelText("auth.password")).toBeNull()
+    expect(routerState()).toEqual({ from: "/profile" })
+
+    // The typed address waits in the field, to be corrected rather than typed again.
+    await user.click(screen.getByRole("button", { name: /auth\.useDifferentAccount/ }))
+    expect(screen.getByLabelText("auth.email")).toHaveValue(GRACE.email)
+
+    // Its password did not wait with it.
+    await user.click(screen.getByRole("button", { name: "auth.continue" }))
+    expect(await screen.findByLabelText("auth.password")).toHaveValue("")
+  })
+
+  it("follows the browser's Back to the list from the step after a typed address", async () => {
+    const user = userEvent.setup()
+    await typeAnotherAddress(user)
+
+    await user.click(screen.getByRole("button", { name: "browser back" }))
+
+    expect(row("Ada Lovelace")).toBeInTheDocument()
+    expect(screen.queryByTestId("address-chip")).toBeNull()
+    expect(routerState()).toEqual({ from: "/profile" })
+  })
+
+  it("takes the code steps' way back to the list for a typed address too", async () => {
+    const user = userEvent.setup()
+    mocks.branding.signInOptions = CODE_FIRST
+    remember(ADA)
+    renderPage()
+    await user.click(screen.getByRole("button", { name: /auth\.useDifferentAccount/ }))
+    await user.type(screen.getByLabelText("auth.email"), GRACE.email)
+    await user.click(screen.getByRole("button", { name: "auth.continueWithEmail" }))
+    await screen.findByText("code flow")
+
+    const flow = mocks.flowProps.at(-1) as { onChangeAddress: () => void }
+    act(() => flow.onChangeAddress())
+
+    expect(row("Ada Lovelace")).toBeInTheDocument()
+    expect(routerState()).toBeNull()
+  })
+
+  it("goes back to the field with the address in it where no list was shown", async () => {
+    const user = userEvent.setup()
+    mocks.branding.signInOptions = PASSKEYS_PASSWORD
+    renderPage()
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(OPTIONS_PATH))
+    await user.type(screen.getByLabelText("auth.email"), GRACE.email)
+    await user.click(screen.getByRole("button", { name: "auth.continue" }))
+
+    await user.click(await screen.findByTestId("address-chip"))
+
+    expect(screen.getByLabelText("auth.email")).toHaveValue(GRACE.email)
+    expect(screen.queryByRole("list", { name: "auth.accounts.listLabel" })).toBeNull()
   })
 })
 

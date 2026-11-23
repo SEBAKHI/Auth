@@ -41,11 +41,26 @@ function signedIn() {
   return { token: { accessToken, refreshToken: "__cookie__" }, user: ADA, requiresPasswordChange: false }
 }
 
-async function installApi(page: Page, seen: SeenRequest[]) {
+/**
+ * With `passkeys`, passkeys run here and the address comes first (OI-280): no
+ * address has one, so "Continue" leads to the password step and its chip.
+ */
+async function installApi(page: Page, seen: SeenRequest[], { passkeys = false } = {}) {
   await installAnonymousApi(
     page,
     async (route, url) => {
       const path = url.pathname.toLowerCase()
+      if (passkeys && path === "/api/v1/auth/passkeys/assertion/options") {
+        await fulfillJson(route, {
+          options: { challenge: "c2lnbi1pbi1jaGFsbGVuZ2U", rpId: "localhost", allowCredentials: [] },
+          expiresAt: "2099-01-01T00:00:00Z",
+        })
+        return true
+      }
+      if (passkeys && path === "/api/v1/auth/passkeys/lookup") {
+        await fulfillJson(route, { passkey: false })
+        return true
+      }
       if (path === "/api/v1/auth/login") {
         await fulfillJson(route, signedIn())
         return true
@@ -59,7 +74,7 @@ async function installApi(page: Page, seen: SeenRequest[]) {
       }
       return false
     },
-    { seen }
+    { seen, branding: passkeys ? { passkeySignInOffered: true } : undefined }
   )
 }
 
@@ -129,6 +144,45 @@ test("the browser's Back, and the page's, return from 'Use a different account' 
   await page.getByRole("button", { name: "Back", exact: true }).click()
   await expect(row).toBeVisible()
   await expect(page.getByRole("textbox", { name: "Email" })).toHaveCount(0)
+})
+
+test("the address chip, and the browser's Back, take an address typed under 'Use a different account' back to the list, whose field keeps it", async ({
+  page,
+}) => {
+  await installApi(page, [], { passkeys: true })
+  await page.addInitScript(
+    ([key, value]) => window.localStorage.setItem(key, value),
+    [ACCOUNTS_KEY, JSON.stringify([SEEDED[0]])] as const
+  )
+  await page.goto("/login?returnTo=%2Fprofile")
+  const row = accountList(page).getByRole("button", { name: /^Ada Lovelace/ })
+  const field = page.getByRole("textbox", { name: "Email" })
+  const chip = page.getByTestId("address-chip")
+
+  await page.getByRole("button", { name: "Use a different account" }).click()
+  await field.fill("grace@example.com")
+  await page.getByRole("button", { name: "Continue", exact: true }).click()
+  await page.getByLabel("Password").fill("pw")
+  // Google's down chevron after the address (owner, 2026-11-23).
+  await expect(chip).toContainText("grace@example.com")
+  await expect(chip.locator("svg.lucide-chevron-down")).toHaveCount(1)
+
+  await chip.click()
+  await expect(row).toBeFocused()
+  await expect(page.getByLabel("Password")).toHaveCount(0)
+  await expect(page).toHaveURL(/\/login\?returnTo=%2Fprofile$/)
+
+  // The typed address waits in the field, to be corrected rather than typed again.
+  await page.getByRole("button", { name: "Use a different account" }).click()
+  await expect(field).toHaveValue("grace@example.com")
+
+  // The browser's Back from the step after it lands on the list as well.
+  await page.getByRole("button", { name: "Continue", exact: true }).click()
+  await expect(chip).toBeVisible()
+  await page.evaluate(() => history.back())
+  await expect(row).toBeFocused()
+  await expect(chip).toHaveCount(0)
+  await expect(page).toHaveURL(/\/login\?returnTo=%2Fprofile$/)
 })
 
 test("removing an account sends nothing, and the last one gone leaves the address field", async ({ page }) => {
