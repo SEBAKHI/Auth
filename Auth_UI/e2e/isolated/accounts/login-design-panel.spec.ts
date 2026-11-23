@@ -39,6 +39,8 @@ interface Setup {
   renderStatus?: number
   /** Holds the server's render of a design until it settles; the request is recorded first. */
   holdRender?: Promise<void>
+  /** The administrator hid the panel: the server then names the platform's design nowhere. */
+  panelHidden?: boolean
 }
 
 async function open(page: Page, path: string, setup: Setup = {}) {
@@ -97,6 +99,7 @@ async function open(page: Page, path: string, setup: Setup = {}) {
       logoUrl: null,
       staySignedInOffered: true,
       loginDesign: setup.platform === undefined ? PLATFORM_DESIGN : setup.platform,
+      ...(setup.panelHidden ? { loginPanelShown: false } : {}),
     })
   )
   await page.route("https://auth.example.com/uploads/images/*.svg", (route) =>
@@ -207,6 +210,23 @@ test("with no design anywhere the panel stays plain, and nothing is fetched", as
   await expect(panel(page).locator("iframe")).toHaveCount(0)
   await expect(panel(page)).toHaveAttribute("aria-hidden", "true")
   expect(renders).toEqual([])
+})
+
+test("with the panel hidden the form takes the whole page, and an application's own design keeps its panel", async ({
+  page,
+}) => {
+  for (const path of ["/login", FLOW]) {
+    const { renders } = await open(page, path, { app: null, platform: null, panelHidden: true })
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+    await expect(panel(page)).toHaveCount(0)
+    // The form half spans the page: no second column waits beside it.
+    const width = await page.getByRole("main").evaluate((main) => main.parentElement!.getBoundingClientRect().width)
+    expect(width).toBe(1440)
+    expect(renders).toEqual([])
+  }
+
+  await open(page, FLOW, { app: OWN_DESIGN, platform: null, panelHidden: true, appHtml: `<p id="who">Own</p>` })
+  await expect((await designFrame(page)).locator("#who")).toHaveText("Own")
 })
 
 test("under 1024px the panel is hidden and no design is fetched", async ({ page }) => {

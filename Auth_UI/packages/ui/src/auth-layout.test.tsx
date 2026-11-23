@@ -7,6 +7,7 @@ const theme = vi.hoisted(() => ({ resolved: "light" as "light" | "dark" }))
 const branding = vi.hoisted(() => ({
   loginDesign: undefined as { id: string; contentHash: string; showPlatformLogo: boolean } | null | undefined,
   logoHeightPx: 60,
+  loginPanelShown: undefined as boolean | undefined,
 }))
 const panels = vi.hoisted(() => ({
   rendered: [] as { clientId: string | null; design: { id: string } }[],
@@ -25,6 +26,7 @@ vi.mock("@authsystem/ui/branding", () => ({
     logoHeightPx: branding.logoHeightPx,
     name: "Auth",
     isPending: false,
+    loginPanelShown: branding.loginPanelShown,
   }),
 }))
 // The panel's own chunk: here it records what it was asked to show and hands the test
@@ -329,6 +331,54 @@ describe("AuthLayout — the panel's design", () => {
     expect(platformMark()).toBeNull()
     expect(within(screen.getByRole("banner")).queryByRole("img")).toBeNull()
     expect(within(screen.getByRole("main")).getByRole("img", { name: "SHOP" })).toBeInTheDocument()
+  })
+})
+
+/**
+ * The panel hidden by the administrator: the form takes the whole page, on the platform's
+ * pages and on an application's without a design of its own; an application's own design
+ * keeps its panel, and nothing is removed on a guess. Breaks: ignore `loginPanelShown`; hide
+ * the panel while the answer is unknown; hide it over an application's own design.
+ */
+describe("AuthLayout — the panel hidden", () => {
+  const OWN = { id: "a1", contentHash: "h2", showPlatformLogo: true }
+  const panel = (container: HTMLElement) => container.querySelector('[data-slot="auth-panel"]')
+  const grid = (container: HTMLElement) => container.firstElementChild!
+
+  it.each([
+    ["the platform's own pages", undefined],
+    ["an application's page without a design of its own", { clientId: "shop", design: null }],
+  ] as const)("leaves no panel and no second column on %s", (_, loginDesign) => {
+    branding.loginDesign = null
+    branding.loginPanelShown = false
+    const { container } = render(
+      <AuthLayout title="Sign in" loginDesign={loginDesign}>
+        <div />
+      </AuthLayout>
+    )
+
+    expect(panel(container)).toBeNull()
+    expect(grid(container)).not.toHaveClass("lg:grid-cols-2")
+    branding.loginPanelShown = undefined
+  })
+
+  it.each([
+    ["shown", true, null, undefined],
+    ["unknown yet", undefined, null, undefined],
+    ["hidden, but the application has its own design", false, null, { clientId: "shop", design: OWN }],
+    ["hidden, while the application's design is not known yet", false, null, { clientId: "shop", design: undefined }],
+  ] as const)("keeps the panel when %s", (_, shown, platformDesign, loginDesign) => {
+    branding.loginDesign = platformDesign
+    branding.loginPanelShown = shown
+    const { container } = render(
+      <AuthLayout title="Sign in" loginDesign={loginDesign}>
+        <div />
+      </AuthLayout>
+    )
+
+    expect(panel(container)).not.toBeNull()
+    expect(grid(container)).toHaveClass("lg:grid-cols-2")
+    branding.loginPanelShown = undefined
   })
 })
 

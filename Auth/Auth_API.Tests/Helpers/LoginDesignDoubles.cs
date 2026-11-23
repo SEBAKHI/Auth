@@ -17,6 +17,6 @@ public static class LoginDesignDoubles
         repository.Setup(r => r.GetActiveAsync(null, It.IsAny<CancellationToken>())).ReturnsAsync(platform);
         repository.Setup(r => r.GetActiveAsync(It.Is<Guid?>(id => id != null), It.IsAny<CancellationToken>()))
             .ReturnsAsync(application);
-        return new EffectiveLoginDesign(repository.Object);
+        return new EffectiveLoginDesign(repository.Object, new Mock<IPlatformSettingsRepository>().Object);
     }
 }

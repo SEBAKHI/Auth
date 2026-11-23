@@ -52,6 +52,9 @@ public class PlatformSettingsDto
     /// </summary>
     public IReadOnlyList<string> HiddenLanguages { get; set; } = [];
 
+    /// <summary>Whether the sign-in pages have the panel beside the form.</summary>
+    public bool LoginPanelShown { get; set; } = true;
+
     public DateTime? ModifiedAt { get; set; }
     public Guid? ModifiedBy { get; set; }
     public string? ModifiedByName { get; set; }
@@ -76,6 +79,7 @@ public class PlatformSettingsDto
         LogoHeightPx = settings.LogoHeight?.Px,
         Fonts = PlatformFontsDto.From(settings, imageUrlComposer),
         HiddenLanguages = settings.HiddenLanguages.Codes,
+        LoginPanelShown = settings.LoginPanelShown,
         ModifiedAt = settings.ModifiedAt,
         ModifiedBy = settings.ModifiedBy,
         ModifiedByName = settings.ModifiedBy.HasValue
@@ -117,6 +121,13 @@ public class PlatformBrandingDto
     /// page that would open in one opens in English. Empty when every language is shown.
     /// </summary>
     public IReadOnlyList<string> HiddenLanguages { get; set; } = [];
+
+    /// <summary>
+    /// Whether the sign-in pages have the panel beside the form. False: the platform's pages have
+    /// none, nor has an application's page whose <c>LoginDesign</c> is null (no active design of
+    /// its own; the platform's is never offered in its place while the panel is hidden).
+    /// </summary>
+    public bool LoginPanelShown { get; set; } = true;
 
     /// <summary>
     /// Whether the sign-in page offers the "Stay signed in" box: true only while

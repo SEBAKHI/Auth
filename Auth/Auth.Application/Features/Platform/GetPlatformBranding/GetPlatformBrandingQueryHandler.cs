@@ -85,6 +85,7 @@ public class GetPlatformBrandingQueryHandler : IRequestHandler<GetPlatformBrandi
             SelfRegistrationOpen = _registrationSettings.AllowSelfRegistration,
             PasswordAtSignUp = signUp.PasswordRequired,
             NameAtSignUp = signUp.NameRequired,
+            LoginPanelShown = settings.LoginPanelShown,
             LoginDesign = LoginDesignRefDto.FromOrNull(await _loginDesign.ForAsync(null, cancellationToken))
         };
     }

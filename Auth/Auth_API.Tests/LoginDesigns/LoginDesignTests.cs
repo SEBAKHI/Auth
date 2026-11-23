@@ -838,7 +838,7 @@ public class LoginDesignTests
     // --- which design a page shows ---
 
     private static GetPublicLoginDesignQueryHandler PublicHandler(World world) => new(
-        world.Applications.Object, new EffectiveLoginDesign(world.Designs.Object), world.Renderer(), world.Rendered);
+        world.Applications.Object, new EffectiveLoginDesign(world.Designs.Object, world.Platform.Object), world.Renderer(), world.Rendered);
 
     [Fact]
     public async Task APageRendersADesignOnce_PerVersionLanguageAndNames_AndServesItFromMemoryAfter()
@@ -951,7 +951,7 @@ public class LoginDesignTests
         var world = new World();
         var platform = world.Store(Active(null));
         var handler = new GetPublicBrandingQueryHandler(
-            world.Applications.Object, ApplicationTestImages.Composer(), new EffectiveLoginDesign(world.Designs.Object));
+            world.Applications.Object, ApplicationTestImages.Composer(), new EffectiveLoginDesign(world.Designs.Object, world.Platform.Object));
 
         var fallback = await handler.Handle(new GetPublicBrandingQuery("CRM"), CancellationToken.None);
         fallback.Value.LoginDesign.Should().Be(LoginDesignRefDto.FromOrNull(platform));
@@ -969,6 +969,30 @@ public class LoginDesignTests
         world.Stored.Clear();
         (await handler.Handle(new GetPublicBrandingQuery("CRM"), CancellationToken.None))
             .Value.LoginDesign.Should().BeNull("no design anywhere: the plain panel");
+    }
+
+    [Fact]
+    public async Task AHiddenPanel_OffersThePlatformsDesignNowhere_ButAnApplicationsOwnStillShows()
+    {
+        var world = new World();
+        var settings = PlatformSettings.CreateDefault();
+        settings.SetLoginPanelShown(false, Admin);
+        world.Platform.Setup(r => r.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(settings);
+        world.Store(Active(null));
+        var effective = new EffectiveLoginDesign(world.Designs.Object, world.Platform.Object);
+
+        (await effective.ForAsync(null, CancellationToken.None))
+            .Should().BeNull("the platform's own pages have no panel");
+        (await effective.ForAsync(AppId, CancellationToken.None))
+            .Should().BeNull("an application without a design of its own falls back to no panel");
+
+        var own = world.Store(Active(AppId));
+        (await effective.ForAsync(AppId, CancellationToken.None)).Should().BeSameAs(own);
+
+        settings.SetLoginPanelShown(true, Admin).Should().BeTrue();
+        world.Stored.Remove(own);
+        (await effective.ForAsync(AppId, CancellationToken.None))
+            .Should().NotBeNull("shown again, the platform's design fills the panel");
     }
 
     // --- validators ---

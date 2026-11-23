@@ -10,7 +10,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { getErrorMessage } from "@authsystem/api/errors"
-import { BRANDING_QUERY_KEY } from "@authsystem/ui/branding"
+import { BRANDING_QUERY_KEY, useLoginPanelShown } from "@authsystem/ui/branding"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { FormDialog } from "@authsystem/ui/common/form-dialog"
 import { Button } from "@authsystem/ui/button"
@@ -95,6 +95,7 @@ export function LoginDesignsManager({
   urlNamespace: string
 }) {
   const { t } = useTranslation()
+  const loginPanelShown = useLoginPanelShown()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [pending, setPending] = React.useState<LoginDesignAction | null>(null)
@@ -166,8 +167,13 @@ export function LoginDesignsManager({
 
   const columns = useLoginDesignColumns({ scope, canManage, onAction: setPending })
 
+  // With the panel hidden, a page without a design of its own has no panel at all.
   const fallback =
-    scope.kind === "application" ? t("loginDesigns.visitorsSeePlatform") : t("loginDesigns.visitorsSeePlain")
+    loginPanelShown === false
+      ? t("loginDesigns.visitorsSeeNoPanel")
+      : scope.kind === "application"
+        ? t("loginDesigns.visitorsSeePlatform")
+        : t("loginDesigns.visitorsSeePlain")
 
   return (
     <div className="flex flex-col gap-4">

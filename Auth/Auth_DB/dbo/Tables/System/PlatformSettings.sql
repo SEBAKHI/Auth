@@ -27,6 +27,10 @@ CREATE TABLE [dbo].[PlatformSettings]
     -- The languages hidden from the language menus of both apps, as a JSON array of codes
     -- (never "en"). NULL = none hidden. Declared last for the same reason as Theme.
     [HiddenLanguages] NVARCHAR(100) NULL,
+    -- Whether the sign-in pages have the panel beside the form. 0 = no panel at all on the
+    -- platform's pages, nor on an application's that has no active design of its own. Declared
+    -- last for the same reason as Theme.
+    [LoginPanelShown] BIT NOT NULL CONSTRAINT [DF_PlatformSettings_LoginPanelShown] DEFAULT 1,
 
     CONSTRAINT [PK_PlatformSettings] PRIMARY KEY CLUSTERED ([Id]),
     -- Single-row table: the only allowed row is the fixed singleton id.
