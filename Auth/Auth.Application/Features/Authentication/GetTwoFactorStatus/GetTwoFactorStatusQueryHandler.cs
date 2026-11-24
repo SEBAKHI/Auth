@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Auth.Application.Features.Authentication.Common;
+using Auth.Application.Features.Users.ResetUserTwoFactor;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
@@ -8,18 +10,36 @@ namespace Auth.Application.Features.Authentication.GetTwoFactorStatus;
 /// <summary>
 /// Handler for the two-factor status query: counts the recovery codes left on the
 /// enabled factor, so the security page can say so — and warn while few are left,
-/// before the last one goes with the phone.
+/// before the last one goes with the phone. For an administrator it also says what
+/// stands between them and no way back: a sign-in by passkey alone, and whether any
+/// other administrator could reset their second factor.
 /// </summary>
+/// <remarks>
+/// Both administrator answers come from the rules that act on them, never from a
+/// copy: the passkey-only refusal's own <see cref="PasskeyOnlyAdministratorRule.AppliesToAsync"/>,
+/// and the reset's own eligibility (<see cref="TwoFactorResetAdministrators"/>). An
+/// account without platform authority reads neither: it holds no passkey-only
+/// refusal, and no administrator's warning concerns it.
+/// </remarks>
 public class GetTwoFactorStatusQueryHandler : IRequestHandler<GetTwoFactorStatusQuery, ErrorOr<TwoFactorStatusResponse>>
 {
     private readonly ITwoFactorStateStore _twoFactorStateStore;
+    private readonly EmailCodeFullProofRule _platformAuthority;
+    private readonly PasskeyOnlyAdministratorRule _passkeyOnlyAdministrator;
+    private readonly TwoFactorResetAdministrators _resetAdministrators;
     private readonly ILogger<GetTwoFactorStatusQueryHandler> _logger;
 
     public GetTwoFactorStatusQueryHandler(
         ITwoFactorStateStore twoFactorStateStore,
+        EmailCodeFullProofRule platformAuthority,
+        PasskeyOnlyAdministratorRule passkeyOnlyAdministrator,
+        TwoFactorResetAdministrators resetAdministrators,
         ILogger<GetTwoFactorStatusQueryHandler> logger)
     {
         _twoFactorStateStore = twoFactorStateStore;
+        _platformAuthority = platformAuthority;
+        _passkeyOnlyAdministrator = passkeyOnlyAdministrator;
+        _resetAdministrators = resetAdministrators;
         _logger = logger;
     }
 
@@ -27,15 +47,26 @@ public class GetTwoFactorStatusQueryHandler : IRequestHandler<GetTwoFactorStatus
         GetTwoFactorStatusQuery request,
         CancellationToken cancellationToken)
     {
-        var snapshot = await _twoFactorStateStore.GetSnapshotAsync(request.UserId, cancellationToken);
+        var codesRemaining = await RecoveryCodesRemainingAsync(request.UserId, cancellationToken);
 
-        // A pending (not yet enabled) row has no codes that work.
-        if (snapshot is not { IsEnabled: true })
+        if (!await _platformAuthority.HoldsPlatformAuthorityAsync(request.UserId, cancellationToken))
         {
-            return new TwoFactorStatusResponse(null);
+            return new TwoFactorStatusResponse(codesRemaining, SignsInWithPasskeyOnly: false, AnotherAdministratorCanReset: null);
         }
 
-        return new TwoFactorStatusResponse(CountCodes(request.UserId, snapshot.RecoveryCodes));
+        return new TwoFactorStatusResponse(
+            codesRemaining,
+            SignsInWithPasskeyOnly: await _passkeyOnlyAdministrator.AppliesToAsync(request.UserId, cancellationToken),
+            AnotherAdministratorCanReset: await _resetAdministrators.AnyAsync(request.UserId, cancellationToken));
+    }
+
+    /// <summary>The codes left on the enabled factor; null without one.</summary>
+    private async Task<int?> RecoveryCodesRemainingAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var snapshot = await _twoFactorStateStore.GetSnapshotAsync(userId, cancellationToken);
+
+        // A pending (not yet enabled) row has no codes that work.
+        return snapshot is { IsEnabled: true } ? CountCodes(userId, snapshot.RecoveryCodes) : null;
     }
 
     /// <summary>

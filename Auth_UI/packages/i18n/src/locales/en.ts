@@ -433,6 +433,8 @@ export const en = {
         "Your device will ask you to confirm it's you, with your fingerprint, face, screen lock or security key.",
       tryAnotherWay: "Try another way",
       otherWaysHeading: "Other ways to sign in",
+      onlyWayHint:
+        "On a device without your passkey, choose your phone (scan the QR code) or a security key in the window your device opens, or sign in on the device that holds it.",
     },
     passkeyOffer: {
       title: "Sign in faster with a passkey",
@@ -3578,6 +3580,12 @@ export const en = {
     recoveryCodesLow: "Recovery codes left: {{count}}. Each one works once. Generate a new set now, while you can still sign in, and keep it somewhere safe.",
     recoveryCodeUsedTitle: "You signed in with a recovery code",
     recoveryCodeUsed: "That code no longer works. If your phone is lost, replace your authenticator app, then generate a new set of recovery codes.",
+    passkeyOneDeviceTitle: "You can sign in on one device only",
+    passkeyOneDevice:
+      "This account signs in with its passkey alone, and your only passkey is kept on one device. If you lose that device, you can't sign in. Add a passkey on your phone, or a security key.",
+    soleAdministratorTitle: "No other administrator can restore your access",
+    soleAdministrator:
+      "If you lose your passkey or your phone, no other administrator can reset your 2-Step Verification for you. Make sure a second administrator holds at least your permissions and uses 2-Step Verification on their own account.",
     regenerateRecoveryCodes: "Generate new codes",
     regenerateRecoveryCodesTitle: "Generate new recovery codes",
     regenerateRecoveryCodesBody: "Your current recovery codes stop working as soon as the new ones are created. Enter a code from your authenticator app, or one of your recovery codes.",

@@ -14,7 +14,6 @@ import {
   Field,
   FieldContent,
   FieldGroup,
-  FieldLegend,
   FieldSet,
   FieldTitle,
 } from "@authsystem/ui/field"
@@ -129,10 +128,15 @@ interface LocationState {
  * the password step: after the address while passkeys may run here (OI-280,
  * `afterCode` false), or the password a sign-in by code still needs (the account
  * holds platform authority, or the "sign in again" dialog asked for full proof).
+ *
+ * `onlyWay` on the passkey screen: the address's own password or emailed code was
+ * right, and the server answered that this account signs in with its passkey
+ * alone (D-S20-4 (ii-s)). The other ways would meet the same refusal, so the
+ * screen offers none of them, and says what does work (owner, 2026-11-24).
  */
 type Step =
   | { kind: "credentials" }
-  | { kind: "passkey"; email: string }
+  | { kind: "passkey"; email: string; onlyWay?: boolean }
   | { kind: "code"; pending: PendingEmailCode }
   | { kind: "password"; email: string; afterCode: boolean }
 
@@ -219,6 +223,12 @@ export function LoginPage({
       ? (chosen ??
         primarySignInMethod(options, remembered, reason?.method ?? null))
       : "password"
+  // The person asked for the password themself: the first screen's link, the
+  // passkey screen's list, or another screen that sent them here for it. The
+  // page then asks for it at once, beside the address, and asks the server
+  // nothing about the address first (owner, 2026-11-24): a choice the page then
+  // overrode with the passkey screen was a choice it never kept.
+  const passwordChosen = chosen === "password"
   // Full proof: a sign-in by code proves the password too where the account
   // has one. Asked by the "sign in again" dialog, and under every sign-in
   // reason (S23): a password account that takes the code link must not come
@@ -414,9 +424,13 @@ export function LoginPage({
   React.useEffect(() => {
     if (passkeysOffHere) notePasskeysOff()
   }, [passkeysOffHere])
-  // Password mode while passkeys may run: the address first, the password next.
+  // Password mode while passkeys may run: the address first, the password next,
+  // unless the person chose the password themself.
   const addressFirst =
-    step.kind === "credentials" && passkeysMayRun && method === "password"
+    step.kind === "credentials" &&
+    passkeysMayRun &&
+    method === "password" &&
+    !passwordChosen
   // The first step lists the remembered accounts instead of asking the address;
   // the password, where it would share that step, waits for the account pressed.
   const accountsView =
@@ -425,7 +439,7 @@ export function LoginPage({
     step.kind === "password" ||
     (step.kind === "credentials" &&
       method === "password" &&
-      !passkeysMayRun &&
+      (!passkeysMayRun || passwordChosen) &&
       !accountsView)
   const codeFirst = step.kind === "credentials" && method === "code"
   // A door answered that the account signs in with its passkey: passkeys run
@@ -505,6 +519,16 @@ export function LoginPage({
   // screen reader then reads out.
   const lostPasskeyOnly = reason?.reason === "mfa_passkey"
   const otherWaysListRef = React.useRef<HTMLDivElement>(null)
+  // "Try another way" goes as the ways it opens appear, so the focus it held
+  // moves to the first of them, which a screen reader then reads out; set in the
+  // link's click, and spent once.
+  const otherWaysRef = React.useRef<HTMLFieldSetElement>(null)
+  const focusOtherWaysOnOpen = React.useRef(false)
+  React.useEffect(() => {
+    if (!otherWaysOpen || !onPasskeyScreen || !focusOtherWaysOnOpen.current) return
+    focusOtherWaysOnOpen.current = false
+    otherWaysRef.current?.querySelector<HTMLElement>("button, a")?.focus()
+  }, [otherWaysOpen, onPasskeyScreen])
   const lostPasskeyOnlyBeforeRef = React.useRef(lostPasskeyOnly)
   React.useEffect(() => {
     if (lostPasskeyOnlyBeforeRef.current && !lostPasskeyOnly && onPasskeyScreen) {
@@ -513,11 +537,33 @@ export function LoginPage({
     lostPasskeyOnlyBeforeRef.current = lostPasskeyOnly
   }, [lostPasskeyOnly, onPasskeyScreen])
 
-  // Back to the address, keeping what was typed; the sent code is forgotten.
+  // Back to the address, keeping what was typed; the sent code is forgotten, and
+  // so is a refusal's sentence, which was about the address being left.
   const backToAddress = React.useCallback(() => {
     form.setValue("password", "")
+    setPasskeyNotice(null)
     setStep({ kind: "credentials" })
   }, [form])
+
+  // The address's own password or code was right, and the server answered that
+  // the account signs in with its passkey alone (D-S20-4 (ii-s)): the passkey
+  // screen for that address, with the API's sentence, and none of the ways the
+  // server has just refused. Without this the page went back to the address and
+  // offered the same ways again, a loop with no way out (owner, 2026-11-24). The
+  // window opens by itself, as on every arrival: a device without the passkey
+  // offers the phone and the security key there.
+  const toPasskeyOnly = React.useCallback(
+    (email: string, notice: string) => {
+      form.setValue("email", email)
+      form.setValue("password", "")
+      setPasskeyNotice(notice)
+      confirmPasskeys()
+      setOtherWaysOpen(false)
+      setPasskeyArrival((arrival) => arrival + 1)
+      setStep({ kind: "passkey", email, onlyWay: true })
+    },
+    [form, confirmPasskeys]
+  )
 
   // A sign-in by code that needs the password: the address is the one the code
   // just proved, and only the password is asked.
@@ -560,12 +606,11 @@ export function LoginPage({
         return
       }
       if (toRecovery(error, values.email)) return
-      // The account signs in with its passkey alone (D-S20-4 (ii-s)). From the
-      // password step, back to the address, where the passkey then leads.
+      // The account signs in with its passkey alone (D-S20-4 (ii-s)), and the
+      // password just proved this address: the passkey screen, with no other way.
       const notice = passkeyRequiredNotice(error)
       if (notice) {
-        if (step.kind === "password") backToAddress()
-        askForPasskey(notice)
+        toPasskeyOnly(values.email, notice)
         return
       }
       // One text for every wrong pair (OI-215): an unknown address, a wrong
@@ -680,7 +725,7 @@ export function LoginPage({
     form.setValue("email", account.email)
     const values = { ...getValues(), email: account.email }
     try {
-      if (passkeysMayRun) await continueAfterAddress(values)
+      if (passkeysMayRun && !passwordChosen) await continueAfterAddress(values)
       else if (method === "password") toPasswordStep(account.email)
       else await sendCode(values)
     } finally {
@@ -748,10 +793,8 @@ export function LoginPage({
           pageFooter={pageFooter}
           onChangeAddress={changeAddress}
           onPasswordRequired={continueWithPassword}
-          onPasskeyRequired={(notice) => {
-            backToAddress()
-            askForPasskey(notice)
-          }}
+          // The code proved this address: the passkey screen, with no other way.
+          onPasskeyRequired={(notice) => toPasskeyOnly(step.pending.email, notice)}
         />
       </React.Suspense>
     )
@@ -869,6 +912,10 @@ export function LoginPage({
     // request into the application's refusal (D-152-2): the list holds the way
     // out alone.
     const email = step.email
+    // The server refused this address's other ways after their own proof: none
+    // is offered, neither the link nor the list.
+    const onlyWay = step.onlyWay === true
+    const listShown = !onlyWay && (otherWaysOpen || passkeyGone)
     return (
       <AuthLayout
         title={t("auth.passkey.screenTitle")}
@@ -884,13 +931,17 @@ export function LoginPage({
               {cookiesBlockedNote}
               {addressField}
               {staySignedInField}
-              {/* A provider in the list answered that this account signs in with
-                  its passkey: the API's sentence stays on the screen, above the
-                  button, as on the first screen. */}
+              {/* The API's sentence stays on the screen, above the button: a
+                  provider in the list answered that this account signs in with its
+                  passkey, or the address's own password or code did (`onlyWay`),
+                  which then also says what works on a device without it. */}
               {passkeyNotice ? (
                 <Alert data-testid="passkey-required-note">
                   <KeyRound />
-                  <AlertDescription>{passkeyNotice}</AlertDescription>
+                  <AlertDescription>
+                    <p>{passkeyNotice}</p>
+                    {onlyWay ? <p>{t("auth.passkey.onlyWayHint")}</p> : null}
+                  </AlertDescription>
                 </Alert>
               ) : null}
               <PasskeyButton
@@ -899,26 +950,33 @@ export function LoginPage({
                 variant="default"
                 buttonRef={passkeyScreenButtonRef}
               />
-              {/* A disclosure: the link shows the list in place (D-S20-16). Without
-                  the button, the list is all the screen offers, so it is shown. */}
-              {passkeyGone ? null : (
+              {/* The link shows the other ways in place, and goes: the ways
+                  themselves are what it promised, with no second line saying so
+                  (D-S20-16, owner 2026-11-24). Without the button the ways are all
+                  the screen offers, so they are shown. */}
+              {passkeyGone || otherWaysOpen || onlyWay ? null : (
                 <Button
                   type="button"
                   variant="link"
                   className="w-full text-muted-foreground"
-                  aria-expanded={otherWaysOpen}
-                  aria-controls={OTHER_WAYS_ID}
                   data-testid="try-another-way"
-                  onClick={() => setOtherWaysOpen((open) => !open)}
+                  onClick={() => {
+                    focusOtherWaysOnOpen.current = true
+                    setOtherWaysOpen(true)
+                  }}
                 >
                   {t("auth.passkey.tryAnotherWay")}
                 </Button>
               )}
-              {otherWaysOpen || passkeyGone ? (
-                <FieldSet id={OTHER_WAYS_ID} data-testid="other-ways">
-                  <FieldLegend variant="label">
-                    {t("auth.passkey.otherWaysHeading")}
-                  </FieldLegend>
+              {listShown ? (
+                // Named for assistive technology only: on the screen the ways
+                // speak for themselves.
+                <FieldSet
+                  ref={otherWaysRef}
+                  id={OTHER_WAYS_ID}
+                  aria-label={t("auth.passkey.otherWaysHeading")}
+                  data-testid="other-ways"
+                >
                   {lostPasskeyOnly ? (
                     // D-152-2's link, as in the reason's sentence: it drops the
                     // request, and the sign-in then lands on Profile › Security.

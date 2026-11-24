@@ -426,6 +426,8 @@ export const fr: TranslationResources = {
         "Votre appareil vous demandera de confirmer que c’est bien vous, avec votre empreinte, votre visage, le verrouillage de l’écran ou une clé de sécurité.",
       tryAnotherWay: "Essayer une autre méthode",
       otherWaysHeading: "Autres moyens de se connecter",
+      onlyWayHint:
+        "Sur un appareil sans votre clé d’accès, choisissez votre téléphone (scannez le code QR) ou une clé de sécurité dans la fenêtre que votre appareil ouvre, ou connectez-vous depuis l’appareil qui la porte.",
     },
     passkeyOffer: {
       title: "Connectez-vous plus vite avec une clé d’accès",
@@ -3628,6 +3630,12 @@ export const fr: TranslationResources = {
     recoveryCodesLow: "Codes de récupération restants : {{count}}. Chaque code ne fonctionne qu'une fois. Générez un nouveau jeu maintenant, tant que vous pouvez encore vous connecter, et conservez-le en lieu sûr.",
     recoveryCodeUsedTitle: "Connexion effectuée avec un code de récupération",
     recoveryCodeUsed: "Ce code ne fonctionne plus. Si vous avez perdu votre téléphone, remplacez votre application d'authentification, puis générez un nouveau jeu de codes de récupération.",
+    passkeyOneDeviceTitle: "Vous ne pouvez vous connecter que depuis un seul appareil",
+    passkeyOneDevice:
+      "Ce compte se connecte uniquement avec sa clé d’accès, et votre seule clé d’accès est conservée sur un seul appareil. Si vous perdez cet appareil, vous ne pourrez plus vous connecter. Ajoutez une clé d’accès sur votre téléphone, ou une clé de sécurité.",
+    soleAdministratorTitle: "Aucun autre administrateur ne peut rétablir votre accès",
+    soleAdministrator:
+      "Si vous perdez votre clé d’accès ou votre téléphone, aucun autre administrateur ne peut réinitialiser votre validation en deux étapes. Assurez-vous qu’un deuxième administrateur dispose au moins de vos autorisations et utilise la validation en deux étapes sur son propre compte.",
     regenerateRecoveryCodes: "Générer de nouveaux codes",
     regenerateRecoveryCodesTitle: "Générer de nouveaux codes de récupération",
     regenerateRecoveryCodesBody: "Vos codes de récupération actuels cessent de fonctionner dès la création des nouveaux. Saisissez un code de votre application d'authentification, ou l'un de vos codes de récupération.",

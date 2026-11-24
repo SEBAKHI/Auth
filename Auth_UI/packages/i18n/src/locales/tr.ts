@@ -426,6 +426,8 @@ export const tr: TranslationResources = {
         "Cihazınız, parmak iziniz, yüzünüz, ekran kilidiniz veya güvenlik anahtarınızla siz olduğunuzu doğrulamanızı isteyecek.",
       tryAnotherWay: "Başka bir yol deneyin",
       otherWaysHeading: "Oturum açmanın diğer yolları",
+      onlyWayHint:
+        "Geçiş anahtarınızın bulunmadığı bir cihazda, cihazınızın açtığı pencerede telefonunuzu (QR kodunu tarayın) veya bir güvenlik anahtarını seçin ya da geçiş anahtarınızın bulunduğu cihazdan oturum açın.",
     },
     passkeyOffer: {
       title: "Geçiş anahtarıyla daha hızlı oturum açın",
@@ -3568,6 +3570,12 @@ export const tr: TranslationResources = {
     recoveryCodesLow: "Kalan kurtarma kodu: {{count}}. Her kod bir kez çalışır. Hâlâ oturum açabiliyorken şimdi yeni bir set oluşturun ve güvenli bir yerde saklayın.",
     recoveryCodeUsedTitle: "Bir kurtarma koduyla oturum açtınız",
     recoveryCodeUsed: "O kod artık çalışmıyor. Telefonunuz kaybolduysa doğrulayıcı uygulamanızı değiştirin, ardından yeni bir kurtarma kodu seti oluşturun.",
+    passkeyOneDeviceTitle: "Yalnızca tek bir cihazdan oturum açabilirsiniz",
+    passkeyOneDevice:
+      "Bu hesap yalnızca geçiş anahtarıyla oturum açar ve tek geçiş anahtarınız tek bir cihazda saklanıyor. O cihazı kaybederseniz oturum açamazsınız. Telefonunuza bir geçiş anahtarı ya da bir güvenlik anahtarı ekleyin.",
+    soleAdministratorTitle: "Erişiminizi geri getirebilecek başka bir yönetici yok",
+    soleAdministrator:
+      "Geçiş anahtarınızı veya telefonunuzu kaybederseniz, iki adımlı doğrulamanızı sizin için sıfırlayabilecek başka bir yönetici yok. En az sizin izinlerinize sahip ve kendi hesabında iki adımlı doğrulama kullanan ikinci bir yönetici bulunduğundan emin olun.",
     regenerateRecoveryCodes: "Yeni kodlar oluştur",
     regenerateRecoveryCodesTitle: "Yeni kurtarma kodları oluştur",
     regenerateRecoveryCodesBody: "Mevcut kurtarma kodlarınız yenileri oluşturulur oluşturulmaz çalışmayı bırakır. Doğrulayıcı uygulamanızdan bir kod ya da kurtarma kodlarınızdan birini girin.",
