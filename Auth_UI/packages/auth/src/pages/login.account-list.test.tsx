@@ -569,6 +569,31 @@ describe("a password chosen for one account holds for that account only", () => 
     expect(screen.queryByLabelText("auth.password")).toBeNull()
     expect(posted().filter((path) => path === LOOKUP_PATH)).toHaveLength(2)
   })
+
+  // REVIEW-FIXES 185 R2-1. Deliberate break, verified red: the row press honouring a
+  // choice made on the empty field (the ANY_ADDRESS condition dropped) sends Ada to
+  // her password step with no lookup.
+  it("a password chosen on the empty address field does not carry over to a row pressed after Back", async () => {
+    const user = userEvent.setup()
+    mocks.branding.signInOptions = { ...CODE_FIRST, passkeySignInOffered: true }
+    remember(ADA)
+    renderPage()
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(OPTIONS_PATH))
+
+    // The password, chosen on the field before any address.
+    await user.click(screen.getByRole("button", { name: /auth\.useDifferentAccount/ }))
+    await user.click(screen.getByRole("button", { name: "auth.signInWithPasswordInstead" }))
+    expect(screen.getByLabelText("auth.password")).toBeInTheDocument()
+
+    // Back to the list, and Ada (a passkey holder) pressed.
+    await user.click(screen.getByRole("button", { name: "browser back" }))
+    await user.click(row("Ada Lovelace"))
+
+    await screen.findByRole("heading", { name: "auth.passkey.screenTitle" })
+    expect(within(screen.getByTestId("address-chip")).getByText(ADA.email)).toBeInTheDocument()
+    expect(screen.queryByLabelText("auth.password")).toBeNull()
+    expect(posted().filter((path) => path === LOOKUP_PATH)).toHaveLength(1)
+  })
 })
 
 describe("removing an account from the list", () => {

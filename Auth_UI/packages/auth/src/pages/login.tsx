@@ -241,8 +241,10 @@ export function LoginPage({
   // overrode with the passkey screen was a choice it never kept. The choice holds
   // for the address it was made for (owner, 2026-11-25, P3 (b)): the passkey
   // screen's address, the address handed over, or, for the first screen's link,
-  // whatever that field holds. Another account, a row pressed after the chip,
-  // is asked about as any address is.
+  // whatever that field holds, and only while it is the field. A remembered
+  // account's row is asked about as any address is, unless the choice was made
+  // for that row's own address (REVIEW-FIXES 185 R2-1): a choice made on the
+  // empty field never carries over to a row.
   const [passwordFor, setPasswordFor] = React.useState<string | null>(() =>
     state?.method === "password"
       ? state.email
@@ -760,8 +762,11 @@ export function LoginPage({
     const values = { ...getValues(), email: account.email }
     try {
       // The password chosen for this account goes to its password step; a choice
-      // made for another address does not carry over to this one (P3 (b)).
-      if (passkeysMayRun && !passwordChosenFor(account.email)) await continueAfterAddress(values)
+      // made for another address, or on the empty field, does not carry over to
+      // this one (P3 (b), REVIEW-FIXES 185 R2-1).
+      const chosenForThisRow =
+        passwordFor !== ANY_ADDRESS && passwordChosenFor(account.email)
+      if (passkeysMayRun && !chosenForThisRow) await continueAfterAddress(values)
       else if (method === "password") toPasswordStep(account.email)
       else await sendCode(values)
     } finally {
