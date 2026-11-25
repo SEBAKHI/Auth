@@ -49,6 +49,9 @@ public class UsableSecondFactorsReaderGuardTests
         "PasskeyOnlyAdministratorRule.cs",
         "GetUserByIdQueryHandler.cs",
         "ReauthenticationPolicy.cs",
+        // PR #185, REVIEW 185 F8: the account's own two-factor status asks no reset question
+        // for an administrator with no usable factor, whom the reset refuses anyway.
+        "GetTwoFactorStatusQueryHandler.cs",
     ];
 
     [Fact]
