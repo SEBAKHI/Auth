@@ -48,8 +48,22 @@ public sealed class TwoFactorResetAdministrators
     /// The administrators who could reset <paramref name="accountId"/>'s second
     /// factor now, at most <see cref="MaxRecipients"/>, in a stable order.
     /// </summary>
-    public async Task<IReadOnlyList<PlatformAuthorityHolder>> FindAsync(
+    public Task<IReadOnlyList<PlatformAuthorityHolder>> FindAsync(
         Guid accountId,
+        CancellationToken cancellationToken) =>
+        FindAsync(accountId, MaxRecipients, cancellationToken);
+
+    /// <summary>
+    /// Whether anyone could reset <paramref name="accountId"/>'s second factor now:
+    /// the security page's warning to an administrator who has nobody to restore
+    /// their access (owner, 2026-11-24). Stops at the first one found.
+    /// </summary>
+    public async Task<bool> AnyAsync(Guid accountId, CancellationToken cancellationToken) =>
+        (await FindAsync(accountId, limit: 1, cancellationToken)).Count > 0;
+
+    private async Task<IReadOnlyList<PlatformAuthorityHolder>> FindAsync(
+        Guid accountId,
+        int limit,
         CancellationToken cancellationToken)
     {
         var candidates = (await _permissionRepository.GetUsersHoldingPlatformPermissionsAsync(cancellationToken))
@@ -67,7 +81,7 @@ public sealed class TwoFactorResetAdministrators
         var accountPermissions = await _permissionRepository.GetUserEffectivePermissionsAsync(
             accountId, cancellationToken);
 
-        var eligible = new List<PlatformAuthorityHolder>(MaxRecipients);
+        var eligible = new List<PlatformAuthorityHolder>(limit);
         foreach (var candidate in candidates)
         {
             if (!(await _usableFactors.GetAsync(candidate.UserId, cancellationToken)).HasAny)
@@ -83,7 +97,7 @@ public sealed class TwoFactorResetAdministrators
             }
 
             eligible.Add(candidate);
-            if (eligible.Count == MaxRecipients)
+            if (eligible.Count == limit)
             {
                 break;
             }

@@ -295,7 +295,9 @@ public class TwoFactorController : ApiController
 
     /// <summary>
     /// The signed-in user's own two-factor status: how many recovery codes are
-    /// left (<c>null</c> without an enabled factor). Never another account's.
+    /// left (<c>null</c> without an enabled factor), and for an administrator
+    /// whether they sign in with a passkey alone and whether another administrator
+    /// could reset their second factor. Never another account's.
     /// </summary>
     /// <returns>The status.</returns>
     [HttpGet("status")]

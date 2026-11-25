@@ -180,3 +180,65 @@ for (const theme of ["light", "dark"] as const) {
     })
   }
 }
+
+// REVIEW 185 F3: a right password refused because the account signs in with its
+// passkey alone leaves the only-way screen, whose hint makes no promise a phone
+// without a passkey for this account cannot keep, and which offers no refused way.
+test("a refused password leaves the only-way screen, whose hint asks for a passkey on the phone or key", async ({
+  page,
+}) => {
+  // The person cancels the device's window, as on a computer without the passkey.
+  await page.addInitScript(() => {
+    navigator.credentials.get = () =>
+      Promise.reject(Object.assign(new Error("cancelled"), { name: "NotAllowedError" }))
+  })
+  await installAnonymousApi(
+    page,
+    async (route, url) => {
+      const path = url.pathname.toLowerCase()
+      if (path === OPTIONS_PATH) {
+        await fulfillJson(route, PASSKEY_OPTIONS)
+        return true
+      }
+      if (path === LOOKUP_PATH) {
+        await fulfillJson(route, { passkey: true })
+        return true
+      }
+      if (path === "/api/v1/auth/login") {
+        await route.fulfill({
+          status: 403,
+          contentType: "application/problem+json",
+          body: JSON.stringify({
+            status: 403,
+            title: "Forbidden",
+            code: "Auth.PasskeyRequired",
+            detail: "This account signs in with its passkey. Use your passkey to continue.",
+          }),
+        })
+        return true
+      }
+      return false
+    },
+    { branding: { passkeySignInOffered: true, codeSignInOffered: true, primaryMethod: "password" } }
+  )
+  const answered = page.waitForResponse((response) => response.url().endsWith(OPTIONS_PATH))
+  await page.goto("/login")
+  await answered
+  await expect(page.getByLabel("Email")).toHaveAttribute("autocomplete", "username webauthn")
+
+  await page.getByLabel("Email").fill("holder@example.com")
+  await page.getByRole("button", { name: "Continue", exact: true }).click()
+  await page.getByTestId("try-another-way").click()
+  await page.getByRole("button", { name: "Sign in with a password instead" }).click()
+  await page.getByLabel("Password").fill("correct-password")
+  await page.getByRole("button", { name: "Sign in", exact: true }).click()
+
+  const note = page.getByTestId("passkey-required-note")
+  await expect(note).toContainText("This account signs in with its passkey.")
+  await expect(note).toContainText(
+    "if your phone or a security key holds a passkey for this account, choose it in the window your device opens"
+  )
+  await expect(page.getByTestId("try-another-way")).toHaveCount(0)
+  await expect(page.getByTestId("other-ways")).toHaveCount(0)
+  await expect(page.getByTestId("passkey-sign-in").getByRole("button")).toBeEnabled()
+})

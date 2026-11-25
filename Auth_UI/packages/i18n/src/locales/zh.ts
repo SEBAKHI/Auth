@@ -423,6 +423,9 @@ export const zh: TranslationResources = {
         "您的设备会请您用指纹、面容、屏幕锁或安全密钥确认是您本人。",
       tryAnotherWay: "尝试其他方式",
       otherWaysHeading: "其他登录方式",
+      onlyWayHint:
+        "在没有您的通行密钥的设备上：如果您的手机或安全密钥中存有此账户的通行密钥，请在设备打开的窗口中选择它（手机请扫描二维码）。否则，请在存有您通行密钥的设备上登录。",
+      onlyWayBrowserCannot: "此浏览器无法使用通行密钥。请在支持通行密钥的浏览器中打开此页面，或在存有您通行密钥的设备上登录。",
     },
     passkeyOffer: {
       title: "使用通行密钥，登录更快",
@@ -3377,6 +3380,11 @@ export const zh: TranslationResources = {
     recoveryCodesLow: "剩余恢复代码：{{count}}。每个代码只能使用一次。请趁现在仍能登录时生成一组新代码，并妥善保存。",
     recoveryCodeUsedTitle: "您使用恢复代码登录了",
     recoveryCodeUsed: "该代码已失效。如果您的手机丢失，请更换验证器应用，然后生成一组新的恢复代码。",
+    passkeyOneDeviceTitle: "您的登录依赖于一个通行密钥",
+    passkeyOneDevice: "此账户只能使用通行密钥登录，而您唯一的通行密钥只保存在一台设备上。如果丢失该设备，您将无法登录。请在手机上添加通行密钥，或添加一个安全密钥。",
+    soleAdministratorTitle: "没有其他管理员可以恢复您的访问",
+    soleAdministrator:
+      "如果您丢失了通行密钥或手机，没有其他管理员可以为您重置两步验证。请确保另有一位管理员可以重置两步验证、至少拥有您的权限，并在自己的账户上使用两步验证。",
     regenerateRecoveryCodes: "生成新代码",
     regenerateRecoveryCodesTitle: "生成新的恢复代码",
     regenerateRecoveryCodesBody: "新代码生成后，您当前的恢复代码将立即失效。请输入验证器应用中的验证码，或您的一个恢复代码。",

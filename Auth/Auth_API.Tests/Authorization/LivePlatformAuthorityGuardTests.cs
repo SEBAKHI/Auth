@@ -104,7 +104,9 @@ public class LivePlatformAuthorityGuardTests
         // X12 PR B: who is TOLD that an account's second factor is hard-locked —
         // the administrators who could reset it. It reads grants to choose
         // recipients, grants nothing, and no token reaches it: an event does.
-        ["TwoFactorResetAdministrators.cs"] = "chooses who is told of a hard-locked factor; authorizes nothing (the reset re-checks behind its platform gate)",
+        // 2026-11-24 (PR #185): it also answers the signed-in administrator's own
+        // two-factor status, whether anyone could reset them, as a warning.
+        ["TwoFactorResetAdministrators.cs"] = "chooses who is told of a hard-locked factor, and tells an administrator whether anyone could reset their own; authorizes nothing (the reset re-checks behind its platform gate)",
         // OI-224: the account rules compare the actor's live platform grants with the
         // account's and count who holds *. They only ever refuse: every action they
         // gate sits behind its own platform users: code (the capability reads behind
@@ -183,15 +185,52 @@ public class LivePlatformAuthorityGuardTests
     };
 
     /// <summary>
-    /// Callers of PermissionGrantGuard that grant nothing and that no request
-    /// reaches, each with its one consumer. X12 PR B: the recipients of a
-    /// hard-locked factor's notice are the administrators the guard would let
-    /// reset it — the reset itself runs the guard again, behind its own gate.
+    /// Callers of PermissionGrantGuard that grant nothing, each with every consumer, none of
+    /// which authorizes anything with the answer. X12 PR B: the recipients of a hard-locked
+    /// factor's notice are the administrators the guard would let reset it; an event, not a
+    /// request, reaches that consumer. PR #185 (2026-11-24): the signed-in account's own
+    /// two-factor status asks whether anyone could reset ITS factor, for a warning on its
+    /// security page; the account is the token's own, never a parameter. The reset itself
+    /// runs the guard again, behind its own gate.
     /// </summary>
-    private static readonly Dictionary<string, string> PermissionGrantGuardReadOnlyCallers = new()
+    private static readonly Dictionary<string, string[]> PermissionGrantGuardReadOnlyCallers = new()
     {
-        ["TwoFactorResetAdministrators.cs"] = "TwoFactorHardLockAdminNotificationEventHandler.cs",
+        ["TwoFactorResetAdministrators.cs"] =
+        [
+            "TwoFactorHardLockAdminNotificationEventHandler.cs",
+            "GetTwoFactorStatusQueryHandler.cs",
+        ],
     };
+
+    /// <summary>
+    /// REVIEW 185 F9: the two-factor status answers, from other accounts' grants, whether
+    /// anyone could reset the asking account's second factor. That stays the account's own
+    /// question only while one action sends the query, for the token's own user: never an
+    /// identifier from the route, the body or the query string.
+    /// </summary>
+    /// <remarks>
+    /// Deliberate break: a second sender in a scratch file. Not run on the implementing
+    /// machine (2026-11-25), whose Smart App Control blocked the rebuilt test assembly;
+    /// its patterns were checked against the controller's source instead.
+    /// </remarks>
+    [Fact]
+    public void TheTwoFactorStatus_IsAskedOnlyForTheCallersOwnAccount()
+    {
+        const string send = "new GetTwoFactorStatusQuery(";
+        Sources.Where(s => s.Source.Contains(send, StringComparison.Ordinal)).Select(s => s.Name)
+            .Should().BeEquivalentTo(["TwoFactorController.cs"], "only the controller's own action sends the status query");
+
+        var source = Source("TwoFactorController.cs");
+        var call = source.IndexOf(send, StringComparison.Ordinal);
+        var action = source.LastIndexOf("public async Task<IActionResult>", call, StringComparison.Ordinal);
+        action.Should().BePositive("the query is sent from an action");
+        var argument = Regex.Match(source[call..], @"^new GetTwoFactorStatusQuery\(\s*(\w+)\s*\)").Groups[1].Value;
+        argument.Should().NotBeEmpty("the query takes one local");
+        var body = source[action..call];
+        body.Should().MatchRegex($@"\bvar\s+{argument}\s*=\s*GetCurrentUserId\(\)\s*;",
+            "the account asked about is the token's own user");
+        Regex.Matches(body, $@"\b{argument}\s*=(?!=)").Should().HaveCount(1, "nothing assigns it again before the send");
+    }
 
     [Fact]
     public void PermissionGrantGuardCallers_AllSitBehindAPlatformCode()
@@ -216,13 +255,13 @@ public class LivePlatformAuthorityGuardTests
                 .Should().BeEquivalentTo(handlers, $"{policy} runs the guard only behind these handlers' gates");
         }
 
-        foreach (var (caller, consumer) in PermissionGrantGuardReadOnlyCallers)
+        foreach (var (caller, consumers) in PermissionGrantGuardReadOnlyCallers)
         {
             var type = Path.GetFileNameWithoutExtension(caller);
             Sources
                 .Where(s => s.Name != caller && s.Name != "Program.cs" && Regex.IsMatch(s.Source, $@"\b{type}\b"))
                 .Select(s => s.Name)
-                .Should().BeEquivalentTo([consumer], $"{caller} grants nothing only while an event handler is its one consumer");
+                .Should().BeEquivalentTo(consumers, $"{caller} grants nothing only while these consumers, which authorize nothing with its answer, are its only ones");
         }
 
         foreach (var (handler, (controller, command, gate)) in PermissionGrantGuardCallers)

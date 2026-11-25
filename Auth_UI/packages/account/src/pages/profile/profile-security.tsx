@@ -61,6 +61,7 @@ import {
   ReplaceAuthenticatorDialog,
 } from "./two-factor-maintenance"
 import { useRecoveryCodesRemaining } from "./two-factor-status"
+import { AccessRecoveryWarnings } from "./access-recovery-warnings"
 import { EmailCodeCard } from "./email-code-card"
 import { usePasskeys } from "./passkey-list"
 import { PasskeysCard } from "./passkeys-card"
@@ -218,7 +219,7 @@ function TwoFactorCard({
 
   // AM-S08-1: the count of recovery codes left, and the notice a sign-in with a
   // recovery code leaves — read once, cleared once shown.
-  const remaining = useRecoveryCodesRemaining(enabled)
+  const remaining = useRecoveryCodesRemaining(me, enabled)
   const [signedInWithRecoveryCode, setSignedInWithRecoveryCode] =
     React.useState(() => hasRecoveryCodeSignIn(me.id))
   React.useEffect(() => {
@@ -479,6 +480,7 @@ export function ProfileSecurity({ me }: { me: Schemas["UserDto"] }) {
 
   return (
     <div className="flex flex-col gap-6">
+      <AccessRecoveryWarnings me={me} passkeys={passkeys.data} />
       {hasNoPassword ? (
         <SetPasswordCard email={me.email!} />
       ) : (

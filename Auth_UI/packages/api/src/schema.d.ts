@@ -22383,6 +22383,8 @@ export interface components {
         TwoFactorStatusResponse: {
             /** Format: int32 */
             recoveryCodesRemaining: null | number | string;
+            signsInWithPasskeyOnly: boolean;
+            anotherAdministratorCanReset: null | boolean;
         };
         TwoFactorStepUpRequest: {
             code?: string;
