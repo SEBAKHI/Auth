@@ -28,7 +28,9 @@ public record GetTwoFactorStatusQuery(Guid UserId) : IRequest<ErrorOr<TwoFactorS
 /// <param name="AnotherAdministratorCanReset">
 /// For an account that holds platform authority: whether another administrator could
 /// reset its second factor now, by the reset's own rules. Null for every other
-/// account, which the warning does not concern (owner, 2026-11-24).
+/// account, which the warning does not concern (owner, 2026-11-24), and for an
+/// administrator with no usable second factor, whom the reset refuses anyway. The
+/// API leaves a null out of the body.
 /// </param>
 public record TwoFactorStatusResponse(
     int? RecoveryCodesRemaining,

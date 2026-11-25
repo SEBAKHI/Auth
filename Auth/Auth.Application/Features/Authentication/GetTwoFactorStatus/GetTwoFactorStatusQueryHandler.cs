@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Auth.Application.Features.Authentication.Common;
+using Auth.Application.Features.Passkeys.Common;
 using Auth.Application.Features.Users.ResetUserTwoFactor;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -19,7 +20,9 @@ namespace Auth.Application.Features.Authentication.GetTwoFactorStatus;
 /// copy: the passkey-only refusal's own <see cref="PasskeyOnlyAdministratorRule.AppliesToAsync"/>,
 /// and the reset's own eligibility (<see cref="TwoFactorResetAdministrators"/>). An
 /// account without platform authority reads neither: it holds no passkey-only
-/// refusal, and no administrator's warning concerns it.
+/// refusal, and no administrator's warning concerns it. Nor does an administrator
+/// with no usable second factor get the reset question: the reset refuses such an
+/// account anyway, so the warning would concern nothing they have (REVIEW 185 F8).
 /// </remarks>
 public class GetTwoFactorStatusQueryHandler : IRequestHandler<GetTwoFactorStatusQuery, ErrorOr<TwoFactorStatusResponse>>
 {
@@ -27,6 +30,7 @@ public class GetTwoFactorStatusQueryHandler : IRequestHandler<GetTwoFactorStatus
     private readonly EmailCodeFullProofRule _platformAuthority;
     private readonly PasskeyOnlyAdministratorRule _passkeyOnlyAdministrator;
     private readonly TwoFactorResetAdministrators _resetAdministrators;
+    private readonly UsableSecondFactors _usableFactors;
     private readonly ILogger<GetTwoFactorStatusQueryHandler> _logger;
 
     public GetTwoFactorStatusQueryHandler(
@@ -34,12 +38,14 @@ public class GetTwoFactorStatusQueryHandler : IRequestHandler<GetTwoFactorStatus
         EmailCodeFullProofRule platformAuthority,
         PasskeyOnlyAdministratorRule passkeyOnlyAdministrator,
         TwoFactorResetAdministrators resetAdministrators,
+        UsableSecondFactors usableFactors,
         ILogger<GetTwoFactorStatusQueryHandler> logger)
     {
         _twoFactorStateStore = twoFactorStateStore;
         _platformAuthority = platformAuthority;
         _passkeyOnlyAdministrator = passkeyOnlyAdministrator;
         _resetAdministrators = resetAdministrators;
+        _usableFactors = usableFactors;
         _logger = logger;
     }
 
@@ -54,9 +60,15 @@ public class GetTwoFactorStatusQueryHandler : IRequestHandler<GetTwoFactorStatus
             return new TwoFactorStatusResponse(codesRemaining, SignsInWithPasskeyOnly: false, AnotherAdministratorCanReset: null);
         }
 
+        var signsInWithPasskeyOnly = await _passkeyOnlyAdministrator.AppliesToAsync(request.UserId, cancellationToken);
+        if (!(await _usableFactors.GetAsync(request.UserId, cancellationToken)).HasAny)
+        {
+            return new TwoFactorStatusResponse(codesRemaining, signsInWithPasskeyOnly, AnotherAdministratorCanReset: null);
+        }
+
         return new TwoFactorStatusResponse(
             codesRemaining,
-            SignsInWithPasskeyOnly: await _passkeyOnlyAdministrator.AppliesToAsync(request.UserId, cancellationToken),
+            signsInWithPasskeyOnly,
             AnotherAdministratorCanReset: await _resetAdministrators.AnyAsync(request.UserId, cancellationToken));
     }
 

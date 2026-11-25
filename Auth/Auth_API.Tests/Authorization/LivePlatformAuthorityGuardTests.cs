@@ -202,6 +202,36 @@ public class LivePlatformAuthorityGuardTests
         ],
     };
 
+    /// <summary>
+    /// REVIEW 185 F9: the two-factor status answers, from other accounts' grants, whether
+    /// anyone could reset the asking account's second factor. That stays the account's own
+    /// question only while one action sends the query, for the token's own user: never an
+    /// identifier from the route, the body or the query string.
+    /// </summary>
+    /// <remarks>
+    /// Deliberate break: a second sender in a scratch file. Not run on the implementing
+    /// machine (2026-11-25), whose Smart App Control blocked the rebuilt test assembly;
+    /// its patterns were checked against the controller's source instead.
+    /// </remarks>
+    [Fact]
+    public void TheTwoFactorStatus_IsAskedOnlyForTheCallersOwnAccount()
+    {
+        const string send = "new GetTwoFactorStatusQuery(";
+        Sources.Where(s => s.Source.Contains(send, StringComparison.Ordinal)).Select(s => s.Name)
+            .Should().BeEquivalentTo(["TwoFactorController.cs"], "only the controller's own action sends the status query");
+
+        var source = Source("TwoFactorController.cs");
+        var call = source.IndexOf(send, StringComparison.Ordinal);
+        var action = source.LastIndexOf("public async Task<IActionResult>", call, StringComparison.Ordinal);
+        action.Should().BePositive("the query is sent from an action");
+        var argument = Regex.Match(source[call..], @"^new GetTwoFactorStatusQuery\(\s*(\w+)\s*\)").Groups[1].Value;
+        argument.Should().NotBeEmpty("the query takes one local");
+        var body = source[action..call];
+        body.Should().MatchRegex($@"\bvar\s+{argument}\s*=\s*GetCurrentUserId\(\)\s*;",
+            "the account asked about is the token's own user");
+        Regex.Matches(body, $@"\b{argument}\s*=(?!=)").Should().HaveCount(1, "nothing assigns it again before the send");
+    }
+
     [Fact]
     public void PermissionGrantGuardCallers_AllSitBehindAPlatformCode()
     {

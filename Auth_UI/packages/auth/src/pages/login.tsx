@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Info, KeyRound, ShieldCheck } from "lucide-react"
 import * as React from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
@@ -77,6 +77,17 @@ const EmailCodeFlow = React.lazy(() =>
 )
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * A password choice made on the first screen's address field, before any address
+ * is known: it holds for whatever that field holds. Never an address itself.
+ */
+const ANY_ADDRESS = "*"
+
+/** Two spellings of one address compare equal: case and surrounding spaces. */
+function sameAddressKey(address: string): string {
+  return address.trim().toLowerCase()
+}
 
 /** What the page says for each sign-in reason (S23): a short title, then why. */
 const REASON_TEXT: Record<SignInReasonWord, { title: string; body: string }> = {
@@ -227,8 +238,22 @@ export function LoginPage({
   // passkey screen's list, or another screen that sent them here for it. The
   // page then asks for it at once, beside the address, and asks the server
   // nothing about the address first (owner, 2026-11-24): a choice the page then
-  // overrode with the passkey screen was a choice it never kept.
-  const passwordChosen = chosen === "password"
+  // overrode with the passkey screen was a choice it never kept. The choice holds
+  // for the address it was made for (owner, 2026-11-25, P3 (b)): the passkey
+  // screen's address, the address handed over, or, for the first screen's link,
+  // whatever that field holds. Another account, a row pressed after the chip,
+  // is asked about as any address is.
+  const [passwordFor, setPasswordFor] = React.useState<string | null>(() =>
+    state?.method === "password"
+      ? state.email
+        ? sameAddressKey(state.email)
+        : ANY_ADDRESS
+      : null
+  )
+  const passwordChosenFor = (address: string) =>
+    chosen === "password" &&
+    passwordFor !== null &&
+    (passwordFor === ANY_ADDRESS || passwordFor === sameAddressKey(address))
   // Full proof: a sign-in by code proves the password too where the account
   // has one. Asked by the "sign in again" dialog, and under every sign-in
   // reason (S23): a password account that takes the code link must not come
@@ -237,6 +262,10 @@ export function LoginPage({
   const [fullProofAsked] = React.useState(isFullProofRequested)
   const fullProof = fullProofAsked || reason !== null
   const [step, setStep] = React.useState<Step>({ kind: "credentials" })
+  // S20 (D-S20-4 (ii-s)): a door answered that this account signs in with its
+  // passkey. Its sentence stays on the page, above the passkey button, which
+  // takes the focus; never a toast that goes.
+  const [passkeyNotice, setPasskeyNotice] = React.useState<string | null>(null)
   // The accounts this browser signed in with (owner, 2026-11-22, reversing
   // D-215-4), read once as the page opens. With any, the first step lists them
   // in place of the address field, unless another screen handed the address
@@ -258,6 +287,8 @@ export function LoginPage({
     setOnAddressField(addressFieldChosen)
     if (!addressFieldChosen && step.kind !== "credentials") {
       setStep({ kind: "credentials" })
+      // A refusal's sentence was about the address being left (REVIEW 185 F5).
+      setPasskeyNotice(null)
     }
   }
   // The address in the form is a listed account's, put there by its row and not
@@ -282,10 +313,6 @@ export function LoginPage({
     return () => pendingLookup.abort()
   }, [pendingLookup, method, step.kind])
   const lookingUp = pendingLookup !== null
-  // S20 (D-S20-4 (ii-s)): a door answered that this account signs in with its
-  // passkey. Its sentence stays on the page, above the passkey button, which
-  // takes the focus; never a toast that goes.
-  const [passkeyNotice, setPasskeyNotice] = React.useState<string | null>(null)
   // The "sign in again" dialog of a passkey account (T-C7), and an application's
   // requirement only the passkey meets (`mfa_passkey`), put the passkey first.
   const [passkeyAsked] = React.useState(isPasskeySignInRequested)
@@ -341,6 +368,10 @@ export function LoginPage({
     offered.current = staySignedInOffered
   }, [staySignedInOffered])
   const { getValues } = form
+  // The address the first screen's field holds now, for the password choice made
+  // for it (P3 (b)).
+  const typedEmail = useWatch({ control: form.control, name: "email" })
+  const passwordChosen = passwordChosenFor(typedEmail)
   const readStaySignedIn = React.useCallback(
     () => offered.current === true && getValues("staySignedIn") === true,
     [getValues]
@@ -424,13 +455,11 @@ export function LoginPage({
   React.useEffect(() => {
     if (passkeysOffHere) notePasskeysOff()
   }, [passkeysOffHere])
-  // Password mode while passkeys may run: the address first, the password next,
-  // unless the person chose the password themself.
+  // Password mode while passkeys may run: the address first, the password next.
+  // Read only where the password is not shown beside the address, so a password
+  // the person chose (`showPassword`) needs no exception here.
   const addressFirst =
-    step.kind === "credentials" &&
-    passkeysMayRun &&
-    method === "password" &&
-    !passwordChosen
+    step.kind === "credentials" && passkeysMayRun && method === "password"
   // The first step lists the remembered accounts instead of asking the address;
   // the password, where it would share that step, waits for the account pressed.
   const accountsView =
@@ -461,9 +490,13 @@ export function LoginPage({
     if (passkeyNotice && passkeyReady) passkeyButtonRef.current?.focus()
   }, [passkeyNotice, passkeyReady])
   const onPasskeyScreen = step.kind === "passkey"
+  // Not once the other ways are open: the focus moved to the first of them, and
+  // options arriving late must not pull it back (REVIEW 185 F12).
   React.useEffect(() => {
-    if (onPasskeyScreen && passkeyReady) passkeyScreenButtonRef.current?.focus()
-  }, [onPasskeyScreen, passkeyReady])
+    if (onPasskeyScreen && passkeyReady && !otherWaysOpen) {
+      passkeyScreenButtonRef.current?.focus()
+    }
+  }, [onPasskeyScreen, passkeyReady, otherWaysOpen])
   // OI-280 PR B (T-B14, owner Q4 (b), reversing D8): each arrival on the passkey
   // screen opens the browser's window by itself, once, as soon as the options
   // are in hand. Tried, never detected by the browser's name: a browser that
@@ -703,6 +736,7 @@ export function LoginPage({
     setSendingFromList(true)
     try {
       setChosen("code")
+      setPasswordFor(null)
       await sendCode({ ...getValues(), email })
     } finally {
       sendingFromListRef.current = false
@@ -725,7 +759,9 @@ export function LoginPage({
     form.setValue("email", account.email)
     const values = { ...getValues(), email: account.email }
     try {
-      if (passkeysMayRun && !passwordChosen) await continueAfterAddress(values)
+      // The password chosen for this account goes to its password step; a choice
+      // made for another address does not carry over to this one (P3 (b)).
+      if (passkeysMayRun && !passwordChosenFor(account.email)) await continueAfterAddress(values)
       else if (method === "password") toPasswordStep(account.email)
       else await sendCode(values)
     } finally {
@@ -940,7 +976,15 @@ export function LoginPage({
                   <KeyRound />
                   <AlertDescription>
                     <p>{passkeyNotice}</p>
-                    {onlyWay ? <p>{t("auth.passkey.onlyWayHint")}</p> : null}
+                    {onlyWay ? (
+                      // A browser that cannot use a passkey opens no window: it
+                      // is told so, not shown the window's choices (REVIEW 185 F4).
+                      <p>
+                        {passkeyGone
+                          ? t("auth.passkey.onlyWayBrowserCannot")
+                          : t("auth.passkey.onlyWayHint")}
+                      </p>
+                    ) : null}
                   </AlertDescription>
                 </Alert>
               ) : null}
@@ -1015,7 +1059,9 @@ export function LoginPage({
                         variant="outline"
                         className="w-full"
                         onClick={() => {
+                          // The password, for this screen's address (P3 (b)).
                           setChosen("password")
+                          setPasswordFor(sameAddressKey(email))
                           toPasswordStep(email)
                         }}
                       >
@@ -1205,6 +1251,8 @@ export function LoginPage({
                     return
                   }
                   setChosen(codeFirst ? "password" : "code")
+                  // The password chosen on the field holds for what it holds.
+                  setPasswordFor(codeFirst ? ANY_ADDRESS : null)
                 }}
               >
                 {codeFirst

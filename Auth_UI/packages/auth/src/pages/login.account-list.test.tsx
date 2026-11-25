@@ -485,6 +485,92 @@ describe("the address chip goes back to where the address was chosen (owner, 202
   })
 })
 
+const PASSKEY_REQUIRED = {
+  status: 403,
+  code: "Auth.PasskeyRequired",
+  detail: "This account signs in with its passkey.",
+}
+
+describe("leaving a passkey-only refusal for the list (REVIEW 185 F5)", () => {
+  /**
+   * "Use a different account", Ada's address (a passkey holder), the passkey
+   * screen, "Try another way", the password, and the refusal: the only-way screen.
+   */
+  async function refusedOnTheOnlyWayScreen(user: ReturnType<typeof userEvent.setup>) {
+    mocks.branding.signInOptions = PASSKEYS_PASSWORD
+    remember(GRACE)
+    renderPage()
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(OPTIONS_PATH))
+    await user.click(screen.getByRole("button", { name: /auth\.useDifferentAccount/ }))
+    await user.type(screen.getByLabelText("auth.email"), ADA.email)
+    await user.click(screen.getByRole("button", { name: "auth.continue" }))
+    await screen.findByRole("heading", { name: "auth.passkey.screenTitle" })
+    await user.click(screen.getByRole("button", { name: "auth.passkey.tryAnotherWay" }))
+    await user.click(screen.getByRole("button", { name: "auth.signInWithPasswordInstead" }))
+    await user.type(await screen.findByLabelText("auth.password"), "pw")
+    mocks.login.mockRejectedValueOnce(PASSKEY_REQUIRED)
+    await user.click(screen.getByRole("button", { name: "auth.signIn" }))
+    expect(await screen.findByTestId("passkey-required-note")).toBeInTheDocument()
+  }
+
+  // Deliberate break, verified red (both): the render-time reset without
+  // `setPasskeyNotice(null)` leaves the sentence and a leading passkey button on the list.
+  it("the address chip: the list, without the refusal's sentence or a passkey button", async () => {
+    const user = userEvent.setup()
+    await refusedOnTheOnlyWayScreen(user)
+
+    await user.click(screen.getByTestId("address-chip"))
+
+    expect(row("grace@example.com")).toBeInTheDocument()
+    expect(screen.queryByTestId("passkey-required-note")).toBeNull()
+    expect(screen.queryByTestId("passkey-sign-in")).toBeNull()
+  })
+
+  it("the browser's Back: the same", async () => {
+    const user = userEvent.setup()
+    await refusedOnTheOnlyWayScreen(user)
+
+    await user.click(screen.getByRole("button", { name: "browser back" }))
+
+    expect(row("grace@example.com")).toBeInTheDocument()
+    expect(screen.queryByTestId("passkey-required-note")).toBeNull()
+    expect(screen.queryByTestId("passkey-sign-in")).toBeNull()
+  })
+})
+
+// REVIEW 185 F6 (b), owner 2026-11-25 (P3 (b)). Deliberate break, verified red: the
+// row press asking `chosen === "password"` alone sends Grace to her password step.
+describe("a password chosen for one account holds for that account only", () => {
+  it("a row pressed for another account after it reaches that account's passkey screen", async () => {
+    const user = userEvent.setup()
+    mocks.branding.signInOptions = PASSKEYS_PASSWORD
+    // Both hold a passkey here.
+    const answer = mocks.post.getMockImplementation()!
+    mocks.post.mockImplementation(async (path: string, init?: { body?: { email?: string } }) =>
+      path === LOOKUP_PATH ? { data: { passkey: true }, response: response(200) } : answer(path, init)
+    )
+    remember(ADA, GRACE)
+    renderPage()
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(OPTIONS_PATH))
+
+    // The password, chosen for Ada on her passkey screen.
+    await user.click(row("Ada Lovelace"))
+    await screen.findByRole("heading", { name: "auth.passkey.screenTitle" })
+    await user.click(screen.getByRole("button", { name: "auth.passkey.tryAnotherWay" }))
+    await user.click(screen.getByRole("button", { name: "auth.signInWithPasswordInstead" }))
+    await screen.findByLabelText("auth.password")
+
+    // Back to the list, and Grace pressed.
+    await user.click(screen.getByTestId("address-chip"))
+    await user.click(row("grace@example.com"))
+
+    await screen.findByRole("heading", { name: "auth.passkey.screenTitle" })
+    expect(within(screen.getByTestId("address-chip")).getByText(GRACE.email)).toBeInTheDocument()
+    expect(screen.queryByLabelText("auth.password")).toBeNull()
+    expect(posted().filter((path) => path === LOOKUP_PATH)).toHaveLength(2)
+  })
+})
+
 describe("removing an account from the list", () => {
   async function remove(email: string) {
     const user = userEvent.setup()

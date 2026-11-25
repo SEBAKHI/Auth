@@ -59,6 +59,7 @@ public class GetTwoFactorStatusQueryHandlerTests
             platformAuthority,
             new PasskeyOnlyAdministratorRule(usable, platformAuthority, Mock.Of<ILogger<PasskeyOnlyAdministratorRule>>()),
             new TwoFactorResetAdministrators(_permissions.Object, new PermissionGrantGuard(_permissions.Object), usable),
+            usable,
             Mock.Of<ILogger<GetTwoFactorStatusQueryHandler>>());
     }
 
@@ -168,6 +169,23 @@ public class GetTwoFactorStatusQueryHandlerTests
         var status = await Status(passkeysRun: false);
 
         status.SignsInWithPasskeyOnly.Should().BeFalse("the refusal pauses while passkeys do not run, D-150-4");
+    }
+
+    // REVIEW 185 F8. Deliberate break: the factor check removed (the administrators
+    // scanned, and an answer given, for an account the reset refuses anyway). Not run on
+    // the implementing machine (2026-11-25): Smart App Control blocked the test assembly.
+    [Fact]
+    public async Task AnAdministratorWithNoSecondFactor_IsNotAskedAbout_AndNoAdministratorIsRead()
+    {
+        Given(null);
+        GivenAdministrator("users:read");
+        GivenFactors(new QualifyingSecondFactors(Totp: false, Passkey: false));
+        GivenOtherAdministrator("users:*");
+
+        var status = await Status();
+
+        status.AnotherAdministratorCanReset.Should().BeNull("the reset refuses an account with no second factor");
+        _permissions.Verify(r => r.GetUsersHoldingPlatformPermissionsAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

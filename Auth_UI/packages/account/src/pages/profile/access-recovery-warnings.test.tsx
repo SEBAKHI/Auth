@@ -39,18 +39,24 @@ const ADMIN = {
 type Status = Schemas["TwoFactorStatusResponse"]
 type PasskeyList = Schemas["PasskeyListDto"]
 
-function passkey(id: string, isBackedUp: boolean) {
-  return { id, credentialId: id, name: id, createdAt: "2026-11-01T10:00:00Z", isBackedUp, isBackupEligible: isBackedUp }
+function passkey(id: string, isBackedUp: boolean, isBackupEligible = isBackedUp) {
+  return { id, credentialId: id, name: id, createdAt: "2026-11-01T10:00:00Z", isBackedUp, isBackupEligible }
 }
 
 function list(...passkeys: ReturnType<typeof passkey>[]): PasskeyList {
   return { rpId: "example.com", userHandle: "u", passkeys } as unknown as PasskeyList
 }
 
+/** The status as the API sends it: a member given as undefined is left out, as the API leaves out a null. */
 function givenStatus(status: Partial<Status>) {
-  get.mockResolvedValue({
-    data: { recoveryCodesRemaining: null, signsInWithPasskeyOnly: false, anotherAdministratorCanReset: true, ...status },
-  })
+  const data: Record<string, unknown> = {
+    recoveryCodesRemaining: null,
+    signsInWithPasskeyOnly: false,
+    anotherAdministratorCanReset: true,
+    ...status,
+  }
+  for (const [key, value] of Object.entries(status)) if (value === undefined) delete data[key]
+  get.mockResolvedValue({ data })
 }
 
 function renderWarnings(me: Schemas["UserDto"], passkeys: PasskeyList | null) {
@@ -67,6 +73,14 @@ beforeEach(() => {
 })
 
 describe("one device only", () => {
+  // REVIEW 185 F7. Deliberate break, verified red: the rule reading `isBackupEligible`.
+  it("warns when the one passkey could be synced but is not (BE=1, BS=0)", async () => {
+    givenStatus({ signsInWithPasskeyOnly: true })
+    renderWarnings(ADMIN, list(passkey("phone", false, true)))
+
+    expect(await screen.findByTestId("passkey-one-device-warning")).toBeInTheDocument()
+  })
+
   it("warns a passkey-only administrator whose one passkey is not synced", async () => {
     givenStatus({ signsInWithPasskeyOnly: true })
     renderWarnings(ADMIN, list(passkey("work-pc", false)))
@@ -110,7 +124,9 @@ describe("nobody to restore access", () => {
 
   it.each([
     ["another administrator can", true],
-    ["the account administers nothing", null],
+    ["the account administers nothing (null)", null],
+    // REVIEW 185 F7: the API leaves a null out, so the page meets an absent member.
+    ["the account administers nothing (left out, as the API sends it)", undefined],
   ])("says nothing when %s", async (_, anotherAdministratorCanReset) => {
     // The other warning shows: the status is in hand when the absence is read.
     givenStatus({ anotherAdministratorCanReset, signsInWithPasskeyOnly: true })
