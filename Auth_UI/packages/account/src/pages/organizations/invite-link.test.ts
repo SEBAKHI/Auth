@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  defaultMembershipRoleId,
   enabledApplications,
+  inviteDialogMode,
   matchInviteLink,
   readInviteLink,
   withoutInviteLink,
@@ -150,5 +152,113 @@ describe("enabledApplications", () => {
       ])
     ).toEqual([{ applicationId: "a", isActive: true }])
     expect(enabledApplications(undefined)).toEqual([])
+  })
+})
+
+describe("defaultMembershipRoleId", () => {
+  // The member role is not first: the default is found by its code.
+  const membership = [
+    { id: "admin-id", code: "org-admin" },
+    { id: "member-id", code: "org-member" },
+  ]
+
+  it("is the member role, by its code, when nobody chose a role", () => {
+    expect(defaultMembershipRoleId(null, membership)).toBe("member-id")
+    expect(defaultMembershipRoleId({ application: "CRM" }, membership)).toBe(
+      "member-id"
+    )
+  })
+
+  it("is nothing when the link named a role, matched or not", () => {
+    expect(
+      defaultMembershipRoleId({ role: "org-admin" }, membership)
+    ).toBeUndefined()
+    expect(
+      defaultMembershipRoleId({ role: "unknown" }, membership)
+    ).toBeUndefined()
+  })
+
+  it("is nothing when the list has no member role or has not arrived", () => {
+    expect(
+      defaultMembershipRoleId(null, [{ id: "admin-id", code: "org-admin" }])
+    ).toBeUndefined()
+    expect(defaultMembershipRoleId(null, undefined)).toBeUndefined()
+  })
+})
+
+describe("inviteDialogMode", () => {
+  const membership = [
+    { id: "admin-id", code: "org-admin" },
+    { id: "member-id", code: "org-member" },
+  ]
+  const button = {
+    link: null,
+    membershipRoles: membership,
+    roleId: "member-id",
+    applicationId: undefined,
+    appRoleId: undefined,
+    pending: false,
+    failed: false,
+  }
+  const fullLink = {
+    ...button,
+    link: { role: "org-member", application: "CRM", applicationRole: "rep" },
+    applicationId: "crm-id",
+    appRoleId: "rep-id",
+  }
+
+  it("is quick from the button once the member role is chosen", () => {
+    expect(inviteDialogMode(button)).toBe("quick")
+  })
+
+  it("is quick from a link whose every choice matched", () => {
+    expect(inviteDialogMode(fullLink)).toBe("quick")
+    expect(inviteDialogMode({ ...button, link: { role: "org-member" } })).toBe(
+      "quick"
+    )
+  })
+
+  it("is pending while a list it needs is loading", () => {
+    expect(
+      inviteDialogMode({
+        ...button,
+        membershipRoles: undefined,
+        roleId: undefined,
+        pending: true,
+      })
+    ).toBe("pending")
+  })
+
+  it("is full when a list failed, even while another loads", () => {
+    expect(inviteDialogMode({ ...button, failed: true })).toBe("full")
+    expect(inviteDialogMode({ ...button, failed: true, pending: true })).toBe(
+      "full"
+    )
+  })
+
+  it("is full when the role is above member, so the inviter sees what is given", () => {
+    expect(inviteDialogMode({ ...fullLink, roleId: "admin-id" })).toBe("full")
+  })
+
+  it("is full when no role is chosen or the list has no member role", () => {
+    expect(inviteDialogMode({ ...button, roleId: undefined })).toBe("full")
+    expect(
+      inviteDialogMode({
+        ...button,
+        membershipRoles: [{ id: "admin-id", code: "org-admin" }],
+        roleId: "admin-id",
+      })
+    ).toBe("full")
+  })
+
+  it("is full when the application or its role in a link found no match", () => {
+    expect(
+      inviteDialogMode({
+        ...fullLink,
+        applicationId: undefined,
+        appRoleId: undefined,
+      })
+    ).toBe("full")
+    expect(inviteDialogMode({ ...fullLink, appRoleId: undefined })).toBe("full")
   })
 })
