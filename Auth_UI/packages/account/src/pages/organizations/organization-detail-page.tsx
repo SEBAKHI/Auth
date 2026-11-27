@@ -201,7 +201,8 @@ function MembersTab({
     setFilters({
       roles:
         (next.find((filter) => filter.id === "roleName")?.value as
-          string[] | undefined) ?? [],
+          | string[]
+          | undefined) ?? [],
     })
 
   const query = useQuery({
@@ -290,7 +291,10 @@ function MembersTab({
 
         // Drill-down exists only where the host app has a user admin route.
         return (
-          <RecordLink href={userHref?.(userId)} className="text-start">
+          <RecordLink
+            href={userHref?.(userId)}
+            className="text-start"
+          >
             {content}
           </RecordLink>
         )
