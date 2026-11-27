@@ -2,6 +2,13 @@ import AxeBuilder from "@axe-core/playwright"
 import { expect, test, type Page } from "@playwright/test"
 
 import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
+import {
+  answerOrganizationOwner,
+  APP_CODE,
+  ORG,
+  OWNER_ORG_PERMISSIONS,
+  ownerApiRecord,
+} from "./organization-owner-api"
 import { SHELL_INSET } from "./layout-overflow"
 import { WCAG_TAGS, actionable, describeViolations } from "./axe-known-gaps"
 
@@ -187,7 +194,9 @@ for (const theme of ["light", "dark"] as const) {
       await page.goto("/login")
       await expect(page.getByRole("textbox").first()).toBeVisible()
 
-      const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+      const results = await new AxeBuilder({ page })
+        .withTags(WCAG_TAGS)
+        .analyze()
 
       expect(actionable(results), describeViolations(results)).toEqual([])
     })
@@ -197,19 +206,29 @@ for (const theme of ["light", "dark"] as const) {
     test(`the sign-in screen without Stay signed in passes WCAG AA in ${theme} ${language}`, async ({
       page,
     }) => {
-      await installAnonymous(page, { theme, language, staySignedInOffered: false })
+      await installAnonymous(page, {
+        theme,
+        language,
+        staySignedInOffered: false,
+      })
       // The box is hidden while the branding is unknown too: wait for the answer.
       const answered = page.waitForResponse((response) =>
-        new URL(response.url()).pathname.toLowerCase().endsWith("/platform/branding")
+        new URL(response.url()).pathname
+          .toLowerCase()
+          .endsWith("/platform/branding")
       )
       await page.goto("/login")
       await answered
       await expect(page.getByRole("textbox").first()).toBeVisible()
       // Gone only once the page has applied the answer.
-      await expect(page.getByTestId("stay-signed-in-placeholder")).toHaveCount(0)
+      await expect(page.getByTestId("stay-signed-in-placeholder")).toHaveCount(
+        0
+      )
       await expect(page.getByRole("checkbox")).toHaveCount(0)
 
-      const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+      const results = await new AxeBuilder({ page })
+        .withTags(WCAG_TAGS)
+        .analyze()
 
       expect(actionable(results), describeViolations(results)).toEqual([])
     })
@@ -231,11 +250,15 @@ for (const theme of ["light", "dark"] as const) {
       // page is the one-screen form, where Enter would submit an empty password
       // and nothing would ask about the address.
       const answered = page.waitForResponse((response) =>
-        new URL(response.url()).pathname.toLowerCase().endsWith("/platform/branding")
+        new URL(response.url()).pathname
+          .toLowerCase()
+          .endsWith("/platform/branding")
       )
       await page.goto("/login")
       await answered
-      await expect(page.getByTestId("stay-signed-in-placeholder")).toHaveCount(0)
+      await expect(page.getByTestId("stay-signed-in-placeholder")).toHaveCount(
+        0
+      )
       await expect(page.locator('input[type="password"]')).toHaveCount(0)
       await page.getByRole("textbox").first().fill("ada@example.test")
       // "Continue" in either language: the form's own submit.
@@ -326,7 +349,11 @@ async function installProfile(
           options: {
             challenge: "cmVnaXN0cmF0aW9uLWNoYWxsZW5nZQ",
             rp: { id: "localhost", name: "AuthSystem" },
-            user: { id: "dXNlci1oYW5kbGU", name: "ada@example.test", displayName: "Ada Lovelace" },
+            user: {
+              id: "dXNlci1oYW5kbGU",
+              name: "ada@example.test",
+              displayName: "Ada Lovelace",
+            },
             pubKeyCredParams: [{ type: "public-key", alg: -7 }],
           },
           expiresAt: "2099-01-01T00:00:00Z",
@@ -357,8 +384,14 @@ for (const theme of ["light", "dark"] as const) {
       const scan = async () => {
         // An overlay measured mid-animation blends with the backdrop: let every
         // open animation finish first (as platform-settings-tabs.spec.ts does).
-        await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)))
-        const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+        await page.evaluate(() =>
+          Promise.all(
+            document.getAnimations().map((animation) => animation.finished)
+          )
+        )
+        const results = await new AxeBuilder({ page })
+          .withTags(WCAG_TAGS)
+          .analyze()
         expect(actionable(results), describeViolations(results)).toEqual([])
       }
       await scan()
@@ -372,7 +405,12 @@ for (const theme of ["light", "dark"] as const) {
       await expect(dialog).toHaveCount(0)
 
       // The removal's confirmation.
-      await card.getByTestId("passkey-row").first().getByRole("button").nth(1).click()
+      await card
+        .getByTestId("passkey-row")
+        .first()
+        .getByRole("button")
+        .nth(1)
+        .click()
       const confirmation = page.getByRole("alertdialog")
       await expect(confirmation).toBeVisible()
       await scan()
@@ -402,28 +440,43 @@ async function installPasskeyChoice(
     theme,
     language,
     mfaRequirement,
-  }: { theme: "light" | "dark"; language: string; mfaRequirement?: () => string }
+  }: {
+    theme: "light" | "dark"
+    language: string
+    mfaRequirement?: () => string
+  }
 ) {
   await page.addInitScript((value) => {
     localStorage.setItem("theme", value)
-    Object.defineProperty(PublicKeyCredential, "isUserVerifyingPlatformAuthenticatorAvailable", {
-      configurable: true,
-      value: async () => true,
-    })
+    Object.defineProperty(
+      PublicKeyCredential,
+      "isUserVerifyingPlatformAuthenticatorAvailable",
+      {
+        configurable: true,
+        value: async () => true,
+      }
+    )
   }, theme)
   await installAuthenticatedApi(
     page,
     ["users:read"],
     async (route, url) => {
       if (url.pathname.toLowerCase() === "/api/v1/users/me") {
-        await fulfillJson(route, { ...ACCOUNT_WITHOUT_PASSKEY, preferredLanguage: language })
+        await fulfillJson(route, {
+          ...ACCOUNT_WITHOUT_PASSKEY,
+          preferredLanguage: language,
+        })
         return true
       }
       return false
     },
     {
       preferredLanguage: language,
-      branding: { platformName: "AuthSystem", staySignedInOffered: true, passkeySignInOffered: true },
+      branding: {
+        platformName: "AuthSystem",
+        staySignedInOffered: true,
+        passkeySignInOffered: true,
+      },
       mfaRequirement,
     }
   )
@@ -431,24 +484,80 @@ async function installPasskeyChoice(
 
 for (const theme of ["light", "dark"] as const) {
   for (const language of ["en", "ar"] as const) {
-    test(`the offer to add a passkey passes WCAG AA in ${theme} ${language}`, async ({ page }) => {
+    test(`the offer to add a passkey passes WCAG AA in ${theme} ${language}`, async ({
+      page,
+    }) => {
       await installPasskeyChoice(page, { theme, language })
       await page.goto("/passkey/offer")
       // Add, Not now, and Don't ask on this device: the screen, once it has decided.
-      await expect(page.getByTestId("passkey-offer").getByRole("button")).toHaveCount(3)
+      await expect(
+        page.getByTestId("passkey-offer").getByRole("button")
+      ).toHaveCount(3)
       // An administrator with no app (these permissions): the sentence is on the page scanned.
       await expect(page.getByTestId("passkey-only-notice")).toBeVisible()
-      const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+      const results = await new AxeBuilder({ page })
+        .withTags(WCAG_TAGS)
+        .analyze()
       expect(actionable(results), describeViolations(results)).toEqual([])
     })
 
-    test(`the set-up page's passkey beside the app passes WCAG AA in ${theme} ${language}`, async ({ page }) => {
-      await installPasskeyChoice(page, { theme, language, mfaRequirement: () => "enroll" })
+    test(`the set-up page's passkey beside the app passes WCAG AA in ${theme} ${language}`, async ({
+      page,
+    }) => {
+      await installPasskeyChoice(page, {
+        theme,
+        language,
+        mfaRequirement: () => "enroll",
+      })
       await page.goto("/users")
       await expect(page).toHaveURL(/\/two-factor\/required$/)
       await expect(page.getByTestId("set-up-add-passkey")).toBeVisible()
       await expect(page.getByTestId("passkey-only-notice")).toBeVisible()
-      const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+      const results = await new AxeBuilder({ page })
+        .withTags(WCAG_TAGS)
+        .analyze()
+      expect(actionable(results), describeViolations(results)).toEqual([])
+    })
+  }
+}
+
+// The quick invite (owner, 2026-11-27): the invite dialog opened by an
+// application's link shows the address alone and one sentence. Scanned in the
+// state an inviter meets, with a screenshot of each for the record.
+for (const theme of ["light", "dark"] as const) {
+  for (const language of ["en", "ar"] as const) {
+    test(`the quick invite dialog passes WCAG AA in ${theme} ${language}`, async ({
+      page,
+    }, testInfo) => {
+      await page.addInitScript((value) => {
+        localStorage.setItem("theme", value)
+      }, theme)
+      const recorded = ownerApiRecord()
+      await installAuthenticatedApi(
+        page,
+        [],
+        (route, url) => answerOrganizationOwner(route, url, recorded),
+        {
+          organizationPermissions: OWNER_ORG_PERMISSIONS,
+          preferredLanguage: language,
+        }
+      )
+      await page.goto(
+        `/organizations/${ORG}?invite=1&role=org-member&application=${APP_CODE}&applicationRole=sales_rep`
+      )
+      const dialog = page.getByRole("dialog")
+      await expect(dialog.getByRole("textbox")).toHaveCount(1)
+      await expect(dialog.getByRole("combobox")).toHaveCount(0)
+      await expect(
+        dialog.locator('[data-slot="field-description"]')
+      ).toBeVisible()
+      await page.screenshot({
+        path: testInfo.outputPath(`quick-invite-${theme}-${language}.png`),
+      })
+
+      const results = await new AxeBuilder({ page })
+        .withTags(WCAG_TAGS)
+        .analyze()
       expect(actionable(results), describeViolations(results)).toEqual([])
     })
   }
