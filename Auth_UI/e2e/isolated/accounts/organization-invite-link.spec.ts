@@ -57,13 +57,16 @@ test("a signed-out owner who follows an invite link signs in and lands on the fi
   await page.getByLabel("Password").fill("Passw0rd!")
   await page.getByRole("button", { name: "Sign in", exact: true }).click()
 
-  const dialog = page.getByRole("dialog", { name: "Invite member" })
+  const dialog = page.getByRole("dialog", {
+    name: "Invite someone to Acme Corporation",
+  })
   await expect(dialog).toBeVisible()
+  // The quick invite: the address alone, and the link's choices said once.
   await expect(
-    dialog.getByRole("combobox", { name: "Role", exact: true })
-  ).toHaveText("Organization Member")
-  await expect(
-    dialog.getByRole("combobox", { name: "Application role", exact: true })
-  ).toHaveText("Sales representative")
+    dialog.getByText(
+      "They will join the organization as “Organization Member”, with the “Sales representative” role in CRM."
+    )
+  ).toBeVisible()
+  await expect(dialog.getByRole("combobox")).toHaveCount(0)
   expect(recorded.invitations).toEqual([])
 })

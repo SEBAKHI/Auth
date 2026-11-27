@@ -31,7 +31,10 @@ async function signedInOwner(
     page,
     [],
     (route, url) => answerOrganizationOwner(route, url, recorded),
-    { organizationPermissions: OWNER_ORG_PERMISSIONS, preferredLanguage: language }
+    {
+      organizationPermissions: OWNER_ORG_PERMISSIONS,
+      preferredLanguage: language,
+    }
   )
   return recorded
 }
@@ -45,10 +48,17 @@ for (const language of ["en", "ar"] as const) {
     // The link chooses the role, so the address is the only open field.
     await page.goto(`/organizations/${ORG}?invite=1&role=org-member`)
 
-    const dialog = page.getByRole("dialog", { name: t.organizations.inviteMember })
+    const dialog = page.getByRole("dialog", {
+      name: t.organizations.quickInviteTitle.replace(
+        "{{organization}}",
+        "Acme Corporation"
+      ),
+    })
     await expect(dialog).toBeVisible()
     const email = dialog.getByLabel(t.organizations.inviteEmail)
-    const send = dialog.getByRole("button", { name: t.organizations.inviteMember })
+    const send = dialog.getByRole("button", {
+      name: t.organizations.inviteMember,
+    })
     const error = dialog.getByText(t.validation.email)
 
     // Typing, one key at a time: no verdict, and the button stays usable.
@@ -59,7 +69,9 @@ for (const language of ["en", "ar"] as const) {
     // Leaving the field before any submit: still no verdict.
     await page.keyboard.press("Tab")
     await expect(error).toHaveCount(0)
-    await page.screenshot({ path: testInfo.outputPath(`invite-typing-${language}.png`) })
+    await page.screenshot({
+      path: testInfo.outputPath(`invite-typing-${language}.png`),
+    })
 
     // A submit with a malformed address shows the error and sends nothing.
     await send.click()
@@ -67,7 +79,9 @@ for (const language of ["en", "ar"] as const) {
     await expect(email).toHaveAttribute("aria-invalid", "true")
     await expect(email).toBeFocused()
     expect(recorded.invitations).toEqual([])
-    await page.screenshot({ path: testInfo.outputPath(`invite-submit-error-${language}.png`) })
+    await page.screenshot({
+      path: testInfo.outputPath(`invite-submit-error-${language}.png`),
+    })
 
     // Live from here: still malformed keeps it, well-formed drops it at once.
     await email.pressSequentially("ple")

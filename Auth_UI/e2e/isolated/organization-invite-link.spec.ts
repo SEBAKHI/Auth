@@ -32,6 +32,9 @@ async function signedInOwner(page: Page): Promise<OwnerApiRecord> {
   return recorded
 }
 
+// The quick invite names the organization in the title (owner, 2026-11-27).
+const INVITE_DIALOG = "Invite someone to Acme Corporation"
+
 const link = (query: string) => `/organizations/${ORG}?${query}`
 
 test("a link opens the invite dialog filled with its choices, and sends only what the owner confirms", async ({
@@ -45,18 +48,16 @@ test("a link opens the invite dialog filled with its choices, and sends only wha
       `invite=1&role=org-member&application=${APP_CODE}&applicationRole=sales_rep`
     )
   )
-  const dialog = page.getByRole("dialog", { name: "Invite member" })
+  const dialog = page.getByRole("dialog", { name: INVITE_DIALOG })
   await expect(dialog).toBeVisible()
 
+  // Quick: the address alone, and one sentence saying what is given.
   await expect(
-    dialog.getByRole("combobox", { name: "Role", exact: true })
-  ).toHaveText("Organization Member")
-  await expect(
-    dialog.getByRole("combobox", { name: "Application (optional)" })
-  ).toHaveText("CRM")
-  await expect(
-    dialog.getByRole("combobox", { name: "Application role", exact: true })
-  ).toHaveText("Sales representative")
+    dialog.getByText(
+      "They will join the organization as “Organization Member”, with the “Sales representative” role in CRM."
+    )
+  ).toBeVisible()
+  await expect(dialog.getByRole("combobox")).toHaveCount(0)
 
   // The address is the owner's to type: the link cannot choose whom it invites.
   await expect(dialog.getByLabel("Email to invite")).toHaveValue("")
@@ -66,8 +67,9 @@ test("a link opens the invite dialog filled with its choices, and sends only wha
   await expect(send).toBeEnabled()
   expect(recorded.invitations, "a link never submits").toEqual([])
 
+  // Enter in the address sends.
   await dialog.getByLabel("Email to invite").fill("rep@example.test")
-  await send.click()
+  await dialog.getByLabel("Email to invite").press("Enter")
   await expect(dialog).toBeHidden()
 
   expect(recorded.invitations).toEqual([
@@ -87,6 +89,60 @@ test("a link opens the invite dialog filled with its choices, and sends only wha
   )
 })
 
+test("Change roles shows the link's choices, and the owner may change them", async ({
+  page,
+}) => {
+  const recorded = await signedInOwner(page)
+
+  await page.goto(
+    link(
+      `invite=1&role=org-member&application=${APP_CODE}&applicationRole=sales_rep`
+    )
+  )
+  const dialog = page.getByRole("dialog", { name: INVITE_DIALOG })
+  await dialog.getByRole("button", { name: "Change roles" }).click()
+
+  const role = dialog.getByRole("combobox", { name: "Role", exact: true })
+  await expect(role).toHaveText("Organization Member")
+  await expect(role).toBeFocused()
+  await expect(
+    dialog.getByRole("combobox", { name: "Application (optional)" })
+  ).toHaveText("CRM")
+  await expect(
+    dialog.getByRole("combobox", { name: "Application role", exact: true })
+  ).toHaveText("Sales representative")
+
+  await dialog.getByRole("combobox", { name: "Application (optional)" }).click()
+  await page.getByRole("option", { name: "No application role" }).click()
+  await dialog.getByLabel("Email to invite").fill("member@example.test")
+  await dialog.getByRole("button", { name: "Invite member" }).click()
+  await expect(dialog).toBeHidden()
+
+  expect(recorded.invitations).toEqual([
+    {
+      email: "member@example.test",
+      roleId: MEMBER_ROLE,
+      applicationRole: null,
+    },
+  ])
+})
+
+test("a link asking for the admin role shows every choice", async ({
+  page,
+}) => {
+  await signedInOwner(page)
+
+  await page.goto(link("invite=1&role=org-admin"))
+  const dialog = page.getByRole("dialog", { name: INVITE_DIALOG })
+
+  await expect(
+    dialog.getByRole("combobox", { name: "Role", exact: true })
+  ).toHaveText("Organization Admin")
+  await expect(
+    dialog.getByRole("button", { name: "Change roles" })
+  ).toHaveCount(0)
+})
+
 test("a value the server's lists do not hold leaves its field empty", async ({
   page,
 }) => {
@@ -99,7 +155,7 @@ test("a value the server's lists do not hold leaves its field empty", async ({
       "invite=1&role=org-owner&application=BILLING&applicationRole=sales_rep"
     )
   )
-  const dialog = page.getByRole("dialog", { name: "Invite member" })
+  const dialog = page.getByRole("dialog", { name: INVITE_DIALOG })
   await expect(dialog).toBeVisible()
 
   await expect(
@@ -123,7 +179,7 @@ test("a role the owner may not assign leaves the application chosen and its role
       `invite=1&role=org-member&application=${APP_CODE}&applicationRole=sales_manager`
     )
   )
-  const dialog = page.getByRole("dialog", { name: "Invite member" })
+  const dialog = page.getByRole("dialog", { name: INVITE_DIALOG })
   await expect(
     dialog.getByRole("combobox", { name: "Application (optional)" })
   ).toHaveText("CRM")
@@ -139,7 +195,7 @@ test("a spent link does not reopen the dialog on refresh", async ({ page }) => {
   await signedInOwner(page)
 
   await page.goto(link(`invite=1&role=org-member`))
-  const dialog = page.getByRole("dialog", { name: "Invite member" })
+  const dialog = page.getByRole("dialog", { name: INVITE_DIALOG })
   await expect(dialog).toBeVisible()
   await dialog.getByRole("button", { name: "Cancel" }).click()
   await expect(dialog).toBeHidden()
