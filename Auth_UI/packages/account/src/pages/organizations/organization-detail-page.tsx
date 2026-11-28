@@ -582,6 +582,11 @@ function InviteDialog({
       (Boolean(link?.application) && appsQuery.isError) ||
       (Boolean(applicationId) && appRolesQuery.isError),
   })
+  // Choices once on show stay on show, whatever made them so: a list that
+  // fails and later loads must not fold away the picker the inviter is
+  // reading. Set while rendering, the documented way to keep what an earlier
+  // render saw, so no frame folds them first.
+  if (decided === "full" && !expanded) setExpanded(true)
   const mode = expanded ? "full" : decided
 
   const mutation = useMutation({
@@ -700,6 +705,11 @@ function InviteDialog({
                 type="email"
                 ref={emailRef}
                 aria-invalid={emailInvalid}
+                // The sentence is the only statement of what is given while
+                // the choices are folded away: read it with the field.
+                aria-describedby={
+                  mode === "quick" ? "invite-summary" : undefined
+                }
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
@@ -708,7 +718,9 @@ function InviteDialog({
               {/* What the invitation gives, said once, while the choices are
                 folded away. */}
               {mode === "quick" ? (
-                <FieldDescription>{summary}</FieldDescription>
+                <FieldDescription id="invite-summary">
+                  {summary}
+                </FieldDescription>
               ) : null}
               {mode === "pending" ? <Skeleton className="h-4" /> : null}
               {emailInvalid ? (
@@ -721,8 +733,13 @@ function InviteDialog({
                   <FieldLabel htmlFor="invite-role">
                     {t("common.role")}
                   </FieldLabel>
+                  {/* Mounted afresh when the roles arrive (after a failed
+                      load): inside a form, Radix mirrors the value into a
+                      native select, which answers a value with no option yet
+                      as "" and would clear the default the list brings. */}
                   <Select
-                    value={effectiveRoleId}
+                    key={rolesQuery.data ? "roles" : "no-roles"}
+                    value={effectiveRoleId ?? ""}
                     onValueChange={choose(setRoleId)}
                   >
                     <SelectTrigger
@@ -803,7 +820,7 @@ function InviteDialog({
                       {t("organizations.applicationRole")}
                     </FieldLabel>
                     <Select
-                      value={appRoleId}
+                      value={appRoleId ?? ""}
                       onValueChange={choose(setAppRoleId)}
                       disabled={noAssignableAppRoles}
                     >

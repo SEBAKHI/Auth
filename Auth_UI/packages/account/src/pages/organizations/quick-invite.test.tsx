@@ -108,6 +108,7 @@ function renderTab(
       </MemoryRouter>
     </QueryClientProvider>
   )
+  return client
 }
 
 const LINK =
@@ -175,6 +176,10 @@ describe("opened by the Invite member button", () => {
     expect(within(dialog).getAllByRole("textbox")).toHaveLength(1)
     expect(choices(dialog)).toHaveLength(0)
     expect(changeRoles(dialog)).not.toBeNull()
+    // The sentence is read with the field: it is all that says what is given.
+    expect(email(dialog)).toHaveAccessibleDescription(
+      "They will join the organization as “Organization Member”."
+    )
   })
 
   it("sends the member role, found by its code, when Enter is pressed", async () => {
@@ -266,6 +271,34 @@ describe("opened by the Invite member button", () => {
     await waitFor(() => expect(choices(dialog).length).toBeGreaterThan(0))
     expect(changeRoles(dialog)).toBeNull()
     expect(submit(dialog)).toBeDisabled()
+  })
+
+  it("keeps the choices on show when the roles load after failing", async () => {
+    const user = userEvent.setup()
+    let answer: Answer = failed
+    const client = renderTab("", { roles: () => answer() })
+    await user.click(
+      await screen.findByRole("button", {
+        name: i18n.t("organizations.inviteMember"),
+      })
+    )
+    const dialog = await screen.findByRole("dialog")
+    await waitFor(() => expect(choices(dialog).length).toBeGreaterThan(0))
+
+    answer = () => ok(MEMBERSHIP_ROLES)
+    await client.refetchQueries()
+
+    // The default arrives with the list, and the picker shows it: the role
+    // on show is the role that will be sent.
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole("combobox", { name: i18n.t("common.role") })
+      ).toHaveTextContent("Organization Member")
+    )
+    expect(changeRoles(dialog)).toBeNull()
+    expect(
+      within(dialog).queryByText(/They will join the organization/)
+    ).toBeNull()
   })
 
   it("shows the choices when the list holds no member role", async () => {
