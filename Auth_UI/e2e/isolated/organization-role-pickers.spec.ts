@@ -50,10 +50,15 @@ test("an owner without platform permissions invites a member with an application
 
   await page.goto(`/organizations/${ORG}?tab=invitations`)
   await page.getByRole("button", { name: "Invite member" }).click()
-  const dialog = page.getByRole("dialog", { name: "Invite member" })
+  const dialog = page.getByRole("dialog", {
+    name: "Invite someone to Acme Corporation",
+  })
 
   await dialog.getByLabel("Email to invite").fill("rep@example.test")
 
+  // The dialog opens on the address alone (the quick invite); the choices are
+  // one click away.
+  await dialog.getByRole("button", { name: "Change roles" }).click()
   await dialog.getByRole("combobox", { name: "Role", exact: true }).click()
   await expect(page.getByRole("option")).toHaveText([
     "Organization Admin",
@@ -99,7 +104,9 @@ test("a role list that fails to load says why instead of showing an empty list",
 
   await page.goto(`/organizations/${ORG}?tab=invitations`)
   await page.getByRole("button", { name: "Invite member" }).click()
-  const dialog = page.getByRole("dialog", { name: "Invite member" })
+  const dialog = page.getByRole("dialog", {
+    name: "Invite someone to Acme Corporation",
+  })
 
   const roleField = dialog.getByRole("combobox", { name: "Role", exact: true })
   await expect(roleField).toHaveAttribute("aria-invalid", "true")

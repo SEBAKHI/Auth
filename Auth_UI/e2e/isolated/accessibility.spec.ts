@@ -2,6 +2,13 @@ import AxeBuilder from "@axe-core/playwright"
 import { expect, test, type Page } from "@playwright/test"
 
 import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
+import {
+  answerOrganizationOwner,
+  APP_CODE,
+  ORG,
+  OWNER_ORG_PERMISSIONS,
+  ownerApiRecord,
+} from "./organization-owner-api"
 import { SHELL_INSET } from "./layout-overflow"
 import { WCAG_TAGS, actionable, describeViolations } from "./axe-known-gaps"
 
@@ -449,6 +456,48 @@ for (const theme of ["light", "dark"] as const) {
       await expect(page.getByTestId("set-up-add-passkey")).toBeVisible()
       await expect(page.getByTestId("passkey-only-notice")).toBeVisible()
       const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+      expect(actionable(results), describeViolations(results)).toEqual([])
+    })
+  }
+}
+
+// The quick invite (owner, 2026-11-27): the invite dialog opened by an
+// application's link shows the address alone and one sentence. Scanned in the
+// state an inviter meets, with a screenshot of each for the record.
+for (const theme of ["light", "dark"] as const) {
+  for (const language of ["en", "ar"] as const) {
+    test(`the quick invite dialog passes WCAG AA in ${theme} ${language}`, async ({
+      page,
+    }, testInfo) => {
+      await page.addInitScript((value) => {
+        localStorage.setItem("theme", value)
+      }, theme)
+      const recorded = ownerApiRecord()
+      await installAuthenticatedApi(
+        page,
+        [],
+        (route, url) => answerOrganizationOwner(route, url, recorded),
+        {
+          organizationPermissions: OWNER_ORG_PERMISSIONS,
+          preferredLanguage: language,
+        }
+      )
+      await page.goto(
+        `/organizations/${ORG}?invite=1&role=org-member&application=${APP_CODE}&applicationRole=sales_rep`
+      )
+      const dialog = page.getByRole("dialog")
+      await expect(dialog.getByRole("textbox")).toHaveCount(1)
+      await expect(dialog.getByRole("combobox")).toHaveCount(0)
+      await expect(
+        dialog.locator('[data-slot="field-description"]')
+      ).toBeVisible()
+      await page.screenshot({
+        path: testInfo.outputPath(`quick-invite-${theme}-${language}.png`),
+      })
+
+      const results = await new AxeBuilder({ page })
+        .withTags(WCAG_TAGS)
+        .analyze()
       expect(actionable(results), describeViolations(results)).toEqual([])
     })
   }

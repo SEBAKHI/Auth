@@ -45,7 +45,12 @@ for (const language of ["en", "ar"] as const) {
     // The link chooses the role, so the address is the only open field.
     await page.goto(`/organizations/${ORG}?invite=1&role=org-member`)
 
-    const dialog = page.getByRole("dialog", { name: t.organizations.inviteMember })
+    const dialog = page.getByRole("dialog", {
+      name: t.organizations.quickInviteTitle.replace(
+        "{{organization}}",
+        "Acme Corporation"
+      ),
+    })
     await expect(dialog).toBeVisible()
     const email = dialog.getByLabel(t.organizations.inviteEmail)
     const send = dialog.getByRole("button", { name: t.organizations.inviteMember })

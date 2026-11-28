@@ -59,7 +59,7 @@ export function withoutInviteLink(
   return next
 }
 
-interface Coded {
+export interface Coded {
   id?: string | null
   code?: string | null
 }
@@ -112,6 +112,68 @@ export function matchInviteLink(
     applicationId: application?.applicationId ?? undefined,
     appRoleId: appRole?.id ?? undefined,
   }
+}
+
+/**
+ * The lowest membership role, and the one an invitation gets unless someone
+ * chooses another. Matched by its code, never by its place in the list: a list
+ * that came back in another order must not make every invitation an admin's.
+ * Mirrors OrganizationRoleCodes.Member on the server.
+ */
+export const MEMBER_ROLE_CODE = "org-member"
+
+/**
+ * The membership role an invitation starts with when nobody chose one: the
+ * member role, from the server's list. A link that names a role chose one, so
+ * it gets none: a code with no match leaves the field empty, as the link's
+ * contract says, and the dialog shows it.
+ */
+export function defaultMembershipRoleId(
+  link: InviteLink | null | undefined,
+  membershipRoles: readonly Coded[] | undefined
+): string | undefined {
+  if (link?.role) return undefined
+  return (
+    byCode(membershipRoles ?? [], (item) => item.code, MEMBER_ROLE_CODE)?.id ??
+    undefined
+  )
+}
+
+/**
+ * How the invite dialog shows itself:
+ * - "quick": the address alone, with one sentence saying what the invitation
+ *   gives, and a button that shows the choices;
+ * - "full": every choice on show;
+ * - "pending": the quick shape while the lists the decision needs are loading.
+ *
+ * Quick only when nothing is hidden that the inviter should look at: the role
+ * is the member role (a link asking for org-admin shows the choices), every
+ * choice a link asked for found its match (an empty field is never hidden), an
+ * application has its role, and no list failed (its error shows in full).
+ */
+export type InviteDialogMode = "quick" | "full" | "pending"
+
+export function inviteDialogMode(input: {
+  link: InviteLink | null | undefined
+  membershipRoles: readonly Coded[] | undefined
+  roleId: string | undefined
+  applicationId: string | undefined
+  appRoleId: string | undefined
+  pending: boolean
+  failed: boolean
+}): InviteDialogMode {
+  if (input.failed) return "full"
+  if (input.pending) return "pending"
+
+  const member = byCode(
+    input.membershipRoles ?? [],
+    (item) => item.code,
+    MEMBER_ROLE_CODE
+  )
+  if (!member?.id || input.roleId !== member.id) return "full"
+  if (input.link?.application && !input.applicationId) return "full"
+  if (input.applicationId && !input.appRoleId) return "full"
+  return "quick"
 }
 
 /** The applications an invitation may name: active and enabled for the organization. */
